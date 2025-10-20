@@ -21,19 +21,18 @@ export default function CustomerMenu() {
   const { toast } = useToast();
 
   const { data: menuItems, isLoading: menuLoading } = useQuery<Array<MenuItem & { category: Category }>>({
-    queryKey: ['/api/menu-items'],
+    queryKey: ['/api/public/menu-items'],
   });
 
-  const { data: tables } = useQuery<any[]>({
-    queryKey: ['/api/tables'],
+  const { data: currentTable, isLoading: tableLoading } = useQuery<any>({
+    queryKey: ['/api/public/tables', tableNumber],
+    enabled: !!tableNumber,
   });
-
-  const currentTable = tables?.find((t: any) => t.number === parseInt(tableNumber || '0'));
 
   const createOrderMutation = useMutation({
     mutationFn: async (orderData: { tableId: string; items: Array<{ menuItemId: string; quantity: number; price: string }> }) => {
       const totalAmount = orderData.items.reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0).toFixed(2);
-      return apiRequest('POST', '/api/orders', {
+      return apiRequest('POST', '/api/public/orders', {
         tableId: orderData.tableId,
         status: 'pendente',
         totalAmount,
@@ -47,7 +46,6 @@ export default function CustomerMenu() {
       });
       clearCart();
       setIsCartOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
     },
     onError: () => {
       toast({
@@ -98,18 +96,29 @@ export default function CustomerMenu() {
     return acc;
   }, {} as Record<string, Array<MenuItem & { category: Category }>>);
 
-  if (menuLoading) {
+  if (!tableNumber) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <p className="text-muted-foreground text-lg">Mesa não identificada</p>
+        <p className="text-sm text-muted-foreground">Por favor, escaneie o QR code da mesa</p>
+      </div>
+    );
+  }
+
+  if (menuLoading || tableLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         <p className="text-muted-foreground">Carregando menu...</p>
       </div>
     );
   }
 
-  if (!tableNumber) {
+  if (!currentTable) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-muted-foreground">Mesa não identificada</p>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <p className="text-muted-foreground text-lg">Mesa {tableNumber} não encontrada</p>
+        <p className="text-sm text-muted-foreground">Verifique o número da mesa e tente novamente</p>
       </div>
     );
   }
@@ -120,7 +129,9 @@ export default function CustomerMenu() {
         <div className="container flex h-16 items-center justify-between px-4">
           <div>
             <h1 className="text-xl font-semibold" data-testid="text-restaurant-name">NaBancada</h1>
-            <p className="text-sm text-muted-foreground" data-testid="text-table-number">Mesa {tableNumber}</p>
+            <p className="text-sm text-muted-foreground" data-testid="text-table-number">
+              Mesa {currentTable?.number || tableNumber}
+            </p>
           </div>
           
           <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
