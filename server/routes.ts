@@ -157,7 +157,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/public/orders", async (req, res) => {
     try {
+      console.log("Received order request body:", JSON.stringify(req.body, null, 2));
       const { items, ...orderData } = req.body;
+      console.log("Order data:", JSON.stringify(orderData, null, 2));
+      console.log("Items:", JSON.stringify(items, null, 2));
+      
       const validatedOrder = insertOrderSchema.parse(orderData);
       const validatedItems = z.array(publicOrderItemSchema).parse(items);
 
@@ -168,7 +172,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(order);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: error.errors[0].message });
+        console.error("Validation error:", JSON.stringify(error.errors, null, 2));
+        return res.status(400).json({ message: error.errors[0].message, errors: error.errors });
       }
       console.error("Error creating order:", error);
       res.status(500).json({ message: "Erro ao criar pedido" });
