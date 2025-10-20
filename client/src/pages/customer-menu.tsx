@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { ShoppingCart, Plus, Minus, Trash2, Check } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
+import { formatKwanza } from '@/lib/formatters';
 import type { MenuItem, Category } from '@shared/schema';
 
 export default function CustomerMenu() {
@@ -197,7 +198,7 @@ export default function CustomerMenu() {
                             {item.menuItem.name}
                           </CardTitle>
                           <CardDescription data-testid={`text-item-price-${item.menuItem.id}`}>
-                            €{parseFloat(item.menuItem.price).toFixed(2)}
+                            {formatKwanza(item.menuItem.price)}
                           </CardDescription>
                         </CardHeader>
                         <CardFooter className="flex items-center justify-between gap-2">
@@ -224,7 +225,7 @@ export default function CustomerMenu() {
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="font-semibold" data-testid={`text-item-total-${item.menuItem.id}`}>
-                              €{(parseFloat(item.menuItem.price) * item.quantity).toFixed(2)}
+                              {formatKwanza(parseFloat(item.menuItem.price) * item.quantity)}
                             </span>
                             <Button
                               variant="ghost"
@@ -247,7 +248,7 @@ export default function CustomerMenu() {
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-lg font-semibold">Total</span>
                     <span className="text-2xl font-bold" data-testid="text-cart-total">
-                      €{getTotal().toFixed(2)}
+                      {formatKwanza(getTotal())}
                     </span>
                   </div>
                   <Button 
@@ -316,7 +317,7 @@ export default function CustomerMenu() {
                   </CardHeader>
                   <CardFooter className="flex items-center justify-between gap-2">
                     <span className="text-2xl font-bold" data-testid={`text-menu-item-price-${item.id}`}>
-                      €{parseFloat(item.price).toFixed(2)}
+                      {formatKwanza(item.price)}
                     </span>
                     <Button
                       onClick={() => addItem(item)}

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DollarSign, ShoppingBag, Table2, TrendingUp } from "lucide-react";
+import { formatKwanza } from "@/lib/formatters";
 import type { Order, MenuItem } from "@shared/schema";
 
 interface DashboardStats {
@@ -47,7 +48,7 @@ export default function Dashboard() {
             ) : (
               <>
                 <div className="text-3xl font-bold" data-testid="text-today-sales">
-                  R$ {stats?.todaySales || "0,00"}
+                  {formatKwanza(stats?.todaySales || "0")}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Receita do dia atual
@@ -116,9 +117,9 @@ export default function Dashboard() {
             ) : (
               <>
                 <div className="text-3xl font-bold" data-testid="text-avg-ticket">
-                  R$ {stats?.todayOrders && parseFloat(stats.todaySales) > 0
-                    ? (parseFloat(stats.todaySales) / stats.todayOrders).toFixed(2)
-                    : "0,00"}
+                  {stats?.todayOrders && parseFloat(stats.todaySales) > 0
+                    ? formatKwanza(parseFloat(stats.todaySales) / stats.todayOrders)
+                    : formatKwanza(0)}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Valor médio por pedido
@@ -163,7 +164,7 @@ export default function Dashboard() {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{dish.menuItem.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {dish.count} pedidos • R$ {dish.totalRevenue}
+                        {dish.count} pedidos • {formatKwanza(dish.totalRevenue)}
                       </p>
                     </div>
                   </div>

@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { formatKwanza } from "@/lib/formatters";
 import type { Order, OrderItem, MenuItem, Table } from "@shared/schema";
 
 type OrderStatus = "pendente" | "em_preparo" | "pronto" | "servido";
@@ -227,7 +228,7 @@ export default function Kitchen() {
                           </p>
                         </div>
                         <p className="font-mono font-medium">
-                          R$ {parseFloat(item.price).toFixed(2)}
+                          {formatKwanza(item.price)}
                         </p>
                       </div>
                     ))}
@@ -237,7 +238,7 @@ export default function Kitchen() {
                     <div className="flex justify-between items-center mb-4">
                       <span className="font-semibold">Total</span>
                       <span className="text-xl font-bold font-mono">
-                        R$ {parseFloat(order.totalAmount).toFixed(2)}
+                        {formatKwanza(order.totalAmount)}
                       </span>
                     </div>
 

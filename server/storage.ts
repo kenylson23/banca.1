@@ -295,7 +295,7 @@ export class DatabaseStorage implements IStorage {
           revenue: sql<string>`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`,
         })
         .from(orderItems)
-        .where(sql`${orderItems.orderId} IN ${sql.raw(`(${todayOrderIds.map(() => '?').join(',')})`)}`)
+        .where(sql`${orderItems.orderId} = ANY(ARRAY[${sql.join(todayOrderIds.map(id => sql`${id}`), sql`, `)}])`)
         .groupBy(orderItems.menuItemId)
         .orderBy(desc(sql`sum(${orderItems.quantity})`))
         .limit(5);

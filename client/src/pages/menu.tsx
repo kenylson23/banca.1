@@ -39,6 +39,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { formatKwanza } from "@/lib/formatters";
 import type { Category, MenuItem } from "@shared/schema";
 
 interface MenuItemFormData {
@@ -468,7 +469,7 @@ export default function Menu() {
                     )}
                     <div className="flex items-center justify-between">
                       <p className="text-2xl font-bold font-mono">
-                        R$ {parseFloat(item.price).toFixed(2)}
+                        {formatKwanza(item.price)}
                       </p>
                     </div>
                     <div className="flex gap-2">
