@@ -121,6 +121,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== PUBLIC ROUTES (for customers) =====
+  app.get("/api/public/tables/:number", async (req, res) => {
+    try {
+      const tableNumber = parseInt(req.params.number);
+      if (isNaN(tableNumber)) {
+        return res.status(400).json({ message: "Número de mesa inválido" });
+      }
+      
+      const tables = await storage.getTables();
+      const table = tables.find(t => t.number === tableNumber);
+      
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+      
+      res.json(table);
+    } catch (error) {
+      console.error("Error fetching table:", error);
+      res.status(500).json({ message: "Erro ao buscar mesa" });
+    }
+  });
+
+  app.get("/api/public/menu-items", async (req, res) => {
+    try {
+      const menuItems = await storage.getMenuItems();
+      const availableItems = menuItems.filter(item => item.isAvailable === 1);
+      res.json(availableItems);
+    } catch (error) {
+      console.error("Error fetching menu items:", error);
+      res.status(500).json({ message: "Erro ao carregar menu" });
+    }
+  });
+
+  app.post("/api/public/orders", async (req, res) => {
+    try {
+      const { items, ...orderData } = req.body;
+      const validatedOrder = insertOrderSchema.parse(orderData);
+      const validatedItems = z.array(insertOrderItemSchema).parse(items);
+
+      const order = await storage.createOrder(validatedOrder, validatedItems);
+      
+      broadcastToClients({ type: 'new_order', data: order });
+
+      res.json(order);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Error creating order:", error);
+      res.status(500).json({ message: "Erro ao criar pedido" });
+    }
+  });
+
   // ===== TABLE ROUTES =====
   app.get("/api/tables", isAuthenticated, async (req, res) => {
     try {
