@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, FolderPlus, UtensilsCrossed } from "lucide-react";
+import { Plus, Pencil, Trash2, FolderPlus, UtensilsCrossed, ExternalLink } from "lucide-react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -285,6 +286,12 @@ export default function Menu() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Link href="/mesa/1">
+            <Button variant="outline" data-testid="button-view-menu">
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Visualizar Menu
+            </Button>
+          </Link>
           <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" data-testid="button-create-category">
