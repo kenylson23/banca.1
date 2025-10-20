@@ -8,11 +8,13 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/useAuth";
+import { CartProvider } from "@/contexts/CartContext";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import Tables from "@/pages/tables";
 import Menu from "@/pages/menu";
 import Kitchen from "@/pages/kitchen";
+import CustomerMenu from "@/pages/customer-menu";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -20,6 +22,7 @@ function Router() {
 
   return (
     <Switch>
+      <Route path="/mesa/:tableNumber" component={CustomerMenu} />
       {isLoading || !isAuthenticated ? (
         <Route path="/" component={Landing} />
       ) : (
@@ -76,7 +79,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
-          <AppContent />
+          <CartProvider>
+            <AppContent />
+          </CartProvider>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

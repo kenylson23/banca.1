@@ -24,17 +24,20 @@ export default function CustomerMenu() {
     queryKey: ['/api/menu-items'],
   });
 
-  const { data: tables } = useQuery({
+  const { data: tables } = useQuery<any[]>({
     queryKey: ['/api/tables'],
   });
 
   const currentTable = tables?.find((t: any) => t.number === parseInt(tableNumber || '0'));
 
   const createOrderMutation = useMutation({
-    mutationFn: async (orderData: { tableId: string; items: any[] }) => {
-      return apiRequest('/api/orders', {
-        method: 'POST',
-        body: JSON.stringify(orderData),
+    mutationFn: async (orderData: { tableId: string; items: Array<{ menuItemId: string; quantity: number; price: string }> }) => {
+      const totalAmount = orderData.items.reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0).toFixed(2);
+      return apiRequest('POST', '/api/orders', {
+        tableId: orderData.tableId,
+        status: 'pendente',
+        totalAmount,
+        items: orderData.items,
       });
     },
     onSuccess: () => {
