@@ -157,13 +157,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/public/orders", async (req, res) => {
     try {
-      console.log("Received order request body:", JSON.stringify(req.body, null, 2));
       const { items, ...orderData } = req.body;
-      console.log("Order data:", JSON.stringify(orderData, null, 2));
-      console.log("Items:", JSON.stringify(items, null, 2));
       
       const validatedOrder = insertOrderSchema.parse(orderData);
       const validatedItems = z.array(publicOrderItemSchema).parse(items);
+
+      const table = await storage.getTableById(validatedOrder.tableId);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+
+      if (table.isOccupied === 1) {
+        return res.status(409).json({ 
+          message: "Mesa ocupada",
+          description: "Esta mesa está ocupada no momento. Por favor, aguarde até que seja liberada."
+        });
+      }
 
       const order = await storage.createOrder(validatedOrder, validatedItems);
       
@@ -172,7 +181,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(order);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        console.error("Validation error:", JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ message: error.errors[0].message, errors: error.errors });
       }
       console.error("Error creating order:", error);
@@ -369,7 +377,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const order = await storage.updateOrderStatus(req.params.id, status);
       
-      // Broadcast status update to WebSocket clients
+      if (status === 'servido') {
+        await storage.updateTableOccupancy(order.tableId, false);
+        broadcastToClients({ 
+          type: 'table_freed', 
+          data: { tableId: order.tableId }
+        });
+      }
+      
       broadcastToClients({ 
         type: 'order_status_updated', 
         data: { id: order.id, status: order.status }
