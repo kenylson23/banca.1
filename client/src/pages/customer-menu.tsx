@@ -47,12 +47,18 @@ export default function CustomerMenu() {
       clearCart();
       setIsCartOpen(false);
     },
-    onError: () => {
+    onError: (error: any) => {
+      const errorMessage = error?.message || 'Tente novamente mais tarde.';
+      const errorDescription = error?.description || '';
       toast({
-        title: 'Erro ao enviar pedido',
-        description: 'Tente novamente mais tarde.',
+        title: error?.message === 'Mesa ocupada' ? 'Mesa Ocupada' : 'Erro ao enviar pedido',
+        description: errorDescription || errorMessage,
         variant: 'destructive',
       });
+      
+      if (error?.message === 'Mesa ocupada') {
+        queryClient.invalidateQueries({ queryKey: ['/api/public/tables', tableNumber] });
+      }
     },
   });
 
@@ -119,6 +125,26 @@ export default function CustomerMenu() {
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <p className="text-muted-foreground text-lg">Mesa {tableNumber} não encontrada</p>
         <p className="text-sm text-muted-foreground">Verifique o número da mesa e tente novamente</p>
+      </div>
+    );
+  }
+
+  const isTableOccupied = currentTable.isOccupied === 1;
+
+  if (isTableOccupied) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4">
+        <div className="text-center max-w-md">
+          <h1 className="text-2xl font-bold mb-2" data-testid="text-table-occupied-title">
+            Mesa Ocupada
+          </h1>
+          <p className="text-muted-foreground text-lg mb-4" data-testid="text-table-occupied-message">
+            A mesa {currentTable.number} está ocupada no momento.
+          </p>
+          <p className="text-sm text-muted-foreground" data-testid="text-table-occupied-description">
+            Por favor, aguarde até que o pedido atual seja finalizado ou escolha outra mesa disponível.
+          </p>
+        </div>
       </div>
     );
   }
