@@ -5,7 +5,8 @@ Sistema completo de gestão de restaurante com QR Codes por mesa, painel adminis
 
 ## Características Principais
 - **Autenticação:** Replit Auth com suporte a Google, GitHub, email/password
-- **Gestão de Mesas:** CRUD completo com geração automática de QR codes únicos
+- **Gestão de Mesas:** CRUD completo com geração automática de QR codes únicos e controle automático de estado
+- **Controle de Ocupação:** Sistema automático que bloqueia mesas ocupadas até finalização do pedido
 - **Gestão de Menu:** Categorias e pratos com preços e descrições
 - **Dashboard Admin:** Estatísticas em tempo real (vendas, pedidos, pratos top)
 - **Painel de Cozinha:** Visualização de pedidos com filtros e alertas sonoros/visuais
@@ -64,6 +65,7 @@ Sistema completo de gestão de restaurante com QR Codes por mesa, painel adminis
 ## WebSocket Events
 - `table_created` - Nova mesa criada
 - `table_deleted` - Mesa removida
+- `table_freed` - Mesa liberada após pedido servido
 - `new_order` - Novo pedido criado
 - `order_status_updated` - Status do pedido alterado
 
@@ -137,20 +139,30 @@ Sistema completo de gestão de restaurante com QR Codes por mesa, painel adminis
 4. Define preços e descrições
 
 ### Fluxo de Pedido
-1. Cliente escaneia QR code da mesa (feature futura)
-2. Pedido criado via POST /api/orders
-3. WebSocket notifica cozinha em tempo real
-4. Cozinha vê pedido no painel com alerta sonoro
-5. Cozinha atualiza status: Pendente → Em Preparo → Pronto → Servido
-6. Dashboard atualiza estatísticas automaticamente
+1. Cliente escaneia QR code da mesa
+2. Sistema verifica se mesa está disponível
+3. Se mesa ocupada, exibe mensagem e bloqueia novos pedidos
+4. Se disponível, cliente pode fazer pedido
+5. Ao confirmar pedido, mesa é marcada como ocupada automaticamente
+6. WebSocket notifica cozinha em tempo real
+7. Cozinha vê pedido no painel com alerta sonoro
+8. Cozinha atualiza status: Pendente → Em Preparo → Pronto → Servido
+9. Quando marcado como "Servido", mesa é liberada automaticamente
+10. Dashboard atualiza estatísticas em tempo real
+
+## Funcionalidades Implementadas (20/10/2025)
+- ✅ Interface de cliente para fazer pedidos via QR code
+- ✅ Sistema automático de controle de ocupação de mesas
+- ✅ Bloqueio de pedidos em mesas ocupadas
+- ✅ Liberação automática ao finalizar pedido
 
 ## Próximas Fases
-- Interface de cliente para fazer pedidos via QR code
 - Impressão automática de pedidos
-- Histórico completo de pedidos com filtros
-- Relatórios avançados de vendas
+- Histórico completo de pedidos com filtros avançados
+- Relatórios detalhados de vendas e performance
 - Gestão de funcionários com permissões
 - Notificações push para garçons
+- Sistema de gorjetas e pagamento integrado
 
 ## Data Criação
 20/10/2025
