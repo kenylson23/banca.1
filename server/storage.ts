@@ -1,0 +1,316 @@
+// Blueprint: javascript_database - Database storage implementation
+import {
+  users,
+  tables,
+  categories,
+  menuItems,
+  orders,
+  orderItems,
+  type User,
+  type UpsertUser,
+  type Table,
+  type InsertTable,
+  type Category,
+  type InsertCategory,
+  type MenuItem,
+  type InsertMenuItem,
+  type Order,
+  type InsertOrder,
+  type OrderItem,
+  type InsertOrderItem,
+} from "@shared/schema";
+import { db } from "./db";
+import { eq, desc, sql, and, gte } from "drizzle-orm";
+
+export interface IStorage {
+  // User operations (REQUIRED for Replit Auth)
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+
+  // Table operations
+  getTables(): Promise<Table[]>;
+  getTableById(id: string): Promise<Table | undefined>;
+  createTable(table: InsertTable): Promise<Table>;
+  deleteTable(id: string): Promise<void>;
+  updateTableOccupancy(id: string, isOccupied: boolean): Promise<void>;
+
+  // Category operations
+  getCategories(): Promise<Category[]>;
+  getCategoryById(id: string): Promise<Category | undefined>;
+  createCategory(category: InsertCategory): Promise<Category>;
+  deleteCategory(id: string): Promise<void>;
+
+  // Menu item operations
+  getMenuItems(): Promise<Array<MenuItem & { category: Category }>>;
+  getMenuItemById(id: string): Promise<MenuItem | undefined>;
+  createMenuItem(item: InsertMenuItem): Promise<MenuItem>;
+  updateMenuItem(id: string, item: Partial<InsertMenuItem>): Promise<MenuItem>;
+  deleteMenuItem(id: string): Promise<void>;
+
+  // Order operations
+  getKitchenOrders(): Promise<Array<Order & { table: Table; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
+  getRecentOrders(limit: number): Promise<Array<Order & { table: { number: number } }>>;
+  createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order>;
+  updateOrderStatus(id: string, status: string): Promise<Order>;
+  
+  // Stats operations
+  getTodayStats(): Promise<{
+    todaySales: string;
+    todayOrders: number;
+    activeTables: number;
+    topDishes: Array<{
+      menuItem: MenuItem;
+      count: number;
+      totalRevenue: string;
+    }>;
+  }>;
+}
+
+export class DatabaseStorage implements IStorage {
+  // User operations (REQUIRED for Replit Auth)
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  // Table operations
+  async getTables(): Promise<Table[]> {
+    return await db.select().from(tables).orderBy(tables.number);
+  }
+
+  async getTableById(id: string): Promise<Table | undefined> {
+    const [table] = await db.select().from(tables).where(eq(tables.id, id));
+    return table;
+  }
+
+  async createTable(table: InsertTable): Promise<Table> {
+    const [newTable] = await db.insert(tables).values(table).returning();
+    return newTable;
+  }
+
+  async deleteTable(id: string): Promise<void> {
+    await db.delete(tables).where(eq(tables.id, id));
+  }
+
+  async updateTableOccupancy(id: string, isOccupied: boolean): Promise<void> {
+    await db.update(tables)
+      .set({ isOccupied: isOccupied ? 1 : 0 })
+      .where(eq(tables.id, id));
+  }
+
+  // Category operations
+  async getCategories(): Promise<Category[]> {
+    return await db.select().from(categories).orderBy(categories.name);
+  }
+
+  async getCategoryById(id: string): Promise<Category | undefined> {
+    const [category] = await db.select().from(categories).where(eq(categories.id, id));
+    return category;
+  }
+
+  async createCategory(category: InsertCategory): Promise<Category> {
+    const [newCategory] = await db.insert(categories).values(category).returning();
+    return newCategory;
+  }
+
+  async deleteCategory(id: string): Promise<void> {
+    await db.delete(categories).where(eq(categories.id, id));
+  }
+
+  // Menu item operations
+  async getMenuItems(): Promise<Array<MenuItem & { category: Category }>> {
+    const results = await db
+      .select()
+      .from(menuItems)
+      .leftJoin(categories, eq(menuItems.categoryId, categories.id))
+      .orderBy(categories.name, menuItems.name);
+
+    return results.map(row => ({
+      ...row.menu_items,
+      category: row.categories!,
+    }));
+  }
+
+  async getMenuItemById(id: string): Promise<MenuItem | undefined> {
+    const [item] = await db.select().from(menuItems).where(eq(menuItems.id, id));
+    return item;
+  }
+
+  async createMenuItem(item: InsertMenuItem): Promise<MenuItem> {
+    const [newItem] = await db.insert(menuItems).values(item).returning();
+    return newItem;
+  }
+
+  async updateMenuItem(id: string, item: Partial<InsertMenuItem>): Promise<MenuItem> {
+    const [updated] = await db
+      .update(menuItems)
+      .set(item)
+      .where(eq(menuItems.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteMenuItem(id: string): Promise<void> {
+    await db.delete(menuItems).where(eq(menuItems.id, id));
+  }
+
+  // Order operations
+  async getKitchenOrders(): Promise<Array<Order & { table: Table; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>> {
+    const allOrders = await db
+      .select()
+      .from(orders)
+      .leftJoin(tables, eq(orders.tableId, tables.id))
+      .orderBy(desc(orders.createdAt));
+
+    const ordersWithItems = await Promise.all(
+      allOrders.map(async (orderRow) => {
+        const items = await db
+          .select()
+          .from(orderItems)
+          .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+          .where(eq(orderItems.orderId, orderRow.orders.id));
+
+        return {
+          ...orderRow.orders,
+          table: orderRow.tables!,
+          orderItems: items.map(item => ({
+            ...item.order_items,
+            menuItem: item.menu_items!,
+          })),
+        };
+      })
+    );
+
+    return ordersWithItems;
+  }
+
+  async getRecentOrders(limit: number): Promise<Array<Order & { table: { number: number } }>> {
+    const results = await db
+      .select()
+      .from(orders)
+      .leftJoin(tables, eq(orders.tableId, tables.id))
+      .orderBy(desc(orders.createdAt))
+      .limit(limit);
+
+    return results.map(row => ({
+      ...row.orders,
+      table: { number: row.tables!.number },
+    }));
+  }
+
+  async createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order> {
+    const [newOrder] = await db.insert(orders).values(order).returning();
+    
+    if (items.length > 0) {
+      const itemsWithOrderId = items.map(item => ({
+        ...item,
+        orderId: newOrder.id,
+      }));
+      await db.insert(orderItems).values(itemsWithOrderId);
+    }
+
+    // Update table occupancy
+    await this.updateTableOccupancy(order.tableId, true);
+
+    return newOrder;
+  }
+
+  async updateOrderStatus(id: string, status: string): Promise<Order> {
+    const [updated] = await db
+      .update(orders)
+      .set({ status: status as any, updatedAt: new Date() })
+      .where(eq(orders.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Stats operations
+  async getTodayStats(): Promise<{
+    todaySales: string;
+    todayOrders: number;
+    activeTables: number;
+    topDishes: Array<{
+      menuItem: MenuItem;
+      count: number;
+      totalRevenue: string;
+    }>;
+  }> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get today's orders
+    const todayOrders = await db
+      .select()
+      .from(orders)
+      .where(gte(orders.createdAt, today));
+
+    const todaySales = todayOrders.reduce(
+      (sum, order) => sum + parseFloat(order.totalAmount),
+      0
+    );
+
+    // Get active tables
+    const activeTables = await db
+      .select()
+      .from(tables)
+      .where(eq(tables.isOccupied, 1));
+
+    // Get top dishes from today
+    const todayOrderIds = todayOrders.map(o => o.id);
+    
+    let topDishes: Array<{
+      menuItem: MenuItem;
+      count: number;
+      totalRevenue: string;
+    }> = [];
+
+    if (todayOrderIds.length > 0) {
+      const dishStats = await db
+        .select({
+          menuItemId: orderItems.menuItemId,
+          count: sql<number>`cast(sum(${orderItems.quantity}) as int)`,
+          revenue: sql<string>`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`,
+        })
+        .from(orderItems)
+        .where(sql`${orderItems.orderId} IN ${sql.raw(`(${todayOrderIds.map(() => '?').join(',')})`)}`)
+        .groupBy(orderItems.menuItemId)
+        .orderBy(desc(sql`sum(${orderItems.quantity})`))
+        .limit(5);
+
+      topDishes = await Promise.all(
+        dishStats.map(async (stat) => {
+          const item = await this.getMenuItemById(stat.menuItemId);
+          return {
+            menuItem: item!,
+            count: stat.count,
+            totalRevenue: parseFloat(stat.revenue).toFixed(2),
+          };
+        })
+      );
+    }
+
+    return {
+      todaySales: todaySales.toFixed(2),
+      todayOrders: todayOrders.length,
+      activeTables: activeTables.length,
+      topDishes,
+    };
+  }
+}
+
+export const storage = new DatabaseStorage();
