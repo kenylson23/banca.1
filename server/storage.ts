@@ -7,7 +7,7 @@ import {
   orders,
   orderItems,
   type User,
-  type UpsertUser,
+  type InsertUser,
   type Table,
   type InsertTable,
   type Category,
@@ -23,14 +23,15 @@ import { db } from "./db";
 import { eq, desc, sql, and, gte } from "drizzle-orm";
 
 export interface IStorage {
-  // User operations (REQUIRED for Replit Auth)
+  // User operations
   getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
 
   // Table operations
   getTables(): Promise<Table[]>;
   getTableById(id: string): Promise<Table | undefined>;
-  createTable(table: InsertTable): Promise<Table>;
+  createTable(table: { number: number; qrCode: string }): Promise<Table>;
   deleteTable(id: string): Promise<void>;
   updateTableOccupancy(id: string, isOccupied: boolean): Promise<void>;
 
@@ -67,23 +68,21 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // User operations (REQUIRED for Replit Auth)
+  // User operations
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
       .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
       .returning();
     return user;
   }
@@ -98,7 +97,7 @@ export class DatabaseStorage implements IStorage {
     return table;
   }
 
-  async createTable(table: InsertTable): Promise<Table> {
+  async createTable(table: { number: number; qrCode: string }): Promise<Table> {
     const [newTable] = await db.insert(tables).values(table).returning();
     return newTable;
   }
