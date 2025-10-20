@@ -148,7 +148,14 @@ export const insertOrderItemSchema = createInsertSchema(orderItems).omit({
   createdAt: true,
 });
 
+export const publicOrderItemSchema = createInsertSchema(orderItems).omit({
+  id: true,
+  orderId: true,
+  createdAt: true,
+});
+
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
+export type PublicOrderItem = z.infer<typeof publicOrderItemSchema>;
 export type OrderItem = typeof orderItems.$inferSelect;
 
 // Relations

@@ -18,6 +18,7 @@ import {
   type InsertOrder,
   type OrderItem,
   type InsertOrderItem,
+  type PublicOrderItem,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, gte } from "drizzle-orm";
@@ -51,7 +52,7 @@ export interface IStorage {
   // Order operations
   getKitchenOrders(): Promise<Array<Order & { table: Table; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
   getRecentOrders(limit: number): Promise<Array<Order & { table: { number: number } }>>;
-  createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order>;
+  createOrder(order: InsertOrder, items: PublicOrderItem[]): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
   
   // Stats operations
@@ -220,7 +221,7 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order> {
+  async createOrder(order: InsertOrder, items: PublicOrderItem[]): Promise<Order> {
     const [newOrder] = await db.insert(orders).values(order).returning();
     
     if (items.length > 0) {

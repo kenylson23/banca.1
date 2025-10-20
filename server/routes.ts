@@ -13,6 +13,7 @@ import {
   insertMenuItemSchema,
   insertOrderSchema,
   insertOrderItemSchema,
+  publicOrderItemSchema,
   insertUserSchema,
   loginSchema,
   type User,
@@ -158,7 +159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { items, ...orderData } = req.body;
       const validatedOrder = insertOrderSchema.parse(orderData);
-      const validatedItems = z.array(insertOrderItemSchema).parse(items);
+      const validatedItems = z.array(publicOrderItemSchema).parse(items);
 
       const order = await storage.createOrder(validatedOrder, validatedItems);
       
