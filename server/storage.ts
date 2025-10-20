@@ -70,21 +70,29 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   // User operations
   async getUser(id: string): Promise<User | undefined> {
+    await this.ensureTables();
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
+    await this.ensureTables();
     const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
   }
 
   async createUser(userData: InsertUser): Promise<User> {
+    await this.ensureTables();
     const [user] = await db
       .insert(users)
       .values(userData)
       .returning();
     return user;
+  }
+
+  private async ensureTables() {
+    const { ensureTablesExist } = await import('./initDb');
+    await ensureTablesExist();
   }
 
   // Table operations
