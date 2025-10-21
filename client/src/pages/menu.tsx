@@ -510,7 +510,16 @@ export default function Menu() {
                     ? "Adicione pratos ao menu para começar"
                     : "Nenhum prato nesta categoria"}
                 </p>
-                <Button onClick={() => setIsMenuItemDialogOpen(true)}>
+                <Button onClick={() => {
+                  setEditingMenuItem(null);
+                  setMenuItemForm({
+                    name: "",
+                    description: "",
+                    price: "",
+                    categoryId: "",
+                  });
+                  setIsMenuItemDialogOpen(true);
+                }} data-testid="button-create-first-menu-item">
                   <Plus className="h-4 w-4 mr-2" />
                   Criar Primeiro Prato
                 </Button>
