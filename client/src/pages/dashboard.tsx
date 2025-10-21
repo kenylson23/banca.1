@@ -207,7 +207,7 @@ export default function Dashboard() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold">R$ {order.totalAmount}</p>
+                      <p className="font-semibold">{formatKwanza(order.totalAmount)}</p>
                       <p className="text-xs text-muted-foreground capitalize">
                         {order.status.replace('_', ' ')}
                       </p>
