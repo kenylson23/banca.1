@@ -44,6 +44,8 @@ export const insertUserSchema = createInsertSchema(users).omit({
 }).extend({
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
 });
 
 export const loginSchema = z.object({
