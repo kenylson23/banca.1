@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { ShoppingCart, Plus, Minus, Trash2, Check } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
@@ -19,6 +21,8 @@ export default function CustomerMenu() {
   const tableNumber = params?.tableNumber;
   const { items, addItem, updateQuantity, removeItem, clearCart, getTotal, getItemCount } = useCart();
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const { toast } = useToast();
 
   const { data: menuItems, isLoading: menuLoading } = useQuery<Array<MenuItem & { category: Category }>>({
@@ -31,10 +35,12 @@ export default function CustomerMenu() {
   });
 
   const createOrderMutation = useMutation({
-    mutationFn: async (orderData: { tableId: string; items: Array<{ menuItemId: string; quantity: number; price: string }> }) => {
+    mutationFn: async (orderData: { tableId: string; customerName: string; customerPhone: string; items: Array<{ menuItemId: string; quantity: number; price: string }> }) => {
       const totalAmount = orderData.items.reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0).toFixed(2);
       return apiRequest('POST', '/api/public/orders', {
         tableId: orderData.tableId,
+        customerName: orderData.customerName,
+        customerPhone: orderData.customerPhone,
         status: 'pendente',
         totalAmount,
         items: orderData.items,
@@ -46,6 +52,8 @@ export default function CustomerMenu() {
         description: 'Seu pedido foi enviado para a cozinha.',
       });
       clearCart();
+      setCustomerName('');
+      setCustomerPhone('');
       setIsCartOpen(false);
     },
     onError: (error: any) => {
@@ -82,6 +90,24 @@ export default function CustomerMenu() {
       return;
     }
 
+    if (!customerName.trim()) {
+      toast({
+        title: 'Nome obrigatório',
+        description: 'Por favor, informe seu nome.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!customerPhone.trim()) {
+      toast({
+        title: 'Telefone obrigatório',
+        description: 'Por favor, informe seu telefone/WhatsApp.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const orderItems = items.map(item => ({
       menuItemId: item.menuItem.id,
       quantity: item.quantity,
@@ -90,6 +116,8 @@ export default function CustomerMenu() {
 
     createOrderMutation.mutate({
       tableId: currentTable.id,
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
       items: orderItems,
     });
   };
@@ -244,8 +272,36 @@ export default function CustomerMenu() {
               </ScrollArea>
 
               {items.length > 0 && (
-                <div className="absolute bottom-0 left-0 right-0 p-6 bg-background border-t">
-                  <div className="flex items-center justify-between mb-4">
+                <div className="absolute bottom-0 left-0 right-0 p-6 bg-background border-t space-y-4">
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="customer-name">Nome *</Label>
+                      <Input
+                        id="customer-name"
+                        placeholder="Seu nome"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        data-testid="input-customer-name"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="customer-phone">Telefone/WhatsApp *</Label>
+                      <Input
+                        id="customer-phone"
+                        type="tel"
+                        placeholder="(00) 00000-0000"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        data-testid="input-customer-phone"
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="flex items-center justify-between">
                     <span className="text-lg font-semibold">Total</span>
                     <span className="text-2xl font-bold" data-testid="text-cart-total">
                       {formatKwanza(getTotal())}

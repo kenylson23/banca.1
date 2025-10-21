@@ -118,6 +118,8 @@ export const orderStatusEnum = pgEnum('order_status', ['pendente', 'em_preparo',
 export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tableId: varchar("table_id").notNull().references(() => tables.id, { onDelete: 'cascade' }),
+  customerName: varchar("customer_name", { length: 200 }),
+  customerPhone: varchar("customer_phone", { length: 50 }),
   status: orderStatusEnum("status").notNull().default('pendente'),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
