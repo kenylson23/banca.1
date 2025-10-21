@@ -332,13 +332,24 @@ export default function Menu() {
             </DialogContent>
           </Dialog>
 
+          <Button 
+            onClick={() => {
+              setEditingMenuItem(null);
+              setMenuItemForm({
+                name: "",
+                description: "",
+                price: "",
+                categoryId: "",
+              });
+              setIsMenuItemDialogOpen(true);
+            }}
+            data-testid="button-create-menu-item"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Prato
+          </Button>
+
           <Dialog open={isMenuItemDialogOpen} onOpenChange={handleCloseMenuItemDialog}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-create-menu-item">
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Prato
-              </Button>
-            </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
               <form onSubmit={handleSaveMenuItem}>
                 <DialogHeader>
