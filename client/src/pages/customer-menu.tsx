@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useRoute } from 'wouter';
 import { useCart } from '@/contexts/CartContext';
@@ -6,21 +6,23 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { ShoppingCart, Plus, Minus, Trash2, Check } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Check, ClipboardList, Clock, ChefHat, CheckCircle } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { formatKwanza } from '@/lib/formatters';
-import type { MenuItem, Category } from '@shared/schema';
+import type { MenuItem, Category, Order, OrderItem } from '@shared/schema';
 
 export default function CustomerMenu() {
   const [, params] = useRoute('/mesa/:tableNumber');
   const tableNumber = params?.tableNumber;
   const { items, addItem, updateQuantity, removeItem, clearCart, getTotal, getItemCount } = useCart();
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const { toast } = useToast();
@@ -33,6 +35,32 @@ export default function CustomerMenu() {
     queryKey: ['/api/public/tables', tableNumber],
     enabled: !!tableNumber,
   });
+
+  const tableId = currentTable?.id;
+  
+  const { data: tableOrders, isLoading: ordersLoading } = useQuery<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>({
+    queryKey: [`/api/public/orders/table/${tableId}`],
+    enabled: Boolean(tableId),
+  });
+
+  useEffect(() => {
+    if (!tableId) return;
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+    ws.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      
+      if (message.type === 'order_status_updated' || message.type === 'new_order') {
+        queryClient.invalidateQueries({ queryKey: [`/api/public/orders/table/${tableId}`] });
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [tableId]);
 
   const createOrderMutation = useMutation({
     mutationFn: async (orderData: { tableId: string; customerName: string; customerPhone: string; items: Array<{ menuItemId: string; quantity: number; price: string }> }) => {
@@ -55,21 +83,54 @@ export default function CustomerMenu() {
       setCustomerName('');
       setCustomerPhone('');
       setIsCartOpen(false);
+      if (tableId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/public/orders/table/${tableId}`] });
+      }
     },
     onError: (error: any) => {
       const errorMessage = error?.message || 'Tente novamente mais tarde.';
-      const errorDescription = error?.description || '';
       toast({
-        title: error?.message === 'Mesa ocupada' ? 'Mesa Ocupada' : 'Erro ao enviar pedido',
-        description: errorDescription || errorMessage,
+        title: 'Erro ao enviar pedido',
+        description: errorMessage,
         variant: 'destructive',
       });
-      
-      if (error?.message === 'Mesa ocupada') {
-        queryClient.invalidateQueries({ queryKey: ['/api/public/tables', tableNumber] });
-      }
     },
   });
+
+  const getOrderStatusInfo = (status: string) => {
+    switch (status) {
+      case 'pendente':
+        return {
+          label: 'Pendente',
+          icon: Clock,
+          color: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',
+        };
+      case 'em_preparo':
+        return {
+          label: 'Em Preparo',
+          icon: ChefHat,
+          color: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
+        };
+      case 'pronto':
+        return {
+          label: 'Pronto',
+          icon: CheckCircle,
+          color: 'bg-green-500/10 text-green-700 dark:text-green-400',
+        };
+      case 'servido':
+        return {
+          label: 'Servido',
+          icon: Check,
+          color: 'bg-gray-500/10 text-gray-700 dark:text-gray-400',
+        };
+      default:
+        return {
+          label: status,
+          icon: Clock,
+          color: 'bg-gray-500/10 text-gray-700 dark:text-gray-400',
+        };
+    }
+  };
 
   const handleConfirmOrder = () => {
     if (!currentTable) {
@@ -158,26 +219,6 @@ export default function CustomerMenu() {
     );
   }
 
-  const isTableOccupied = currentTable.isOccupied === 1;
-
-  if (isTableOccupied) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4">
-        <div className="text-center max-w-md">
-          <h1 className="text-2xl font-bold mb-2" data-testid="text-table-occupied-title">
-            Mesa Ocupada
-          </h1>
-          <p className="text-muted-foreground text-lg mb-4" data-testid="text-table-occupied-message">
-            A mesa {currentTable.number} está ocupada no momento.
-          </p>
-          <p className="text-sm text-muted-foreground" data-testid="text-table-occupied-description">
-            Por favor, aguarde até que o pedido atual seja finalizado ou escolha outra mesa disponível.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -189,20 +230,99 @@ export default function CustomerMenu() {
             </p>
           </div>
           
-          <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="relative" data-testid="button-open-cart">
-                <ShoppingCart className="h-5 w-5" />
-                {getItemCount() > 0 && (
-                  <Badge 
-                    className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs"
-                    data-testid="badge-cart-count"
-                  >
-                    {getItemCount()}
-                  </Badge>
-                )}
-              </Button>
-            </SheetTrigger>
+          <div className="flex items-center gap-2">
+            <Dialog open={isOrdersDialogOpen} onOpenChange={setIsOrdersDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" data-testid="button-track-orders">
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                  Rastrear Pedido
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[80vh]">
+                <DialogHeader>
+                  <DialogTitle data-testid="text-orders-dialog-title">Seus Pedidos</DialogTitle>
+                  <DialogDescription data-testid="text-orders-dialog-description">
+                    Acompanhe o status dos seus pedidos em tempo real
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <ScrollArea className="max-h-[60vh] pr-4">
+                  {ordersLoading ? (
+                    <div className="flex justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    </div>
+                  ) : !tableOrders || tableOrders.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                      <ClipboardList className="h-12 w-12 mb-3 opacity-50" />
+                      <p data-testid="text-no-orders">Nenhum pedido encontrado</p>
+                      <p className="text-sm">Faça seu primeiro pedido!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {tableOrders.map((order) => {
+                        const statusInfo = getOrderStatusInfo(order.status);
+                        const StatusIcon = statusInfo.icon;
+                        
+                        return (
+                          <Card key={order.id} data-testid={`order-card-${order.id}`}>
+                            <CardHeader>
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <CardTitle className="text-base" data-testid={`text-order-customer-${order.id}`}>
+                                    {order.customerName}
+                                  </CardTitle>
+                                  <CardDescription data-testid={`text-order-date-${order.id}`}>
+                                    {new Date(order.createdAt!).toLocaleString('pt-BR')}
+                                  </CardDescription>
+                                </div>
+                                <Badge className={statusInfo.color} data-testid={`badge-order-status-${order.id}`}>
+                                  <StatusIcon className="h-3 w-3 mr-1" />
+                                  {statusInfo.label}
+                                </Badge>
+                              </div>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-2">
+                                {order.orderItems.map((item) => (
+                                  <div key={item.id} className="flex justify-between text-sm" data-testid={`order-item-${item.id}`}>
+                                    <span className="text-muted-foreground">
+                                      {item.quantity}x {item.menuItem.name}
+                                    </span>
+                                    <span className="font-medium">
+                                      {formatKwanza(parseFloat(item.price) * item.quantity)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                              <Separator className="my-3" />
+                              <div className="flex justify-between font-semibold" data-testid={`text-order-total-${order.id}`}>
+                                <span>Total</span>
+                                <span>{formatKwanza(order.totalAmount)}</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </ScrollArea>
+              </DialogContent>
+            </Dialog>
+
+            <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon" className="relative" data-testid="button-open-cart">
+                  <ShoppingCart className="h-5 w-5" />
+                  {getItemCount() > 0 && (
+                    <Badge 
+                      className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs"
+                      data-testid="badge-cart-count"
+                    >
+                      {getItemCount()}
+                    </Badge>
+                  )}
+                </Button>
+              </SheetTrigger>
             <SheetContent className="w-full sm:max-w-lg">
               <SheetHeader>
                 <SheetTitle data-testid="text-cart-title">Seu Pedido</SheetTitle>
@@ -321,6 +441,7 @@ export default function CustomerMenu() {
               )}
             </SheetContent>
           </Sheet>
+          </div>
         </div>
       </header>
 

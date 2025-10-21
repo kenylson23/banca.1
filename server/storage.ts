@@ -52,6 +52,7 @@ export interface IStorage {
   // Order operations
   getKitchenOrders(): Promise<Array<Order & { table: Table; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
   getRecentOrders(limit: number): Promise<Array<Order & { table: { number: number } }>>;
+  getOrdersByTableId(tableId: string): Promise<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
   createOrder(order: InsertOrder, items: PublicOrderItem[]): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
   
@@ -219,6 +220,34 @@ export class DatabaseStorage implements IStorage {
       ...row.orders,
       table: { number: row.tables!.number },
     }));
+  }
+
+  async getOrdersByTableId(tableId: string): Promise<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>> {
+    const tableOrders = await db
+      .select()
+      .from(orders)
+      .where(eq(orders.tableId, tableId))
+      .orderBy(desc(orders.createdAt));
+
+    const ordersWithItems = await Promise.all(
+      tableOrders.map(async (order) => {
+        const items = await db
+          .select()
+          .from(orderItems)
+          .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+          .where(eq(orderItems.orderId, order.id));
+
+        return {
+          ...order,
+          orderItems: items.map(item => ({
+            ...item.order_items,
+            menuItem: item.menu_items!,
+          })),
+        };
+      })
+    );
+
+    return ordersWithItems;
   }
 
   async createOrder(order: InsertOrder, items: PublicOrderItem[]): Promise<Order> {

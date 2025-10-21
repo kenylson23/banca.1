@@ -155,6 +155,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/public/orders/table/:tableId", async (req, res) => {
+    try {
+      const tableId = req.params.tableId;
+      const orders = await storage.getOrdersByTableId(tableId);
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching orders by table:", error);
+      res.status(500).json({ message: "Erro ao buscar pedidos" });
+    }
+  });
+
   app.post("/api/public/orders", async (req, res) => {
     try {
       const { items, ...orderData } = req.body;
@@ -165,13 +176,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const table = await storage.getTableById(validatedOrder.tableId);
       if (!table) {
         return res.status(404).json({ message: "Mesa não encontrada" });
-      }
-
-      if (table.isOccupied === 1) {
-        return res.status(409).json({ 
-          message: "Mesa ocupada",
-          description: "Esta mesa está ocupada no momento. Por favor, aguarde até que seja liberada."
-        });
       }
 
       const order = await storage.createOrder(validatedOrder, validatedItems);
