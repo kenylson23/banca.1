@@ -48,6 +48,8 @@ interface MenuItemFormData {
   description: string;
   price: string;
   categoryId: string;
+  imageUrl: string;
+  isAvailable: number;
 }
 
 export default function Menu() {
@@ -65,6 +67,8 @@ export default function Menu() {
     description: "",
     price: "",
     categoryId: "",
+    imageUrl: "",
+    isAvailable: 1,
   });
 
   const { data: categories, isLoading: categoriesLoading } = useQuery<Category[]>({
@@ -145,6 +149,8 @@ export default function Menu() {
           description: data.description,
           price: data.price,
           categoryId: data.categoryId,
+          imageUrl: data.imageUrl || null,
+          isAvailable: data.isAvailable,
         });
       } else {
         await apiRequest("POST", "/api/menu-items", {
@@ -152,6 +158,8 @@ export default function Menu() {
           description: data.description,
           price: data.price,
           categoryId: data.categoryId,
+          imageUrl: data.imageUrl || null,
+          isAvailable: data.isAvailable,
         });
       }
     },
@@ -168,6 +176,8 @@ export default function Menu() {
         description: "",
         price: "",
         categoryId: "",
+        imageUrl: "",
+        isAvailable: 1,
       });
     },
     onError: (error) => {
@@ -251,6 +261,8 @@ export default function Menu() {
       description: item.description || "",
       price: item.price,
       categoryId: item.categoryId,
+      imageUrl: item.imageUrl || "",
+      isAvailable: item.isAvailable,
     });
     setEditingMenuItem({
       id: item.id,
@@ -258,6 +270,8 @@ export default function Menu() {
       description: item.description || "",
       price: item.price,
       categoryId: item.categoryId,
+      imageUrl: item.imageUrl || "",
+      isAvailable: item.isAvailable,
     });
     setIsMenuItemDialogOpen(true);
   };
@@ -270,6 +284,8 @@ export default function Menu() {
       description: "",
       price: "",
       categoryId: "",
+      imageUrl: "",
+      isAvailable: 1,
     });
   };
 
@@ -287,12 +303,14 @@ export default function Menu() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link href="/mesa/1">
-            <Button variant="outline" data-testid="button-view-menu">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Visualizar Menu
-            </Button>
-          </Link>
+          <Button 
+            variant="outline" 
+            onClick={() => window.open('/mesa/1', '_blank')}
+            data-testid="button-view-menu"
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Visualizar Menu
+          </Button>
           <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" data-testid="button-create-category">
@@ -340,6 +358,8 @@ export default function Menu() {
                 description: "",
                 price: "",
                 categoryId: "",
+                imageUrl: "",
+                isAvailable: 1,
               });
               setIsMenuItemDialogOpen(true);
             }}
@@ -410,6 +430,22 @@ export default function Menu() {
                   </div>
 
                   <div>
+                    <Label htmlFor="imageUrl">URL da Imagem</Label>
+                    <Input
+                      id="imageUrl"
+                      type="url"
+                      placeholder="https://exemplo.com/imagem.jpg"
+                      value={menuItemForm.imageUrl}
+                      onChange={(e) => setMenuItemForm({ ...menuItemForm, imageUrl: e.target.value })}
+                      data-testid="input-menu-item-image"
+                      className="mt-2"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Cole o link de uma imagem do prato
+                    </p>
+                  </div>
+
+                  <div>
                     <Label htmlFor="description">Descrição</Label>
                     <Textarea
                       id="description"
@@ -420,6 +456,23 @@ export default function Menu() {
                       className="mt-2 resize-none"
                       rows={3}
                     />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label htmlFor="isAvailable">Disponibilidade</Label>
+                      <p className="text-xs text-muted-foreground">
+                        O prato está disponível para pedidos?
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant={menuItemForm.isAvailable === 1 ? "default" : "outline"}
+                      onClick={() => setMenuItemForm({ ...menuItemForm, isAvailable: menuItemForm.isAvailable === 1 ? 0 : 1 })}
+                      data-testid="button-toggle-availability"
+                    >
+                      {menuItemForm.isAvailable === 1 ? "Disponível" : "Indisponível"}
+                    </Button>
                   </div>
                 </div>
                 <DialogFooter>
@@ -463,13 +516,29 @@ export default function Menu() {
           ) : filteredMenuItems.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredMenuItems.map((item) => (
-                <Card key={item.id} data-testid={`card-menu-item-${item.id}`}>
+                <Card key={item.id} data-testid={`card-menu-item-${item.id}`} className="overflow-hidden">
+                  {item.imageUrl && (
+                    <div className="aspect-video w-full overflow-hidden bg-muted">
+                      <img
+                        src={item.imageUrl}
+                        alt={item.name}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  )}
                   <CardHeader className="flex flex-row items-start justify-between gap-2 pb-3">
                     <div className="flex-1">
                       <CardTitle className="text-lg line-clamp-1">{item.name}</CardTitle>
-                      <Badge variant="secondary" className="mt-2">
-                        {item.category.name}
-                      </Badge>
+                      <div className="flex gap-2 mt-2">
+                        <Badge variant="secondary">
+                          {item.category.name}
+                        </Badge>
+                        {item.isAvailable === 0 && (
+                          <Badge variant="destructive">
+                            Indisponível
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -528,6 +597,8 @@ export default function Menu() {
                     description: "",
                     price: "",
                     categoryId: "",
+                    imageUrl: "",
+                    isAvailable: 1,
                   });
                   setIsMenuItemDialogOpen(true);
                 }} data-testid="button-create-first-menu-item">
