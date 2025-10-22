@@ -26,12 +26,44 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
+// Restaurant Status Enum
+export const restaurantStatusEnum = pgEnum('restaurant_status', ['pendente', 'ativo', 'suspenso']);
+
+// Restaurants - Multi-tenant support
+export const restaurants = pgTable("restaurants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 200 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  phone: varchar("phone", { length: 50 }),
+  address: text("address"),
+  status: restaurantStatusEnum("status").notNull().default('pendente'),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertRestaurantSchema = createInsertSchema(restaurants).omit({
+  id: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Nome do restaurante é obrigatório"),
+  email: z.string().email("Email inválido"),
+  phone: z.string().min(1, "Telefone é obrigatório"),
+  address: z.string().min(1, "Endereço é obrigatório"),
+  password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
+});
+
+export type InsertRestaurant = z.infer<typeof insertRestaurantSchema>;
+export type Restaurant = typeof restaurants.$inferSelect;
+
 // User Role Enum
-export const userRoleEnum = pgEnum('user_role', ['admin', 'kitchen']);
+export const userRoleEnum = pgEnum('user_role', ['superadmin', 'admin', 'kitchen']);
 
 // User storage table
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").references(() => restaurants.id, { onDelete: 'cascade' }),
   email: varchar("email", { length: 255 }).notNull().unique(),
   password: varchar("password", { length: 255 }).notNull(),
   firstName: varchar("first_name", { length: 100 }),
@@ -50,7 +82,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
   password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
-  role: z.enum(['admin', 'kitchen']),
+  role: z.enum(['superadmin', 'admin', 'kitchen']),
 });
 
 export const loginSchema = z.object({
@@ -62,7 +94,7 @@ export const updateUserSchema = z.object({
   email: z.string().email("Email inválido").optional(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
-  role: z.enum(['admin', 'kitchen']).optional(),
+  role: z.enum(['superadmin', 'admin', 'kitchen']).optional(),
 });
 
 export const updateProfileSchema = z.object({
@@ -90,7 +122,8 @@ export type User = typeof users.$inferSelect;
 // Tables - Mesas do restaurante
 export const tables = pgTable("tables", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  number: integer("number").notNull().unique(),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  number: integer("number").notNull(),
   qrCode: text("qr_code").notNull(), // Data URL do QR code
   isOccupied: integer("is_occupied").notNull().default(0), // 0 = livre, 1 = ocupada
   createdAt: timestamp("created_at").defaultNow(),
@@ -109,6 +142,7 @@ export type Table = typeof tables.$inferSelect;
 // Categories - Categorias do menu
 export const categories = pgTable("categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   name: varchar("name", { length: 100 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -124,6 +158,7 @@ export type Category = typeof categories.$inferSelect;
 // Menu Items - Pratos do menu
 export const menuItems = pgTable("menu_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   categoryId: varchar("category_id").notNull().references(() => categories.id, { onDelete: 'cascade' }),
   name: varchar("name", { length: 200 }).notNull(),
   description: text("description"),
@@ -194,11 +229,33 @@ export type PublicOrderItem = z.infer<typeof publicOrderItemSchema>;
 export type OrderItem = typeof orderItems.$inferSelect;
 
 // Relations
-export const categoriesRelations = relations(categories, ({ many }) => ({
+export const restaurantsRelations = relations(restaurants, ({ many }) => ({
+  users: many(users),
+  tables: many(tables),
+  categories: many(categories),
+  menuItems: many(menuItems),
+}));
+
+export const usersRelations = relations(users, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [users.restaurantId],
+    references: [restaurants.id],
+  }),
+}));
+
+export const categoriesRelations = relations(categories, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [categories.restaurantId],
+    references: [restaurants.id],
+  }),
   menuItems: many(menuItems),
 }));
 
 export const menuItemsRelations = relations(menuItems, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [menuItems.restaurantId],
+    references: [restaurants.id],
+  }),
   category: one(categories, {
     fields: [menuItems.categoryId],
     references: [categories.id],
@@ -206,7 +263,11 @@ export const menuItemsRelations = relations(menuItems, ({ one, many }) => ({
   orderItems: many(orderItems),
 }));
 
-export const tablesRelations = relations(tables, ({ many }) => ({
+export const tablesRelations = relations(tables, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [tables.restaurantId],
+    references: [restaurants.id],
+  }),
   orders: many(orders),
 }));
 
