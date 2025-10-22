@@ -1,4 +1,4 @@
-import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -51,11 +51,23 @@ const kitchenMenuItems = [
   },
 ];
 
+const superAdminMenuItems = [
+  {
+    title: "Super Admin",
+    url: "/superadmin",
+    icon: Shield,
+  },
+];
+
 export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
   
-  const menuItems = user?.role === 'admin' ? adminMenuItems : kitchenMenuItems;
+  const menuItems = user?.role === 'superadmin' 
+    ? superAdminMenuItems 
+    : user?.role === 'admin' 
+    ? adminMenuItems 
+    : kitchenMenuItems;
 
   return (
     <Sidebar>
