@@ -1,10 +1,13 @@
 # Na Bancada - Sistema de Gestão de Restaurante
 
 ## Overview
-Sistema completo de gestão de restaurante com QR Codes por mesa, painel administrativo e comunicação em tempo real com a cozinha.
+Sistema completo de gestão de restaurante multi-tenant com QR Codes por mesa, painel administrativo, comunicação em tempo real com a cozinha e gerenciamento centralizado de múltiplos restaurantes.
 
 ## Características Principais
-- **Autenticação:** Replit Auth com suporte a Google, GitHub, email/password
+- **Multi-Tenancy:** Suporte para múltiplos restaurantes com isolamento de dados
+- **Super Admin:** Sistema de aprovação de restaurantes com dashboard centralizado
+- **Cadastro de Restaurantes:** Formulário público para novos restaurantes solicitarem acesso
+- **Autenticação:** Sistema de autenticação com três níveis de acesso (superadmin, admin, kitchen)
 - **Gestão de Mesas:** CRUD completo com geração automática de QR codes únicos e controle automático de estado
 - **Controle de Ocupação:** Sistema automático que bloqueia mesas ocupadas até finalização do pedido
 - **Gestão de Menu:** Categorias e pratos com preços e descrições
@@ -30,13 +33,19 @@ Sistema completo de gestão de restaurante com QR Codes por mesa, painel adminis
 - **QR Codes:** Geração dinâmica com biblioteca qrcode
 
 ### Database Schema
-- `users` - Usuários autenticados
-- `sessions` - Sessões (required para Replit Auth)
-- `tables` - Mesas do restaurante com QR codes
-- `categories` - Categorias do menu
-- `menu_items` - Pratos do menu
+- `restaurants` - Restaurantes cadastrados (multi-tenant)
+- `users` - Usuários autenticados (com restaurantId para isolamento)
+- `sessions` - Sessões de autenticação
+- `tables` - Mesas do restaurante com QR codes (scoped por restaurantId)
+- `categories` - Categorias do menu (scoped por restaurantId)
+- `menu_items` - Pratos do menu (scoped por restaurantId)
 - `orders` - Pedidos com status
 - `order_items` - Itens dos pedidos
+
+### Roles e Permissões
+- **superadmin:** Acesso total à plataforma, gerencia restaurantes
+- **admin:** Administrador de restaurante, gerencia menu, mesas e pedidos
+- **kitchen:** Acesso apenas ao painel de cozinha
 
 ## Estrutura de Pastas
 
@@ -103,6 +112,13 @@ Sistema completo de gestão de restaurante com QR Codes por mesa, painel adminis
 ### Stats
 - `GET /api/stats/dashboard` - Estatísticas do dashboard
 
+### Super Admin (Protected - superadmin only)
+- `POST /api/restaurants/register` - Cadastro público de restaurante
+- `GET /api/superadmin/restaurants` - Listar todos os restaurantes
+- `PATCH /api/superadmin/restaurants/:id/status` - Atualizar status (pendente/ativo/suspenso)
+- `DELETE /api/superadmin/restaurants/:id` - Excluir restaurante
+- `GET /api/superadmin/stats` - Estatísticas da plataforma
+
 ## Ambiente de Desenvolvimento
 
 ### Variáveis de Ambiente (Automáticas)
@@ -115,6 +131,12 @@ Sistema completo de gestão de restaurante com QR Codes por mesa, painel adminis
 - `npm run dev` - Iniciar desenvolvimento
 - `npm run db:push` - Sincronizar schema com banco
 
+### Credenciais Iniciais
+**Super Admin (criado automaticamente):**
+- Email: `superadmin@nabancada.com`
+- Senha: `SuperAdmin123!`
+- **IMPORTANTE:** Alterar senha após primeiro login!
+
 ## Design System
 - **Primary Color:** Teal (34° 85% 47%)
 - **Status Colors:**
@@ -126,6 +148,21 @@ Sistema completo de gestão de restaurante com QR Codes por mesa, painel adminis
 - **Spacing:** Sistema 4px base (p-2, p-4, p-6, p-8)
 
 ## Fluxo de Trabalho
+
+### Cadastro de Novo Restaurante
+1. Proprietário acessa página inicial
+2. Clica na aba "Cadastrar Restaurante"
+3. Preenche formulário (nome, email, telefone, endereço, senha)
+4. Sistema cria restaurante com status "pendente"
+5. Sistema cria usuário admin inicial para o restaurante
+6. Aguarda aprovação do super administrador
+
+### Aprovação de Restaurante (Super Admin)
+1. Super admin faz login com credenciais especiais
+2. Acessa dashboard de super admin em /superadmin
+3. Visualiza restaurantes pendentes
+4. Clica em "Aprovar" para ativar restaurante
+5. Restaurante e admin podem fazer login e acessar sistema
 
 ### Criar Mesa
 1. Admin acessa /mesas
@@ -160,14 +197,23 @@ Sistema completo de gestão de restaurante com QR Codes por mesa, painel adminis
 - ✅ Página de perfil para alterar email, nome e senha (22/10/2025)
 - ✅ Validação de senha atual antes de alteração (22/10/2025)
 - ✅ Segurança: Schema separado para perfil (sem campo role) (22/10/2025)
+- ✅ Sistema multi-tenant para múltiplos restaurantes (22/10/2025)
+- ✅ Formulário público de cadastro de restaurantes (22/10/2025)
+- ✅ Dashboard de super admin com aprovação de restaurantes (22/10/2025)
+- ✅ Estatísticas da plataforma (total, ativos, pendentes, suspensos) (22/10/2025)
+- ✅ Controle de acesso baseado em roles (superadmin, admin, kitchen) (22/10/2025)
 
 ## Próximas Fases
+- Testes automatizados para super admin endpoints
+- Telemetria e logging de mudanças de status de restaurantes
+- Rotação de credenciais do super admin em produção
 - Impressão automática de pedidos
 - Histórico completo de pedidos com filtros avançados
-- Relatórios detalhados de vendas e performance
-- Gestão de funcionários com permissões
+- Relatórios detalhados de vendas e performance por restaurante
+- Gestão de funcionários com permissões customizadas
 - Notificações push para garçons
 - Sistema de gorjetas e pagamento integrado
+- Planos e cobrança para restaurantes
 
 ## Data Criação
 20/10/2025
