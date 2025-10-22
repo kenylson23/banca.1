@@ -52,7 +52,9 @@ export const insertRestaurantSchema = createInsertSchema(restaurants).omit({
 }).extend({
   name: z.string().min(1, "Nome do restaurante é obrigatório"),
   email: z.string().email("Email inválido"),
-  phone: z.string().min(1, "Telefone é obrigatório"),
+  phone: z.string()
+    .min(1, "Telefone é obrigatório")
+    .regex(/^(\+244|244)?\s*[9][0-9]{2}\s*[0-9]{3}\s*[0-9]{3}$|^(\+244|244)?[9][0-9]{8}$/, "Formato de telefone angolano inválido. Use o formato: +244 9XX XXX XXX"),
   address: z.string().min(1, "Endereço é obrigatório"),
   logoUrl: z.string().optional(),
   businessHours: z.string().optional(),
