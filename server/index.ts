@@ -1,3 +1,4 @@
+import "../load-env";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -38,8 +39,16 @@ app.use((req, res, next) => {
 
 (async () => {
   // Initialize database tables
-  const { ensureTablesExist } = await import('./initDb');
-  await ensureTablesExist();
+  try {
+    const { ensureTablesExist } = await import('./initDb');
+    await ensureTablesExist();
+    console.log('Database initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize database:', error instanceof Error ? error.message : error);
+    console.error('The application requires a database connection to run.');
+    console.error('Please connect your PostgreSQL database through the Replit Database pane.');
+    process.exit(1);
+  }
 
   const server = await registerRoutes(app);
 
