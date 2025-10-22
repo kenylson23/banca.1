@@ -230,7 +230,7 @@ export default function Landing() {
                               <FormControl>
                                 <Input
                                   type="tel"
-                                  placeholder="(11) 99999-9999"
+                                  placeholder="+244 923 456 789"
                                   data-testid="input-restaurant-phone"
                                   {...field}
                                 />
@@ -247,7 +247,7 @@ export default function Landing() {
                               <FormLabel>Endereço</FormLabel>
                               <FormControl>
                                 <Textarea
-                                  placeholder="Rua Exemplo, 123 - Bairro - Cidade/UF"
+                                  placeholder="Rua Comandante Gika, 123 - Maianga - Luanda"
                                   data-testid="input-restaurant-address"
                                   {...field}
                                 />
