@@ -73,6 +73,8 @@ Sistema completo de gestão de restaurante com QR Codes por mesa, painel adminis
 
 ### Auth
 - `GET /api/auth/user` - Usuário atual (protected)
+- `PATCH /api/auth/profile` - Atualizar perfil (email, nome) (protected)
+- `PATCH /api/auth/password` - Alterar senha (protected)
 - `GET /api/login` - Iniciar login
 - `GET /api/logout` - Fazer logout
 
@@ -150,11 +152,14 @@ Sistema completo de gestão de restaurante com QR Codes por mesa, painel adminis
 9. Quando marcado como "Servido", mesa é liberada automaticamente
 10. Dashboard atualiza estatísticas em tempo real
 
-## Funcionalidades Implementadas (20/10/2025)
-- ✅ Interface de cliente para fazer pedidos via QR code
-- ✅ Sistema automático de controle de ocupação de mesas
-- ✅ Bloqueio de pedidos em mesas ocupadas
-- ✅ Liberação automática ao finalizar pedido
+## Funcionalidades Implementadas
+- ✅ Interface de cliente para fazer pedidos via QR code (20/10/2025)
+- ✅ Sistema automático de controle de ocupação de mesas (20/10/2025)
+- ✅ Bloqueio de pedidos em mesas ocupadas (20/10/2025)
+- ✅ Liberação automática ao finalizar pedido (20/10/2025)
+- ✅ Página de perfil para alterar email, nome e senha (22/10/2025)
+- ✅ Validação de senha atual antes de alteração (22/10/2025)
+- ✅ Segurança: Schema separado para perfil (sem campo role) (22/10/2025)
 
 ## Próximas Fases
 - Impressão automática de pedidos
