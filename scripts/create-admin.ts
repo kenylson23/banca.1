@@ -1,3 +1,4 @@
+import '../load-env';
 import { storage } from '../server/storage';
 import { hashPassword } from '../server/auth';
 
