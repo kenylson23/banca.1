@@ -417,7 +417,7 @@ export default function CustomerMenu() {
                       <Input
                         id="customer-phone"
                         type="tel"
-                        placeholder="(00) 00000-0000"
+                        placeholder="+244 912 345 678"
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
                         data-testid="input-customer-phone"
