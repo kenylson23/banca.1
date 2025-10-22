@@ -15,6 +15,7 @@ import {
   insertOrderItemSchema,
   publicOrderItemSchema,
   insertUserSchema,
+  insertRestaurantSchema,
   loginSchema,
   updateUserSchema,
   updateProfileSchema,
@@ -23,14 +24,29 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 
-// Middleware to check if user is admin
+// Middleware to check if user is admin (restaurant admin)
 function isAdmin(req: any, res: any, next: any) {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ message: "Não autenticado" });
   }
   const user = req.user as User;
-  if (user.role !== 'admin') {
+  if (user.role !== 'admin' && user.role !== 'superadmin') {
     return res.status(403).json({ message: "Acesso negado. Apenas administradores podem realizar esta ação." });
+  }
+  if (user.role === 'admin' && !user.restaurantId) {
+    return res.status(403).json({ message: "Administrador não associado a um restaurante" });
+  }
+  next();
+}
+
+// Middleware to check if user is super admin
+function isSuperAdmin(req: any, res: any, next: any) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Não autenticado" });
+  }
+  const user = req.user as User;
+  if (user.role !== 'superadmin') {
+    return res.status(403).json({ message: "Acesso negado. Apenas super administradores podem realizar esta ação." });
   }
   next();
 }
@@ -39,47 +55,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   setupAuth(app);
 
-  // Auth routes
-  // NOTE: Public registration is disabled for security. 
-  // Users must be created by administrators through /api/users endpoint.
-  // Uncomment below only for initial setup if no admin exists yet:
-  /*
-  app.post('/api/auth/register', async (req, res) => {
+  // ===== PUBLIC RESTAURANT REGISTRATION =====
+  app.post('/api/restaurants/register', async (req, res) => {
     try {
-      const data = insertUserSchema.parse(req.body);
+      const data = insertRestaurantSchema.parse(req.body);
       
-      const existingUser = await storage.getUserByEmail(data.email);
-      if (existingUser) {
+      const existingRestaurant = await storage.getRestaurantByEmail(data.email);
+      if (existingRestaurant) {
         return res.status(400).json({ message: "Email já cadastrado" });
       }
 
-      const hashedPassword = await hashPassword(data.password);
-      const user = await storage.createUser({
-        ...data,
-        password: hashedPassword,
+      const { restaurant, adminUser } = await storage.createRestaurant(data);
+
+      res.json({
+        message: "Cadastro realizado com sucesso! Aguarde aprovação do super administrador.",
+        restaurant: {
+          id: restaurant.id,
+          name: restaurant.name,
+          email: restaurant.email,
+          status: restaurant.status,
+        }
       });
-
-      const userWithoutPassword = {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      };
-
-      res.json(userWithoutPassword);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error("Error registering user:", error);
-      res.status(500).json({ message: "Erro ao cadastrar usuário" });
+      console.error("Error registering restaurant:", error);
+      res.status(500).json({ message: "Erro ao cadastrar restaurante" });
     }
   });
-  */
 
+  // Auth routes
   app.post('/api/auth/login', (req, res, next) => {
     try {
       loginSchema.parse(req.body);
@@ -89,12 +95,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
 
-    passport.authenticate('local', (err: any, user: User | false, info: any) => {
+    passport.authenticate('local', async (err: any, user: User | false, info: any) => {
       if (err) {
         return res.status(500).json({ message: "Erro ao fazer login" });
       }
       if (!user) {
         return res.status(401).json({ message: info?.message || "Email ou senha incorretos" });
+      }
+
+      // Check if user belongs to an approved restaurant (unless superadmin)
+      if (user.role !== 'superadmin' && user.restaurantId) {
+        const restaurant = await storage.getRestaurantById(user.restaurantId);
+        if (!restaurant) {
+          return res.status(403).json({ message: "Restaurante não encontrado" });
+        }
+        if (restaurant.status !== 'ativo') {
+          return res.status(403).json({ message: "Restaurante ainda não foi aprovado ou está suspenso" });
+        }
       }
 
       req.login(user, (loginErr) => {
@@ -108,6 +125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: user.firstName,
           lastName: user.lastName,
           role: user.role,
+          restaurantId: user.restaurantId,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         };
@@ -135,6 +153,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
+        restaurantId: user.restaurantId,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       };
@@ -157,7 +176,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const updatedUser = await storage.updateUser(currentUser.id, data);
+      const restaurantId = currentUser.role === 'superadmin' ? null : currentUser.restaurantId || null;
+      const updatedUser = await storage.updateUser(restaurantId, currentUser.id, data);
       
       const userWithoutPassword = {
         id: updatedUser.id,
@@ -165,6 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName: updatedUser.firstName,
         lastName: updatedUser.lastName,
         role: updatedUser.role,
+        restaurantId: updatedUser.restaurantId,
         createdAt: updatedUser.createdAt,
         updatedAt: updatedUser.updatedAt,
       };
@@ -209,16 +230,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== SUPER ADMIN RESTAURANT MANAGEMENT ROUTES =====
+  app.get('/api/superadmin/restaurants', isSuperAdmin, async (req, res) => {
+    try {
+      const restaurants = await storage.getRestaurants();
+      res.json(restaurants);
+    } catch (error) {
+      console.error("Error fetching restaurants:", error);
+      res.status(500).json({ message: "Erro ao buscar restaurantes" });
+    }
+  });
+
+  app.patch('/api/superadmin/restaurants/:id/status', isSuperAdmin, async (req, res) => {
+    try {
+      const { status } = req.body;
+      if (!['pendente', 'ativo', 'suspenso'].includes(status)) {
+        return res.status(400).json({ message: "Status inválido" });
+      }
+
+      const restaurant = await storage.updateRestaurantStatus(req.params.id, status);
+      res.json(restaurant);
+    } catch (error) {
+      console.error("Error updating restaurant status:", error);
+      res.status(500).json({ message: "Erro ao atualizar status do restaurante" });
+    }
+  });
+
+  app.delete('/api/superadmin/restaurants/:id', isSuperAdmin, async (req, res) => {
+    try {
+      await storage.deleteRestaurant(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting restaurant:", error);
+      res.status(500).json({ message: "Erro ao deletar restaurante" });
+    }
+  });
+
+  app.get('/api/superadmin/stats', isSuperAdmin, async (req, res) => {
+    try {
+      const stats = await storage.getSuperAdminStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching super admin stats:", error);
+      res.status(500).json({ message: "Erro ao buscar estatísticas" });
+    }
+  });
+
   // ===== USER MANAGEMENT ROUTES (Admin Only) =====
   app.get('/api/users', isAdmin, async (req, res) => {
     try {
-      const users = await storage.getAllUsers();
+      const currentUser = req.user as User;
+      const restaurantId = currentUser.role === 'superadmin' ? null : currentUser.restaurantId || null;
+      
+      const users = await storage.getAllUsers(restaurantId);
       const usersWithoutPassword = users.map(user => ({
         id: user.id,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
+        restaurantId: user.restaurantId,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       }));
@@ -231,7 +302,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/users', isAdmin, async (req, res) => {
     try {
+      const currentUser = req.user as User;
       const data = insertUserSchema.parse(req.body);
+      
+      // Restaurant admins can only create users for their own restaurant
+      if (currentUser.role === 'admin') {
+        data.restaurantId = currentUser.restaurantId;
+      }
       
       const existingUser = await storage.getUserByEmail(data.email);
       if (existingUser) {
@@ -250,6 +327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
+        restaurantId: user.restaurantId,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       };
@@ -272,7 +350,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Não é possível deletar o próprio usuário" });
       }
 
-      await storage.deleteUser(req.params.id);
+      const restaurantId = currentUser.role === 'superadmin' ? null : currentUser.restaurantId || null;
+      await storage.deleteUser(restaurantId, req.params.id);
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting user:", error);
@@ -280,15 +359,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ===== PUBLIC ROUTES (for customers) =====
-  app.get("/api/public/tables/:number", async (req, res) => {
+  app.patch('/api/users/:id', isAdmin, async (req, res) => {
     try {
+      const currentUser = req.user as User;
+      const data = updateUserSchema.parse(req.body);
+      
+      if (data.email) {
+        const existingUser = await storage.getUserByEmail(data.email);
+        if (existingUser && existingUser.id !== req.params.id) {
+          return res.status(400).json({ message: "Email já está em uso por outro usuário" });
+        }
+      }
+
+      const restaurantId = currentUser.role === 'superadmin' ? null : currentUser.restaurantId || null;
+      const updatedUser = await storage.updateUser(restaurantId, req.params.id, data);
+      
+      const userWithoutPassword = {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        role: updatedUser.role,
+        restaurantId: updatedUser.restaurantId,
+        createdAt: updatedUser.createdAt,
+        updatedAt: updatedUser.updatedAt,
+      };
+
+      res.json(userWithoutPassword);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Erro ao atualizar usuário" });
+    }
+  });
+
+  // ===== PUBLIC ROUTES (for customers) =====
+  // Note: These routes need restaurantId context. They should be updated to filter by restaurant.
+  // For now, keeping them as-is for backward compatibility, but they won't work properly in multi-tenant mode.
+  app.get("/api/public/tables/:restaurantId/:number", async (req, res) => {
+    try {
+      const restaurantId = req.params.restaurantId;
       const tableNumber = parseInt(req.params.number);
       if (isNaN(tableNumber)) {
         return res.status(400).json({ message: "Número de mesa inválido" });
       }
       
-      const tables = await storage.getTables();
+      const tables = await storage.getTables(restaurantId);
       const table = tables.find(t => t.number === tableNumber);
       
       if (!table) {
@@ -302,9 +420,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/public/menu-items", async (req, res) => {
+  app.get("/api/public/menu-items/:restaurantId", async (req, res) => {
     try {
-      const menuItems = await storage.getMenuItems();
+      const restaurantId = req.params.restaurantId;
+      const menuItems = await storage.getMenuItems(restaurantId);
       const availableItems = menuItems.filter(item => item.isAvailable === 1);
       res.json(availableItems);
     } catch (error) {
@@ -316,7 +435,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/public/orders/table/:tableId", async (req, res) => {
     try {
       const tableId = req.params.tableId;
-      const orders = await storage.getOrdersByTableId(tableId);
+      // Get table to find restaurant
+      const table = await storage.getTableById(tableId);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+      
+      const orders = await storage.getOrdersByTableId(table.restaurantId, tableId);
       res.json(orders);
     } catch (error) {
       console.error("Error fetching orders by table:", error);
@@ -353,7 +478,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== TABLE ROUTES (Admin Only) =====
   app.get("/api/tables", isAdmin, async (req, res) => {
     try {
-      const tables = await storage.getTables();
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const tables = await storage.getTables(restaurantId);
       res.json(tables);
     } catch (error) {
       console.error("Error fetching tables:", error);
@@ -363,6 +494,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tables", isAdmin, async (req, res) => {
     try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
       const data = insertTableSchema.parse(req.body);
       
       // Generate QR code
@@ -372,7 +509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         margin: 2,
       });
 
-      const table = await storage.createTable({
+      const table = await storage.createTable(restaurantId, {
         number: data.number,
         qrCode,
       });
@@ -392,7 +529,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/tables/:id", isAdmin, async (req, res) => {
     try {
-      await storage.deleteTable(req.params.id);
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      await storage.deleteTable(restaurantId, req.params.id);
       
       // Broadcast to WebSocket clients
       broadcastToClients({ type: 'table_deleted', data: { id: req.params.id } });
@@ -407,7 +550,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== CATEGORY ROUTES (Admin Only) =====
   app.get("/api/categories", isAdmin, async (req, res) => {
     try {
-      const categories = await storage.getCategories();
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const categories = await storage.getCategories(restaurantId);
       res.json(categories);
     } catch (error) {
       console.error("Error fetching categories:", error);
@@ -417,8 +566,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/categories", isAdmin, async (req, res) => {
     try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
       const data = insertCategorySchema.parse(req.body);
-      const category = await storage.createCategory(data);
+      const category = await storage.createCategory(restaurantId, data);
       res.json(category);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -431,7 +586,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/categories/:id", isAdmin, async (req, res) => {
     try {
-      await storage.deleteCategory(req.params.id);
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      await storage.deleteCategory(restaurantId, req.params.id);
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting category:", error);
@@ -442,7 +603,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== MENU ITEM ROUTES (Admin Only) =====
   app.get("/api/menu-items", isAdmin, async (req, res) => {
     try {
-      const menuItems = await storage.getMenuItems();
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const menuItems = await storage.getMenuItems(restaurantId);
       res.json(menuItems);
     } catch (error) {
       console.error("Error fetching menu items:", error);
@@ -452,8 +619,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/menu-items", isAdmin, async (req, res) => {
     try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
       const data = insertMenuItemSchema.parse(req.body);
-      const menuItem = await storage.createMenuItem(data);
+      const menuItem = await storage.createMenuItem(restaurantId, data);
       res.json(menuItem);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -466,8 +639,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/menu-items/:id", isAdmin, async (req, res) => {
     try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
       const data = insertMenuItemSchema.partial().parse(req.body);
-      const menuItem = await storage.updateMenuItem(req.params.id, data);
+      const menuItem = await storage.updateMenuItem(restaurantId, req.params.id, data);
       res.json(menuItem);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -480,7 +659,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/menu-items/:id", isAdmin, async (req, res) => {
     try {
-      await storage.deleteMenuItem(req.params.id);
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      await storage.deleteMenuItem(restaurantId, req.params.id);
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting menu item:", error);
@@ -491,7 +676,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== ORDER ROUTES =====
   app.get("/api/orders/kitchen", isAuthenticated, async (req, res) => {
     try {
-      const orders = await storage.getKitchenOrders();
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const orders = await storage.getKitchenOrders(restaurantId);
       res.json(orders);
     } catch (error) {
       console.error("Error fetching kitchen orders:", error);
@@ -501,7 +692,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/orders/recent", isAdmin, async (req, res) => {
     try {
-      const orders = await storage.getRecentOrders(10);
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const orders = await storage.getRecentOrders(restaurantId, 10);
       res.json(orders);
     } catch (error) {
       console.error("Error fetching recent orders:", error);
@@ -532,15 +729,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/orders/:id/status", isAuthenticated, async (req, res) => {
     try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
       const { status } = req.body;
       if (!['pendente', 'em_preparo', 'pronto', 'servido'].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
       }
 
-      const order = await storage.updateOrderStatus(req.params.id, status);
+      const order = await storage.updateOrderStatus(restaurantId, req.params.id, status);
       
       if (status === 'servido') {
-        await storage.updateTableOccupancy(order.tableId, false);
+        await storage.updateTableOccupancy(restaurantId, order.tableId, false);
         broadcastToClients({ 
           type: 'table_freed', 
           data: { tableId: order.tableId }
@@ -562,7 +765,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== STATS ROUTES (Admin Only) =====
   app.get("/api/stats/dashboard", isAdmin, async (req, res) => {
     try {
-      const stats = await storage.getTodayStats();
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const stats = await storage.getTodayStats(restaurantId);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -572,11 +781,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/stats/kitchen", isAuthenticated, async (req, res) => {
     try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
       const period = req.query.period as 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' || 'daily';
       if (!['daily', 'weekly', 'monthly', 'quarterly', 'yearly'].includes(period)) {
         return res.status(400).json({ message: "Invalid period. Must be one of: daily, weekly, monthly, quarterly, yearly" });
       }
-      const stats = await storage.getKitchenStats(period);
+      const stats = await storage.getKitchenStats(restaurantId, period);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching kitchen stats:", error);
