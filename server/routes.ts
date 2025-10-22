@@ -646,12 +646,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
       
+      console.log("Category request body:", req.body);
       const restaurantId = currentUser.restaurantId!;
       const data = insertCategorySchema.parse(req.body);
       const category = await storage.createCategory(restaurantId, data);
       res.json(category);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Zod validation error:", error.errors);
         return res.status(400).json({ message: error.errors[0].message });
       }
       console.error("Error creating category:", error);
