@@ -30,6 +30,8 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
   deleteUser(id: string): Promise<void>;
+  updateUser(id: string, data: { email?: string; firstName?: string; lastName?: string; role?: string }): Promise<User>;
+  updateUserPassword(id: string, hashedPassword: string): Promise<User>;
 
   // Table operations
   getTables(): Promise<Table[]>;
@@ -101,6 +103,24 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(id: string): Promise<void> {
     await db.delete(users).where(eq(users.id, id));
+  }
+
+  async updateUser(id: string, data: { email?: string; firstName?: string; lastName?: string; role?: string }): Promise<User> {
+    const [updated] = await db
+      .update(users)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateUserPassword(id: string, hashedPassword: string): Promise<User> {
+    const [updated] = await db
+      .update(users)
+      .set({ password: hashedPassword, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
   }
 
   private async ensureTables() {
