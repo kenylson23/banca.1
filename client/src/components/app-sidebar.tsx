@@ -111,7 +111,15 @@ export function AppSidebar() {
             variant="outline"
             size="sm"
             className="w-full"
-            onClick={() => window.location.href = "/api/logout"}
+            onClick={async () => {
+              try {
+                await fetch("/api/auth/logout", { method: "POST" });
+                window.location.href = "/";
+              } catch (error) {
+                console.error("Erro ao fazer logout:", error);
+                window.location.href = "/";
+              }
+            }}
             data-testid="button-logout"
           >
             <LogOut className="h-4 w-4 mr-2" />
