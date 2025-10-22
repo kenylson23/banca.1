@@ -15,7 +15,8 @@ import { useToast } from '@/hooks/use-toast';
 import { ShoppingCart, Plus, Minus, Trash2, Check, ClipboardList, Clock, ChefHat, CheckCircle } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { formatKwanza } from '@/lib/formatters';
-import type { MenuItem, Category, Order, OrderItem } from '@shared/schema';
+import type { MenuItem, Category, Order, OrderItem, Restaurant } from '@shared/schema';
+import { MapPin, Phone, Clock as ClockIcon } from 'lucide-react';
 
 export default function CustomerMenu() {
   const [, params] = useRoute('/mesa/:tableNumber');
@@ -37,6 +38,12 @@ export default function CustomerMenu() {
   });
 
   const tableId = currentTable?.id;
+  const restaurantId = currentTable?.restaurantId;
+  
+  const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
+    queryKey: ['/api/public/restaurants', restaurantId],
+    enabled: !!restaurantId,
+  });
   
   const { data: tableOrders, isLoading: ordersLoading } = useQuery<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>({
     queryKey: [`/api/public/orders/table/${tableId}`],
@@ -446,6 +453,62 @@ export default function CustomerMenu() {
       </header>
 
       <main className="container px-4 py-8">
+        {restaurant && (
+          <Card className="mb-8" data-testid="card-restaurant-info">
+            <CardHeader className="text-center">
+              {restaurant.logoUrl && (
+                <div className="flex justify-center mb-4">
+                  <img
+                    src={restaurant.logoUrl}
+                    alt={`Logo ${restaurant.name}`}
+                    className="h-24 w-auto object-contain"
+                    data-testid="img-restaurant-logo"
+                  />
+                </div>
+              )}
+              <CardTitle className="text-3xl" data-testid="text-restaurant-name">
+                {restaurant.name}
+              </CardTitle>
+              {restaurant.description && (
+                <CardDescription className="text-base mt-2" data-testid="text-restaurant-description">
+                  {restaurant.description}
+                </CardDescription>
+              )}
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3 text-sm">
+                {restaurant.address && (
+                  <div className="flex items-start gap-3" data-testid="text-restaurant-address">
+                    <MapPin className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium mb-1">Endereço</p>
+                      <p className="text-muted-foreground">{restaurant.address}</p>
+                    </div>
+                  </div>
+                )}
+                {restaurant.phone && (
+                  <div className="flex items-start gap-3" data-testid="text-restaurant-phone">
+                    <Phone className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium mb-1">Contato</p>
+                      <p className="text-muted-foreground">{restaurant.phone}</p>
+                    </div>
+                  </div>
+                )}
+                {restaurant.businessHours && (
+                  <div className="flex items-start gap-3" data-testid="text-restaurant-hours">
+                    <ClockIcon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium mb-1">Horário</p>
+                      <p className="text-muted-foreground">{restaurant.businessHours}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="mb-8">
           <h2 className="text-3xl font-bold mb-2" data-testid="text-menu-title">Menu</h2>
           <p className="text-muted-foreground" data-testid="text-menu-description">

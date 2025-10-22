@@ -276,6 +276,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== MESSAGE ROUTES (Super Admin & Restaurant Admin) =====
+  app.get('/api/superadmin/messages', isSuperAdmin, async (req, res) => {
+    try {
+      const messages = await storage.getAllMessages();
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ message: "Erro ao buscar mensagens" });
+    }
+  });
+
+  app.post('/api/superadmin/messages', isSuperAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const { restaurantId, subject, content } = req.body;
+      
+      if (!restaurantId || !subject || !content) {
+        return res.status(400).json({ message: "Dados incompletos" });
+      }
+
+      const message = await storage.createMessage({
+        restaurantId,
+        subject,
+        content,
+        sentBy: `${currentUser.firstName} ${currentUser.lastName || ''}`.trim(),
+      });
+
+      res.json(message);
+    } catch (error) {
+      console.error("Error creating message:", error);
+      res.status(500).json({ message: "Erro ao criar mensagem" });
+    }
+  });
+
+  app.get('/api/messages', isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const messages = await storage.getMessages(currentUser.restaurantId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ message: "Erro ao buscar mensagens" });
+    }
+  });
+
+  app.patch('/api/messages/:id/read', isAdmin, async (req, res) => {
+    try {
+      const message = await storage.markMessageAsRead(req.params.id);
+      res.json(message);
+    } catch (error) {
+      console.error("Error marking message as read:", error);
+      res.status(500).json({ message: "Erro ao marcar mensagem como lida" });
+    }
+  });
+
   // ===== USER MANAGEMENT ROUTES (Admin Only) =====
   app.get('/api/users', isAdmin, async (req, res) => {
     try {
@@ -398,6 +457,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== PUBLIC ROUTES (for customers) =====
   // Note: These routes need restaurantId context. They should be updated to filter by restaurant.
   // For now, keeping them as-is for backward compatibility, but they won't work properly in multi-tenant mode.
+  app.get("/api/public/restaurants/:restaurantId", async (req, res) => {
+    try {
+      const restaurantId = req.params.restaurantId;
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurante não encontrado" });
+      }
+      
+      res.json(restaurant);
+    } catch (error) {
+      console.error("Error fetching restaurant:", error);
+      res.status(500).json({ message: "Erro ao buscar restaurante" });
+    }
+  });
+
   app.get("/api/public/tables/:restaurantId/:number", async (req, res) => {
     try {
       const restaurantId = req.params.restaurantId;

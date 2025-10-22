@@ -30,10 +30,24 @@ export async function ensureTablesExist() {
         email VARCHAR(255) NOT NULL UNIQUE, 
         phone VARCHAR(50), 
         address TEXT, 
+        logo_url TEXT,
+        business_hours TEXT,
+        description TEXT,
         status restaurant_status NOT NULL DEFAULT 'pendente', 
         created_at TIMESTAMP DEFAULT NOW(), 
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
+      
+      // Add new columns to existing restaurants table if they don't exist
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE restaurants ADD COLUMN logo_url TEXT; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE restaurants ADD COLUMN business_hours TEXT; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE restaurants ADD COLUMN description TEXT; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Create users table with restaurantId
       await db.execute(sql`CREATE TABLE IF NOT EXISTS users (
@@ -132,6 +146,17 @@ export async function ensureTablesExist() {
         quantity INTEGER NOT NULL, 
         price DECIMAL(10, 2) NOT NULL, 
         notes TEXT, 
+        created_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create messages table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS messages (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE, 
+        subject VARCHAR(255) NOT NULL, 
+        content TEXT NOT NULL, 
+        sent_by VARCHAR NOT NULL, 
+        is_read INTEGER NOT NULL DEFAULT 0, 
         created_at TIMESTAMP DEFAULT NOW()
       );`);
       

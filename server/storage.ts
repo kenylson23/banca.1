@@ -7,6 +7,7 @@ import {
   menuItems,
   orders,
   orderItems,
+  messages,
   type User,
   type InsertUser,
   type Restaurant,
@@ -22,6 +23,8 @@ import {
   type OrderItem,
   type InsertOrderItem,
   type PublicOrderItem,
+  type Message,
+  type InsertMessage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, gte } from "drizzle-orm";
@@ -105,6 +108,12 @@ export interface IStorage {
     suspendedRestaurants: number;
     totalRevenue: string;
   }>;
+  
+  // Message operations
+  getMessages(restaurantId: string): Promise<Message[]>;
+  getAllMessages(): Promise<Array<Message & { restaurant: Restaurant }>>;
+  createMessage(message: InsertMessage): Promise<Message>;
+  markMessageAsRead(id: string): Promise<Message>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -132,6 +141,9 @@ export class DatabaseStorage implements IStorage {
       email: data.email,
       phone: data.phone,
       address: data.address,
+      logoUrl: data.logoUrl,
+      businessHours: data.businessHours,
+      description: data.description,
     }).returning();
 
     const [adminUser] = await db.insert(users).values({
@@ -747,6 +759,40 @@ export class DatabaseStorage implements IStorage {
       suspendedRestaurants,
       totalRevenue: totalRevenue.toFixed(2),
     };
+  }
+
+  // Message operations
+  async getMessages(restaurantId: string): Promise<Message[]> {
+    return await db.select().from(messages)
+      .where(eq(messages.restaurantId, restaurantId))
+      .orderBy(desc(messages.createdAt));
+  }
+
+  async getAllMessages(): Promise<Array<Message & { restaurant: Restaurant }>> {
+    const results = await db
+      .select()
+      .from(messages)
+      .leftJoin(restaurants, eq(messages.restaurantId, restaurants.id))
+      .orderBy(desc(messages.createdAt));
+
+    return results.map(row => ({
+      ...row.messages,
+      restaurant: row.restaurants!,
+    }));
+  }
+
+  async createMessage(message: InsertMessage): Promise<Message> {
+    const [newMessage] = await db.insert(messages).values(message).returning();
+    return newMessage;
+  }
+
+  async markMessageAsRead(id: string): Promise<Message> {
+    const [updated] = await db
+      .update(messages)
+      .set({ isRead: 1 })
+      .where(eq(messages.id, id))
+      .returning();
+    return updated;
   }
 }
 

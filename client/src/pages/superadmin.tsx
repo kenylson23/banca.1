@@ -1,13 +1,19 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Store, CheckCircle2, Clock, Ban, DollarSign } from "lucide-react";
+import { Store, CheckCircle2, Clock, Ban, DollarSign, Send, MessageSquare } from "lucide-react";
 import { formatKwanza } from "@/lib/formatters";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Restaurant } from "@shared/schema";
+import type { Restaurant, Message } from "@shared/schema";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +38,10 @@ interface SuperAdminStats {
 export default function SuperAdmin() {
   const { toast } = useToast();
   const [selectedRestaurant, setSelectedRestaurant] = useState<string | null>(null);
+  const [selectedRestaurantForMessage, setSelectedRestaurantForMessage] = useState<string | null>(null);
+  const [messageSubject, setMessageSubject] = useState('');
+  const [messageContent, setMessageContent] = useState('');
+  const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
 
   const { data: stats, isLoading: statsLoading } = useQuery<SuperAdminStats>({
     queryKey: ["/api/superadmin/stats"],
@@ -39,6 +49,10 @@ export default function SuperAdmin() {
 
   const { data: restaurants, isLoading: restaurantsLoading } = useQuery<Restaurant[]>({
     queryKey: ["/api/superadmin/restaurants"],
+  });
+
+  const { data: messages, isLoading: messagesLoading } = useQuery<Array<Message & { restaurant: Restaurant }>>({
+    queryKey: ["/api/superadmin/messages"],
   });
 
   const updateStatusMutation = useMutation({
@@ -85,6 +99,57 @@ export default function SuperAdmin() {
       });
     },
   });
+
+  const sendMessageMutation = useMutation({
+    mutationFn: async ({ restaurantId, subject, content }: { restaurantId: string; subject: string; content: string }) => {
+      const response = await apiRequest("POST", "/api/superadmin/messages", { restaurantId, subject, content });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/superadmin/messages"] });
+      setMessageSubject('');
+      setMessageContent('');
+      setSelectedRestaurantForMessage(null);
+      setIsMessageDialogOpen(false);
+      toast({
+        title: "Mensagem enviada",
+        description: "A mensagem foi enviada ao restaurante com sucesso.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao enviar mensagem",
+        description: error.message || "Erro ao enviar mensagem",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSendMessage = () => {
+    if (!selectedRestaurantForMessage) {
+      toast({
+        title: "Restaurante não selecionado",
+        description: "Por favor, selecione um restaurante.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!messageSubject.trim() || !messageContent.trim()) {
+      toast({
+        title: "Dados incompletos",
+        description: "Por favor, preencha o assunto e o conteúdo da mensagem.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    sendMessageMutation.mutate({
+      restaurantId: selectedRestaurantForMessage,
+      subject: messageSubject.trim(),
+      content: messageContent.trim(),
+    });
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -355,6 +420,151 @@ export default function SuperAdmin() {
               Nenhum restaurante cadastrado
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Contatos dos Restaurantes</CardTitle>
+          <CardDescription>Envie mensagens e acompanhe o histórico de comunicação com os restaurantes</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Enviar Nova Mensagem</h3>
+            <Dialog open={isMessageDialogOpen} onOpenChange={setIsMessageDialogOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-new-message">
+                  <Send className="h-4 w-4 mr-2" />
+                  Nova Mensagem
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Enviar Mensagem ao Restaurante</DialogTitle>
+                  <DialogDescription>
+                    Selecione um restaurante e escreva sua mensagem
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 mt-4">
+                  <div>
+                    <Label htmlFor="restaurant-select">Restaurante *</Label>
+                    <select
+                      id="restaurant-select"
+                      value={selectedRestaurantForMessage || ''}
+                      onChange={(e) => setSelectedRestaurantForMessage(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 border rounded-md bg-background"
+                      data-testid="select-restaurant"
+                    >
+                      <option value="">Selecione um restaurante</option>
+                      {restaurants?.map((restaurant) => (
+                        <option key={restaurant.id} value={restaurant.id}>
+                          {restaurant.name} - {restaurant.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="message-subject">Assunto *</Label>
+                    <Input
+                      id="message-subject"
+                      placeholder="Digite o assunto da mensagem"
+                      value={messageSubject}
+                      onChange={(e) => setMessageSubject(e.target.value)}
+                      data-testid="input-message-subject"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="message-content">Mensagem *</Label>
+                    <Textarea
+                      id="message-content"
+                      placeholder="Digite sua mensagem"
+                      value={messageContent}
+                      onChange={(e) => setMessageContent(e.target.value)}
+                      rows={6}
+                      data-testid="textarea-message-content"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsMessageDialogOpen(false)}
+                      data-testid="button-cancel-message"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={sendMessageMutation.isPending}
+                      data-testid="button-send-message"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      {sendMessageMutation.isPending ? 'Enviando...' : 'Enviar'}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Separator />
+
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Histórico de Mensagens</h3>
+            {messagesLoading ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="p-4 border rounded-md">
+                    <Skeleton className="h-5 w-1/3 mb-2" />
+                    <Skeleton className="h-4 w-full" />
+                  </div>
+                ))}
+              </div>
+            ) : messages && messages.length > 0 ? (
+              <ScrollArea className="h-[400px] pr-4">
+                <div className="space-y-3">
+                  {messages.map((message) => (
+                    <Card key={message.id} data-testid={`message-${message.id}`}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <CardTitle className="text-base" data-testid={`text-message-subject-${message.id}`}>
+                              {message.subject}
+                            </CardTitle>
+                            <CardDescription className="mt-1">
+                              <div className="flex flex-col gap-1">
+                                <span data-testid={`text-message-restaurant-${message.id}`}>
+                                  Para: <strong>{message.restaurant.name}</strong> ({message.restaurant.email})
+                                </span>
+                                <span className="text-xs">
+                                  Enviado por: {message.sentBy} em {new Date(message.createdAt!).toLocaleString('pt-BR')}
+                                </span>
+                              </div>
+                            </CardDescription>
+                          </div>
+                          <Badge variant={message.isRead ? "default" : "secondary"} data-testid={`badge-message-status-${message.id}`}>
+                            {message.isRead ? 'Lida' : 'Não lida'}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap" data-testid={`text-message-content-${message.id}`}>
+                          {message.content}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <MessageSquare className="h-12 w-12 mb-3 opacity-50" />
+                <p data-testid="text-no-messages">Nenhuma mensagem enviada ainda</p>
+                <p className="text-sm">Envie sua primeira mensagem aos restaurantes!</p>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

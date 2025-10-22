@@ -36,6 +36,9 @@ export const restaurants = pgTable("restaurants", {
   email: varchar("email", { length: 255 }).notNull().unique(),
   phone: varchar("phone", { length: 50 }),
   address: text("address"),
+  logoUrl: text("logo_url"),
+  businessHours: text("business_hours"),
+  description: text("description"),
   status: restaurantStatusEnum("status").notNull().default('pendente'),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -51,6 +54,9 @@ export const insertRestaurantSchema = createInsertSchema(restaurants).omit({
   email: z.string().email("Email inválido"),
   phone: z.string().min(1, "Telefone é obrigatório"),
   address: z.string().min(1, "Endereço é obrigatório"),
+  logoUrl: z.string().optional(),
+  businessHours: z.string().optional(),
+  description: z.string().optional(),
   password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
 });
 
@@ -228,12 +234,33 @@ export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 export type PublicOrderItem = z.infer<typeof publicOrderItemSchema>;
 export type OrderItem = typeof orderItems.$inferSelect;
 
+// Messages - Comunicações entre superadmin e restaurantes
+export const messages = pgTable("messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  sentBy: varchar("sent_by").notNull(),
+  isRead: integer("is_read").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMessageSchema = createInsertSchema(messages).omit({
+  id: true,
+  isRead: true,
+  createdAt: true,
+});
+
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type Message = typeof messages.$inferSelect;
+
 // Relations
 export const restaurantsRelations = relations(restaurants, ({ many }) => ({
   users: many(users),
   tables: many(tables),
   categories: many(categories),
   menuItems: many(menuItems),
+  messages: many(messages),
 }));
 
 export const usersRelations = relations(users, ({ one }) => ({
@@ -287,5 +314,12 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   menuItem: one(menuItems, {
     fields: [orderItems.menuItemId],
     references: [menuItems.id],
+  }),
+}));
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [messages.restaurantId],
+    references: [restaurants.id],
   }),
 }));
