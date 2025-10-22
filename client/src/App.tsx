@@ -17,6 +17,7 @@ import Kitchen from "@/pages/kitchen";
 import Users from "@/pages/users";
 import Profile from "@/pages/profile";
 import CustomerMenu from "@/pages/customer-menu";
+import SuperAdmin from "@/pages/superadmin";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -27,6 +28,12 @@ function Router() {
       <Route path="/mesa/:tableNumber" component={CustomerMenu} />
       {isLoading || !isAuthenticated ? (
         <Route path="/" component={Landing} />
+      ) : user?.role === 'superadmin' ? (
+        <>
+          <Route path="/" component={SuperAdmin} />
+          <Route path="/superadmin" component={SuperAdmin} />
+          <Route path="/perfil" component={Profile} />
+        </>
       ) : user?.role === 'kitchen' ? (
         <>
           <Route path="/" component={Kitchen} />
