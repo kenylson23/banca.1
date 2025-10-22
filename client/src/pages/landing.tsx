@@ -89,18 +89,18 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <div className="container mx-auto px-4 py-8 flex-1 flex flex-col">
-        <div className="text-center space-y-4 mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-1 flex flex-col">
+        <div className="text-center space-y-3 sm:space-y-4 mb-6 sm:mb-8">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground">
             Na Bancada
           </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
             Sistema completo de gestão de restaurante com QR Codes por mesa e comunicação em tempo real com a cozinha
           </p>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-8 items-start justify-center flex-1">
-          <div className="w-full lg:w-96">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start justify-center flex-1">
+          <div className="w-full lg:w-96 max-w-md mx-auto lg:mx-0">
             <Card>
               <CardHeader>
                 <CardTitle>Acesso ao Sistema</CardTitle>
@@ -112,7 +112,10 @@ export default function Landing() {
                 <Tabs defaultValue="login" className="w-full">
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="login" data-testid="tab-login">Entrar</TabsTrigger>
-                    <TabsTrigger value="register" data-testid="tab-register">Cadastrar Restaurante</TabsTrigger>
+                    <TabsTrigger value="register" data-testid="tab-register">
+                      <span className="hidden sm:inline">Cadastrar Restaurante</span>
+                      <span className="sm:hidden">Cadastrar</span>
+                    </TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="login" className="space-y-4">
@@ -309,7 +312,7 @@ export default function Landing() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:max-w-2xl">
+          <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 lg:max-w-2xl">
             <Card>
               <CardContent className="p-6 space-y-3">
                 <div className="h-12 w-12 rounded-md bg-primary/10 flex items-center justify-center">

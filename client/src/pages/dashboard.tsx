@@ -26,15 +26,15 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div>
-        <h1 className="text-4xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-2">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
           Visão geral das operações do restaurante
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -130,7 +130,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Card>
           <CardHeader>
             <CardTitle>Pratos Mais Pedidos</CardTitle>
@@ -194,7 +194,7 @@ export default function Dashboard() {
                 {recentOrders.map((order) => (
                   <div
                     key={order.id}
-                    className="flex items-center justify-between p-3 rounded-md border border-card-border"
+                    className="flex items-center justify-between p-3 sm:p-4 rounded-md border border-card-border"
                     data-testid={`order-recent-${order.id}`}
                   >
                     <div>

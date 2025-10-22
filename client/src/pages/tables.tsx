@@ -134,17 +134,17 @@ export default function Tables() {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 sm:space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-foreground">Mesas</h1>
-          <p className="text-muted-foreground mt-2">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Mesas</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
             Gerencie as mesas do restaurante e seus QR codes
           </p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button data-testid="button-create-table">
+            <Button data-testid="button-create-table" className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Nova Mesa
             </Button>
@@ -185,13 +185,13 @@ export default function Tables() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {[...Array(8)].map((_, i) => (
             <Skeleton key={i} className="h-64" />
           ))}
         </div>
       ) : tables && tables.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {tables.map((table) => (
             <Card key={table.id} data-testid={`card-table-${table.id}`}>
               <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
@@ -206,11 +206,11 @@ export default function Tables() {
                     className="w-full h-full object-contain p-4"
                   />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1"
+                    className="w-full sm:flex-1"
                     onClick={() => setQrDialogTable(table)}
                     data-testid={`button-view-qr-${table.id}`}
                   >
@@ -220,7 +220,7 @@ export default function Tables() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1"
+                    className="w-full sm:flex-1"
                     onClick={() => handleDownloadQR(table)}
                     data-testid={`button-download-qr-${table.id}`}
                   >

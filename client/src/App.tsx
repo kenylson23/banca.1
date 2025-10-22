@@ -77,11 +77,11 @@ function AppContent() {
       <div className="flex h-screen w-full">
         <AppSidebar />
         <div className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center justify-between p-4 border-b border-border bg-background">
+          <header className="flex items-center justify-between p-3 sm:p-4 border-b border-border bg-background">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <ThemeToggle />
           </header>
-          <main className="flex-1 overflow-auto p-8 bg-background">
+          <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 bg-background">
             <Router />
           </main>
         </div>

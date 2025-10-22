@@ -229,20 +229,21 @@ export default function CustomerMenu() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between px-4">
+        <div className="container flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4">
           <div>
-            <h1 className="text-xl font-semibold" data-testid="text-restaurant-name">NaBancada</h1>
-            <p className="text-sm text-muted-foreground" data-testid="text-table-number">
+            <h1 className="text-lg sm:text-xl font-semibold" data-testid="text-restaurant-name">NaBancada</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground" data-testid="text-table-number">
               Mesa {currentTable?.number || tableNumber}
             </p>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Dialog open={isOrdersDialogOpen} onOpenChange={setIsOrdersDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" data-testid="button-track-orders">
+                <Button variant="outline" data-testid="button-track-orders" className="text-sm">
                   <ClipboardList className="h-4 w-4 mr-2" />
-                  Rastrear Pedido
+                  <span className="hidden sm:inline">Rastrear Pedido</span>
+                  <span className="sm:hidden">Pedidos</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[80vh]">
@@ -452,7 +453,7 @@ export default function CustomerMenu() {
         </div>
       </header>
 
-      <main className="container px-4 py-8">
+      <main className="container px-3 sm:px-4 py-4 sm:py-6 lg:py-8">
         {restaurant && (
           <Card className="mb-8" data-testid="card-restaurant-info">
             <CardHeader className="text-center">
