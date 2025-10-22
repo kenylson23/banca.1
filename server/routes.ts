@@ -37,6 +37,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
   // Auth routes
+  // NOTE: Public registration is disabled for security. 
+  // Users must be created by administrators through /api/users endpoint.
+  // Uncomment below only for initial setup if no admin exists yet:
+  /*
   app.post('/api/auth/register', async (req, res) => {
     try {
       const data = insertUserSchema.parse(req.body);
@@ -71,6 +75,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Erro ao cadastrar usuário" });
     }
   });
+  */
 
   app.post('/api/auth/login', (req, res, next) => {
     try {

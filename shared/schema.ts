@@ -50,7 +50,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
   password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
-  role: z.enum(['admin', 'kitchen']).default('admin'),
+  role: z.enum(['admin', 'kitchen']),
 });
 
 export const loginSchema = z.object({
