@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { db } from './db';
+import { hashPassword } from './auth';
 
 let isInitialized = false;
 let initPromise: Promise<void> | null = null;
@@ -133,6 +134,26 @@ export async function ensureTablesExist() {
         notes TEXT, 
         created_at TIMESTAMP DEFAULT NOW()
       );`);
+      
+      // Create initial super admin user if it doesn't exist
+      const superAdminEmail = 'superadmin@nabancada.com';
+      const checkSuperAdmin = await db.execute(sql`SELECT id FROM users WHERE email = ${superAdminEmail} AND role = 'superadmin'`);
+      
+      if (checkSuperAdmin.rows.length === 0) {
+        console.log('Creating initial super admin user...');
+        const defaultPassword = 'SuperAdmin123!';
+        const hashedPassword = await hashPassword(defaultPassword);
+        
+        await db.execute(sql`
+          INSERT INTO users (email, password, first_name, last_name, role, restaurant_id)
+          VALUES (${superAdminEmail}, ${hashedPassword}, 'Super', 'Admin', 'superadmin', NULL)
+        `);
+        
+        console.log('Super admin user created successfully!');
+        console.log('Email: superadmin@nabancada.com');
+        console.log('Password: SuperAdmin123!');
+        console.log('IMPORTANT: Please change this password after first login!');
+      }
       
       isInitialized = true;
       console.log('Database tables ensured successfully!');
