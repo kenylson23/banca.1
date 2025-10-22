@@ -278,8 +278,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ===== TABLE ROUTES =====
-  app.get("/api/tables", isAuthenticated, async (req, res) => {
+  // ===== TABLE ROUTES (Admin Only) =====
+  app.get("/api/tables", isAdmin, async (req, res) => {
     try {
       const tables = await storage.getTables();
       res.json(tables);
@@ -289,7 +289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tables", isAuthenticated, async (req, res) => {
+  app.post("/api/tables", isAdmin, async (req, res) => {
     try {
       const data = insertTableSchema.parse(req.body);
       
@@ -318,7 +318,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/tables/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/tables/:id", isAdmin, async (req, res) => {
     try {
       await storage.deleteTable(req.params.id);
       
@@ -332,8 +332,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ===== CATEGORY ROUTES =====
-  app.get("/api/categories", isAuthenticated, async (req, res) => {
+  // ===== CATEGORY ROUTES (Admin Only) =====
+  app.get("/api/categories", isAdmin, async (req, res) => {
     try {
       const categories = await storage.getCategories();
       res.json(categories);
@@ -343,7 +343,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/categories", isAuthenticated, async (req, res) => {
+  app.post("/api/categories", isAdmin, async (req, res) => {
     try {
       const data = insertCategorySchema.parse(req.body);
       const category = await storage.createCategory(data);
@@ -357,7 +357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/categories/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/categories/:id", isAdmin, async (req, res) => {
     try {
       await storage.deleteCategory(req.params.id);
       res.json({ success: true });
@@ -367,8 +367,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ===== MENU ITEM ROUTES =====
-  app.get("/api/menu-items", isAuthenticated, async (req, res) => {
+  // ===== MENU ITEM ROUTES (Admin Only) =====
+  app.get("/api/menu-items", isAdmin, async (req, res) => {
     try {
       const menuItems = await storage.getMenuItems();
       res.json(menuItems);
@@ -378,7 +378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/menu-items", isAuthenticated, async (req, res) => {
+  app.post("/api/menu-items", isAdmin, async (req, res) => {
     try {
       const data = insertMenuItemSchema.parse(req.body);
       const menuItem = await storage.createMenuItem(data);
@@ -392,7 +392,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/menu-items/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/menu-items/:id", isAdmin, async (req, res) => {
     try {
       const data = insertMenuItemSchema.partial().parse(req.body);
       const menuItem = await storage.updateMenuItem(req.params.id, data);
@@ -406,7 +406,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/menu-items/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/menu-items/:id", isAdmin, async (req, res) => {
     try {
       await storage.deleteMenuItem(req.params.id);
       res.json({ success: true });
@@ -427,7 +427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/orders/recent", isAuthenticated, async (req, res) => {
+  app.get("/api/orders/recent", isAdmin, async (req, res) => {
     try {
       const orders = await storage.getRecentOrders(10);
       res.json(orders);
@@ -437,7 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/orders", isAuthenticated, async (req, res) => {
+  app.post("/api/orders", isAdmin, async (req, res) => {
     try {
       const { items, ...orderData } = req.body;
       const validatedOrder = insertOrderSchema.parse(orderData);
@@ -487,8 +487,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ===== STATS ROUTES =====
-  app.get("/api/stats/dashboard", isAuthenticated, async (req, res) => {
+  // ===== STATS ROUTES (Admin Only) =====
+  app.get("/api/stats/dashboard", isAdmin, async (req, res) => {
     try {
       const stats = await storage.getTodayStats();
       res.json(stats);
