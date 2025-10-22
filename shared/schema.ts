@@ -158,6 +158,7 @@ export const categories = pgTable("categories", {
 
 export const insertCategorySchema = createInsertSchema(categories).omit({
   id: true,
+  restaurantId: true,
   createdAt: true,
 });
 
