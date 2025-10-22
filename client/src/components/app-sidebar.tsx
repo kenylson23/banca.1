@@ -1,4 +1,4 @@
-import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -107,24 +107,37 @@ export function AppSidebar() {
               )}
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
-            onClick={async () => {
-              try {
-                await fetch("/api/auth/logout", { method: "POST" });
-                window.location.href = "/";
-              } catch (error) {
-                console.error("Erro ao fazer logout:", error);
-                window.location.href = "/";
-              }
-            }}
-            data-testid="button-logout"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Sair
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              asChild
+            >
+              <Link href="/perfil" data-testid="button-profile">
+                <User className="h-4 w-4 mr-2" />
+                Perfil
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={async () => {
+                try {
+                  await fetch("/api/auth/logout", { method: "POST" });
+                  window.location.href = "/";
+                } catch (error) {
+                  console.error("Erro ao fazer logout:", error);
+                  window.location.href = "/";
+                }
+              }}
+              data-testid="button-logout"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sair
+            </Button>
+          </div>
         </div>
       </SidebarFooter>
     </Sidebar>

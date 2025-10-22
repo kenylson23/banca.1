@@ -15,6 +15,7 @@ import Tables from "@/pages/tables";
 import Menu from "@/pages/menu";
 import Kitchen from "@/pages/kitchen";
 import Users from "@/pages/users";
+import Profile from "@/pages/profile";
 import CustomerMenu from "@/pages/customer-menu";
 import NotFound from "@/pages/not-found";
 
@@ -30,6 +31,7 @@ function Router() {
         <>
           <Route path="/" component={Kitchen} />
           <Route path="/cozinha" component={Kitchen} />
+          <Route path="/perfil" component={Profile} />
         </>
       ) : (
         <>
@@ -38,6 +40,7 @@ function Router() {
           <Route path="/menu" component={Menu} />
           <Route path="/cozinha" component={Kitchen} />
           <Route path="/usuarios" component={Users} />
+          <Route path="/perfil" component={Profile} />
         </>
       )}
       <Route component={NotFound} />
