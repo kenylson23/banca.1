@@ -180,6 +180,7 @@ export const menuItems = pgTable("menu_items", {
 
 export const insertMenuItemSchema = createInsertSchema(menuItems).omit({
   id: true,
+  restaurantId: true,
   createdAt: true,
 }).extend({
   price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço inválido"),
