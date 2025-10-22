@@ -345,7 +345,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(menuItems.restaurantId, restaurantId))
       .orderBy(categories.name, menuItems.name);
 
-    return results.map(row => ({
+    return results.map((row: { menu_items: MenuItem; categories: Category | null }) => ({
       ...row.menu_items,
       category: row.categories!,
     }));
@@ -405,7 +405,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(orders.createdAt));
 
     const ordersWithItems = await Promise.all(
-      allOrders.map(async (orderRow) => {
+      allOrders.map(async (orderRow: { orders: Order; tables: Table | null }) => {
         const items = await db
           .select()
           .from(orderItems)
@@ -415,7 +415,7 @@ export class DatabaseStorage implements IStorage {
         return {
           ...orderRow.orders,
           table: orderRow.tables!,
-          orderItems: items.map(item => ({
+          orderItems: items.map((item: { order_items: OrderItem; menu_items: MenuItem | null }) => ({
             ...item.order_items,
             menuItem: item.menu_items!,
           })),
@@ -435,7 +435,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(orders.createdAt))
       .limit(limit);
 
-    return results.map(row => ({
+    return results.map((row: { orders: Order; tables: Table | null }) => ({
       ...row.orders,
       table: { number: row.tables!.number },
     }));
@@ -458,7 +458,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(orders.createdAt));
 
     const ordersWithItems = await Promise.all(
-      tableOrders.map(async (order) => {
+      tableOrders.map(async (order: Order) => {
         const items = await db
           .select()
           .from(orderItems)
@@ -467,7 +467,7 @@ export class DatabaseStorage implements IStorage {
 
         return {
           ...order,
-          orderItems: items.map(item => ({
+          orderItems: items.map((item: { order_items: OrderItem; menu_items: MenuItem | null }) => ({
             ...item.order_items,
             menuItem: item.menu_items!,
           })),
@@ -565,10 +565,10 @@ export class DatabaseStorage implements IStorage {
         gte(orders.createdAt, today)
       ));
 
-    const todayOrders = todayOrdersData.map(row => row.orders);
+    const todayOrders = todayOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
 
     const todaySales = todayOrders.reduce(
-      (sum, order) => sum + parseFloat(order.totalAmount),
+      (sum: number, order: Order) => sum + parseFloat(order.totalAmount),
       0
     );
 
@@ -582,7 +582,7 @@ export class DatabaseStorage implements IStorage {
       ));
 
     // Get top dishes from today
-    const todayOrderIds = todayOrders.map(o => o.id);
+    const todayOrderIds = todayOrders.map((o: Order) => o.id);
     
     let topDishes: Array<{
       menuItem: MenuItem;
@@ -598,13 +598,13 @@ export class DatabaseStorage implements IStorage {
           revenue: sql<string>`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`,
         })
         .from(orderItems)
-        .where(sql`${orderItems.orderId} = ANY(ARRAY[${sql.join(todayOrderIds.map(id => sql`${id}`), sql`, `)}])`)
+        .where(sql`${orderItems.orderId} = ANY(ARRAY[${sql.join(todayOrderIds.map((id: string) => sql`${id}`), sql`, `)}])`)
         .groupBy(orderItems.menuItemId)
         .orderBy(desc(sql`sum(${orderItems.quantity})`))
         .limit(5);
 
       topDishes = await Promise.all(
-        dishStats.map(async (stat) => {
+        dishStats.map(async (stat: { menuItemId: string; count: number; revenue: string }) => {
           const item = await this.getMenuItemById(stat.menuItemId);
           return {
             menuItem: item!,
@@ -672,11 +672,11 @@ export class DatabaseStorage implements IStorage {
         sql`${orders.createdAt} <= ${periodEnd}`
       ));
 
-    const periodOrders = periodOrdersData.map(row => row.orders);
+    const periodOrders = periodOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
 
     const totalOrders = periodOrders.length;
     const totalRevenue = periodOrders.reduce(
-      (sum, order) => sum + parseFloat(order.totalAmount),
+      (sum: number, order: Order) => sum + parseFloat(order.totalAmount),
       0
     );
 
@@ -686,7 +686,7 @@ export class DatabaseStorage implements IStorage {
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
     // Get top dishes for the period
-    const orderIds = periodOrders.map(o => o.id);
+    const orderIds = periodOrders.map((o: Order) => o.id);
     
     let topDishes: Array<{
       menuItem: MenuItem;
@@ -702,13 +702,13 @@ export class DatabaseStorage implements IStorage {
           revenue: sql<string>`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`,
         })
         .from(orderItems)
-        .where(sql`${orderItems.orderId} = ANY(ARRAY[${sql.join(orderIds.map(id => sql`${id}`), sql`, `)}])`)
+        .where(sql`${orderItems.orderId} = ANY(ARRAY[${sql.join(orderIds.map((id: string) => sql`${id}`), sql`, `)}])`)
         .groupBy(orderItems.menuItemId)
         .orderBy(desc(sql`sum(${orderItems.quantity})`))
         .limit(10);
 
       topDishes = await Promise.all(
-        dishStats.map(async (stat) => {
+        dishStats.map(async (stat: { menuItemId: string; count: number; revenue: string }) => {
           const item = await this.getMenuItemById(stat.menuItemId);
           return {
             menuItem: item!,
@@ -748,7 +748,7 @@ export class DatabaseStorage implements IStorage {
     // Calculate total revenue across all restaurants
     const allOrders = await db.select().from(orders);
     const totalRevenue = allOrders.reduce(
-      (sum, order) => sum + parseFloat(order.totalAmount),
+      (sum: number, order: Order) => sum + parseFloat(order.totalAmount),
       0
     );
 
@@ -775,7 +775,7 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(restaurants, eq(messages.restaurantId, restaurants.id))
       .orderBy(desc(messages.createdAt));
 
-    return results.map(row => ({
+    return results.map((row: { messages: Message; restaurants: Restaurant | null }) => ({
       ...row.messages,
       restaurant: row.restaurants!,
     }));
