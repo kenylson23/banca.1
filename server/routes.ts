@@ -20,6 +20,18 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 
+// Middleware to check if user is admin
+function isAdmin(req: any, res: any, next: any) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Não autenticado" });
+  }
+  const user = req.user as User;
+  if (user.role !== 'admin') {
+    return res.status(403).json({ message: "Acesso negado. Apenas administradores podem realizar esta ação." });
+  }
+  next();
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   setupAuth(app);
@@ -45,6 +57,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       };
@@ -86,6 +99,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
+          role: user.role,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         };
@@ -112,6 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       };
@@ -119,6 +134,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Erro ao buscar usuário" });
+    }
+  });
+
+  // ===== USER MANAGEMENT ROUTES (Admin Only) =====
+  app.get('/api/users', isAdmin, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const usersWithoutPassword = users.map(user => ({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      }));
+      res.json(usersWithoutPassword);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Erro ao buscar usuários" });
+    }
+  });
+
+  app.post('/api/users', isAdmin, async (req, res) => {
+    try {
+      const data = insertUserSchema.parse(req.body);
+      
+      const existingUser = await storage.getUserByEmail(data.email);
+      if (existingUser) {
+        return res.status(400).json({ message: "Email já cadastrado" });
+      }
+
+      const hashedPassword = await hashPassword(data.password);
+      const user = await storage.createUser({
+        ...data,
+        password: hashedPassword,
+      });
+
+      const userWithoutPassword = {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      };
+
+      res.json(userWithoutPassword);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Erro ao criar usuário" });
+    }
+  });
+
+  app.delete('/api/users/:id', isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      if (currentUser.id === req.params.id) {
+        return res.status(400).json({ message: "Não é possível deletar o próprio usuário" });
+      }
+
+      await storage.deleteUser(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Erro ao deletar usuário" });
     }
   });
 
