@@ -110,8 +110,9 @@ Para fazer deploy no Render, siga o guia detalhado em [RENDER_DEPLOY.md](./RENDE
 2. **Criar Web Service no Render**
    - Conecte seu repositório Git
    - Configure:
-     - Build Command: `npm install && npm run build`
+     - Build Command: `npm install --include=dev && npm run build`
      - Start Command: `npm start`
+   - ⚠️ **IMPORTANTE**: Use `--include=dev` no build command para evitar erro 127
 
 3. **Configurar Variáveis de Ambiente**
    ```

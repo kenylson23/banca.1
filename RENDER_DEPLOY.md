@@ -37,9 +37,11 @@ Este guia contém todas as instruções necessárias para fazer o deploy do sist
    - **Branch**: main (ou a branch principal do seu projeto)
    - **Root Directory**: (deixe em branco se o projeto está na raiz)
    - **Runtime**: Node
-   - **Build Command**: `npm install && npm run build`
+   - **Build Command**: `npm install --include=dev && npm run build`
    - **Start Command**: `npm start`
    - **Plan**: escolha o plano adequado
+
+**⚠️ IMPORTANTE**: O comando de build DEVE incluir `--include=dev` para instalar as ferramentas necessárias (TypeScript, esbuild, Vite, etc.). Sem isso, o build falhará com erro 127.
 
 ## Passo 3: Configurar Variáveis de Ambiente
 
@@ -111,6 +113,22 @@ O sistema NaBancada utiliza as seguintes tabelas:
 - `sessions` - Sessões de usuários
 
 ## Troubleshooting
+
+### Erro: Build falha com status 127 (Command not found)
+
+**Causa**: As ferramentas de build (TypeScript, esbuild, Vite) não foram instaladas.
+
+**Solução**:
+1. Vá em **Settings** do seu Web Service no Render
+2. Atualize o **Build Command** para: `npm install --include=dev && npm run build`
+3. Clique em **"Save Changes"**
+4. Faça um novo deploy clicando em **"Manual Deploy > Deploy latest commit"**
+
+Alternativamente, você pode adicionar uma variável de ambiente:
+```
+NPM_CONFIG_PRODUCTION=false
+```
+E usar o build command original: `npm install && npm run build`
 
 ### Erro: "DATABASE_URL is not configured"
 - Verifique se a variável `DATABASE_URL` está corretamente configurada
