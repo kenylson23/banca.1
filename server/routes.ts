@@ -16,6 +16,8 @@ import {
   publicOrderItemSchema,
   insertUserSchema,
   loginSchema,
+  updateUserSchema,
+  updatePasswordSchema,
   type User,
 } from "@shared/schema";
 import { z } from "zod";
@@ -139,6 +141,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Erro ao buscar usuário" });
+    }
+  });
+
+  app.patch('/api/auth/profile', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const data = updateUserSchema.parse(req.body);
+      
+      if (data.email) {
+        const existingUser = await storage.getUserByEmail(data.email);
+        if (existingUser && existingUser.id !== currentUser.id) {
+          return res.status(400).json({ message: "Email já está em uso por outro usuário" });
+        }
+      }
+
+      const updatedUser = await storage.updateUser(currentUser.id, data);
+      
+      const userWithoutPassword = {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        role: updatedUser.role,
+        createdAt: updatedUser.createdAt,
+        updatedAt: updatedUser.updatedAt,
+      };
+
+      res.json(userWithoutPassword);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Error updating profile:", error);
+      res.status(500).json({ message: "Erro ao atualizar perfil" });
+    }
+  });
+
+  app.patch('/api/auth/password', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const data = updatePasswordSchema.parse(req.body);
+      
+      const user = await storage.getUser(currentUser.id);
+      if (!user) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+
+      const { verifyPassword } = await import('./auth');
+      const isValidPassword = await verifyPassword(data.currentPassword, user.password);
+      
+      if (!isValidPassword) {
+        return res.status(400).json({ message: "Senha atual incorreta" });
+      }
+
+      const hashedPassword = await hashPassword(data.newPassword);
+      await storage.updateUserPassword(currentUser.id, hashedPassword);
+
+      res.json({ success: true, message: "Senha alterada com sucesso" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Error updating password:", error);
+      res.status(500).json({ message: "Erro ao atualizar senha" });
     }
   });
 

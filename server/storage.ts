@@ -30,7 +30,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
   deleteUser(id: string): Promise<void>;
-  updateUser(id: string, data: { email?: string; firstName?: string; lastName?: string; role?: string }): Promise<User>;
+  updateUser(id: string, data: { email?: string; firstName?: string; lastName?: string; role?: 'admin' | 'kitchen' }): Promise<User>;
   updateUserPassword(id: string, hashedPassword: string): Promise<User>;
 
   // Table operations
@@ -105,7 +105,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(users).where(eq(users.id, id));
   }
 
-  async updateUser(id: string, data: { email?: string; firstName?: string; lastName?: string; role?: string }): Promise<User> {
+  async updateUser(id: string, data: { email?: string; firstName?: string; lastName?: string; role?: 'admin' | 'kitchen' }): Promise<User> {
     const [updated] = await db
       .update(users)
       .set({ ...data, updatedAt: new Date() })
