@@ -1,4 +1,4 @@
-import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -12,10 +12,10 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 
-const menuItems = [
+const adminMenuItems = [
   {
     title: "Dashboard",
     url: "/",
@@ -36,11 +36,26 @@ const menuItems = [
     url: "/cozinha",
     icon: ChefHat,
   },
+  {
+    title: "Usuários",
+    url: "/usuarios",
+    icon: Users,
+  },
+];
+
+const kitchenMenuItems = [
+  {
+    title: "Cozinha",
+    url: "/cozinha",
+    icon: ChefHat,
+  },
 ];
 
 export function AppSidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
+  
+  const menuItems = user?.role === 'admin' ? adminMenuItems : kitchenMenuItems;
 
   return (
     <Sidebar>
@@ -77,7 +92,6 @@ export function AppSidebar() {
         <div className="p-4 border-t border-sidebar-border space-y-3">
           <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9">
-              <AvatarImage src={user?.profileImageUrl || undefined} />
               <AvatarFallback>
                 {user?.firstName?.[0] || user?.email?.[0] || "U"}
               </AvatarFallback>

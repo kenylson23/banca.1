@@ -14,23 +14,30 @@ import Dashboard from "@/pages/dashboard";
 import Tables from "@/pages/tables";
 import Menu from "@/pages/menu";
 import Kitchen from "@/pages/kitchen";
+import Users from "@/pages/users";
 import CustomerMenu from "@/pages/customer-menu";
 import NotFound from "@/pages/not-found";
 
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   return (
     <Switch>
       <Route path="/mesa/:tableNumber" component={CustomerMenu} />
       {isLoading || !isAuthenticated ? (
         <Route path="/" component={Landing} />
+      ) : user?.role === 'kitchen' ? (
+        <>
+          <Route path="/" component={Kitchen} />
+          <Route path="/cozinha" component={Kitchen} />
+        </>
       ) : (
         <>
           <Route path="/" component={Dashboard} />
           <Route path="/mesas" component={Tables} />
           <Route path="/menu" component={Menu} />
           <Route path="/cozinha" component={Kitchen} />
+          <Route path="/usuarios" component={Users} />
         </>
       )}
       <Route component={NotFound} />
