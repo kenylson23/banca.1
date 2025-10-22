@@ -65,6 +65,12 @@ export const updateUserSchema = z.object({
   role: z.enum(['admin', 'kitchen']).optional(),
 });
 
+export const updateProfileSchema = z.object({
+  email: z.string().email("Email inválido").optional(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+});
+
 export const updatePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Senha atual é obrigatória"),
   newPassword: z.string().min(6, "A nova senha deve ter pelo menos 6 caracteres"),
@@ -77,6 +83,7 @@ export const updatePasswordSchema = z.object({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginUser = z.infer<typeof loginSchema>;
 export type UpdateUser = z.infer<typeof updateUserSchema>;
+export type UpdateProfile = z.infer<typeof updateProfileSchema>;
 export type UpdatePassword = z.infer<typeof updatePasswordSchema>;
 export type User = typeof users.$inferSelect;
 

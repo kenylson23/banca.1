@@ -17,6 +17,7 @@ import {
   insertUserSchema,
   loginSchema,
   updateUserSchema,
+  updateProfileSchema,
   updatePasswordSchema,
   type User,
 } from "@shared/schema";
@@ -147,7 +148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/auth/profile', isAuthenticated, async (req, res) => {
     try {
       const currentUser = req.user as User;
-      const data = updateUserSchema.parse(req.body);
+      const data = updateProfileSchema.parse(req.body);
       
       if (data.email) {
         const existingUser = await storage.getUserByEmail(data.email);

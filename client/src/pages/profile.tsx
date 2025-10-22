@@ -5,7 +5,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { updateUserSchema, updatePasswordSchema, type UpdateUser, type UpdatePassword } from "@shared/schema";
+import { updateProfileSchema, updatePasswordSchema, type UpdateProfile, type UpdatePassword } from "@shared/schema";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -15,8 +15,8 @@ export default function Profile() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const profileForm = useForm<UpdateUser>({
-    resolver: zodResolver(updateUserSchema),
+  const profileForm = useForm<UpdateProfile>({
+    resolver: zodResolver(updateProfileSchema),
     defaultValues: {
       email: user?.email || "",
       firstName: user?.firstName || "",
@@ -34,7 +34,7 @@ export default function Profile() {
   });
 
   const updateProfileMutation = useMutation({
-    mutationFn: async (data: UpdateUser) => {
+    mutationFn: async (data: UpdateProfile) => {
       const res = await apiRequest("PATCH", "/api/auth/profile", data);
       return await res.json();
     },
@@ -75,7 +75,7 @@ export default function Profile() {
     },
   });
 
-  const onProfileSubmit = (data: UpdateUser) => {
+  const onProfileSubmit = (data: UpdateProfile) => {
     updateProfileMutation.mutate(data);
   };
 
