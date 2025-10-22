@@ -15,6 +15,7 @@ Sistema completo de gestão de restaurante multi-tenant com QR Codes por mesa, p
 - **Painel de Cozinha:** Visualização de pedidos com filtros e alertas sonoros/visuais
 - **Tempo Real:** WebSocket para atualizações instantâneas entre admin e cozinha
 - **Dark/Light Mode:** Suporte completo com tema personalizado
+- **Responsividade Total:** Interface otimizada para smartphones, tablets e desktops (320px+)
 
 ## Arquitetura
 
@@ -146,6 +147,7 @@ Sistema completo de gestão de restaurante multi-tenant com QR Codes por mesa, p
   - Servido: Gray (#6b7280)
 - **Typography:** Inter (UI), JetBrains Mono (dados)
 - **Spacing:** Sistema 4px base (p-2, p-4, p-6, p-8)
+- **Responsividade:** Mobile-first com breakpoints Tailwind (sm:640px, md:768px, lg:1024px, xl:1280px)
 
 ## Fluxo de Trabalho
 
@@ -202,6 +204,12 @@ Sistema completo de gestão de restaurante multi-tenant com QR Codes por mesa, p
 - ✅ Dashboard de super admin com aprovação de restaurantes (22/10/2025)
 - ✅ Estatísticas da plataforma (total, ativos, pendentes, suspensos) (22/10/2025)
 - ✅ Controle de acesso baseado em roles (superadmin, admin, kitchen) (22/10/2025)
+- ✅ Responsividade mobile/tablet em todas as páginas (22/10/2025)
+  - Títulos, espaçamentos e grids adaptáveis
+  - Headers responsivos com flex-wrap
+  - Padding otimizado para telas pequenas (320px+)
+  - Botões e controles com tamanhos adequados para toque
+  - Experiência de pedido otimizada para clientes em smartphones
 
 ## Próximas Fases
 - Testes automatizados para super admin endpoints
