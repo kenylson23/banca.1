@@ -473,6 +473,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/public/tables/:number", async (req, res) => {
+    try {
+      const tableNumber = parseInt(req.params.number);
+      if (isNaN(tableNumber)) {
+        return res.status(400).json({ message: "Número de mesa inválido" });
+      }
+      
+      const table = await storage.getTableByNumber(tableNumber);
+      
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+      
+      res.json(table);
+    } catch (error) {
+      console.error("Error fetching table:", error);
+      res.status(500).json({ message: "Erro ao buscar mesa" });
+    }
+  });
+
   app.get("/api/public/tables/:restaurantId/:number", async (req, res) => {
     try {
       const restaurantId = req.params.restaurantId;

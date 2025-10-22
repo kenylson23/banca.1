@@ -50,6 +50,7 @@ export interface IStorage {
   // Table operations
   getTables(restaurantId: string): Promise<Table[]>;
   getTableById(id: string): Promise<Table | undefined>;
+  getTableByNumber(tableNumber: number): Promise<Table | undefined>;
   createTable(restaurantId: string, table: { number: number; qrCode: string }): Promise<Table>;
   deleteTable(restaurantId: string, id: string): Promise<void>;
   updateTableOccupancy(restaurantId: string, id: string, isOccupied: boolean): Promise<void>;
@@ -266,6 +267,11 @@ export class DatabaseStorage implements IStorage {
 
   async getTableById(id: string): Promise<Table | undefined> {
     const [table] = await db.select().from(tables).where(eq(tables.id, id));
+    return table;
+  }
+
+  async getTableByNumber(tableNumber: number): Promise<Table | undefined> {
+    const [table] = await db.select().from(tables).where(eq(tables.number, tableNumber));
     return table;
   }
 

@@ -28,10 +28,6 @@ export default function CustomerMenu() {
   const [customerPhone, setCustomerPhone] = useState('');
   const { toast } = useToast();
 
-  const { data: menuItems, isLoading: menuLoading } = useQuery<Array<MenuItem & { category: Category }>>({
-    queryKey: ['/api/public/menu-items'],
-  });
-
   const { data: currentTable, isLoading: tableLoading } = useQuery<any>({
     queryKey: ['/api/public/tables', tableNumber],
     enabled: !!tableNumber,
@@ -39,6 +35,11 @@ export default function CustomerMenu() {
 
   const tableId = currentTable?.id;
   const restaurantId = currentTable?.restaurantId;
+
+  const { data: menuItems, isLoading: menuLoading } = useQuery<Array<MenuItem & { category: Category }>>({
+    queryKey: ['/api/public/menu-items', restaurantId],
+    enabled: !!restaurantId,
+  });
   
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
     queryKey: ['/api/public/restaurants', restaurantId],
