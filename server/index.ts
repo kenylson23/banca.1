@@ -46,7 +46,7 @@ app.use((req, res, next) => {
   } catch (error) {
     console.error('Failed to initialize database:', error instanceof Error ? error.message : error);
     console.error('The application requires a database connection to run.');
-    console.error('Please connect your PostgreSQL database through the Replit Database pane.');
+    console.error('Please ensure DATABASE_URL environment variable is set with your PostgreSQL connection string.');
     process.exit(1);
   }
 
@@ -70,15 +70,15 @@ app.use((req, res, next) => {
   }
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
+  // Cloud platforms like Render automatically set this variable
+  // Default to 5000 for local development
   const port = parseInt(process.env.PORT || '5000', 10);
   server.listen({
     port,
     host: "0.0.0.0",
     reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    log(`NaBancada server running on port ${port}`);
+    log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   });
 })();

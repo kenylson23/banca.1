@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { db } from './db';
+import { db, initializeConnection } from './db';
 import { hashPassword } from './auth';
 
 let isInitialized = false;
@@ -16,6 +16,7 @@ export async function ensureTablesExist() {
 
   initPromise = (async () => {
     try {
+      await initializeConnection();
       console.log('Ensuring database tables exist...');
       
       // Create enums
