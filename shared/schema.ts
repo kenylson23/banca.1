@@ -26,6 +26,9 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
+// User Role Enum
+export const userRoleEnum = pgEnum('user_role', ['admin', 'kitchen']);
+
 // User storage table
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -33,6 +36,7 @@ export const users = pgTable("users", {
   password: varchar("password", { length: 255 }).notNull(),
   firstName: varchar("first_name", { length: 100 }),
   lastName: varchar("last_name", { length: 100 }),
+  role: userRoleEnum("role").notNull().default('admin'),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -46,6 +50,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
   password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  role: z.enum(['admin', 'kitchen']).default('admin'),
 });
 
 export const loginSchema = z.object({
