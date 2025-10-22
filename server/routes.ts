@@ -570,6 +570,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/stats/kitchen", isAuthenticated, async (req, res) => {
+    try {
+      const period = req.query.period as 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' || 'daily';
+      if (!['daily', 'weekly', 'monthly', 'quarterly', 'yearly'].includes(period)) {
+        return res.status(400).json({ message: "Invalid period. Must be one of: daily, weekly, monthly, quarterly, yearly" });
+      }
+      const stats = await storage.getKitchenStats(period);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching kitchen stats:", error);
+      res.status(500).json({ message: "Failed to fetch kitchen stats" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // Setup WebSocket server for real-time updates

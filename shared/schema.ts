@@ -174,6 +174,7 @@ export const orderItems = pgTable("order_items", {
   menuItemId: varchar("menu_item_id").notNull().references(() => menuItems.id),
   quantity: integer("quantity").notNull(),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

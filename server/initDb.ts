@@ -34,7 +34,9 @@ export async function ensureTablesExist() {
       
       await db.execute(sql`CREATE TABLE IF NOT EXISTS orders (id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), table_id VARCHAR NOT NULL REFERENCES tables(id) ON DELETE CASCADE, customer_name VARCHAR(200), customer_phone VARCHAR(50), status order_status NOT NULL DEFAULT 'pendente', total_amount DECIMAL(10, 2) NOT NULL, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW());`);
       
-      await db.execute(sql`CREATE TABLE IF NOT EXISTS order_items (id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), order_id VARCHAR NOT NULL REFERENCES orders(id) ON DELETE CASCADE, menu_item_id VARCHAR NOT NULL REFERENCES menu_items(id), quantity INTEGER NOT NULL, price DECIMAL(10, 2) NOT NULL, created_at TIMESTAMP DEFAULT NOW());`);
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS order_items (id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), order_id VARCHAR NOT NULL REFERENCES orders(id) ON DELETE CASCADE, menu_item_id VARCHAR NOT NULL REFERENCES menu_items(id), quantity INTEGER NOT NULL, price DECIMAL(10, 2) NOT NULL, notes TEXT, created_at TIMESTAMP DEFAULT NOW());`);
+      
+      await db.execute(sql`DO $$ BEGIN ALTER TABLE order_items ADD COLUMN notes TEXT; EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       isInitialized = true;
       console.log('Database tables ensured successfully!');

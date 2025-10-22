@@ -71,6 +71,20 @@ export interface IStorage {
       totalRevenue: string;
     }>;
   }>;
+  
+  getKitchenStats(period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): Promise<{
+    totalOrders: number;
+    totalRevenue: string;
+    averageOrderValue: string;
+    averageOrdersPerDay: string;
+    topDishes: Array<{
+      menuItem: MenuItem;
+      count: number;
+      totalRevenue: string;
+    }>;
+    periodStart: Date;
+    periodEnd: Date;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -377,6 +391,109 @@ export class DatabaseStorage implements IStorage {
       todayOrders: todayOrders.length,
       activeTables: activeTables.length,
       topDishes,
+    };
+  }
+
+  async getKitchenStats(period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): Promise<{
+    totalOrders: number;
+    totalRevenue: string;
+    averageOrderValue: string;
+    averageOrdersPerDay: string;
+    topDishes: Array<{
+      menuItem: MenuItem;
+      count: number;
+      totalRevenue: string;
+    }>;
+    periodStart: Date;
+    periodEnd: Date;
+  }> {
+    const periodEnd = new Date();
+    periodEnd.setHours(23, 59, 59, 999);
+    
+    const periodStart = new Date();
+    periodStart.setHours(0, 0, 0, 0);
+
+    // Calculate period start based on selected period
+    switch (period) {
+      case 'daily':
+        // Already set to today
+        break;
+      case 'weekly':
+        periodStart.setDate(periodStart.getDate() - 7);
+        break;
+      case 'monthly':
+        periodStart.setMonth(periodStart.getMonth() - 1);
+        break;
+      case 'quarterly':
+        periodStart.setMonth(periodStart.getMonth() - 3);
+        break;
+      case 'yearly':
+        periodStart.setFullYear(periodStart.getFullYear() - 1);
+        break;
+    }
+
+    // Get orders for the period
+    const periodOrders = await db
+      .select()
+      .from(orders)
+      .where(and(
+        gte(orders.createdAt, periodStart),
+        sql`${orders.createdAt} <= ${periodEnd}`
+      ));
+
+    const totalOrders = periodOrders.length;
+    const totalRevenue = periodOrders.reduce(
+      (sum, order) => sum + parseFloat(order.totalAmount),
+      0
+    );
+
+    // Calculate days in period
+    const daysInPeriod = Math.max(1, Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)));
+    const averageOrdersPerDay = totalOrders / daysInPeriod;
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    // Get top dishes for the period
+    const orderIds = periodOrders.map(o => o.id);
+    
+    let topDishes: Array<{
+      menuItem: MenuItem;
+      count: number;
+      totalRevenue: string;
+    }> = [];
+
+    if (orderIds.length > 0) {
+      const dishStats = await db
+        .select({
+          menuItemId: orderItems.menuItemId,
+          count: sql<number>`cast(sum(${orderItems.quantity}) as int)`,
+          revenue: sql<string>`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`,
+        })
+        .from(orderItems)
+        .where(sql`${orderItems.orderId} = ANY(ARRAY[${sql.join(orderIds.map(id => sql`${id}`), sql`, `)}])`)
+        .groupBy(orderItems.menuItemId)
+        .orderBy(desc(sql`sum(${orderItems.quantity})`))
+        .limit(10);
+
+      topDishes = await Promise.all(
+        dishStats.map(async (stat) => {
+          const item = await this.getMenuItemById(stat.menuItemId);
+          return {
+            menuItem: item!,
+            count: stat.count,
+            totalRevenue: parseFloat(stat.revenue).toFixed(2),
+          };
+        })
+      );
+    }
+
+    return {
+      totalOrders,
+      totalRevenue: totalRevenue.toFixed(2),
+      averageOrderValue: averageOrderValue.toFixed(2),
+      averageOrdersPerDay: averageOrdersPerDay.toFixed(1),
+      topDishes,
+      periodStart,
+      periodEnd,
     };
   }
 }

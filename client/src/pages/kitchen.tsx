@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, Filter, Volume2, VolumeX } from "lucide-react";
+import { Clock, Filter, Volume2, VolumeX, BarChart3, TrendingUp, Package, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,10 +13,25 @@ import { formatKwanza } from "@/lib/formatters";
 import type { Order, OrderItem, MenuItem, Table } from "@shared/schema";
 
 type OrderStatus = "pendente" | "em_preparo" | "pronto" | "servido";
+type StatsPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
 
 interface KitchenOrder extends Order {
   table: Table;
   orderItems: Array<OrderItem & { menuItem: MenuItem }>;
+}
+
+interface KitchenStats {
+  totalOrders: number;
+  totalRevenue: string;
+  averageOrderValue: string;
+  averageOrdersPerDay: string;
+  topDishes: Array<{
+    menuItem: MenuItem;
+    count: number;
+    totalRevenue: string;
+  }>;
+  periodStart: Date;
+  periodEnd: Date;
 }
 
 const statusColors = {
@@ -38,6 +53,8 @@ export default function Kitchen() {
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [isMuted, setIsMuted] = useState(false);
   const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
+  const [statsPeriod, setStatsPeriod] = useState<StatsPeriod>("daily");
+  const [showStats, setShowStats] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const prevOrderCountRef = useRef<number>(0);
 
@@ -46,11 +63,22 @@ export default function Kitchen() {
     refetchInterval: 3000, // Poll every 3 seconds as fallback
   });
 
+  const { data: stats, isLoading: statsLoading } = useQuery<KitchenStats>({
+    queryKey: ["/api/stats/kitchen", statsPeriod],
+    queryFn: async () => {
+      const response = await fetch(`/api/stats/kitchen?period=${statsPeriod}`);
+      if (!response.ok) throw new Error('Failed to fetch stats');
+      return response.json();
+    },
+    enabled: showStats,
+  });
+
   // WebSocket handler for real-time updates
   const handleWebSocketMessage = useCallback((message: any) => {
     if (message.type === 'new_order' || message.type === 'order_status_updated') {
       // Invalidate kitchen orders to refetch
       queryClient.invalidateQueries({ queryKey: ["/api/orders/kitchen"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/kitchen"] });
     }
   }, []);
 
@@ -100,6 +128,7 @@ export default function Kitchen() {
       await apiRequest("PATCH", `/api/orders/${orderId}/status`, { status: newStatus });
       queryClient.invalidateQueries({ queryKey: ["/api/orders/kitchen"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/kitchen"] });
       toast({
         title: "Status atualizado",
         description: `Pedido marcado como ${statusLabels[newStatus]}`,
@@ -134,6 +163,20 @@ export default function Kitchen() {
     return `${hours}h ${minutes % 60}min`;
   };
 
+  const formatOrderTime = (createdAt: Date | null) => {
+    if (!createdAt) return "";
+    const date = new Date(createdAt);
+    return date.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const periodLabels = {
+    daily: "Diário",
+    weekly: "Semanal",
+    monthly: "Mensal",
+    quarterly: "Trimestral",
+    yearly: "Anual",
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -143,18 +186,28 @@ export default function Kitchen() {
             Gerencie pedidos em tempo real
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setIsMuted(!isMuted)}
-          data-testid="button-toggle-sound"
-        >
-          {isMuted ? (
-            <VolumeX className="h-5 w-5" />
-          ) : (
-            <Volume2 className="h-5 w-5" />
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={showStats ? "default" : "outline"}
+            onClick={() => setShowStats(!showStats)}
+            data-testid="button-toggle-stats"
+          >
+            <BarChart3 className="h-5 w-5 mr-2" />
+            Estatísticas
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsMuted(!isMuted)}
+            data-testid="button-toggle-sound"
+          >
+            {isMuted ? (
+              <VolumeX className="h-5 w-5" />
+            ) : (
+              <Volume2 className="h-5 w-5" />
+            )}
+          </Button>
+        </div>
       </div>
 
       <Tabs value={selectedStatus} onValueChange={setSelectedStatus}>
@@ -203,11 +256,18 @@ export default function Kitchen() {
                     <CardTitle className="text-2xl font-mono">
                       Mesa {order.table.number}
                     </CardTitle>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Clock className="h-3 w-3 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">
-                        {getTimeElapsed(order.createdAt)}
-                      </p>
+                    <div className="flex flex-col gap-1 mt-2">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-3 w-3 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">
+                          {formatOrderTime(order.createdAt)} ({getTimeElapsed(order.createdAt)})
+                        </p>
+                      </div>
+                      {order.customerName && (
+                        <p className="text-sm text-muted-foreground">
+                          Cliente: {order.customerName}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <Badge className={statusColors[order.status]}>
@@ -215,21 +275,35 @@ export default function Kitchen() {
                   </Badge>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-sm text-muted-foreground uppercase">
+                      Itens do Pedido
+                    </h3>
                     {order.orderItems.map((item) => (
                       <div
                         key={item.id}
-                        className="flex justify-between items-start py-2 border-b border-border last:border-0"
+                        className="bg-muted/50 rounded-md p-3 space-y-2"
                       >
-                        <div className="flex-1">
-                          <p className="font-medium">{item.menuItem.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Qtd: {item.quantity}
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                                {item.quantity}x
+                              </span>
+                              <p className="font-semibold text-base">{item.menuItem.name}</p>
+                            </div>
+                          </div>
+                          <p className="font-mono font-semibold text-base">
+                            {formatKwanza(item.price)}
                           </p>
                         </div>
-                        <p className="font-mono font-medium">
-                          {formatKwanza(item.price)}
-                        </p>
+                        {item.notes && (
+                          <div className="pl-8">
+                            <p className="text-sm text-muted-foreground italic">
+                              Obs: {item.notes}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -273,6 +347,161 @@ export default function Kitchen() {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {showStats && (
+        <div className="space-y-6 mt-8">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold">Estatísticas de Produção</h2>
+            <Tabs value={statsPeriod} onValueChange={(value) => setStatsPeriod(value as StatsPeriod)}>
+              <TabsList>
+                <TabsTrigger value="daily" data-testid="tab-stats-daily">
+                  Diário
+                </TabsTrigger>
+                <TabsTrigger value="weekly" data-testid="tab-stats-weekly">
+                  Semanal
+                </TabsTrigger>
+                <TabsTrigger value="monthly" data-testid="tab-stats-monthly">
+                  Mensal
+                </TabsTrigger>
+                <TabsTrigger value="quarterly" data-testid="tab-stats-quarterly">
+                  Trimestral
+                </TabsTrigger>
+                <TabsTrigger value="yearly" data-testid="tab-stats-yearly">
+                  Anual
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
+          {statsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-32" />
+              ))}
+            </div>
+          ) : stats ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Total de Pedidos
+                    </CardTitle>
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold" data-testid="text-total-orders">
+                      {stats.totalOrders}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Período {periodLabels[statsPeriod].toLowerCase()}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Receita Total
+                    </CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold" data-testid="text-total-revenue">
+                      {formatKwanza(stats.totalRevenue)}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Período {periodLabels[statsPeriod].toLowerCase()}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Ticket Médio
+                    </CardTitle>
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold" data-testid="text-avg-order-value">
+                      {formatKwanza(stats.averageOrderValue)}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Por pedido
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Média Diária
+                    </CardTitle>
+                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold" data-testid="text-avg-daily-orders">
+                      {stats.averageOrdersPerDay}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Pedidos por dia
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Pratos Mais Pedidos</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Ranking de popularidade no período {periodLabels[statsPeriod].toLowerCase()}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {stats.topDishes.length > 0 ? (
+                    <div className="space-y-4">
+                      {stats.topDishes.map((dish, index) => (
+                        <div
+                          key={dish.menuItem.id}
+                          className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
+                          data-testid={`dish-rank-${index + 1}`}
+                        >
+                          <div className="flex items-center gap-4 flex-1">
+                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground font-bold text-lg">
+                              {index + 1}
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-semibold text-base">
+                                {dish.menuItem.name}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {dish.count} {dish.count === 1 ? 'pedido' : 'pedidos'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-lg font-mono">
+                              {formatKwanza(dish.totalRevenue)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Receita total
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-center text-muted-foreground py-8">
+                      Nenhum dado disponível para este período
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          ) : null}
+        </div>
       )}
     </div>
   );
