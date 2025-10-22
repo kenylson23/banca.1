@@ -139,6 +139,7 @@ export const tables = pgTable("tables", {
 
 export const insertTableSchema = createInsertSchema(tables).omit({
   id: true,
+  restaurantId: true,
   qrCode: true,
   isOccupied: true,
   createdAt: true,
