@@ -1,368 +1,102 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { QrCode, ChefHat, BarChart3, Zap, Eye, EyeOff } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { loginSchema, insertRestaurantSchema, type LoginUser, type InsertRestaurant } from "@shared/schema";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { QrCode, ChefHat, BarChart3, Zap } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function Landing() {
-  const { toast } = useToast();
-  const [showPassword, setShowPassword] = useState(false);
-  const [showRegPassword, setShowRegPassword] = useState(false);
-
-  const loginForm = useForm<LoginUser>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
-
-  const registerForm = useForm<InsertRestaurant>({
-    resolver: zodResolver(insertRestaurantSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
-      address: "",
-      password: "",
-    },
-  });
-
-  const loginMutation = useMutation({
-    mutationFn: async (data: LoginUser) => {
-      const response = await apiRequest("POST", "/api/auth/login", data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      toast({
-        title: "Bem-vindo!",
-        description: "Login realizado com sucesso.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro ao fazer login",
-        description: error.message || "Email ou senha incorretos",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const registerMutation = useMutation({
-    mutationFn: async (data: InsertRestaurant) => {
-      const response = await apiRequest("POST", "/api/restaurants/register", data);
-      return response.json();
-    },
-    onSuccess: (data) => {
-      registerForm.reset();
-      toast({
-        title: "Cadastro enviado!",
-        description: "Seu cadastro foi enviado e está aguardando aprovação do administrador.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro ao cadastrar",
-        description: error.message || "Erro ao enviar cadastro",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const onLogin = (data: LoginUser) => {
-    loginMutation.mutate(data);
-  };
-
-  const onRegister = (data: InsertRestaurant) => {
-    registerMutation.mutate(data);
-  };
+  const [, setLocation] = useLocation();
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-1 flex flex-col">
-        <div className="text-center space-y-3 sm:space-y-4 mb-6 sm:mb-8">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16 flex-1 flex flex-col">
+        <div className="text-center space-y-6 sm:space-y-8 mb-12 sm:mb-16 max-w-4xl mx-auto">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground">
             Na Bancada
           </h1>
-          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
-            Sistema completo de gestão de restaurante com QR Codes por mesa e comunicação em tempo real com a cozinha
-          </p>
+          
+          <div className="space-y-4 sm:space-y-6">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-foreground">
+              Simplifique o atendimento no seu restaurante.
+            </h2>
+            
+            <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed px-4">
+              O Na Bancada conecta mesas, cozinha e clientes em tempo real — pedidos mais rápidos, 
+              menos erros e uma experiência moderna para o seu restaurante.
+            </p>
+            
+            <p className="text-sm sm:text-base text-muted-foreground/80 italic">
+              Feito à medida dos restaurantes angolanos.
+            </p>
+          </div>
+
+          <div className="pt-4 sm:pt-6">
+            <Button
+              size="lg"
+              onClick={() => setLocation("/login")}
+              data-testid="button-access-system"
+              className="text-base sm:text-lg px-8 sm:px-12 py-6 sm:py-7 bg-orange-500 hover:bg-orange-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+            >
+              Acessar Sistema
+            </Button>
+          </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start justify-center flex-1">
-          <div className="w-full lg:w-96 max-w-md mx-auto lg:mx-0">
-            <Card>
-              <CardHeader>
-                <CardTitle>Acesso ao Sistema</CardTitle>
-                <CardDescription>
-                  Entre ou cadastre seu restaurante
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Tabs defaultValue="login" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="login" data-testid="tab-login">Entrar</TabsTrigger>
-                    <TabsTrigger value="register" data-testid="tab-register">
-                      <span className="hidden sm:inline">Cadastrar Restaurante</span>
-                      <span className="sm:hidden">Cadastrar</span>
-                    </TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="login" className="space-y-4">
-                    <Form {...loginForm}>
-                      <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
-                        <FormField
-                          control={loginForm.control}
-                          name="email"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Email</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="email"
-                                  placeholder="seu@email.com"
-                                  data-testid="input-login-email"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={loginForm.control}
-                          name="password"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Senha</FormLabel>
-                              <FormControl>
-                                <div className="relative">
-                                  <Input
-                                    type={showPassword ? "text" : "password"}
-                                    placeholder="••••••••"
-                                    data-testid="input-login-password"
-                                    {...field}
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    data-testid="button-toggle-password"
-                                  >
-                                    {showPassword ? (
-                                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                    ) : (
-                                      <Eye className="h-4 w-4 text-muted-foreground" />
-                                    )}
-                                  </Button>
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <Button
-                          type="submit"
-                          className="w-full"
-                          data-testid="button-login-submit"
-                          disabled={loginMutation.isPending}
-                        >
-                          {loginMutation.isPending ? "Entrando..." : "Entrar"}
-                        </Button>
-                      </form>
-                    </Form>
-                  </TabsContent>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 max-w-6xl mx-auto w-full mb-12">
+          <Card className="hover-elevate">
+            <CardContent className="p-6 space-y-4">
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <QrCode className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold">QR Codes por Mesa</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Gere e gerencie QR codes únicos para cada mesa do restaurante
+              </p>
+            </CardContent>
+          </Card>
 
-                  <TabsContent value="register" className="space-y-4">
-                    <Form {...registerForm}>
-                      <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4">
-                        <FormField
-                          control={registerForm.control}
-                          name="name"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Nome do Restaurante</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="text"
-                                  placeholder="Restaurante ABC"
-                                  data-testid="input-restaurant-name"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={registerForm.control}
-                          name="email"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Email</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="email"
-                                  placeholder="contato@restaurante.com"
-                                  data-testid="input-restaurant-email"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={registerForm.control}
-                          name="phone"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Telefone</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="tel"
-                                  placeholder="+244 923 456 789"
-                                  data-testid="input-restaurant-phone"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={registerForm.control}
-                          name="address"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Endereço</FormLabel>
-                              <FormControl>
-                                <Textarea
-                                  placeholder="Rua Comandante Gika, 123 - Maianga - Luanda"
-                                  data-testid="input-restaurant-address"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={registerForm.control}
-                          name="password"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Senha</FormLabel>
-                              <FormControl>
-                                <div className="relative">
-                                  <Input
-                                    type={showRegPassword ? "text" : "password"}
-                                    placeholder="••••••••"
-                                    data-testid="input-restaurant-password"
-                                    {...field}
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                                    onClick={() => setShowRegPassword(!showRegPassword)}
-                                    data-testid="button-toggle-register-password"
-                                  >
-                                    {showRegPassword ? (
-                                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                    ) : (
-                                      <Eye className="h-4 w-4 text-muted-foreground" />
-                                    )}
-                                  </Button>
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <Button
-                          type="submit"
-                          className="w-full"
-                          data-testid="button-restaurant-submit"
-                          disabled={registerMutation.isPending}
-                        >
-                          {registerMutation.isPending ? "Cadastrando..." : "Cadastrar Restaurante"}
-                        </Button>
-                        <p className="text-xs text-muted-foreground text-center">
-                          Após o cadastro, aguarde a aprovação do administrador para acessar o sistema.
-                        </p>
-                      </form>
-                    </Form>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-          </div>
+          <Card className="hover-elevate">
+            <CardContent className="p-6 space-y-4">
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <ChefHat className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold">Painel da Cozinha</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Visualize pedidos em tempo real com alertas e filtros inteligentes
+              </p>
+            </CardContent>
+          </Card>
 
-          <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 lg:max-w-2xl">
-            <Card>
-              <CardContent className="p-6 space-y-3">
-                <div className="h-12 w-12 rounded-md bg-primary/10 flex items-center justify-center">
-                  <QrCode className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-lg font-semibold">QR Codes por Mesa</h3>
-                <p className="text-sm text-muted-foreground">
-                  Gere e gerencie QR codes únicos para cada mesa do restaurante
-                </p>
-              </CardContent>
-            </Card>
+          <Card className="hover-elevate">
+            <CardContent className="p-6 space-y-4">
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Zap className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold">Tempo Real</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Comunicação instantânea entre mesas, admin e cozinha via WebSockets
+              </p>
+            </CardContent>
+          </Card>
 
-            <Card>
-              <CardContent className="p-6 space-y-3">
-                <div className="h-12 w-12 rounded-md bg-primary/10 flex items-center justify-center">
-                  <ChefHat className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-lg font-semibold">Painel da Cozinha</h3>
-                <p className="text-sm text-muted-foreground">
-                  Visualize pedidos em tempo real com alertas e filtros inteligentes
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6 space-y-3">
-                <div className="h-12 w-12 rounded-md bg-primary/10 flex items-center justify-center">
-                  <Zap className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-lg font-semibold">Tempo Real</h3>
-                <p className="text-sm text-muted-foreground">
-                  Comunicação instantânea entre mesas, admin e cozinha via WebSockets
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-6 space-y-3">
-                <div className="h-12 w-12 rounded-md bg-primary/10 flex items-center justify-center">
-                  <BarChart3 className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-lg font-semibold">Estatísticas</h3>
-                <p className="text-sm text-muted-foreground">
-                  Acompanhe vendas diárias e pratos mais pedidos em tempo real
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+          <Card className="hover-elevate">
+            <CardContent className="p-6 space-y-4">
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <BarChart3 className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold">Estatísticas</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Acompanhe vendas diárias e pratos mais pedidos em tempo real
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </div>
+
+      <footer className="py-6 sm:py-8 border-t border-border">
+        <p className="text-center text-sm text-muted-foreground">
+          Desenvolvido por Kenylson Lourenço
+        </p>
+      </footer>
     </div>
   );
 }

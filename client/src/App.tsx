@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/useAuth";
 import { CartProvider } from "@/contexts/CartContext";
 import Landing from "@/pages/landing";
+import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Tables from "@/pages/tables";
 import Menu from "@/pages/menu";
@@ -27,7 +28,10 @@ function Router() {
     <Switch>
       <Route path="/mesa/:tableNumber" component={CustomerMenu} />
       {isLoading || !isAuthenticated ? (
-        <Route path="/" component={Landing} />
+        <>
+          <Route path="/" component={Landing} />
+          <Route path="/login" component={Login} />
+        </>
       ) : user?.role === 'superadmin' ? (
         <>
           <Route path="/" component={SuperAdmin} />
