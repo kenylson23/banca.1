@@ -144,12 +144,12 @@ export default function Login() {
                             <FormItem>
                               <FormLabel className="text-base">Email</FormLabel>
                               <FormControl>
-                                <div className="relative">
-                                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <div className="relative flex items-center">
+                                  <Mail className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
                                   <Input
                                     type="email"
                                     placeholder="seu@email.com"
-                                    className="pl-10 h-11"
+                                    className="pl-10 h-11 w-full"
                                     data-testid="input-login-email"
                                     {...field}
                                   />
@@ -166,12 +166,12 @@ export default function Login() {
                             <FormItem>
                               <FormLabel className="text-base">Senha</FormLabel>
                               <FormControl>
-                                <div className="relative">
-                                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <div className="relative flex items-center">
+                                  <Lock className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
                                   <Input
                                     type={showPassword ? "text" : "password"}
                                     placeholder="••••••••"
-                                    className="pl-10 pr-10 h-11"
+                                    className="pl-10 pr-10 h-11 w-full"
                                     data-testid="input-login-password"
                                     {...field}
                                   />
@@ -179,7 +179,7 @@ export default function Login() {
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                                    className="absolute right-0 h-11 px-3 hover:bg-transparent"
                                     onClick={() => setShowPassword(!showPassword)}
                                     data-testid="button-toggle-password"
                                   >
@@ -222,12 +222,12 @@ export default function Login() {
                             <FormItem>
                               <FormLabel className="text-base">Nome do Restaurante</FormLabel>
                               <FormControl>
-                                <div className="relative">
-                                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <div className="relative flex items-center">
+                                  <Building2 className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
                                   <Input
                                     type="text"
                                     placeholder="Restaurante ABC"
-                                    className="pl-10 h-11"
+                                    className="pl-10 h-11 w-full"
                                     data-testid="input-restaurant-name"
                                     {...field}
                                   />
@@ -244,12 +244,12 @@ export default function Login() {
                             <FormItem>
                               <FormLabel className="text-base">Email</FormLabel>
                               <FormControl>
-                                <div className="relative">
-                                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <div className="relative flex items-center">
+                                  <Mail className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
                                   <Input
                                     type="email"
                                     placeholder="contato@restaurante.com"
-                                    className="pl-10 h-11"
+                                    className="pl-10 h-11 w-full"
                                     data-testid="input-restaurant-email"
                                     {...field}
                                   />
@@ -266,12 +266,12 @@ export default function Login() {
                             <FormItem>
                               <FormLabel className="text-base">Telefone</FormLabel>
                               <FormControl>
-                                <div className="relative">
-                                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <div className="relative flex items-center">
+                                  <Phone className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
                                   <Input
                                     type="tel"
                                     placeholder="+244 923 456 789"
-                                    className="pl-10 h-11"
+                                    className="pl-10 h-11 w-full"
                                     data-testid="input-restaurant-phone"
                                     {...field}
                                   />
@@ -289,10 +289,10 @@ export default function Login() {
                               <FormLabel className="text-base">Endereço Completo</FormLabel>
                               <FormControl>
                                 <div className="relative">
-                                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
                                   <Textarea
                                     placeholder="Rua Comandante Gika, 123 - Maianga - Luanda"
-                                    className="pl-10 min-h-[80px]"
+                                    className="pl-10 min-h-[80px] w-full"
                                     data-testid="input-restaurant-address"
                                     {...field}
                                   />
@@ -309,12 +309,12 @@ export default function Login() {
                             <FormItem>
                               <FormLabel className="text-base">Senha</FormLabel>
                               <FormControl>
-                                <div className="relative">
-                                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <div className="relative flex items-center">
+                                  <Lock className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
                                   <Input
                                     type={showRegPassword ? "text" : "password"}
                                     placeholder="Mínimo 6 caracteres"
-                                    className="pl-10 pr-10 h-11"
+                                    className="pl-10 pr-10 h-11 w-full"
                                     data-testid="input-restaurant-password"
                                     {...field}
                                   />
@@ -322,7 +322,7 @@ export default function Login() {
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                                    className="absolute right-0 h-11 px-3 hover:bg-transparent"
                                     onClick={() => setShowRegPassword(!showRegPassword)}
                                     data-testid="button-toggle-register-password"
                                   >
