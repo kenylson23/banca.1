@@ -1,5 +1,4 @@
 import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield } from "lucide-react";
-import { Link, useLocation } from "wouter";
 import {
   Sidebar,
   SidebarContent,
@@ -14,31 +13,32 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
+import type { Section } from "@/pages/main-dashboard";
 
 const adminMenuItems = [
   {
     title: "Dashboard",
-    url: "/",
+    section: "dashboard" as Section,
     icon: LayoutDashboard,
   },
   {
     title: "Mesas",
-    url: "/mesas",
+    section: "tables" as Section,
     icon: QrCode,
   },
   {
     title: "Menu",
-    url: "/menu",
+    section: "menu" as Section,
     icon: UtensilsCrossed,
   },
   {
     title: "Cozinha",
-    url: "/cozinha",
+    section: "kitchen" as Section,
     icon: ChefHat,
   },
   {
     title: "Usuários",
-    url: "/usuarios",
+    section: "users" as Section,
     icon: Users,
   },
 ];
@@ -46,7 +46,7 @@ const adminMenuItems = [
 const kitchenMenuItems = [
   {
     title: "Cozinha",
-    url: "/cozinha",
+    section: "kitchen" as Section,
     icon: ChefHat,
   },
 ];
@@ -54,13 +54,17 @@ const kitchenMenuItems = [
 const superAdminMenuItems = [
   {
     title: "Super Admin",
-    url: "/superadmin",
+    section: "superadmin" as Section,
     icon: Shield,
   },
 ];
 
-export function AppSidebar() {
-  const [location] = useLocation();
+interface AppSidebarProps {
+  currentSection: Section;
+  onSectionChange: (section: Section) => void;
+}
+
+export function AppSidebar({ currentSection, onSectionChange }: AppSidebarProps) {
   const { user } = useAuth();
   
   const menuItems = user?.role === 'superadmin' 
@@ -84,14 +88,12 @@ export function AppSidebar() {
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
-                    asChild
-                    isActive={location === item.url}
-                    data-testid={`link-${item.title.toLowerCase()}`}
+                    isActive={currentSection === item.section}
+                    onClick={() => onSectionChange(item.section)}
+                    data-testid={`button-${item.title.toLowerCase()}`}
                   >
-                    <Link href={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.title}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -124,12 +126,11 @@ export function AppSidebar() {
               variant="outline"
               size="sm"
               className="flex-1"
-              asChild
+              onClick={() => onSectionChange("profile")}
+              data-testid="button-profile"
             >
-              <Link href="/perfil" data-testid="button-profile">
-                <User className="h-4 w-4 mr-2" />
-                Perfil
-              </Link>
+              <User className="h-4 w-4 mr-2" />
+              Perfil
             </Button>
             <Button
               variant="outline"
