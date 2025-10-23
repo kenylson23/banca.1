@@ -211,24 +211,26 @@ export default function Kitchen() {
       </div>
 
       <Tabs value={selectedStatus} onValueChange={setSelectedStatus}>
-        <TabsList className="w-full justify-start">
-          <TabsTrigger value="all" data-testid="tab-all-orders">
-            <Filter className="h-4 w-4 mr-2" />
-            Todos
-          </TabsTrigger>
-          <TabsTrigger value="pendente" data-testid="tab-pending">
-            Pendente
-          </TabsTrigger>
-          <TabsTrigger value="em_preparo" data-testid="tab-in-progress">
-            Em Preparo
-          </TabsTrigger>
-          <TabsTrigger value="pronto" data-testid="tab-ready">
-            Pronto
-          </TabsTrigger>
-          <TabsTrigger value="servido" data-testid="tab-served">
-            Servido
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex w-auto min-w-full sm:w-full">
+            <TabsTrigger value="all" data-testid="tab-all-orders" className="whitespace-nowrap">
+              <Filter className="h-4 w-4 mr-2" />
+              Todos
+            </TabsTrigger>
+            <TabsTrigger value="pendente" data-testid="tab-pending" className="whitespace-nowrap">
+              Pendente
+            </TabsTrigger>
+            <TabsTrigger value="em_preparo" data-testid="tab-in-progress" className="whitespace-nowrap">
+              Em Preparo
+            </TabsTrigger>
+            <TabsTrigger value="pronto" data-testid="tab-ready" className="whitespace-nowrap">
+              Pronto
+            </TabsTrigger>
+            <TabsTrigger value="servido" data-testid="tab-served" className="whitespace-nowrap">
+              Servido
+            </TabsTrigger>
+          </TabsList>
+        </div>
       </Tabs>
 
       {isLoading ? (
@@ -251,55 +253,55 @@ export default function Kitchen() {
                 }`}
                 data-testid={`card-order-${order.id}`}
               >
-                <CardHeader className="flex flex-row items-start justify-between gap-2 pb-3">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3">
                   <div className="flex-1">
-                    <CardTitle className="text-2xl font-mono">
+                    <CardTitle className="text-xl sm:text-2xl font-mono">
                       Mesa {order.table.number}
                     </CardTitle>
                     <div className="flex flex-col gap-1 mt-2">
                       <div className="flex items-center gap-2">
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">
+                        <Clock className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                        <p className="text-xs sm:text-sm text-muted-foreground">
                           {formatOrderTime(order.createdAt)} ({getTimeElapsed(order.createdAt)})
                         </p>
                       </div>
                       {order.customerName && (
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-xs sm:text-sm text-muted-foreground truncate">
                           Cliente: {order.customerName}
                         </p>
                       )}
                     </div>
                   </div>
-                  <Badge className={statusColors[order.status]}>
+                  <Badge className={`${statusColors[order.status]} flex-shrink-0 self-start`}>
                     {statusLabels[order.status]}
                   </Badge>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
-                    <h3 className="font-semibold text-sm text-muted-foreground uppercase">
+                    <h3 className="font-semibold text-xs sm:text-sm text-muted-foreground uppercase">
                       Itens do Pedido
                     </h3>
                     {order.orderItems.map((item) => (
                       <div
                         key={item.id}
-                        className="bg-muted/50 rounded-md p-3 space-y-2"
+                        className="bg-muted/50 rounded-md p-2 sm:p-3 space-y-2"
                       >
                         <div className="flex justify-between items-start gap-2">
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex-shrink-0">
                                 {item.quantity}x
                               </span>
-                              <p className="font-semibold text-base">{item.menuItem.name}</p>
+                              <p className="font-semibold text-sm sm:text-base truncate">{item.menuItem.name}</p>
                             </div>
                           </div>
-                          <p className="font-mono font-semibold text-base">
+                          <p className="font-mono font-semibold text-sm sm:text-base flex-shrink-0">
                             {formatKwanza(item.price)}
                           </p>
                         </div>
                         {item.notes && (
                           <div className="pl-8">
-                            <p className="text-sm text-muted-foreground italic">
+                            <p className="text-xs sm:text-sm text-muted-foreground italic break-words">
                               Obs: {item.notes}
                             </p>
                           </div>
@@ -309,16 +311,16 @@ export default function Kitchen() {
                   </div>
 
                   <div className="pt-2 border-t border-border">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="font-semibold">Total</span>
-                      <span className="text-xl font-bold font-mono">
+                    <div className="flex justify-between items-center mb-3 sm:mb-4">
+                      <span className="font-semibold text-sm sm:text-base">Total</span>
+                      <span className="text-lg sm:text-xl font-bold font-mono">
                         {formatKwanza(order.totalAmount)}
                       </span>
                     </div>
 
                     {nextStatus && (
                       <Button
-                        className="w-full"
+                        className="w-full text-sm sm:text-base"
                         onClick={() => handleStatusChange(order.id, nextStatus)}
                         data-testid={`button-update-status-${order.id}`}
                       >
@@ -351,26 +353,28 @@ export default function Kitchen() {
 
       {showStats && (
         <div className="space-y-6 mt-8">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold">Estatísticas de Produção</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <h2 className="text-xl sm:text-2xl font-bold">Estatísticas de Produção</h2>
             <Tabs value={statsPeriod} onValueChange={(value) => setStatsPeriod(value as StatsPeriod)}>
-              <TabsList>
-                <TabsTrigger value="daily" data-testid="tab-stats-daily">
-                  Diário
-                </TabsTrigger>
-                <TabsTrigger value="weekly" data-testid="tab-stats-weekly">
-                  Semanal
-                </TabsTrigger>
-                <TabsTrigger value="monthly" data-testid="tab-stats-monthly">
-                  Mensal
-                </TabsTrigger>
-                <TabsTrigger value="quarterly" data-testid="tab-stats-quarterly">
-                  Trimestral
-                </TabsTrigger>
-                <TabsTrigger value="yearly" data-testid="tab-stats-yearly">
-                  Anual
-                </TabsTrigger>
-              </TabsList>
+              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                <TabsList className="inline-flex w-auto">
+                  <TabsTrigger value="daily" data-testid="tab-stats-daily" className="whitespace-nowrap text-xs sm:text-sm">
+                    Diário
+                  </TabsTrigger>
+                  <TabsTrigger value="weekly" data-testid="tab-stats-weekly" className="whitespace-nowrap text-xs sm:text-sm">
+                    Semanal
+                  </TabsTrigger>
+                  <TabsTrigger value="monthly" data-testid="tab-stats-monthly" className="whitespace-nowrap text-xs sm:text-sm">
+                    Mensal
+                  </TabsTrigger>
+                  <TabsTrigger value="quarterly" data-testid="tab-stats-quarterly" className="whitespace-nowrap text-xs sm:text-sm">
+                    Trimestral
+                  </TabsTrigger>
+                  <TabsTrigger value="yearly" data-testid="tab-stats-yearly" className="whitespace-nowrap text-xs sm:text-sm">
+                    Anual
+                  </TabsTrigger>
+                </TabsList>
+              </div>
             </Tabs>
           </div>
 
@@ -382,7 +386,7 @@ export default function Kitchen() {
             </div>
           ) : stats ? (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -391,7 +395,7 @@ export default function Kitchen() {
                     <Package className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold" data-testid="text-total-orders">
+                    <div className="text-2xl sm:text-3xl font-bold" data-testid="text-total-orders">
                       {stats.totalOrders}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -408,7 +412,7 @@ export default function Kitchen() {
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold" data-testid="text-total-revenue">
+                    <div className="text-2xl sm:text-3xl font-bold" data-testid="text-total-revenue">
                       {formatKwanza(stats.totalRevenue)}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -425,7 +429,7 @@ export default function Kitchen() {
                     <TrendingUp className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold" data-testid="text-avg-order-value">
+                    <div className="text-2xl sm:text-3xl font-bold" data-testid="text-avg-order-value">
                       {formatKwanza(stats.averageOrderValue)}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -442,7 +446,7 @@ export default function Kitchen() {
                     <BarChart3 className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold" data-testid="text-avg-daily-orders">
+                    <div className="text-2xl sm:text-3xl font-bold" data-testid="text-avg-daily-orders">
                       {stats.averageOrdersPerDay}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -454,35 +458,35 @@ export default function Kitchen() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Pratos Mais Pedidos</CardTitle>
-                  <p className="text-sm text-muted-foreground">
+                  <CardTitle className="text-lg sm:text-xl">Pratos Mais Pedidos</CardTitle>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Ranking de popularidade no período {periodLabels[statsPeriod].toLowerCase()}
                   </p>
                 </CardHeader>
                 <CardContent>
                   {stats.topDishes.length > 0 ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                       {stats.topDishes.map((dish, index) => (
                         <div
                           key={dish.menuItem.id}
-                          className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
+                          className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-muted/50 rounded-lg"
                           data-testid={`dish-rank-${index + 1}`}
                         >
-                          <div className="flex items-center gap-4 flex-1">
-                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground font-bold text-lg">
+                          <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                            <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary text-primary-foreground font-bold text-base sm:text-lg flex-shrink-0">
                               {index + 1}
                             </div>
-                            <div className="flex-1">
-                              <p className="font-semibold text-base">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-sm sm:text-base truncate">
                                 {dish.menuItem.name}
                               </p>
-                              <p className="text-sm text-muted-foreground">
+                              <p className="text-xs sm:text-sm text-muted-foreground">
                                 {dish.count} {dish.count === 1 ? 'pedido' : 'pedidos'}
                               </p>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-bold text-lg font-mono">
+                          <div className="text-left sm:text-right pl-11 sm:pl-0 flex-shrink-0">
+                            <p className="font-bold text-base sm:text-lg font-mono">
                               {formatKwanza(dish.totalRevenue)}
                             </p>
                             <p className="text-xs text-muted-foreground">
@@ -493,7 +497,7 @@ export default function Kitchen() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-center text-muted-foreground py-8">
+                    <p className="text-center text-muted-foreground py-8 text-sm sm:text-base">
                       Nenhum dado disponível para este período
                     </p>
                   )}
