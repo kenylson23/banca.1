@@ -3,26 +3,17 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/useAuth";
 import { CartProvider } from "@/contexts/CartContext";
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
-import Dashboard from "@/pages/dashboard";
-import Tables from "@/pages/tables";
-import Menu from "@/pages/menu";
-import Kitchen from "@/pages/kitchen";
-import Users from "@/pages/users";
-import Profile from "@/pages/profile";
 import CustomerMenu from "@/pages/customer-menu";
-import SuperAdmin from "@/pages/superadmin";
+import MainDashboard from "@/pages/main-dashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
   return (
     <Switch>
@@ -32,27 +23,8 @@ function Router() {
           <Route path="/" component={Landing} />
           <Route path="/login" component={Login} />
         </>
-      ) : user?.role === 'superadmin' ? (
-        <>
-          <Route path="/" component={SuperAdmin} />
-          <Route path="/superadmin" component={SuperAdmin} />
-          <Route path="/perfil" component={Profile} />
-        </>
-      ) : user?.role === 'kitchen' ? (
-        <>
-          <Route path="/" component={Kitchen} />
-          <Route path="/cozinha" component={Kitchen} />
-          <Route path="/perfil" component={Profile} />
-        </>
       ) : (
-        <>
-          <Route path="/" component={Dashboard} />
-          <Route path="/mesas" component={Tables} />
-          <Route path="/menu" component={Menu} />
-          <Route path="/cozinha" component={Kitchen} />
-          <Route path="/usuarios" component={Users} />
-          <Route path="/perfil" component={Profile} />
-        </>
+        <Route path="/" component={MainDashboard} />
       )}
       <Route component={NotFound} />
     </Switch>
@@ -60,38 +32,11 @@ function Router() {
 }
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
-  
-  const style = {
-    "--sidebar-width": "16rem",
-    "--sidebar-width-icon": "3rem",
-  };
-
-  if (isLoading || !isAuthenticated) {
-    return (
-      <>
-        <Toaster />
-        <Router />
-      </>
-    );
-  }
-
   return (
-    <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full">
-        <AppSidebar />
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center justify-between p-3 sm:p-4 border-b border-border bg-background">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <ThemeToggle />
-          </header>
-          <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 bg-background">
-            <Router />
-          </main>
-        </div>
-      </div>
+    <>
       <Toaster />
-    </SidebarProvider>
+      <Router />
+    </>
   );
 }
 
