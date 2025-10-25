@@ -147,13 +147,15 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
               className="flex-1"
               onClick={async () => {
                 try {
-                  await fetch("/api/auth/logout", { method: "POST" });
-                  queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-                  setLocation("/");
+                  await fetch("/api/auth/logout", { 
+                    method: "POST",
+                    credentials: "include"
+                  });
                 } catch (error) {
                   console.error("Erro ao fazer logout:", error);
-                  queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-                  setLocation("/");
+                } finally {
+                  queryClient.clear();
+                  window.location.href = "/";
                 }
               }}
               data-testid="button-logout"
