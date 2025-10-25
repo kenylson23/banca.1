@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import type { Section } from "@/pages/main-dashboard";
+import { queryClient } from "@/lib/queryClient";
 
 const adminMenuItems = [
   {
@@ -147,9 +148,11 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
               onClick={async () => {
                 try {
                   await fetch("/api/auth/logout", { method: "POST" });
+                  queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
                   setLocation("/");
                 } catch (error) {
                   console.error("Erro ao fazer logout:", error);
+                  queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
                   setLocation("/");
                 }
               }}
