@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -19,13 +18,12 @@ export type Section =
   | "profile" 
   | "superadmin";
 
-export default function MainDashboard() {
-  const { user } = useAuth();
-  const [currentSection, setCurrentSection] = useState<Section>(
-    user?.role === 'superadmin' ? 'superadmin' : 
-    user?.role === 'kitchen' ? 'kitchen' : 
-    'dashboard'
-  );
+interface MainDashboardProps {
+  section: Section;
+}
+
+export default function MainDashboard({ section }: MainDashboardProps) {
+  const currentSection = section;
 
   const style = {
     "--sidebar-width": "16rem",
@@ -56,7 +54,7 @@ export default function MainDashboard() {
   return (
     <SidebarProvider style={style as React.CSSProperties}>
       <div className="flex h-screen w-full">
-        <AppSidebar currentSection={currentSection} onSectionChange={setCurrentSection} />
+        <AppSidebar currentSection={currentSection} />
         <div className="flex flex-col flex-1 overflow-hidden">
           <header className="flex items-center justify-between p-4 border-b bg-background">
             <SidebarTrigger data-testid="button-sidebar-toggle" />

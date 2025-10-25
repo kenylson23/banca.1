@@ -13,32 +13,38 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
 import type { Section } from "@/pages/main-dashboard";
 
 const adminMenuItems = [
   {
     title: "Dashboard",
     section: "dashboard" as Section,
+    path: "/dashboard",
     icon: LayoutDashboard,
   },
   {
     title: "Mesas",
     section: "tables" as Section,
+    path: "/tables",
     icon: QrCode,
   },
   {
     title: "Menu",
     section: "menu" as Section,
+    path: "/menu",
     icon: UtensilsCrossed,
   },
   {
     title: "Cozinha",
     section: "kitchen" as Section,
+    path: "/kitchen",
     icon: ChefHat,
   },
   {
     title: "Usuários",
     section: "users" as Section,
+    path: "/users",
     icon: Users,
   },
 ];
@@ -47,6 +53,7 @@ const kitchenMenuItems = [
   {
     title: "Cozinha",
     section: "kitchen" as Section,
+    path: "/kitchen",
     icon: ChefHat,
   },
 ];
@@ -55,17 +62,18 @@ const superAdminMenuItems = [
   {
     title: "Super Admin",
     section: "superadmin" as Section,
+    path: "/superadmin",
     icon: Shield,
   },
 ];
 
 interface AppSidebarProps {
   currentSection: Section;
-  onSectionChange: (section: Section) => void;
 }
 
-export function AppSidebar({ currentSection, onSectionChange }: AppSidebarProps) {
+export function AppSidebar({ currentSection }: AppSidebarProps) {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   
   const menuItems = user?.role === 'superadmin' 
     ? superAdminMenuItems 
@@ -89,7 +97,7 @@ export function AppSidebar({ currentSection, onSectionChange }: AppSidebarProps)
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     isActive={currentSection === item.section}
-                    onClick={() => onSectionChange(item.section)}
+                    onClick={() => setLocation(item.path)}
                     data-testid={`button-${item.title.toLowerCase()}`}
                   >
                     <item.icon className="h-4 w-4" />
@@ -126,7 +134,7 @@ export function AppSidebar({ currentSection, onSectionChange }: AppSidebarProps)
               variant="outline"
               size="sm"
               className="flex-1"
-              onClick={() => onSectionChange("profile")}
+              onClick={() => setLocation("/profile")}
               data-testid="button-profile"
             >
               <User className="h-4 w-4 mr-2" />
@@ -139,10 +147,10 @@ export function AppSidebar({ currentSection, onSectionChange }: AppSidebarProps)
               onClick={async () => {
                 try {
                   await fetch("/api/auth/logout", { method: "POST" });
-                  window.location.href = "/";
+                  setLocation("/");
                 } catch (error) {
                   console.error("Erro ao fazer logout:", error);
-                  window.location.href = "/";
+                  setLocation("/");
                 }
               }}
               data-testid="button-logout"

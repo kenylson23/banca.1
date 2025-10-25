@@ -455,8 +455,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== PUBLIC ROUTES (for customers) =====
-  // Note: These routes need restaurantId context. They should be updated to filter by restaurant.
-  // For now, keeping them as-is for backward compatibility, but they won't work properly in multi-tenant mode.
+  // These routes are used by customers scanning QR codes to view menus and place orders
+  
+  // Get restaurant details by ID
   app.get("/api/public/restaurants/:restaurantId", async (req, res) => {
     try {
       const restaurantId = req.params.restaurantId;
@@ -473,6 +474,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get table by number (used by QR code flow at /mesa/:tableNumber)
+  // This finds the table by number alone. In multi-tenant systems with duplicate table numbers
+  // across restaurants, consider using the restaurantId-scoped route below instead.
   app.get("/api/public/tables/:number", async (req, res) => {
     try {
       const tableNumber = parseInt(req.params.number);
@@ -481,28 +485,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const table = await storage.getTableByNumber(tableNumber);
-      
-      if (!table) {
-        return res.status(404).json({ message: "Mesa não encontrada" });
-      }
-      
-      res.json(table);
-    } catch (error) {
-      console.error("Error fetching table:", error);
-      res.status(500).json({ message: "Erro ao buscar mesa" });
-    }
-  });
-
-  app.get("/api/public/tables/:restaurantId/:number", async (req, res) => {
-    try {
-      const restaurantId = req.params.restaurantId;
-      const tableNumber = parseInt(req.params.number);
-      if (isNaN(tableNumber)) {
-        return res.status(400).json({ message: "Número de mesa inválido" });
-      }
-      
-      const tables = await storage.getTables(restaurantId);
-      const table = tables.find(t => t.number === tableNumber);
       
       if (!table) {
         return res.status(404).json({ message: "Mesa não encontrada" });
