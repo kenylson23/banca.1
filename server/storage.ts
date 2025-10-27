@@ -61,35 +61,35 @@ export interface IStorage {
   updateUserActiveBranch(userId: string, branchId: string | null): Promise<User>;
 
   // Table operations
-  getTables(restaurantId: string): Promise<Table[]>;
+  getTables(restaurantId: string, branchId?: string | null): Promise<Table[]>;
   getTableById(id: string): Promise<Table | undefined>;
   getTableByNumber(tableNumber: number): Promise<Table | undefined>;
-  createTable(restaurantId: string, table: { number: number; qrCode: string }): Promise<Table>;
+  createTable(restaurantId: string, branchId: string | null, table: { number: number; qrCode: string }): Promise<Table>;
   deleteTable(restaurantId: string, id: string): Promise<void>;
   updateTableOccupancy(restaurantId: string, id: string, isOccupied: boolean): Promise<void>;
 
   // Category operations
-  getCategories(restaurantId: string): Promise<Category[]>;
+  getCategories(restaurantId: string, branchId?: string | null): Promise<Category[]>;
   getCategoryById(id: string): Promise<Category | undefined>;
-  createCategory(restaurantId: string, category: Omit<InsertCategory, 'restaurantId'>): Promise<Category>;
+  createCategory(restaurantId: string, branchId: string | null, category: Omit<InsertCategory, 'restaurantId'>): Promise<Category>;
   deleteCategory(restaurantId: string, id: string): Promise<void>;
 
   // Menu item operations
-  getMenuItems(restaurantId: string): Promise<Array<MenuItem & { category: Category }>>;
+  getMenuItems(restaurantId: string, branchId?: string | null): Promise<Array<MenuItem & { category: Category }>>;
   getMenuItemById(id: string): Promise<MenuItem | undefined>;
-  createMenuItem(restaurantId: string, item: Omit<InsertMenuItem, 'restaurantId'>): Promise<MenuItem>;
+  createMenuItem(restaurantId: string, branchId: string | null, item: Omit<InsertMenuItem, 'restaurantId'>): Promise<MenuItem>;
   updateMenuItem(restaurantId: string, id: string, item: Partial<InsertMenuItem>): Promise<MenuItem>;
   deleteMenuItem(restaurantId: string, id: string): Promise<void>;
 
   // Order operations
-  getKitchenOrders(restaurantId: string): Promise<Array<Order & { table: Table; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
-  getRecentOrders(restaurantId: string, limit: number): Promise<Array<Order & { table: { number: number } }>>;
+  getKitchenOrders(restaurantId: string, branchId?: string | null): Promise<Array<Order & { table: Table; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
+  getRecentOrders(restaurantId: string, branchId: string | null, limit: number): Promise<Array<Order & { table: { number: number } }>>;
   getOrdersByTableId(restaurantId: string, tableId: string): Promise<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
   createOrder(order: InsertOrder, items: PublicOrderItem[]): Promise<Order>;
   updateOrderStatus(restaurantId: string, id: string, status: string): Promise<Order>;
   
   // Stats operations
-  getTodayStats(restaurantId: string): Promise<{
+  getTodayStats(restaurantId: string, branchId?: string | null): Promise<{
     todaySales: string;
     todayOrders: number;
     activeTables: number;
@@ -100,7 +100,7 @@ export interface IStorage {
     }>;
   }>;
   
-  getKitchenStats(restaurantId: string, period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): Promise<{
+  getKitchenStats(restaurantId: string, branchId: string | null, period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): Promise<{
     totalOrders: number;
     totalRevenue: string;
     averageOrderValue: string;
@@ -371,7 +371,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Table operations
-  async getTables(restaurantId: string): Promise<Table[]> {
+  async getTables(restaurantId: string, branchId?: string | null): Promise<Table[]> {
+    if (branchId) {
+      return await db.select().from(tables)
+        .where(and(eq(tables.restaurantId, restaurantId), eq(tables.branchId, branchId)))
+        .orderBy(tables.number);
+    }
     return await db.select().from(tables).where(eq(tables.restaurantId, restaurantId)).orderBy(tables.number);
   }
 
@@ -385,9 +390,10 @@ export class DatabaseStorage implements IStorage {
     return table;
   }
 
-  async createTable(restaurantId: string, table: { number: number; qrCode: string }): Promise<Table> {
+  async createTable(restaurantId: string, branchId: string | null, table: { number: number; qrCode: string }): Promise<Table> {
     const [newTable] = await db.insert(tables).values({
       restaurantId,
+      branchId,
       ...table,
     }).returning();
     return newTable;
@@ -422,7 +428,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Category operations
-  async getCategories(restaurantId: string): Promise<Category[]> {
+  async getCategories(restaurantId: string, branchId?: string | null): Promise<Category[]> {
+    if (branchId) {
+      return await db.select().from(categories)
+        .where(and(eq(categories.restaurantId, restaurantId), eq(categories.branchId, branchId)))
+        .orderBy(categories.name);
+    }
     return await db.select().from(categories).where(eq(categories.restaurantId, restaurantId)).orderBy(categories.name);
   }
 
@@ -431,9 +442,10 @@ export class DatabaseStorage implements IStorage {
     return category;
   }
 
-  async createCategory(restaurantId: string, category: Omit<InsertCategory, 'restaurantId'>): Promise<Category> {
+  async createCategory(restaurantId: string, branchId: string | null, category: Omit<InsertCategory, 'restaurantId'>): Promise<Category> {
     const [newCategory] = await db.insert(categories).values({
       restaurantId,
+      branchId,
       ...category,
     }).returning();
     return newCategory;
@@ -453,13 +465,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Menu item operations
-  async getMenuItems(restaurantId: string): Promise<Array<MenuItem & { category: Category }>> {
-    const results = await db
-      .select()
-      .from(menuItems)
-      .leftJoin(categories, eq(menuItems.categoryId, categories.id))
-      .where(eq(menuItems.restaurantId, restaurantId))
-      .orderBy(categories.name, menuItems.name);
+  async getMenuItems(restaurantId: string, branchId?: string | null): Promise<Array<MenuItem & { category: Category }>> {
+    let results;
+    if (branchId) {
+      results = await db
+        .select()
+        .from(menuItems)
+        .leftJoin(categories, eq(menuItems.categoryId, categories.id))
+        .where(and(eq(menuItems.restaurantId, restaurantId), eq(menuItems.branchId, branchId)))
+        .orderBy(categories.name, menuItems.name);
+    } else {
+      results = await db
+        .select()
+        .from(menuItems)
+        .leftJoin(categories, eq(menuItems.categoryId, categories.id))
+        .where(eq(menuItems.restaurantId, restaurantId))
+        .orderBy(categories.name, menuItems.name);
+    }
 
     return results.map((row: { menu_items: MenuItem; categories: Category | null }) => ({
       ...row.menu_items,
@@ -472,9 +494,10 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
-  async createMenuItem(restaurantId: string, item: Omit<InsertMenuItem, 'restaurantId'>): Promise<MenuItem> {
+  async createMenuItem(restaurantId: string, branchId: string | null, item: Omit<InsertMenuItem, 'restaurantId'>): Promise<MenuItem> {
     const [newItem] = await db.insert(menuItems).values({
       restaurantId,
+      branchId,
       ...item,
     }).returning();
     return newItem;
@@ -512,13 +535,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Order operations
-  async getKitchenOrders(restaurantId: string): Promise<Array<Order & { table: Table; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>> {
-    const allOrders = await db
-      .select()
-      .from(orders)
-      .leftJoin(tables, eq(orders.tableId, tables.id))
-      .where(eq(tables.restaurantId, restaurantId))
-      .orderBy(desc(orders.createdAt));
+  async getKitchenOrders(restaurantId: string, branchId?: string | null): Promise<Array<Order & { table: Table; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>> {
+    let allOrders;
+    if (branchId) {
+      allOrders = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(eq(tables.restaurantId, restaurantId), eq(tables.branchId, branchId)))
+        .orderBy(desc(orders.createdAt));
+    } else {
+      allOrders = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(eq(tables.restaurantId, restaurantId))
+        .orderBy(desc(orders.createdAt));
+    }
 
     const ordersWithItems = await Promise.all(
       allOrders.map(async (orderRow: { orders: Order; tables: Table | null }) => {
@@ -542,14 +575,25 @@ export class DatabaseStorage implements IStorage {
     return ordersWithItems;
   }
 
-  async getRecentOrders(restaurantId: string, limit: number): Promise<Array<Order & { table: { number: number } }>> {
-    const results = await db
-      .select()
-      .from(orders)
-      .leftJoin(tables, eq(orders.tableId, tables.id))
-      .where(eq(tables.restaurantId, restaurantId))
-      .orderBy(desc(orders.createdAt))
-      .limit(limit);
+  async getRecentOrders(restaurantId: string, branchId: string | null, limit: number): Promise<Array<Order & { table: { number: number } }>> {
+    let results;
+    if (branchId) {
+      results = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(eq(tables.restaurantId, restaurantId), eq(tables.branchId, branchId)))
+        .orderBy(desc(orders.createdAt))
+        .limit(limit);
+    } else {
+      results = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(eq(tables.restaurantId, restaurantId))
+        .orderBy(desc(orders.createdAt))
+        .limit(limit);
+    }
 
     return results.map((row: { orders: Order; tables: Table | null }) => ({
       ...row.orders,
@@ -658,7 +702,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Stats operations
-  async getTodayStats(restaurantId: string): Promise<{
+  async getTodayStats(restaurantId: string, branchId?: string | null): Promise<{
     todaySales: string;
     todayOrders: number;
     activeTables: number;
@@ -672,14 +716,27 @@ export class DatabaseStorage implements IStorage {
     today.setHours(0, 0, 0, 0);
 
     // Get today's orders for this restaurant
-    const todayOrdersData = await db
-      .select()
-      .from(orders)
-      .leftJoin(tables, eq(orders.tableId, tables.id))
-      .where(and(
-        eq(tables.restaurantId, restaurantId),
-        gte(orders.createdAt, today)
-      ));
+    let todayOrdersData;
+    if (branchId) {
+      todayOrdersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(tables.restaurantId, restaurantId),
+          eq(tables.branchId, branchId),
+          gte(orders.createdAt, today)
+        ));
+    } else {
+      todayOrdersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(tables.restaurantId, restaurantId),
+          gte(orders.createdAt, today)
+        ));
+    }
 
     const todayOrders = todayOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
 
@@ -689,13 +746,25 @@ export class DatabaseStorage implements IStorage {
     );
 
     // Get active tables for this restaurant
-    const activeTables = await db
-      .select()
-      .from(tables)
-      .where(and(
-        eq(tables.restaurantId, restaurantId),
-        eq(tables.isOccupied, 1)
-      ));
+    let activeTables;
+    if (branchId) {
+      activeTables = await db
+        .select()
+        .from(tables)
+        .where(and(
+          eq(tables.restaurantId, restaurantId),
+          eq(tables.branchId, branchId),
+          eq(tables.isOccupied, 1)
+        ));
+    } else {
+      activeTables = await db
+        .select()
+        .from(tables)
+        .where(and(
+          eq(tables.restaurantId, restaurantId),
+          eq(tables.isOccupied, 1)
+        ));
+    }
 
     // Get top dishes from today
     const todayOrderIds = todayOrders.map((o: Order) => o.id);
@@ -739,7 +808,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getKitchenStats(restaurantId: string, period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): Promise<{
+  async getKitchenStats(restaurantId: string, branchId: string | null, period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): Promise<{
     totalOrders: number;
     totalRevenue: string;
     averageOrderValue: string;
@@ -778,15 +847,29 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Get orders for the period for this restaurant
-    const periodOrdersData = await db
-      .select()
-      .from(orders)
-      .leftJoin(tables, eq(orders.tableId, tables.id))
-      .where(and(
-        eq(tables.restaurantId, restaurantId),
-        gte(orders.createdAt, periodStart),
-        sql`${orders.createdAt} <= ${periodEnd}`
-      ));
+    let periodOrdersData;
+    if (branchId) {
+      periodOrdersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(tables.restaurantId, restaurantId),
+          eq(tables.branchId, branchId),
+          gte(orders.createdAt, periodStart),
+          sql`${orders.createdAt} <= ${periodEnd}`
+        ));
+    } else {
+      periodOrdersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(tables.restaurantId, restaurantId),
+          gte(orders.createdAt, periodStart),
+          sql`${orders.createdAt} <= ${periodEnd}`
+        ));
+    }
 
     const periodOrders = periodOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
 

@@ -678,7 +678,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const restaurantId = currentUser.restaurantId!;
-      const tables = await storage.getTables(restaurantId);
+      const branchId = currentUser.activeBranchId || null;
+      const tables = await storage.getTables(restaurantId, branchId);
       res.json(tables);
     } catch (error) {
       console.error("Error fetching tables:", error);
@@ -703,7 +704,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         margin: 2,
       });
 
-      const table = await storage.createTable(restaurantId, {
+      const branchId = currentUser.activeBranchId || null;
+      const table = await storage.createTable(restaurantId, branchId, {
         number: data.number,
         qrCode,
       });
@@ -750,7 +752,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const restaurantId = currentUser.restaurantId!;
-      const categories = await storage.getCategories(restaurantId);
+      const branchId = currentUser.activeBranchId || null;
+      const categories = await storage.getCategories(restaurantId, branchId);
       res.json(categories);
     } catch (error) {
       console.error("Error fetching categories:", error);
@@ -767,8 +770,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Category request body:", req.body);
       const restaurantId = currentUser.restaurantId!;
+      const branchId = currentUser.activeBranchId || null;
       const data = insertCategorySchema.parse(req.body);
-      const category = await storage.createCategory(restaurantId, data);
+      const category = await storage.createCategory(restaurantId, branchId, data);
       res.json(category);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -805,7 +809,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const restaurantId = currentUser.restaurantId!;
-      const menuItems = await storage.getMenuItems(restaurantId);
+      const branchId = currentUser.activeBranchId || null;
+      const menuItems = await storage.getMenuItems(restaurantId, branchId);
       res.json(menuItems);
     } catch (error) {
       console.error("Error fetching menu items:", error);
@@ -822,8 +827,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Menu item request body:", req.body);
       const restaurantId = currentUser.restaurantId!;
+      const branchId = currentUser.activeBranchId || null;
       const data = insertMenuItemSchema.parse(req.body);
-      const menuItem = await storage.createMenuItem(restaurantId, data);
+      const menuItem = await storage.createMenuItem(restaurantId, branchId, data);
       res.json(menuItem);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -880,7 +886,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const restaurantId = currentUser.restaurantId!;
-      const orders = await storage.getKitchenOrders(restaurantId);
+      const branchId = currentUser.activeBranchId || null;
+      const orders = await storage.getKitchenOrders(restaurantId, branchId);
       res.json(orders);
     } catch (error) {
       console.error("Error fetching kitchen orders:", error);
@@ -896,7 +903,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const restaurantId = currentUser.restaurantId!;
-      const orders = await storage.getRecentOrders(restaurantId, 10);
+      const branchId = currentUser.activeBranchId || null;
+      const orders = await storage.getRecentOrders(restaurantId, branchId, 10);
       res.json(orders);
     } catch (error) {
       console.error("Error fetching recent orders:", error);
@@ -969,7 +977,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const restaurantId = currentUser.restaurantId!;
-      const stats = await storage.getTodayStats(restaurantId);
+      const branchId = currentUser.activeBranchId || null;
+      const stats = await storage.getTodayStats(restaurantId, branchId);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -985,11 +994,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const restaurantId = currentUser.restaurantId!;
+      const branchId = currentUser.activeBranchId || null;
       const period = req.query.period as 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' || 'daily';
       if (!['daily', 'weekly', 'monthly', 'quarterly', 'yearly'].includes(period)) {
         return res.status(400).json({ message: "Invalid period. Must be one of: daily, weekly, monthly, quarterly, yearly" });
       }
-      const stats = await storage.getKitchenStats(restaurantId, period);
+      const stats = await storage.getKitchenStats(restaurantId, branchId, period);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching kitchen stats:", error);
