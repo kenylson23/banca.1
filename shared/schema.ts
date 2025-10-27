@@ -65,6 +65,43 @@ export const insertRestaurantSchema = createInsertSchema(restaurants).omit({
 export type InsertRestaurant = z.infer<typeof insertRestaurantSchema>;
 export type Restaurant = typeof restaurants.$inferSelect;
 
+// Branches - Filiais/Unidades do Restaurante
+export const branches = pgTable("branches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  name: varchar("name", { length: 200 }).notNull(),
+  address: text("address"),
+  phone: varchar("phone", { length: 50 }),
+  isActive: integer("is_active").notNull().default(1), // 0 = inativa, 1 = ativa
+  isMain: integer("is_main").notNull().default(0), // 0 = filial, 1 = unidade principal/matriz
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBranchSchema = createInsertSchema(branches).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Nome da unidade é obrigatório"),
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  isActive: z.number().optional(),
+  isMain: z.number().optional(),
+});
+
+export const updateBranchSchema = z.object({
+  name: z.string().min(1, "Nome da unidade é obrigatório").optional(),
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  isActive: z.number().optional(),
+});
+
+export type InsertBranch = z.infer<typeof insertBranchSchema>;
+export type UpdateBranch = z.infer<typeof updateBranchSchema>;
+export type Branch = typeof branches.$inferSelect;
+
 // User Role Enum
 export const userRoleEnum = pgEnum('user_role', ['superadmin', 'admin', 'kitchen']);
 
@@ -72,6 +109,7 @@ export const userRoleEnum = pgEnum('user_role', ['superadmin', 'admin', 'kitchen
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").references(() => restaurants.id, { onDelete: 'cascade' }),
+  activeBranchId: varchar("active_branch_id").references(() => branches.id, { onDelete: 'set null' }), // Filial ativa na sessão
   email: varchar("email", { length: 255 }).notNull().unique(),
   password: varchar("password", { length: 255 }).notNull(),
   firstName: varchar("first_name", { length: 100 }),
@@ -131,6 +169,7 @@ export type User = typeof users.$inferSelect;
 export const tables = pgTable("tables", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }), // Filial específica
   number: integer("number").notNull(),
   qrCode: text("qr_code").notNull(), // Data URL do QR code
   isOccupied: integer("is_occupied").notNull().default(0), // 0 = livre, 1 = ocupada
@@ -140,6 +179,7 @@ export const tables = pgTable("tables", {
 export const insertTableSchema = createInsertSchema(tables).omit({
   id: true,
   restaurantId: true,
+  branchId: true,
   qrCode: true,
   isOccupied: true,
   createdAt: true,
@@ -152,6 +192,7 @@ export type Table = typeof tables.$inferSelect;
 export const categories = pgTable("categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }), // Filial específica (null = compartilhado)
   name: varchar("name", { length: 100 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -159,6 +200,7 @@ export const categories = pgTable("categories", {
 export const insertCategorySchema = createInsertSchema(categories).omit({
   id: true,
   restaurantId: true,
+  branchId: true,
   createdAt: true,
 });
 
@@ -169,6 +211,7 @@ export type Category = typeof categories.$inferSelect;
 export const menuItems = pgTable("menu_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }), // Filial específica (null = compartilhado)
   categoryId: varchar("category_id").notNull().references(() => categories.id, { onDelete: 'cascade' }),
   name: varchar("name", { length: 200 }).notNull(),
   description: text("description"),
@@ -181,6 +224,7 @@ export const menuItems = pgTable("menu_items", {
 export const insertMenuItemSchema = createInsertSchema(menuItems).omit({
   id: true,
   restaurantId: true,
+  branchId: true,
   createdAt: true,
 }).extend({
   price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço inválido"),
@@ -262,16 +306,32 @@ export type Message = typeof messages.$inferSelect;
 // Relations
 export const restaurantsRelations = relations(restaurants, ({ many }) => ({
   users: many(users),
+  branches: many(branches),
   tables: many(tables),
   categories: many(categories),
   menuItems: many(menuItems),
   messages: many(messages),
 }));
 
+export const branchesRelations = relations(branches, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [branches.restaurantId],
+    references: [restaurants.id],
+  }),
+  tables: many(tables),
+  categories: many(categories),
+  menuItems: many(menuItems),
+  users: many(users),
+}));
+
 export const usersRelations = relations(users, ({ one }) => ({
   restaurant: one(restaurants, {
     fields: [users.restaurantId],
     references: [restaurants.id],
+  }),
+  activeBranch: one(branches, {
+    fields: [users.activeBranchId],
+    references: [branches.id],
   }),
 }));
 
@@ -280,6 +340,10 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
     fields: [categories.restaurantId],
     references: [restaurants.id],
   }),
+  branch: one(branches, {
+    fields: [categories.branchId],
+    references: [branches.id],
+  }),
   menuItems: many(menuItems),
 }));
 
@@ -287,6 +351,10 @@ export const menuItemsRelations = relations(menuItems, ({ one, many }) => ({
   restaurant: one(restaurants, {
     fields: [menuItems.restaurantId],
     references: [restaurants.id],
+  }),
+  branch: one(branches, {
+    fields: [menuItems.branchId],
+    references: [branches.id],
   }),
   category: one(categories, {
     fields: [menuItems.categoryId],
@@ -299,6 +367,10 @@ export const tablesRelations = relations(tables, ({ one, many }) => ({
   restaurant: one(restaurants, {
     fields: [tables.restaurantId],
     references: [restaurants.id],
+  }),
+  branch: one(branches, {
+    fields: [tables.branchId],
+    references: [branches.id],
   }),
   orders: many(orders),
 }));

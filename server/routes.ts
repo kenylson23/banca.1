@@ -20,6 +20,8 @@ import {
   updateUserSchema,
   updateProfileSchema,
   updatePasswordSchema,
+  insertBranchSchema,
+  updateBranchSchema,
   type User,
 } from "@shared/schema";
 import { z } from "zod";
@@ -126,6 +128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lastName: user.lastName,
           role: user.role,
           restaurantId: user.restaurantId,
+          activeBranchId: user.activeBranchId,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         };
@@ -160,6 +163,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastName: user.lastName,
         role: user.role,
         restaurantId: user.restaurantId,
+        activeBranchId: user.activeBranchId,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       };
@@ -192,6 +196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastName: updatedUser.lastName,
         role: updatedUser.role,
         restaurantId: updatedUser.restaurantId,
+        activeBranchId: updatedUser.activeBranchId,
         createdAt: updatedUser.createdAt,
         updatedAt: updatedUser.updatedAt,
       };
@@ -233,6 +238,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error updating password:", error);
       res.status(500).json({ message: "Erro ao atualizar senha" });
+    }
+  });
+
+  app.patch('/api/auth/active-branch', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const { branchId } = req.body;
+      
+      if (branchId) {
+        const branch = await storage.getBranchById(branchId);
+        if (!branch) {
+          return res.status(404).json({ message: "Filial não encontrada" });
+        }
+        if (branch.restaurantId !== currentUser.restaurantId) {
+          return res.status(403).json({ message: "Filial não pertence ao seu restaurante" });
+        }
+      }
+
+      const updatedUser = await storage.updateUserActiveBranch(currentUser.id, branchId || null);
+      
+      const userWithoutPassword = {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        role: updatedUser.role,
+        restaurantId: updatedUser.restaurantId,
+        activeBranchId: updatedUser.activeBranchId,
+        createdAt: updatedUser.createdAt,
+        updatedAt: updatedUser.updatedAt,
+      };
+
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error updating active branch:", error);
+      res.status(500).json({ message: "Erro ao atualizar filial ativa" });
+    }
+  });
+
+  // ===== BRANCH MANAGEMENT ROUTES =====
+  app.get('/api/branches', isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const branches = await storage.getBranches(currentUser.restaurantId);
+      res.json(branches);
+    } catch (error) {
+      console.error("Error fetching branches:", error);
+      res.status(500).json({ message: "Erro ao buscar filiais" });
+    }
+  });
+
+  app.post('/api/branches', isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const data = insertBranchSchema.parse(req.body);
+      const branch = await storage.createBranch(currentUser.restaurantId, data);
+      res.json(branch);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Error creating branch:", error);
+      res.status(500).json({ message: "Erro ao criar filial" });
+    }
+  });
+
+  app.patch('/api/branches/:id', isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const data = updateBranchSchema.parse(req.body);
+      const branch = await storage.updateBranch(currentUser.restaurantId, req.params.id, data);
+      res.json(branch);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Error updating branch:", error);
+      res.status(500).json({ message: "Erro ao atualizar filial" });
+    }
+  });
+
+  app.delete('/api/branches/:id', isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      await storage.deleteBranch(currentUser.restaurantId, req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting branch:", error);
+      const errorMessage = error instanceof Error ? error.message : "Erro ao deletar filial";
+      res.status(500).json({ message: errorMessage });
     }
   });
 

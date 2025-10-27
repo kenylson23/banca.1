@@ -2,6 +2,7 @@
 import {
   users,
   restaurants,
+  branches,
   tables,
   categories,
   menuItems,
@@ -12,6 +13,9 @@ import {
   type InsertUser,
   type Restaurant,
   type InsertRestaurant,
+  type Branch,
+  type InsertBranch,
+  type UpdateBranch,
   type Table,
   type InsertTable,
   type Category,
@@ -38,6 +42,14 @@ export interface IStorage {
   updateRestaurantStatus(id: string, status: 'pendente' | 'ativo' | 'suspenso'): Promise<Restaurant>;
   deleteRestaurant(id: string): Promise<void>;
   
+  // Branch operations
+  getBranches(restaurantId: string): Promise<Branch[]>;
+  getBranchById(id: string): Promise<Branch | undefined>;
+  createBranch(restaurantId: string, branch: InsertBranch): Promise<Branch>;
+  updateBranch(restaurantId: string, id: string, data: UpdateBranch): Promise<Branch>;
+  deleteBranch(restaurantId: string, id: string): Promise<void>;
+  ensureMainBranch(restaurantId: string): Promise<Branch>;
+  
   // User operations
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
@@ -46,6 +58,7 @@ export interface IStorage {
   deleteUser(restaurantId: string | null, id: string): Promise<void>;
   updateUser(restaurantId: string | null, id: string, data: { email?: string; firstName?: string; lastName?: string; role?: 'superadmin' | 'admin' | 'kitchen' }): Promise<User>;
   updateUserPassword(userId: string, hashedPassword: string): Promise<User>;
+  updateUserActiveBranch(userId: string, branchId: string | null): Promise<User>;
 
   // Table operations
   getTables(restaurantId: string): Promise<Table[]>;
@@ -147,8 +160,18 @@ export class DatabaseStorage implements IStorage {
       description: data.description,
     }).returning();
 
+    // Create main branch automatically
+    const mainBranch = await this.createBranch(restaurant.id, {
+      name: `${restaurant.name} - Matriz`,
+      address: data.address,
+      phone: data.phone,
+      isActive: 1,
+      isMain: 1,
+    });
+
     const [adminUser] = await db.insert(users).values({
       restaurantId: restaurant.id,
+      activeBranchId: mainBranch.id,
       email: data.email,
       password: hashedPassword,
       firstName: data.name,
@@ -169,6 +192,84 @@ export class DatabaseStorage implements IStorage {
 
   async deleteRestaurant(id: string): Promise<void> {
     await db.delete(restaurants).where(eq(restaurants.id, id));
+  }
+
+  // Branch operations
+  async getBranches(restaurantId: string): Promise<Branch[]> {
+    return await db.select().from(branches)
+      .where(eq(branches.restaurantId, restaurantId))
+      .orderBy(desc(branches.isMain), branches.createdAt);
+  }
+
+  async getBranchById(id: string): Promise<Branch | undefined> {
+    const [branch] = await db.select().from(branches).where(eq(branches.id, id));
+    return branch;
+  }
+
+  async createBranch(restaurantId: string, data: InsertBranch): Promise<Branch> {
+    const [branch] = await db.insert(branches).values({
+      restaurantId,
+      name: data.name,
+      address: data.address,
+      phone: data.phone,
+      isActive: data.isActive ?? 1,
+      isMain: data.isMain ?? 0,
+    }).returning();
+    return branch;
+  }
+
+  async updateBranch(restaurantId: string, id: string, data: UpdateBranch): Promise<Branch> {
+    const existing = await this.getBranchById(id);
+    if (!existing) {
+      throw new Error('Branch not found');
+    }
+    if (existing.restaurantId !== restaurantId) {
+      throw new Error('Unauthorized: Branch does not belong to your restaurant');
+    }
+
+    const [updated] = await db
+      .update(branches)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(branches.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteBranch(restaurantId: string, id: string): Promise<void> {
+    const existing = await this.getBranchById(id);
+    if (!existing) {
+      throw new Error('Branch not found');
+    }
+    if (existing.restaurantId !== restaurantId) {
+      throw new Error('Unauthorized: Branch does not belong to your restaurant');
+    }
+    if (existing.isMain === 1) {
+      throw new Error('Cannot delete main branch');
+    }
+
+    await db.delete(branches).where(eq(branches.id, id));
+  }
+
+  async ensureMainBranch(restaurantId: string): Promise<Branch> {
+    const existingBranches = await this.getBranches(restaurantId);
+    const mainBranch = existingBranches.find(b => b.isMain === 1);
+    
+    if (mainBranch) {
+      return mainBranch;
+    }
+
+    const restaurant = await this.getRestaurantById(restaurantId);
+    if (!restaurant) {
+      throw new Error('Restaurant not found');
+    }
+
+    return await this.createBranch(restaurantId, {
+      name: `${restaurant.name} - Matriz`,
+      address: restaurant.address || undefined,
+      phone: restaurant.phone || undefined,
+      isActive: 1,
+      isMain: 1,
+    });
   }
 
   // User operations
@@ -250,6 +351,15 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(users)
       .set({ password: hashedPassword, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
+  }
+
+  async updateUserActiveBranch(userId: string, branchId: string | null): Promise<User> {
+    const [updated] = await db
+      .update(users)
+      .set({ activeBranchId: branchId, updatedAt: new Date() })
       .where(eq(users.id, userId))
       .returning();
     return updated;

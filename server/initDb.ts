@@ -68,6 +68,24 @@ export async function ensureTablesExist() {
         ALTER TABLE users ADD COLUMN restaurant_id VARCHAR REFERENCES restaurants(id) ON DELETE CASCADE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
+      // Create branches table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS branches (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE, 
+        name VARCHAR(200) NOT NULL, 
+        address TEXT, 
+        phone VARCHAR(50), 
+        is_active INTEGER NOT NULL DEFAULT 1, 
+        is_main INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(), 
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Add active_branch_id to users
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE users ADD COLUMN active_branch_id VARCHAR REFERENCES branches(id) ON DELETE SET NULL; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
       // Create sessions table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS sessions (
         sid VARCHAR PRIMARY KEY, 
@@ -91,6 +109,11 @@ export async function ensureTablesExist() {
         ALTER TABLE tables ADD COLUMN restaurant_id VARCHAR REFERENCES restaurants(id) ON DELETE CASCADE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
+      // Add branch_id to tables
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE tables ADD COLUMN branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
       // Drop the unique constraint on table number (since now it's unique per restaurant)
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE tables DROP CONSTRAINT IF EXISTS tables_number_unique; 
@@ -109,6 +132,11 @@ export async function ensureTablesExist() {
         ALTER TABLE categories ADD COLUMN restaurant_id VARCHAR REFERENCES restaurants(id) ON DELETE CASCADE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
+      // Add branch_id to categories
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE categories ADD COLUMN branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
       // Create menu_items with restaurantId
       await db.execute(sql`CREATE TABLE IF NOT EXISTS menu_items (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
@@ -125,6 +153,11 @@ export async function ensureTablesExist() {
       // Add restaurantId to existing menu_items if column doesn't exist
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE menu_items ADD COLUMN restaurant_id VARCHAR REFERENCES restaurants(id) ON DELETE CASCADE; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Add branch_id to menu_items
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE menu_items ADD COLUMN branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Create orders table
