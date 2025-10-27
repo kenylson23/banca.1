@@ -80,7 +80,7 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="space-y-6 sm:space-y-8 p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Dashboard</h1>
@@ -92,15 +92,16 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <DateRangePicker date={dateRange} onDateChange={setDateRange} className="w-full sm:w-auto" />
+          <DateRangePicker date={dateRange} onDateChange={setDateRange} className="w-full sm:w-auto text-sm" />
           {dateRange?.from && dateRange?.to && (
             <Button
               variant="ghost"
               size="icon"
+              className="min-h-10 min-w-10"
               onClick={() => setDateRange(undefined)}
               data-testid="button-clear-date-range"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </Button>
           )}
         </div>
