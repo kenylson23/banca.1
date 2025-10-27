@@ -78,6 +78,13 @@ function Router() {
             return <Redirect to="/" />;
           }} />
           
+          <Route path="/branches" component={() => {
+            if (user?.role === 'admin') {
+              return <MainDashboard section="branches" />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
           <Route path="/profile" component={() => {
             return <MainDashboard section="profile" />;
           }} />

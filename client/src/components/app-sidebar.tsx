@@ -1,4 +1,4 @@
-import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield, Building2 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import type { Section } from "@/pages/main-dashboard";
 import { queryClient } from "@/lib/queryClient";
+import { BranchSelector } from "@/components/branch-selector";
 
 const adminMenuItems = [
   {
@@ -47,6 +48,12 @@ const adminMenuItems = [
     section: "users" as Section,
     path: "/users",
     icon: Users,
+  },
+  {
+    title: "Unidades",
+    section: "branches" as Section,
+    path: "/branches",
+    icon: Building2,
   },
 ];
 
@@ -89,6 +96,8 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
           <h1 className="text-xl font-bold text-sidebar-foreground">Na Bancada</h1>
           <p className="text-sm text-muted-foreground">Sistema de Gestão</p>
         </div>
+
+        <BranchSelector />
 
         <SidebarGroup>
           <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
