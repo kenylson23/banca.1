@@ -90,39 +90,39 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex flex-col">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-1 flex flex-col">
-        <div className="mb-6 sm:mb-8">
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex flex-col safe-area-inset-top safe-area-inset-bottom">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 flex-1 flex flex-col">
+        <div className="mb-4 sm:mb-8">
           <Button
             variant="ghost"
             onClick={() => setLocation("/")}
             data-testid="button-back-home"
-            className="gap-2 hover-elevate"
+            className="gap-2 hover-elevate min-h-10"
           >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar para Início
+            <ArrowLeft className="h-5 w-5" />
+            <span className="text-sm sm:text-base">Voltar para Início</span>
           </Button>
         </div>
 
-        <div className="text-center space-y-3 sm:space-y-4 mb-8 sm:mb-12">
+        <div className="text-center space-y-3 sm:space-y-4 mb-6 sm:mb-12">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground">
             Na Bancada
           </h1>
-          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
+          <p className="text-sm sm:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
             Acesse o sistema ou cadastre seu restaurante
           </p>
         </div>
 
-        <div className="flex justify-center flex-1 pb-8">
+        <div className="flex justify-center flex-1 pb-6 sm:pb-8">
           <div className="w-full max-w-lg">
             <Card className="shadow-xl border-border/50">
-              <CardHeader className="space-y-2 pb-6">
-                <CardTitle className="text-2xl sm:text-3xl text-center">Acesso ao Sistema</CardTitle>
-                <CardDescription className="text-center text-base">
+              <CardHeader className="space-y-2 pb-4 sm:pb-6 px-4 sm:px-6">
+                <CardTitle className="text-xl sm:text-3xl text-center">Acesso ao Sistema</CardTitle>
+                <CardDescription className="text-center text-sm sm:text-base">
                   Entre com sua conta ou cadastre seu restaurante
                 </CardDescription>
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent className="pt-0 px-4 sm:px-6">
                 <Tabs defaultValue="login" className="w-full">
                   <TabsList className="grid w-full grid-cols-2 mb-6">
                     <TabsTrigger value="login" data-testid="tab-login" className="text-base">
