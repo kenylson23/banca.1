@@ -43,7 +43,7 @@ export function BranchSelector() {
 
   const setActiveBranchMutation = useMutation({
     mutationFn: async (branchId: string) => {
-      return await apiRequest('POST', '/api/auth/active-branch', { branchId });
+      return await apiRequest('PATCH', '/api/auth/active-branch', { branchId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
