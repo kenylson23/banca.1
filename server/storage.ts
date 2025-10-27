@@ -100,6 +100,19 @@ export interface IStorage {
     }>;
   }>;
   
+  getCustomDateRangeStats(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date): Promise<{
+    totalSales: string;
+    totalOrders: number;
+    averageOrderValue: string;
+    topDishes: Array<{
+      menuItem: MenuItem;
+      count: number;
+      totalRevenue: string;
+    }>;
+    periodStart: Date;
+    periodEnd: Date;
+  }>;
+  
   getKitchenStats(restaurantId: string, branchId: string | null, period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): Promise<{
     totalOrders: number;
     totalRevenue: string;
@@ -805,6 +818,100 @@ export class DatabaseStorage implements IStorage {
       todayOrders: todayOrders.length,
       activeTables: activeTables.length,
       topDishes,
+    };
+  }
+
+  async getCustomDateRangeStats(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date): Promise<{
+    totalSales: string;
+    totalOrders: number;
+    averageOrderValue: string;
+    topDishes: Array<{
+      menuItem: MenuItem;
+      count: number;
+      totalRevenue: string;
+    }>;
+    periodStart: Date;
+    periodEnd: Date;
+  }> {
+    const periodStart = startDate;
+    const periodEnd = endDate;
+
+    // Get orders for the date range
+    let periodOrdersData;
+    if (branchId) {
+      periodOrdersData = await db
+        .select()
+        .from(orders)
+        .innerJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(tables.restaurantId, restaurantId),
+          eq(tables.branchId, branchId),
+          gte(orders.createdAt, periodStart),
+          sql`${orders.createdAt} <= ${periodEnd}`
+        ));
+    } else {
+      periodOrdersData = await db
+        .select()
+        .from(orders)
+        .innerJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(tables.restaurantId, restaurantId),
+          gte(orders.createdAt, periodStart),
+          sql`${orders.createdAt} <= ${periodEnd}`
+        ));
+    }
+
+    const periodOrders = periodOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
+
+    const totalOrders = periodOrders.length;
+    const totalSales = periodOrders.reduce(
+      (sum: number, order: Order) => sum + parseFloat(order.totalAmount),
+      0
+    );
+
+    const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
+
+    // Get top dishes for the period
+    const orderIds = periodOrders.map((o: Order) => o.id);
+    
+    let topDishes: Array<{
+      menuItem: MenuItem;
+      count: number;
+      totalRevenue: string;
+    }> = [];
+
+    if (orderIds.length > 0) {
+      const dishStats = await db
+        .select({
+          menuItemId: orderItems.menuItemId,
+          count: sql<number>`cast(sum(${orderItems.quantity}) as int)`,
+          revenue: sql<string>`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`,
+        })
+        .from(orderItems)
+        .where(sql`${orderItems.orderId} = ANY(ARRAY[${sql.join(orderIds.map((id: string) => sql`${id}`), sql`, `)}])`)
+        .groupBy(orderItems.menuItemId)
+        .orderBy(desc(sql`sum(${orderItems.quantity})`))
+        .limit(10);
+
+      topDishes = await Promise.all(
+        dishStats.map(async (stat: { menuItemId: string; count: number; revenue: string }) => {
+          const item = await this.getMenuItemById(stat.menuItemId);
+          return {
+            menuItem: item!,
+            count: stat.count,
+            totalRevenue: parseFloat(stat.revenue).toFixed(2),
+          };
+        })
+      );
+    }
+
+    return {
+      totalSales: totalSales.toFixed(2),
+      totalOrders,
+      averageOrderValue: averageOrderValue.toFixed(2),
+      topDishes,
+      periodStart,
+      periodEnd,
     };
   }
 

@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DollarSign, ShoppingBag, Table2, TrendingUp } from "lucide-react";
+import { DollarSign, ShoppingBag, TrendingUp, X } from "lucide-react";
 import { formatKwanza } from "@/lib/formatters";
 import type { Order, MenuItem } from "@shared/schema";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { DateRange } from "react-day-picker";
+import { Button } from "@/components/ui/button";
 
 interface DashboardStats {
   todaySales: string;
@@ -16,10 +20,60 @@ interface DashboardStats {
   }>;
 }
 
+interface CustomRangeStats {
+  totalSales: string;
+  totalOrders: number;
+  averageOrderValue: string;
+  topDishes: Array<{
+    menuItem: MenuItem;
+    count: number;
+    totalRevenue: string;
+  }>;
+  periodStart: Date;
+  periodEnd: Date;
+}
+
 export default function Dashboard() {
-  const { data: stats, isLoading } = useQuery<DashboardStats>({
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+
+  const { data: todayStats, isLoading: todayLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/stats/dashboard"],
+    enabled: !dateRange?.from || !dateRange?.to,
   });
+
+  const { data: customStats, isLoading: customLoading } = useQuery<CustomRangeStats>({
+    queryKey: ["/api/stats/custom-range", dateRange?.from, dateRange?.to],
+    queryFn: async () => {
+      if (!dateRange?.from || !dateRange?.to) return null;
+      const formatDate = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+      const params = new URLSearchParams({
+        startDate: formatDate(dateRange.from),
+        endDate: formatDate(dateRange.to),
+      });
+      const response = await fetch(`/api/stats/custom-range?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch custom range stats');
+      return response.json();
+    },
+    enabled: !!dateRange?.from && !!dateRange?.to,
+  });
+
+  const stats = dateRange?.from && dateRange?.to ? customStats : todayStats;
+  const isLoading = dateRange?.from && dateRange?.to ? customLoading : todayLoading;
+
+  const displayStats = stats ? {
+    totalSales: 'totalSales' in stats ? stats.totalSales : stats.todaySales,
+    totalOrders: 'totalOrders' in stats ? stats.totalOrders : stats.todayOrders,
+    averageOrderValue: 'averageOrderValue' in stats ? stats.averageOrderValue : (
+      stats.todayOrders > 0 ? (parseFloat(stats.todaySales) / stats.todayOrders).toFixed(2) : '0.00'
+    ),
+    activeTables: 'activeTables' in stats ? stats.activeTables : 0,
+    topDishes: stats.topDishes,
+  } : null;
 
   const { data: recentOrders, isLoading: ordersLoading } = useQuery<Array<Order & { table: { number: number } }>>({
     queryKey: ["/api/orders/recent"],
@@ -27,18 +81,36 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <div>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
-          Visão geral das operações do restaurante
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
+            {dateRange?.from && dateRange?.to 
+              ? `Estatísticas do período selecionado`
+              : `Visão geral das operações do restaurante`
+            }
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <DateRangePicker date={dateRange} onDateChange={setDateRange} className="w-full sm:w-auto" />
+          {dateRange?.from && dateRange?.to && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDateRange(undefined)}
+              data-testid="button-clear-date-range"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Vendas Hoje
+              {dateRange?.from && dateRange?.to ? "Vendas no Período" : "Vendas Hoje"}
             </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -47,11 +119,11 @@ export default function Dashboard() {
               <Skeleton className="h-8 w-24" />
             ) : (
               <>
-                <div className="text-3xl font-bold" data-testid="text-today-sales">
-                  {formatKwanza(stats?.todaySales || "0")}
+                <div className="text-3xl font-bold" data-testid="text-total-sales">
+                  {formatKwanza(displayStats?.totalSales || "0")}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Receita do dia atual
+                  {dateRange?.from && dateRange?.to ? "Receita total" : "Receita do dia atual"}
                 </p>
               </>
             )}
@@ -61,7 +133,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Pedidos Hoje
+              {dateRange?.from && dateRange?.to ? "Pedidos no Período" : "Pedidos Hoje"}
             </CardTitle>
             <ShoppingBag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -70,34 +142,11 @@ export default function Dashboard() {
               <Skeleton className="h-8 w-16" />
             ) : (
               <>
-                <div className="text-3xl font-bold" data-testid="text-today-orders">
-                  {stats?.todayOrders || 0}
+                <div className="text-3xl font-bold" data-testid="text-total-orders">
+                  {displayStats?.totalOrders || 0}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Total de pedidos
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Mesas Ativas
-            </CardTitle>
-            <Table2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-12" />
-            ) : (
-              <>
-                <div className="text-3xl font-bold" data-testid="text-active-tables">
-                  {stats?.activeTables || 0}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Mesas ocupadas
                 </p>
               </>
             )}
@@ -117,9 +166,7 @@ export default function Dashboard() {
             ) : (
               <>
                 <div className="text-3xl font-bold" data-testid="text-avg-ticket">
-                  {stats?.todayOrders && parseFloat(stats.todaySales) > 0
-                    ? formatKwanza(parseFloat(stats.todaySales) / stats.todayOrders)
-                    : formatKwanza(0)}
+                  {formatKwanza(displayStats?.averageOrderValue || "0")}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Valor médio por pedido
@@ -148,9 +195,9 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
-            ) : stats?.topDishes && stats.topDishes.length > 0 ? (
+            ) : displayStats?.topDishes && displayStats.topDishes.length > 0 ? (
               <div className="space-y-4">
-                {stats.topDishes.map((dish, index) => (
+                {displayStats.topDishes.map((dish, index) => (
                   <div
                     key={dish.menuItem.id}
                     className="flex items-center gap-4"
@@ -172,7 +219,10 @@ export default function Dashboard() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-8">
-                Nenhum pedido registrado hoje
+                {dateRange?.from && dateRange?.to 
+                  ? "Nenhum pedido registrado no período selecionado"
+                  : "Nenhum pedido registrado hoje"
+                }
               </p>
             )}
           </CardContent>
