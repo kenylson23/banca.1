@@ -229,33 +229,32 @@ export default function CustomerMenu() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4">
-          <div>
-            <h1 className="text-lg sm:text-xl font-semibold" data-testid="text-restaurant-name">NaBancada</h1>
-            <p className="text-xs sm:text-sm text-muted-foreground" data-testid="text-table-number">
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-inset-top">
+        <div className="container flex h-16 sm:h-16 items-center justify-between px-4 sm:px-6">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-xl font-semibold truncate" data-testid="text-restaurant-name">NaBancada</h1>
+            <p className="text-sm sm:text-sm text-muted-foreground" data-testid="text-table-number">
               Mesa {currentTable?.number || tableNumber}
             </p>
           </div>
           
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Dialog open={isOrdersDialogOpen} onOpenChange={setIsOrdersDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" data-testid="button-track-orders" className="text-sm">
-                  <ClipboardList className="h-4 w-4 mr-2" />
+                <Button variant="outline" data-testid="button-track-orders" className="text-sm min-h-10">
+                  <ClipboardList className="h-5 w-5 sm:mr-2" />
                   <span className="hidden sm:inline">Rastrear Pedido</span>
-                  <span className="sm:hidden">Pedidos</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[80vh]">
+              <DialogContent className="max-w-2xl max-h-[85vh] sm:max-h-[80vh]">
                 <DialogHeader>
-                  <DialogTitle data-testid="text-orders-dialog-title">Seus Pedidos</DialogTitle>
-                  <DialogDescription data-testid="text-orders-dialog-description">
+                  <DialogTitle className="text-lg sm:text-xl" data-testid="text-orders-dialog-title">Seus Pedidos</DialogTitle>
+                  <DialogDescription className="text-sm" data-testid="text-orders-dialog-description">
                     Acompanhe o status dos seus pedidos em tempo real
                   </DialogDescription>
                 </DialogHeader>
                 
-                <ScrollArea className="max-h-[60vh] pr-4">
+                <ScrollArea className="max-h-[65vh] sm:max-h-[60vh] pr-2 sm:pr-4">
                   {ordersLoading ? (
                     <div className="flex justify-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -320,11 +319,11 @@ export default function CustomerMenu() {
 
             <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="icon" className="relative" data-testid="button-open-cart">
-                  <ShoppingCart className="h-5 w-5" />
+                <Button variant="outline" size="icon" className="relative min-h-10 min-w-10" data-testid="button-open-cart">
+                  <ShoppingCart className="h-6 w-6" />
                   {getItemCount() > 0 && (
                     <Badge 
-                      className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs"
+                      className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center p-0 text-xs font-bold"
                       data-testid="badge-cart-count"
                     >
                       {getItemCount()}
@@ -332,65 +331,70 @@ export default function CustomerMenu() {
                   )}
                 </Button>
               </SheetTrigger>
-            <SheetContent className="w-full sm:max-w-lg">
-              <SheetHeader>
-                <SheetTitle data-testid="text-cart-title">Seu Pedido</SheetTitle>
-                <SheetDescription data-testid="text-cart-description">
-                  Revise os itens antes de confirmar
-                </SheetDescription>
-              </SheetHeader>
+            <SheetContent className="w-full sm:max-w-lg flex flex-col p-0">
+              <div className="p-6 pb-4">
+                <SheetHeader>
+                  <SheetTitle className="text-xl" data-testid="text-cart-title">Seu Pedido</SheetTitle>
+                  <SheetDescription className="text-sm" data-testid="text-cart-description">
+                    Revise os itens antes de confirmar
+                  </SheetDescription>
+                </SheetHeader>
+              </div>
               
-              <ScrollArea className="h-[calc(100vh-200px)] mt-6">
+              <ScrollArea className="flex-1 px-6">
                 {items.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
                     <ShoppingCart className="h-12 w-12 mb-2 opacity-50" />
                     <p data-testid="text-empty-cart">Seu carrinho está vazio</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3 pb-4">
                     {items.map((item) => (
                       <Card key={item.menuItem.id} data-testid={`cart-item-${item.menuItem.id}`}>
                         <CardHeader className="pb-3">
-                          <CardTitle className="text-base" data-testid={`text-item-name-${item.menuItem.id}`}>
+                          <CardTitle className="text-base sm:text-lg" data-testid={`text-item-name-${item.menuItem.id}`}>
                             {item.menuItem.name}
                           </CardTitle>
-                          <CardDescription data-testid={`text-item-price-${item.menuItem.id}`}>
+                          <CardDescription className="text-sm" data-testid={`text-item-price-${item.menuItem.id}`}>
                             {formatKwanza(item.menuItem.price)}
                           </CardDescription>
                         </CardHeader>
-                        <CardFooter className="flex items-center justify-between gap-2">
+                        <CardFooter className="flex flex-wrap items-center justify-between gap-3">
                           <div className="flex items-center gap-2">
                             <Button
                               variant="outline"
                               size="icon"
+                              className="h-10 w-10"
                               onClick={() => updateQuantity(item.menuItem.id, item.quantity - 1)}
                               data-testid={`button-decrease-${item.menuItem.id}`}
                             >
-                              <Minus className="h-4 w-4" />
+                              <Minus className="h-5 w-5" />
                             </Button>
-                            <span className="w-8 text-center" data-testid={`text-quantity-${item.menuItem.id}`}>
+                            <span className="w-10 text-center font-medium text-lg" data-testid={`text-quantity-${item.menuItem.id}`}>
                               {item.quantity}
                             </span>
                             <Button
                               variant="outline"
                               size="icon"
+                              className="h-10 w-10"
                               onClick={() => updateQuantity(item.menuItem.id, item.quantity + 1)}
                               data-testid={`button-increase-${item.menuItem.id}`}
                             >
-                              <Plus className="h-4 w-4" />
+                              <Plus className="h-5 w-5" />
                             </Button>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold" data-testid={`text-item-total-${item.menuItem.id}`}>
+                            <span className="font-bold text-lg" data-testid={`text-item-total-${item.menuItem.id}`}>
                               {formatKwanza(parseFloat(item.menuItem.price) * item.quantity)}
                             </span>
                             <Button
                               variant="ghost"
                               size="icon"
+                              className="h-10 w-10"
                               onClick={() => removeItem(item.menuItem.id)}
                               data-testid={`button-remove-${item.menuItem.id}`}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-5 w-5 text-destructive" />
                             </Button>
                           </div>
                         </CardFooter>
@@ -401,21 +405,21 @@ export default function CustomerMenu() {
               </ScrollArea>
 
               {items.length > 0 && (
-                <div className="absolute bottom-0 left-0 right-0 p-6 bg-background border-t space-y-4">
+                <div className="border-t bg-background p-4 sm:p-6 space-y-4">
                   <div className="space-y-3">
                     <div>
-                      <Label htmlFor="customer-name">Nome *</Label>
+                      <Label htmlFor="customer-name" className="text-sm font-medium">Nome *</Label>
                       <Input
                         id="customer-name"
                         placeholder="Seu nome"
                         value={customerName}
                         onChange={(e) => setCustomerName(e.target.value)}
                         data-testid="input-customer-name"
-                        className="mt-1"
+                        className="mt-1.5 h-11 text-base"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="customer-phone">Telefone/WhatsApp *</Label>
+                      <Label htmlFor="customer-phone" className="text-sm font-medium">Telefone/WhatsApp *</Label>
                       <Input
                         id="customer-phone"
                         type="tel"
@@ -423,21 +427,21 @@ export default function CustomerMenu() {
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
                         data-testid="input-customer-phone"
-                        className="mt-1"
+                        className="mt-1.5 h-11 text-base"
                       />
                     </div>
                   </div>
                   
                   <Separator />
                   
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-semibold">Total</span>
-                    <span className="text-2xl font-bold" data-testid="text-cart-total">
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-lg sm:text-xl font-semibold">Total</span>
+                    <span className="text-2xl sm:text-3xl font-bold text-primary" data-testid="text-cart-total">
                       {formatKwanza(getTotal())}
                     </span>
                   </div>
                   <Button 
-                    className="w-full" 
+                    className="w-full min-h-12 text-base font-semibold" 
                     size="lg"
                     onClick={handleConfirmOrder}
                     disabled={createOrderMutation.isPending}
@@ -454,21 +458,21 @@ export default function CustomerMenu() {
         </div>
       </header>
 
-      <main className="container px-3 sm:px-4 py-4 sm:py-6 lg:py-8">
+      <main className="container px-4 sm:px-6 py-6 sm:py-8 lg:py-8 pb-20">
         {restaurant && (
-          <Card className="mb-8" data-testid="card-restaurant-info">
-            <CardHeader className="text-center">
+          <Card className="mb-6 sm:mb-8" data-testid="card-restaurant-info">
+            <CardHeader className="text-center p-6 sm:p-6">
               {restaurant.logoUrl && (
                 <div className="flex justify-center mb-4">
                   <img
                     src={restaurant.logoUrl}
                     alt={`Logo ${restaurant.name}`}
-                    className="h-24 w-auto object-contain"
+                    className="h-20 sm:h-24 w-auto object-contain"
                     data-testid="img-restaurant-logo"
                   />
                 </div>
               )}
-              <CardTitle className="text-3xl" data-testid="text-restaurant-name">
+              <CardTitle className="text-2xl sm:text-3xl" data-testid="text-restaurant-name">
                 {restaurant.name}
               </CardTitle>
               {restaurant.description && (
@@ -477,8 +481,8 @@ export default function CustomerMenu() {
                 </CardDescription>
               )}
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-3 text-sm">
+            <CardContent className="p-4 sm:p-6">
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 text-sm">
                 {restaurant.address && (
                   <div className="flex items-start gap-3" data-testid="text-restaurant-address">
                     <MapPin className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
@@ -511,23 +515,23 @@ export default function CustomerMenu() {
           </Card>
         )}
 
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2" data-testid="text-menu-title">Menu</h2>
-          <p className="text-muted-foreground" data-testid="text-menu-description">
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-2" data-testid="text-menu-title">Menu</h2>
+          <p className="text-sm sm:text-base text-muted-foreground" data-testid="text-menu-description">
             Escolha seus pratos favoritos e adicione ao carrinho
           </p>
         </div>
 
         {groupedByCategory && Object.entries(groupedByCategory).map(([categoryName, items]) => (
-          <div key={categoryName} className="mb-12">
-            <h3 className="text-2xl font-semibold mb-6" data-testid={`text-category-${categoryName}`}>
+          <div key={categoryName} className="mb-10 sm:mb-12">
+            <h3 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-6 sticky top-16 sm:top-16 z-40 bg-background py-2 -mx-4 px-4 sm:-mx-6 sm:px-6 border-b" data-testid={`text-category-${categoryName}`}>
               {categoryName}
             </h3>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {items.map((item) => (
                 <Card 
                   key={item.id} 
-                  className="overflow-hidden hover-elevate"
+                  className="overflow-hidden hover-elevate flex flex-col"
                   data-testid={`card-menu-item-${item.id}`}
                 >
                   {item.imageUrl && (
@@ -536,38 +540,40 @@ export default function CustomerMenu() {
                         src={item.imageUrl}
                         alt={item.name}
                         className="h-full w-full object-cover"
+                        loading="lazy"
                         data-testid={`img-menu-item-${item.id}`}
                       />
                     </div>
                   )}
-                  <CardHeader>
+                  <CardHeader className="flex-1 p-4 sm:p-6">
                     <div className="flex items-start justify-between gap-2">
-                      <CardTitle data-testid={`text-menu-item-name-${item.id}`}>
+                      <CardTitle className="text-lg sm:text-xl" data-testid={`text-menu-item-name-${item.id}`}>
                         {item.name}
                       </CardTitle>
                       {item.isAvailable === 0 && (
-                        <Badge variant="secondary" data-testid={`badge-unavailable-${item.id}`}>
+                        <Badge variant="secondary" className="shrink-0" data-testid={`badge-unavailable-${item.id}`}>
                           Indisponível
                         </Badge>
                       )}
                     </div>
                     {item.description && (
-                      <CardDescription data-testid={`text-menu-item-description-${item.id}`}>
+                      <CardDescription className="text-sm mt-2 line-clamp-2" data-testid={`text-menu-item-description-${item.id}`}>
                         {item.description}
                       </CardDescription>
                     )}
                   </CardHeader>
-                  <CardFooter className="flex items-center justify-between gap-2">
-                    <span className="text-2xl font-bold" data-testid={`text-menu-item-price-${item.id}`}>
+                  <CardFooter className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-6 pt-0">
+                    <span className="text-xl sm:text-2xl font-bold text-primary" data-testid={`text-menu-item-price-${item.id}`}>
                       {formatKwanza(item.price)}
                     </span>
                     <Button
                       onClick={() => addItem(item)}
                       disabled={item.isAvailable === 0}
+                      className="min-h-10 px-6"
                       data-testid={`button-add-to-cart-${item.id}`}
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Adicionar
+                      <Plus className="h-5 w-5 mr-2" />
+                      <span className="font-medium">Adicionar</span>
                     </Button>
                   </CardFooter>
                 </Card>
