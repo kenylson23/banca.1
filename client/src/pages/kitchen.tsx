@@ -255,9 +255,16 @@ export default function Kitchen() {
               >
                 <CardHeader className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3">
                   <div className="flex-1">
-                    <CardTitle className="text-xl sm:text-2xl font-mono">
-                      Mesa {order.table.number}
-                    </CardTitle>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CardTitle className="text-xl sm:text-2xl font-mono">
+                        {order.orderType === 'mesa' ? `Mesa ${order.table?.number || '?'}` : 
+                         order.orderType === 'delivery' ? 'Delivery' : 'Retirada'}
+                      </CardTitle>
+                      <Badge variant="outline" className="text-xs">
+                        {order.orderType === 'mesa' ? '🪑 Mesa' : 
+                         order.orderType === 'delivery' ? '🚚 Delivery' : '🚶 Retirada'}
+                      </Badge>
+                    </div>
                     <div className="flex flex-col gap-1 mt-2">
                       <div className="flex items-center gap-2">
                         <Clock className="h-3 w-3 text-muted-foreground flex-shrink-0" />
@@ -268,6 +275,16 @@ export default function Kitchen() {
                       {order.customerName && (
                         <p className="text-xs sm:text-sm text-muted-foreground truncate">
                           Cliente: {order.customerName}
+                        </p>
+                      )}
+                      {order.customerPhone && (
+                        <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                          Telefone: {order.customerPhone}
+                        </p>
+                      )}
+                      {order.orderType === 'delivery' && order.deliveryAddress && (
+                        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
+                          Endereço: {order.deliveryAddress}
                         </p>
                       )}
                     </div>

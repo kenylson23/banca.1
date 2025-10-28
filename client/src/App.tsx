@@ -9,6 +9,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
 import CustomerMenu from "@/pages/customer-menu";
+import PublicMenu from "@/pages/public-menu";
 import MainDashboard from "@/pages/main-dashboard";
 import NotFound from "@/pages/not-found";
 
@@ -22,6 +23,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/mesa/:tableNumber" component={CustomerMenu} />
+      <Route path="/r/:slug" component={PublicMenu} />
       
       {!isAuthenticated ? (
         <>
@@ -87,6 +89,13 @@ function Router() {
           
           <Route path="/profile" component={() => {
             return <MainDashboard section="profile" />;
+          }} />
+          
+          <Route path="/settings" component={() => {
+            if (user?.role === 'admin') {
+              return <MainDashboard section="settings" />;
+            }
+            return <Redirect to="/" />;
           }} />
           
           <Route path="/superadmin" component={() => {

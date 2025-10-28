@@ -38,8 +38,10 @@ export interface IStorage {
   getRestaurants(): Promise<Restaurant[]>;
   getRestaurantById(id: string): Promise<Restaurant | undefined>;
   getRestaurantByEmail(email: string): Promise<Restaurant | undefined>;
+  getRestaurantBySlug(slug: string): Promise<Restaurant | undefined>;
   createRestaurant(restaurant: InsertRestaurant & { password: string }): Promise<{ restaurant: Restaurant; adminUser: User }>;
   updateRestaurantStatus(id: string, status: 'pendente' | 'ativo' | 'suspenso'): Promise<Restaurant>;
+  updateRestaurantSlug(restaurantId: string, slug: string): Promise<Restaurant>;
   deleteRestaurant(id: string): Promise<void>;
   
   // Branch operations
@@ -157,6 +159,20 @@ export class DatabaseStorage implements IStorage {
   async getRestaurantByEmail(email: string): Promise<Restaurant | undefined> {
     const [restaurant] = await db.select().from(restaurants).where(eq(restaurants.email, email));
     return restaurant;
+  }
+
+  async getRestaurantBySlug(slug: string): Promise<Restaurant | undefined> {
+    const [restaurant] = await db.select().from(restaurants).where(eq(restaurants.slug, slug));
+    return restaurant;
+  }
+
+  async updateRestaurantSlug(restaurantId: string, slug: string): Promise<Restaurant> {
+    const [updated] = await db
+      .update(restaurants)
+      .set({ slug, updatedAt: new Date() })
+      .where(eq(restaurants.id, restaurantId))
+      .returning();
+    return updated;
   }
 
   async createRestaurant(data: InsertRestaurant & { password: string }): Promise<{ restaurant: Restaurant; adminUser: User }> {
@@ -652,13 +668,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createOrder(order: InsertOrder, items: PublicOrderItem[]): Promise<Order> {
-    // Verify that the table exists and get its restaurantId
-    const table = await this.getTableById(order.tableId);
-    if (!table) {
-      throw new Error('Table not found');
+    let restaurantId: string;
+    
+    // For table orders, verify the table exists and get its restaurantId
+    if (order.orderType === 'mesa' && order.tableId) {
+      const table = await this.getTableById(order.tableId);
+      if (!table) {
+        throw new Error('Table not found');
+      }
+      restaurantId = table.restaurantId;
+    } else {
+      // For delivery/takeout orders, get restaurantId from order
+      restaurantId = order.restaurantId;
     }
     
-    // Verify all menu items belong to the same restaurant as the table
+    // Verify all menu items belong to the same restaurant
     if (items.length > 0) {
       const itemChecks = await Promise.all(
         items.map(item => this.getMenuItemById(item.menuItemId))
@@ -668,8 +692,8 @@ export class DatabaseStorage implements IStorage {
         if (!menuItem) {
           throw new Error('Menu item not found');
         }
-        if (menuItem.restaurantId !== table.restaurantId) {
-          throw new Error('Menu items must belong to the same restaurant as the table');
+        if (menuItem.restaurantId !== restaurantId) {
+          throw new Error('Menu items must belong to the same restaurant');
         }
       }
     }
@@ -684,8 +708,10 @@ export class DatabaseStorage implements IStorage {
       await db.insert(orderItems).values(itemsWithOrderId);
     }
 
-    // Update table occupancy
-    await this.updateTableOccupancy(table.restaurantId, order.tableId, true);
+    // Update table occupancy only for table orders
+    if (order.orderType === 'mesa' && order.tableId) {
+      await this.updateTableOccupancy(restaurantId, order.tableId, true);
+    }
 
     return newOrder;
   }

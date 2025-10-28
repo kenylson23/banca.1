@@ -22,6 +22,7 @@ import {
   updatePasswordSchema,
   insertBranchSchema,
   updateBranchSchema,
+  updateRestaurantSlugSchema,
   type User,
 } from "@shared/schema";
 import { z } from "zod";
@@ -383,6 +384,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update restaurant slug (Admin only)
+  app.patch('/api/restaurants/slug', isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const data = updateRestaurantSlugSchema.parse(req.body);
+      
+      const existingRestaurant = await storage.getRestaurantBySlug(data.slug);
+      if (existingRestaurant && existingRestaurant.id !== currentUser.restaurantId) {
+        return res.status(400).json({ message: "Este slug já está em uso por outro restaurante" });
+      }
+
+      const restaurant = await storage.updateRestaurantSlug(currentUser.restaurantId, data.slug);
+      res.json(restaurant);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Error updating restaurant slug:", error);
+      res.status(500).json({ message: "Erro ao atualizar slug do restaurante" });
+    }
+  });
+
   app.get('/api/superadmin/stats', isSuperAdmin, async (req, res) => {
     try {
       const stats = await storage.getSuperAdminStats();
@@ -591,6 +618,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get restaurant details by slug
+  app.get("/api/public/restaurants/slug/:slug", async (req, res) => {
+    try {
+      const slug = req.params.slug;
+      const restaurant = await storage.getRestaurantBySlug(slug);
+      
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurante não encontrado" });
+      }
+      
+      if (restaurant.status !== 'ativo') {
+        return res.status(403).json({ message: "Restaurante não está ativo" });
+      }
+      
+      res.json(restaurant);
+    } catch (error) {
+      console.error("Error fetching restaurant by slug:", error);
+      res.status(500).json({ message: "Erro ao buscar restaurante" });
+    }
+  });
+
   // Get table by number (used by QR code flow at /mesa/:tableNumber)
   // This finds the table by number alone. In multi-tenant systems with duplicate table numbers
   // across restaurants, consider using the restaurantId-scoped route below instead.
@@ -650,9 +698,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedOrder = insertOrderSchema.parse(orderData);
       const validatedItems = z.array(publicOrderItemSchema).parse(items);
 
-      const table = await storage.getTableById(validatedOrder.tableId);
-      if (!table) {
-        return res.status(404).json({ message: "Mesa não encontrada" });
+      if (validatedOrder.orderType === 'mesa') {
+        if (!validatedOrder.tableId) {
+          return res.status(400).json({ message: "Mesa é obrigatória para pedidos do tipo mesa" });
+        }
+        const table = await storage.getTableById(validatedOrder.tableId);
+        if (!table) {
+          return res.status(404).json({ message: "Mesa não encontrada" });
+        }
+      }
+
+      if (validatedOrder.orderType === 'delivery' && !validatedOrder.deliveryAddress) {
+        return res.status(400).json({ message: "Endereço de entrega é obrigatório para delivery" });
       }
 
       const order = await storage.createOrder(validatedOrder, validatedItems);
@@ -948,7 +1005,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const order = await storage.updateOrderStatus(restaurantId, req.params.id, status);
       
-      if (status === 'servido') {
+      if (status === 'servido' && order.tableId) {
         await storage.updateTableOccupancy(restaurantId, order.tableId, false);
         broadcastToClients({ 
           type: 'table_freed', 

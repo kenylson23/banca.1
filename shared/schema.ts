@@ -33,6 +33,7 @@ export const restaurantStatusEnum = pgEnum('restaurant_status', ['pendente', 'at
 export const restaurants = pgTable("restaurants", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name", { length: 200 }).notNull(),
+  slug: varchar("slug", { length: 100 }).unique(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   phone: varchar("phone", { length: 50 }),
   address: text("address"),
@@ -236,12 +237,18 @@ export type MenuItem = typeof menuItems.$inferSelect;
 // Order Status Enum
 export const orderStatusEnum = pgEnum('order_status', ['pendente', 'em_preparo', 'pronto', 'servido']);
 
+// Order Type Enum
+export const orderTypeEnum = pgEnum('order_type', ['mesa', 'delivery', 'takeout']);
+
 // Orders - Pedidos
 export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tableId: varchar("table_id").notNull().references(() => tables.id, { onDelete: 'cascade' }),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  tableId: varchar("table_id").references(() => tables.id, { onDelete: 'cascade' }),
+  orderType: orderTypeEnum("order_type").notNull().default('mesa'),
   customerName: varchar("customer_name", { length: 200 }),
   customerPhone: varchar("customer_phone", { length: 50 }),
+  deliveryAddress: text("delivery_address"),
   status: orderStatusEnum("status").notNull().default('pendente'),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -252,10 +259,20 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  orderType: z.enum(['mesa', 'delivery', 'takeout']).default('mesa'),
+});
+
+export const updateRestaurantSlugSchema = z.object({
+  slug: z.string()
+    .min(3, "Slug deve ter no mínimo 3 caracteres")
+    .max(100, "Slug deve ter no máximo 100 caracteres")
+    .regex(/^[a-z0-9-]+$/, "Slug deve conter apenas letras minúsculas, números e hífens")
 });
 
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
+export type UpdateRestaurantSlug = z.infer<typeof updateRestaurantSlugSchema>;
 
 // Order Items - Itens do pedido
 export const orderItems = pgTable("order_items", {
@@ -376,6 +393,10 @@ export const tablesRelations = relations(tables, ({ one, many }) => ({
 }));
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [orders.restaurantId],
+    references: [restaurants.id],
+  }),
   table: one(tables, {
     fields: [orders.tableId],
     references: [tables.id],
