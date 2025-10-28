@@ -27,7 +27,8 @@ export async function ensureTablesExist() {
       // Create restaurants table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS restaurants (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
-        name VARCHAR(200) NOT NULL, 
+        name VARCHAR(200) NOT NULL,
+        slug VARCHAR(100) UNIQUE,
         email VARCHAR(255) NOT NULL UNIQUE, 
         phone VARCHAR(50), 
         address TEXT, 
@@ -40,6 +41,9 @@ export async function ensureTablesExist() {
       );`);
       
       // Add new columns to existing restaurants table if they don't exist
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE restaurants ADD COLUMN slug VARCHAR(100) UNIQUE; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE restaurants ADD COLUMN logo_url TEXT; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
