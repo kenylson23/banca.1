@@ -79,6 +79,12 @@ const superAdminMenuItems = [
     path: "/superadmin",
     icon: Shield,
   },
+  {
+    title: "Configurações",
+    section: "settings" as Section,
+    path: "/settings",
+    icon: Settings,
+  },
 ];
 
 interface AppSidebarProps {

@@ -90,6 +90,27 @@ export default function Settings() {
     );
   }
 
+  if (currentUser?.role === 'superadmin') {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Configurações</h1>
+          <p className="text-muted-foreground">
+            Área disponível apenas para administradores de restaurantes
+          </p>
+        </div>
+        <Card>
+          <CardContent className="p-8 text-center">
+            <p className="text-muted-foreground">
+              Esta seção é destinada a administradores de restaurantes específicos. 
+              Como superadmin, você pode gerenciar restaurantes através do painel Super Admin.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
