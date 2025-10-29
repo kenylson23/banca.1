@@ -100,7 +100,19 @@ O sistema estará disponível em `http://localhost:5000`
 
 Para fazer deploy no Render, siga o guia detalhado em [RENDER_DEPLOY.md](./RENDER_DEPLOY.md)
 
-### Resumo Rápido:
+### 🚀 Deploy Rápido com render.yaml
+
+Este projeto inclui um arquivo `render.yaml` que configura automaticamente o banco de dados e o web service no Render:
+
+1. **Fork/Clone** este repositório
+2. No Render Dashboard, clique em **"New +"** → **"Blueprint"**
+3. Conecte seu repositório Git
+4. O Render criará automaticamente:
+   - ✅ Banco de dados PostgreSQL
+   - ✅ Web Service com todas as configurações
+   - ✅ Variáveis de ambiente necessárias
+
+### 📋 Deploy Manual (Passo a Passo)
 
 1. **Criar banco PostgreSQL no Render**
    - Acesse Render Dashboard
@@ -110,9 +122,11 @@ Para fazer deploy no Render, siga o guia detalhado em [RENDER_DEPLOY.md](./RENDE
 2. **Criar Web Service no Render**
    - Conecte seu repositório Git
    - Configure:
-     - Build Command: `npm install --include=dev && npm run build`
+     - Build Command: `npm install --include=dev && npm run db:push -- --force && npm run build`
      - Start Command: `npm start`
-   - ⚠️ **IMPORTANTE**: Use `--include=dev` no build command para evitar erro 127
+   - ⚠️ **IMPORTANTE**: 
+     - Use `--include=dev` no build command para evitar erro 127
+     - O `npm run db:push -- --force` aplica automaticamente as migrações do banco a cada deploy
 
 3. **Configurar Variáveis de Ambiente**
    ```
@@ -123,6 +137,7 @@ Para fazer deploy no Render, siga o guia detalhado em [RENDER_DEPLOY.md](./RENDE
 
 4. **Deploy Automático**
    - O Render fará o deploy automaticamente
+   - A migração do banco é executada automaticamente
    - A inicialização do banco é automática
 
 ## 🔑 Credenciais Padrão
