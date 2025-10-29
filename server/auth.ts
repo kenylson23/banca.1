@@ -96,8 +96,37 @@ export function setupAuth(app: Express) {
   passport.deserializeUser(async (id: string, cb) => {
     try {
       const user = await storage.getUser(id);
+      
+      // Enhanced logging for debugging session/authentication issues
+      if (process.env.NODE_ENV === 'production' || process.env.DEBUG_AUTH === 'true') {
+        console.log('[AUTH] Deserializing user:', {
+          userId: id,
+          userFound: !!user,
+          userRole: user?.role,
+          hasRole: user ? 'role' in user : false,
+        });
+      }
+      
+      // Critical validation: ensure role is present
+      if (user && !user.role) {
+        console.error('[AUTH] CRITICAL: User loaded from database missing role field!', {
+          userId: user.id,
+          email: user.email,
+          restaurantId: user.restaurantId,
+          userKeys: Object.keys(user),
+        });
+        console.error('[AUTH] ACTION REQUIRED: Run the SQL repair script (scripts/repair-user-roles.sql) to fix this user\'s role.');
+        console.error('[AUTH] This user will have LIMITED ACCESS (kitchen menu only) until role is manually set.');
+        
+        // DO NOT attempt automatic repair - it's unsafe and can cause privilege escalation
+        // Kitchen staff have restaurantId, so we can't use that to determine role
+        // Superadmin has no restaurantId, so we can't use that either
+        // The ONLY safe approach is manual repair via SQL script
+      }
+      
       cb(null, user);
     } catch (error) {
+      console.error('[AUTH] Error deserializing user:', error);
       cb(error);
     }
   });
@@ -107,5 +136,16 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
   if (req.isAuthenticated()) {
     return next();
   }
+  
+  // Enhanced logging for debugging authentication issues
+  if (process.env.NODE_ENV === 'production' || process.env.DEBUG_AUTH === 'true') {
+    console.log('[AUTH] isAuthenticated check failed:', {
+      hasSession: !!req.session,
+      sessionID: req.sessionID,
+      authenticated: req.isAuthenticated(),
+      path: req.path,
+    });
+  }
+  
   res.status(401).json({ message: "Não autenticado" });
 };

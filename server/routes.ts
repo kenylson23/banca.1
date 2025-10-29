@@ -58,6 +58,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   setupAuth(app);
 
+  // ===== DEBUG/HEALTH CHECK ENDPOINT =====
+  // This endpoint helps diagnose deployment issues on Render
+  // Only available when DEBUG_AUTH is enabled to avoid exposing sensitive info in production
+  app.get('/api/debug/health', async (req, res) => {
+    // Security: Only allow in development or when explicitly enabled
+    if (process.env.NODE_ENV === 'production' && process.env.DEBUG_AUTH !== 'true') {
+      return res.status(404).json({ message: 'Not found' });
+    }
+    try {
+      const healthCheck = {
+        status: 'healthy',
+        environment: {
+          nodeEnv: process.env.NODE_ENV,
+          hasSessionSecret: !!process.env.SESSION_SECRET,
+          hasDatabaseUrl: !!process.env.DATABASE_URL,
+          port: process.env.PORT || '5000',
+        },
+        session: {
+          isAuthenticated: req.isAuthenticated(),
+          hasSession: !!req.session,
+          sessionID: req.sessionID,
+        },
+        database: {
+          connected: false,
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      // Test database connection
+      try {
+        await storage.getRestaurants();
+        healthCheck.database.connected = true;
+      } catch (dbError) {
+        healthCheck.database.connected = false;
+        healthCheck.status = 'degraded';
+      }
+
+      // If authenticated, add user info (without sensitive data)
+      if (req.isAuthenticated() && req.user) {
+        const user = req.user as User;
+        (healthCheck as any).user = {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          hasRestaurantId: !!user.restaurantId,
+        };
+      }
+
+      res.json(healthCheck);
+    } catch (error) {
+      res.status(500).json({
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
+
   // ===== PUBLIC RESTAURANT REGISTRATION =====
   app.post('/api/restaurants/register', async (req, res) => {
     try {
@@ -100,25 +157,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     passport.authenticate('local', async (err: any, user: User | false, info: any) => {
       if (err) {
+        console.error('[AUTH] Login error:', err);
         return res.status(500).json({ message: "Erro ao fazer login" });
       }
       if (!user) {
+        if (process.env.NODE_ENV === 'production' || process.env.DEBUG_AUTH === 'true') {
+          console.log('[AUTH] Login failed:', info?.message);
+        }
         return res.status(401).json({ message: info?.message || "Email ou senha incorretos" });
+      }
+
+      // Enhanced logging
+      if (process.env.NODE_ENV === 'production' || process.env.DEBUG_AUTH === 'true') {
+        console.log('[AUTH] User authenticated via passport:', {
+          userId: user.id,
+          email: user.email,
+          role: user.role,
+          restaurantId: user.restaurantId,
+          hasRole: 'role' in user,
+        });
       }
 
       // Check if user belongs to an approved restaurant (unless superadmin)
       if (user.role !== 'superadmin' && user.restaurantId) {
         const restaurant = await storage.getRestaurantById(user.restaurantId);
         if (!restaurant) {
+          console.error('[AUTH] Restaurant not found for user:', user.id);
           return res.status(403).json({ message: "Restaurante não encontrado" });
         }
         if (restaurant.status !== 'ativo') {
+          console.log('[AUTH] Restaurant not active:', { restaurantId: user.restaurantId, status: restaurant.status });
           return res.status(403).json({ message: "Restaurante ainda não foi aprovado ou está suspenso" });
         }
       }
 
       req.login(user, (loginErr) => {
         if (loginErr) {
+          console.error('[AUTH] req.login error:', loginErr);
           return res.status(500).json({ message: "Erro ao fazer login" });
         }
 
@@ -133,6 +208,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         };
+
+        // Log successful login
+        if (process.env.NODE_ENV === 'production' || process.env.DEBUG_AUTH === 'true') {
+          console.log('[AUTH] Login successful, session created:', {
+            sessionId: req.sessionID,
+            userId: userWithoutPassword.id,
+            role: userWithoutPassword.role,
+          });
+        }
 
         return res.json(userWithoutPassword);
       });
@@ -157,6 +241,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/user', isAuthenticated, async (req, res) => {
     try {
       const user = req.user as User;
+      
+      // Enhanced logging for debugging authentication issues on Render
+      if (process.env.NODE_ENV === 'production' || process.env.DEBUG_AUTH === 'true') {
+        console.log('[AUTH] /api/auth/user called');
+        console.log('[AUTH] User authenticated:', req.isAuthenticated());
+        console.log('[AUTH] Session ID:', req.sessionID);
+        console.log('[AUTH] User ID:', user?.id);
+        console.log('[AUTH] User role:', user?.role);
+        console.log('[AUTH] User restaurantId:', user?.restaurantId);
+      }
+      
+      // Critical warning if role is missing, but don't fail the request
+      // This allows users to still login and admins to fix the data
+      if (!user.role) {
+        console.error('[AUTH] CRITICAL: User object missing role field!', {
+          userId: user.id,
+          email: user.email,
+          hasRole: 'role' in user,
+          userKeys: Object.keys(user),
+        });
+        console.error('[AUTH] This user will have limited access until role is set.');
+        // Don't return error - let the user login but they'll see limited menu
+      }
+      
       const userWithoutPassword = {
         id: user.id,
         email: user.email,
@@ -168,9 +276,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       };
+      
+      // Log the response payload for debugging
+      if (process.env.NODE_ENV === 'production' || process.env.DEBUG_AUTH === 'true') {
+        console.log('[AUTH] Returning user payload:', {
+          id: userWithoutPassword.id,
+          role: userWithoutPassword.role,
+          hasRole: 'role' in userWithoutPassword,
+        });
+      }
+      
       res.json(userWithoutPassword);
     } catch (error) {
-      console.error("Error fetching user:", error);
+      console.error("[AUTH] Error fetching user:", error);
       res.status(500).json({ message: "Erro ao buscar usuário" });
     }
   });
