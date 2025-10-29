@@ -47,11 +47,13 @@ O sistema foi completamente testado e validado para deploy em produção no Rend
    - **Branch**: main (ou a branch principal do seu projeto)
    - **Root Directory**: (deixe em branco se o projeto está na raiz)
    - **Runtime**: Node
-   - **Build Command**: `npm install --include=dev && npm run build`
+   - **Build Command**: `npm install --include=dev && npm run db:push -- --force && npm run build`
    - **Start Command**: `npm start`
    - **Plan**: escolha o plano adequado
 
-**⚠️ IMPORTANTE**: O comando de build DEVE incluir `--include=dev` para instalar as ferramentas necessárias (TypeScript, esbuild, Vite, etc.). Sem isso, o build falhará com erro 127.
+**⚠️ IMPORTANTE**: 
+- O comando de build DEVE incluir `--include=dev` para instalar as ferramentas necessárias (TypeScript, esbuild, Vite, etc.). Sem isso, o build falhará com erro 127.
+- O comando `npm run db:push -- --force` aplica automaticamente as migrações do banco de dados a cada deploy, garantindo que alterações no schema sejam refletidas na produção.
 
 ## Passo 3: Configurar Variáveis de Ambiente
 
