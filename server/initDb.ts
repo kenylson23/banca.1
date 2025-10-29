@@ -165,20 +165,6 @@ export async function ensureTablesExist() {
         ALTER TABLE menu_items ADD COLUMN branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
-      // Add missing columns to orders table
-      await db.execute(sql`DO $$ BEGIN 
-        ALTER TABLE orders ADD COLUMN restaurant_id VARCHAR REFERENCES restaurants(id) ON DELETE CASCADE; 
-      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql`DO $$ BEGIN 
-        ALTER TABLE orders ADD COLUMN order_type order_type NOT NULL DEFAULT 'mesa'; 
-      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql`DO $$ BEGIN 
-        ALTER TABLE orders ADD COLUMN delivery_address TEXT; 
-      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql`DO $$ BEGIN 
-        ALTER TABLE orders ALTER COLUMN table_id DROP NOT NULL; 
-      EXCEPTION WHEN others THEN null; END $$;`);
-      
       // Create orders table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS orders (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -193,6 +179,20 @@ export async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(), 
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
+      
+      // Add missing columns to orders table (for existing installations)
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN restaurant_id VARCHAR REFERENCES restaurants(id) ON DELETE CASCADE; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN order_type order_type NOT NULL DEFAULT 'mesa'; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN delivery_address TEXT; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ALTER COLUMN table_id DROP NOT NULL; 
+      EXCEPTION WHEN others THEN null; END $$;`);
       
       // Create order_items table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS order_items (
