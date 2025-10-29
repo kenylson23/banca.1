@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: nabancada
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm install --include=dev && npm run db:push -- --force && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nabancada-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+        
+databases:
+  - name: nabancada-db
+    databaseName: nabancada
+    user: nabancada
+    plan: starter
+    region: oregon
