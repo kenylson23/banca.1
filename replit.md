@@ -211,7 +211,61 @@ Sistema completo de gestão de restaurante multi-tenant com QR Codes por mesa, p
   - Botões e controles com tamanhos adequados para toque
   - Experiência de pedido otimizada para clientes em smartphones
 
+## Ferramentas de Diagnóstico e Troubleshooting
+
+### Sistema de Diagnóstico para Deploy em Render
+O sistema agora inclui ferramentas completas para diagnosticar e resolver problemas de autenticação em ambientes de produção (especialmente Render):
+
+**Ferramentas Disponíveis:**
+1. **Endpoint de Health Check** (`/api/debug/health`):
+   - Verifica configuração do ambiente, banco de dados, sessões e usuários
+   - Protegido por variável `DEBUG_AUTH=true` em produção
+   - Retorna informações detalhadas sobre estado da autenticação
+
+2. **Painel de Debug Visual** (`AuthDebugPanel`):
+   - Componente React que mostra estado de autenticação em tempo real
+   - Habilitado com `VITE_DEBUG_AUTH=true`
+   - Exibe dados do usuário, role, restaurantId e health check
+
+3. **Logs Detalhados**:
+   - Logs completos no servidor para rastrear fluxo de autenticação
+   - Login, deserialização, endpoints protegidos
+   - Warnings específicos para role faltando
+
+4. **Script de Reparo SQL** (`scripts/repair-user-roles.sql`):
+   - Script seguro para identificar usuários sem role
+   - NÃO faz alterações automáticas (evita escalação de privilégios)
+   - Fornece exemplos de UPDATE manual por email
+
+5. **Guia Completo** (`RENDER_DIAGNOSTIC_GUIDE.md`):
+   - Passo a passo para diagnosticar problemas
+   - Explicações sobre cada cenário possível
+   - Instruções de segurança e melhores práticas
+
+**Segurança:**
+- Endpoint de debug retorna 404 em produção sem `DEBUG_AUTH=true`
+- Nenhum reparo automático de roles (previne escalação de privilégios)
+- Todas as correções requerem identificação explícita por email
+- Documentação clara sobre quando remover variáveis de debug
+
+**Processo de Troubleshooting:**
+1. Habilitar `DEBUG_AUTH=true` e `VITE_DEBUG_AUTH=true` no Render
+2. Acessar `/api/debug/health` para ver estado do sistema
+3. Usar AuthDebugPanel para verificar dados do usuário
+4. Analisar logs do servidor no Render
+5. Se necessário, executar script SQL para reparar roles
+6. Remover variáveis de debug após resolver
+
 ## Melhorias Recentes
+
+### Outubro 29, 2025 - Sistema Completo de Diagnóstico para Render
+- ✅ Endpoint `/api/debug/health` com verificação completa de ambiente
+- ✅ Componente AuthDebugPanel para debug visual no frontend
+- ✅ Logs detalhados em todo fluxo de autenticação
+- ✅ Script SQL seguro para reparo manual de roles
+- ✅ Guia completo de troubleshooting (RENDER_DIAGNOSTIC_GUIDE.md)
+- ✅ Proteções de segurança (sem auto-reparo, sem escalação de privilégios)
+- ✅ Documentação sobre quando habilitar/desabilitar debug em produção
 
 ### Outubro 29, 2025 - Diagnóstico do Botão de Configurações no Render
 - ✅ Logs de debug para autenticação (useAuth, AppSidebar) com proteção de ambiente
