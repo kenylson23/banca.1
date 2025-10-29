@@ -213,7 +213,15 @@ Sistema completo de gestão de restaurante multi-tenant com QR Codes por mesa, p
 
 ## Melhorias Recentes
 
-### Outubro 2025 - Debug e Troubleshooting para Render
+### Outubro 29, 2025 - Diagnóstico do Botão de Configurações no Render
+- ✅ Logs de debug para autenticação (useAuth, AppSidebar) com proteção de ambiente
+- ✅ Logs só aparecem em desenvolvimento (seguros por padrão)
+- ✅ Opção de habilitar logs temporariamente no Render via VITE_DEBUG_AUTH
+- ✅ Guia completo RENDER_SETTINGS_BUTTON_FIX.md com diagnóstico passo a passo
+- ✅ Fluxos de solução para diferentes cenários (401, role undefined, cache)
+- ✅ Documentação de segurança sobre quando desabilitar logs de debug
+
+### Outubro 22-27, 2025 - Debug e Troubleshooting para Render
 - ✅ Logs de depuração adicionados no frontend (QueryClient, Settings)
 - ✅ Logs de depuração adicionados no backend (rotas de API)
 - ✅ Tratamento de erros melhorado na página de configurações
