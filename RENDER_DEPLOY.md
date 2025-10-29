@@ -146,6 +146,25 @@ As seguintes melhorias foram implementadas para garantir compatibilidade total c
    - Servidor detecta automaticamente PORT do ambiente Render
    - Configurações adaptam-se a NODE_ENV automaticamente
 
+## 🔧 Problemas Comuns
+
+### ⚠️ Configurações do Cardápio não carregam após deploy
+
+Se a página de configurações funciona localmente mas não no Render, consulte o [Guia de Troubleshooting](./RENDER_TROUBLESHOOTING.md) que inclui:
+
+- Problemas de autenticação/sessão
+- Configuração incorreta de cookies
+- Banco de dados inacessível
+- Restaurante não configurado corretamente
+
+**Verificações rápidas:**
+1. Certifique-se de que `SESSION_SECRET` está configurada
+2. Acesse sempre via HTTPS
+3. Limpe cookies e faça login novamente
+4. Verifique logs do servidor no Render
+
+👉 **[Ver guia completo de troubleshooting](./RENDER_TROUBLESHOOTING.md)**
+
 ## Troubleshooting
 
 ### Erro: Build falha com status 127 (Command not found)

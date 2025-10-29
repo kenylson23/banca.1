@@ -24,6 +24,8 @@ export function getSession() {
   }
 
   // Cookie configuration that works in both development and production
+  // In production, the frontend and backend are served from the same domain
+  // so we use 'lax' sameSite for better security
   const isProduction = process.env.NODE_ENV === "production";
   
   return session({
@@ -34,8 +36,10 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax',
+      sameSite: 'lax',
       maxAge: sessionTtl,
+      // Ensure the cookie domain is not set, allowing it to work with subdomains
+      domain: undefined,
     },
   });
 }
