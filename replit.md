@@ -211,6 +211,16 @@ Sistema completo de gestão de restaurante multi-tenant com QR Codes por mesa, p
   - Botões e controles com tamanhos adequados para toque
   - Experiência de pedido otimizada para clientes em smartphones
 
+## Melhorias Recentes
+
+### Outubro 2025 - Debug e Troubleshooting para Render
+- ✅ Logs de depuração adicionados no frontend (QueryClient, Settings)
+- ✅ Logs de depuração adicionados no backend (rotas de API)
+- ✅ Tratamento de erros melhorado na página de configurações
+- ✅ Configuração de cookies otimizada para produção (sameSite: 'lax')
+- ✅ Guia completo de troubleshooting para problemas no Render
+- ✅ Documentação de problemas comuns de autenticação/sessão
+
 ## Próximas Fases
 - Testes automatizados para super admin endpoints
 - Telemetria e logging de mudanças de status de restaurantes
