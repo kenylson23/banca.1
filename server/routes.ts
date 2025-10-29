@@ -605,15 +605,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/public/restaurants/:restaurantId", async (req, res) => {
     try {
       const restaurantId = req.params.restaurantId;
+      console.log('[API] Fetching restaurant by ID:', restaurantId);
+      
       const restaurant = await storage.getRestaurantById(restaurantId);
+      console.log('[API] Restaurant found:', restaurant ? 'Yes' : 'No');
       
       if (!restaurant) {
+        console.log('[API] Restaurant not found for ID:', restaurantId);
         return res.status(404).json({ message: "Restaurante não encontrado" });
       }
       
+      console.log('[API] Returning restaurant:', { id: restaurant.id, name: restaurant.name, slug: restaurant.slug });
       res.json(restaurant);
     } catch (error) {
-      console.error("Error fetching restaurant:", error);
+      console.error("[API] Error fetching restaurant:", error);
       res.status(500).json({ message: "Erro ao buscar restaurante" });
     }
   });

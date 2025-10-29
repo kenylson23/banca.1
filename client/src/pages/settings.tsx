@@ -18,10 +18,22 @@ export default function Settings() {
     queryKey: ['/api/auth/user'],
   });
 
-  const { data: restaurant, isLoading } = useQuery<Restaurant>({
+  const { data: restaurant, isLoading, error, isError } = useQuery<Restaurant>({
     queryKey: ['/api/public/restaurants', currentUser?.restaurantId],
     enabled: !!currentUser?.restaurantId,
   });
+
+  // Debug logs for troubleshooting
+  useEffect(() => {
+    console.log('[Settings] Current user:', currentUser);
+    console.log('[Settings] Restaurant ID:', currentUser?.restaurantId);
+  }, [currentUser]);
+
+  useEffect(() => {
+    console.log('[Settings] Restaurant data:', restaurant);
+    console.log('[Settings] Loading:', isLoading);
+    console.log('[Settings] Error:', error);
+  }, [restaurant, isLoading, error]);
 
   useEffect(() => {
     if (restaurant?.slug) {
@@ -86,6 +98,34 @@ export default function Settings() {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (isError || (currentUser && !currentUser.restaurantId && currentUser.role !== 'superadmin')) {
+    console.error('[Settings] Error or missing restaurantId', { isError, error, currentUser });
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Configurações</h1>
+          <p className="text-muted-foreground">
+            Configure o link público do seu cardápio
+          </p>
+        </div>
+        <Card>
+          <CardContent className="p-8">
+            <div className="text-center space-y-4">
+              <p className="text-muted-foreground">
+                {isError 
+                  ? `Erro ao carregar dados do restaurante: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
+                  : 'Usuário não está associado a um restaurante'}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Verifique os logs do navegador para mais detalhes ou entre em contato com o suporte.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
