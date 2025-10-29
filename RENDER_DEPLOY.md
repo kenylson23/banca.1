@@ -16,7 +16,38 @@ O sistema foi completamente testado e validado para deploy em produção no Rend
 
 1. Conta no [Render](https://render.com)
 2. Repositório Git com o código do NaBancada
-3. Banco de dados PostgreSQL do Render criado
+
+## 🚀 Opção 1: Deploy Rápido com Blueprint (Recomendado)
+
+Este projeto inclui um arquivo `render.yaml` que automatiza completamente o deploy:
+
+### Vantagens:
+- ✅ Cria automaticamente o banco de dados PostgreSQL
+- ✅ Configura o Web Service com todas as configurações corretas
+- ✅ Define as variáveis de ambiente necessárias
+- ✅ Aplica migrações do banco automaticamente a cada deploy
+- ✅ Zero configuração manual necessária
+
+### Como usar:
+
+1. **Fork ou Clone** este repositório para sua conta GitHub
+2. Acesse o [Render Dashboard](https://dashboard.render.com)
+3. Clique em **"New +"** e selecione **"Blueprint"**
+4. Conecte seu repositório Git
+5. O Render detectará automaticamente o `render.yaml` e criará:
+   - Um banco de dados PostgreSQL (nabancada-db)
+   - Um Web Service (nabancada)
+   - Todas as variáveis de ambiente necessárias
+6. Clique em **"Apply"**
+7. Aguarde a conclusão do deploy (3-5 minutos)
+
+**⚠️ Nota**: O `SESSION_SECRET` será gerado automaticamente pelo Render de forma segura.
+
+---
+
+## 📋 Opção 2: Deploy Manual (Passo a Passo)
+
+Se preferir configurar manualmente ou já tiver um banco de dados existente:
 
 ## Passo 1: Criar o Banco de Dados PostgreSQL no Render
 
