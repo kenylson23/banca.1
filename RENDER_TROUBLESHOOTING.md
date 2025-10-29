@@ -2,7 +2,29 @@
 
 Este guia ajuda a resolver problemas comuns ao fazer deploy do NaBancada no Render.
 
-## ❌ Problema: Configurações do Cardápio Digital não carregam
+## ❌ Problema 1: Botão de Configurações do Cardápio Digital Desaparece
+
+### Sintomas
+- O botão "Configurações" não aparece no menu lateral (sidebar)
+- Funciona no Replit mas desaparece no Render
+- Ao tentar acessar `/settings` diretamente, redireciona para outra página
+
+### Causa Raiz
+O botão só aparece para usuários com `role='admin'` ou `role='superadmin'`. Se a autenticação falhar ou o role não for carregado, o sistema usa o menu de cozinha que não tem o botão.
+
+### Diagnóstico Rápido
+1. Abra DevTools (F12) → Console
+2. Procure por logs começando com `[AppSidebar]`
+3. Verifique se mostra: `User role: admin` ou `User role: undefined`
+
+**Se mostrar `undefined`** → Problema de autenticação (veja soluções abaixo)  
+**Se mostrar `admin` mas botão não aparece** → Problema de cache (force refresh)
+
+👉 **[Ver guia completo de correção](./RENDER_SETTINGS_BUTTON_FIX.md)**
+
+---
+
+## ❌ Problema 2: Configurações do Cardápio Digital não carregam dados
 
 ### Sintomas
 - A página de configurações (/settings) não mostra os dados do restaurante

@@ -95,6 +95,19 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   
+  // Debug log for troubleshooting missing Settings button
+  // Only runs in development or when DEBUG_AUTH environment variable is set
+  // To enable in production, add VITE_DEBUG_AUTH=true to Render environment variables
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_AUTH === 'true') {
+    console.log('[AppSidebar] User object:', user);
+    console.log('[AppSidebar] User role:', user?.role);
+    console.log('[AppSidebar] Will use menu:', 
+      user?.role === 'superadmin' ? 'superAdminMenuItems' : 
+      user?.role === 'admin' ? 'adminMenuItems' : 
+      'kitchenMenuItems'
+    );
+  }
+  
   const menuItems = user?.role === 'superadmin' 
     ? superAdminMenuItems 
     : user?.role === 'admin' 
