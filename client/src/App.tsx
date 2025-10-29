@@ -92,7 +92,7 @@ function Router() {
           }} />
           
           <Route path="/settings" component={() => {
-            if (user?.role === 'admin') {
+            if (user?.role === 'admin' || user?.role === 'superadmin') {
               return <MainDashboard section="settings" />;
             }
             return <Redirect to="/" />;
