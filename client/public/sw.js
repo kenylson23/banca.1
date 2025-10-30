@@ -1,4 +1,4 @@
-const APP_VERSION = '__VERSION__';
+const APP_VERSION = 'v1761837977';
 const BUILD_TIME = Date.now();
 const CACHE_NAME = `nabancada-${APP_VERSION}`;
 const DYNAMIC_CACHE = `nabancada-dynamic-${APP_VERSION}`;
