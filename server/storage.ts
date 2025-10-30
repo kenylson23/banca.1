@@ -31,7 +31,7 @@ import {
   type InsertMessage,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, gte, or } from "drizzle-orm";
+import { eq, desc, sql, and, gte, or, isNull } from "drizzle-orm";
 
 function generateSlug(name: string): string {
   return name
@@ -625,14 +625,17 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
-        .where(and(eq(tables.restaurantId, restaurantId), eq(tables.branchId, branchId)))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          or(eq(tables.branchId, branchId), isNull(orders.tableId))
+        ))
         .orderBy(desc(orders.createdAt));
     } else {
       allOrders = await db
         .select()
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
-        .where(eq(tables.restaurantId, restaurantId))
+        .where(eq(orders.restaurantId, restaurantId))
         .orderBy(desc(orders.createdAt));
     }
 
@@ -665,7 +668,10 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
-        .where(and(eq(tables.restaurantId, restaurantId), eq(tables.branchId, branchId)))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          or(eq(tables.branchId, branchId), isNull(orders.tableId))
+        ))
         .orderBy(desc(orders.createdAt))
         .limit(limit);
     } else {
@@ -673,14 +679,14 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
-        .where(eq(tables.restaurantId, restaurantId))
+        .where(eq(orders.restaurantId, restaurantId))
         .orderBy(desc(orders.createdAt))
         .limit(limit);
     }
 
     return results.map((row: { orders: Order; tables: Table | null }) => ({
       ...row.orders,
-      table: { number: row.tables!.number },
+      table: row.tables ? { number: row.tables.number } : { number: 0 },
     }));
   }
 
@@ -816,8 +822,8 @@ export class DatabaseStorage implements IStorage {
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
-          eq(tables.restaurantId, restaurantId),
-          eq(tables.branchId, branchId),
+          eq(orders.restaurantId, restaurantId),
+          or(eq(tables.branchId, branchId), isNull(orders.tableId)),
           gte(orders.createdAt, today)
         ));
     } else {
@@ -826,7 +832,7 @@ export class DatabaseStorage implements IStorage {
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
-          eq(tables.restaurantId, restaurantId),
+          eq(orders.restaurantId, restaurantId),
           gte(orders.createdAt, today)
         ));
     }
@@ -922,10 +928,10 @@ export class DatabaseStorage implements IStorage {
       periodOrdersData = await db
         .select()
         .from(orders)
-        .innerJoin(tables, eq(orders.tableId, tables.id))
+        .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
-          eq(tables.restaurantId, restaurantId),
-          eq(tables.branchId, branchId),
+          eq(orders.restaurantId, restaurantId),
+          or(eq(tables.branchId, branchId), isNull(orders.tableId)),
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
@@ -933,9 +939,9 @@ export class DatabaseStorage implements IStorage {
       periodOrdersData = await db
         .select()
         .from(orders)
-        .innerJoin(tables, eq(orders.tableId, tables.id))
+        .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
-          eq(tables.restaurantId, restaurantId),
+          eq(orders.restaurantId, restaurantId),
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
@@ -1041,8 +1047,8 @@ export class DatabaseStorage implements IStorage {
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
-          eq(tables.restaurantId, restaurantId),
-          eq(tables.branchId, branchId),
+          eq(orders.restaurantId, restaurantId),
+          or(eq(tables.branchId, branchId), isNull(orders.tableId)),
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
@@ -1052,7 +1058,7 @@ export class DatabaseStorage implements IStorage {
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
-          eq(tables.restaurantId, restaurantId),
+          eq(orders.restaurantId, restaurantId),
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
