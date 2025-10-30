@@ -1,14 +1,14 @@
-const CACHE_NAME = 'nabancada-v1';
+const APP_VERSION = '__VERSION__';
+const BUILD_TIME = Date.now();
+const CACHE_NAME = `nabancada-${APP_VERSION}`;
+const DYNAMIC_CACHE = `nabancada-dynamic-${APP_VERSION}`;
+const API_CACHE = `nabancada-api-${APP_VERSION}`;
+
 const urlsToCache = [
   '/',
   '/index.html',
-  '/src/main.tsx',
-  '/src/index.css',
   '/manifest.json'
 ];
-
-const DYNAMIC_CACHE = 'nabancada-dynamic-v1';
-const API_CACHE = 'nabancada-api-v1';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -30,13 +30,16 @@ self.addEventListener('activate', (event) => {
           if (cacheName !== CACHE_NAME && 
               cacheName !== DYNAMIC_CACHE && 
               cacheName !== API_CACHE) {
+            console.log('Deletando cache antigo:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
+    }).then(() => {
+      console.log('Service Worker ativado. Versão:', APP_VERSION);
+      return self.clients.claim();
     })
   );
-  return self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
@@ -122,5 +125,11 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+  if (event.data && event.data.type === 'GET_VERSION') {
+    event.ports[0].postMessage({
+      version: APP_VERSION,
+      buildTime: BUILD_TIME
+    });
   }
 });
