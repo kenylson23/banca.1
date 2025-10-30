@@ -8,15 +8,6 @@ export function useAuth() {
     retry: false,
   });
 
-  // Debug log for troubleshooting authentication issues
-  // Only runs in development or when DEBUG_AUTH environment variable is set
-  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_AUTH === 'true') {
-    console.log('[useAuth] User data:', user);
-    console.log('[useAuth] Is loading:', isLoading);
-    console.log('[useAuth] Error:', error);
-    console.log('[useAuth] Is authenticated:', !!user);
-  }
-
   return {
     user,
     isLoading,

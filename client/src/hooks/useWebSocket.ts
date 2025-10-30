@@ -18,7 +18,7 @@ export function useWebSocket(onMessage: (message: WebSocketMessage) => void) {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
+        // WebSocket connected
       };
 
       ws.onmessage = (event) => {
@@ -26,16 +26,16 @@ export function useWebSocket(onMessage: (message: WebSocketMessage) => void) {
           const message = JSON.parse(event.data);
           onMessage(message);
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
+          // Failed to parse message
         }
       };
 
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        // WebSocket error
       };
 
       ws.onclose = () => {
-        console.log('WebSocket disconnected');
+        // WebSocket disconnected
       };
 
       return () => {
@@ -44,7 +44,7 @@ export function useWebSocket(onMessage: (message: WebSocketMessage) => void) {
         }
       };
     } catch (error) {
-      console.error('Failed to create WebSocket:', error);
+      // Failed to create WebSocket
     }
   }, [onMessage]);
 
