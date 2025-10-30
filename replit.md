@@ -44,3 +44,34 @@ The backend uses **Express** with **TypeScript**, featuring **Replit Auth** for 
 - **Tailwind CSS:** Utility-first CSS framework for styling.
 - **Shadcn UI:** Component library built on Tailwind CSS.
 - **React Query:** For data fetching and state management.
+
+## Recent Improvements
+
+### October 30, 2025 - Kitchen Sound Effects
+- ✅ Implemented audio system using Web Audio API
+  - Notification sound (two-tone chime) when new orders arrive in kitchen
+  - Completion sound (ascending C-E-G chord) when orders are marked as "ready" or "served"
+  - Shared AudioContext to prevent memory leaks
+  - Context resumed from user gesture (mute button click) to comply with autoplay policy
+- ✅ Mute/unmute button respects all sounds
+  - Initializes AudioContext on first button click
+  - Sounds work in real-time via WebSocket
+  - Intuitive interface with volume icons
+
+### October 30, 2025 - Reports Synchronization and Order Status Fixes
+- ✅ Fixed queryClient to correctly convert query parameters to URLs
+  - Reports now receive filters for date, status, and type correctly
+  - URLs are built with proper query strings (e.g., ?startDate=2025-10-23&endDate=2025-10-30)
+- ✅ Fixed order status updates for all order types (table, delivery, takeout)
+  - Authorization check now works for orders without associated table
+  - updatedAt field is automatically updated on all status changes
+- ✅ Implemented automatic cache invalidation for reports
+  - Reports are updated when new orders are created
+  - Reports are updated when order statuses change
+  - WebSocket notifies all pages in real-time
+- ✅ Added status update buttons on reports page
+  - Allows advancing status directly from order view
+  - Intuitive interface showing next possible status
+- ✅ Complete synchronization between orders, statuses, and reports
+  - Data updated in real-time via WebSocket
+  - Cache automatically invalidated to ensure consistency
