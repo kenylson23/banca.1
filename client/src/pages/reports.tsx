@@ -120,6 +120,32 @@ export default function Reports() {
   // Setup WebSocket connection
   useWebSocket(handleWebSocketMessage);
 
+  const handleStatusChange = async (orderId: string, newStatus: string) => {
+    try {
+      await fetch(`/api/orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status: newStatus }),
+      });
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/performance"] });
+    } catch (error) {
+      console.error('Error updating order status:', error);
+    }
+  };
+
+  const getNextStatus = (currentStatus: string): string | null => {
+    const statusFlow = ["pendente", "em_preparo", "pronto", "servido"];
+    const currentIndex = statusFlow.indexOf(currentStatus);
+    if (currentIndex < statusFlow.length - 1) {
+      return statusFlow[currentIndex + 1];
+    }
+    return null;
+  };
+
   const exportToCSV = (data: any[], filename: string) => {
     if (!data || data.length === 0) return;
 
@@ -397,6 +423,7 @@ export default function Reports() {
                         <TableHead>Status</TableHead>
                         <TableHead>Itens</TableHead>
                         <TableHead className="text-right">Total</TableHead>
+                        <TableHead>Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -421,11 +448,23 @@ export default function Reports() {
                             <TableCell className="text-right font-medium">
                               Kz {parseFloat(order.totalAmount).toFixed(2)}
                             </TableCell>
+                            <TableCell>
+                              {getNextStatus(order.status) && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleStatusChange(order.id, getNextStatus(order.status)!)}
+                                  data-testid={`button-status-${order.id}`}
+                                >
+                                  {statusLabels[getNextStatus(order.status)! as keyof typeof statusLabels]}
+                                </Button>
+                              )}
+                            </TableCell>
                           </TableRow>
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center text-muted-foreground">
+                          <TableCell colSpan={7} className="text-center text-muted-foreground">
                             Nenhum pedido encontrado
                           </TableCell>
                         </TableRow>
