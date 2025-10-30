@@ -115,6 +115,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== FIX RESTAURANT SLUGS ENDPOINT =====
+  // Temporary endpoint to fix restaurants without slugs
+  app.post('/api/debug/fix-slugs', async (req, res) => {
+    // Security: Only allow in development or when explicitly enabled
+    if (process.env.NODE_ENV === 'production' && process.env.DEBUG_AUTH !== 'true') {
+      return res.status(404).json({ message: 'Not found' });
+    }
+    
+    try {
+      const allRestaurants = await storage.getRestaurants();
+      const restaurantsWithoutSlug = allRestaurants.filter(r => !r.slug);
+      
+      if (restaurantsWithoutSlug.length === 0) {
+        return res.json({
+          success: true,
+          message: 'Todos os restaurantes já possuem slugs',
+          updated: 0,
+        });
+      }
+      
+      const updated: string[] = [];
+      
+      for (const restaurant of restaurantsWithoutSlug) {
+        // Generate base slug from name
+        let slug = restaurant.name
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        
+        // Ensure uniqueness
+        let counter = 1;
+        let finalSlug = slug;
+        
+        while (await storage.getRestaurantBySlug(finalSlug)) {
+          finalSlug = `${slug}-${counter}`;
+          counter++;
+        }
+        
+        // Update restaurant
+        await storage.updateRestaurantSlug(restaurant.id, finalSlug);
+        updated.push(`${restaurant.name} → ${finalSlug}`);
+      }
+      
+      res.json({
+        success: true,
+        message: `${updated.length} restaurante(s) atualizado(s) com slugs únicos`,
+        updated,
+      });
+    } catch (error) {
+      console.error('[Fix Slugs Error]:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
+
   // ===== PUBLIC RESTAURANT REGISTRATION =====
   app.post('/api/restaurants/register', async (req, res) => {
     try {

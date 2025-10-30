@@ -31,7 +31,16 @@ import {
   type InsertMessage,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, gte } from "drizzle-orm";
+import { eq, desc, sql, and, gte, or } from "drizzle-orm";
+
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 
 export interface IStorage {
   // Restaurant operations
@@ -179,8 +188,17 @@ export class DatabaseStorage implements IStorage {
     const bcrypt = await import('bcrypt');
     const hashedPassword = await bcrypt.hash(data.password, 10);
     
+    let slug = generateSlug(data.name);
+    let counter = 1;
+    
+    while (await this.getRestaurantBySlug(slug)) {
+      slug = `${generateSlug(data.name)}-${counter}`;
+      counter++;
+    }
+    
     const [restaurant] = await db.insert(restaurants).values({
       name: data.name,
+      slug,
       email: data.email,
       phone: data.phone,
       address: data.address,
