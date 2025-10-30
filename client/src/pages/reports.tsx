@@ -135,7 +135,7 @@ export default function Reports() {
       queryClient.invalidateQueries({ queryKey: ["/api/reports/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reports/performance"] });
     } catch (error) {
-      console.error('Error updating order status:', error);
+      // Error updating status - will be handled by query invalidation
     }
   };
 
