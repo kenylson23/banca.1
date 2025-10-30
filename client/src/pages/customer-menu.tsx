@@ -71,9 +71,10 @@ export default function CustomerMenu() {
   }, [tableId]);
 
   const createOrderMutation = useMutation({
-    mutationFn: async (orderData: { tableId: string; customerName: string; customerPhone: string; items: Array<{ menuItemId: string; quantity: number; price: string }> }) => {
+    mutationFn: async (orderData: { restaurantId: string; tableId: string; customerName: string; customerPhone: string; items: Array<{ menuItemId: string; quantity: number; price: string }> }) => {
       const totalAmount = orderData.items.reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0).toFixed(2);
       return apiRequest('POST', '/api/public/orders', {
+        restaurantId: orderData.restaurantId,
         tableId: orderData.tableId,
         customerName: orderData.customerName,
         customerPhone: orderData.customerPhone,
@@ -184,6 +185,7 @@ export default function CustomerMenu() {
     }));
 
     createOrderMutation.mutate({
+      restaurantId: currentTable.restaurantId,
       tableId: currentTable.id,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
