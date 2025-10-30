@@ -170,7 +170,7 @@ export default function Kitchen() {
         await ctx.resume();
       }
     } catch (error) {
-      console.error('Error resuming audio context:', error);
+      // Audio context resume failed silently
     }
   };
 
@@ -195,7 +195,7 @@ export default function Kitchen() {
         try {
           playNotificationSound();
         } catch (error) {
-          console.error('Error playing notification sound:', error);
+          // Sound failed silently
         }
       }
 
@@ -230,7 +230,7 @@ export default function Kitchen() {
         try {
           playCompletionSound();
         } catch (error) {
-          console.error('Error playing completion sound:', error);
+          // Sound failed silently
         }
       }
       
