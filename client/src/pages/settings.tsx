@@ -23,18 +23,6 @@ export default function Settings() {
     enabled: !!currentUser?.restaurantId,
   });
 
-  // Debug logs for troubleshooting
-  useEffect(() => {
-    console.log('[Settings] Current user:', currentUser);
-    console.log('[Settings] Restaurant ID:', currentUser?.restaurantId);
-  }, [currentUser]);
-
-  useEffect(() => {
-    console.log('[Settings] Restaurant data:', restaurant);
-    console.log('[Settings] Loading:', isLoading);
-    console.log('[Settings] Error:', error);
-  }, [restaurant, isLoading, error]);
-
   useEffect(() => {
     if (restaurant?.slug) {
       setSlug(restaurant.slug);
@@ -103,7 +91,6 @@ export default function Settings() {
   }
 
   if (isError || (currentUser && !currentUser.restaurantId && currentUser.role !== 'superadmin')) {
-    console.error('[Settings] Error or missing restaurantId', { isError, error, currentUser });
     return (
       <div className="space-y-6">
         <div>
