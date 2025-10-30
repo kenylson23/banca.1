@@ -75,3 +75,19 @@ The backend uses **Express** with **TypeScript**, featuring **Replit Auth** for 
 - ✅ Complete synchronization between orders, statuses, and reports
   - Data updated in real-time via WebSocket
   - Cache automatically invalidated to ensure consistency
+
+### October 30, 2025 - Order Notes and Public Order Tracking
+- ✅ Added order notes functionality
+  - New `orderNotes` field in orders table for general order observations
+  - Textarea input in customer menu cart for customers to add order instructions
+  - Order notes displayed prominently in kitchen panel for staff visibility
+  - Order notes shown in admin reports page for complete order information
+  - CartContext updated to manage order notes state
+- ✅ Implemented secure public order tracking system
+  - New public page at `/r/:slug/rastrear` for customers to track orders outside restaurant
+  - Restaurant-scoped order search by order ID, customer name, or phone number
+  - Backend endpoint `/api/public/restaurants/:slug/orders/search` with proper multi-tenancy security
+  - `searchOrders` method filters results by restaurantId to prevent cross-tenant data exposure
+  - Comprehensive UX with loading states, error handling, and detailed order information display
+  - Shows order status, items, quantities, prices, and customer notes
+  - Real-time order status updates reflected in tracking page
