@@ -40,7 +40,7 @@ import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { formatKwanza } from "@/lib/formatters";
-import type { Category, MenuItem } from "@shared/schema";
+import type { Category, MenuItem, Restaurant } from "@shared/schema";
 
 interface MenuItemFormData {
   id?: string;
@@ -69,6 +69,15 @@ export default function Menu() {
     categoryId: "",
     imageUrl: "",
     isAvailable: 1,
+  });
+
+  const { data: currentUser } = useQuery<any>({
+    queryKey: ['/api/auth/user'],
+  });
+
+  const { data: restaurant } = useQuery<Restaurant>({
+    queryKey: ['/api/public/restaurants', currentUser?.restaurantId],
+    enabled: !!currentUser?.restaurantId,
   });
 
   const { data: categories, isLoading: categoriesLoading } = useQuery<Category[]>({
@@ -305,11 +314,25 @@ export default function Menu() {
         <div className="flex flex-wrap gap-2">
           <Button 
             variant="outline" 
-            onClick={() => window.open('/mesa/1', '_blank')}
+            onClick={() => {
+              const publicLink = restaurant?.slug 
+                ? `${window.location.origin}/r/${restaurant.slug}`
+                : null;
+              if (publicLink) {
+                window.open(publicLink, '_blank');
+              } else {
+                toast({
+                  title: 'Link público não disponível',
+                  description: 'Configure o slug do restaurante em Configurações.',
+                  variant: 'destructive',
+                });
+              }
+            }}
             data-testid="button-view-menu"
+            disabled={!restaurant?.slug}
           >
             <ExternalLink className="h-4 w-4 mr-2" />
-            Visualizar Menu
+            Visualizar Menu Público
           </Button>
           <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
             <DialogTrigger asChild>
