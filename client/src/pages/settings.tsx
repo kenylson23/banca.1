@@ -152,10 +152,10 @@ export default function Settings() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <div>
-        <h1 className="text-3xl font-bold">Configurações</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl sm:text-3xl font-bold">Configurações</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">
           Configure o link público do seu cardápio
         </p>
       </div>
@@ -170,8 +170,8 @@ export default function Settings() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="slug">Slug Personalizado</Label>
-            <div className="flex gap-2">
-              <div className="flex-1 flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-2">
                 <span className="text-sm text-muted-foreground whitespace-nowrap">
                   {window.location.origin}/r/
                 </span>
@@ -188,6 +188,7 @@ export default function Settings() {
                 onClick={handleSaveSlug}
                 disabled={updateSlugMutation.isPending || !slug}
                 data-testid="button-save-slug"
+                className="w-full sm:w-auto"
               >
                 {updateSlugMutation.isPending ? 'Salvando...' : 'Salvar'}
               </Button>
@@ -205,13 +206,14 @@ export default function Settings() {
                   value={publicLink}
                   readOnly
                   data-testid="input-public-link"
-                  className="font-mono text-sm"
+                  className="font-mono text-sm flex-1 min-w-0"
                 />
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={handleCopyLink}
                   data-testid="button-copy-link"
+                  className="flex-shrink-0"
                 >
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
@@ -220,6 +222,7 @@ export default function Settings() {
                   size="icon"
                   onClick={() => window.open(publicLink, '_blank')}
                   data-testid="button-open-link"
+                  className="flex-shrink-0"
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>
