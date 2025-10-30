@@ -6,7 +6,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/useAuth";
 import { CartProvider } from "@/contexts/CartContext";
-import { AuthDebugPanel } from "@/components/auth-debug-panel";
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
 import CustomerMenu from "@/pages/customer-menu";
@@ -140,7 +139,6 @@ function App() {
         <TooltipProvider>
           <CartProvider>
             <AppContent />
-            <AuthDebugPanel />
           </CartProvider>
         </TooltipProvider>
       </ThemeProvider>
