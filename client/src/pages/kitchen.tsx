@@ -48,6 +48,76 @@ const statusLabels = {
   servido: "Servido",
 };
 
+// Shared audio context for sound generation (prevents memory leaks)
+let audioContext: AudioContext | null = null;
+
+const getAudioContext = () => {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  }
+  // Resume context if it's suspended (browser autoplay policy)
+  if (audioContext.state === 'suspended') {
+    audioContext.resume();
+  }
+  return audioContext;
+};
+
+const playNotificationSound = () => {
+  const ctx = getAudioContext();
+  
+  // Create a more pleasant notification sound (two-tone chime)
+  const playTone = (frequency: number, startTime: number, duration: number) => {
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    oscillator.frequency.value = frequency;
+    oscillator.type = 'sine';
+    
+    // Envelope for smooth sound
+    gainNode.gain.setValueAtTime(0, startTime);
+    gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+    
+    oscillator.start(startTime);
+    oscillator.stop(startTime + duration);
+  };
+  
+  const now = ctx.currentTime;
+  playTone(800, now, 0.15); // First tone (higher)
+  playTone(600, now + 0.15, 0.2); // Second tone (lower)
+};
+
+const playCompletionSound = () => {
+  const ctx = getAudioContext();
+  
+  // Create a pleasant completion sound (ascending chime)
+  const playTone = (frequency: number, startTime: number, duration: number) => {
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    oscillator.frequency.value = frequency;
+    oscillator.type = 'sine';
+    
+    gainNode.gain.setValueAtTime(0, startTime);
+    gainNode.gain.linearRampToValueAtTime(0.25, startTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+    
+    oscillator.start(startTime);
+    oscillator.stop(startTime + duration);
+  };
+  
+  const now = ctx.currentTime;
+  playTone(523.25, now, 0.15); // C5
+  playTone(659.25, now + 0.1, 0.15); // E5
+  playTone(783.99, now + 0.2, 0.25); // G5
+};
+
 export default function Kitchen() {
   const { toast } = useToast();
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
@@ -55,7 +125,6 @@ export default function Kitchen() {
   const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
   const [statsPeriod, setStatsPeriod] = useState<StatsPeriod>("daily");
   const [showStats, setShowStats] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const prevOrderCountRef = useRef<number>(0);
 
   const { data: orders, isLoading } = useQuery<KitchenOrder[]>({
@@ -91,6 +160,20 @@ export default function Kitchen() {
   // Setup WebSocket connection
   useWebSocket(handleWebSocketMessage);
 
+  // Handler for mute toggle - ensures AudioContext is resumed from user gesture
+  const handleMuteToggle = async () => {
+    setIsMuted(!isMuted);
+    // Initialize and resume audio context on user interaction (autoplay policy requirement)
+    try {
+      const ctx = getAudioContext();
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
+    } catch (error) {
+      console.error('Error resuming audio context:', error);
+    }
+  };
+
   // Play alert sound for new orders
   useEffect(() => {
     if (!orders || orders.length === 0) {
@@ -108,16 +191,17 @@ export default function Kitchen() {
       setNewOrderIds(newIds);
 
       if (!isMuted) {
-        // Play alert sound
-        if (!audioRef.current) {
-          audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiDYIGGi77OOfTRAMUKfj8LZjHAY4ktjyzXkrBSR3x/DdkEAKFF606+uoVRQKRp/g8r5sIQUrgc7y2Yg2CBhpvOzjn00QDFA=');
+        // Play notification sound for new order
+        try {
+          playNotificationSound();
+        } catch (error) {
+          console.error('Error playing notification sound:', error);
         }
-        audioRef.current.play().catch(console.error);
       }
 
       toast({
         title: "Novo Pedido!",
-        description: `Mesa ${newOrders[0]?.table.number} fez um novo pedido`,
+        description: `Mesa ${newOrders[0]?.table.number || 'N/A'} fez um novo pedido`,
       });
 
       // Clear highlight after 5 seconds
@@ -140,6 +224,16 @@ export default function Kitchen() {
       queryClient.invalidateQueries({ queryKey: ["/api/reports/orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reports/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reports/performance"] });
+      
+      // Play completion sound when order is ready or served
+      if ((newStatus === "pronto" || newStatus === "servido") && !isMuted) {
+        try {
+          playCompletionSound();
+        } catch (error) {
+          console.error('Error playing completion sound:', error);
+        }
+      }
+      
       toast({
         title: "Status atualizado",
         description: `Pedido marcado como ${statusLabels[newStatus]}`,
@@ -243,7 +337,7 @@ export default function Kitchen() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setIsMuted(!isMuted)}
+            onClick={handleMuteToggle}
             data-testid="button-toggle-sound"
           >
             {isMuted ? (
