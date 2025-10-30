@@ -1,8 +1,11 @@
+let updateToast: any = null;
+
 export async function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     try {
       const registration = await navigator.serviceWorker.register('/sw.js', {
-        scope: '/'
+        scope: '/',
+        updateViaCache: 'none'
       });
 
       registration.addEventListener('updatefound', () => {
@@ -10,15 +13,18 @@ export async function registerServiceWorker() {
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('Nova versão do app disponível! Recarregue a página para atualizar.');
-              if (confirm('Nova versão disponível! Deseja atualizar agora?')) {
-                newWorker.postMessage({ type: 'SKIP_WAITING' });
-                window.location.reload();
-              }
+              console.log('Nova versão do app disponível!');
+              showUpdateNotification(newWorker);
             }
           });
         }
       });
+
+      setInterval(() => {
+        registration.update().catch((err) => {
+          console.log('Erro ao verificar atualização:', err);
+        });
+      }, 60000);
 
       console.log('Service Worker registrado com sucesso:', registration.scope);
       return registration;
@@ -28,6 +34,18 @@ export async function registerServiceWorker() {
   } else {
     console.log('Service Worker não é suportado neste navegador');
   }
+}
+
+function showUpdateNotification(newWorker: ServiceWorker) {
+  const event = new CustomEvent('app-update-available', {
+    detail: { serviceWorker: newWorker }
+  });
+  window.dispatchEvent(event);
+}
+
+export function activateUpdate(serviceWorker: ServiceWorker) {
+  serviceWorker.postMessage({ type: 'SKIP_WAITING' });
+  window.location.reload();
 }
 
 let deferredPrompt: any = null;

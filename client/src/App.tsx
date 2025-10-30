@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/useAuth";
 import { CartProvider } from "@/contexts/CartContext";
+import { UpdateNotification } from "@/components/UpdateNotification";
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
 import CustomerMenu from "@/pages/customer-menu";
@@ -128,6 +129,7 @@ function Router() {
 function AppContent() {
   return (
     <>
+      <UpdateNotification />
       <Toaster />
       <Router />
     </>
