@@ -1241,11 +1241,11 @@ export class DatabaseStorage implements IStorage {
       sql`${orders.createdAt} <= ${endDate}`
     ];
 
-    if (status) {
+    if (status && status !== 'todos') {
       baseConditions.push(eq(orders.status, status as any));
     }
 
-    if (orderType) {
+    if (orderType && orderType !== 'todos') {
       baseConditions.push(eq(orders.orderType, orderType as any));
     }
 

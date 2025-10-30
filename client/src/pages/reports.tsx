@@ -81,8 +81,8 @@ export default function Reports() {
 
   const [startDate, setStartDate] = useState(format(sevenDaysAgo, 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(today, 'yyyy-MM-dd'));
-  const [orderStatus, setOrderStatus] = useState<string>("");
-  const [orderType, setOrderType] = useState<string>("");
+  const [orderStatus, setOrderStatus] = useState<string>("todos");
+  const [orderType, setOrderType] = useState<string>("todos");
 
   const { data: salesReport, isLoading: loadingSales } = useQuery<SalesReport>({
     queryKey: ['/api/reports/sales', { startDate, endDate }],
@@ -198,7 +198,7 @@ export default function Reports() {
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="todos">Todos</SelectItem>
                   <SelectItem value="pendente">Pendente</SelectItem>
                   <SelectItem value="em_preparo">Em Preparo</SelectItem>
                   <SelectItem value="pronto">Pronto</SelectItem>
@@ -213,7 +213,7 @@ export default function Reports() {
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="todos">Todos</SelectItem>
                   <SelectItem value="mesa">Mesa</SelectItem>
                   <SelectItem value="delivery">Delivery</SelectItem>
                   <SelectItem value="takeout">Retirada</SelectItem>
