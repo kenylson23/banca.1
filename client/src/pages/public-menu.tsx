@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { ShoppingCart, Plus, Minus, Trash2, MapPin, Phone, Clock, Bike, ShoppingBag, Search } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, MapPin, Phone, Clock, Bike, ShoppingBag, PackageSearch } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { formatKwanza } from '@/lib/formatters';
 import type { MenuItem, Category, Restaurant } from '@shared/schema';
@@ -206,8 +206,9 @@ export default function PublicMenu() {
           
           <div className="flex items-center gap-2">
             <Link href={`/r/${slug}/rastrear`}>
-              <Button variant="outline" size="icon" className="h-9 w-9 sm:h-10 sm:w-10" data-testid="button-track-order">
-                <Search className="h-4 w-4 sm:h-5 sm:w-5" />
+              <Button variant="outline" className="h-9 sm:h-10 gap-1.5" data-testid="button-track-order">
+                <PackageSearch className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="hidden sm:inline text-sm">Rastrear Pedido</span>
               </Button>
             </Link>
             
