@@ -344,7 +344,7 @@ export default function Reports() {
                         <YAxis tick={{fontSize: 12}} />
                         <Tooltip 
                           labelFormatter={(date) => format(new Date(date), 'dd/MM/yyyy')}
-                          formatter={(value: number) => [`Kz ${value.toFixed(2)}`, 'Vendas']}
+                          formatter={(value: any) => [`Kz ${Number(value).toFixed(2)}`, 'Vendas']}
                         />
                         <Legend wrapperStyle={{fontSize: '12px'}} />
                         <Line type="monotone" dataKey="sales" stroke="#0ea5e9" name="Vendas" />
@@ -367,13 +367,13 @@ export default function Reports() {
                           cx="50%"
                           cy="50%"
                           outerRadius={100}
-                          label={(entry) => `${typeLabels[entry.type as keyof typeof typeLabels]}: Kz ${parseFloat(entry.revenue).toFixed(2)}`}
+                          label={(entry) => `${typeLabels[entry.type as keyof typeof typeLabels]}: Kz ${Number(entry.revenue).toFixed(2)}`}
                         >
                           {(salesReport?.ordersByType || []).map((_: any, index: number) => (
                             <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(value: number) => `Kz ${value.toFixed(2)}`} />
+                        <Tooltip formatter={(value: any) => `Kz ${Number(value).toFixed(2)}`} />
                       </PieChart>
                     </ResponsiveContainer>
                   </CardContent>
@@ -544,7 +544,7 @@ export default function Reports() {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="categoryName" tick={{fontSize: 12}} />
                       <YAxis tick={{fontSize: 12}} />
-                      <Tooltip formatter={(value: number) => `Kz ${value.toFixed(2)}`} />
+                      <Tooltip formatter={(value: any) => `Kz ${Number(value).toFixed(2)}`} />
                       <Legend wrapperStyle={{fontSize: '12px'}} />
                       <Bar dataKey="totalRevenue" fill="#0ea5e9" name="Receita Total" />
                     </BarChart>
