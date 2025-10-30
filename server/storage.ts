@@ -778,7 +778,6 @@ export class DatabaseStorage implements IStorage {
 
   async updateOrderStatus(restaurantId: string, id: string, status: string): Promise<Order> {
     // Verify the order belongs to the restaurant before updating
-    // Orders don't have restaurantId directly, so we need to check via table
     const [orderData] = await db
       .select()
       .from(orders)
@@ -788,8 +787,17 @@ export class DatabaseStorage implements IStorage {
     if (!orderData || !orderData.orders) {
       throw new Error('Order not found');
     }
-    if (orderData.tables!.restaurantId !== restaurantId) {
-      throw new Error('Unauthorized: Order does not belong to your restaurant');
+    
+    // For table orders, verify via table's restaurantId
+    // For delivery/takeout, verify via order's restaurantId
+    if (orderData.orders.tableId && orderData.tables) {
+      if (orderData.tables.restaurantId !== restaurantId) {
+        throw new Error('Unauthorized: Order does not belong to your restaurant');
+      }
+    } else {
+      if (orderData.orders.restaurantId !== restaurantId) {
+        throw new Error('Unauthorized: Order does not belong to your restaurant');
+      }
     }
     
     const [updated] = await db
