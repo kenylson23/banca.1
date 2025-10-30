@@ -79,6 +79,12 @@ export default function Kitchen() {
       // Invalidate kitchen orders to refetch
       queryClient.invalidateQueries({ queryKey: ["/api/orders/kitchen"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/kitchen"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/dashboard"] });
+      // Invalidate all reports to ensure they show updated data
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/performance"] });
     }
   }, []);
 
@@ -129,6 +135,11 @@ export default function Kitchen() {
       queryClient.invalidateQueries({ queryKey: ["/api/orders/kitchen"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/kitchen"] });
+      // Invalidate all reports to ensure they show updated data
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/performance"] });
       toast({
         title: "Status atualizado",
         description: `Pedido marcado como ${statusLabels[newStatus]}`,

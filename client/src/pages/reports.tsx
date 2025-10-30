@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { TrendingUp, ShoppingCart, Package, Clock, Download, Filter } from "lucide-react";
 import { format } from "date-fns";
+import { useWebSocket } from "@/hooks/useWebSocket";
+import { queryClient } from "@/lib/queryClient";
 
 type SalesReport = {
   totalSales: string;
@@ -103,6 +105,20 @@ export default function Reports() {
     queryKey: ['/api/reports/performance', { startDate, endDate }],
     enabled: !!startDate && !!endDate,
   });
+
+  // WebSocket handler for real-time updates
+  const handleWebSocketMessage = useCallback((message: any) => {
+    if (message.type === 'new_order' || message.type === 'order_status_updated') {
+      // Invalidate all reports to ensure they show updated data
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/sales"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/performance"] });
+    }
+  }, []);
+
+  // Setup WebSocket connection
+  useWebSocket(handleWebSocketMessage);
 
   const exportToCSV = (data: any[], filename: string) => {
     if (!data || data.length === 0) return;
