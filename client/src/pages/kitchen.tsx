@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, Filter, Volume2, VolumeX, BarChart3, TrendingUp, Package, DollarSign } from "lucide-react";
+import { Clock, Filter, Volume2, VolumeX, BarChart3, TrendingUp, Package, DollarSign, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -137,6 +137,40 @@ export default function Kitchen() {
       toast({
         title: "Erro",
         description: "Não foi possível atualizar o status do pedido",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePrint = async (orderId: string) => {
+    try {
+      const response = await fetch(`/api/orders/${orderId}/print`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao gerar PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `pedido-${orderId.slice(0, 8)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "PDF gerado",
+        description: "O PDF do pedido foi baixado com sucesso",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível gerar o PDF do pedido",
         variant: "destructive",
       });
     }
@@ -335,15 +369,26 @@ export default function Kitchen() {
                       </span>
                     </div>
 
-                    {nextStatus && (
+                    <div className="flex flex-col gap-2">
+                      {nextStatus && (
+                        <Button
+                          className="w-full text-sm sm:text-base"
+                          onClick={() => handleStatusChange(order.id, nextStatus)}
+                          data-testid={`button-update-status-${order.id}`}
+                        >
+                          Marcar como {statusLabels[nextStatus]}
+                        </Button>
+                      )}
                       <Button
+                        variant="outline"
                         className="w-full text-sm sm:text-base"
-                        onClick={() => handleStatusChange(order.id, nextStatus)}
-                        data-testid={`button-update-status-${order.id}`}
+                        onClick={() => handlePrint(order.id)}
+                        data-testid={`button-print-${order.id}`}
                       >
-                        Marcar como {statusLabels[nextStatus]}
+                        <Printer className="h-4 w-4 mr-2" />
+                        Imprimir Pedido
                       </Button>
-                    )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

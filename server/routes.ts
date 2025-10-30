@@ -7,6 +7,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import passport from "passport";
 import QRCode from "qrcode";
+import PDFDocument from "pdfkit";
 import {
   insertTableSchema,
   insertCategorySchema,
@@ -1129,11 +1130,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/orders/kitchen", isAuthenticated, async (req, res) => {
     try {
       const currentUser = req.user as User;
-      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+      if (!currentUser.restaurantId) {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
       
-      const restaurantId = currentUser.restaurantId!;
+      const restaurantId = currentUser.restaurantId;
       const branchId = currentUser.activeBranchId || null;
       const orders = await storage.getKitchenOrders(restaurantId, branchId);
       res.json(orders);
@@ -1213,6 +1214,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating order status:", error);
       res.status(500).json({ message: "Failed to update order status" });
+    }
+  });
+
+  app.get("/api/orders/:id/print", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const branchId = currentUser.activeBranchId || null;
+      
+      const allOrders = await storage.getKitchenOrders(restaurantId, branchId);
+      const order = allOrders.find(o => o.id === req.params.id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurante não encontrado" });
+      }
+
+      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=pedido-${order.id.slice(0, 8)}.pdf`);
+      
+      doc.pipe(res);
+
+      const statusLabels: { [key: string]: string } = {
+        'pendente': 'Pendente',
+        'em_preparo': 'Em Preparo',
+        'pronto': 'Pronto',
+        'servido': 'Servido'
+      };
+
+      const typeLabels: { [key: string]: string } = {
+        'mesa': 'Mesa',
+        'delivery': 'Delivery',
+        'takeout': 'Retirada'
+      };
+
+      doc.fontSize(20).font('Helvetica-Bold').text(restaurant.name.toUpperCase(), { align: 'center' });
+      doc.fontSize(10).font('Helvetica').text('COMANDA DE PEDIDO', { align: 'center' });
+      doc.moveDown(0.5);
+      
+      doc.fontSize(8).text('═'.repeat(85), { align: 'center' });
+      doc.moveDown(0.5);
+
+      doc.fontSize(12).font('Helvetica-Bold').text(`Pedido #${order.id.slice(0, 8).toUpperCase()}`, { align: 'left' });
+      doc.fontSize(10).font('Helvetica');
+      
+      const orderDate = new Date(order.createdAt!);
+      const dateStr = orderDate.toLocaleDateString('pt-AO', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric' 
+      });
+      const timeStr = orderDate.toLocaleTimeString('pt-AO', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      
+      doc.text(`Data: ${dateStr}  |  Hora: ${timeStr}`);
+      doc.text(`Tipo: ${typeLabels[order.orderType] || order.orderType}`);
+      doc.text(`Status: ${statusLabels[order.status] || order.status}`);
+      
+      if (order.table) {
+        doc.text(`Mesa: ${order.table.number}`);
+      }
+      
+      if (order.customerName) {
+        doc.text(`Cliente: ${order.customerName}`);
+      }
+      
+      if (order.customerPhone) {
+        doc.text(`Telefone: ${order.customerPhone}`);
+      }
+      
+      doc.moveDown(0.5);
+      doc.fontSize(8).text('─'.repeat(85));
+      doc.moveDown(0.5);
+
+      doc.fontSize(11).font('Helvetica-Bold').text('ITENS DO PEDIDO');
+      doc.moveDown(0.5);
+
+      let totalAmount = 0;
+
+      order.orderItems.forEach((item, index) => {
+        const itemTotal = parseFloat(item.price) * item.quantity;
+        totalAmount += itemTotal;
+        
+        doc.fontSize(10).font('Helvetica-Bold').text(`${item.quantity}x ${item.menuItem.name}`);
+        doc.fontSize(9).font('Helvetica')
+          .text(`   Kz ${parseFloat(item.price).toFixed(2)} cada`, { continued: true })
+          .text(`Kz ${itemTotal.toFixed(2)}`, { align: 'right' });
+        
+        if (item.notes) {
+          doc.fontSize(8).fillColor('#666666').text(`   Obs: ${item.notes}`);
+          doc.fillColor('#000000');
+        }
+        
+        if (index < order.orderItems.length - 1) {
+          doc.moveDown(0.3);
+        }
+      });
+
+      doc.moveDown(0.5);
+      doc.fontSize(8).text('─'.repeat(85));
+      doc.moveDown(0.5);
+
+      doc.fontSize(12).font('Helvetica-Bold')
+        .text('TOTAL:', { continued: true })
+        .text(`Kz ${totalAmount.toFixed(2)}`, { align: 'right' });
+
+      doc.moveDown(1);
+      doc.fontSize(8).text('═'.repeat(85), { align: 'center' });
+      doc.moveDown(0.5);
+
+      doc.fontSize(8).font('Helvetica').fillColor('#666666')
+        .text('Documento gerado automaticamente pelo sistema NaBancada', { align: 'center' });
+
+      doc.end();
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).json({ message: "Erro ao gerar PDF do pedido" });
     }
   });
 
