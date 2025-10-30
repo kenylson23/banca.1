@@ -196,11 +196,11 @@ export default function Reports() {
   };
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col gap-2 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Relatórios</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold">Relatórios</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Análise detalhada de vendas, pedidos e desempenho
           </p>
         </div>
@@ -269,22 +269,26 @@ export default function Reports() {
       </Card>
 
       <Tabs defaultValue="sales" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="sales" data-testid="tab-sales">
-            <TrendingUp className="h-4 w-4 mr-2" />
-            Vendas
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1">
+          <TabsTrigger value="sales" data-testid="tab-sales" className="text-xs sm:text-sm">
+            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Vendas</span>
+            <span className="inline sm:hidden">Venda</span>
           </TabsTrigger>
-          <TabsTrigger value="orders" data-testid="tab-orders">
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            Pedidos
+          <TabsTrigger value="orders" data-testid="tab-orders" className="text-xs sm:text-sm">
+            <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Pedidos</span>
+            <span className="inline sm:hidden">Pedido</span>
           </TabsTrigger>
-          <TabsTrigger value="products" data-testid="tab-products">
-            <Package className="h-4 w-4 mr-2" />
-            Produtos
+          <TabsTrigger value="products" data-testid="tab-products" className="text-xs sm:text-sm">
+            <Package className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Produtos</span>
+            <span className="inline sm:hidden">Prod.</span>
           </TabsTrigger>
-          <TabsTrigger value="performance" data-testid="tab-performance">
-            <Clock className="h-4 w-4 mr-2" />
-            Performance
+          <TabsTrigger value="performance" data-testid="tab-performance" className="text-xs sm:text-sm">
+            <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Performance</span>
+            <span className="inline sm:hidden">Perf.</span>
           </TabsTrigger>
         </TabsList>
 
@@ -325,9 +329,9 @@ export default function Reports() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Card>
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle>Vendas por Dia</CardTitle>
-                    <Button size="sm" variant="outline" onClick={exportSalesCSV} data-testid="button-export-sales">
+                  <CardHeader className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between space-y-0 pb-2">
+                    <CardTitle className="text-base sm:text-lg">Vendas por Dia</CardTitle>
+                    <Button size="sm" variant="outline" onClick={exportSalesCSV} data-testid="button-export-sales" className="w-full sm:w-auto">
                       <Download className="h-4 w-4 mr-2" />
                       Exportar
                     </Button>
@@ -336,13 +340,13 @@ export default function Reports() {
                     <ResponsiveContainer width="100%" height={300}>
                       <LineChart data={salesReport?.salesByDay || []}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="date" tickFormatter={(date) => format(new Date(date), 'dd/MM')} />
-                        <YAxis />
+                        <XAxis dataKey="date" tickFormatter={(date) => format(new Date(date), 'dd/MM')} tick={{fontSize: 12}} />
+                        <YAxis tick={{fontSize: 12}} />
                         <Tooltip 
                           labelFormatter={(date) => format(new Date(date), 'dd/MM/yyyy')}
                           formatter={(value: number) => [`Kz ${value.toFixed(2)}`, 'Vendas']}
                         />
-                        <Legend />
+                        <Legend wrapperStyle={{fontSize: '12px'}} />
                         <Line type="monotone" dataKey="sales" stroke="#0ea5e9" name="Vendas" />
                       </LineChart>
                     </ResponsiveContainer>
@@ -351,7 +355,7 @@ export default function Reports() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Vendas por Tipo de Pedido</CardTitle>
+                    <CardTitle className="text-base sm:text-lg">Vendas por Tipo de Pedido</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={300}>
@@ -378,16 +382,16 @@ export default function Reports() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Pedidos por Status</CardTitle>
+                  <CardTitle className="text-base sm:text-lg">Pedidos por Status</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={salesReport?.ordersByStatus || []}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="status" tickFormatter={(status) => statusLabels[status as keyof typeof statusLabels]} />
-                      <YAxis />
+                      <XAxis dataKey="status" tickFormatter={(status) => statusLabels[status as keyof typeof statusLabels]} tick={{fontSize: 12}} />
+                      <YAxis tick={{fontSize: 12}} />
                       <Tooltip labelFormatter={(status) => statusLabels[status as keyof typeof statusLabels]} />
-                      <Legend />
+                      <Legend wrapperStyle={{fontSize: '12px'}} />
                       <Bar dataKey="count" fill="#10b981" name="Quantidade" />
                     </BarChart>
                   </ResponsiveContainer>
@@ -399,14 +403,14 @@ export default function Reports() {
 
         <TabsContent value="orders" className="space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between space-y-0 pb-2">
               <div>
-                <CardTitle>Lista de Pedidos</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-base sm:text-lg">Lista de Pedidos</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
                   {ordersReport?.length || 0} pedidos encontrados
                 </CardDescription>
               </div>
-              <Button size="sm" variant="outline" onClick={exportOrdersCSV} data-testid="button-export-orders">
+              <Button size="sm" variant="outline" onClick={exportOrdersCSV} data-testid="button-export-orders" className="w-full sm:w-auto">
                 <Download className="h-4 w-4 mr-2" />
                 Exportar
               </Button>
@@ -415,7 +419,7 @@ export default function Reports() {
               {loadingOrders ? (
                 <Skeleton className="h-64 w-full" />
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto -mx-2 sm:mx-0">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -497,15 +501,15 @@ export default function Reports() {
           ) : (
             <>
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Top 20 Produtos Mais Vendidos</CardTitle>
-                  <Button size="sm" variant="outline" onClick={exportProductsCSV} data-testid="button-export-products">
+                <CardHeader className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between space-y-0 pb-2">
+                  <CardTitle className="text-base sm:text-lg">Top 20 Produtos Mais Vendidos</CardTitle>
+                  <Button size="sm" variant="outline" onClick={exportProductsCSV} data-testid="button-export-products" className="w-full sm:w-auto">
                     <Download className="h-4 w-4 mr-2" />
                     Exportar
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto -mx-2 sm:mx-0">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -532,16 +536,16 @@ export default function Reports() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Vendas por Categoria</CardTitle>
+                  <CardTitle className="text-base sm:text-lg">Vendas por Categoria</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={productsReport?.productsByCategory || []}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="categoryName" />
-                      <YAxis />
+                      <XAxis dataKey="categoryName" tick={{fontSize: 12}} />
+                      <YAxis tick={{fontSize: 12}} />
                       <Tooltip formatter={(value: number) => `Kz ${value.toFixed(2)}`} />
-                      <Legend />
+                      <Legend wrapperStyle={{fontSize: '12px'}} />
                       <Bar dataKey="totalRevenue" fill="#0ea5e9" name="Receita Total" />
                     </BarChart>
                   </ResponsiveContainer>
@@ -558,17 +562,17 @@ export default function Reports() {
             <>
               <div className="grid gap-4 md:grid-cols-2">
                 <Card>
-                  <CardHeader>
-                    <CardDescription>Tempo Médio de Preparo</CardDescription>
-                    <CardTitle className="text-3xl" data-testid="text-avg-prep-time">
+                  <CardHeader className="pb-2">
+                    <CardDescription className="text-xs sm:text-sm">Tempo Médio de Preparo</CardDescription>
+                    <CardTitle className="text-2xl sm:text-3xl" data-testid="text-avg-prep-time">
                       {performanceReport?.averagePrepTime || "0.0"} min
                     </CardTitle>
                   </CardHeader>
                 </Card>
                 <Card>
-                  <CardHeader>
-                    <CardDescription>Taxa de Conclusão</CardDescription>
-                    <CardTitle className="text-3xl" data-testid="text-completion-rate">
+                  <CardHeader className="pb-2">
+                    <CardDescription className="text-xs sm:text-sm">Taxa de Conclusão</CardDescription>
+                    <CardTitle className="text-2xl sm:text-3xl" data-testid="text-completion-rate">
                       {performanceReport?.completionRate || "0.0"}%
                     </CardTitle>
                   </CardHeader>
@@ -578,16 +582,16 @@ export default function Reports() {
               <div className="grid gap-4 md:grid-cols-2">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Horários de Pico</CardTitle>
+                    <CardTitle className="text-base sm:text-lg">Horários de Pico</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={300}>
                       <BarChart data={performanceReport?.peakHours || []}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="hour" tickFormatter={(hour) => `${hour}:00`} />
-                        <YAxis />
+                        <XAxis dataKey="hour" tickFormatter={(hour) => `${hour}:00`} tick={{fontSize: 12}} />
+                        <YAxis tick={{fontSize: 12}} />
                         <Tooltip labelFormatter={(hour) => `${hour}:00`} />
-                        <Legend />
+                        <Legend wrapperStyle={{fontSize: '12px'}} />
                         <Bar dataKey="orders" fill="#8b5cf6" name="Pedidos" />
                       </BarChart>
                     </ResponsiveContainer>
@@ -596,10 +600,10 @@ export default function Reports() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Top 10 Mesas</CardTitle>
+                    <CardTitle className="text-base sm:text-lg">Top 10 Mesas</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto -mx-2 sm:mx-0">
                       <Table>
                         <TableHeader>
                           <TableRow>

@@ -172,7 +172,7 @@ export default function Settings() {
             <Label htmlFor="slug">Slug Personalizado</Label>
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-2">
-                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                <span className="text-sm text-muted-foreground break-all sm:whitespace-nowrap">
                   {window.location.origin}/r/
                 </span>
                 <Input
