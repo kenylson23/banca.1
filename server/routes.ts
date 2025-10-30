@@ -883,6 +883,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/public/restaurants/:slug/orders/search", async (req, res) => {
+    try {
+      const slug = req.params.slug;
+      const searchTerm = req.query.q as string;
+      
+      if (!searchTerm || searchTerm.trim().length === 0) {
+        return res.status(400).json({ message: "Termo de busca é obrigatório" });
+      }
+
+      const restaurant = await storage.getRestaurantBySlug(slug);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurante não encontrado" });
+      }
+
+      const orders = await storage.searchOrders(restaurant.id, searchTerm);
+      res.json(orders);
+    } catch (error) {
+      console.error("Error searching orders:", error);
+      res.status(500).json({ message: "Erro ao buscar pedidos" });
+    }
+  });
+
   app.post("/api/public/orders", async (req, res) => {
     try {
       const { items, ...orderData } = req.body;

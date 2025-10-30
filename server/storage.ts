@@ -96,6 +96,7 @@ export interface IStorage {
   getKitchenOrders(restaurantId: string, branchId?: string | null): Promise<Array<Order & { table: Table; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
   getRecentOrders(restaurantId: string, branchId: string | null, limit: number): Promise<Array<Order & { table: { number: number } }>>;
   getOrdersByTableId(restaurantId: string, tableId: string): Promise<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
+  searchOrders(restaurantId: string, searchTerm: string): Promise<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
   createOrder(order: InsertOrder, items: PublicOrderItem[]): Promise<Order>;
   updateOrderStatus(restaurantId: string, id: string, status: string): Promise<Order>;
   
@@ -716,6 +717,48 @@ export class DatabaseStorage implements IStorage {
 
         return {
           ...order,
+          orderItems: items.map((item: { order_items: OrderItem; menu_items: MenuItem | null }) => ({
+            ...item.order_items,
+            menuItem: item.menu_items!,
+          })),
+        };
+      })
+    );
+
+    return ordersWithItems;
+  }
+
+  async searchOrders(restaurantId: string, searchTerm: string): Promise<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>> {
+    const trimmedSearch = searchTerm.trim();
+    
+    const foundOrders = await db
+      .select()
+      .from(orders)
+      .leftJoin(tables, eq(orders.tableId, tables.id))
+      .where(
+        and(
+          eq(orders.restaurantId, restaurantId),
+          or(
+            eq(orders.id, trimmedSearch),
+            sql`LOWER(${orders.customerName}) LIKE LOWER(${`%${trimmedSearch}%`})`,
+            sql`${orders.customerPhone} LIKE ${`%${trimmedSearch}%`}`
+          )
+        )
+      )
+      .orderBy(desc(orders.createdAt))
+      .limit(20);
+
+    const ordersWithItems = await Promise.all(
+      foundOrders.map(async (row: { orders: Order; tables: Table | null }) => {
+        const items = await db
+          .select()
+          .from(orderItems)
+          .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+          .where(eq(orderItems.orderId, row.orders.id));
+
+        return {
+          ...row.orders,
+          table: row.tables,
           orderItems: items.map((item: { order_items: OrderItem; menu_items: MenuItem | null }) => ({
             ...item.order_items,
             menuItem: item.menu_items!,

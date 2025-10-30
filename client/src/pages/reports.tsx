@@ -32,6 +32,8 @@ type OrderReport = {
   status: string;
   totalAmount: string;
   orderItems: any[];
+  orderNotes?: string;
+  customerName?: string;
 };
 
 type ProductsReport = {
@@ -429,38 +431,50 @@ export default function Reports() {
                     <TableBody>
                       {ordersReport && ordersReport.length > 0 ? (
                         ordersReport.map((order: any) => (
-                          <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
-                            <TableCell>
-                              {format(new Date(order.createdAt), 'dd/MM/yyyy HH:mm')}
-                            </TableCell>
-                            <TableCell>{order.table?.number || 'N/A'}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">
-                                {typeLabels[order.orderType as keyof typeof typeLabels]}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={statusColors[order.status as keyof typeof statusColors]}>
-                                {statusLabels[order.status as keyof typeof statusLabels]}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{order.orderItems.length}</TableCell>
-                            <TableCell className="text-right font-medium">
-                              Kz {parseFloat(order.totalAmount).toFixed(2)}
-                            </TableCell>
-                            <TableCell>
-                              {getNextStatus(order.status) && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleStatusChange(order.id, getNextStatus(order.status)!)}
-                                  data-testid={`button-status-${order.id}`}
-                                >
-                                  {statusLabels[getNextStatus(order.status)! as keyof typeof statusLabels]}
-                                </Button>
-                              )}
-                            </TableCell>
-                          </TableRow>
+                          <>
+                            <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
+                              <TableCell>
+                                {format(new Date(order.createdAt), 'dd/MM/yyyy HH:mm')}
+                              </TableCell>
+                              <TableCell>{order.table?.number || 'N/A'}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline">
+                                  {typeLabels[order.orderType as keyof typeof typeLabels]}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={statusColors[order.status as keyof typeof statusColors]}>
+                                  {statusLabels[order.status as keyof typeof statusLabels]}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{order.orderItems.length}</TableCell>
+                              <TableCell className="text-right font-medium">
+                                Kz {parseFloat(order.totalAmount).toFixed(2)}
+                              </TableCell>
+                              <TableCell>
+                                {getNextStatus(order.status) && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleStatusChange(order.id, getNextStatus(order.status)!)}
+                                    data-testid={`button-status-${order.id}`}
+                                  >
+                                    {statusLabels[getNextStatus(order.status)! as keyof typeof statusLabels]}
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                            {order.orderNotes && (
+                              <TableRow key={`${order.id}-notes`}>
+                                <TableCell colSpan={7} className="bg-amber-500/5 border-t-0">
+                                  <div className="flex items-start gap-2 py-2">
+                                    <span className="font-semibold text-xs text-amber-700 dark:text-amber-400">Observações:</span>
+                                    <span className="text-xs text-muted-foreground">{order.orderNotes}</span>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </>
                         ))
                       ) : (
                         <TableRow>

@@ -10,6 +10,7 @@ import Landing from "@/pages/landing";
 import Login from "@/pages/login";
 import CustomerMenu from "@/pages/customer-menu";
 import PublicMenu from "@/pages/public-menu";
+import TrackOrder from "@/pages/track-order";
 import MainDashboard from "@/pages/main-dashboard";
 import NotFound from "@/pages/not-found";
 
@@ -24,6 +25,7 @@ function Router() {
     <Switch>
       <Route path="/mesa/:tableNumber" component={CustomerMenu} />
       <Route path="/r/:slug" component={PublicMenu} />
+      <Route path="/r/:slug/rastrear" component={TrackOrder} />
       
       {!isAuthenticated ? (
         <>

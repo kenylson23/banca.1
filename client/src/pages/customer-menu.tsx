@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { ShoppingCart, Plus, Minus, Trash2, Check, ClipboardList, Clock, ChefHat, CheckCircle } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
@@ -21,7 +22,7 @@ import { MapPin, Phone, Clock as ClockIcon } from 'lucide-react';
 export default function CustomerMenu() {
   const [, params] = useRoute('/mesa/:tableNumber');
   const tableNumber = params?.tableNumber;
-  const { items, addItem, updateQuantity, removeItem, clearCart, getTotal, getItemCount } = useCart();
+  const { items, orderNotes, addItem, updateQuantity, removeItem, setOrderNotes, clearCart, getTotal, getItemCount } = useCart();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
@@ -71,13 +72,14 @@ export default function CustomerMenu() {
   }, [tableId]);
 
   const createOrderMutation = useMutation({
-    mutationFn: async (orderData: { restaurantId: string; tableId: string; customerName: string; customerPhone: string; items: Array<{ menuItemId: string; quantity: number; price: string }> }) => {
+    mutationFn: async (orderData: { restaurantId: string; tableId: string; customerName: string; customerPhone: string; orderNotes?: string; items: Array<{ menuItemId: string; quantity: number; price: string }> }) => {
       const totalAmount = orderData.items.reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0).toFixed(2);
       return apiRequest('POST', '/api/public/orders', {
         restaurantId: orderData.restaurantId,
         tableId: orderData.tableId,
         customerName: orderData.customerName,
         customerPhone: orderData.customerPhone,
+        orderNotes: orderData.orderNotes || undefined,
         status: 'pendente',
         totalAmount,
         items: orderData.items,
@@ -189,6 +191,7 @@ export default function CustomerMenu() {
       tableId: currentTable.id,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
+      orderNotes: orderNotes.trim() || undefined,
       items: orderItems,
     });
   };
@@ -430,6 +433,18 @@ export default function CustomerMenu() {
                         onChange={(e) => setCustomerPhone(e.target.value)}
                         data-testid="input-customer-phone"
                         className="mt-1.5 h-11 text-base"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="order-notes" className="text-sm font-medium">Observações (opcional)</Label>
+                      <Textarea
+                        id="order-notes"
+                        placeholder="Ex: sem cebola, bem passado, entregar rápido..."
+                        value={orderNotes}
+                        onChange={(e) => setOrderNotes(e.target.value)}
+                        data-testid="input-order-notes"
+                        className="mt-1.5 text-base resize-none"
+                        rows={3}
                       />
                     </div>
                   </div>

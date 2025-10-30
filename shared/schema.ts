@@ -249,6 +249,7 @@ export const orders = pgTable("orders", {
   customerName: varchar("customer_name", { length: 200 }),
   customerPhone: varchar("customer_phone", { length: 50 }),
   deliveryAddress: text("delivery_address"),
+  orderNotes: text("order_notes"),
   status: orderStatusEnum("status").notNull().default('pendente'),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),

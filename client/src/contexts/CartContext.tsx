@@ -8,9 +8,11 @@ export interface CartItem {
 
 interface CartContextType {
   items: CartItem[];
+  orderNotes: string;
   addItem: (menuItem: MenuItem) => void;
   removeItem: (menuItemId: string) => void;
   updateQuantity: (menuItemId: string, quantity: number) => void;
+  setOrderNotes: (notes: string) => void;
   clearCart: () => void;
   getTotal: () => number;
   getItemCount: () => number;
@@ -20,6 +22,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [orderNotes, setOrderNotes] = useState<string>('');
 
   const addItem = (menuItem: MenuItem) => {
     setItems(currentItems => {
@@ -58,6 +61,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => {
     setItems([]);
+    setOrderNotes('');
   };
 
   const getTotal = () => {
@@ -74,9 +78,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     <CartContext.Provider
       value={{
         items,
+        orderNotes,
         addItem,
         removeItem,
         updateQuantity,
+        setOrderNotes,
         clearCart,
         getTotal,
         getItemCount,

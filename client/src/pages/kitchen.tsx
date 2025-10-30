@@ -466,6 +466,17 @@ export default function Kitchen() {
                     ))}
                   </div>
 
+                  {order.orderNotes && (
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-md p-3">
+                      <h3 className="font-semibold text-xs sm:text-sm text-amber-700 dark:text-amber-400 uppercase mb-2">
+                        Observações do Pedido
+                      </h3>
+                      <p className="text-xs sm:text-sm text-foreground break-words">
+                        {order.orderNotes}
+                      </p>
+                    </div>
+                  )}
+
                   <div className="pt-2 border-t border-border">
                     <div className="flex justify-between items-center mb-3 sm:mb-4">
                       <span className="font-semibold text-sm sm:text-base">Total</span>
