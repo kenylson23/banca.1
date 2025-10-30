@@ -27,31 +27,41 @@ O sistema implementa as seguintes funcionalidades:
 
 ## Como Usar
 
-### Antes de Fazer Deploy no Render
+### Workflow Completo para Deploy
 
-**IMPORTANTE:** Execute o script de atualização de versão ANTES de fazer o build:
+O processo de deploy requer três passos para garantir que tudo funcione corretamente:
 
 ```bash
+# 1. Atualizar a versão no Service Worker
 ./scripts/update-version.sh
+
+# 2. Fazer o build
 npm run build
+
+# 3. Restaurar o placeholder para o próximo deploy
+./scripts/restore-version-placeholder.sh
 ```
 
-Ou em uma única linha:
+**OU** em uma única linha:
 
 ```bash
-./scripts/update-version.sh && npm run build
+./scripts/update-version.sh && npm run build && ./scripts/restore-version-placeholder.sh
 ```
 
 ### Configuração no Render (Recomendado)
 
-Adicione o script de build no painel do Render:
+Configure o Render para executar automaticamente o workflow completo:
 
 **Build Command:**
 ```bash
-./scripts/update-version.sh && npm run build
+./scripts/update-version.sh && npm run build && ./scripts/restore-version-placeholder.sh
 ```
 
-Isso garante que cada deploy gera uma nova versão automaticamente.
+**IMPORTANTE:** A restauração do placeholder é essencial para que o próximo deploy funcione corretamente.
+
+### Por que Restaurar o Placeholder?
+
+O arquivo `sw.js` contém um placeholder `__VERSION__` que é substituído pelo timestamp durante o build. Após o build, precisamos restaurar esse placeholder para que o próximo deploy possa substituí-lo novamente. Sem isso, todos os deploys usariam a mesma versão antiga.
 
 ## Arquivos Modificados
 
