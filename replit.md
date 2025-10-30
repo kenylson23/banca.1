@@ -91,3 +91,22 @@ The backend uses **Express** with **TypeScript**, featuring **Replit Auth** for 
   - Comprehensive UX with loading states, error handling, and detailed order information display
   - Shows order status, items, quantities, prices, and customer notes
   - Real-time order status updates reflected in tracking page
+
+### October 30, 2025 - Automatic Cache Busting System
+- ✅ Implemented comprehensive cache busting to eliminate browser cache issues after deployments
+  - Service Worker now uses dynamic versioning based on build timestamp
+  - Automatic detection of new versions every 60 seconds
+  - Elegant toast notification when updates are available (no more manual Ctrl+Shift+R)
+  - HTTP headers prevent caching of sw.js and version.json
+- ✅ Created deployment workflow scripts
+  - `scripts/update-version.sh`: Injects unique version into Service Worker before build
+  - `scripts/restore-version-placeholder.sh`: Restores placeholder after build for next deployment
+  - Complete workflow: update-version.sh → npm run build → restore-version-placeholder.sh
+- ✅ Enhanced user experience
+  - Users automatically notified of updates with "Atualizar" button
+  - Zero manual intervention needed - updates apply instantly
+  - No more "old version" issues after Render deployments
+- ✅ Documentation
+  - Complete CACHE_BUSTING.md guide with workflow instructions
+  - Render configuration examples for automated deployments
+  - Troubleshooting section for common issues
