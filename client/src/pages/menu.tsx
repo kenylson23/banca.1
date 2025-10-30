@@ -575,27 +575,52 @@ export default function Menu() {
                         {formatKwanza(item.price)}
                       </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2">
                       <Button
-                        variant="outline"
+                        variant={item.isAvailable === 1 ? "default" : "outline"}
                         size="sm"
-                        className="flex-1"
-                        onClick={() => handleEditMenuItem(item)}
-                        data-testid={`button-edit-menu-item-${item.id}`}
+                        onClick={async () => {
+                          try {
+                            await apiRequest("PATCH", `/api/menu-items/${item.id}`, {
+                              isAvailable: item.isAvailable === 1 ? 0 : 1,
+                            });
+                            queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
+                            toast({
+                              title: item.isAvailable === 1 ? "Item marcado como indisponível" : "Item marcado como disponível",
+                            });
+                          } catch (error) {
+                            toast({
+                              title: "Erro ao atualizar disponibilidade",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                        data-testid={`button-toggle-availability-${item.id}`}
                       >
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Editar
+                        {item.isAvailable === 1 ? "✓ Disponível" : "✗ Indisponível"}
                       </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => setDeleteMenuItemId(item.id)}
-                        data-testid={`button-delete-menu-item-${item.id}`}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Excluir
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleEditMenuItem(item)}
+                          data-testid={`button-edit-menu-item-${item.id}`}
+                        >
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Editar
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => setDeleteMenuItemId(item.id)}
+                          data-testid={`button-delete-menu-item-${item.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Excluir
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
