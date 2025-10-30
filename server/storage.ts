@@ -147,6 +147,42 @@ export interface IStorage {
     totalRevenue: string;
   }>;
   
+  // Reports operations
+  getSalesReport(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date): Promise<{
+    totalSales: string;
+    totalOrders: number;
+    averageTicket: string;
+    ordersByType: Array<{ type: string; count: number; revenue: string }>;
+    ordersByStatus: Array<{ status: string; count: number }>;
+    salesByDay: Array<{ date: string; sales: string; orders: number }>;
+  }>;
+  
+  getOrdersReport(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date, status?: string, orderType?: string): Promise<Array<Order & { 
+    table: { number: number } | null;
+    orderItems: Array<OrderItem & { menuItem: MenuItem }>;
+  }>>;
+  
+  getProductsReport(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date): Promise<{
+    topProducts: Array<{
+      menuItem: MenuItem;
+      quantity: number;
+      revenue: string;
+      ordersCount: number;
+    }>;
+    productsByCategory: Array<{
+      categoryName: string;
+      totalRevenue: string;
+      itemsCount: number;
+    }>;
+  }>;
+  
+  getPerformanceReport(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date): Promise<{
+    averagePrepTime: string;
+    completionRate: string;
+    peakHours: Array<{ hour: number; orders: number }>;
+    topTables: Array<{ tableNumber: number; orders: number; revenue: string }>;
+  }>;
+  
   // Message operations
   getMessages(restaurantId: string): Promise<Message[]>;
   getAllMessages(): Promise<Array<Message & { restaurant: Restaurant }>>;
@@ -1108,6 +1144,349 @@ export class DatabaseStorage implements IStorage {
       pendingRestaurants,
       suspendedRestaurants,
       totalRevenue: totalRevenue.toFixed(2),
+    };
+  }
+
+  // Reports operations
+  async getSalesReport(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date): Promise<{
+    totalSales: string;
+    totalOrders: number;
+    averageTicket: string;
+    ordersByType: Array<{ type: string; count: number; revenue: string }>;
+    ordersByStatus: Array<{ status: string; count: number }>;
+    salesByDay: Array<{ date: string; sales: string; orders: number }>;
+  }> {
+    let periodOrders;
+    if (branchId) {
+      periodOrders = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          or(eq(tables.branchId, branchId), sql`${orders.tableId} IS NULL`),
+          gte(orders.createdAt, startDate),
+          sql`${orders.createdAt} <= ${endDate}`
+        ));
+    } else {
+      periodOrders = await db
+        .select()
+        .from(orders)
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          gte(orders.createdAt, startDate),
+          sql`${orders.createdAt} <= ${endDate}`
+        ));
+    }
+
+    const periodOrdersRaw = periodOrders.map((row: any) => row.orders || row);
+
+    const totalOrders = periodOrdersRaw.length;
+    const totalSales = periodOrdersRaw.reduce((sum: number, order: Order) => sum + parseFloat(order.totalAmount), 0);
+    const averageTicket = totalOrders > 0 ? totalSales / totalOrders : 0;
+
+    const ordersByType = ['mesa', 'delivery', 'takeout'].map(type => {
+      const typeOrders = periodOrdersRaw.filter((o: Order) => o.orderType === type);
+      const revenue = typeOrders.reduce((sum: number, o: Order) => sum + parseFloat(o.totalAmount), 0);
+      return {
+        type,
+        count: typeOrders.length,
+        revenue: revenue.toFixed(2),
+      };
+    });
+
+    const ordersByStatus = ['pendente', 'em_preparo', 'pronto', 'servido'].map(status => {
+      const statusOrders = periodOrdersRaw.filter((o: Order) => o.status === status);
+      return {
+        status,
+        count: statusOrders.length,
+      };
+    });
+
+    const salesByDayMap = new Map<string, { sales: number; orders: number }>();
+    periodOrdersRaw.forEach((order: Order) => {
+      const dateKey = order.createdAt!.toISOString().split('T')[0];
+      const existing = salesByDayMap.get(dateKey) || { sales: 0, orders: 0 };
+      salesByDayMap.set(dateKey, {
+        sales: existing.sales + parseFloat(order.totalAmount),
+        orders: existing.orders + 1,
+      });
+    });
+
+    const salesByDay = Array.from(salesByDayMap.entries())
+      .map(([date, data]) => ({
+        date,
+        sales: data.sales.toFixed(2),
+        orders: data.orders,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    return {
+      totalSales: totalSales.toFixed(2),
+      totalOrders,
+      averageTicket: averageTicket.toFixed(2),
+      ordersByType,
+      ordersByStatus,
+      salesByDay,
+    };
+  }
+
+  async getOrdersReport(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date, status?: string, orderType?: string): Promise<Array<Order & { 
+    table: { number: number } | null;
+    orderItems: Array<OrderItem & { menuItem: MenuItem }>;
+  }>> {
+    let baseConditions: any[] = [
+      eq(orders.restaurantId, restaurantId),
+      gte(orders.createdAt, startDate),
+      sql`${orders.createdAt} <= ${endDate}`
+    ];
+
+    if (status) {
+      baseConditions.push(eq(orders.status, status as any));
+    }
+
+    if (orderType) {
+      baseConditions.push(eq(orders.orderType, orderType as any));
+    }
+
+    let ordersData;
+    if (branchId) {
+      ordersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          ...baseConditions,
+          or(
+            and(eq(tables.branchId, branchId), sql`${orders.tableId} IS NOT NULL`),
+            sql`${orders.tableId} IS NULL`
+          )
+        ))
+        .orderBy(desc(orders.createdAt));
+    } else {
+      ordersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(...baseConditions))
+        .orderBy(desc(orders.createdAt));
+    }
+
+    const ordersWithItems = await Promise.all(
+      ordersData.map(async (orderRow: { orders: Order; tables: Table | null }) => {
+        const items = await db
+          .select()
+          .from(orderItems)
+          .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+          .where(eq(orderItems.orderId, orderRow.orders.id));
+
+        return {
+          ...orderRow.orders,
+          table: orderRow.tables ? { number: orderRow.tables.number } : null,
+          orderItems: items.map((item: { order_items: OrderItem; menu_items: MenuItem | null }) => ({
+            ...item.order_items,
+            menuItem: item.menu_items!,
+          })),
+        };
+      })
+    );
+
+    return ordersWithItems;
+  }
+
+  async getProductsReport(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date): Promise<{
+    topProducts: Array<{
+      menuItem: MenuItem;
+      quantity: number;
+      revenue: string;
+      ordersCount: number;
+    }>;
+    productsByCategory: Array<{
+      categoryName: string;
+      totalRevenue: string;
+      itemsCount: number;
+    }>;
+  }> {
+    let periodOrdersRaw;
+    if (branchId) {
+      periodOrdersRaw = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          or(eq(tables.branchId, branchId), sql`${orders.tableId} IS NULL`),
+          gte(orders.createdAt, startDate),
+          sql`${orders.createdAt} <= ${endDate}`
+        ));
+    } else {
+      periodOrdersRaw = await db
+        .select()
+        .from(orders)
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          gte(orders.createdAt, startDate),
+          sql`${orders.createdAt} <= ${endDate}`
+        ));
+    }
+
+    const periodOrders = periodOrdersRaw.map((row: any) => row.orders || row);
+    const orderIds = periodOrders.map((o: Order) => o.id);
+
+    let topProducts: Array<{
+      menuItem: MenuItem;
+      quantity: number;
+      revenue: string;
+      ordersCount: number;
+    }> = [];
+
+    if (orderIds.length > 0) {
+      const productStats = await db
+        .select({
+          menuItemId: orderItems.menuItemId,
+          quantity: sql<number>`cast(sum(${orderItems.quantity}) as int)`,
+          revenue: sql<string>`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`,
+          ordersCount: sql<number>`cast(count(distinct ${orderItems.orderId}) as int)`,
+        })
+        .from(orderItems)
+        .where(sql`${orderItems.orderId} = ANY(ARRAY[${sql.join(orderIds.map((id: string) => sql`${id}`), sql`, `)}])`)
+        .groupBy(orderItems.menuItemId)
+        .orderBy(desc(sql`sum(${orderItems.quantity})`))
+        .limit(20);
+
+      topProducts = await Promise.all(
+        productStats.map(async (stat: { menuItemId: string; quantity: number; revenue: string; ordersCount: number }) => {
+          const item = await this.getMenuItemById(stat.menuItemId);
+          return {
+            menuItem: item!,
+            quantity: stat.quantity,
+            revenue: parseFloat(stat.revenue).toFixed(2),
+            ordersCount: stat.ordersCount,
+          };
+        })
+      );
+    }
+
+    const categoryRevenue = new Map<string, { revenue: number; items: Set<string> }>();
+    
+    if (orderIds.length > 0) {
+      const categoryStats = await db
+        .select({
+          categoryId: menuItems.categoryId,
+          menuItemId: orderItems.menuItemId,
+          revenue: sql<string>`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`,
+        })
+        .from(orderItems)
+        .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+        .where(sql`${orderItems.orderId} = ANY(ARRAY[${sql.join(orderIds.map((id: string) => sql`${id}`), sql`, `)}])`)
+        .groupBy(menuItems.categoryId, orderItems.menuItemId);
+
+      for (const stat of categoryStats) {
+        const category = await this.getCategoryById(stat.categoryId);
+        if (category) {
+          const existing = categoryRevenue.get(category.name) || { revenue: 0, items: new Set() };
+          existing.revenue += parseFloat(stat.revenue);
+          existing.items.add(stat.menuItemId);
+          categoryRevenue.set(category.name, existing);
+        }
+      }
+    }
+
+    const productsByCategory = Array.from(categoryRevenue.entries())
+      .map(([categoryName, data]) => ({
+        categoryName,
+        totalRevenue: data.revenue.toFixed(2),
+        itemsCount: data.items.size,
+      }))
+      .sort((a, b) => parseFloat(b.totalRevenue) - parseFloat(a.totalRevenue));
+
+    return {
+      topProducts,
+      productsByCategory,
+    };
+  }
+
+  async getPerformanceReport(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date): Promise<{
+    averagePrepTime: string;
+    completionRate: string;
+    peakHours: Array<{ hour: number; orders: number }>;
+    topTables: Array<{ tableNumber: number; orders: number; revenue: string }>;
+  }> {
+    let periodOrdersRaw;
+    if (branchId) {
+      periodOrdersRaw = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          or(eq(tables.branchId, branchId), sql`${orders.tableId} IS NULL`),
+          gte(orders.createdAt, startDate),
+          sql`${orders.createdAt} <= ${endDate}`
+        ));
+    } else {
+      periodOrdersRaw = await db
+        .select()
+        .from(orders)
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          gte(orders.createdAt, startDate),
+          sql`${orders.createdAt} <= ${endDate}`
+        ));
+    }
+
+    const periodOrders = periodOrdersRaw.map((row: any) => row.orders || row);
+
+    let totalPrepTime = 0;
+    let prepTimeCount = 0;
+    periodOrders.forEach((order: Order) => {
+      if (order.updatedAt && order.createdAt) {
+        const prepTime = (order.updatedAt.getTime() - order.createdAt.getTime()) / 1000 / 60;
+        totalPrepTime += prepTime;
+        prepTimeCount++;
+      }
+    });
+    const averagePrepTime = prepTimeCount > 0 ? totalPrepTime / prepTimeCount : 0;
+
+    const completedOrders = periodOrders.filter((o: Order) => o.status === 'servido').length;
+    const completionRate = periodOrders.length > 0 ? (completedOrders / periodOrders.length) * 100 : 0;
+
+    const hourCounts = new Map<number, number>();
+    periodOrders.forEach((order: Order) => {
+      const hour = order.createdAt!.getHours();
+      hourCounts.set(hour, (hourCounts.get(hour) || 0) + 1);
+    });
+    const peakHours = Array.from(hourCounts.entries())
+      .map(([hour, orders]) => ({ hour, orders }))
+      .sort((a, b) => b.orders - a.orders)
+      .slice(0, 10);
+
+    const tableStats = new Map<number, { orders: number; revenue: number }>();
+    periodOrdersRaw.forEach((row: any) => {
+      const order = row.orders || row;
+      const table = row.tables || null;
+      if (table) {
+        const tableNumber = table.number;
+        const existing = tableStats.get(tableNumber) || { orders: 0, revenue: 0 };
+        existing.orders++;
+        existing.revenue += parseFloat(order.totalAmount);
+        tableStats.set(tableNumber, existing);
+      }
+    });
+    const topTables = Array.from(tableStats.entries())
+      .map(([tableNumber, data]) => ({
+        tableNumber,
+        orders: data.orders,
+        revenue: data.revenue.toFixed(2),
+      }))
+      .sort((a, b) => b.orders - a.orders)
+      .slice(0, 10);
+
+    return {
+      averagePrepTime: averagePrepTime.toFixed(1),
+      completionRate: completionRate.toFixed(1),
+      peakHours,
+      topTables,
     };
   }
 

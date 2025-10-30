@@ -1,4 +1,4 @@
-import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield, Building2, Settings } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield, Building2, Settings, BarChart3 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -54,6 +54,12 @@ const adminMenuItems = [
     section: "branches" as Section,
     path: "/branches",
     icon: Building2,
+  },
+  {
+    title: "Relatórios",
+    section: "reports" as Section,
+    path: "/reports",
+    icon: BarChart3,
   },
   {
     title: "Configurações",

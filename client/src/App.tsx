@@ -88,6 +88,13 @@ function Router() {
             return <Redirect to="/" />;
           }} />
           
+          <Route path="/reports" component={() => {
+            if (user?.role === 'admin') {
+              return <MainDashboard section="reports" />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
           <Route path="/profile" component={() => {
             return <MainDashboard section="profile" />;
           }} />
