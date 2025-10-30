@@ -849,6 +849,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const restaurantId = req.params.restaurantId;
       const menuItems = await storage.getMenuItems(restaurantId);
       const availableItems = menuItems.filter(item => item.isAvailable === 1);
+      
+      // Debug log
+      console.log(`[Public Menu] Restaurant ID: ${restaurantId}`);
+      console.log(`[Public Menu] Total menu items: ${menuItems.length}`);
+      console.log(`[Public Menu] Available items: ${availableItems.length}`);
+      if (menuItems.length > 0 && availableItems.length === 0) {
+        console.log('[Public Menu] WARNING: All items are marked as unavailable!');
+      }
+      
       res.json(availableItems);
     } catch (error) {
       console.error("Error fetching menu items:", error);
