@@ -907,35 +907,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/public/orders", async (req, res) => {
     try {
+      console.log('[API] POST /api/public/orders - Recebido:', JSON.stringify(req.body, null, 2));
+      
       const { items, ...orderData } = req.body;
       
+      console.log('[API] Dados do pedido (sem items):', orderData);
+      console.log('[API] Items:', items);
+      
       const validatedOrder = insertOrderSchema.parse(orderData);
+      console.log('[API] Pedido validado:', validatedOrder);
+      
       const validatedItems = z.array(publicOrderItemSchema).parse(items);
+      console.log('[API] Items validados:', validatedItems);
 
       if (validatedOrder.orderType === 'mesa') {
         if (!validatedOrder.tableId) {
+          console.error('[API] TableId não fornecido para pedido tipo mesa');
           return res.status(400).json({ message: "Mesa é obrigatória para pedidos do tipo mesa" });
         }
         const table = await storage.getTableById(validatedOrder.tableId);
         if (!table) {
+          console.error('[API] Mesa não encontrada:', validatedOrder.tableId);
           return res.status(404).json({ message: "Mesa não encontrada" });
         }
+        console.log('[API] Mesa encontrada:', table);
       }
 
       if (validatedOrder.orderType === 'delivery' && !validatedOrder.deliveryAddress) {
+        console.error('[API] Endereço não fornecido para delivery');
         return res.status(400).json({ message: "Endereço de entrega é obrigatório para delivery" });
       }
 
+      console.log('[API] Criando pedido no banco...');
       const order = await storage.createOrder(validatedOrder, validatedItems);
+      console.log('[API] Pedido criado com sucesso:', order.id);
       
       broadcastToClients({ type: 'new_order', data: order });
 
       res.json(order);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error('[API] Erro de validação Zod:', error.errors);
         return res.status(400).json({ message: error.errors[0].message, errors: error.errors });
       }
-      console.error("Error creating order:", error);
+      console.error("[API] Erro ao criar pedido:", error);
       res.status(500).json({ message: "Erro ao criar pedido" });
     }
   });

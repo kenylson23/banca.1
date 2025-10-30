@@ -74,7 +74,8 @@ export default function CustomerMenu() {
   const createOrderMutation = useMutation({
     mutationFn: async (orderData: { restaurantId: string; tableId: string; customerName: string; customerPhone: string; orderNotes?: string; items: Array<{ menuItemId: string; quantity: number; price: string }> }) => {
       const totalAmount = orderData.items.reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0).toFixed(2);
-      return apiRequest('POST', '/api/public/orders', {
+      
+      const requestBody = {
         restaurantId: orderData.restaurantId,
         tableId: orderData.tableId,
         customerName: orderData.customerName,
@@ -83,9 +84,14 @@ export default function CustomerMenu() {
         status: 'pendente',
         totalAmount,
         items: orderData.items,
-      });
+      };
+      
+      console.log('[CustomerMenu] Enviando pedido:', requestBody);
+      
+      return apiRequest('POST', '/api/public/orders', requestBody);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('[CustomerMenu] Pedido criado com sucesso:', data);
       toast({
         title: 'Pedido enviado!',
         description: 'Seu pedido foi enviado para a cozinha.',
@@ -99,6 +105,14 @@ export default function CustomerMenu() {
       }
     },
     onError: (error: any) => {
+      console.error('[CustomerMenu] Erro ao enviar pedido:', error);
+      console.error('[CustomerMenu] Detalhes do erro:', {
+        message: error?.message,
+        errors: error?.errors,
+        response: error?.response,
+        stack: error?.stack,
+      });
+      
       const errorMessage = error?.message || 'Tente novamente mais tarde.';
       toast({
         title: 'Erro ao enviar pedido',
@@ -144,7 +158,15 @@ export default function CustomerMenu() {
   };
 
   const handleConfirmOrder = () => {
+    console.log('[CustomerMenu] Iniciando confirmação de pedido');
+    console.log('[CustomerMenu] Mesa atual:', currentTable);
+    console.log('[CustomerMenu] Itens no carrinho:', items);
+    console.log('[CustomerMenu] Nome:', customerName);
+    console.log('[CustomerMenu] Telefone:', customerPhone);
+    console.log('[CustomerMenu] Observações:', orderNotes);
+    
     if (!currentTable) {
+      console.error('[CustomerMenu] Mesa não encontrada');
       toast({
         title: 'Mesa não encontrada',
         description: 'Não foi possível identificar a mesa.',
@@ -154,6 +176,7 @@ export default function CustomerMenu() {
     }
 
     if (items.length === 0) {
+      console.error('[CustomerMenu] Carrinho vazio');
       toast({
         title: 'Carrinho vazio',
         description: 'Adicione itens ao carrinho antes de confirmar o pedido.',
@@ -163,6 +186,7 @@ export default function CustomerMenu() {
     }
 
     if (!customerName.trim()) {
+      console.error('[CustomerMenu] Nome não preenchido');
       toast({
         title: 'Nome obrigatório',
         description: 'Por favor, informe seu nome.',
@@ -172,6 +196,7 @@ export default function CustomerMenu() {
     }
 
     if (!customerPhone.trim()) {
+      console.error('[CustomerMenu] Telefone não preenchido');
       toast({
         title: 'Telefone obrigatório',
         description: 'Por favor, informe seu telefone/WhatsApp.',
@@ -185,6 +210,8 @@ export default function CustomerMenu() {
       quantity: item.quantity,
       price: item.menuItem.price,
     }));
+
+    console.log('[CustomerMenu] Itens do pedido processados:', orderItems);
 
     createOrderMutation.mutate({
       restaurantId: currentTable.restaurantId,
