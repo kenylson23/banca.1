@@ -13,10 +13,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { ShoppingCart, Plus, Minus, Trash2, MapPin, Phone, Clock, Bike, ShoppingBag } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, MapPin, Phone, Clock, Bike, ShoppingBag, Search } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { formatKwanza } from '@/lib/formatters';
 import type { MenuItem, Category, Restaurant } from '@shared/schema';
+import { Link } from 'wouter';
 
 export default function PublicMenu() {
   const [, params] = useRoute('/r/:slug');
@@ -203,17 +204,24 @@ export default function PublicMenu() {
             </p>
           </div>
           
-          <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="relative min-h-10 min-w-10" data-testid="button-open-cart">
-                <ShoppingCart className="h-6 w-6" />
-                {getItemCount() > 0 && (
-                  <Badge className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center p-0 text-xs">
-                    {getItemCount()}
-                  </Badge>
-                )}
+          <div className="flex items-center gap-2">
+            <Link href={`/r/${slug}/rastrear`}>
+              <Button variant="outline" size="icon" className="min-h-10 min-w-10" data-testid="button-track-order">
+                <Search className="h-5 w-5" />
               </Button>
-            </SheetTrigger>
+            </Link>
+            
+            <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon" className="relative min-h-10 min-w-10" data-testid="button-open-cart">
+                  <ShoppingCart className="h-6 w-6" />
+                  {getItemCount() > 0 && (
+                    <Badge className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center p-0 text-xs">
+                      {getItemCount()}
+                    </Badge>
+                  )}
+                </Button>
+              </SheetTrigger>
             <SheetContent className="w-full sm:max-w-md">
               <SheetHeader>
                 <SheetTitle data-testid="text-cart-title">Seu Carrinho</SheetTitle>
@@ -355,6 +363,7 @@ export default function PublicMenu() {
               )}
             </SheetContent>
           </Sheet>
+          </div>
         </div>
       </header>
 

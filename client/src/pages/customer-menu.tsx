@@ -13,11 +13,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ShoppingCart, Plus, Minus, Trash2, Check, ClipboardList, Clock, ChefHat, CheckCircle } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Check, ClipboardList, Clock, ChefHat, CheckCircle, Search } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { formatKwanza } from '@/lib/formatters';
 import type { MenuItem, Category, Order, OrderItem, Restaurant } from '@shared/schema';
 import { MapPin, Phone, Clock as ClockIcon } from 'lucide-react';
+import { Link } from 'wouter';
 
 export default function CustomerMenu() {
   const [, params] = useRoute('/mesa/:tableNumber');
@@ -271,11 +272,19 @@ export default function CustomerMenu() {
           </div>
           
           <div className="flex items-center gap-2 sm:gap-3">
+            {restaurant?.slug && (
+              <Link href={`/r/${restaurant.slug}/rastrear`}>
+                <Button variant="outline" size="icon" className="min-h-10 min-w-10" data-testid="button-track-order-page">
+                  <Search className="h-5 w-5" />
+                </Button>
+              </Link>
+            )}
+            
             <Dialog open={isOrdersDialogOpen} onOpenChange={setIsOrdersDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" data-testid="button-track-orders" className="text-sm min-h-10">
                   <ClipboardList className="h-5 w-5 sm:mr-2" />
-                  <span className="hidden sm:inline">Rastrear Pedido</span>
+                  <span className="hidden sm:inline">Meus Pedidos</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[85vh] sm:max-h-[80vh]">
