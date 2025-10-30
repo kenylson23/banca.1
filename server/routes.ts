@@ -84,7 +84,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error("Error registering restaurant:", error);
       res.status(500).json({ message: "Erro ao cadastrar restaurante" });
     }
   });
@@ -101,43 +100,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     passport.authenticate('local', async (err: any, user: User | false, info: any) => {
       if (err) {
-        console.error('[AUTH] Login error:', err);
         return res.status(500).json({ message: "Erro ao fazer login" });
       }
       if (!user) {
-        if (process.env.NODE_ENV === 'production' || process.env.DEBUG_AUTH === 'true') {
-          console.log('[AUTH] Login failed:', info?.message);
-        }
         return res.status(401).json({ message: info?.message || "Email ou senha incorretos" });
-      }
-
-      // Enhanced logging
-      if (process.env.NODE_ENV === 'production' || process.env.DEBUG_AUTH === 'true') {
-        console.log('[AUTH] User authenticated via passport:', {
-          userId: user.id,
-          email: user.email,
-          role: user.role,
-          restaurantId: user.restaurantId,
-          hasRole: 'role' in user,
-        });
       }
 
       // Check if user belongs to an approved restaurant (unless superadmin)
       if (user.role !== 'superadmin' && user.restaurantId) {
         const restaurant = await storage.getRestaurantById(user.restaurantId);
         if (!restaurant) {
-          console.error('[AUTH] Restaurant not found for user:', user.id);
           return res.status(403).json({ message: "Restaurante não encontrado" });
         }
         if (restaurant.status !== 'ativo') {
-          console.log('[AUTH] Restaurant not active:', { restaurantId: user.restaurantId, status: restaurant.status });
           return res.status(403).json({ message: "Restaurante ainda não foi aprovado ou está suspenso" });
         }
       }
 
       req.login(user, (loginErr) => {
         if (loginErr) {
-          console.error('[AUTH] req.login error:', loginErr);
           return res.status(500).json({ message: "Erro ao fazer login" });
         }
 
@@ -153,15 +134,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updatedAt: user.updatedAt,
         };
 
-        // Log successful login
-        if (process.env.NODE_ENV === 'production' || process.env.DEBUG_AUTH === 'true') {
-          console.log('[AUTH] Login successful, session created:', {
-            sessionId: req.sessionID,
-            userId: userWithoutPassword.id,
-            role: userWithoutPassword.role,
-          });
-        }
-
         return res.json(userWithoutPassword);
       });
     })(req, res, next);
@@ -173,9 +145,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: "Erro ao fazer logout" });
       }
       req.session.destroy((destroyErr) => {
-        if (destroyErr) {
-          console.error("Error destroying session:", destroyErr);
-        }
         res.clearCookie('connect.sid');
         res.json({ success: true });
       });
@@ -185,29 +154,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/user', isAuthenticated, async (req, res) => {
     try {
       const user = req.user as User;
-      
-      // Enhanced logging for debugging authentication issues on Render
-      if (process.env.NODE_ENV === 'production' || process.env.DEBUG_AUTH === 'true') {
-        console.log('[AUTH] /api/auth/user called');
-        console.log('[AUTH] User authenticated:', req.isAuthenticated());
-        console.log('[AUTH] Session ID:', req.sessionID);
-        console.log('[AUTH] User ID:', user?.id);
-        console.log('[AUTH] User role:', user?.role);
-        console.log('[AUTH] User restaurantId:', user?.restaurantId);
-      }
-      
-      // Critical warning if role is missing, but don't fail the request
-      // This allows users to still login and admins to fix the data
-      if (!user.role) {
-        console.error('[AUTH] CRITICAL: User object missing role field!', {
-          userId: user.id,
-          email: user.email,
-          hasRole: 'role' in user,
-          userKeys: Object.keys(user),
-        });
-        console.error('[AUTH] This user will have limited access until role is set.');
-        // Don't return error - let the user login but they'll see limited menu
-      }
       
       const userWithoutPassword = {
         id: user.id,
@@ -221,18 +167,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: user.updatedAt,
       };
       
-      // Log the response payload for debugging
-      if (process.env.NODE_ENV === 'production' || process.env.DEBUG_AUTH === 'true') {
-        console.log('[AUTH] Returning user payload:', {
-          id: userWithoutPassword.id,
-          role: userWithoutPassword.role,
-          hasRole: 'role' in userWithoutPassword,
-        });
-      }
-      
       res.json(userWithoutPassword);
     } catch (error) {
-      console.error("[AUTH] Error fetching user:", error);
       res.status(500).json({ message: "Erro ao buscar usuário" });
     }
   });
@@ -269,7 +205,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error("Error updating profile:", error);
       res.status(500).json({ message: "Erro ao atualizar perfil" });
     }
   });
@@ -299,7 +234,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error("Error updating password:", error);
       res.status(500).json({ message: "Erro ao atualizar senha" });
     }
   });
@@ -335,7 +269,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(userWithoutPassword);
     } catch (error) {
-      console.error("Error updating active branch:", error);
       res.status(500).json({ message: "Erro ao atualizar filial ativa" });
     }
   });
@@ -351,7 +284,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const branches = await storage.getBranches(currentUser.restaurantId);
       res.json(branches);
     } catch (error) {
-      console.error("Error fetching branches:", error);
       res.status(500).json({ message: "Erro ao buscar filiais" });
     }
   });
@@ -370,7 +302,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error("Error creating branch:", error);
       res.status(500).json({ message: "Erro ao criar filial" });
     }
   });
@@ -389,7 +320,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error("Error updating branch:", error);
       res.status(500).json({ message: "Erro ao atualizar filial" });
     }
   });
@@ -404,7 +334,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteBranch(currentUser.restaurantId, req.params.id);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting branch:", error);
       const errorMessage = error instanceof Error ? error.message : "Erro ao deletar filial";
       res.status(500).json({ message: errorMessage });
     }
@@ -416,7 +345,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const restaurants = await storage.getRestaurants();
       res.json(restaurants);
     } catch (error) {
-      console.error("Error fetching restaurants:", error);
       res.status(500).json({ message: "Erro ao buscar restaurantes" });
     }
   });
@@ -431,7 +359,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const restaurant = await storage.updateRestaurantStatus(req.params.id, status);
       res.json(restaurant);
     } catch (error) {
-      console.error("Error updating restaurant status:", error);
       res.status(500).json({ message: "Erro ao atualizar status do restaurante" });
     }
   });
@@ -441,7 +368,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteRestaurant(req.params.id);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting restaurant:", error);
       res.status(500).json({ message: "Erro ao deletar restaurante" });
     }
   });
@@ -467,7 +393,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error("Error updating restaurant slug:", error);
       res.status(500).json({ message: "Erro ao atualizar slug do restaurante" });
     }
   });
@@ -477,7 +402,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stats = await storage.getSuperAdminStats();
       res.json(stats);
     } catch (error) {
-      console.error("Error fetching super admin stats:", error);
       res.status(500).json({ message: "Erro ao buscar estatísticas" });
     }
   });
@@ -488,7 +412,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const messages = await storage.getAllMessages();
       res.json(messages);
     } catch (error) {
-      console.error("Error fetching messages:", error);
       res.status(500).json({ message: "Erro ao buscar mensagens" });
     }
   });
@@ -511,7 +434,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(message);
     } catch (error) {
-      console.error("Error creating message:", error);
       res.status(500).json({ message: "Erro ao criar mensagem" });
     }
   });
@@ -526,7 +448,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const messages = await storage.getMessages(currentUser.restaurantId);
       res.json(messages);
     } catch (error) {
-      console.error("Error fetching messages:", error);
       res.status(500).json({ message: "Erro ao buscar mensagens" });
     }
   });
@@ -536,7 +457,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const message = await storage.markMessageAsRead(req.params.id);
       res.json(message);
     } catch (error) {
-      console.error("Error marking message as read:", error);
       res.status(500).json({ message: "Erro ao marcar mensagem como lida" });
     }
   });
@@ -560,7 +480,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
       res.json(usersWithoutPassword);
     } catch (error) {
-      console.error("Error fetching users:", error);
       res.status(500).json({ message: "Erro ao buscar usuários" });
     }
   });
@@ -602,7 +521,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error("Error creating user:", error);
       res.status(500).json({ message: "Erro ao criar usuário" });
     }
   });
@@ -619,7 +537,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteUser(restaurantId, req.params.id);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting user:", error);
       res.status(500).json({ message: "Erro ao deletar usuário" });
     }
   });
@@ -655,7 +572,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error("Error updating user:", error);
       res.status(500).json({ message: "Erro ao atualizar usuário" });
     }
   });
@@ -667,20 +583,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/public/restaurants/:restaurantId", async (req, res) => {
     try {
       const restaurantId = req.params.restaurantId;
-      console.log('[API] Fetching restaurant by ID:', restaurantId);
       
       const restaurant = await storage.getRestaurantById(restaurantId);
-      console.log('[API] Restaurant found:', restaurant ? 'Yes' : 'No');
       
       if (!restaurant) {
-        console.log('[API] Restaurant not found for ID:', restaurantId);
         return res.status(404).json({ message: "Restaurante não encontrado" });
       }
       
-      console.log('[API] Returning restaurant:', { id: restaurant.id, name: restaurant.name, slug: restaurant.slug });
       res.json(restaurant);
     } catch (error) {
-      console.error("[API] Error fetching restaurant:", error);
       res.status(500).json({ message: "Erro ao buscar restaurante" });
     }
   });
@@ -701,7 +612,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(restaurant);
     } catch (error) {
-      console.error("Error fetching restaurant by slug:", error);
       res.status(500).json({ message: "Erro ao buscar restaurante" });
     }
   });
@@ -724,7 +634,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(table);
     } catch (error) {
-      console.error("Error fetching table:", error);
       res.status(500).json({ message: "Erro ao buscar mesa" });
     }
   });
@@ -736,16 +645,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const availableItems = menuItems.filter(item => item.isAvailable === 1);
       
       // Debug log
-      console.log(`[Public Menu] Restaurant ID: ${restaurantId}`);
-      console.log(`[Public Menu] Total menu items: ${menuItems.length}`);
-      console.log(`[Public Menu] Available items: ${availableItems.length}`);
       if (menuItems.length > 0 && availableItems.length === 0) {
-        console.log('[Public Menu] WARNING: All items are marked as unavailable!');
       }
       
       res.json(availableItems);
     } catch (error) {
-      console.error("Error fetching menu items:", error);
       res.status(500).json({ message: "Erro ao carregar menu" });
     }
   });
@@ -762,7 +666,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orders = await storage.getOrdersByTableId(table.restaurantId, tableId);
       res.json(orders);
     } catch (error) {
-      console.error("Error fetching orders by table:", error);
       res.status(500).json({ message: "Erro ao buscar pedidos" });
     }
   });
@@ -784,57 +687,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orders = await storage.searchOrders(restaurant.id, searchTerm);
       res.json(orders);
     } catch (error) {
-      console.error("Error searching orders:", error);
       res.status(500).json({ message: "Erro ao buscar pedidos" });
     }
   });
 
   app.post("/api/public/orders", async (req, res) => {
     try {
-      console.log('[API] POST /api/public/orders - Recebido:', JSON.stringify(req.body, null, 2));
       
       const { items, ...orderData } = req.body;
       
-      console.log('[API] Dados do pedido (sem items):', orderData);
-      console.log('[API] Items:', items);
       
       const validatedOrder = insertOrderSchema.parse(orderData);
-      console.log('[API] Pedido validado:', validatedOrder);
       
       const validatedItems = z.array(publicOrderItemSchema).parse(items);
-      console.log('[API] Items validados:', validatedItems);
 
       if (validatedOrder.orderType === 'mesa') {
         if (!validatedOrder.tableId) {
-          console.error('[API] TableId não fornecido para pedido tipo mesa');
           return res.status(400).json({ message: "Mesa é obrigatória para pedidos do tipo mesa" });
         }
         const table = await storage.getTableById(validatedOrder.tableId);
         if (!table) {
-          console.error('[API] Mesa não encontrada:', validatedOrder.tableId);
           return res.status(404).json({ message: "Mesa não encontrada" });
         }
-        console.log('[API] Mesa encontrada:', table);
       }
 
       if (validatedOrder.orderType === 'delivery' && !validatedOrder.deliveryAddress) {
-        console.error('[API] Endereço não fornecido para delivery');
         return res.status(400).json({ message: "Endereço de entrega é obrigatório para delivery" });
       }
 
-      console.log('[API] Criando pedido no banco...');
       const order = await storage.createOrder(validatedOrder, validatedItems);
-      console.log('[API] Pedido criado com sucesso:', order.id);
       
       broadcastToClients({ type: 'new_order', data: order });
 
       res.json(order);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        console.error('[API] Erro de validação Zod:', error.errors);
         return res.status(400).json({ message: error.errors[0].message, errors: error.errors });
       }
-      console.error("[API] Erro ao criar pedido:", error);
       res.status(500).json({ message: "Erro ao criar pedido" });
     }
   });
@@ -852,7 +741,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tables = await storage.getTables(restaurantId, branchId);
       res.json(tables);
     } catch (error) {
-      console.error("Error fetching tables:", error);
       res.status(500).json({ message: "Failed to fetch tables" });
     }
   });
@@ -888,7 +776,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error("Error creating table:", error);
       res.status(500).json({ message: "Failed to create table" });
     }
   });
@@ -908,7 +795,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting table:", error);
       res.status(500).json({ message: "Failed to delete table" });
     }
   });
@@ -926,7 +812,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const categories = await storage.getCategories(restaurantId, branchId);
       res.json(categories);
     } catch (error) {
-      console.error("Error fetching categories:", error);
       res.status(500).json({ message: "Failed to fetch categories" });
     }
   });
@@ -938,7 +823,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
       
-      console.log("Category request body:", req.body);
       const restaurantId = currentUser.restaurantId!;
       const branchId = currentUser.activeBranchId || null;
       const data = insertCategorySchema.parse(req.body);
@@ -946,10 +830,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(category);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        console.error("Zod validation error:", error.errors);
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error("Error creating category:", error);
       res.status(500).json({ message: "Failed to create category" });
     }
   });
@@ -965,7 +847,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteCategory(restaurantId, req.params.id);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting category:", error);
       res.status(500).json({ message: "Failed to delete category" });
     }
   });
@@ -983,7 +864,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const menuItems = await storage.getMenuItems(restaurantId, branchId);
       res.json(menuItems);
     } catch (error) {
-      console.error("Error fetching menu items:", error);
       res.status(500).json({ message: "Failed to fetch menu items" });
     }
   });
@@ -995,7 +875,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
       
-      console.log("Menu item request body:", req.body);
       const restaurantId = currentUser.restaurantId!;
       const branchId = currentUser.activeBranchId || null;
       const data = insertMenuItemSchema.parse(req.body);
@@ -1003,10 +882,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(menuItem);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        console.error("Zod validation error for menu item:", error.errors);
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error("Error creating menu item:", error);
       res.status(500).json({ message: "Failed to create menu item" });
     }
   });
@@ -1026,7 +903,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error("Error updating menu item:", error);
       res.status(500).json({ message: "Failed to update menu item" });
     }
   });
@@ -1042,7 +918,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteMenuItem(restaurantId, req.params.id);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting menu item:", error);
       res.status(500).json({ message: "Failed to delete menu item" });
     }
   });
@@ -1060,7 +935,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orders = await storage.getKitchenOrders(restaurantId, branchId);
       res.json(orders);
     } catch (error) {
-      console.error("Error fetching kitchen orders:", error);
       res.status(500).json({ message: "Failed to fetch orders" });
     }
   });
@@ -1077,7 +951,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orders = await storage.getRecentOrders(restaurantId, branchId, 10);
       res.json(orders);
     } catch (error) {
-      console.error("Error fetching recent orders:", error);
       res.status(500).json({ message: "Failed to fetch recent orders" });
     }
   });
@@ -1098,7 +971,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error("Error creating order:", error);
       res.status(500).json({ message: "Failed to create order" });
     }
   });
@@ -1133,7 +1005,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(order);
     } catch (error) {
-      console.error("Error updating order status:", error);
       res.status(500).json({ message: "Failed to update order status" });
     }
   });
@@ -1262,7 +1133,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       doc.end();
     } catch (error) {
-      console.error("Error generating PDF:", error);
       res.status(500).json({ message: "Erro ao gerar PDF do pedido" });
     }
   });
@@ -1280,7 +1150,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stats = await storage.getTodayStats(restaurantId, branchId);
       res.json(stats);
     } catch (error) {
-      console.error("Error fetching stats:", error);
       res.status(500).json({ message: "Failed to fetch stats" });
     }
   });
@@ -1319,7 +1188,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stats = await storage.getCustomDateRangeStats(restaurantId, branchId, start, end);
       res.json(stats);
     } catch (error) {
-      console.error("Error fetching custom range stats:", error);
       res.status(500).json({ message: "Failed to fetch custom range stats" });
     }
   });
@@ -1340,7 +1208,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stats = await storage.getKitchenStats(restaurantId, branchId, period);
       res.json(stats);
     } catch (error) {
-      console.error("Error fetching kitchen stats:", error);
       res.status(500).json({ message: "Failed to fetch kitchen stats" });
     }
   });
@@ -1390,7 +1257,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const report = await storage.getSalesReport(restaurantId, branchId, start, end);
       res.json(report);
     } catch (error) {
-      console.error("Error fetching sales report:", error);
       res.status(500).json({ message: "Erro ao gerar relatório de vendas" });
     }
   });
@@ -1446,7 +1312,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       res.json(report);
     } catch (error) {
-      console.error("Error fetching orders report:", error);
       res.status(500).json({ message: "Erro ao gerar relatório de pedidos" });
     }
   });
@@ -1495,7 +1360,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const report = await storage.getProductsReport(restaurantId, branchId, start, end);
       res.json(report);
     } catch (error) {
-      console.error("Error fetching products report:", error);
       res.status(500).json({ message: "Erro ao gerar relatório de produtos" });
     }
   });
@@ -1544,7 +1408,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const report = await storage.getPerformanceReport(restaurantId, branchId, start, end);
       res.json(report);
     } catch (error) {
-      console.error("Error fetching performance report:", error);
       res.status(500).json({ message: "Erro ao gerar relatório de performance" });
     }
   });
@@ -1557,16 +1420,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const clients = new Set<WebSocket>();
 
   wss.on('connection', (ws) => {
-    console.log('New WebSocket client connected');
     clients.add(ws);
 
     ws.on('close', () => {
-      console.log('WebSocket client disconnected');
       clients.delete(ws);
     });
 
     ws.on('error', (error) => {
-      console.error('WebSocket error:', error);
       clients.delete(ws);
     });
   });
