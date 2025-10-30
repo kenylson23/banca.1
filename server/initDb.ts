@@ -191,6 +191,9 @@ export async function ensureTablesExist() {
         ALTER TABLE orders ADD COLUMN delivery_address TEXT; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN order_notes TEXT; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE orders ALTER COLUMN table_id DROP NOT NULL; 
       EXCEPTION WHEN others THEN null; END $$;`);
       
