@@ -191,10 +191,10 @@ export default function PublicMenu() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between px-4">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-semibold truncate" data-testid="text-restaurant-name">{restaurant.name}</h1>
-            <p className="text-sm text-muted-foreground flex items-center gap-2">
+        <div className="container flex h-16 sm:h-20 items-center justify-between px-4 sm:px-6">
+          <div className="flex-1 min-w-0 mr-2">
+            <h1 className="text-lg sm:text-xl font-semibold truncate" data-testid="text-restaurant-name">{restaurant.name}</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2">
               {restaurant.address && (
                 <span className="flex items-center gap-1 truncate">
                   <MapPin className="h-3 w-3 flex-shrink-0" />
@@ -206,17 +206,17 @@ export default function PublicMenu() {
           
           <div className="flex items-center gap-2">
             <Link href={`/r/${slug}/rastrear`}>
-              <Button variant="outline" size="icon" className="min-h-10 min-w-10" data-testid="button-track-order">
-                <Search className="h-5 w-5" />
+              <Button variant="outline" size="icon" className="h-9 w-9 sm:h-10 sm:w-10" data-testid="button-track-order">
+                <Search className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
             </Link>
             
             <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="icon" className="relative min-h-10 min-w-10" data-testid="button-open-cart">
-                  <ShoppingCart className="h-6 w-6" />
+                <Button variant="outline" size="icon" className="relative h-9 w-9 sm:h-10 sm:w-10" data-testid="button-open-cart">
+                  <ShoppingCart className="h-5 w-5 sm:h-6 sm:w-6" />
                   {getItemCount() > 0 && (
-                    <Badge className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center p-0 text-xs">
+                    <Badge className="absolute -top-2 -right-2 h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0 text-xs">
                       {getItemCount()}
                     </Badge>
                   )}
@@ -367,11 +367,11 @@ export default function PublicMenu() {
         </div>
       </header>
 
-      <main className="container px-4 py-6">
+      <main className="container px-4 sm:px-6 py-6 sm:py-8">
         {restaurant.description && (
           <Card className="mb-6">
             <CardHeader>
-              <CardDescription>{restaurant.description}</CardDescription>
+              <CardDescription className="text-sm sm:text-base">{restaurant.description}</CardDescription>
             </CardHeader>
           </Card>
         )}
@@ -381,22 +381,22 @@ export default function PublicMenu() {
             <p>Nenhum item disponível no momento</p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-6 sm:space-y-8">
             {Object.entries(groupedByCategory || {}).map(([categoryName, categoryItems]) => (
               <div key={categoryName}>
-                <h2 className="text-2xl font-bold mb-4" data-testid={`text-category-${categoryName}`}>{categoryName}</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4" data-testid={`text-category-${categoryName}`}>{categoryName}</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {categoryItems.map((item) => (
                     <Card key={item.id} data-testid={`menu-item-${item.id}`} className="hover-elevate active-elevate-2">
-                      <CardHeader>
-                        <CardTitle className="text-lg">{item.name}</CardTitle>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base sm:text-lg">{item.name}</CardTitle>
                         {item.description && (
-                          <CardDescription className="line-clamp-2">{item.description}</CardDescription>
+                          <CardDescription className="line-clamp-2 text-xs sm:text-sm">{item.description}</CardDescription>
                         )}
                       </CardHeader>
                       <CardContent>
-                        <div className="flex justify-between items-center">
-                          <span className="text-xl font-bold text-primary">{formatKwanza(item.price)}</span>
+                        <div className="flex flex-wrap gap-2 justify-between items-center">
+                          <span className="text-lg sm:text-xl font-bold text-primary">{formatKwanza(item.price)}</span>
                           <Button
                             onClick={() => addItem(item)}
                             data-testid={`button-add-${item.id}`}
