@@ -124,3 +124,21 @@ The backend uses **Express** with **TypeScript**, featuring **Replit Auth** for 
   - Complete CACHE_BUSTING.md guide with workflow instructions
   - Render configuration examples for automated deployments
   - Troubleshooting section for common issues
+
+### November 01, 2025 - Public Menu Cache Fix and Track Order Page Mobile Responsiveness
+- ✅ Fixed cache issues in public menu API routes
+  - Added no-cache headers middleware for all `/api/public/*` routes
+  - Prevents browser caching of public menu, restaurant, and order data
+  - Ensures customers always see fresh data after deployments
+  - Headers: `Cache-Control: no-cache, no-store, must-revalidate`, `Pragma: no-cache`, `Expires: 0`
+- ✅ Enhanced Track Order page mobile responsiveness
+  - Search form now stacks vertically on mobile devices with full-width button
+  - Responsive typography scaling (text-2xl → text-3xl → text-4xl)
+  - Order cards optimized for small screens
+    - Status badges scaled appropriately (text-xs on mobile, text-sm on desktop)
+    - Order items stack vertically on mobile with proper spacing
+    - Price values align correctly without overflow
+    - Customer info wraps properly on small screens
+  - Added `break-words` to prevent long text overflow
+  - Improved padding and spacing for mobile (px-4, py-6)
+  - Better touch targets with min-h-10 on interactive elements
