@@ -4,6 +4,7 @@ import { QrCode, ChefHat, BarChart3, Zap, Sparkles, Smartphone, TrendingUp, User
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import dashboardImage from "@assets/image_1761991208974.png";
+import kitchenImage from "@assets/image_1761991359072.png";
 
 export default function Landing() {
   const [, setLocation] = useLocation();
@@ -232,11 +233,13 @@ export default function Landing() {
               >
                 <Card className="overflow-hidden h-full hover-elevate bg-card/50 backdrop-blur-sm">
                   <CardContent className="p-0">
-                    <div className="aspect-[4/3] bg-gradient-to-br from-blue-500/20 to-blue-500/5 flex items-center justify-center relative overflow-hidden">
-                      <div className="absolute inset-0 opacity-10" style={{
-                        backgroundImage: `repeating-linear-gradient(45deg, hsl(var(--foreground)) 0px, hsl(var(--foreground)) 2px, transparent 2px, transparent 10px)`,
-                      }} />
-                      <ChefHat className="w-16 h-16 sm:w-20 sm:h-20 text-blue-500 relative z-10" />
+                    <div className="aspect-[4/3] bg-card relative overflow-hidden">
+                      <img 
+                        src={kitchenImage} 
+                        alt="Painel da cozinha do Na Bancada mostrando pedidos em tempo real"
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
                     </div>
                     <div className="p-5 sm:p-6">
                       <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">
