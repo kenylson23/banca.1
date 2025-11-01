@@ -1,13 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { QrCode, ChefHat, BarChart3, Zap, Sparkles, Smartphone, TrendingUp, Users, Star, Quote } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { QrCode, ChefHat, BarChart3, Zap, Sparkles, Smartphone, TrendingUp, Users, Star, Quote, X } from "lucide-react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
+import { useState } from "react";
 import dashboardImage from "@assets/image_1761991208974.png";
 import kitchenImage from "@assets/image_1761991359072.png";
 
 export default function Landing() {
   const [, setLocation] = useLocation();
+  const [selectedImage, setSelectedImage] = useState<{ src: string; alt: string } | null>(null);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -233,13 +236,25 @@ export default function Landing() {
               >
                 <Card className="overflow-hidden h-full hover-elevate bg-card/50 backdrop-blur-sm">
                   <CardContent className="p-0">
-                    <div className="aspect-[4/3] bg-card relative overflow-hidden">
+                    <div 
+                      className="aspect-[4/3] bg-card relative overflow-hidden cursor-pointer group"
+                      onClick={() => setSelectedImage({ 
+                        src: kitchenImage, 
+                        alt: "Painel da cozinha do Na Bancada mostrando pedidos em tempo real" 
+                      })}
+                      data-testid="image-kitchen-demo"
+                    >
                       <img 
                         src={kitchenImage} 
                         alt="Painel da cozinha do Na Bancada mostrando pedidos em tempo real"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
                         loading="lazy"
                       />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-primary/90 text-primary-foreground px-4 py-2 rounded-md text-sm font-medium">
+                          Clique para ampliar
+                        </div>
+                      </div>
                     </div>
                     <div className="p-5 sm:p-6">
                       <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">
@@ -262,13 +277,25 @@ export default function Landing() {
               >
                 <Card className="overflow-hidden h-full hover-elevate bg-card/50 backdrop-blur-sm">
                   <CardContent className="p-0">
-                    <div className="aspect-[4/3] bg-card relative overflow-hidden">
+                    <div 
+                      className="aspect-[4/3] bg-card relative overflow-hidden cursor-pointer group"
+                      onClick={() => setSelectedImage({ 
+                        src: dashboardImage, 
+                        alt: "Dashboard do Na Bancada mostrando estatísticas em tempo real" 
+                      })}
+                      data-testid="image-dashboard-demo"
+                    >
                       <img 
                         src={dashboardImage} 
                         alt="Dashboard do Na Bancada mostrando estatísticas em tempo real"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
                         loading="lazy"
                       />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-primary/90 text-primary-foreground px-4 py-2 rounded-md text-sm font-medium">
+                          Clique para ampliar
+                        </div>
+                      </div>
                     </div>
                     <div className="p-5 sm:p-6">
                       <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">
@@ -490,6 +517,28 @@ export default function Landing() {
           </p>
         </motion.footer>
       </div>
+
+      {/* Modal para ampliar imagens */}
+      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+        <DialogContent className="max-w-7xl w-[95vw] p-0 overflow-hidden bg-card/95 backdrop-blur-md">
+          <div className="relative">
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute top-4 right-4 z-50 p-2 rounded-full bg-background/80 hover:bg-background transition-colors"
+              data-testid="button-close-image"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            {selectedImage && (
+              <img
+                src={selectedImage.src}
+                alt={selectedImage.alt}
+                className="w-full h-auto"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
