@@ -833,11 +833,27 @@ export class DatabaseStorage implements IStorage {
     const [newOrder] = await db.insert(orders).values(order).returning();
     
     if (items.length > 0) {
-      const itemsWithOrderId = items.map(item => ({
-        ...item,
-        orderId: newOrder.id,
-      }));
-      await db.insert(orderItems).values(itemsWithOrderId);
+      for (const item of items) {
+        const { selectedOptions, ...itemData } = item;
+        
+        const [createdItem] = await db.insert(orderItems).values({
+          ...itemData,
+          orderId: newOrder.id,
+        }).returning();
+        
+        if (selectedOptions && selectedOptions.length > 0) {
+          const optionsToInsert = selectedOptions.map(opt => ({
+            orderItemId: createdItem.id,
+            optionId: opt.optionId,
+            optionName: opt.optionName,
+            optionGroupName: opt.optionGroupName,
+            priceAdjustment: opt.priceAdjustment,
+            quantity: opt.quantity,
+          }));
+          
+          await db.insert(orderItemOptions).values(optionsToInsert);
+        }
+      }
     }
 
     // Update table occupancy only for table orders

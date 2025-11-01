@@ -366,6 +366,14 @@ export const publicOrderItemSchema = createInsertSchema(orderItems).omit({
   id: true,
   orderId: true,
   createdAt: true,
+}).extend({
+  selectedOptions: z.array(z.object({
+    optionId: z.string(),
+    optionName: z.string(),
+    optionGroupName: z.string(),
+    priceAdjustment: z.string(),
+    quantity: z.number().int().min(1).default(1),
+  })).optional().default([]),
 });
 
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;

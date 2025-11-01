@@ -76,8 +76,26 @@ export default function CustomerMenu() {
   }, [tableId]);
 
   const createOrderMutation = useMutation({
-    mutationFn: async (orderData: { restaurantId: string; tableId: string; customerName: string; customerPhone: string; orderNotes?: string; items: Array<{ menuItemId: string; quantity: number; price: string }> }) => {
-      const totalAmount = orderData.items.reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0).toFixed(2);
+    mutationFn: async (orderData: { 
+      restaurantId: string; 
+      tableId: string; 
+      customerName: string; 
+      customerPhone: string; 
+      orderNotes?: string; 
+      items: Array<{ 
+        menuItemId: string; 
+        quantity: number; 
+        price: string; 
+        selectedOptions?: SelectedOption[] 
+      }> 
+    }) => {
+      const totalAmount = orderData.items.reduce((sum, item) => {
+        const itemPrice = parseFloat(item.price);
+        const optionsPrice = (item.selectedOptions || []).reduce((optSum, opt) => {
+          return optSum + parseFloat(opt.priceAdjustment) * opt.quantity;
+        }, 0);
+        return sum + (itemPrice + optionsPrice) * item.quantity;
+      }, 0).toFixed(2);
       
       const requestBody = {
         restaurantId: orderData.restaurantId,
@@ -191,6 +209,7 @@ export default function CustomerMenu() {
       menuItemId: item.menuItem.id,
       quantity: item.quantity,
       price: item.menuItem.price,
+      selectedOptions: item.selectedOptions,
     }));
 
     createOrderMutation.mutate({
