@@ -591,6 +591,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== PUBLIC ROUTES (for customers) =====
   // These routes are used by customers scanning QR codes to view menus and place orders
   
+  // Get option groups for a menu item (public route for customers)
+  app.get("/api/public/menu-items/:menuItemId/option-groups", async (req, res) => {
+    try {
+      const groups = await storage.getOptionGroupsByMenuItem(req.params.menuItemId);
+      res.json(groups);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar grupos de opções" });
+    }
+  });
+  
   // Get restaurant details by ID
   app.get("/api/public/restaurants/:restaurantId", async (req, res) => {
     try {

@@ -1,17 +1,27 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 import type { MenuItem } from '@shared/schema';
 
+export interface SelectedOption {
+  optionId: string;
+  optionName: string;
+  optionGroupName: string;
+  priceAdjustment: string;
+  quantity: number;
+}
+
 export interface CartItem {
+  id: string;
   menuItem: MenuItem;
   quantity: number;
+  selectedOptions: SelectedOption[];
 }
 
 interface CartContextType {
   items: CartItem[];
   orderNotes: string;
-  addItem: (menuItem: MenuItem) => void;
-  removeItem: (menuItemId: string) => void;
-  updateQuantity: (menuItemId: string, quantity: number) => void;
+  addItem: (menuItem: MenuItem, selectedOptions?: SelectedOption[]) => void;
+  removeItem: (itemId: string) => void;
+  updateQuantity: (itemId: string, quantity: number) => void;
   setOrderNotes: (notes: string) => void;
   clearCart: () => void;
   getTotal: () => number;
@@ -24,35 +34,44 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [orderNotes, setOrderNotes] = useState<string>('');
 
-  const addItem = (menuItem: MenuItem) => {
+  const generateItemId = (menuItemId: string, selectedOptions: SelectedOption[]) => {
+    const optionsKey = selectedOptions
+      .sort((a, b) => a.optionId.localeCompare(b.optionId))
+      .map(opt => `${opt.optionId}:${opt.quantity}`)
+      .join(',');
+    return `${menuItemId}_${optionsKey}`;
+  };
+
+  const addItem = (menuItem: MenuItem, selectedOptions: SelectedOption[] = []) => {
     setItems(currentItems => {
-      const existingItem = currentItems.find(item => item.menuItem.id === menuItem.id);
+      const itemId = generateItemId(menuItem.id, selectedOptions);
+      const existingItem = currentItems.find(item => item.id === itemId);
       
       if (existingItem) {
         return currentItems.map(item =>
-          item.menuItem.id === menuItem.id
+          item.id === itemId
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
       
-      return [...currentItems, { menuItem, quantity: 1 }];
+      return [...currentItems, { id: itemId, menuItem, quantity: 1, selectedOptions }];
     });
   };
 
-  const removeItem = (menuItemId: string) => {
-    setItems(currentItems => currentItems.filter(item => item.menuItem.id !== menuItemId));
+  const removeItem = (itemId: string) => {
+    setItems(currentItems => currentItems.filter(item => item.id !== itemId));
   };
 
-  const updateQuantity = (menuItemId: string, quantity: number) => {
+  const updateQuantity = (itemId: string, quantity: number) => {
     if (quantity <= 0) {
-      removeItem(menuItemId);
+      removeItem(itemId);
       return;
     }
     
     setItems(currentItems =>
       currentItems.map(item =>
-        item.menuItem.id === menuItemId
+        item.id === itemId
           ? { ...item, quantity }
           : item
       )
@@ -66,7 +85,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const getTotal = () => {
     return items.reduce((total, item) => {
-      return total + parseFloat(item.menuItem.price) * item.quantity;
+      const itemPrice = parseFloat(item.menuItem.price);
+      const optionsPrice = item.selectedOptions.reduce((sum, opt) => {
+        return sum + parseFloat(opt.priceAdjustment) * opt.quantity;
+      }, 0);
+      return total + (itemPrice + optionsPrice) * item.quantity;
     }, 0);
   };
 
