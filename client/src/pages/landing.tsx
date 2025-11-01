@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { QrCode, ChefHat, BarChart3, Zap, Sparkles } from "lucide-react";
+import { QrCode, ChefHat, BarChart3, Zap, Sparkles, Smartphone, TrendingUp, Users, Star, Quote } from "lucide-react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 
@@ -175,6 +175,293 @@ export default function Landing() {
             </motion.div>
           </div>
         </div>
+
+        {/* Seção de Demonstração */}
+        <section className="py-16 sm:py-20 lg:py-24 border-t border-border/30">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="text-center mb-12 sm:mb-16"
+            >
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
+                Veja o sistema em ação
+              </h2>
+              <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
+                Descubra como o Na Bancada transforma a gestão do seu restaurante
+              </p>
+            </motion.div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 max-w-7xl mx-auto">
+              {/* Demo 1: Cliente fazendo pedido */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+              >
+                <Card className="overflow-hidden h-full hover-elevate bg-card/50 backdrop-blur-sm">
+                  <CardContent className="p-0">
+                    <div className="aspect-[4/3] bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center relative overflow-hidden">
+                      <div className="absolute inset-0 opacity-10" style={{
+                        backgroundImage: `repeating-linear-gradient(45deg, hsl(var(--foreground)) 0px, hsl(var(--foreground)) 2px, transparent 2px, transparent 10px)`,
+                      }} />
+                      <Smartphone className="w-16 h-16 sm:w-20 sm:h-20 text-primary relative z-10" />
+                    </div>
+                    <div className="p-5 sm:p-6">
+                      <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">
+                        1. Cliente escaneia QR Code
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Cada mesa tem um código único. Cliente abre o cardápio no telemóvel e faz o pedido sem precisar chamar garçom.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Demo 2: Cozinha recebe pedido */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+              >
+                <Card className="overflow-hidden h-full hover-elevate bg-card/50 backdrop-blur-sm">
+                  <CardContent className="p-0">
+                    <div className="aspect-[4/3] bg-gradient-to-br from-blue-500/20 to-blue-500/5 flex items-center justify-center relative overflow-hidden">
+                      <div className="absolute inset-0 opacity-10" style={{
+                        backgroundImage: `repeating-linear-gradient(45deg, hsl(var(--foreground)) 0px, hsl(var(--foreground)) 2px, transparent 2px, transparent 10px)`,
+                      }} />
+                      <ChefHat className="w-16 h-16 sm:w-20 sm:h-20 text-blue-500 relative z-10" />
+                    </div>
+                    <div className="p-5 sm:p-6">
+                      <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">
+                        2. Cozinha recebe em tempo real
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Pedido aparece instantaneamente no painel da cozinha com alerta sonoro. Zero papel, zero erros.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Demo 3: Dashboard com estatísticas */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+              >
+                <Card className="overflow-hidden h-full hover-elevate bg-card/50 backdrop-blur-sm">
+                  <CardContent className="p-0">
+                    <div className="aspect-[4/3] bg-gradient-to-br from-green-500/20 to-green-500/5 flex items-center justify-center relative overflow-hidden">
+                      <div className="absolute inset-0 opacity-10" style={{
+                        backgroundImage: `repeating-linear-gradient(45deg, hsl(var(--foreground)) 0px, hsl(var(--foreground)) 2px, transparent 2px, transparent 10px)`,
+                      }} />
+                      <BarChart3 className="w-16 h-16 sm:w-20 sm:h-20 text-green-500 relative z-10" />
+                    </div>
+                    <div className="p-5 sm:p-6">
+                      <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">
+                        3. Acompanhe resultados
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Veja vendas, pratos mais pedidos e desempenho em tempo real. Decisões baseadas em dados.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </div>
+          </div>
+        </section>
+
+        {/* Seção de Prova Social */}
+        <section className="py-16 sm:py-20 lg:py-24 bg-muted/30">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Métricas de Impacto */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="mb-16 sm:mb-20"
+            >
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground text-center mb-12 sm:mb-16">
+                Resultados que falam por si
+              </h2>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 max-w-5xl mx-auto">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: 0.1 }}
+                  className="text-center"
+                  data-testid="metric-orders"
+                >
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                    <TrendingUp className="w-8 h-8 text-primary" />
+                  </div>
+                  <div className="text-4xl sm:text-5xl font-bold text-foreground mb-2">
+                    90%
+                  </div>
+                  <p className="text-sm sm:text-base text-muted-foreground">
+                    Redução de erros nos pedidos
+                  </p>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                  className="text-center"
+                  data-testid="metric-time"
+                >
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                    <Zap className="w-8 h-8 text-primary" />
+                  </div>
+                  <div className="text-4xl sm:text-5xl font-bold text-foreground mb-2">
+                    2h/dia
+                  </div>
+                  <p className="text-sm sm:text-base text-muted-foreground">
+                    Economia de tempo na gestão
+                  </p>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: 0.3 }}
+                  className="text-center"
+                  data-testid="metric-satisfaction"
+                >
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                    <Users className="w-8 h-8 text-primary" />
+                  </div>
+                  <div className="text-4xl sm:text-5xl font-bold text-foreground mb-2">
+                    95%
+                  </div>
+                  <p className="text-sm sm:text-base text-muted-foreground">
+                    Satisfação dos clientes
+                  </p>
+                </motion.div>
+              </div>
+            </motion.div>
+
+            {/* Depoimentos */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
+              <h3 className="text-2xl sm:text-3xl font-bold text-foreground text-center mb-10 sm:mb-12">
+                O que dizem nossos clientes
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto">
+                {/* Depoimento 1 */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: 0.1 }}
+                >
+                  <Card className="h-full hover-elevate bg-card/70 backdrop-blur-sm">
+                    <CardContent className="p-6">
+                      <Quote className="w-8 h-8 text-primary/30 mb-4" />
+                      <div className="flex gap-1 mb-4">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className="w-4 h-4 fill-primary text-primary" />
+                        ))}
+                      </div>
+                      <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                        "Transformou completamente o nosso restaurante. Os clientes adoram pedir pelo telemóvel e a cozinha nunca mais errou um pedido!"
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-sm font-semibold text-primary">MJ</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">Maria João</p>
+                          <p className="text-xs text-muted-foreground">Restaurante Sabor de Angola</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                {/* Depoimento 2 */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                >
+                  <Card className="h-full hover-elevate bg-card/70 backdrop-blur-sm">
+                    <CardContent className="p-6">
+                      <Quote className="w-8 h-8 text-primary/30 mb-4" />
+                      <div className="flex gap-1 mb-4">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className="w-4 h-4 fill-primary text-primary" />
+                        ))}
+                      </div>
+                      <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                        "Incrível como economizamos tempo! Antes gastávamos horas anotando pedidos. Agora tudo é automático e sem erros."
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-sm font-semibold text-primary">PC</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">Paulo Costa</p>
+                          <p className="text-xs text-muted-foreground">Churrasqueira Luanda</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                {/* Depoimento 3 */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: 0.3 }}
+                >
+                  <Card className="h-full hover-elevate bg-card/70 backdrop-blur-sm">
+                    <CardContent className="p-6">
+                      <Quote className="w-8 h-8 text-primary/30 mb-4" />
+                      <div className="flex gap-1 mb-4">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className="w-4 h-4 fill-primary text-primary" />
+                        ))}
+                      </div>
+                      <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                        "As estatísticas ajudam-nos a tomar decisões inteligentes. Sabemos exatamente quais pratos investir e quais melhorar."
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-sm font-semibold text-primary">AS</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">Ana Silva</p>
+                          <p className="text-xs text-muted-foreground">Café Colonial</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </div>
+            </motion.div>
+          </div>
+        </section>
 
         {/* Footer */}
         <motion.footer
