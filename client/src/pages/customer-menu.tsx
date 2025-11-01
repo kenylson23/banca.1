@@ -17,8 +17,10 @@ import { ShoppingCart, Plus, Minus, Trash2, Check, ClipboardList, Clock, ChefHat
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { formatKwanza } from '@/lib/formatters';
 import type { MenuItem, Category, Order, OrderItem, Restaurant } from '@shared/schema';
+import type { SelectedOption } from '@/contexts/CartContext';
 import { MapPin, Phone, Clock as ClockIcon } from 'lucide-react';
 import { Link } from 'wouter';
+import { CustomerMenuItemOptionsDialog } from '@/components/CustomerMenuItemOptionsDialog';
 
 export default function CustomerMenu() {
   const [, params] = useRoute('/mesa/:tableNumber');
@@ -28,6 +30,7 @@ export default function CustomerMenu() {
   const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItem | null>(null);
   const { toast } = useToast();
 
   const { data: currentTable, isLoading: tableLoading } = useQuery<any>({
@@ -378,57 +381,80 @@ export default function CustomerMenu() {
                   </div>
                 ) : (
                   <div className="space-y-3 pb-4">
-                    {items.map((item) => (
-                      <Card key={item.menuItem.id} data-testid={`cart-item-${item.menuItem.id}`}>
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-base sm:text-lg" data-testid={`text-item-name-${item.menuItem.id}`}>
-                            {item.menuItem.name}
-                          </CardTitle>
-                          <CardDescription className="text-sm" data-testid={`text-item-price-${item.menuItem.id}`}>
-                            {formatKwanza(item.menuItem.price)}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardFooter className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-10 w-10"
-                              onClick={() => updateQuantity(item.menuItem.id, item.quantity - 1)}
-                              data-testid={`button-decrease-${item.menuItem.id}`}
-                            >
-                              <Minus className="h-5 w-5" />
-                            </Button>
-                            <span className="w-10 text-center font-medium text-lg" data-testid={`text-quantity-${item.menuItem.id}`}>
-                              {item.quantity}
-                            </span>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-10 w-10"
-                              onClick={() => updateQuantity(item.menuItem.id, item.quantity + 1)}
-                              data-testid={`button-increase-${item.menuItem.id}`}
-                            >
-                              <Plus className="h-5 w-5" />
-                            </Button>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-lg" data-testid={`text-item-total-${item.menuItem.id}`}>
-                              {formatKwanza(parseFloat(item.menuItem.price) * item.quantity)}
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-10 w-10"
-                              onClick={() => removeItem(item.menuItem.id)}
-                              data-testid={`button-remove-${item.menuItem.id}`}
-                            >
-                              <Trash2 className="h-5 w-5 text-destructive" />
-                            </Button>
-                          </div>
-                        </CardFooter>
-                      </Card>
-                    ))}
+                    {items.map((item) => {
+                      const itemPrice = parseFloat(item.menuItem.price);
+                      const optionsPrice = item.selectedOptions.reduce((sum, opt) => {
+                        return sum + parseFloat(opt.priceAdjustment) * opt.quantity;
+                      }, 0);
+                      const totalItemPrice = (itemPrice + optionsPrice) * item.quantity;
+                      
+                      return (
+                        <Card key={item.id} data-testid={`cart-item-${item.id}`}>
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-base sm:text-lg" data-testid={`text-item-name-${item.id}`}>
+                              {item.menuItem.name}
+                            </CardTitle>
+                            <CardDescription className="text-sm" data-testid={`text-item-price-${item.id}`}>
+                              {formatKwanza(item.menuItem.price)}
+                              {item.selectedOptions.length > 0 && (
+                                <div className="mt-1 space-y-0.5">
+                                  {item.selectedOptions.map((opt, idx) => (
+                                    <div key={idx} className="text-xs text-muted-foreground">
+                                      • {opt.optionGroupName}: {opt.optionName}
+                                      {parseFloat(opt.priceAdjustment) !== 0 && (
+                                        <span className="ml-1">
+                                          ({parseFloat(opt.priceAdjustment) > 0 ? '+' : ''}
+                                          {formatKwanza(opt.priceAdjustment)})
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </CardDescription>
+                          </CardHeader>
+                          <CardFooter className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-10 w-10"
+                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                data-testid={`button-decrease-${item.id}`}
+                              >
+                                <Minus className="h-5 w-5" />
+                              </Button>
+                              <span className="w-10 text-center font-medium text-lg" data-testid={`text-quantity-${item.id}`}>
+                                {item.quantity}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-10 w-10"
+                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                data-testid={`button-increase-${item.id}`}
+                              >
+                                <Plus className="h-5 w-5" />
+                              </Button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-lg" data-testid={`text-item-total-${item.id}`}>
+                                {formatKwanza(totalItemPrice)}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-10 w-10"
+                                onClick={() => removeItem(item.id)}
+                                data-testid={`button-remove-${item.id}`}
+                              >
+                                <Trash2 className="h-5 w-5 text-destructive" />
+                              </Button>
+                            </div>
+                          </CardFooter>
+                        </Card>
+                      );
+                    })}
                   </div>
                 )}
               </ScrollArea>
@@ -608,7 +634,7 @@ export default function CustomerMenu() {
                       {formatKwanza(item.price)}
                     </span>
                     <Button
-                      onClick={() => addItem(item)}
+                      onClick={() => setSelectedMenuItem(item)}
                       disabled={item.isAvailable === 0}
                       className="min-h-10 px-6"
                       data-testid={`button-add-to-cart-${item.id}`}
@@ -629,6 +655,22 @@ export default function CustomerMenu() {
           </div>
         )}
       </main>
+
+      {selectedMenuItem && (
+        <CustomerMenuItemOptionsDialog
+          open={!!selectedMenuItem}
+          onOpenChange={(open) => !open && setSelectedMenuItem(null)}
+          menuItem={selectedMenuItem}
+          onAddToCart={(menuItem, selectedOptions) => {
+            addItem(menuItem, selectedOptions);
+            setSelectedMenuItem(null);
+            toast({
+              title: 'Adicionado ao carrinho!',
+              description: `${menuItem.name} foi adicionado ao seu carrinho.`,
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
