@@ -1,4 +1,62 @@
 let updateToast: any = null;
+let currentVersion: string | null = null;
+
+async function checkVersion() {
+  try {
+    const response = await fetch('/version.json', {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache'
+      }
+    });
+    
+    if (response.ok) {
+      const versionData = await response.json();
+      const serverVersion = versionData.version;
+      
+      if (currentVersion === null) {
+        currentVersion = serverVersion;
+        console.log('Versão inicial do app:', currentVersion);
+      } else if (currentVersion !== serverVersion) {
+        console.log('Nova versão detectada!', {
+          antiga: currentVersion,
+          nova: serverVersion
+        });
+        
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          const registration = await navigator.serviceWorker.getRegistration();
+          if (registration) {
+            try {
+              await registration.update();
+              
+              if (registration.waiting) {
+                currentVersion = serverVersion;
+                showUpdateNotification(registration.waiting);
+              } else if (registration.installing) {
+                registration.installing.addEventListener('statechange', function onStateChange() {
+                  if (this.state === 'installed') {
+                    currentVersion = serverVersion;
+                    this.removeEventListener('statechange', onStateChange);
+                  }
+                });
+              }
+            } catch (error) {
+              console.log('Erro ao atualizar Service Worker, tentará novamente:', error);
+            }
+          }
+        } else {
+          currentVersion = serverVersion;
+          window.location.reload();
+        }
+        
+        return true;
+      }
+    }
+  } catch (error) {
+    console.log('Erro ao verificar versão:', error);
+  }
+  return false;
+}
 
 export async function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
@@ -19,6 +77,12 @@ export async function registerServiceWorker() {
           });
         }
       });
+
+      await checkVersion();
+
+      setInterval(() => {
+        checkVersion();
+      }, 30000);
 
       setInterval(() => {
         registration.update().catch((err) => {

@@ -80,14 +80,55 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (url.pathname.startsWith('/mesa/') || 
-      url.pathname.startsWith('/dashboard') ||
-      url.pathname.startsWith('/kitchen') ||
-      url.pathname.startsWith('/menu') ||
-      url.pathname.startsWith('/tables')) {
+  if (url.pathname === '/version.json' || url.pathname === '/sw.js' || url.pathname === '/manifest.json') {
     event.respondWith(
-      caches.match('/index.html')
-        .then((response) => response || fetch('/index.html'))
+      fetch(request, { cache: 'no-store' })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  const isHTMLRequest = request.destination === 'document' || 
+                       url.pathname === '/' || 
+                       url.pathname === '/index.html' ||
+                       url.pathname.startsWith('/mesa/') || 
+                       url.pathname.startsWith('/dashboard') ||
+                       url.pathname.startsWith('/kitchen') ||
+                       url.pathname.startsWith('/menu') ||
+                       url.pathname.startsWith('/tables');
+
+  if (isHTMLRequest) {
+    event.respondWith(
+      fetch('/index.html', { cache: 'no-store' })
+        .then((response) => {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put('/index.html', responseToCache);
+          });
+          return response;
+        })
+        .catch(() => {
+          return caches.match('/index.html');
+        })
+    );
+    return;
+  }
+
+  const isStaticAsset = url.pathname.match(/\.(js|css|woff2?|ttf|otf|eot)$/);
+  
+  if (isStaticAsset) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(DYNAMIC_CACHE).then((cache) => {
+              cache.put(request, responseToCache);
+            });
+          }
+          return response;
+        })
+        .catch(() => caches.match(request))
     );
     return;
   }
