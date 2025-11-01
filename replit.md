@@ -106,23 +106,35 @@ The backend uses **Express** with **TypeScript**, featuring **Replit Auth** for 
   - Error handling maintained with silent catch blocks where appropriate
   - Application now production-ready with minimal console noise
 
-### October 30, 2025 - Automatic Cache Busting System
+### November 01, 2025 - Automatic Cache Busting System (Improved)
 - ✅ Implemented comprehensive cache busting to eliminate browser cache issues after deployments
   - Service Worker now uses dynamic versioning based on build timestamp
-  - Automatic detection of new versions every 60 seconds
+  - Network-first strategy for HTML files and critical assets (index.html, sw.js, version.json, manifest.json)
+  - Cache-first strategy only for static assets (JS, CSS, fonts) with network fallback
+  - Automatic version detection every 30 seconds via `/version.json` polling
   - Elegant toast notification when updates are available (no more manual Ctrl+Shift+R)
-  - HTTP headers prevent caching of sw.js and version.json
-- ✅ Created deployment workflow scripts
-  - `scripts/update-version.sh`: Injects unique version into Service Worker before build
-  - `scripts/restore-version-placeholder.sh`: Restores placeholder after build for next deployment
-  - Complete workflow: update-version.sh → npm run build → restore-version-placeholder.sh
+  - HTTP headers prevent caching of critical files (sw.js, version.json, manifest.json, HTML)
+- ✅ Smart version update detection
+  - `currentVersion` only updates after Service Worker reaches `waiting`/`installed` state
+  - Failed updates don't block future detection attempts
+  - Retry mechanism ensures users always get notified of available updates
+  - Prevents users from being stuck on stale assets
+- ✅ Build integration
+  - `scripts/version-sw.js`: Automatically versions Service Worker during build
+  - Generates unique version based on build timestamp
+  - Creates `dist/public/sw.js` with embedded version
+  - Creates `dist/public/version.json` with version metadata
+  - Should be run after `vite build` in deployment pipeline
 - ✅ Enhanced user experience
-  - Users automatically notified of updates with "Atualizar" button
-  - Zero manual intervention needed - updates apply instantly
+  - Users automatically notified of updates with "Atualizar" button in toast
+  - Zero manual intervention needed - updates apply instantly with page reload
   - No more "old version" issues after Render deployments
-- ✅ Documentation
-  - Complete CACHE_BUSTING.md guide with workflow instructions
-  - Render configuration examples for automated deployments
+  - Works seamlessly for public menu (cardápio digital) and all other pages
+- ✅ Production deployment workflow
+  1. Run `vite build` to build frontend
+  2. Run `node scripts/version-sw.js` to version the Service Worker
+  3. Run `esbuild` to build backend
+  4. Deploy to production (Render auto-detects new version)
   - Troubleshooting section for common issues
 
 ### November 01, 2025 - Public Menu Cache Fix and Track Order Page Mobile Responsiveness
