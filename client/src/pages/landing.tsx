@@ -184,7 +184,16 @@ export default function Landing() {
           className="py-6 sm:py-8 border-t border-border/50 backdrop-blur-sm"
         >
           <p className="text-center text-sm text-muted-foreground">
-            Desenvolvido por Kenylson Lourenço
+            Desenvolvido por{' '}
+            <a
+              href="https://www.instagram.com/kenylson_lourenco/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:text-primary/80 font-medium transition-colors hover:underline"
+              data-testid="link-developer"
+            >
+              Kenylson Lourenço
+            </a>
           </p>
         </motion.footer>
       </div>
