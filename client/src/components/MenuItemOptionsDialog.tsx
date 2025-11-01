@@ -96,8 +96,10 @@ export function MenuItemOptionsDialog({ menuItemId, menuItemName }: MenuItemOpti
       setIsGroupDialogOpen(false);
       resetGroupForm();
     },
-    onError: () => {
-      toast({ title: "Erro", description: "Erro ao criar grupo de opções.", variant: "destructive" });
+    onError: (error: any) => {
+      const errorMessage = error?.message || error?.error || "Erro ao criar grupo de opções.";
+      console.error('Error creating option group:', error);
+      toast({ title: "Erro", description: errorMessage, variant: "destructive" });
     },
   });
 
@@ -232,7 +234,8 @@ export function MenuItemOptionsDialog({ menuItemId, menuItemName }: MenuItemOpti
     if (editingGroup) {
       updateGroupMutation.mutate({ id: editingGroup.id, data: groupForm });
     } else {
-      createGroupMutation.mutate(groupForm);
+      const { id, ...dataWithoutId } = groupForm;
+      createGroupMutation.mutate(dataWithoutId);
     }
   };
 
@@ -250,7 +253,8 @@ export function MenuItemOptionsDialog({ menuItemId, menuItemName }: MenuItemOpti
     if (editingOption) {
       updateOptionMutation.mutate({ id: editingOption.id, data: optionForm });
     } else {
-      createOptionMutation.mutate({ groupId: selectedGroupId, data: optionForm });
+      const { id, ...dataWithoutId } = optionForm;
+      createOptionMutation.mutate({ groupId: selectedGroupId, data: dataWithoutId });
     }
   };
 

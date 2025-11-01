@@ -987,9 +987,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(group);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: error.errors[0].message });
+        console.error('Validation error creating option group:', error.errors);
+        return res.status(400).json({ message: error.errors[0].message, errors: error.errors });
       }
-      res.status(500).json({ message: "Erro ao criar grupo de opções" });
+      console.error('Error creating option group:', error);
+      res.status(500).json({ message: "Erro ao criar grupo de opções", error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
