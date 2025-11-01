@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ShoppingCart, Plus, Minus, Trash2, Check, ClipboardList, Clock, ChefHat, CheckCircle, Search } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Check, ClipboardList, Clock, ChefHat, CheckCircle, PackageSearch } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { formatKwanza } from '@/lib/formatters';
 import type { MenuItem, Category, Order, OrderItem, Restaurant } from '@shared/schema';
@@ -248,13 +248,25 @@ export default function CustomerMenu() {
           </div>
           
           <div className="flex items-center gap-2 sm:gap-3">
-            {restaurant?.slug && (
+            {restaurant?.slug ? (
               <Link href={`/r/${restaurant.slug}/rastrear`}>
-                <Button variant="outline" size="icon" className="min-h-10 min-w-10" data-testid="button-track-order-page">
-                  <Search className="h-5 w-5" />
+                <Button variant="outline" className="min-h-10 gap-1.5" data-testid="button-track-order-page">
+                  <PackageSearch className="h-5 w-5" />
+                  <span className="hidden sm:inline text-sm">Rastrear</span>
                 </Button>
               </Link>
-            )}
+            ) : restaurant ? (
+              <Button 
+                variant="outline" 
+                className="min-h-10 gap-1.5 opacity-50 cursor-not-allowed" 
+                disabled
+                data-testid="button-track-order-disabled"
+                title="Link de rastreamento não disponível"
+              >
+                <PackageSearch className="h-5 w-5" />
+                <span className="hidden sm:inline text-sm">Rastrear</span>
+              </Button>
+            ) : null}
             
             <Dialog open={isOrdersDialogOpen} onOpenChange={setIsOrdersDialogOpen}>
               <DialogTrigger asChild>
