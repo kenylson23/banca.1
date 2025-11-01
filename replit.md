@@ -30,8 +30,9 @@ The backend uses **Express** with **TypeScript**, featuring **Replit Auth** for 
 - **Authentication & Authorization:** Three access levels: `superadmin`, `admin`, and `kitchen`.
 
 ### System Design Choices
-- **Database Schema:** Includes `restaurants`, `users`, `sessions`, `tables`, `categories`, `menu_items`, `orders`, and `order_items`. All restaurant-specific data is scoped by `restaurantId`.
+- **Database Schema:** Includes `restaurants`, `users`, `sessions`, `tables`, `categories`, `menu_items`, `orders`, `order_items`, `option_groups`, `options`, and `order_item_options`. All restaurant-specific data is scoped by `restaurantId`.
 - **Order Status Flow:** Pedido (Pendente) → Em Preparo → Pronto → Servido.
+- **Menu Options System:** Support for configurable options (size, add-ons, customizations) with min/max selection rules and price adjustments.
 - **WebSocket Events:** Critical events like `table_created`, `table_deleted`, `table_freed`, `new_order`, and `order_status_updated` are broadcasted.
 - **API Endpoints:** Comprehensive set of RESTful endpoints for authentication, table management, menu management, orders, statistics, and super admin functions.
 - **Development Environment:** Uses automatic environment variables for `DATABASE_URL`, `SESSION_SECRET`, etc.
@@ -154,3 +155,47 @@ The backend uses **Express** with **TypeScript**, featuring **Replit Auth** for 
   - Added `break-words` to prevent long text overflow
   - Improved padding and spacing for mobile (px-4, py-6)
   - Better touch targets with min-h-10 on interactive elements
+
+### November 01, 2025 - Menu Item Options System (Complete Implementation)
+- ✅ **Database Schema & Backend Infrastructure**
+  - Created `option_groups` table for organizing related options (e.g., Tamanho, Adicionais, Ponto da Carne)
+  - Created `options` table with individual option details, price adjustments, and availability
+  - Created `order_item_options` table to persist customer selections with historical data
+  - Extended `PublicOrderItem` schema to accept `selectedOptions` array with option metadata
+  - Security: All option routes verify restaurant ownership through menuItem → restaurant chain
+- ✅ **Admin Interface - Menu Item Options Management**
+  - `MenuItemOptionsDialog` component for managing option groups and options per menu item
+  - Full CRUD operations for option groups and individual options
+  - Min/max selection rules (single choice, multiple choice with limits)
+  - Price adjustment configuration (positive or negative decimal values)
+  - Availability toggle for temporary option unavailability
+  - Integrated into existing menu management page
+- ✅ **Customer Interface - Option Selection**
+  - `CustomerMenuItemOptionsDialog` for customer option selection during ordering
+  - Real-time validation of min/max selection rules with error messages
+  - Dynamic price calculation showing base price + option adjustments
+  - Support for option quantities within each option group
+  - Visual feedback for required vs optional option groups
+  - Seamless integration with cart system (unique cart items per option combination)
+- ✅ **Order Processing & Persistence**
+  - Updated `createOrder` in storage to process and persist selected options
+  - Each order item's options saved to `order_item_options` with full metadata
+  - Option names and group names stored for historical accuracy (snapshot of choices)
+  - Price adjustments preserved per option for accurate total calculations
+  - Cart system updated to treat same menu item with different options as separate items
+- ✅ **Order Display & Visualization**
+  - Kitchen panel shows selected options under each order item
+  - Track order page displays customer's option choices with price adjustments
+  - Option groups and names clearly labeled (e.g., "Tamanho: Grande (+5.00 Kz)")
+  - Quantities shown for multi-quantity options (e.g., "2x Queijo Extra")
+  - Updated `getKitchenOrders`, `searchOrders`, and `getOrdersByTableId` to include options
+- ✅ **System Integration**
+  - Total order calculation includes all option price adjustments
+  - Public API route `/api/public/menu-items/:id/options` for fetching menu item options
+  - WebSocket support maintained for real-time order updates with options
+  - Multi-tenant security preserved across all option operations
+- 📋 **Architecture Decisions**
+  - Option metadata (names, groups) stored in `order_item_options` for historical accuracy
+  - Prevents issues when option names/prices change after order placement
+  - Each cart item uniquely identified by menuItemId + selected options combination
+  - Sequential processing in `createOrder` ensures atomicity of option insertions
