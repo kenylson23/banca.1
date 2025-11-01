@@ -24,6 +24,10 @@ import {
   insertBranchSchema,
   updateBranchSchema,
   updateRestaurantSlugSchema,
+  insertOptionGroupSchema,
+  updateOptionGroupSchema,
+  insertOptionSchema,
+  updateOptionSchema,
   type User,
 } from "@shared/schema";
 import { z } from "zod";
@@ -927,6 +931,240 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete menu item" });
+    }
+  });
+
+  // ===== OPTION GROUP ROUTES (Admin Only) =====
+  app.get("/api/menu-items/:menuItemId/option-groups", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const menuItem = await storage.getMenuItemById(req.params.menuItemId);
+      if (!menuItem) {
+        return res.status(404).json({ message: "Prato não encontrado" });
+      }
+      if (menuItem.restaurantId !== currentUser.restaurantId) {
+        return res.status(403).json({ message: "Não autorizado: Este prato não pertence ao seu restaurante" });
+      }
+      
+      const groups = await storage.getOptionGroupsByMenuItem(req.params.menuItemId);
+      res.json(groups);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar grupos de opções" });
+    }
+  });
+
+  app.post("/api/menu-items/:menuItemId/option-groups", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const menuItem = await storage.getMenuItemById(req.params.menuItemId);
+      if (!menuItem) {
+        return res.status(404).json({ message: "Prato não encontrado" });
+      }
+      if (menuItem.restaurantId !== currentUser.restaurantId) {
+        return res.status(403).json({ message: "Não autorizado: Este prato não pertence ao seu restaurante" });
+      }
+      
+      const data = insertOptionGroupSchema.parse(req.body);
+      const group = await storage.createOptionGroup(req.params.menuItemId, data);
+      res.json(group);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Erro ao criar grupo de opções" });
+    }
+  });
+
+  app.patch("/api/option-groups/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const group = await storage.getOptionGroupById(req.params.id);
+      if (!group) {
+        return res.status(404).json({ message: "Grupo de opções não encontrado" });
+      }
+      
+      const menuItem = await storage.getMenuItemById(group.menuItemId);
+      if (!menuItem) {
+        return res.status(404).json({ message: "Prato não encontrado" });
+      }
+      if (menuItem.restaurantId !== currentUser.restaurantId) {
+        return res.status(403).json({ message: "Não autorizado: Este grupo não pertence ao seu restaurante" });
+      }
+      
+      const data = updateOptionGroupSchema.parse(req.body);
+      const updatedGroup = await storage.updateOptionGroup(req.params.id, data);
+      res.json(updatedGroup);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Erro ao atualizar grupo de opções" });
+    }
+  });
+
+  app.delete("/api/option-groups/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const group = await storage.getOptionGroupById(req.params.id);
+      if (!group) {
+        return res.status(404).json({ message: "Grupo de opções não encontrado" });
+      }
+      
+      const menuItem = await storage.getMenuItemById(group.menuItemId);
+      if (!menuItem) {
+        return res.status(404).json({ message: "Prato não encontrado" });
+      }
+      if (menuItem.restaurantId !== currentUser.restaurantId) {
+        return res.status(403).json({ message: "Não autorizado: Este grupo não pertence ao seu restaurante" });
+      }
+      
+      await storage.deleteOptionGroup(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir grupo de opções" });
+    }
+  });
+
+  // ===== OPTION ROUTES (Admin Only) =====
+  app.get("/api/option-groups/:groupId/options", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const group = await storage.getOptionGroupById(req.params.groupId);
+      if (!group) {
+        return res.status(404).json({ message: "Grupo de opções não encontrado" });
+      }
+      
+      const menuItem = await storage.getMenuItemById(group.menuItemId);
+      if (!menuItem) {
+        return res.status(404).json({ message: "Prato não encontrado" });
+      }
+      if (menuItem.restaurantId !== currentUser.restaurantId) {
+        return res.status(403).json({ message: "Não autorizado: Este grupo não pertence ao seu restaurante" });
+      }
+      
+      const options = await storage.getOptionsByGroupId(req.params.groupId);
+      res.json(options);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar opções" });
+    }
+  });
+
+  app.post("/api/option-groups/:groupId/options", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const group = await storage.getOptionGroupById(req.params.groupId);
+      if (!group) {
+        return res.status(404).json({ message: "Grupo de opções não encontrado" });
+      }
+      
+      const menuItem = await storage.getMenuItemById(group.menuItemId);
+      if (!menuItem) {
+        return res.status(404).json({ message: "Prato não encontrado" });
+      }
+      if (menuItem.restaurantId !== currentUser.restaurantId) {
+        return res.status(403).json({ message: "Não autorizado: Este grupo não pertence ao seu restaurante" });
+      }
+      
+      const data = insertOptionSchema.parse(req.body);
+      const option = await storage.createOption(req.params.groupId, data);
+      res.json(option);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Erro ao criar opção" });
+    }
+  });
+
+  app.patch("/api/options/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const option = await storage.getOptionById(req.params.id);
+      if (!option) {
+        return res.status(404).json({ message: "Opção não encontrada" });
+      }
+      
+      const group = await storage.getOptionGroupById(option.optionGroupId);
+      if (!group) {
+        return res.status(404).json({ message: "Grupo de opções não encontrado" });
+      }
+      
+      const menuItem = await storage.getMenuItemById(group.menuItemId);
+      if (!menuItem) {
+        return res.status(404).json({ message: "Prato não encontrado" });
+      }
+      if (menuItem.restaurantId !== currentUser.restaurantId) {
+        return res.status(403).json({ message: "Não autorizado: Esta opção não pertence ao seu restaurante" });
+      }
+      
+      const data = updateOptionSchema.parse(req.body);
+      const updatedOption = await storage.updateOption(req.params.id, data);
+      res.json(updatedOption);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Erro ao atualizar opção" });
+    }
+  });
+
+  app.delete("/api/options/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const option = await storage.getOptionById(req.params.id);
+      if (!option) {
+        return res.status(404).json({ message: "Opção não encontrada" });
+      }
+      
+      const group = await storage.getOptionGroupById(option.optionGroupId);
+      if (!group) {
+        return res.status(404).json({ message: "Grupo de opções não encontrado" });
+      }
+      
+      const menuItem = await storage.getMenuItemById(group.menuItemId);
+      if (!menuItem) {
+        return res.status(404).json({ message: "Prato não encontrado" });
+      }
+      if (menuItem.restaurantId !== currentUser.restaurantId) {
+        return res.status(403).json({ message: "Não autorizado: Esta opção não pertence ao seu restaurante" });
+      }
+      
+      await storage.deleteOption(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir opção" });
     }
   });
 

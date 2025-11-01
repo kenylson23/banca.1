@@ -9,6 +9,9 @@ import {
   orders,
   orderItems,
   messages,
+  optionGroups,
+  options,
+  orderItemOptions,
   type User,
   type InsertUser,
   type Restaurant,
@@ -29,6 +32,14 @@ import {
   type PublicOrderItem,
   type Message,
   type InsertMessage,
+  type OptionGroup,
+  type InsertOptionGroup,
+  type UpdateOptionGroup,
+  type Option,
+  type InsertOption,
+  type UpdateOption,
+  type OrderItemOption,
+  type InsertOrderItemOption,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, or, isNull } from "drizzle-orm";
@@ -189,6 +200,24 @@ export interface IStorage {
   getAllMessages(): Promise<Array<Message & { restaurant: Restaurant }>>;
   createMessage(message: InsertMessage): Promise<Message>;
   markMessageAsRead(id: string): Promise<Message>;
+  
+  // Option Group operations
+  getOptionGroupsByMenuItem(menuItemId: string): Promise<Array<OptionGroup & { options: Option[] }>>;
+  getOptionGroupById(id: string): Promise<OptionGroup | undefined>;
+  createOptionGroup(menuItemId: string, group: InsertOptionGroup): Promise<OptionGroup>;
+  updateOptionGroup(id: string, data: UpdateOptionGroup): Promise<OptionGroup>;
+  deleteOptionGroup(id: string): Promise<void>;
+  
+  // Option operations
+  getOptionsByGroupId(groupId: string): Promise<Option[]>;
+  getOptionById(id: string): Promise<Option | undefined>;
+  createOption(groupId: string, option: InsertOption): Promise<Option>;
+  updateOption(id: string, data: UpdateOption): Promise<Option>;
+  deleteOption(id: string): Promise<void>;
+  
+  // Order Item Option operations
+  createOrderItemOptions(orderItemId: string, options: InsertOrderItemOption[]): Promise<OrderItemOption[]>;
+  getOrderItemOptions(orderItemId: string): Promise<OrderItemOption[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1579,6 +1608,115 @@ export class DatabaseStorage implements IStorage {
       .where(eq(messages.id, id))
       .returning();
     return updated;
+  }
+
+  // Option Group operations
+  async getOptionGroupsByMenuItem(menuItemId: string): Promise<Array<OptionGroup & { options: Option[] }>> {
+    const groups = await db
+      .select()
+      .from(optionGroups)
+      .where(eq(optionGroups.menuItemId, menuItemId))
+      .orderBy(optionGroups.displayOrder, optionGroups.createdAt);
+
+    const result = await Promise.all(
+      groups.map(async (group: OptionGroup) => {
+        const opts = await this.getOptionsByGroupId(group.id);
+        return {
+          ...group,
+          options: opts,
+        };
+      })
+    );
+
+    return result;
+  }
+
+  async getOptionGroupById(id: string): Promise<OptionGroup | undefined> {
+    const [group] = await db.select().from(optionGroups).where(eq(optionGroups.id, id));
+    return group;
+  }
+
+  async createOptionGroup(menuItemId: string, groupData: InsertOptionGroup): Promise<OptionGroup> {
+    const [newGroup] = await db
+      .insert(optionGroups)
+      .values({
+        menuItemId,
+        ...groupData,
+      })
+      .returning();
+    return newGroup;
+  }
+
+  async updateOptionGroup(id: string, data: UpdateOptionGroup): Promise<OptionGroup> {
+    const [updated] = await db
+      .update(optionGroups)
+      .set(data)
+      .where(eq(optionGroups.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteOptionGroup(id: string): Promise<void> {
+    await db.delete(optionGroups).where(eq(optionGroups.id, id));
+  }
+
+  // Option operations
+  async getOptionsByGroupId(groupId: string): Promise<Option[]> {
+    return await db
+      .select()
+      .from(options)
+      .where(eq(options.optionGroupId, groupId))
+      .orderBy(options.displayOrder, options.createdAt);
+  }
+
+  async getOptionById(id: string): Promise<Option | undefined> {
+    const [option] = await db.select().from(options).where(eq(options.id, id));
+    return option;
+  }
+
+  async createOption(groupId: string, optionData: InsertOption): Promise<Option> {
+    const [newOption] = await db
+      .insert(options)
+      .values({
+        optionGroupId: groupId,
+        ...optionData,
+      })
+      .returning();
+    return newOption;
+  }
+
+  async updateOption(id: string, data: UpdateOption): Promise<Option> {
+    const [updated] = await db
+      .update(options)
+      .set(data)
+      .where(eq(options.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteOption(id: string): Promise<void> {
+    await db.delete(options).where(eq(options.id, id));
+  }
+
+  // Order Item Option operations
+  async createOrderItemOptions(orderItemId: string, opts: InsertOrderItemOption[]): Promise<OrderItemOption[]> {
+    if (opts.length === 0) return [];
+    
+    const values = opts.map(opt => ({
+      ...opt,
+      orderItemId,
+    }));
+    
+    const created = await db.insert(orderItemOptions).values(values).returning();
+    return created;
+  }
+
+  async getOrderItemOptions(orderItemId: string): Promise<OrderItemOption[]> {
+    return await db
+      .select()
+      .from(orderItemOptions)
+      .where(eq(orderItemOptions.orderItemId, orderItemId))
+      .orderBy(orderItemOptions.createdAt);
   }
 }
 

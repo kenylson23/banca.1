@@ -234,6 +234,77 @@ export const insertMenuItemSchema = createInsertSchema(menuItems).omit({
 export type InsertMenuItem = z.infer<typeof insertMenuItemSchema>;
 export type MenuItem = typeof menuItems.$inferSelect;
 
+// Option Group Type Enum
+export const optionGroupTypeEnum = pgEnum('option_group_type', ['single', 'multiple']);
+
+// Option Groups - Grupos de opções para pratos
+export const optionGroups = pgTable("option_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  menuItemId: varchar("menu_item_id").notNull().references(() => menuItems.id, { onDelete: 'cascade' }),
+  name: varchar("name", { length: 200 }).notNull(), // Ex: "Tamanho", "Acompanhamentos"
+  type: optionGroupTypeEnum("type").notNull().default('single'), // single = escolha única, multiple = múltipla escolha
+  isRequired: integer("is_required").notNull().default(0), // 0 = opcional, 1 = obrigatório
+  minSelections: integer("min_selections").notNull().default(0), // Mínimo de opções a escolher
+  maxSelections: integer("max_selections").notNull().default(1), // Máximo de opções a escolher
+  displayOrder: integer("display_order").notNull().default(0), // Ordem de exibição
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOptionGroupSchema = createInsertSchema(optionGroups).omit({
+  id: true,
+  menuItemId: true,
+  createdAt: true,
+}).extend({
+  name: z.string().min(1, "Nome do grupo é obrigatório"),
+  type: z.enum(['single', 'multiple']).default('single'),
+  isRequired: z.number().min(0).max(1).default(0),
+  minSelections: z.number().min(0).default(0),
+  maxSelections: z.number().min(1).default(1),
+  displayOrder: z.number().default(0),
+});
+
+export const updateOptionGroupSchema = createInsertSchema(optionGroups).omit({
+  id: true,
+  menuItemId: true,
+  createdAt: true,
+}).partial();
+
+export type InsertOptionGroup = z.infer<typeof insertOptionGroupSchema>;
+export type UpdateOptionGroup = z.infer<typeof updateOptionGroupSchema>;
+export type OptionGroup = typeof optionGroups.$inferSelect;
+
+// Options - Opções individuais dentro de cada grupo
+export const options = pgTable("options", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  optionGroupId: varchar("option_group_id").notNull().references(() => optionGroups.id, { onDelete: 'cascade' }),
+  name: varchar("name", { length: 200 }).notNull(), // Ex: "Grande", "Arroz", "Mal Passado"
+  priceAdjustment: decimal("price_adjustment", { precision: 10, scale: 2 }).notNull().default('0'), // Valor adicional
+  isAvailable: integer("is_available").notNull().default(1), // 0 = indisponível, 1 = disponível
+  displayOrder: integer("display_order").notNull().default(0), // Ordem de exibição
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOptionSchema = createInsertSchema(options).omit({
+  id: true,
+  optionGroupId: true,
+  createdAt: true,
+}).extend({
+  name: z.string().min(1, "Nome da opção é obrigatório"),
+  priceAdjustment: z.string().regex(/^-?\d+(\.\d{1,2})?$/, "Preço inválido").default('0'),
+  isAvailable: z.number().min(0).max(1).default(1),
+  displayOrder: z.number().default(0),
+});
+
+export const updateOptionSchema = createInsertSchema(options).omit({
+  id: true,
+  optionGroupId: true,
+  createdAt: true,
+}).partial();
+
+export type InsertOption = z.infer<typeof insertOptionSchema>;
+export type UpdateOption = z.infer<typeof updateOptionSchema>;
+export type Option = typeof options.$inferSelect;
+
 // Order Status Enum
 export const orderStatusEnum = pgEnum('order_status', ['pendente', 'em_preparo', 'pronto', 'servido']);
 
@@ -300,6 +371,28 @@ export const publicOrderItemSchema = createInsertSchema(orderItems).omit({
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
 export type PublicOrderItem = z.infer<typeof publicOrderItemSchema>;
 export type OrderItem = typeof orderItems.$inferSelect;
+
+// Order Item Options - Opções selecionadas em cada item do pedido
+export const orderItemOptions = pgTable("order_item_options", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderItemId: varchar("order_item_id").notNull().references(() => orderItems.id, { onDelete: 'cascade' }),
+  optionId: varchar("option_id").notNull().references(() => options.id),
+  optionName: varchar("option_name", { length: 200 }).notNull(), // Armazenar nome para histórico
+  optionGroupName: varchar("option_group_name", { length: 200 }).notNull(), // Armazenar nome do grupo
+  priceAdjustment: decimal("price_adjustment", { precision: 10, scale: 2 }).notNull().default('0'),
+  quantity: integer("quantity").notNull().default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOrderItemOptionSchema = createInsertSchema(orderItemOptions).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  priceAdjustment: z.string().regex(/^-?\d+(\.\d{1,2})?$/, "Preço inválido").default('0'),
+});
+
+export type InsertOrderItemOption = z.infer<typeof insertOrderItemOptionSchema>;
+export type OrderItemOption = typeof orderItemOptions.$inferSelect;
 
 // Messages - Comunicações entre superadmin e restaurantes
 export const messages = pgTable("messages", {
@@ -379,6 +472,7 @@ export const menuItemsRelations = relations(menuItems, ({ one, many }) => ({
     references: [categories.id],
   }),
   orderItems: many(orderItems),
+  optionGroups: many(optionGroups),
 }));
 
 export const tablesRelations = relations(tables, ({ one, many }) => ({
@@ -405,7 +499,7 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   orderItems: many(orderItems),
 }));
 
-export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+export const orderItemsRelations = relations(orderItems, ({ one, many }) => ({
   order: one(orders, {
     fields: [orderItems.orderId],
     references: [orders.id],
@@ -413,6 +507,34 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   menuItem: one(menuItems, {
     fields: [orderItems.menuItemId],
     references: [menuItems.id],
+  }),
+  orderItemOptions: many(orderItemOptions),
+}));
+
+export const optionGroupsRelations = relations(optionGroups, ({ one, many }) => ({
+  menuItem: one(menuItems, {
+    fields: [optionGroups.menuItemId],
+    references: [menuItems.id],
+  }),
+  options: many(options),
+}));
+
+export const optionsRelations = relations(options, ({ one, many }) => ({
+  optionGroup: one(optionGroups, {
+    fields: [options.optionGroupId],
+    references: [optionGroups.id],
+  }),
+  orderItemOptions: many(orderItemOptions),
+}));
+
+export const orderItemOptionsRelations = relations(orderItemOptions, ({ one }) => ({
+  orderItem: one(orderItems, {
+    fields: [orderItemOptions.orderItemId],
+    references: [orderItems.id],
+  }),
+  option: one(options, {
+    fields: [orderItemOptions.optionId],
+    references: [options.id],
   }),
 }));
 

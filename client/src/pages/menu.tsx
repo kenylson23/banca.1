@@ -41,6 +41,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { formatKwanza } from "@/lib/formatters";
 import type { Category, MenuItem, Restaurant } from "@shared/schema";
+import { MenuItemOptionsDialog } from "@/components/MenuItemOptionsDialog";
 
 interface MenuItemFormData {
   id?: string;
@@ -599,6 +600,7 @@ export default function Menu() {
                       >
                         {item.isAvailable === 1 ? "✓ Disponível" : "✗ Indisponível"}
                       </Button>
+                      <MenuItemOptionsDialog menuItemId={item.id} menuItemName={item.name} />
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
