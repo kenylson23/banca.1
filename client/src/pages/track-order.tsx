@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Search, Clock, ChefHat, CheckCircle, Check, Package } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
-import type { Order, OrderItem, MenuItem, Table, Restaurant } from '@shared/schema';
+import type { Order, OrderItem, MenuItem, Table, Restaurant, OrderItemOption } from '@shared/schema';
 
 export default function TrackOrder() {
   const [, params] = useRoute('/r/:slug/rastrear');
@@ -26,7 +26,7 @@ export default function TrackOrder() {
     enabled: !!slug,
   });
 
-  const { data: orders, isLoading, error } = useQuery<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>({
+  const { data: orders, isLoading, error } = useQuery<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> }>>({
     queryKey: ['/api/public/restaurants', slug, 'orders/search', { q: searchQuery }],
     queryFn: async () => {
       const response = await fetch(`/api/public/restaurants/${slug}/orders/search?q=${encodeURIComponent(searchQuery)}`);
@@ -220,7 +220,24 @@ export default function TrackOrder() {
                                 <span className="inline-flex items-center justify-center min-w-6 w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex-shrink-0">
                                   {item.quantity}x
                                 </span>
-                                <span className="font-medium text-sm sm:text-base break-words">{item.menuItem.name}</span>
+                                <div className="flex-1">
+                                  <span className="font-medium text-sm sm:text-base break-words">{item.menuItem.name}</span>
+                                  {item.options && item.options.length > 0 && (
+                                    <div className="mt-1 space-y-0.5">
+                                      {item.options.map((option, idx) => (
+                                        <div key={idx} className="text-xs text-muted-foreground flex items-baseline gap-1.5">
+                                          <span className="font-medium">{option.optionGroupName}:</span>
+                                          <span>{option.quantity > 1 && `${option.quantity}x `}{option.optionName}</span>
+                                          {parseFloat(option.priceAdjustment) !== 0 && (
+                                            <span className="text-muted-foreground">
+                                              ({parseFloat(option.priceAdjustment) > 0 ? '+' : ''}{formatKwanza(option.priceAdjustment)})
+                                            </span>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                               {item.notes && (
                                 <p className="text-xs text-muted-foreground italic mt-1 ml-8 break-words">

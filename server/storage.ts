@@ -677,13 +677,25 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
           .where(eq(orderItems.orderId, orderRow.orders.id));
 
+        const itemsWithOptions = await Promise.all(
+          items.map(async (item: { order_items: OrderItem; menu_items: MenuItem | null }) => {
+            const options = await db
+              .select()
+              .from(orderItemOptions)
+              .where(eq(orderItemOptions.orderItemId, item.order_items.id));
+            
+            return {
+              ...item.order_items,
+              menuItem: item.menu_items!,
+              options,
+            };
+          })
+        );
+
         return {
           ...orderRow.orders,
           table: orderRow.tables!,
-          orderItems: items.map((item: { order_items: OrderItem; menu_items: MenuItem | null }) => ({
-            ...item.order_items,
-            menuItem: item.menu_items!,
-          })),
+          orderItems: itemsWithOptions,
         };
       })
     );
@@ -744,12 +756,24 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
           .where(eq(orderItems.orderId, order.id));
 
+        const itemsWithOptions = await Promise.all(
+          items.map(async (item: { order_items: OrderItem; menu_items: MenuItem | null }) => {
+            const options = await db
+              .select()
+              .from(orderItemOptions)
+              .where(eq(orderItemOptions.orderItemId, item.order_items.id));
+            
+            return {
+              ...item.order_items,
+              menuItem: item.menu_items!,
+              options,
+            };
+          })
+        );
+
         return {
           ...order,
-          orderItems: items.map((item: { order_items: OrderItem; menu_items: MenuItem | null }) => ({
-            ...item.order_items,
-            menuItem: item.menu_items!,
-          })),
+          orderItems: itemsWithOptions,
         };
       })
     );
@@ -785,13 +809,25 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
           .where(eq(orderItems.orderId, row.orders.id));
 
+        const itemsWithOptions = await Promise.all(
+          items.map(async (item: { order_items: OrderItem; menu_items: MenuItem | null }) => {
+            const options = await db
+              .select()
+              .from(orderItemOptions)
+              .where(eq(orderItemOptions.orderItemId, item.order_items.id));
+            
+            return {
+              ...item.order_items,
+              menuItem: item.menu_items!,
+              options,
+            };
+          })
+        );
+
         return {
           ...row.orders,
           table: row.tables,
-          orderItems: items.map((item: { order_items: OrderItem; menu_items: MenuItem | null }) => ({
-            ...item.order_items,
-            menuItem: item.menu_items!,
-          })),
+          orderItems: itemsWithOptions,
         };
       })
     );

@@ -10,14 +10,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatKwanza } from "@/lib/formatters";
-import type { Order, OrderItem, MenuItem, Table } from "@shared/schema";
+import type { Order, OrderItem, MenuItem, Table, OrderItemOption } from "@shared/schema";
 
 type OrderStatus = "pendente" | "em_preparo" | "pronto" | "servido";
 type StatsPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
 
 interface KitchenOrder extends Order {
   table: Table;
-  orderItems: Array<OrderItem & { menuItem: MenuItem }>;
+  orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }>;
 }
 
 interface KitchenStats {
@@ -448,7 +448,19 @@ export default function Kitchen() {
                               <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex-shrink-0">
                                 {item.quantity}x
                               </span>
-                              <p className="font-semibold text-sm sm:text-base truncate">{item.menuItem.name}</p>
+                              <div className="flex-1">
+                                <p className="font-semibold text-sm sm:text-base truncate">{item.menuItem.name}</p>
+                                {item.options && item.options.length > 0 && (
+                                  <div className="mt-1 space-y-0.5">
+                                    {item.options.map((option, idx) => (
+                                      <div key={idx} className="text-xs text-muted-foreground flex items-baseline gap-1.5">
+                                        <span className="font-medium">{option.optionGroupName}:</span>
+                                        <span>{option.quantity > 1 && `${option.quantity}x `}{option.optionName}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <p className="font-mono font-semibold text-sm sm:text-base flex-shrink-0">
