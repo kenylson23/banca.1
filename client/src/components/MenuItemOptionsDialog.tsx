@@ -51,6 +51,7 @@ interface OptionFormData {
   name: string;
   priceAdjustment: string;
   isAvailable: number;
+  isRecommended: number;
   displayOrder: number;
 }
 
@@ -78,6 +79,7 @@ export function MenuItemOptionsDialog({ menuItemId, menuItemName }: MenuItemOpti
     name: "",
     priceAdjustment: "0",
     isAvailable: 1,
+    isRecommended: 0,
     displayOrder: 0,
   });
 
@@ -194,6 +196,7 @@ export function MenuItemOptionsDialog({ menuItemId, menuItemName }: MenuItemOpti
       name: "",
       priceAdjustment: "0",
       isAvailable: 1,
+      isRecommended: 0,
       displayOrder: 0,
     });
   };
@@ -220,6 +223,7 @@ export function MenuItemOptionsDialog({ menuItemId, menuItemName }: MenuItemOpti
       name: option.name,
       priceAdjustment: option.priceAdjustment,
       isAvailable: option.isAvailable,
+      isRecommended: option.isRecommended,
       displayOrder: option.displayOrder,
     });
     setIsOptionDialogOpen(true);
@@ -369,6 +373,11 @@ export function MenuItemOptionsDialog({ menuItemId, menuItemName }: MenuItemOpti
                                     <Badge variant="outline">
                                       {parseFloat(option.priceAdjustment) > 0 ? "+" : ""}
                                       {formatKwanza(option.priceAdjustment)}
+                                    </Badge>
+                                  )}
+                                  {option.isRecommended === 1 && (
+                                    <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">
+                                      ⭐ Recomendado
                                     </Badge>
                                   )}
                                   {option.isAvailable === 0 && (
@@ -553,6 +562,23 @@ export function MenuItemOptionsDialog({ menuItemId, menuItemName }: MenuItemOpti
                   setOptionForm({ ...optionForm, isAvailable: checked ? 1 : 0 })
                 }
                 data-testid="switch-option-available"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="option-recommended">Recomendar (Upselling)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Destacar como sugestão para aumentar vendas
+                </p>
+              </div>
+              <Switch
+                id="option-recommended"
+                checked={optionForm.isRecommended === 1}
+                onCheckedChange={(checked) =>
+                  setOptionForm({ ...optionForm, isRecommended: checked ? 1 : 0 })
+                }
+                data-testid="switch-option-recommended"
               />
             </div>
 

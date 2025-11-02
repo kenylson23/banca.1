@@ -209,57 +209,89 @@ export function CustomerMenuItemOptionsDialog({
                         onValueChange={(value) => handleSingleSelect(group.id, value)}
                       >
                         <div className="space-y-2">
-                          {group.options.map((option) => (
-                            <div key={option.id} className="flex items-center space-x-3 p-3 rounded-md hover-elevate">
-                              <RadioGroupItem
-                                value={option.id}
-                                id={option.id}
-                                data-testid={`radio-option-${option.id}`}
-                              />
-                              <Label htmlFor={option.id} className="flex-1 cursor-pointer">
-                                <div className="flex items-center justify-between">
-                                  <span className="font-medium">{option.name}</span>
-                                  {parseFloat(option.priceAdjustment) !== 0 && (
-                                    <span className="text-sm text-muted-foreground">
-                                      {parseFloat(option.priceAdjustment) > 0 ? '+' : ''}
-                                      {formatKwanza(option.priceAdjustment)}
-                                    </span>
-                                  )}
+                          {[...group.options]
+                            .sort((a, b) => (b.isRecommended || 0) - (a.isRecommended || 0))
+                            .map((option) => {
+                              const isRecommended = option.isRecommended === 1;
+                              return (
+                                <div 
+                                  key={option.id} 
+                                  className={`flex items-center space-x-3 p-3 rounded-md hover-elevate ${
+                                    isRecommended ? 'border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/20' : ''
+                                  }`}
+                                >
+                                  <RadioGroupItem
+                                    value={option.id}
+                                    id={option.id}
+                                    data-testid={`radio-option-${option.id}`}
+                                  />
+                                  <Label htmlFor={option.id} className="flex-1 cursor-pointer">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">{option.name}</span>
+                                        {isRecommended && (
+                                          <Badge variant="default" className="bg-amber-500 hover:bg-amber-600 text-xs">
+                                            ⭐ Sugestão
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {parseFloat(option.priceAdjustment) !== 0 && (
+                                        <span className="text-sm text-muted-foreground">
+                                          {parseFloat(option.priceAdjustment) > 0 ? '+' : ''}
+                                          {formatKwanza(option.priceAdjustment)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </Label>
                                 </div>
-                              </Label>
-                            </div>
-                          ))}
+                              );
+                            })}
                         </div>
                       </RadioGroup>
                     ) : (
                       <div className="space-y-2">
-                        {group.options.map((option) => {
-                          const isSelected = groupSelections.some(s => s.optionId === option.id);
-                          const canSelect = !group.maxSelections || selectionCount < group.maxSelections || isSelected;
+                        {[...group.options]
+                          .sort((a, b) => (b.isRecommended || 0) - (a.isRecommended || 0))
+                          .map((option) => {
+                            const isSelected = groupSelections.some(s => s.optionId === option.id);
+                            const canSelect = !group.maxSelections || selectionCount < group.maxSelections || isSelected;
+                            const isRecommended = option.isRecommended === 1;
 
-                          return (
-                            <div key={option.id} className="flex items-center space-x-3 p-3 rounded-md hover-elevate">
-                              <Checkbox
-                                id={option.id}
-                                checked={isSelected}
-                                onCheckedChange={(checked) => handleMultiSelect(group.id, option.id, checked as boolean)}
-                                disabled={!canSelect}
-                                data-testid={`checkbox-option-${option.id}`}
-                              />
-                              <Label htmlFor={option.id} className="flex-1 cursor-pointer">
-                                <div className="flex items-center justify-between">
-                                  <span className="font-medium">{option.name}</span>
-                                  {parseFloat(option.priceAdjustment) !== 0 && (
-                                    <span className="text-sm text-muted-foreground">
-                                      {parseFloat(option.priceAdjustment) > 0 ? '+' : ''}
-                                      {formatKwanza(option.priceAdjustment)}
-                                    </span>
-                                  )}
-                                </div>
-                              </Label>
-                            </div>
-                          );
-                        })}
+                            return (
+                              <div 
+                                key={option.id} 
+                                className={`flex items-center space-x-3 p-3 rounded-md hover-elevate ${
+                                  isRecommended ? 'border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/20' : ''
+                                }`}
+                              >
+                                <Checkbox
+                                  id={option.id}
+                                  checked={isSelected}
+                                  onCheckedChange={(checked) => handleMultiSelect(group.id, option.id, checked as boolean)}
+                                  disabled={!canSelect}
+                                  data-testid={`checkbox-option-${option.id}`}
+                                />
+                                <Label htmlFor={option.id} className="flex-1 cursor-pointer">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">{option.name}</span>
+                                      {isRecommended && (
+                                        <Badge variant="default" className="bg-amber-500 hover:bg-amber-600 text-xs">
+                                          ⭐ Sugestão
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    {parseFloat(option.priceAdjustment) !== 0 && (
+                                      <span className="text-sm text-muted-foreground">
+                                        {parseFloat(option.priceAdjustment) > 0 ? '+' : ''}
+                                        {formatKwanza(option.priceAdjustment)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </Label>
+                              </div>
+                            );
+                          })}
                       </div>
                     )}
                   </div>

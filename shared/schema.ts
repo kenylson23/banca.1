@@ -280,6 +280,7 @@ export const options = pgTable("options", {
   name: varchar("name", { length: 200 }).notNull(), // Ex: "Grande", "Arroz", "Mal Passado"
   priceAdjustment: decimal("price_adjustment", { precision: 10, scale: 2 }).notNull().default('0'), // Valor adicional
   isAvailable: integer("is_available").notNull().default(1), // 0 = indisponível, 1 = disponível
+  isRecommended: integer("is_recommended").notNull().default(0), // 0 = não recomendado, 1 = recomendado para upselling
   displayOrder: integer("display_order").notNull().default(0), // Ordem de exibição
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -292,6 +293,7 @@ export const insertOptionSchema = createInsertSchema(options).omit({
   name: z.string().min(1, "Nome da opção é obrigatório"),
   priceAdjustment: z.string().regex(/^-?\d+(\.\d{1,2})?$/, "Preço inválido").default('0'),
   isAvailable: z.number().min(0).max(1).default(1),
+  isRecommended: z.number().min(0).max(1).default(0),
   displayOrder: z.number().default(0),
 });
 
