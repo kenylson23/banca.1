@@ -124,6 +124,13 @@ export async function ensureTablesExist() {
         ALTER TABLE tables DROP CONSTRAINT IF EXISTS tables_number_unique; 
       EXCEPTION WHEN undefined_object THEN null; END $$;`);
       
+      // Create unique constraint for table number per restaurant and branch
+      // This ensures table numbers are unique within each restaurant/branch combination
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE tables ADD CONSTRAINT tables_restaurant_branch_number_unique 
+        UNIQUE (restaurant_id, branch_id, number); 
+      EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
       // Create categories with restaurantId
       await db.execute(sql`CREATE TABLE IF NOT EXISTS categories (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 

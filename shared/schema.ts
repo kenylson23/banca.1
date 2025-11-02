@@ -199,6 +199,8 @@ export const insertTableSchema = createInsertSchema(tables).omit({
   lastActivity: true,
   isOccupied: true,
   createdAt: true,
+}).extend({
+  number: z.number().int().positive("O número da mesa deve ser maior que zero"),
 });
 
 export const updateTableStatusSchema = z.object({
