@@ -58,7 +58,12 @@ export default function PublicMenu() {
       customerName: string;
       customerPhone: string;
       deliveryAddress?: string;
-      items: Array<{ menuItemId: string; quantity: number; price: string }>;
+      items: Array<{ 
+        menuItemId: string; 
+        quantity: number; 
+        price: string;
+        selectedOptions: SelectedOption[];
+      }>;
     }) => {
       const totalAmount = orderData.items.reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0).toFixed(2);
       return apiRequest('POST', '/api/public/orders', {
@@ -153,11 +158,20 @@ export default function PublicMenu() {
       return;
     }
 
-    const orderItems = items.map(item => ({
-      menuItemId: item.menuItem.id,
-      quantity: item.quantity,
-      price: item.menuItem.price,
-    }));
+    const orderItems = items.map(item => {
+      const basePrice = parseFloat(item.menuItem.price);
+      const optionsPrice = item.selectedOptions.reduce((sum, opt) => {
+        return sum + parseFloat(opt.priceAdjustment) * opt.quantity;
+      }, 0);
+      const totalPrice = (basePrice + optionsPrice).toFixed(2);
+
+      return {
+        menuItemId: item.menuItem.id,
+        quantity: item.quantity,
+        price: totalPrice,
+        selectedOptions: item.selectedOptions,
+      };
+    });
 
     createOrderMutation.mutate({
       restaurantId: restaurant.id,
