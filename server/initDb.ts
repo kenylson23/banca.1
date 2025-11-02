@@ -241,6 +241,18 @@ export async function ensureTablesExist() {
         ALTER TABLE options ADD COLUMN is_recommended INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
+      // Create order_item_options table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS order_item_options (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        order_item_id VARCHAR NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
+        option_id VARCHAR NOT NULL REFERENCES options(id),
+        option_name VARCHAR(200) NOT NULL,
+        option_group_name VARCHAR(200) NOT NULL,
+        price_adjustment DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        quantity INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
       // Create messages table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS messages (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
