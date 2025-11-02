@@ -743,6 +743,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(order);
     } catch (error) {
+      console.error('Erro ao criar pedido:', error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message, errors: error.errors });
       }
