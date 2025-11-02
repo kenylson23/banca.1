@@ -963,7 +963,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const groups = await storage.getOptionGroupsByMenuItem(req.params.menuItemId);
       res.json(groups);
     } catch (error) {
-      res.status(500).json({ message: "Erro ao buscar grupos de opções" });
+      console.error('Error fetching option groups:', error);
+      res.status(500).json({ message: "Erro ao buscar grupos de opções", error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
