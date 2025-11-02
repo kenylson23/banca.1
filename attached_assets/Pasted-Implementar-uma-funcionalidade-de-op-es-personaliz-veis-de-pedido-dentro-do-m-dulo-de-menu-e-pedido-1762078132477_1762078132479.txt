@@ -1,0 +1,92 @@
+Implementar uma funcionalidade de opções personalizáveis de pedido dentro do módulo de menu e pedidos do sistema Na Bancada.
+
+Objetivo:
+Permitir que o administrador crie e gerencie opções extras (ex.: acompanhamentos, adicionais, substituições) associadas a cada item do menu, e que o cliente possa selecionar essas opções ao adicionar um item ao carrinho.
+
+
+---
+
+🔹 Requisitos funcionais
+
+1. Gestão de opções (painel do administrador):
+
+O administrador pode criar, editar ou remover opções associadas a um prato.
+
+Cada opção pode conter:
+
+Nome (ex.: “Queijo extra”, “Bebida”, “Tamanho”);
+
+Tipo de seleção: única (radio) ou múltipla (checkbox);
+
+Valor adicional (ex.: +500 KZ);
+
+Grupo de opções (para organizar ex: “Acompanhamentos”, “Extras”, “Molhos”);
+
+Estado (ativa/inativa).
+
+
+O administrador pode definir se uma opção é obrigatória (ex.: escolher um tipo de pão) ou opcional.
+
+
+
+2. Seleção de opções (lado do cliente):
+
+Ao clicar em “Adicionar ao pedido” ou “Adicionar ao carrinho”, o cliente vê uma janela/modal com as opções disponíveis.
+
+O cliente escolhe as opções desejadas antes de confirmar o item.
+
+O valor total do item atualiza dinamicamente conforme as opções são selecionadas.
+
+Caso o cliente não escolha uma opção obrigatória, o sistema deve alertar.
+
+
+
+3. Integração com pedidos e cozinha:
+
+As opções selecionadas devem ser registradas junto ao item no pedido.
+
+No painel da cozinha, as opções devem aparecer claramente abaixo do nome do prato (ex.: Hambúrguer Clássico — [Com queijo extra, Sem cebola]).
+
+O valor total do pedido deve refletir automaticamente as opções adicionadas.
+
+
+
+4. Fluxo de atualização:
+
+O cliente pode editar o pedido antes de finalizar, alterando ou removendo opções.
+
+O administrador pode atualizar opções disponíveis sem afetar pedidos já feitos (mantendo consistência dos dados).
+
+
+
+5. Venda sugestiva (upselling):
+
+O sistema pode exibir opções recomendadas automaticamente com base no item selecionado (ex.: “Adicionar batatas fritas?” ou “Trocar bebida por sumo natural por +300 KZ?”).
+
+Essa lógica deve ser configurável no painel do admin, marcando opções como “recomendadas”.
+
+
+
+
+
+---
+
+🔹 Requisitos técnicos e lógicos
+
+As opções devem ser armazenadas num campo separado e vinculado ao menu_item_id.
+
+O carrinho e o backend devem calcular o total com base nas opções selecionadas.
+
+O sistema deve ser totalmente compatível com o fluxo atual de pedidos, cozinha e relatórios.
+
+As opções devem ser sincronizadas em tempo real (WebSocket) para garantir consistência na cozinha e nos pedidos ativos.
+
+Interface deve ser leve e responsiva, tanto para mobile quanto para desktop.
+
+
+
+---
+
+🔹 Objetivo final:
+
+Criar uma experiência dinâmica e profissional, em que o cliente possa personalizar o pedido de forma simples e interativa, e o restaurante tenha total controle das opções disponíveis — melhorando também a venda média por pedido (upsell).
