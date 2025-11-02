@@ -208,6 +208,33 @@ export async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW()
       );`);
       
+      // Create option_group_type enum
+      await db.execute(sql`DO $$ BEGIN CREATE TYPE option_group_type AS ENUM ('single', 'multiple'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Create option_groups table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS option_groups (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        menu_item_id VARCHAR NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+        name VARCHAR(200) NOT NULL,
+        type option_group_type NOT NULL DEFAULT 'single',
+        is_required INTEGER NOT NULL DEFAULT 0,
+        min_selections INTEGER NOT NULL DEFAULT 0,
+        max_selections INTEGER NOT NULL DEFAULT 1,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create options table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS options (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        option_group_id VARCHAR NOT NULL REFERENCES option_groups(id) ON DELETE CASCADE,
+        name VARCHAR(200) NOT NULL,
+        price_adjustment DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        is_available INTEGER NOT NULL DEFAULT 1,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
       // Create messages table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS messages (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
