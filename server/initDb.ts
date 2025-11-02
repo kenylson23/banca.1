@@ -231,9 +231,15 @@ export async function ensureTablesExist() {
         name VARCHAR(200) NOT NULL,
         price_adjustment DECIMAL(10, 2) NOT NULL DEFAULT 0,
         is_available INTEGER NOT NULL DEFAULT 1,
+        is_recommended INTEGER NOT NULL DEFAULT 0,
         display_order INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
+      
+      // Add is_recommended column if it doesn't exist
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE options ADD COLUMN is_recommended INTEGER NOT NULL DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Create messages table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS messages (
