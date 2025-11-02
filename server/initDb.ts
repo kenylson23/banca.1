@@ -137,6 +137,68 @@ export async function ensureTablesExist() {
       await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS tables_restaurant_branch_number_idx 
         ON tables (restaurant_id, COALESCE(branch_id, ''), number);`);
       
+      // Create table_status enum if it doesn't exist
+      await db.execute(sql`DO $$ BEGIN
+        CREATE TYPE table_status AS ENUM ('livre', 'ocupada', 'em_andamento', 'aguardando_pagamento', 'encerrada');
+      EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Add status column to tables
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE tables ADD COLUMN status table_status NOT NULL DEFAULT 'livre'; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Add current_session_id to tables
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE tables ADD COLUMN current_session_id VARCHAR; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Add total_amount to tables
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE tables ADD COLUMN total_amount DECIMAL(10, 2) DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Add customer_name to tables
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE tables ADD COLUMN customer_name VARCHAR(200); 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Add customer_count to tables
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE tables ADD COLUMN customer_count INTEGER DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Drop is_occupied column (replaced by status)
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE tables DROP COLUMN IF EXISTS is_occupied; 
+      EXCEPTION WHEN undefined_column THEN null; END $$;`);
+      
+      // Create table_sessions table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS table_sessions (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        table_id VARCHAR NOT NULL REFERENCES tables(id) ON DELETE CASCADE,
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        customer_name VARCHAR(200),
+        customer_count INTEGER,
+        total_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        paid_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        status table_status NOT NULL DEFAULT 'ocupada',
+        started_at TIMESTAMP DEFAULT NOW(),
+        ended_at TIMESTAMP,
+        notes TEXT
+      );`);
+      
+      // Create table_payments table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS table_payments (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        table_id VARCHAR NOT NULL REFERENCES tables(id) ON DELETE CASCADE,
+        session_id VARCHAR REFERENCES table_sessions(id) ON DELETE CASCADE,
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        amount DECIMAL(10, 2) NOT NULL,
+        payment_method VARCHAR(50) NOT NULL,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
       // Create categories with restaurantId
       await db.execute(sql`CREATE TABLE IF NOT EXISTS categories (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
