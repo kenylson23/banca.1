@@ -18,6 +18,8 @@ import { apiRequest, queryClient } from '@/lib/queryClient';
 import { formatKwanza } from '@/lib/formatters';
 import type { MenuItem, Category, Restaurant } from '@shared/schema';
 import { Link } from 'wouter';
+import { CustomerMenuItemOptionsDialog } from '@/components/CustomerMenuItemOptionsDialog';
+import type { SelectedOption } from '@/contexts/CartContext';
 
 export default function PublicMenu() {
   const [, params] = useRoute('/r/:slug');
@@ -28,6 +30,8 @@ export default function PublicMenu() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItem | null>(null);
+  const [isOptionsDialogOpen, setIsOptionsDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
@@ -89,6 +93,19 @@ export default function PublicMenu() {
       });
     },
   });
+
+  const handleAddMenuItem = (item: MenuItem) => {
+    setSelectedMenuItem(item);
+    setIsOptionsDialogOpen(true);
+  };
+
+  const handleAddToCart = (menuItem: MenuItem, selectedOptions: SelectedOption[]) => {
+    addItem(menuItem, selectedOptions);
+    toast({
+      title: 'Adicionado ao carrinho',
+      description: `${menuItem.name} foi adicionado ao seu carrinho.`,
+    });
+  };
 
   const handleConfirmOrder = () => {
     if (!restaurant) {
@@ -254,7 +271,7 @@ export default function PublicMenu() {
                 ) : (
                   <div className="space-y-3">
                     {items.map((item) => (
-                      <Card key={item.menuItem.id} data-testid={`cart-item-${item.menuItem.id}`}>
+                      <Card key={item.id} data-testid={`cart-item-${item.id}`}>
                         <CardContent className="p-3">
                           <div className="flex justify-between items-start gap-2 mb-2">
                             <div className="flex-1 min-w-0">
@@ -262,12 +279,27 @@ export default function PublicMenu() {
                               <p className="text-sm text-muted-foreground">
                                 {formatKwanza(item.menuItem.price)}
                               </p>
+                              {item.selectedOptions.length > 0 && (
+                                <div className="mt-1 space-y-1">
+                                  {item.selectedOptions.map((opt, idx) => (
+                                    <p key={idx} className="text-xs text-muted-foreground">
+                                      • {opt.optionName} 
+                                      {parseFloat(opt.priceAdjustment) !== 0 && (
+                                        <span className="ml-1">
+                                          ({parseFloat(opt.priceAdjustment) > 0 ? '+' : ''}
+                                          {formatKwanza(opt.priceAdjustment)})
+                                        </span>
+                                      )}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => removeItem(item.menuItem.id)}
-                              data-testid={`button-remove-${item.menuItem.id}`}
+                              onClick={() => removeItem(item.id)}
+                              data-testid={`button-remove-${item.id}`}
                               className="h-8 w-8 flex-shrink-0"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -278,28 +310,32 @@ export default function PublicMenu() {
                               <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() => updateQuantity(item.menuItem.id, item.quantity - 1)}
+                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
                                 disabled={item.quantity <= 1}
-                                data-testid={`button-decrease-${item.menuItem.id}`}
+                                data-testid={`button-decrease-${item.id}`}
                                 className="h-8 w-8"
                               >
                                 <Minus className="h-3 w-3" />
                               </Button>
-                              <span className="w-8 text-center font-medium" data-testid={`text-quantity-${item.menuItem.id}`}>
+                              <span className="w-8 text-center font-medium" data-testid={`text-quantity-${item.id}`}>
                                 {item.quantity}
                               </span>
                               <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() => updateQuantity(item.menuItem.id, item.quantity + 1)}
-                                data-testid={`button-increase-${item.menuItem.id}`}
+                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                data-testid={`button-increase-${item.id}`}
                                 className="h-8 w-8"
                               >
                                 <Plus className="h-3 w-3" />
                               </Button>
                             </div>
-                            <p className="font-semibold" data-testid={`text-item-total-${item.menuItem.id}`}>
-                              {formatKwanza(parseFloat(item.menuItem.price) * item.quantity)}
+                            <p className="font-semibold" data-testid={`text-item-total-${item.id}`}>
+                              {formatKwanza(
+                                (parseFloat(item.menuItem.price) + 
+                                  item.selectedOptions.reduce((sum, opt) => sum + parseFloat(opt.priceAdjustment) * opt.quantity, 0)
+                                ) * item.quantity
+                              )}
                             </p>
                           </div>
                         </CardContent>
@@ -399,7 +435,7 @@ export default function PublicMenu() {
                         <div className="flex flex-wrap gap-2 justify-between items-center">
                           <span className="text-lg sm:text-xl font-bold text-primary">{formatKwanza(item.price)}</span>
                           <Button
-                            onClick={() => addItem(item)}
+                            onClick={() => handleAddMenuItem(item)}
                             data-testid={`button-add-${item.id}`}
                             size="sm"
                           >
@@ -416,6 +452,15 @@ export default function PublicMenu() {
           </div>
         )}
       </main>
+
+      {selectedMenuItem && (
+        <CustomerMenuItemOptionsDialog
+          open={isOptionsDialogOpen}
+          onOpenChange={setIsOptionsDialogOpen}
+          menuItem={selectedMenuItem}
+          onAddToCart={handleAddToCart}
+        />
+      )}
     </div>
   );
 }
