@@ -167,10 +167,15 @@ export async function ensureTablesExist() {
         ALTER TABLE tables ADD COLUMN customer_count INTEGER DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
-      // Drop is_occupied column (replaced by status)
+      // Add last_activity to tables
       await db.execute(sql`DO $$ BEGIN 
-        ALTER TABLE tables DROP COLUMN IF EXISTS is_occupied; 
-      EXCEPTION WHEN undefined_column THEN null; END $$;`);
+        ALTER TABLE tables ADD COLUMN last_activity TIMESTAMP; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Add is_occupied back for compatibility
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE tables ADD COLUMN is_occupied INTEGER NOT NULL DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Create table_sessions table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS table_sessions (
