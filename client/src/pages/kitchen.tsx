@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatKwanza } from "@/lib/formatters";
+import { PrintOrder } from "@/components/PrintOrder";
 import type { Order, OrderItem, MenuItem, Table, OrderItemOption } from "@shared/schema";
 
 type OrderStatus = "pendente" | "em_preparo" | "pronto" | "servido";
@@ -247,39 +248,6 @@ export default function Kitchen() {
     }
   };
 
-  const handlePrint = async (orderId: string) => {
-    try {
-      const response = await fetch(`/api/orders/${orderId}/print`, {
-        method: 'GET',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro ao gerar PDF');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `pedido-${orderId.slice(0, 8)}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast({
-        title: "PDF gerado",
-        description: "O PDF do pedido foi baixado com sucesso",
-      });
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível gerar o PDF do pedido",
-        variant: "destructive",
-      });
-    }
-  };
 
   const getNextStatus = (currentStatus: OrderStatus): OrderStatus | null => {
     const statusFlow: OrderStatus[] = ["pendente", "em_preparo", "pronto", "servido"];
@@ -507,15 +475,7 @@ export default function Kitchen() {
                           Marcar como {statusLabels[nextStatus]}
                         </Button>
                       )}
-                      <Button
-                        variant="outline"
-                        className="w-full text-sm sm:text-base"
-                        onClick={() => handlePrint(order.id)}
-                        data-testid={`button-print-${order.id}`}
-                      >
-                        <Printer className="h-4 w-4 mr-2" />
-                        Imprimir Pedido
-                      </Button>
+                      <PrintOrder order={order} variant="outline" size="default" />
                     </div>
                   </div>
                 </CardContent>

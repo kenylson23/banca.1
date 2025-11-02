@@ -14,6 +14,7 @@ import { TrendingUp, ShoppingCart, Package, Clock, Download, Filter } from "luci
 import { format } from "date-fns";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { queryClient } from "@/lib/queryClient";
+import { PrintOrder } from "@/components/PrintOrder";
 
 type SalesReport = {
   totalSales: string;
@@ -456,16 +457,19 @@ export default function Reports() {
                                 Kz {parseFloat(order.totalAmount).toFixed(2)}
                               </TableCell>
                               <TableCell>
-                                {getNextStatus(order.status) && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleStatusChange(order.id, getNextStatus(order.status)!)}
-                                    data-testid={`button-status-${order.id}`}
-                                  >
-                                    {statusLabels[getNextStatus(order.status)! as keyof typeof statusLabels]}
-                                  </Button>
-                                )}
+                                <div className="flex gap-2">
+                                  {getNextStatus(order.status) && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleStatusChange(order.id, getNextStatus(order.status)!)}
+                                      data-testid={`button-status-${order.id}`}
+                                    >
+                                      {statusLabels[getNextStatus(order.status)! as keyof typeof statusLabels]}
+                                    </Button>
+                                  )}
+                                  <PrintOrder order={order} variant="ghost" size="sm" />
+                                </div>
                               </TableCell>
                             </TableRow>
                             {order.orderNotes && (

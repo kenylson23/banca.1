@@ -32,6 +32,7 @@ import { ptBR } from 'date-fns/locale';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { PrintOrder } from '@/components/PrintOrder';
 import type { Table } from '@shared/schema';
 
 interface TableDetailsDialogProps {
@@ -341,6 +342,9 @@ export function TableDetailsDialog({ open, onOpenChange, table }: TableDetailsDi
                           <div className="flex justify-between font-semibold">
                             <span>Total:</span>
                             <span>{formatKwanza(order.totalAmount)}</span>
+                          </div>
+                          <div className="mt-3 pt-3 border-t">
+                            <PrintOrder order={order} variant="outline" size="sm" />
                           </div>
                         </div>
                       </CardContent>
