@@ -586,14 +586,16 @@ export class DatabaseStorage implements IStorage {
         .from(menuItems)
         .leftJoin(categories, eq(menuItems.categoryId, categories.id))
         .where(and(eq(menuItems.restaurantId, restaurantId), eq(menuItems.branchId, branchId)))
-        .orderBy(categories.name, menuItems.name);
+        .orderBy(categories.name)
+        .orderBy(menuItems.name);
     } else {
       results = await db
         .select()
         .from(menuItems)
         .leftJoin(categories, eq(menuItems.categoryId, categories.id))
         .where(eq(menuItems.restaurantId, restaurantId))
-        .orderBy(categories.name, menuItems.name);
+        .orderBy(categories.name)
+        .orderBy(menuItems.name);
     }
 
     return results.map((row: { menu_items: MenuItem; categories: Category | null }) => ({
@@ -1668,7 +1670,8 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(optionGroups)
       .where(eq(optionGroups.menuItemId, menuItemId))
-      .orderBy(optionGroups.displayOrder, optionGroups.createdAt);
+      .orderBy(optionGroups.displayOrder)
+      .orderBy(optionGroups.createdAt);
 
     const result = await Promise.all(
       groups.map(async (group: OptionGroup) => {
@@ -1718,7 +1721,8 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(options)
       .where(eq(options.optionGroupId, groupId))
-      .orderBy(options.displayOrder, options.createdAt);
+      .orderBy(options.displayOrder)
+      .orderBy(options.createdAt);
   }
 
   async getOptionById(id: string): Promise<Option | undefined> {
