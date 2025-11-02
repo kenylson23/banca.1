@@ -4,6 +4,8 @@ import {
   restaurants,
   branches,
   tables,
+  tableSessions,
+  tablePayments,
   categories,
   menuItems,
   orders,
@@ -21,6 +23,10 @@ import {
   type UpdateBranch,
   type Table,
   type InsertTable,
+  type TableSession,
+  type InsertTableSession,
+  type TablePayment,
+  type InsertTablePayment,
   type Category,
   type InsertCategory,
   type MenuItem,
@@ -538,6 +544,233 @@ export class DatabaseStorage implements IStorage {
     await db.update(tables)
       .set({ isOccupied: isOccupied ? 1 : 0 })
       .where(eq(tables.id, id));
+  }
+
+  async updateTableStatus(restaurantId: string, tableId: string, status: string, data?: { customerName?: string; customerCount?: number }): Promise<Table> {
+    const existing = await this.getTableById(tableId);
+    if (!existing) {
+      throw new Error('Table not found');
+    }
+    if (existing.restaurantId !== restaurantId) {
+      throw new Error('Unauthorized: Table does not belong to your restaurant');
+    }
+
+    const updateData: any = {
+      status,
+      lastActivity: new Date(),
+      isOccupied: status !== 'livre' ? 1 : 0,
+    };
+
+    if (data?.customerName !== undefined) {
+      updateData.customerName = data.customerName;
+    }
+    if (data?.customerCount !== undefined) {
+      updateData.customerCount = data.customerCount;
+    }
+
+    const [updated] = await db.update(tables)
+      .set(updateData)
+      .where(eq(tables.id, tableId))
+      .returning();
+    
+    return updated;
+  }
+
+  async getTablesWithOrders(restaurantId: string, branchId?: string | null): Promise<Array<Table & { orders: any[] }>> {
+    const allTables = await this.getTables(restaurantId, branchId);
+    
+    const tablesWithOrders = await Promise.all(
+      allTables.map(async (table) => {
+        const tableOrders = await db.select()
+          .from(orders)
+          .leftJoin(orderItems, eq(orders.id, orderItems.orderId))
+          .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+          .where(and(
+            eq(orders.tableId, table.id),
+            eq(orders.restaurantId, restaurantId),
+            or(
+              eq(orders.status, 'pendente'),
+              eq(orders.status, 'em_preparo'),
+              eq(orders.status, 'pronto')
+            )
+          ))
+          .orderBy(desc(orders.createdAt));
+
+        const groupedOrders = tableOrders.reduce((acc: any[], row: any) => {
+          const orderId = row.orders.id;
+          let order = acc.find((o: any) => o.id === orderId);
+          
+          if (!order) {
+            order = {
+              ...row.orders,
+              orderItems: [],
+            };
+            acc.push(order);
+          }
+          
+          if (row.order_items) {
+            order.orderItems.push({
+              ...row.order_items,
+              menuItem: row.menu_items,
+            });
+          }
+          
+          return acc;
+        }, []);
+
+        return {
+          ...table,
+          orders: groupedOrders,
+        };
+      })
+    );
+
+    return tablesWithOrders;
+  }
+
+  async startTableSession(restaurantId: string, tableId: string, sessionData: { customerName?: string; customerCount?: number }): Promise<any> {
+    const table = await this.getTableById(tableId);
+    if (!table) {
+      throw new Error('Table not found');
+    }
+
+    const [session] = await db.insert(tableSessions).values({
+      tableId,
+      restaurantId,
+      customerName: sessionData.customerName,
+      customerCount: sessionData.customerCount,
+      status: 'ocupada',
+    }).returning();
+
+    await db.update(tables)
+      .set({
+        status: 'ocupada',
+        currentSessionId: session.id,
+        customerName: sessionData.customerName,
+        customerCount: sessionData.customerCount || 0,
+        lastActivity: new Date(),
+        isOccupied: 1,
+      })
+      .where(eq(tables.id, tableId));
+
+    return session;
+  }
+
+  async endTableSession(restaurantId: string, tableId: string): Promise<void> {
+    const table = await this.getTableById(tableId);
+    if (!table || !table.currentSessionId) {
+      throw new Error('No active session found');
+    }
+
+    await db.update(tableSessions)
+      .set({
+        status: 'encerrada',
+        endedAt: new Date(),
+      })
+      .where(eq(tableSessions.id, table.currentSessionId));
+
+    await db.update(tables)
+      .set({
+        status: 'livre',
+        currentSessionId: null,
+        totalAmount: '0',
+        customerName: null,
+        customerCount: 0,
+        lastActivity: new Date(),
+        isOccupied: 0,
+      })
+      .where(eq(tables.id, tableId));
+  }
+
+  async addTablePayment(restaurantId: string, payment: any): Promise<any> {
+    const table = await this.getTableById(payment.tableId);
+    if (!table) {
+      throw new Error('Table not found');
+    }
+
+    const [newPayment] = await db.insert(tablePayments).values({
+      ...payment,
+      restaurantId,
+    }).returning();
+
+    if (table.currentSessionId) {
+      const session = await db.select().from(tableSessions)
+        .where(eq(tableSessions.id, table.currentSessionId))
+        .limit(1);
+      
+      if (session.length > 0) {
+        const currentPaid = parseFloat(session[0].paidAmount || '0');
+        const newPaid = currentPaid + parseFloat(payment.amount);
+        
+        await db.update(tableSessions)
+          .set({ paidAmount: newPaid.toFixed(2) })
+          .where(eq(tableSessions.id, table.currentSessionId));
+      }
+    }
+
+    return newPayment;
+  }
+
+  async getTableSessions(restaurantId: string, tableId?: string): Promise<any[]> {
+    let query = db.select().from(tableSessions)
+      .where(eq(tableSessions.restaurantId, restaurantId));
+    
+    if (tableId) {
+      query = query.where(and(
+        eq(tableSessions.restaurantId, restaurantId),
+        eq(tableSessions.tableId, tableId)
+      ));
+    }
+    
+    return await query.orderBy(desc(tableSessions.startedAt));
+  }
+
+  async getTablePayments(restaurantId: string, tableId?: string, sessionId?: string): Promise<any[]> {
+    const conditions = [eq(tablePayments.restaurantId, restaurantId)];
+    
+    if (tableId) {
+      conditions.push(eq(tablePayments.tableId, tableId));
+    }
+    if (sessionId) {
+      conditions.push(eq(tablePayments.sessionId, sessionId));
+    }
+    
+    return await db.select().from(tablePayments)
+      .where(and(...conditions))
+      .orderBy(desc(tablePayments.createdAt));
+  }
+
+  async calculateTableTotal(restaurantId: string, tableId: string): Promise<number> {
+    const tableOrders = await db.select()
+      .from(orders)
+      .where(and(
+        eq(orders.tableId, tableId),
+        eq(orders.restaurantId, restaurantId),
+        or(
+          eq(orders.status, 'pendente'),
+          eq(orders.status, 'em_preparo'),
+          eq(orders.status, 'pronto')
+        )
+      ));
+
+    const total = tableOrders.reduce((sum: number, order: Order) => {
+      return sum + parseFloat(order.totalAmount || '0');
+    }, 0);
+
+    await db.update(tables)
+      .set({ totalAmount: total.toFixed(2) })
+      .where(eq(tables.id, tableId));
+
+    if (tableOrders.length > 0) {
+      const table = await this.getTableById(tableId);
+      if (table?.currentSessionId) {
+        await db.update(tableSessions)
+          .set({ totalAmount: total.toFixed(2) })
+          .where(eq(tableSessions.id, table.currentSessionId));
+      }
+    }
+
+    return total;
   }
 
   // Category operations

@@ -822,6 +822,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/tables/with-orders", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const branchId = currentUser.activeBranchId || null;
+      const tables = await storage.getTablesWithOrders(restaurantId, branchId);
+      res.json(tables);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch tables with orders" });
+    }
+  });
+
+  app.patch("/api/tables/:id/status", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const { status, customerName, customerCount } = req.body;
+      
+      const updatedTable = await storage.updateTableStatus(
+        restaurantId,
+        req.params.id,
+        status,
+        { customerName, customerCount }
+      );
+      
+      broadcastToClients({ type: 'table_status_updated', data: updatedTable });
+      
+      res.json(updatedTable);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to update table status" });
+    }
+  });
+
+  app.post("/api/tables/:id/start-session", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const { customerName, customerCount } = req.body;
+      
+      const session = await storage.startTableSession(restaurantId, req.params.id, {
+        customerName,
+        customerCount,
+      });
+      
+      await storage.calculateTableTotal(restaurantId, req.params.id);
+      
+      broadcastToClients({ type: 'table_session_started', data: session });
+      
+      res.json(session);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to start table session" });
+    }
+  });
+
+  app.post("/api/tables/:id/end-session", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      
+      await storage.endTableSession(restaurantId, req.params.id);
+      
+      const updatedTable = await storage.getTableById(req.params.id);
+      broadcastToClients({ type: 'table_session_ended', data: updatedTable });
+      
+      res.json({ success: true, table: updatedTable });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to end table session" });
+    }
+  });
+
+  app.post("/api/tables/:id/payments", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const { amount, paymentMethod, notes, sessionId } = req.body;
+      
+      const table = await storage.getTableById(req.params.id);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+      
+      const payment = await storage.addTablePayment(restaurantId, {
+        tableId: req.params.id,
+        sessionId: sessionId || table.currentSessionId,
+        amount,
+        paymentMethod,
+        notes,
+      });
+      
+      broadcastToClients({ type: 'table_payment_added', data: payment });
+      
+      res.json(payment);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to add payment" });
+    }
+  });
+
+  app.get("/api/tables/:id/sessions", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const sessions = await storage.getTableSessions(restaurantId, req.params.id);
+      res.json(sessions);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch table sessions" });
+    }
+  });
+
+  app.get("/api/tables/:id/payments", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const payments = await storage.getTablePayments(restaurantId, req.params.id);
+      res.json(payments);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch table payments" });
+    }
+  });
+
   // ===== CATEGORY ROUTES (Admin Only) =====
   app.get("/api/categories", isAdmin, async (req, res) => {
     try {

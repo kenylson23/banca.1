@@ -166,14 +166,23 @@ export type UpdateProfile = z.infer<typeof updateProfileSchema>;
 export type UpdatePassword = z.infer<typeof updatePasswordSchema>;
 export type User = typeof users.$inferSelect;
 
+// Table Status Enum
+export const tableStatusEnum = pgEnum('table_status', ['livre', 'ocupada', 'em_andamento', 'aguardando_pagamento', 'encerrada']);
+
 // Tables - Mesas do restaurante
 export const tables = pgTable("tables", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
-  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }), // Filial específica
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
   number: integer("number").notNull(),
-  qrCode: text("qr_code").notNull(), // Data URL do QR code
-  isOccupied: integer("is_occupied").notNull().default(0), // 0 = livre, 1 = ocupada
+  qrCode: text("qr_code").notNull(),
+  status: tableStatusEnum("status").notNull().default('livre'),
+  currentSessionId: varchar("current_session_id"),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).default('0'),
+  customerName: varchar("customer_name", { length: 200 }),
+  customerCount: integer("customer_count").default(0),
+  lastActivity: timestamp("last_activity"),
+  isOccupied: integer("is_occupied").notNull().default(0), // Manter para compatibilidade
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -182,12 +191,77 @@ export const insertTableSchema = createInsertSchema(tables).omit({
   restaurantId: true,
   branchId: true,
   qrCode: true,
+  status: true,
+  currentSessionId: true,
+  totalAmount: true,
+  customerName: true,
+  customerCount: true,
+  lastActivity: true,
   isOccupied: true,
   createdAt: true,
 });
 
+export const updateTableStatusSchema = z.object({
+  status: z.enum(['livre', 'ocupada', 'em_andamento', 'aguardando_pagamento', 'encerrada']),
+  customerName: z.string().optional(),
+  customerCount: z.number().optional(),
+});
+
 export type InsertTable = z.infer<typeof insertTableSchema>;
+export type UpdateTableStatus = z.infer<typeof updateTableStatusSchema>;
 export type Table = typeof tables.$inferSelect;
+
+// Table Sessions - Histórico de sessões das mesas
+export const tableSessions = pgTable("table_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tableId: varchar("table_id").notNull().references(() => tables.id, { onDelete: 'cascade' }),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  customerName: varchar("customer_name", { length: 200 }),
+  customerCount: integer("customer_count"),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull().default('0'),
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default('0'),
+  status: tableStatusEnum("status").notNull().default('ocupada'),
+  startedAt: timestamp("started_at").defaultNow(),
+  endedAt: timestamp("ended_at"),
+  notes: text("notes"),
+});
+
+export const insertTableSessionSchema = createInsertSchema(tableSessions).omit({
+  id: true,
+  restaurantId: true,
+  totalAmount: true,
+  paidAmount: true,
+  status: true,
+  startedAt: true,
+  endedAt: true,
+});
+
+export type InsertTableSession = z.infer<typeof insertTableSessionSchema>;
+export type TableSession = typeof tableSessions.$inferSelect;
+
+// Table Payments - Pagamentos de mesas
+export const tablePayments = pgTable("table_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tableId: varchar("table_id").notNull().references(() => tables.id, { onDelete: 'cascade' }),
+  sessionId: varchar("session_id").references(() => tableSessions.id, { onDelete: 'cascade' }),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: varchar("payment_method", { length: 50 }).notNull(), // dinheiro, multicaixa, transferencia, etc
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTablePaymentSchema = createInsertSchema(tablePayments).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+}).extend({
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
+  paymentMethod: z.string().min(1, "Método de pagamento é obrigatório"),
+});
+
+export type InsertTablePayment = z.infer<typeof insertTablePaymentSchema>;
+export type TablePayment = typeof tablePayments.$inferSelect;
 
 // Categories - Categorias do menu
 export const categories = pgTable("categories", {
@@ -495,6 +569,35 @@ export const tablesRelations = relations(tables, ({ one, many }) => ({
     references: [branches.id],
   }),
   orders: many(orders),
+  sessions: many(tableSessions),
+  payments: many(tablePayments),
+}));
+
+export const tableSessionsRelations = relations(tableSessions, ({ one, many }) => ({
+  table: one(tables, {
+    fields: [tableSessions.tableId],
+    references: [tables.id],
+  }),
+  restaurant: one(restaurants, {
+    fields: [tableSessions.restaurantId],
+    references: [restaurants.id],
+  }),
+  payments: many(tablePayments),
+}));
+
+export const tablePaymentsRelations = relations(tablePayments, ({ one }) => ({
+  table: one(tables, {
+    fields: [tablePayments.tableId],
+    references: [tables.id],
+  }),
+  session: one(tableSessions, {
+    fields: [tablePayments.sessionId],
+    references: [tableSessions.id],
+  }),
+  restaurant: one(restaurants, {
+    fields: [tablePayments.restaurantId],
+    references: [restaurants.id],
+  }),
 }));
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({

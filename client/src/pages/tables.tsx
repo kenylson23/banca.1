@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Download, Trash2, QrCode as QrCodeIcon } from "lucide-react";
+import { Plus, Download, Trash2, QrCode as QrCodeIcon, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +30,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useWebSocket } from "@/hooks/useWebSocket";
+import { TableCard } from "@/components/TableCard";
+import { TableDetailsDialog } from "@/components/TableDetailsDialog";
 import type { Table } from "@shared/schema";
 
 export default function Tables() {
@@ -36,17 +41,37 @@ export default function Tables() {
   const [qrDialogTable, setQrDialogTable] = useState<Table | null>(null);
   const [deleteTableId, setDeleteTableId] = useState<string | null>(null);
   const [tableNumber, setTableNumber] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedTable, setSelectedTable] = useState<(Table & { orders?: any[] }) | null>(null);
 
-  const { data: tables, isLoading } = useQuery<Table[]>({
-    queryKey: ["/api/tables"],
+  const { data: tables, isLoading } = useQuery<Array<Table & { orders?: any[] }>>({
+    queryKey: ["/api/tables/with-orders"],
   });
+
+  // WebSocket handler for real-time updates
+  const handleWebSocketMessage = useCallback((message: any) => {
+    if (
+      message.type === 'table_created' ||
+      message.type === 'table_deleted' ||
+      message.type === 'table_status_updated' ||
+      message.type === 'table_session_started' ||
+      message.type === 'table_session_ended' ||
+      message.type === 'table_payment_added' ||
+      message.type === 'new_order' ||
+      message.type === 'order_status_updated'
+    ) {
+      queryClient.invalidateQueries({ queryKey: ["/api/tables/with-orders"] });
+    }
+  }, []);
+
+  useWebSocket(handleWebSocketMessage);
 
   const createMutation = useMutation({
     mutationFn: async (number: number) => {
       await apiRequest("POST", "/api/tables", { number });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tables"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tables/with-orders"] });
       toast({
         title: "Mesa criada",
         description: "A mesa foi criada com sucesso e o QR code foi gerado.",
@@ -79,7 +104,7 @@ export default function Tables() {
       await apiRequest("DELETE", `/api/tables/${id}`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tables"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tables/with-orders"] });
       toast({
         title: "Mesa excluída",
         description: "A mesa foi excluída com sucesso.",
@@ -133,13 +158,26 @@ export default function Tables() {
     });
   };
 
+  const filteredTables = tables?.filter((table) => {
+    if (statusFilter === 'all') return true;
+    return table.status === statusFilter;
+  }) || [];
+
+  const statusCounts = {
+    all: tables?.length || 0,
+    livre: tables?.filter(t => t.status === 'livre').length || 0,
+    ocupada: tables?.filter(t => t.status === 'ocupada').length || 0,
+    em_andamento: tables?.filter(t => t.status === 'em_andamento').length || 0,
+    aguardando_pagamento: tables?.filter(t => t.status === 'aguardando_pagamento').length || 0,
+  };
+
   return (
     <div className="space-y-6 sm:space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Mesas</h1>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Controle de Mesas</h1>
           <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
-            Gerencie as mesas do restaurante e seus QR codes
+            Gerencie mesas em tempo real - ocupação, pedidos e pagamentos
           </p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -184,62 +222,45 @@ export default function Tables() {
         </Dialog>
       </div>
 
+      <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full">
+        <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsTrigger value="all" data-testid="filter-all">
+            Todas
+            <Badge variant="outline" className="ml-2">{statusCounts.all}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="livre" data-testid="filter-livre">
+            Livres
+            <Badge variant="outline" className="ml-2">{statusCounts.livre}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="ocupada" data-testid="filter-ocupada">
+            Ocupadas
+            <Badge variant="outline" className="ml-2">{statusCounts.ocupada}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="em_andamento" data-testid="filter-em-andamento">
+            Em Andamento
+            <Badge variant="outline" className="ml-2">{statusCounts.em_andamento}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="aguardando_pagamento" data-testid="filter-aguardando">
+            Aguardando
+            <Badge variant="outline" className="ml-2">{statusCounts.aguardando_pagamento}</Badge>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {[...Array(8)].map((_, i) => (
             <Skeleton key={i} className="h-64" />
           ))}
         </div>
-      ) : tables && tables.length > 0 ? (
+      ) : filteredTables.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {tables.map((table) => (
-            <Card key={table.id} data-testid={`card-table-${table.id}`}>
-              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
-                <CardTitle className="text-lg">Mesa {table.number}</CardTitle>
-                <div className={`h-2 w-2 rounded-full ${table.isOccupied ? 'bg-chart-4' : 'bg-chart-3'}`} />
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="aspect-square bg-muted rounded-md overflow-hidden flex items-center justify-center">
-                  <img
-                    src={table.qrCode}
-                    alt={`QR Code Mesa ${table.number}`}
-                    className="w-full h-full object-contain p-4"
-                  />
-                </div>
-                <div className="flex flex-col sm:flex-row items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full sm:flex-1"
-                    onClick={() => setQrDialogTable(table)}
-                    data-testid={`button-view-qr-${table.id}`}
-                  >
-                    <QrCodeIcon className="h-4 w-4 mr-2" />
-                    Ver QR
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full sm:flex-1"
-                    onClick={() => handleDownloadQR(table)}
-                    data-testid={`button-download-qr-${table.id}`}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Baixar
-                  </Button>
-                </div>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setDeleteTableId(table.id)}
-                  data-testid={`button-delete-table-${table.id}`}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Excluir Mesa
-                </Button>
-              </CardContent>
-            </Card>
+          {filteredTables.map((table) => (
+            <TableCard
+              key={table.id}
+              table={table}
+              onClick={() => setSelectedTable(table)}
+            />
           ))}
         </div>
       ) : (
@@ -247,15 +268,20 @@ export default function Tables() {
           <CardContent className="flex flex-col items-center justify-center py-16">
             <QrCodeIcon className="h-16 w-16 text-muted-foreground mb-4" />
             <p className="text-xl font-semibold text-foreground mb-2">
-              Nenhuma mesa cadastrada
+              {statusFilter === 'all' ? 'Nenhuma mesa cadastrada' : 'Nenhuma mesa neste status'}
             </p>
             <p className="text-muted-foreground mb-6">
-              Crie sua primeira mesa para começar a gerar QR codes
+              {statusFilter === 'all' 
+                ? 'Crie sua primeira mesa para começar a gerar QR codes'
+                : 'Não há mesas com este status no momento'
+              }
             </p>
-            <Button onClick={() => setIsCreateOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Criar Primeira Mesa
-            </Button>
+            {statusFilter === 'all' && (
+              <Button onClick={() => setIsCreateOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Criar Primeira Mesa
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -305,6 +331,13 @@ export default function Tables() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Table Details Dialog */}
+      <TableDetailsDialog
+        open={!!selectedTable}
+        onOpenChange={(open) => !open && setSelectedTable(null)}
+        table={selectedTable}
+      />
     </div>
   );
 }

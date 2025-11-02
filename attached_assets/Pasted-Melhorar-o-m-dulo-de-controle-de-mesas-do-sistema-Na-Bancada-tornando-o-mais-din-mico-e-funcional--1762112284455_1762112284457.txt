@@ -1,0 +1,126 @@
+Melhorar o módulo de controle de mesas do sistema Na Bancada, tornando-o mais dinâmico e funcional, permitindo gerenciar o ciclo completo de cada mesa — desde a ocupação até o encerramento da conta.
+
+
+---
+
+🔹 Objetivo
+
+Transformar o controle de mesas em um painel interativo de gestão em tempo real, onde o administrador e a equipe possam visualizar o estado de cada mesa, acompanhar pedidos, controlar a conta e liberar a mesa após o pagamento.
+
+
+---
+
+🔹 Requisitos funcionais principais
+
+1. Gestão de estado da mesa:
+
+Cada mesa deve ter um estado definido:
+
+🟢 Livre / Disponível
+
+🟠 Ocupada / Com cliente
+
+🔵 Comanda em andamento / Pedido em preparo
+
+🔴 Aguardando pagamento
+
+⚫ Encerrada
+
+
+O estado muda automaticamente conforme as ações (ex: ao fazer pedido → passa para ocupada).
+
+
+
+2. Painel de controle das mesas (admin e cozinha):
+
+Exibir todas as mesas em grade (cards), com nome/número, status, total de consumo, e última atualização.
+
+Permitir:
+
+Clicar na mesa para abrir os detalhes (pedidos, total, clientes, observações);
+
+Atualizar manualmente o estado da mesa;
+
+Encerrar a conta e liberar a mesa.
+
+
+
+
+3. Controle financeiro da mesa:
+
+Exibir total de consumo da mesa com base nos pedidos feitos.
+
+Permitir registrar pagamentos parciais ou totais (dinheiro, multicaixa, transferência, etc.).
+
+Opção de dividir conta por cliente (opcional para futuras versões).
+
+Ao encerrar a conta, gerar automaticamente o relatório do consumo.
+
+
+
+4. Vinculação com pedidos:
+
+Todos os pedidos feitos por QR Code ou manualmente ficam associados à mesa correspondente.
+
+A cozinha e o atendimento podem identificar de que mesa veio o pedido.
+
+
+
+5. Ocupação automática:
+
+Quando um cliente escaneia o QR Code da mesa e faz um pedido, o sistema marca automaticamente a mesa como “Ocupada”.
+
+Quando todos os pedidos são concluídos e a conta é paga, a mesa é liberada para “Disponível”.
+
+
+
+6. Histórico e auditoria:
+
+Manter histórico de cada mesa (últimos pedidos, total gasto, horários de ocupação).
+
+Permitir consultar o histórico das mesas por data ou período.
+
+
+
+
+
+---
+
+🔹 Requisitos técnicos e visuais
+
+Criar um painel visual interativo, com indicadores de cores e filtros por status (livres, ocupadas, aguardando, encerradas).
+
+Adicionar botão “Encerrar Mesa” com confirmação e geração automática do resumo da conta.
+
+Todas as alterações devem ser refletidas em tempo real via WebSockets, garantindo sincronização entre cozinha, atendimento e admin.
+
+Interface totalmente responsiva, priorizando experiência fluida no mobile.
+
+
+
+---
+
+🔹 Fluxo ideal da mesa
+
+1. Mesa criada no painel → status “Disponível”
+
+
+2. Cliente escaneia QR Code → faz pedido → status muda para “Ocupada”
+
+
+3. Cozinha conclui o pedido → status “Aguardando pagamento”
+
+
+4. Atendente confirma pagamento → status “Encerrada”
+
+
+5. Mesa liberada → volta para “Disponível”
+
+
+
+
+---
+
+🔹 Objetivo final
+
+Criar uma gestão completa de mesas em tempo real, que melhore o atendimento, reduza erros e traga mais controle ao restaurante — desde a ocupação até o fechamento da conta, tudo de forma visual e automática.
