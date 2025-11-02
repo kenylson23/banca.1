@@ -510,6 +510,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTable(restaurantId: string, branchId: string | null, table: { number: number; qrCode: string }): Promise<Table> {
+    // Check if a table with the same number already exists in this restaurant/branch
+    const conditions = branchId 
+      ? and(
+          eq(tables.restaurantId, restaurantId),
+          eq(tables.branchId, branchId),
+          eq(tables.number, table.number)
+        )
+      : and(
+          eq(tables.restaurantId, restaurantId),
+          eq(tables.number, table.number)
+        );
+    
+    const [existingTable] = await db.select().from(tables).where(conditions);
+    
+    if (existingTable) {
+      throw new Error(`Já existe uma mesa com o número ${table.number} nesta ${branchId ? 'filial' : 'unidade'}`);
+    }
+
     const [newTable] = await db.insert(tables).values({
       restaurantId,
       branchId,

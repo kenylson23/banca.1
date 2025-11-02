@@ -778,8 +778,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const restaurantId = currentUser.restaurantId!;
       const data = insertTableSchema.parse(req.body);
       
-      // Generate QR code
-      const qrCodeUrl = `https://${req.hostname}/mesa/${data.number}`;
+      // Generate QR code with proper domain handling
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+        : `https://${req.hostname}`;
+      const qrCodeUrl = `${baseUrl}/mesa/${data.number}`;
       const qrCode = await QRCode.toDataURL(qrCodeUrl, {
         width: 300,
         margin: 2,
@@ -799,7 +802,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      res.status(500).json({ message: "Failed to create table" });
+      if (error instanceof Error) {
+        return res.status(400).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Erro ao criar mesa" });
     }
   });
 
