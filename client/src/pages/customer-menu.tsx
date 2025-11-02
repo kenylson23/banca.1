@@ -21,6 +21,7 @@ import type { SelectedOption } from '@/contexts/CartContext';
 import { MapPin, Phone, Clock as ClockIcon } from 'lucide-react';
 import { Link } from 'wouter';
 import { CustomerMenuItemOptionsDialog } from '@/components/CustomerMenuItemOptionsDialog';
+import { ShareOrderDialog } from '@/components/ShareOrderDialog';
 
 export default function CustomerMenu() {
   const [, params] = useRoute('/mesa/:tableNumber');
@@ -31,6 +32,8 @@ export default function CustomerMenu() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItem | null>(null);
+  const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: currentTable, isLoading: tableLoading } = useQuery<any>({
@@ -105,9 +108,12 @@ export default function CustomerMenu() {
         items: orderData.items,
       };
       
-      return apiRequest('POST', '/api/public/orders', requestBody);
+      const response = await apiRequest('POST', '/api/public/orders', requestBody);
+      return await response.json();
     },
     onSuccess: (data) => {
+      setCreatedOrder(data);
+      setIsShareDialogOpen(true);
       toast({
         title: 'Pedido enviado!',
         description: 'Seu pedido foi enviado para a cozinha.',
@@ -695,6 +701,13 @@ export default function CustomerMenu() {
           }}
         />
       )}
+
+      <ShareOrderDialog
+        open={isShareDialogOpen}
+        onOpenChange={setIsShareDialogOpen}
+        order={createdOrder}
+        restaurantName={restaurant?.name || ''}
+      />
     </div>
   );
 }

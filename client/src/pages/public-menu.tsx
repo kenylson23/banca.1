@@ -16,10 +16,11 @@ import { useToast } from '@/hooks/use-toast';
 import { ShoppingCart, Plus, Minus, Trash2, MapPin, Phone, Clock, Bike, ShoppingBag, PackageSearch } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { formatKwanza } from '@/lib/formatters';
-import type { MenuItem, Category, Restaurant } from '@shared/schema';
+import type { MenuItem, Category, Restaurant, Order } from '@shared/schema';
 import { Link } from 'wouter';
 import { CustomerMenuItemOptionsDialog } from '@/components/CustomerMenuItemOptionsDialog';
 import type { SelectedOption } from '@/contexts/CartContext';
+import { ShareOrderDialog } from '@/components/ShareOrderDialog';
 
 export default function PublicMenu() {
   const [, params] = useRoute('/r/:slug');
@@ -32,6 +33,8 @@ export default function PublicMenu() {
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItem | null>(null);
   const [isOptionsDialogOpen, setIsOptionsDialogOpen] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
@@ -66,7 +69,7 @@ export default function PublicMenu() {
       }>;
     }) => {
       const totalAmount = orderData.items.reduce((sum, item) => sum + parseFloat(item.price) * item.quantity, 0).toFixed(2);
-      return apiRequest('POST', '/api/public/orders', {
+      const response = await apiRequest('POST', '/api/public/orders', {
         restaurantId: orderData.restaurantId,
         orderType: orderData.orderType,
         customerName: orderData.customerName,
@@ -76,8 +79,11 @@ export default function PublicMenu() {
         totalAmount,
         items: orderData.items,
       });
+      return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      setCreatedOrder(data);
+      setIsShareDialogOpen(true);
       toast({
         title: 'Pedido enviado!',
         description: orderType === 'delivery' 
@@ -475,6 +481,14 @@ export default function PublicMenu() {
           onAddToCart={handleAddToCart}
         />
       )}
+
+      <ShareOrderDialog
+        open={isShareDialogOpen}
+        onOpenChange={setIsShareDialogOpen}
+        order={createdOrder}
+        restaurantName={restaurant?.name || ''}
+        restaurantSlug={slug}
+      />
     </div>
   );
 }
