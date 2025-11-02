@@ -69,16 +69,9 @@ export function TableDetailsDialog({ open, onOpenChange, table }: TableDetailsDi
   const [paymentMethod, setPaymentMethod] = useState('dinheiro');
   const [showEndSessionDialog, setShowEndSessionDialog] = useState(false);
 
-  if (!table) return null;
-
-  const activeOrders = table.orders?.filter(
-    (o) => ['pendente', 'em_preparo', 'pronto'].includes(o.status)
-  ) || [];
-  
-  const totalAmount = parseFloat(table.totalAmount || '0');
-  
   const startSessionMutation = useMutation({
     mutationFn: async () => {
+      if (!table) return;
       const res = await apiRequest('POST', `/api/tables/${table.id}/start-session`, {
         customerName: customerName.trim() || undefined,
         customerCount: customerCount ? parseInt(customerCount) : undefined,
@@ -102,6 +95,7 @@ export function TableDetailsDialog({ open, onOpenChange, table }: TableDetailsDi
 
   const updateStatusMutation = useMutation({
     mutationFn: async (newStatus: string) => {
+      if (!table) return;
       const res = await apiRequest('PATCH', `/api/tables/${table.id}/status`, {
         status: newStatus,
       });
@@ -122,6 +116,7 @@ export function TableDetailsDialog({ open, onOpenChange, table }: TableDetailsDi
 
   const addPaymentMutation = useMutation({
     mutationFn: async () => {
+      if (!table) return;
       const amount = parseFloat(paymentAmount);
       if (isNaN(amount) || amount <= 0) {
         throw new Error('Valor inválido');
@@ -149,6 +144,7 @@ export function TableDetailsDialog({ open, onOpenChange, table }: TableDetailsDi
 
   const endSessionMutation = useMutation({
     mutationFn: async () => {
+      if (!table) return;
       const res = await apiRequest('POST', `/api/tables/${table.id}/end-session`, {});
       return await res.json();
     },
@@ -166,6 +162,14 @@ export function TableDetailsDialog({ open, onOpenChange, table }: TableDetailsDi
       });
     },
   });
+
+  if (!table) return null;
+
+  const activeOrders = table.orders?.filter(
+    (o) => ['pendente', 'em_preparo', 'pronto'].includes(o.status)
+  ) || [];
+  
+  const totalAmount = parseFloat(table.totalAmount || '0');
 
   return (
     <>
