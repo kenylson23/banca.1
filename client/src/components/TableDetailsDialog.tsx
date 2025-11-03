@@ -256,12 +256,22 @@ export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: Tabl
                         <CardTitle className="text-base">Informações</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
+                        {table.capacity && (
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">
+                              Capacidade: {table.capacity} pessoas
+                            </span>
+                          </div>
+                        )}
                         {table.customerName && (
                           <div className="flex items-center gap-2">
                             <Users className="h-4 w-4 text-muted-foreground" />
                             <span className="font-medium">{table.customerName}</span>
                             {table.customerCount && table.customerCount > 0 && (
-                              <span className="text-muted-foreground">({table.customerCount} pessoas)</span>
+                              <span className="text-muted-foreground">
+                                ({table.customerCount}{table.capacity ? `/${table.capacity}` : ''} pessoas)
+                              </span>
                             )}
                           </div>
                         )}

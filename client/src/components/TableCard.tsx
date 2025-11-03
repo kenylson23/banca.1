@@ -108,7 +108,9 @@ export function TableCard({ table, onClick, onShowQrCode }: TableCardProps) {
                   <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <span className="truncate">{table.customerName}</span>
                   {table.customerCount && table.customerCount > 0 && (
-                    <span className="text-muted-foreground">({table.customerCount})</span>
+                    <span className="text-muted-foreground">
+                      ({table.customerCount}{table.capacity ? `/${table.capacity}` : ''})
+                    </span>
                   )}
                 </div>
               )}
@@ -136,7 +138,13 @@ export function TableCard({ table, onClick, onShowQrCode }: TableCardProps) {
 
         {table.status === 'livre' && (
           <div className="text-sm text-muted-foreground text-center py-2">
-            Mesa disponível
+            <div>Mesa disponível</div>
+            {table.capacity && (
+              <div className="flex items-center justify-center gap-1 mt-1">
+                <Users className="h-3 w-3" />
+                <span className="text-xs">Capacidade: {table.capacity} pessoas</span>
+              </div>
+            )}
           </div>
         )}
 
