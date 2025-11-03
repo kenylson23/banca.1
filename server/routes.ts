@@ -791,6 +791,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const branchId = currentUser.activeBranchId || null;
       const table = await storage.createTable(restaurantId, branchId, {
         number: data.number,
+        capacity: data.capacity,
         qrCode,
       });
 

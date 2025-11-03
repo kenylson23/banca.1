@@ -509,7 +509,7 @@ export class DatabaseStorage implements IStorage {
     return table;
   }
 
-  async createTable(restaurantId: string, branchId: string | null, table: { number: number; qrCode: string }): Promise<Table> {
+  async createTable(restaurantId: string, branchId: string | null, table: { number: number; qrCode: string; capacity?: number }): Promise<Table> {
     // Check if a table with the same number already exists in this restaurant/branch
     const conditions = branchId 
       ? and(
