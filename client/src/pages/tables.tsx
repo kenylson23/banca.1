@@ -366,6 +366,7 @@ export default function Tables() {
         open={!!selectedTable}
         onOpenChange={(open) => !open && setSelectedTable(null)}
         table={selectedTable}
+        onDelete={setDeleteTableId}
       />
     </div>
   );

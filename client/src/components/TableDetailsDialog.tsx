@@ -25,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Users, DollarSign, Clock, CheckCircle2, XCircle, Receipt } from 'lucide-react';
+import { Users, DollarSign, Clock, CheckCircle2, XCircle, Receipt, Trash2 } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -39,6 +39,7 @@ interface TableDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   table: (Table & { orders?: any[] }) | null;
+  onDelete?: (tableId: string) => void;
 }
 
 const getStatusLabel = (status: string) => {
@@ -62,7 +63,7 @@ const getOrderStatusLabel = (status: string) => {
   return labels[status] || status;
 };
 
-export function TableDetailsDialog({ open, onOpenChange, table }: TableDetailsDialogProps) {
+export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: TableDetailsDialogProps) {
   const { toast } = useToast();
   const [customerName, setCustomerName] = useState('');
   const [customerCount, setCustomerCount] = useState('');
@@ -177,10 +178,25 @@ export function TableDetailsDialog({ open, onOpenChange, table }: TableDetailsDi
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>Mesa {table.number}</span>
-              <Badge className="ml-2">{getStatusLabel(table.status || 'livre')}</Badge>
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <DialogTitle>Mesa {table.number}</DialogTitle>
+                <Badge>{getStatusLabel(table.status || 'livre')}</Badge>
+              </div>
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    onDelete(table.id);
+                    onOpenChange(false);
+                  }}
+                  data-testid="button-delete-table"
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              )}
+            </div>
             <DialogDescription>
               Gerencie a mesa, pedidos e pagamentos
             </DialogDescription>
