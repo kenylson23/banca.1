@@ -175,6 +175,7 @@ export const tables = pgTable("tables", {
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
   number: integer("number").notNull(),
+  capacity: integer("capacity").default(4),
   qrCode: text("qr_code").notNull(),
   status: tableStatusEnum("status").notNull().default('livre'),
   currentSessionId: varchar("current_session_id"),
@@ -201,6 +202,7 @@ export const insertTableSchema = createInsertSchema(tables).omit({
   createdAt: true,
 }).extend({
   number: z.number().int().positive("O número da mesa deve ser maior que zero"),
+  capacity: z.number().int().positive("A capacidade deve ser maior que zero").optional(),
 });
 
 export const updateTableStatusSchema = z.object({
