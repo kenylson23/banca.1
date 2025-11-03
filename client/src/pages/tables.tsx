@@ -41,6 +41,7 @@ export default function Tables() {
   const [qrDialogTable, setQrDialogTable] = useState<Table | null>(null);
   const [deleteTableId, setDeleteTableId] = useState<string | null>(null);
   const [tableNumber, setTableNumber] = useState("");
+  const [tableCapacity, setTableCapacity] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedTable, setSelectedTable] = useState<(Table & { orders?: any[] }) | null>(null);
 
@@ -67,8 +68,8 @@ export default function Tables() {
   useWebSocket(handleWebSocketMessage);
 
   const createMutation = useMutation({
-    mutationFn: async (number: number) => {
-      await apiRequest("POST", "/api/tables", { number });
+    mutationFn: async (data: { number: number; capacity?: number }) => {
+      await apiRequest("POST", "/api/tables", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tables/with-orders"] });
@@ -78,6 +79,7 @@ export default function Tables() {
       });
       setIsCreateOpen(false);
       setTableNumber("");
+      setTableCapacity("");
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
@@ -142,7 +144,18 @@ export default function Tables() {
       });
       return;
     }
-    createMutation.mutate(number);
+    
+    const capacity = tableCapacity ? parseInt(tableCapacity) : undefined;
+    if (capacity !== undefined && (isNaN(capacity) || capacity <= 0)) {
+      toast({
+        title: "Capacidade inválida",
+        description: "Por favor, insira uma capacidade válida.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    createMutation.mutate({ number, capacity });
   };
 
   const handleDownloadQR = (table: Table) => {
@@ -192,21 +205,36 @@ export default function Tables() {
               <DialogHeader>
                 <DialogTitle>Criar Nova Mesa</DialogTitle>
                 <DialogDescription>
-                  Digite o número da mesa. Um QR code único será gerado automaticamente.
+                  Digite o número da mesa e a capacidade. Um QR code único será gerado automaticamente.
                 </DialogDescription>
               </DialogHeader>
-              <div className="py-4">
-                <Label htmlFor="tableNumber">Número da Mesa</Label>
-                <Input
-                  id="tableNumber"
-                  type="number"
-                  min="1"
-                  placeholder="Ex: 1"
-                  value={tableNumber}
-                  onChange={(e) => setTableNumber(e.target.value)}
-                  data-testid="input-table-number"
-                  className="mt-2"
-                />
+              <div className="py-4 space-y-4">
+                <div>
+                  <Label htmlFor="tableNumber">Número da Mesa</Label>
+                  <Input
+                    id="tableNumber"
+                    type="number"
+                    min="1"
+                    placeholder="Ex: 1"
+                    value={tableNumber}
+                    onChange={(e) => setTableNumber(e.target.value)}
+                    data-testid="input-table-number"
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="tableCapacity">Capacidade (Pessoas)</Label>
+                  <Input
+                    id="tableCapacity"
+                    type="number"
+                    min="1"
+                    placeholder="Ex: 4"
+                    value={tableCapacity}
+                    onChange={(e) => setTableCapacity(e.target.value)}
+                    data-testid="input-table-capacity"
+                    className="mt-2"
+                  />
+                </div>
               </div>
               <DialogFooter>
                 <Button
