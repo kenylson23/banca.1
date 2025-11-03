@@ -200,9 +200,16 @@ export default function Kitchen() {
         }
       }
 
+      const firstOrder = newOrders[0];
+      const orderLabel = firstOrder?.table 
+        ? `Mesa ${firstOrder.table.number}`
+        : firstOrder?.orderType === 'delivery'
+        ? 'Pedido Delivery'
+        : 'Pedido para Retirada';
+      
       toast({
         title: "Novo Pedido!",
-        description: `Mesa ${newOrders[0]?.table.number || 'N/A'} fez um novo pedido`,
+        description: `${orderLabel} recebido`,
       });
 
       // Clear highlight after 5 seconds

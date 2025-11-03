@@ -249,7 +249,10 @@ export default function Dashboard() {
                     data-testid={`order-recent-${order.id}`}
                   >
                     <div>
-                      <p className="font-medium font-mono">Mesa {order.table.number}</p>
+                      <p className="font-medium font-mono">
+                        {order.table ? `Mesa ${order.table.number}` : 
+                         order.orderType === 'delivery' ? 'Delivery' : 'Retirada'}
+                      </p>
                       <p className="text-sm text-muted-foreground">
                         {new Date(order.createdAt!).toLocaleTimeString('pt-BR', {
                           hour: '2-digit',
