@@ -10,6 +10,7 @@ import type { Table } from '@shared/schema';
 interface TableCardProps {
   table: Table & { orders?: any[] };
   onClick: () => void;
+  onShowQrCode: (table: Table & { orders?: any[] }) => void;
 }
 
 const getStatusConfig = (status: string) => {
@@ -59,7 +60,7 @@ const getStatusConfig = (status: string) => {
   }
 };
 
-export function TableCard({ table, onClick }: TableCardProps) {
+export function TableCard({ table, onClick, onShowQrCode }: TableCardProps) {
   const statusConfig = getStatusConfig(table.status || 'livre');
   const orderCount = table.orders?.length || 0;
 
@@ -74,7 +75,18 @@ export function TableCard({ table, onClick }: TableCardProps) {
           <CardTitle className="text-lg">Mesa {table.number}</CardTitle>
           <div className={`h-2.5 w-2.5 rounded-full ${statusConfig.color}`} />
         </div>
-        <QrCodeIcon className="h-4 w-4 text-muted-foreground" />
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            onShowQrCode(table);
+          }}
+          data-testid={`button-show-qr-${table.id}`}
+          className="h-8 w-8"
+        >
+          <QrCodeIcon className="h-4 w-4" />
+        </Button>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-center justify-between">

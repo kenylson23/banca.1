@@ -260,6 +260,7 @@ export default function Tables() {
               key={table.id}
               table={table}
               onClick={() => setSelectedTable(table)}
+              onShowQrCode={setQrDialogTable}
             />
           ))}
         </div>
