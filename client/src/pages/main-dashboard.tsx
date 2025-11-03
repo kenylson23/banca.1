@@ -65,12 +65,18 @@ export default function MainDashboard({ section }: MainDashboardProps) {
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
+      <a href="#main-content" className="skip-to-content">
+        Pular para o conteúdo principal
+      </a>
       <div className="flex h-screen w-full">
         <AppSidebar currentSection={currentSection} />
         <div className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center justify-between p-4 border-b bg-background">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <h2 className="text-xl font-semibold capitalize" data-testid="text-current-section">
+          <header className="flex items-center justify-between p-4 border-b bg-background" role="banner">
+            <SidebarTrigger 
+              data-testid="button-sidebar-toggle" 
+              aria-label="Abrir menu lateral"
+            />
+            <h1 className="text-xl font-semibold capitalize" data-testid="text-current-section">
               {currentSection === "dashboard" ? "Dashboard" :
                currentSection === "tables" ? "Mesas" :
                currentSection === "menu" ? "Menu" :
@@ -81,10 +87,10 @@ export default function MainDashboard({ section }: MainDashboardProps) {
                currentSection === "profile" ? "Perfil" :
                currentSection === "settings" ? "Configurações" :
                currentSection === "superadmin" ? "Super Admin" : ""}
-            </h2>
-            <div className="w-10" />
+            </h1>
+            <div className="w-10" aria-hidden="true" />
           </header>
-          <main className="flex-1 overflow-auto bg-background">
+          <main id="main-content" className="flex-1 overflow-auto bg-background" role="main">
             {renderContent()}
           </main>
         </div>

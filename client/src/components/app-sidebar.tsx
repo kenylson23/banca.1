@@ -108,7 +108,7 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
     : kitchenMenuItems;
 
   return (
-    <Sidebar>
+    <Sidebar role="navigation" aria-label="Menu principal de navegação">
       <SidebarContent>
         <div className="p-4 border-b border-sidebar-border">
           <h1 className="text-xl font-bold text-sidebar-foreground">Na Bancada</h1>
@@ -127,8 +127,10 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
                     isActive={currentSection === item.section}
                     onClick={() => setLocation(item.path)}
                     data-testid={`button-${item.title.toLowerCase()}`}
+                    aria-label={`Navegar para ${item.title}`}
+                    aria-current={currentSection === item.section ? 'page' : undefined}
                   >
-                    <item.icon className="h-4 w-4" />
+                    <item.icon className="h-4 w-4" aria-hidden="true" />
                     <span>{item.title}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -139,9 +141,9 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="p-4 border-t border-sidebar-border space-y-3">
+        <div className="p-4 border-t border-sidebar-border space-y-3" role="contentinfo" aria-label="Informações do usuário">
           <div className="flex items-center gap-3">
-            <Avatar className="h-9 w-9">
+            <Avatar className="h-9 w-9" aria-hidden="true">
               <AvatarFallback>
                 {user?.firstName?.[0] || user?.email?.[0] || "U"}
               </AvatarFallback>
@@ -157,15 +159,16 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
               )}
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2" role="group" aria-label="Ações do usuário">
             <Button
               variant="outline"
               size="sm"
               className="flex-1"
               onClick={() => setLocation("/profile")}
               data-testid="button-profile"
+              aria-label="Ver perfil do usuário"
             >
-              <User className="h-4 w-4 mr-2" />
+              <User className="h-4 w-4 mr-2" aria-hidden="true" />
               Perfil
             </Button>
             <Button
@@ -186,8 +189,9 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
                 }
               }}
               data-testid="button-logout"
+              aria-label="Sair do sistema"
             >
-              <LogOut className="h-4 w-4 mr-2" />
+              <LogOut className="h-4 w-4 mr-2" aria-hidden="true" />
               Sair
             </Button>
           </div>
