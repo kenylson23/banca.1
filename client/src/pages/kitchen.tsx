@@ -286,7 +286,7 @@ export default function Kitchen() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-4 sm:px-6">
         <div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Cozinha</h1>
           <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
@@ -317,9 +317,10 @@ export default function Kitchen() {
         </div>
       </div>
 
-      <Tabs value={selectedStatus} onValueChange={setSelectedStatus}>
-        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <TabsList className="inline-flex w-auto min-w-full sm:w-full">
+      <div className="px-4 sm:px-6">
+        <Tabs value={selectedStatus} onValueChange={setSelectedStatus}>
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <TabsList className="inline-flex w-auto min-w-full sm:w-full">
             <TabsTrigger value="all" data-testid="tab-all-orders" className="whitespace-nowrap">
               <Filter className="h-4 w-4 mr-2" />
               Todos
@@ -336,11 +337,13 @@ export default function Kitchen() {
             <TabsTrigger value="servido" data-testid="tab-served" className="whitespace-nowrap">
               Servido
             </TabsTrigger>
-          </TabsList>
-        </div>
-      </Tabs>
+            </TabsList>
+          </div>
+        </Tabs>
+      </div>
 
-      {isLoading ? (
+      <div className="px-4 sm:px-6">
+        {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
           {[...Array(6)].map((_, i) => (
             <Skeleton key={i} className="h-64" />
@@ -500,9 +503,10 @@ export default function Kitchen() {
           </CardContent>
         </Card>
       )}
+      </div>
 
       {showStats && (
-        <div className="space-y-6 mt-8">
+        <div className="space-y-6 mt-8 px-4 sm:px-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="text-xl sm:text-2xl font-bold">Estatísticas de Produção</h2>
             <Tabs value={statsPeriod} onValueChange={(value) => setStatsPeriod(value as StatsPeriod)}>
