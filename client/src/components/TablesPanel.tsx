@@ -2,9 +2,10 @@ import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Download, QrCode as QrCodeIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -42,7 +43,9 @@ export function TablesPanel() {
   const [deleteTableId, setDeleteTableId] = useState<string | null>(null);
   const [tableNumber, setTableNumber] = useState("");
   const [tableCapacity, setTableCapacity] = useState("");
+  const [tableArea, setTableArea] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [areaFilter, setAreaFilter] = useState<string>('all');
   const [selectedTable, setSelectedTable] = useState<(Table & { orders?: any[] }) | null>(null);
 
   const { data: tables, isLoading } = useQuery<Array<Table & { orders?: any[] }>>({
@@ -67,7 +70,7 @@ export function TablesPanel() {
   useWebSocket(handleWebSocketMessage);
 
   const createMutation = useMutation({
-    mutationFn: async (data: { number: number; capacity?: number }) => {
+    mutationFn: async (data: { number: number; capacity?: number; area?: string }) => {
       await apiRequest("POST", "/api/tables", data);
     },
     onSuccess: () => {
@@ -79,6 +82,7 @@ export function TablesPanel() {
       setIsCreateOpen(false);
       setTableNumber("");
       setTableCapacity("");
+      setTableArea("");
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
@@ -153,8 +157,10 @@ export function TablesPanel() {
       });
       return;
     }
+
+    const area = tableArea.trim() || undefined;
     
-    createMutation.mutate({ number, capacity });
+    createMutation.mutate({ number, capacity, area });
   };
 
   const handleDownloadQR = (table: Table) => {
@@ -171,9 +177,21 @@ export function TablesPanel() {
   };
 
   const filteredTables = tables?.filter((table) => {
-    if (statusFilter === 'all') return true;
-    return table.status === statusFilter;
+    const matchesStatus = statusFilter === 'all' || table.status === statusFilter;
+    const matchesArea = areaFilter === 'all' || (areaFilter === 'sem_area' ? !table.area : table.area === areaFilter);
+    return matchesStatus && matchesArea;
   }) || [];
+
+  const areas = Array.from(new Set(tables?.map(t => t.area).filter((a): a is string => Boolean(a)) || [])).sort();
+  
+  const groupedTables = filteredTables.reduce((acc, table) => {
+    const areaKey = table.area || 'Sem Área';
+    if (!acc[areaKey]) {
+      acc[areaKey] = [];
+    }
+    acc[areaKey].push(table);
+    return acc;
+  }, {} as Record<string, typeof filteredTables>);
 
   const statusCounts = {
     all: tables?.length || 0,
@@ -228,6 +246,18 @@ export function TablesPanel() {
                     className="mt-2"
                   />
                 </div>
+                <div>
+                  <Label htmlFor="tableArea">Área (Opcional)</Label>
+                  <Input
+                    id="tableArea"
+                    type="text"
+                    placeholder="Ex: Salão Principal, Terraço, VIP"
+                    value={tableArea}
+                    onChange={(e) => setTableArea(e.target.value)}
+                    data-testid="input-table-area"
+                    className="mt-2"
+                  />
+                </div>
               </div>
               <DialogFooter>
                 <Button
@@ -243,30 +273,52 @@ export function TablesPanel() {
         </Dialog>
       </div>
 
-      <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 mb-6">
-          <TabsTrigger value="all" data-testid="filter-all">
-            Todas
-            <Badge variant="outline" className="ml-2">{statusCounts.all}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="livre" data-testid="filter-livre">
-            Livres
-            <Badge variant="outline" className="ml-2">{statusCounts.livre}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="ocupada" data-testid="filter-ocupada">
-            Ocupadas
-            <Badge variant="outline" className="ml-2">{statusCounts.ocupada}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="em_andamento" data-testid="filter-em-andamento">
-            Em Andamento
-            <Badge variant="outline" className="ml-2">{statusCounts.em_andamento}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="aguardando_pagamento" data-testid="filter-aguardando">
-            Aguardando
-            <Badge variant="outline" className="ml-2">{statusCounts.aguardando_pagamento}</Badge>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="space-y-4">
+        <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="all" data-testid="filter-all">
+              Todas
+              <Badge variant="outline" className="ml-2">{statusCounts.all}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="livre" data-testid="filter-livre">
+              Livres
+              <Badge variant="outline" className="ml-2">{statusCounts.livre}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="ocupada" data-testid="filter-ocupada">
+              Ocupadas
+              <Badge variant="outline" className="ml-2">{statusCounts.ocupada}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="em_andamento" data-testid="filter-em-andamento">
+              Em Andamento
+              <Badge variant="outline" className="ml-2">{statusCounts.em_andamento}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="aguardando_pagamento" data-testid="filter-aguardando">
+              Aguardando
+              <Badge variant="outline" className="ml-2">{statusCounts.aguardando_pagamento}</Badge>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {areas.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">Filtrar por área:</span>
+            <Select value={areaFilter} onValueChange={setAreaFilter}>
+              <SelectTrigger className="w-[200px]" data-testid="select-area-filter">
+                <SelectValue placeholder="Todas as áreas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" data-testid="area-filter-all">Todas as áreas</SelectItem>
+                {areas.map((area) => (
+                  <SelectItem key={area} value={area} data-testid={`area-filter-${area}`}>
+                    {area}
+                  </SelectItem>
+                ))}
+                <SelectItem value="sem_area" data-testid="area-filter-sem-area">Sem área definida</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </div>
 
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
@@ -275,14 +327,32 @@ export function TablesPanel() {
           ))}
         </div>
       ) : filteredTables.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {filteredTables.map((table) => (
-            <TableCard
-              key={table.id}
-              table={table}
-              onClick={() => setSelectedTable(table)}
-              onShowQrCode={setQrDialogTable}
-            />
+        <div className="space-y-8">
+          {Object.entries(groupedTables).sort(([areaA], [areaB]) => {
+            if (areaA === 'Sem Área') return 1;
+            if (areaB === 'Sem Área') return -1;
+            return areaA.localeCompare(areaB);
+          }).map(([area, areaTables]) => (
+            <div key={area} className="space-y-4">
+              <div className="flex items-center gap-3">
+                <h3 className="text-lg font-semibold text-foreground" data-testid={`area-title-${area}`}>
+                  {area}
+                </h3>
+                <Badge variant="outline" data-testid={`area-count-${area}`}>
+                  {areaTables.length} {areaTables.length === 1 ? 'mesa' : 'mesas'}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                {areaTables.map((table) => (
+                  <TableCard
+                    key={table.id}
+                    table={table}
+                    onClick={() => setSelectedTable(table)}
+                    onShowQrCode={setQrDialogTable}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       ) : (

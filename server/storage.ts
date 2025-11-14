@@ -92,7 +92,7 @@ export interface IStorage {
   getTables(restaurantId: string, branchId?: string | null): Promise<Table[]>;
   getTableById(id: string): Promise<Table | undefined>;
   getTableByNumber(tableNumber: number): Promise<Table | undefined>;
-  createTable(restaurantId: string, branchId: string | null, table: { number: number; qrCode: string; capacity?: number }): Promise<Table>;
+  createTable(restaurantId: string, branchId: string | null, table: { number: number; qrCode: string; capacity?: number; area?: string }): Promise<Table>;
   deleteTable(restaurantId: string, id: string): Promise<void>;
   updateTableOccupancy(restaurantId: string, id: string, isOccupied: boolean): Promise<void>;
 
@@ -509,7 +509,7 @@ export class DatabaseStorage implements IStorage {
     return table;
   }
 
-  async createTable(restaurantId: string, branchId: string | null, table: { number: number; qrCode: string; capacity?: number }): Promise<Table> {
+  async createTable(restaurantId: string, branchId: string | null, table: { number: number; qrCode: string; capacity?: number; area?: string }): Promise<Table> {
     // Check if a table with the same number already exists in this restaurant/branch
     const conditions = branchId 
       ? and(
@@ -531,7 +531,10 @@ export class DatabaseStorage implements IStorage {
     const [newTable] = await db.insert(tables).values({
       restaurantId,
       branchId,
-      ...table,
+      number: table.number,
+      capacity: table.capacity,
+      area: table.area,
+      qrCode: table.qrCode,
     }).returning();
     return newTable;
   }

@@ -182,6 +182,11 @@ export async function ensureTablesExist() {
         ALTER TABLE tables ADD COLUMN capacity INTEGER; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
+      // Add area to tables
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE tables ADD COLUMN area VARCHAR(100); 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
       // Create table_sessions table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS table_sessions (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),

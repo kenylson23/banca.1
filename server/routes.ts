@@ -827,6 +827,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const table = await storage.createTable(restaurantId, branchId, {
         number: data.number,
         capacity: data.capacity,
+        area: data.area,
         qrCode,
       });
 
