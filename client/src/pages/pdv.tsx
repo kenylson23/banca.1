@@ -107,12 +107,12 @@ export default function PDV() {
             {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
             {isOnline ? "Online" : "Offline"}
           </Badge>
-          <Link href="/tables">
-            <Button variant="outline" size="lg" data-testid="button-manage-tables">
+          <Button variant="outline" size="lg" data-testid="button-manage-tables" asChild>
+            <Link href="/tables">
               <Users className="h-4 w-4 mr-2" />
               Mesas
-            </Button>
-          </Link>
+            </Link>
+          </Button>
           {user?.restaurantId && (
             <NewOrderDialog 
               restaurantId={user.restaurantId}

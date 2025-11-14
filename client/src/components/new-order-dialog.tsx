@@ -32,8 +32,12 @@ interface MenuItem {
   id: string;
   name: string;
   price: string;
-  category: string;
-  isAvailable: number;
+  categoryId: string;
+  isAvailable: number | boolean | string;
+  category: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 interface OrderItem {
@@ -346,7 +350,7 @@ export function NewOrderDialog({ trigger, restaurantId }: NewOrderDialogProps) {
                   <div className="space-y-2">
                     <h3 className="text-sm font-medium">Produtos Disponíveis</h3>
                     <div className="grid grid-cols-2 gap-2">
-                      {menuItems.filter(item => item.isAvailable === 1).map((item) => (
+                      {menuItems.filter(item => item.isAvailable === 1 || item.isAvailable === true || item.isAvailable === "1").map((item) => (
                         <Card 
                           key={item.id} 
                           className="hover-elevate cursor-pointer" 
@@ -357,7 +361,7 @@ export function NewOrderDialog({ trigger, restaurantId }: NewOrderDialogProps) {
                             <div className="flex justify-between items-start gap-2">
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-sm truncate">{item.name}</p>
-                                <p className="text-xs text-muted-foreground">{item.category}</p>
+                                <p className="text-xs text-muted-foreground">{item.category?.name ?? "Sem categoria"}</p>
                               </div>
                               <Badge variant="secondary">
                                 {formatKwanza(item.price)}
