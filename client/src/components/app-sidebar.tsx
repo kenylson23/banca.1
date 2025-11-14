@@ -32,12 +32,6 @@ const adminMenuItems = [
     icon: CreditCard,
   },
   {
-    title: "Mesas",
-    section: "tables" as Section,
-    path: "/tables",
-    icon: QrCode,
-  },
-  {
     title: "Menu",
     section: "menu" as Section,
     path: "/menu",

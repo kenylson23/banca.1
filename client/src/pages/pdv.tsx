@@ -1,18 +1,18 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Filter, Search, CreditCard, Truck, ShoppingBag, Users, Wifi, WifiOff } from "lucide-react";
+import { Plus, Filter, Search, CreditCard, Truck, ShoppingBag, Users, Wifi, WifiOff, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { NewOrderDialog } from "@/components/new-order-dialog";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatKwanza } from "@/lib/formatters";
 import { format } from "date-fns";
 import type { Order, OrderItem, MenuItem, Table } from "@shared/schema";
-import { Link } from "wouter";
+import { TablesPanel } from "@/components/TablesPanel";
 
 type OrderType = "all" | "mesa" | "delivery" | "balcao" | "pdv";
 type OrderStatus = "all" | "pendente" | "em_preparo" | "pronto" | "servido";
@@ -51,6 +51,7 @@ const statusLabels = {
 };
 
 export default function PDV() {
+  const [activeTab, setActiveTab] = useState<"pedidos" | "mesas">("pedidos");
   const [selectedType, setSelectedType] = useState<OrderType>("all");
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -95,7 +96,7 @@ export default function PDV() {
             Ponto de Venda
           </h2>
           <p className="text-muted-foreground">
-            Gerir pedidos de balcão, delivery, mesas e PDV
+            Gerir pedidos e mesas do restaurante
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -107,13 +108,7 @@ export default function PDV() {
             {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
             {isOnline ? "Online" : "Offline"}
           </Badge>
-          <Button variant="outline" size="lg" data-testid="button-manage-tables" asChild>
-            <Link href="/tables">
-              <Users className="h-4 w-4 mr-2" />
-              Mesas
-            </Link>
-          </Button>
-          {user?.restaurantId && (
+          {activeTab === "pedidos" && user?.restaurantId && (
             <NewOrderDialog 
               restaurantId={user.restaurantId}
               trigger={
@@ -126,6 +121,20 @@ export default function PDV() {
           )}
         </div>
       </div>
+
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "pedidos" | "mesas")} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="pedidos" data-testid="tab-pedidos">
+            <CreditCard className="h-4 w-4 mr-2" />
+            Pedidos
+          </TabsTrigger>
+          <TabsTrigger value="mesas" data-testid="tab-mesas">
+            <QrCode className="h-4 w-4 mr-2" />
+            Mesas
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pedidos" className="space-y-6 mt-6"  data-testid="content-pedidos">
 
       <Card>
         <CardHeader>
@@ -300,6 +309,12 @@ export default function PDV() {
           </Card>
         )}
       </div>
+        </TabsContent>
+
+        <TabsContent value="mesas" className="mt-6" data-testid="content-mesas">
+          <TablesPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
