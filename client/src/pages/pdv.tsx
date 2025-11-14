@@ -97,8 +97,9 @@ export default function PDV() {
     const total = allTypeOrders.length;
     const pendente = allTypeOrders.filter(o => o.status === "pendente").length;
     const emCurso = allTypeOrders.filter(o => o.status === "em_preparo" || o.status === "pronto").length;
+    const revenue = allTypeOrders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
     
-    return { total, pendente, emCurso };
+    return { total, pendente, emCurso, revenue };
   };
 
   const balcaoCounts = getOrderCounts("balcao");
@@ -228,8 +229,19 @@ export default function PDV() {
     );
   };
 
-  const renderOrderFilters = () => {
-    const counts = getOrderCounts(activeTab);
+  const renderRevenueDisplay = (revenue: number, tabType: OrderType) => {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground">Total:</span>
+        <span className="text-xl font-bold" data-testid={`text-revenue-${tabType}`}>
+          {formatKwanza(revenue)}
+        </span>
+      </div>
+    );
+  };
+
+  const renderOrderFilters = (tabType: OrderType) => {
+    const counts = getOrderCounts(tabType);
     
     return (
       <div className="flex items-center justify-between mb-6">
@@ -270,7 +282,7 @@ export default function PDV() {
               </Badge>
             )}
           </Button>
-          {activeTab === "delivery" && (
+          {tabType === "delivery" && (
             <Button
               variant="ghost"
               size="sm"
@@ -282,6 +294,7 @@ export default function PDV() {
             </Button>
           )}
         </div>
+        {renderRevenueDisplay(counts.revenue, tabType)}
       </div>
     );
   };
@@ -372,16 +385,19 @@ export default function PDV() {
         </TabsList>
 
         <TabsContent value="balcao" className="mt-6" data-testid="content-balcao">
-          {renderOrderFilters()}
+          {renderOrderFilters("balcao")}
           {renderOrdersList()}
         </TabsContent>
 
         <TabsContent value="delivery" className="mt-6" data-testid="content-delivery">
-          {renderOrderFilters()}
+          {renderOrderFilters("delivery")}
           {renderOrdersList()}
         </TabsContent>
 
         <TabsContent value="mesas" className="mt-6" data-testid="content-mesas">
+          <div className="flex items-center justify-end mb-6">
+            {renderRevenueDisplay(mesasCounts.revenue, "mesas")}
+          </div>
           <TablesPanel />
         </TabsContent>
       </Tabs>
