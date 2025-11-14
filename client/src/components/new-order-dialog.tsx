@@ -18,6 +18,7 @@ import { insertOrderSchema, type InsertOrder } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { indexedDB } from "@/lib/indexeddb";
+import { formatKwanza } from "@/lib/formatters";
 
 const newOrderFormSchema = insertOrderSchema.extend({
   orderType: z.enum(["mesa", "delivery", "takeout", "balcao", "pdv"]),
@@ -32,7 +33,7 @@ interface MenuItem {
   name: string;
   price: string;
   category: string;
-  available: boolean;
+  isAvailable: number;
 }
 
 interface OrderItem {
@@ -345,7 +346,7 @@ export function NewOrderDialog({ trigger, restaurantId }: NewOrderDialogProps) {
                   <div className="space-y-2">
                     <h3 className="text-sm font-medium">Produtos Disponíveis</h3>
                     <div className="grid grid-cols-2 gap-2">
-                      {menuItems.filter(item => item.available).map((item) => (
+                      {menuItems.filter(item => item.isAvailable === 1).map((item) => (
                         <Card 
                           key={item.id} 
                           className="hover-elevate cursor-pointer" 
@@ -359,7 +360,7 @@ export function NewOrderDialog({ trigger, restaurantId }: NewOrderDialogProps) {
                                 <p className="text-xs text-muted-foreground">{item.category}</p>
                               </div>
                               <Badge variant="secondary">
-                                R$ {parseFloat(item.price).toFixed(2)}
+                                {formatKwanza(item.price)}
                               </Badge>
                             </div>
                           </CardContent>
@@ -415,7 +416,7 @@ export function NewOrderDialog({ trigger, restaurantId }: NewOrderDialogProps) {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{item.name}</p>
                               <p className="text-xs text-muted-foreground">
-                                R$ {item.price.toFixed(2)}
+                                {formatKwanza(item.price)}
                               </p>
                             </div>
                             <Button
@@ -451,7 +452,7 @@ export function NewOrderDialog({ trigger, restaurantId }: NewOrderDialogProps) {
                               <Plus className="h-3 w-3" />
                             </Button>
                             <span className="text-sm ml-auto font-medium" data-testid={`subtotal-${item.menuItemId}`}>
-                              R$ {(item.price * item.quantity).toFixed(2)}
+                              {formatKwanza(item.price * item.quantity)}
                             </span>
                           </div>
                         </div>
@@ -465,11 +466,11 @@ export function NewOrderDialog({ trigger, restaurantId }: NewOrderDialogProps) {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Subtotal</span>
-                    <span data-testid="text-subtotal">R$ {totalAmount.toFixed(2)}</span>
+                    <span data-testid="text-subtotal">{formatKwanza(totalAmount)}</span>
                   </div>
                   <div className="flex justify-between font-semibold text-lg">
                     <span>Total</span>
-                    <span data-testid="text-total">R$ {totalAmount.toFixed(2)}</span>
+                    <span data-testid="text-total">{formatKwanza(totalAmount)}</span>
                   </div>
                 </div>
               </CardContent>
