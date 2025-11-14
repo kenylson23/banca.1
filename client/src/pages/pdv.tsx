@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatKwanza } from "@/lib/formatters";
 import { format } from "date-fns";
 import type { Order, OrderItem, MenuItem, Table } from "@shared/schema";
+import { Link } from "wouter";
 
 type OrderType = "all" | "mesa" | "delivery" | "balcao" | "pdv";
 type OrderStatus = "all" | "pendente" | "em_preparo" | "pronto" | "servido";
@@ -106,6 +107,12 @@ export default function PDV() {
             {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
             {isOnline ? "Online" : "Offline"}
           </Badge>
+          <Link href="/tables">
+            <Button variant="outline" size="lg" data-testid="button-manage-tables">
+              <Users className="h-4 w-4 mr-2" />
+              Mesas
+            </Button>
+          </Link>
           {user?.restaurantId && (
             <NewOrderDialog 
               restaurantId={user.restaurantId}
