@@ -104,7 +104,7 @@ export function NewOrderDialog({ trigger, restaurantId }: NewOrderDialogProps) {
       const orderItems = cart.map(item => ({
         menuItemId: item.menuItemId,
         quantity: item.quantity,
-        unitPrice: item.price.toString(),
+        price: item.price.toString(),
         notes: "",
         selectedOptions: [],
       }));
