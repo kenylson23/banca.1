@@ -719,10 +719,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { items, ...orderData } = req.body;
       
       
-      const validatedOrder = insertOrderSchema.parse(orderData);
+      let validatedOrder = insertOrderSchema.parse(orderData);
       
       const validatedItems = z.array(publicOrderItemSchema).parse(items);
 
+      // Derive orderType from context if not explicitly provided
+      if (!validatedOrder.orderType) {
+        if (validatedOrder.tableId) {
+          validatedOrder = { ...validatedOrder, orderType: 'mesa' };
+        } else if (validatedOrder.deliveryAddress) {
+          validatedOrder = { ...validatedOrder, orderType: 'delivery' };
+        } else {
+          validatedOrder = { ...validatedOrder, orderType: 'takeout' };
+        }
+      }
+
+      // Validate based on order type
       if (validatedOrder.orderType === 'mesa') {
         if (!validatedOrder.tableId) {
           return res.status(400).json({ message: "Mesa é obrigatória para pedidos do tipo mesa" });
@@ -733,8 +745,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      if (validatedOrder.orderType === 'delivery' && !validatedOrder.deliveryAddress) {
-        return res.status(400).json({ message: "Endereço de entrega é obrigatório para delivery" });
+      if (validatedOrder.orderType === 'delivery') {
+        if (!validatedOrder.deliveryAddress) {
+          return res.status(400).json({ message: "Endereço de entrega é obrigatório para delivery" });
+        }
+        if (!validatedOrder.customerName?.trim()) {
+          return res.status(400).json({ message: "Nome é obrigatório para delivery" });
+        }
+        if (!validatedOrder.customerPhone?.trim()) {
+          return res.status(400).json({ message: "Telefone é obrigatório para delivery" });
+        }
+        if (validatedOrder.tableId) {
+          return res.status(400).json({ message: "Pedidos delivery não podem estar associados a uma mesa" });
+        }
+      }
+
+      if (validatedOrder.orderType === 'takeout') {
+        if (!validatedOrder.customerName?.trim()) {
+          return res.status(400).json({ message: "Nome é obrigatório para retirada" });
+        }
+        if (!validatedOrder.customerPhone?.trim()) {
+          return res.status(400).json({ message: "Telefone é obrigatório para retirada" });
+        }
+        if (validatedOrder.tableId) {
+          return res.status(400).json({ message: "Pedidos para retirada não podem estar associados a uma mesa" });
+        }
       }
 
       const order = await storage.createOrder(validatedOrder, validatedItems);

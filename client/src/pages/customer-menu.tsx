@@ -100,6 +100,7 @@ export default function CustomerMenu() {
       const requestBody = {
         restaurantId: orderData.restaurantId,
         tableId: orderData.tableId,
+        orderType: 'mesa',
         customerName: orderData.customerName,
         customerPhone: orderData.customerPhone,
         orderNotes: orderData.orderNotes || undefined,

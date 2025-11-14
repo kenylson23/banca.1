@@ -110,7 +110,7 @@ export interface IStorage {
   deleteMenuItem(restaurantId: string, id: string): Promise<void>;
 
   // Order operations
-  getKitchenOrders(restaurantId: string, branchId?: string | null): Promise<Array<Order & { table: Table; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
+  getKitchenOrders(restaurantId: string, branchId?: string | null): Promise<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> }>>;
   getRecentOrders(restaurantId: string, branchId: string | null, limit: number): Promise<Array<Order & { table: { number: number } }>>;
   getOrdersByTableId(restaurantId: string, tableId: string): Promise<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
   searchOrders(restaurantId: string, searchTerm: string): Promise<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
@@ -899,7 +899,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Order operations
-  async getKitchenOrders(restaurantId: string, branchId?: string | null): Promise<Array<Order & { table: Table; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>> {
+  async getKitchenOrders(restaurantId: string, branchId?: string | null): Promise<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> }>> {
     let allOrders;
     if (branchId) {
       allOrders = await db
@@ -945,7 +945,7 @@ export class DatabaseStorage implements IStorage {
 
         return {
           ...orderRow.orders,
-          table: orderRow.tables!,
+          table: orderRow.tables,
           orderItems: itemsWithOptions,
         };
       })

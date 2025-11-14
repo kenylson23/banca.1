@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, Filter, Volume2, VolumeX, BarChart3, TrendingUp, Package, DollarSign, Printer } from "lucide-react";
+import { Clock, Filter, Volume2, VolumeX, BarChart3, TrendingUp, Package, DollarSign, Printer, UtensilsCrossed, Truck, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,7 @@ type OrderStatus = "pendente" | "em_preparo" | "pronto" | "servido";
 type StatsPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
 
 interface KitchenOrder extends Order {
-  table: Table;
+  table: Table | null;
   orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }>;
 }
 
@@ -204,8 +204,8 @@ export default function Kitchen() {
       const orderLabel = firstOrder?.table 
         ? `Mesa ${firstOrder.table.number}`
         : firstOrder?.orderType === 'delivery'
-        ? 'Pedido Delivery'
-        : 'Pedido para Retirada';
+        ? 'Delivery'
+        : 'Balcão';
       
       toast({
         title: "Novo Pedido!",
@@ -374,12 +374,18 @@ export default function Kitchen() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <CardTitle className="text-xl sm:text-2xl font-mono">
-                        {order.orderType === 'mesa' ? `Mesa ${order.table?.number || '?'}` : 
-                         order.orderType === 'delivery' ? 'Delivery' : 'Retirada'}
+                        {order.orderType === 'mesa' && order.table ? `Mesa ${order.table.number}` : 
+                         order.orderType === 'delivery' ? 'Delivery' : 
+                         order.orderType === 'takeout' ? 'Balcão' : 'Pedido'}
                       </CardTitle>
-                      <Badge variant="outline" className="text-xs">
-                        {order.orderType === 'mesa' ? '🪑 Mesa' : 
-                         order.orderType === 'delivery' ? '🚚 Delivery' : '🚶 Retirada'}
+                      <Badge variant="outline" className="text-xs gap-1">
+                        {order.orderType === 'mesa' ? (
+                          <><UtensilsCrossed className="h-3 w-3" /> Mesa</>
+                        ) : order.orderType === 'delivery' ? (
+                          <><Truck className="h-3 w-3" /> Delivery</>
+                        ) : (
+                          <><ShoppingBag className="h-3 w-3" /> Balcão</>
+                        )}
                       </Badge>
                     </div>
                     <div className="flex flex-col gap-1 mt-2">
