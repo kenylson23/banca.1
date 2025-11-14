@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, RefreshCw, Search, ShoppingBag, Truck, UtensilsCrossed, Map, Wifi, WifiOff } from "lucide-react";
+import { Plus, RefreshCw, Search, ShoppingBag, Truck, UtensilsCrossed, Map, Wifi, WifiOff, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,8 @@ import { TablesPanel } from "@/components/TablesPanel";
 
 type OrderType = "balcao" | "delivery" | "mesas";
 type OrderFilter = "all" | "pendente" | "em_curso";
+type SortField = "date" | "status" | "total" | "customer";
+type SortDirection = "asc" | "desc";
 
 interface PDVOrder extends Order {
   table: Table | null;
@@ -47,6 +49,8 @@ export default function PDV() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [sortField, setSortField] = useState<SortField>("date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -75,8 +79,17 @@ export default function PDV() {
     mesas: "mesa"
   };
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
   const getFilteredOrders = (type: OrderType, filter: OrderFilter) => {
-    return orders?.filter((order) => {
+    let filtered = orders?.filter((order) => {
       const matchesType = order.orderType === typeMapping[type];
       const matchesSearch = !searchQuery || 
         order.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -90,6 +103,29 @@ export default function PDV() {
       
       return true;
     }) || [];
+
+    // Apply sorting
+    return filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortField) {
+        case "date":
+          comparison = new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+          break;
+        case "status":
+          const statusOrder = { pendente: 1, em_preparo: 2, pronto: 3, servido: 4 };
+          comparison = (statusOrder[a.status as keyof typeof statusOrder] || 0) - (statusOrder[b.status as keyof typeof statusOrder] || 0);
+          break;
+        case "total":
+          comparison = Number(a.totalAmount || 0) - Number(b.totalAmount || 0);
+          break;
+        case "customer":
+          comparison = (a.customerName || "").localeCompare(b.customerName || "");
+          break;
+      }
+      
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
   };
 
   const getOrderCounts = (type: OrderType) => {
@@ -240,6 +276,62 @@ export default function PDV() {
     );
   };
 
+  const renderSortHeader = () => {
+    const SortIcon = ({ field }: { field: SortField }) => {
+      if (sortField !== field) {
+        return <ArrowUpDown className="h-4 w-4 opacity-40" />;
+      }
+      return sortDirection === "asc" ? 
+        <ArrowUp className="h-4 w-4" /> : 
+        <ArrowDown className="h-4 w-4" />;
+    };
+
+    return (
+      <div className="grid grid-cols-4 gap-4 mb-4 px-4 py-2 rounded-md bg-muted/50">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="justify-start font-semibold hover-elevate"
+          onClick={() => handleSort("date")}
+          data-testid="sort-date"
+        >
+          DATA
+          <SortIcon field="date" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="justify-start font-semibold hover-elevate"
+          onClick={() => handleSort("status")}
+          data-testid="sort-status"
+        >
+          ESTADO
+          <SortIcon field="status" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="justify-start font-semibold hover-elevate"
+          onClick={() => handleSort("total")}
+          data-testid="sort-total"
+        >
+          TOTAL
+          <SortIcon field="total" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="justify-start font-semibold hover-elevate"
+          onClick={() => handleSort("customer")}
+          data-testid="sort-customer"
+        >
+          CLIENTE
+          <SortIcon field="customer" />
+        </Button>
+      </div>
+    );
+  };
+
   const renderOrderFilters = (tabType: OrderType) => {
     const counts = getOrderCounts(tabType);
     
@@ -386,11 +478,13 @@ export default function PDV() {
 
         <TabsContent value="balcao" className="mt-6" data-testid="content-balcao">
           {renderOrderFilters("balcao")}
+          {renderSortHeader()}
           {renderOrdersList()}
         </TabsContent>
 
         <TabsContent value="delivery" className="mt-6" data-testid="content-delivery">
           {renderOrderFilters("delivery")}
+          {renderSortHeader()}
           {renderOrdersList()}
         </TabsContent>
 
