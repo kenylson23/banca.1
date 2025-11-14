@@ -2,6 +2,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import Dashboard from "./dashboard";
+import PDV from "./pdv";
 import Tables from "./tables";
 import Menu from "./menu";
 import Kitchen from "./kitchen";
@@ -14,6 +15,7 @@ import SuperAdmin from "./superadmin";
 
 export type Section = 
   | "dashboard" 
+  | "pdv"
   | "tables" 
   | "menu" 
   | "kitchen" 
@@ -40,6 +42,8 @@ export default function MainDashboard({ section }: MainDashboardProps) {
     switch (currentSection) {
       case "dashboard":
         return <Dashboard />;
+      case "pdv":
+        return <PDV />;
       case "tables":
         return <Tables />;
       case "menu":
@@ -78,6 +82,7 @@ export default function MainDashboard({ section }: MainDashboardProps) {
             />
             <h1 className="text-xl font-semibold capitalize" data-testid="text-current-section">
               {currentSection === "dashboard" ? "Dashboard" :
+               currentSection === "pdv" ? "PDV" :
                currentSection === "tables" ? "Mesas" :
                currentSection === "menu" ? "Menu" :
                currentSection === "kitchen" ? "Cozinha" :

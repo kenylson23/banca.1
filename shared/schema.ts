@@ -389,13 +389,14 @@ export type Option = typeof options.$inferSelect;
 export const orderStatusEnum = pgEnum('order_status', ['pendente', 'em_preparo', 'pronto', 'servido']);
 
 // Order Type Enum
-export const orderTypeEnum = pgEnum('order_type', ['mesa', 'delivery', 'takeout']);
+export const orderTypeEnum = pgEnum('order_type', ['mesa', 'delivery', 'takeout', 'balcao', 'pdv']);
 
 // Orders - Pedidos
 export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   tableId: varchar("table_id").references(() => tables.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
   orderType: orderTypeEnum("order_type").notNull().default('mesa'),
   customerName: varchar("customer_name", { length: 200 }),
   customerPhone: varchar("customer_phone", { length: 50 }),
@@ -403,6 +404,10 @@ export const orders = pgTable("orders", {
   orderNotes: text("order_notes"),
   status: orderStatusEnum("status").notNull().default('pendente'),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: varchar("payment_method", { length: 50 }),
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default('0'),
+  isSynced: integer("is_synced").default(1),
+  createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -412,8 +417,14 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   createdAt: true,
   updatedAt: true,
 }).extend({
-  orderType: z.enum(['mesa', 'delivery', 'takeout']).default('mesa'),
+  orderType: z.enum(['mesa', 'delivery', 'takeout', 'balcao', 'pdv']).default('mesa'),
 });
+
+export const updateOrderStatusSchema = z.object({
+  status: z.enum(['pendente', 'em_preparo', 'pronto', 'servido']),
+});
+
+export type UpdateOrderStatus = z.infer<typeof updateOrderStatusSchema>;
 
 export const updateRestaurantSlugSchema = z.object({
   slug: z.string()

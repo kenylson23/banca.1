@@ -1,4 +1,4 @@
-import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield, Building2, Settings, BarChart3 } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield, Building2, Settings, BarChart3, CreditCard } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -24,6 +24,12 @@ const adminMenuItems = [
     section: "dashboard" as Section,
     path: "/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    title: "PDV",
+    section: "pdv" as Section,
+    path: "/pdv",
+    icon: CreditCard,
   },
   {
     title: "Mesas",

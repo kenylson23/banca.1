@@ -23,7 +23,7 @@ export async function ensureTablesExist() {
       await db.execute(sql`DO $$ BEGIN CREATE TYPE restaurant_status AS ENUM ('pendente', 'ativo', 'suspenso'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN CREATE TYPE user_role AS ENUM ('superadmin', 'admin', 'kitchen'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN CREATE TYPE order_status AS ENUM ('pendente', 'em_preparo', 'pronto', 'servido'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql`DO $$ BEGIN CREATE TYPE order_type AS ENUM ('mesa', 'delivery', 'takeout'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN CREATE TYPE order_type AS ENUM ('mesa', 'delivery', 'takeout', 'balcao', 'pdv'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       
       // Create restaurants table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS restaurants (
@@ -255,12 +255,18 @@ export async function ensureTablesExist() {
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         table_id VARCHAR REFERENCES tables(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
         order_type order_type NOT NULL DEFAULT 'mesa',
         customer_name VARCHAR(200), 
         customer_phone VARCHAR(50),
         delivery_address TEXT,
+        order_notes TEXT,
         status order_status NOT NULL DEFAULT 'pendente', 
-        total_amount DECIMAL(10, 2) NOT NULL, 
+        total_amount DECIMAL(10, 2) NOT NULL,
+        payment_method VARCHAR(50),
+        paid_amount DECIMAL(10, 2) DEFAULT 0,
+        is_synced INTEGER DEFAULT 1,
+        created_by VARCHAR REFERENCES users(id),
         created_at TIMESTAMP DEFAULT NOW(), 
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
@@ -281,6 +287,21 @@ export async function ensureTablesExist() {
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE orders ALTER COLUMN table_id DROP NOT NULL; 
       EXCEPTION WHEN others THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN payment_method VARCHAR(50); 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN paid_amount DECIMAL(10, 2) DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN is_synced INTEGER DEFAULT 1; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN created_by VARCHAR REFERENCES users(id); 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Create order_items table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS order_items (

@@ -69,6 +69,13 @@ function Router() {
             return <Redirect to="/" />;
           }} />
           
+          <Route path="/pdv" component={() => {
+            if (user?.role === 'admin') {
+              return <MainDashboard section="pdv" />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
           <Route path="/kitchen" component={() => {
             if (user?.role === 'admin' || user?.role === 'kitchen') {
               return <MainDashboard section="kitchen" />;
