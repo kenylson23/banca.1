@@ -47,6 +47,17 @@ interface OrderItem {
   quantity: number;
 }
 
+interface NormalizedMenuItem extends Omit<MenuItem, 'isAvailable'> {
+  isAvailable: boolean;
+}
+
+function normalizeMenuItem(item: MenuItem): NormalizedMenuItem {
+  return {
+    ...item,
+    isAvailable: item.isAvailable === 1 || item.isAvailable === true || item.isAvailable === "1"
+  };
+}
+
 interface NewOrderDialogProps {
   trigger?: React.ReactNode;
   restaurantId: string;
@@ -57,10 +68,12 @@ export function NewOrderDialog({ trigger, restaurantId }: NewOrderDialogProps) {
   const [cart, setCart] = useState<OrderItem[]>([]);
   const { toast } = useToast();
 
-  const { data: menuItems = [] } = useQuery<MenuItem[]>({
+  const { data: rawMenuItems = [] } = useQuery<MenuItem[]>({
     queryKey: ["/api/menu-items"],
     enabled: open,
   });
+
+  const menuItems: NormalizedMenuItem[] = rawMenuItems.map(normalizeMenuItem);
 
   const { data: tables = [] } = useQuery<{ id: string; number: number; status: string }[]>({
     queryKey: ["/api/tables"],
@@ -350,7 +363,7 @@ export function NewOrderDialog({ trigger, restaurantId }: NewOrderDialogProps) {
                   <div className="space-y-2">
                     <h3 className="text-sm font-medium">Produtos Disponíveis</h3>
                     <div className="grid grid-cols-2 gap-2">
-                      {menuItems.filter(item => item.isAvailable === 1 || item.isAvailable === true || item.isAvailable === "1").map((item) => (
+                      {menuItems.filter(item => item.isAvailable).map((item) => (
                         <Card 
                           key={item.id} 
                           className="hover-elevate cursor-pointer" 
