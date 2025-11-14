@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { NewOrderDialog } from "@/components/new-order-dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -67,8 +68,12 @@ export default function PDV() {
     };
   }, []);
 
-  const { data: orders, isLoading } = useQuery<PDVOrder[]>({
+  const { data: orders = [], isLoading } = useQuery<PDVOrder[]>({
     queryKey: ["/api/orders"],
+  });
+
+  const { data: user } = useQuery<{ restaurantId: string }>({
+    queryKey: ["/api/auth/user"],
   });
 
   const filteredOrders = orders?.filter((order) => {
@@ -101,10 +106,17 @@ export default function PDV() {
             {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
             {isOnline ? "Online" : "Offline"}
           </Badge>
-          <Button size="lg" data-testid="button-new-order">
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Pedido
-          </Button>
+          {user?.restaurantId && (
+            <NewOrderDialog 
+              restaurantId={user.restaurantId}
+              trigger={
+                <Button size="lg" data-testid="button-new-order">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Pedido
+                </Button>
+              }
+            />
+          )}
         </div>
       </div>
 

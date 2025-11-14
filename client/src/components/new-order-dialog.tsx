@@ -1,0 +1,482 @@
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Plus, Minus, X, ShoppingCart } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { insertOrderSchema, type InsertOrder } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { indexedDB } from "@/lib/indexeddb";
+
+const newOrderFormSchema = insertOrderSchema.extend({
+  orderType: z.enum(["mesa", "delivery", "takeout", "balcao", "pdv"]),
+  paymentMethod: z.string().optional(),
+  tableId: z.string().optional(),
+});
+
+type NewOrderForm = z.infer<typeof newOrderFormSchema>;
+
+interface MenuItem {
+  id: string;
+  name: string;
+  price: string;
+  category: string;
+  available: boolean;
+}
+
+interface OrderItem {
+  menuItemId: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+interface NewOrderDialogProps {
+  trigger?: React.ReactNode;
+  restaurantId: string;
+}
+
+export function NewOrderDialog({ trigger, restaurantId }: NewOrderDialogProps) {
+  const [open, setOpen] = useState(false);
+  const [cart, setCart] = useState<OrderItem[]>([]);
+  const { toast } = useToast();
+
+  const { data: menuItems = [] } = useQuery<MenuItem[]>({
+    queryKey: ["/api/menu-items"],
+    enabled: open,
+  });
+
+  const { data: tables = [] } = useQuery<{ id: string; number: number; status: string }[]>({
+    queryKey: ["/api/tables"],
+    enabled: open,
+  });
+
+  const form = useForm<NewOrderForm>({
+    resolver: zodResolver(newOrderFormSchema),
+    defaultValues: {
+      restaurantId,
+      orderType: "balcao",
+      status: "pendente",
+      totalAmount: "0",
+      customerName: "",
+      customerPhone: "",
+      deliveryAddress: "",
+      orderNotes: "",
+      paymentMethod: "dinheiro",
+    },
+  });
+
+  const orderType = form.watch("orderType");
+
+  const createOrderMutation = useMutation({
+    mutationFn: async (data: InsertOrder) => {
+      const isOnline = typeof navigator !== 'undefined' && navigator.onLine;
+      
+      const orderItems = cart.map(item => ({
+        menuItemId: item.menuItemId,
+        quantity: item.quantity,
+        unitPrice: item.price.toString(),
+        notes: "",
+        selectedOptions: [],
+      }));
+      
+      if (isOnline) {
+        const response = await apiRequest("POST", "/api/orders", {
+          ...data,
+          items: orderItems,
+        });
+        return await response.json();
+      } else {
+        const orderId = crypto.randomUUID();
+        const offlineOrder = { ...data, id: orderId } as any;
+        await indexedDB.saveOrder(offlineOrder);
+        const itemsWithOrderId = orderItems.map(item => ({
+          ...item,
+          orderId,
+          id: crypto.randomUUID(),
+        }));
+        await indexedDB.saveOrderItems(itemsWithOrderId as any);
+        return offlineOrder;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({
+        title: "Pedido criado",
+        description: "O pedido foi criado com sucesso.",
+      });
+      setOpen(false);
+      setCart([]);
+      form.reset();
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível criar o pedido.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const addToCart = (item: MenuItem) => {
+    const existing = cart.find((i) => i.menuItemId === item.id);
+    if (existing) {
+      setCart(cart.map((i) => 
+        i.menuItemId === item.id 
+          ? { ...i, quantity: i.quantity + 1 } 
+          : i
+      ));
+    } else {
+      setCart([...cart, {
+        menuItemId: item.id,
+        name: item.name,
+        price: parseFloat(item.price),
+        quantity: 1,
+      }]);
+    }
+  };
+
+  const removeFromCart = (menuItemId: string) => {
+    setCart(cart.filter((i) => i.menuItemId !== menuItemId));
+  };
+
+  const updateQuantity = (menuItemId: string, delta: number) => {
+    setCart(cart.map((i) => {
+      if (i.menuItemId === menuItemId) {
+        const newQuantity = Math.max(0, i.quantity + delta);
+        return newQuantity === 0 ? null : { ...i, quantity: newQuantity };
+      }
+      return i;
+    }).filter(Boolean) as OrderItem[]);
+  };
+
+  const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  const onSubmit = (data: NewOrderForm) => {
+    if (cart.length === 0) {
+      toast({
+        title: "Carrinho vazio",
+        description: "Adicione itens ao pedido antes de finalizar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const orderData: InsertOrder = {
+      ...data,
+      totalAmount: totalAmount.toFixed(2),
+      isSynced: typeof navigator !== 'undefined' && navigator.onLine ? 1 : 0,
+    };
+
+    createOrderMutation.mutate(orderData);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {trigger || (
+          <Button data-testid="button-new-order" size="default">
+            <Plus className="h-4 w-4" />
+            Novo Pedido
+          </Button>
+        )}
+      </DialogTrigger>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Novo Pedido</DialogTitle>
+        </DialogHeader>
+        
+        <div className="flex gap-4 flex-1 overflow-hidden">
+          <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 flex-1 overflow-hidden">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="orderType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo de Pedido</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-order-type">
+                              <SelectValue placeholder="Selecione o tipo" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="balcao">Balcão</SelectItem>
+                            <SelectItem value="pdv">PDV</SelectItem>
+                            <SelectItem value="mesa">Mesa</SelectItem>
+                            <SelectItem value="delivery">Delivery</SelectItem>
+                            <SelectItem value="takeout">Takeout</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {orderType === "mesa" && (
+                    <FormField
+                      control={form.control}
+                      name="tableId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mesa</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-table">
+                                <SelectValue placeholder="Selecione a mesa" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {tables.filter(t => t.status === "disponivel").map((table) => (
+                                <SelectItem key={table.id} value={table.id}>
+                                  Mesa {table.number}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  <FormField
+                    control={form.control}
+                    name="paymentMethod"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Método de Pagamento</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-payment-method">
+                              <SelectValue placeholder="Selecione o método" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                            <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
+                            <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
+                            <SelectItem value="pix">PIX</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {(orderType === "delivery" || orderType === "takeout") && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="customerName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nome do Cliente</FormLabel>
+                          <FormControl>
+                            <Input data-testid="input-customer-name" {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="customerPhone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Telefone</FormLabel>
+                          <FormControl>
+                            <Input data-testid="input-customer-phone" {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+
+                {orderType === "delivery" && (
+                  <FormField
+                    control={form.control}
+                    name="deliveryAddress"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Endereço de Entrega</FormLabel>
+                        <FormControl>
+                          <Textarea data-testid="input-delivery-address" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                <FormField
+                  control={form.control}
+                  name="orderNotes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Observações</FormLabel>
+                      <FormControl>
+                        <Textarea data-testid="input-order-notes" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <ScrollArea className="flex-1">
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium">Produtos Disponíveis</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {menuItems.filter(item => item.available).map((item) => (
+                        <Card 
+                          key={item.id} 
+                          className="hover-elevate cursor-pointer" 
+                          onClick={() => addToCart(item)}
+                          data-testid={`card-menu-item-${item.id}`}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">{item.name}</p>
+                                <p className="text-xs text-muted-foreground">{item.category}</p>
+                              </div>
+                              <Badge variant="secondary">
+                                R$ {parseFloat(item.price).toFixed(2)}
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                </ScrollArea>
+
+                <div className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setOpen(false)}
+                    data-testid="button-cancel"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={createOrderMutation.isPending || cart.length === 0}
+                    data-testid="button-submit-order"
+                    className="flex-1"
+                  >
+                    {createOrderMutation.isPending ? "Criando..." : "Finalizar Pedido"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </div>
+
+          <div className="w-80 flex flex-col gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <ShoppingCart className="h-5 w-5" />
+                  <h3 className="font-semibold">Carrinho</h3>
+                  <Badge variant="secondary" className="ml-auto">
+                    {cart.length} {cart.length === 1 ? 'item' : 'itens'}
+                  </Badge>
+                </div>
+
+                <ScrollArea className="h-64">
+                  <div className="space-y-2">
+                    {cart.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">
+                        Carrinho vazio
+                      </p>
+                    ) : (
+                      cart.map((item) => (
+                        <div key={item.menuItemId} className="flex flex-col gap-2 p-2 rounded-md bg-muted/50">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{item.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                R$ {item.price.toFixed(2)}
+                              </p>
+                            </div>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => removeFromCart(item.menuItemId)}
+                              data-testid={`button-remove-${item.menuItemId}`}
+                              className="h-6 w-6"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              onClick={() => updateQuantity(item.menuItemId, -1)}
+                              data-testid={`button-decrease-${item.menuItemId}`}
+                              className="h-7 w-7"
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="text-sm font-medium w-8 text-center" data-testid={`quantity-${item.menuItemId}`}>
+                              {item.quantity}
+                            </span>
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              onClick={() => updateQuantity(item.menuItemId, 1)}
+                              data-testid={`button-increase-${item.menuItemId}`}
+                              className="h-7 w-7"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                            <span className="text-sm ml-auto font-medium" data-testid={`subtotal-${item.menuItemId}`}>
+                              R$ {(item.price * item.quantity).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+
+                <Separator className="my-4" />
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal</span>
+                    <span data-testid="text-subtotal">R$ {totalAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-lg">
+                    <span>Total</span>
+                    <span data-testid="text-total">R$ {totalAmount.toFixed(2)}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

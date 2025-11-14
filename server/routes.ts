@@ -1404,6 +1404,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/orders", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const branchId = currentUser.activeBranchId || null;
+      const orders = await storage.getKitchenOrders(restaurantId, branchId);
+      res.json(orders);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
+
   app.post("/api/orders", isAdmin, async (req, res) => {
     try {
       const { items, ...orderData } = req.body;
