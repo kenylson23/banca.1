@@ -11,13 +11,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { TrendingUp, ShoppingCart, Package, Clock, Download, Filter, Eye, Wallet } from "lucide-react";
+import { TrendingUp, ShoppingCart, Package, Clock, Download, Filter, Eye, Wallet, LayoutDashboard } from "lucide-react";
 import { format } from "date-fns";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { PrintOrder } from "@/components/PrintOrder";
 import { FinancialShiftManager } from "@/components/FinancialShiftManager";
+import ReportsDashboard from "./reports-dashboard";
 
 type SalesReport = {
   totalSales: string;
@@ -275,8 +276,13 @@ export default function Reports() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="sales" className="space-y-4">
-        <TabsList className={`grid w-full gap-1 ${isSuperadmin ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-5'}`}>
+      <Tabs defaultValue="dashboard" className="space-y-4">
+        <TabsList className={`grid w-full gap-1 ${isSuperadmin ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-3 sm:grid-cols-6'}`}>
+          <TabsTrigger value="dashboard" data-testid="tab-dashboard" className="text-xs sm:text-sm">
+            <LayoutDashboard className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Dashboard</span>
+            <span className="inline sm:hidden">Dash</span>
+          </TabsTrigger>
           <TabsTrigger value="sales" data-testid="tab-sales" className="text-xs sm:text-sm">
             <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
             <span className="hidden sm:inline">Vendas</span>
@@ -305,6 +311,10 @@ export default function Reports() {
             </TabsTrigger>
           )}
         </TabsList>
+
+        <TabsContent value="dashboard" className="space-y-4">
+          <ReportsDashboard />
+        </TabsContent>
 
         <TabsContent value="sales" className="space-y-4">
           {loadingSales ? (

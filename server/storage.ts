@@ -16,6 +16,8 @@ import {
   orders,
   orderItems,
   messages,
+  menuVisits,
+  customerReviews,
   optionGroups,
   options,
   orderItemOptions,
@@ -53,6 +55,10 @@ import {
   type PublicOrderItem,
   type Message,
   type InsertMessage,
+  type MenuVisit,
+  type InsertMenuVisit,
+  type CustomerReview,
+  type InsertCustomerReview,
   type OptionGroup,
   type InsertOptionGroup,
   type UpdateOptionGroup,
@@ -333,6 +339,37 @@ export interface IStorage {
   createReportAggregation(restaurantId: string, aggregation: Omit<InsertReportAggregation, 'restaurantId'>): Promise<ReportAggregation>;
   getReportAggregations(restaurantId: string, branchId: string | null, periodType: 'daily' | 'weekly' | 'monthly', startDate?: Date, endDate?: Date): Promise<ReportAggregation[]>;
   getLatestAggregation(restaurantId: string, branchId: string | null, periodType: 'daily' | 'weekly' | 'monthly'): Promise<ReportAggregation | undefined>;
+  
+  // Menu Visit operations
+  recordMenuVisit(restaurantId: string, visit: Omit<InsertMenuVisit, 'restaurantId'>): Promise<MenuVisit>;
+  getMenuVisitStats(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date): Promise<{
+    totalVisits: number;
+    visitsToday: number;
+    visitsBySource: Array<{ source: string; count: number }>;
+  }>;
+  
+  // Customer Review operations
+  createCustomerReview(restaurantId: string, review: Omit<InsertCustomerReview, 'restaurantId'>): Promise<CustomerReview>;
+  getCustomerReviews(restaurantId: string, branchId: string | null, limit?: number): Promise<CustomerReview[]>;
+  getAverageRating(restaurantId: string, branchId: string | null): Promise<number>;
+  
+  // Dashboard Stats
+  getDashboardStats(
+    restaurantId: string,
+    branchId: string | null,
+    startDate: Date,
+    endDate: Date,
+    orderType?: string
+  ): Promise<{
+    salesByDay: Array<{ date: string; sales: number; orders: number; pdv: number; web: number }>;
+    totalOrders: number;
+    totalRevenue: number;
+    averageTicket: number;
+    newCustomers: number;
+    averageRating: number;
+    totalReviews: number;
+    topProducts: Array<{ name: string; quantity: number }>;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3067,6 +3104,240 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
 
     return latest;
+  }
+
+  // Menu Visit operations
+  async recordMenuVisit(restaurantId: string, visit: Omit<InsertMenuVisit, 'restaurantId'>): Promise<MenuVisit> {
+    const [newVisit] = await db
+      .insert(menuVisits)
+      .values({
+        restaurantId,
+        ...visit,
+      })
+      .returning();
+    return newVisit;
+  }
+
+  async getMenuVisitStats(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date): Promise<{
+    totalVisits: number;
+    visitsToday: number;
+    visitsBySource: Array<{ source: string; count: number }>;
+  }> {
+    let conditions = [
+      eq(menuVisits.restaurantId, restaurantId),
+      gte(menuVisits.createdAt, startDate),
+      sql`${menuVisits.createdAt} <= ${endDate}`
+    ];
+
+    if (branchId !== null) {
+      conditions.push(eq(menuVisits.branchId, branchId));
+    }
+
+    const allVisits = await db
+      .select()
+      .from(menuVisits)
+      .where(and(...conditions));
+
+    const totalVisits = allVisits.length;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const visitsToday = allVisits.filter((v: MenuVisit) => v.createdAt && new Date(v.createdAt) >= today).length;
+
+    const visitsBySourceMap: Record<string, number> = {};
+    allVisits.forEach((visit: MenuVisit) => {
+      const source = visit.visitSource || 'unknown';
+      visitsBySourceMap[source] = (visitsBySourceMap[source] || 0) + 1;
+    });
+
+    const visitsBySource = Object.entries(visitsBySourceMap).map(([source, count]) => ({
+      source,
+      count
+    }));
+
+    return {
+      totalVisits,
+      visitsToday,
+      visitsBySource
+    };
+  }
+
+  // Customer Review operations
+  async createCustomerReview(restaurantId: string, review: Omit<InsertCustomerReview, 'restaurantId'>): Promise<CustomerReview> {
+    const [newReview] = await db
+      .insert(customerReviews)
+      .values({
+        restaurantId,
+        ...review,
+      })
+      .returning();
+    return newReview;
+  }
+
+  async getCustomerReviews(restaurantId: string, branchId: string | null, limit?: number, startDate?: Date, endDate?: Date): Promise<CustomerReview[]> {
+    let conditions = [eq(customerReviews.restaurantId, restaurantId)];
+
+    if (branchId !== null) {
+      conditions.push(eq(customerReviews.branchId, branchId));
+    }
+
+    if (startDate) {
+      conditions.push(gte(customerReviews.createdAt, startDate));
+    }
+
+    if (endDate) {
+      conditions.push(sql`${customerReviews.createdAt} <= ${endDate}`);
+    }
+
+    let query = db
+      .select()
+      .from(customerReviews)
+      .where(and(...conditions))
+      .orderBy(desc(customerReviews.createdAt));
+
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    return await query;
+  }
+
+  async getAverageRating(restaurantId: string, branchId: string | null, startDate?: Date, endDate?: Date): Promise<number> {
+    const reviews = await this.getCustomerReviews(restaurantId, branchId, undefined, startDate, endDate);
+    
+    if (reviews.length === 0) return 0;
+
+    const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
+    return Math.round((sum / reviews.length) * 10) / 10;
+  }
+
+  // Dashboard Stats
+  async getDashboardStats(
+    restaurantId: string,
+    branchId: string | null,
+    startDate: Date,
+    endDate: Date,
+    orderType?: string
+  ): Promise<{
+    salesByDay: Array<{ date: string; sales: number; orders: number; pdv: number; web: number }>;
+    totalOrders: number;
+    totalRevenue: number;
+    averageTicket: number;
+    newCustomers: number;
+    averageRating: number;
+    totalReviews: number;
+    topProducts: Array<{ name: string; quantity: number }>;
+  }> {
+    let orderConditions = [
+      eq(orders.restaurantId, restaurantId),
+      eq(orders.paymentStatus, 'pago'),
+      gte(orders.createdAt, startDate),
+      sql`${orders.createdAt} <= ${endDate}`
+    ];
+
+    if (branchId !== null) {
+      orderConditions.push(eq(orders.branchId, branchId));
+    }
+
+    if (orderType && orderType !== 'all') {
+      if (orderType === 'pdv') {
+        orderConditions.push(or(
+          eq(orders.orderType, 'pdv'),
+          eq(orders.orderType, 'balcao')
+        ) as any);
+      } else if (orderType === 'web') {
+        orderConditions.push(or(
+          eq(orders.orderType, 'mesa'),
+          eq(orders.orderType, 'delivery'),
+          eq(orders.orderType, 'takeout')
+        ) as any);
+      }
+    }
+
+    const periodOrders = await db
+      .select()
+      .from(orders)
+      .where(and(...orderConditions));
+
+    const totalOrders = periodOrders.length;
+    const totalRevenue = periodOrders.reduce((sum: number, order: Order) => sum + parseFloat(order.totalAmount), 0);
+    const averageTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    const salesByDayMap: Record<string, { sales: number; orders: number; pdv: number; web: number }> = {};
+    
+    periodOrders.forEach((order: Order) => {
+      const dateKey = order.createdAt?.toISOString().split('T')[0] || '';
+      if (!salesByDayMap[dateKey]) {
+        salesByDayMap[dateKey] = { sales: 0, orders: 0, pdv: 0, web: 0 };
+      }
+      const revenue = parseFloat(order.totalAmount);
+      salesByDayMap[dateKey].sales += revenue;
+      salesByDayMap[dateKey].orders += 1;
+
+      if (order.orderType === 'pdv' || order.orderType === 'balcao') {
+        salesByDayMap[dateKey].pdv += revenue;
+      } else {
+        salesByDayMap[dateKey].web += revenue;
+      }
+    });
+
+    const salesByDay = Object.entries(salesByDayMap)
+      .map(([date, data]) => ({
+        date,
+        ...data
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const uniquePhones = new Set<string>();
+    periodOrders.forEach((order: Order) => {
+      if (order.customerPhone) {
+        uniquePhones.add(order.customerPhone);
+      }
+    });
+    const newCustomers = uniquePhones.size;
+
+    const reviews = await this.getCustomerReviews(restaurantId, branchId, undefined, startDate, endDate);
+    const averageRating = await this.getAverageRating(restaurantId, branchId, startDate, endDate);
+    const totalReviews = reviews.length;
+
+    const orderIds = periodOrders.map((o: Order) => o.id);
+    let topProducts: Array<{ name: string; quantity: number }> = [];
+    
+    if (orderIds.length > 0) {
+      const items = await db
+        .select({
+          menuItemId: orderItems.menuItemId,
+          quantity: orderItems.quantity,
+          name: menuItems.name,
+        })
+        .from(orderItems)
+        .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+        .where(sql`${orderItems.orderId} = ANY(${orderIds})`);
+
+      const productMap: Record<string, { name: string; quantity: number }> = {};
+      items.forEach((item: any) => {
+        const name = item.name || 'Unknown';
+        if (!productMap[name]) {
+          productMap[name] = { name, quantity: 0 };
+        }
+        productMap[name].quantity += item.quantity || 0;
+      });
+
+      topProducts = Object.values(productMap)
+        .sort((a, b) => b.quantity - a.quantity)
+        .slice(0, 5);
+    }
+
+    return {
+      salesByDay,
+      totalOrders,
+      totalRevenue,
+      averageTicket,
+      newCustomers,
+      averageRating,
+      totalReviews,
+      topProducts
+    };
   }
 }
 

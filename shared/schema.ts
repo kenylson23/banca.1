@@ -779,6 +779,50 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
 
+// Menu Visits - Registro de visitas ao menu digital
+export const menuVisits = pgTable("menu_visits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  visitSource: varchar("visit_source", { length: 50 }).notNull().default('qr_code'), // 'qr_code', 'link', 'direct'
+  ipAddress: varchar("ip_address", { length: 50 }),
+  userAgent: text("user_agent"),
+  referrer: text("referrer"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMenuVisitSchema = createInsertSchema(menuVisits).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+});
+
+export type InsertMenuVisit = z.infer<typeof insertMenuVisitSchema>;
+export type MenuVisit = typeof menuVisits.$inferSelect;
+
+// Customer Reviews - Avaliações de clientes
+export const customerReviews = pgTable("customer_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  orderId: varchar("order_id").references(() => orders.id, { onDelete: 'set null' }),
+  customerName: varchar("customer_name", { length: 200 }),
+  rating: integer("rating").notNull(), // 1-5 stars
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCustomerReviewSchema = createInsertSchema(customerReviews).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+}).extend({
+  rating: z.number().int().min(1, "Avaliação deve ser no mínimo 1").max(5, "Avaliação deve ser no máximo 5"),
+});
+
+export type InsertCustomerReview = z.infer<typeof insertCustomerReviewSchema>;
+export type CustomerReview = typeof customerReviews.$inferSelect;
+
 // Relations
 export const restaurantsRelations = relations(restaurants, ({ many }) => ({
   users: many(users),
@@ -787,6 +831,8 @@ export const restaurantsRelations = relations(restaurants, ({ many }) => ({
   categories: many(categories),
   menuItems: many(menuItems),
   messages: many(messages),
+  menuVisits: many(menuVisits),
+  customerReviews: many(customerReviews),
 }));
 
 export const branchesRelations = relations(branches, ({ one, many }) => ({
@@ -970,6 +1016,32 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   restaurant: one(restaurants, {
     fields: [messages.restaurantId],
     references: [restaurants.id],
+  }),
+}));
+
+export const menuVisitsRelations = relations(menuVisits, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [menuVisits.restaurantId],
+    references: [restaurants.id],
+  }),
+  branch: one(branches, {
+    fields: [menuVisits.branchId],
+    references: [branches.id],
+  }),
+}));
+
+export const customerReviewsRelations = relations(customerReviews, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [customerReviews.restaurantId],
+    references: [restaurants.id],
+  }),
+  branch: one(branches, {
+    fields: [customerReviews.branchId],
+    references: [branches.id],
+  }),
+  order: one(orders, {
+    fields: [customerReviews.orderId],
+    references: [orders.id],
   }),
 }));
 

@@ -2775,6 +2775,249 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== DASHBOARD API ROUTES =====
+  
+  // Get dashboard statistics
+  app.get("/api/dashboard/stats", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      let restaurantId: string;
+      if (currentUser.role === 'superadmin') {
+        const queryRestaurantId = req.query.restaurantId as string;
+        if (!queryRestaurantId) {
+          return res.status(400).json({ message: "Super admin deve fornecer restaurantId como query parameter" });
+        }
+        restaurantId = queryRestaurantId;
+      } else {
+        if (!currentUser.restaurantId) {
+          return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+        }
+        restaurantId = currentUser.restaurantId;
+      }
+
+      const { 
+        dateFilter, 
+        orderType,
+        customFrom,
+        customTo
+      } = req.query;
+
+      const validOrderTypes = ['all', 'pdv', 'web'];
+      const validatedOrderType = orderType as string || 'all';
+      
+      if (!validOrderTypes.includes(validatedOrderType)) {
+        return res.status(400).json({ message: "orderType deve ser 'all', 'pdv' ou 'web'" });
+      }
+
+      let startDate: Date;
+      let endDate: Date;
+
+      if (dateFilter === 'custom' && customFrom) {
+        startDate = new Date(customFrom as string);
+        endDate = customTo ? new Date(customTo as string) : new Date();
+      } else if (dateFilter === 'today') {
+        startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+      } else if (dateFilter === 'yesterday') {
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 1);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setDate(endDate.getDate() - 1);
+        endDate.setHours(23, 59, 59, 999);
+      } else if (dateFilter === '7days') {
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 7);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+      } else if (dateFilter === '30days') {
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+      } else {
+        startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+      }
+
+      const branchId = currentUser.role === 'superadmin' ? null : (currentUser.activeBranchId || null);
+      
+      const stats = await storage.getDashboardStats(
+        restaurantId,
+        branchId,
+        startDate,
+        endDate,
+        validatedOrderType
+      );
+
+      res.json(stats);
+    } catch (error) {
+      console.error('Dashboard stats API error:', error);
+      res.status(500).json({ message: "Erro ao buscar estatísticas do dashboard" });
+    }
+  });
+
+  // Record menu visit
+  app.post("/api/menu-visits", async (req, res) => {
+    try {
+      const visitSchema = z.object({
+        restaurantId: z.string(),
+        branchId: z.string().nullish(),
+        visitSource: z.string().optional(),
+        ipAddress: z.string().optional(),
+        userAgent: z.string().optional(),
+        referrer: z.string().optional(),
+      });
+
+      const validatedData = visitSchema.parse(req.body);
+
+      const visit = await storage.recordMenuVisit(validatedData.restaurantId, {
+        branchId: validatedData.branchId || null,
+        visitSource: validatedData.visitSource || 'qr_code',
+        ipAddress: validatedData.ipAddress,
+        userAgent: validatedData.userAgent,
+        referrer: validatedData.referrer,
+      });
+
+      res.json(visit);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      console.error('Menu visit recording error:', error);
+      res.status(500).json({ message: "Erro ao registrar visita" });
+    }
+  });
+
+  // Get menu visit stats
+  app.get("/api/menu-visits/stats", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      let restaurantId: string;
+      if (currentUser.role === 'superadmin') {
+        const queryRestaurantId = req.query.restaurantId as string;
+        if (!queryRestaurantId) {
+          return res.status(400).json({ message: "Super admin deve fornecer restaurantId como query parameter" });
+        }
+        restaurantId = queryRestaurantId;
+      } else {
+        if (!currentUser.restaurantId) {
+          return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+        }
+        restaurantId = currentUser.restaurantId;
+      }
+
+      const { dateFilter, customFrom, customTo } = req.query;
+
+      let startDate: Date;
+      let endDate: Date;
+
+      if (dateFilter === 'custom' && customFrom) {
+        startDate = new Date(customFrom as string);
+        endDate = customTo ? new Date(customTo as string) : new Date();
+      } else if (dateFilter === '7days') {
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 7);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+      } else if (dateFilter === '30days') {
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+      } else {
+        startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+      }
+
+      const branchId = currentUser.role === 'superadmin' ? null : (currentUser.activeBranchId || null);
+      const stats = await storage.getMenuVisitStats(restaurantId, branchId, startDate, endDate);
+      
+      res.json(stats);
+    } catch (error) {
+      console.error('Menu visit stats error:', error);
+      res.status(500).json({ message: "Erro ao buscar estatísticas de visitas" });
+    }
+  });
+
+  // Create customer review
+  app.post("/api/reviews", async (req, res) => {
+    try {
+      const reviewSchema = z.object({
+        restaurantId: z.string(),
+        branchId: z.string().nullish(),
+        orderId: z.string().nullish(),
+        customerName: z.string().optional(),
+        rating: z.number().int().min(1).max(5),
+        comment: z.string().optional(),
+      });
+
+      const validatedData = reviewSchema.parse(req.body);
+
+      const review = await storage.createCustomerReview(validatedData.restaurantId, {
+        branchId: validatedData.branchId || null,
+        orderId: validatedData.orderId || null,
+        customerName: validatedData.customerName,
+        rating: validatedData.rating,
+        comment: validatedData.comment,
+      });
+
+      res.json(review);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      console.error('Review creation error:', error);
+      res.status(500).json({ message: "Erro ao criar avaliação" });
+    }
+  });
+
+  // Get customer reviews
+  app.get("/api/reviews", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      let restaurantId: string;
+      if (currentUser.role === 'superadmin') {
+        const queryRestaurantId = req.query.restaurantId as string;
+        if (!queryRestaurantId) {
+          return res.status(400).json({ message: "Super admin deve fornecer restaurantId como query parameter" });
+        }
+        restaurantId = queryRestaurantId;
+      } else {
+        if (!currentUser.restaurantId) {
+          return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+        }
+        restaurantId = currentUser.restaurantId;
+      }
+
+      const { limit } = req.query;
+      const branchId = currentUser.role === 'superadmin' ? null : (currentUser.activeBranchId || null);
+      const reviews = await storage.getCustomerReviews(
+        restaurantId, 
+        branchId, 
+        limit ? parseInt(limit as string) : undefined
+      );
+      
+      res.json(reviews);
+    } catch (error) {
+      console.error('Reviews fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar avaliações" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // Setup WebSocket server for real-time updates
