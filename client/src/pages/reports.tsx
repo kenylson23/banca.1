@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { TrendingUp, ShoppingCart, Package, Clock, Download, Filter } from "lucide-react";
+import { TrendingUp, ShoppingCart, Package, Clock, Download, Filter, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { queryClient } from "@/lib/queryClient";
@@ -468,6 +469,17 @@ export default function Reports() {
                                       {statusLabels[getNextStatus(order.status)! as keyof typeof statusLabels]}
                                     </Button>
                                   )}
+                                  <Button
+                                    asChild
+                                    size="sm"
+                                    variant="outline"
+                                    data-testid={`button-view-details-${order.id}`}
+                                  >
+                                    <Link href={`/orders/${order.id}`}>
+                                      <Eye className="h-4 w-4 mr-1" />
+                                      <span className="sr-only">Ver Detalhes</span>
+                                    </Link>
+                                  </Button>
                                   <PrintOrder order={order} variant="ghost" size="sm" />
                                 </div>
                               </TableCell>

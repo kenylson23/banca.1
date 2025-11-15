@@ -14,6 +14,7 @@ interface PrintOrderProps {
 
 export function PrintOrder({ order, restaurantName = 'NaBancada', variant = 'outline', size = 'sm' }: PrintOrderProps) {
   const printRef = useRef<HTMLDivElement>(null);
+  const isIconOnly = size === 'icon';
 
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
@@ -249,8 +250,8 @@ export function PrintOrder({ order, restaurantName = 'NaBancada', variant = 'out
       onClick={handlePrint}
       data-testid={`button-print-order-${order.id}`}
     >
-      <Printer className="h-4 w-4 mr-2" />
-      Imprimir
+      <Printer className={isIconOnly ? "h-4 w-4" : "h-4 w-4 mr-2"} />
+      {!isIconOnly && "Imprimir"}
     </Button>
   );
 }

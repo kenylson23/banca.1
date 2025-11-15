@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, Filter, Volume2, VolumeX, BarChart3, TrendingUp, Package, DollarSign, Printer, UtensilsCrossed, Truck, ShoppingBag } from "lucide-react";
+import { Clock, Filter, Volume2, VolumeX, BarChart3, TrendingUp, Package, DollarSign, Printer, UtensilsCrossed, Truck, ShoppingBag, Eye } from "lucide-react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -491,7 +492,21 @@ export default function Kitchen() {
                           Marcar como {statusLabels[nextStatus]}
                         </Button>
                       )}
-                      <PrintOrder order={order} variant="outline" size="default" />
+                      <div className="flex gap-2">
+                        <Button 
+                          asChild
+                          variant="outline" 
+                          size="default"
+                          className="flex-1 text-sm sm:text-base"
+                          data-testid={`button-view-details-${order.id}`}
+                        >
+                          <Link href={`/orders/${order.id}`}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            Ver Detalhes
+                          </Link>
+                        </Button>
+                        <PrintOrder order={order} variant="outline" size="icon" />
+                      </div>
                     </div>
                   </div>
                 </CardContent>

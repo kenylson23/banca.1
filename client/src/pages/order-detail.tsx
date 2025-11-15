@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatKwanza } from "@/lib/formatters";
 import { format } from "date-fns";
+import { PrintOrder } from "@/components/PrintOrder";
 import type { Order, OrderItem, MenuItem } from "@shared/schema";
 
 interface OrderDetail extends Order {
@@ -290,14 +291,11 @@ export default function OrderDetail() {
             <Clock className="h-3 w-3" />
             {formatTime(elapsedTime)}
           </Badge>
-          <Button
+          <PrintOrder 
+            order={order} 
             variant="ghost"
             size="icon"
-            onClick={() => window.open(`/api/orders/${orderId}/print`, '_blank')}
-            data-testid="button-print"
-          >
-            <Printer className="h-5 w-5" />
-          </Button>
+          />
         </div>
       </div>
 
