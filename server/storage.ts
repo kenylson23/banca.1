@@ -22,6 +22,7 @@ import {
   options,
   orderItemOptions,
   cashRegisters,
+  cashRegisterShifts,
   financialCategories,
   financialTransactions,
   type User,
@@ -72,6 +73,10 @@ import {
   type InsertOrderItemOption,
   type CashRegister,
   type InsertCashRegister,
+  type UpdateCashRegister,
+  type CashRegisterShift,
+  type InsertCashRegisterShift,
+  type CloseCashRegisterShift,
   type FinancialCategory,
   type InsertFinancialCategory,
   type FinancialTransaction,
@@ -3493,6 +3498,12 @@ export class DatabaseStorage implements IStorage {
     userId: string, 
     data: Omit<InsertFinancialTransaction, 'restaurantId' | 'recordedByUserId'>
   ): Promise<FinancialTransaction> {
+    const activeShift = await this.getActiveCashRegisterShift(data.cashRegisterId, restaurantId);
+    
+    if (!activeShift) {
+      throw new Error('Não existe um turno aberto para esta caixa. Abra um turno antes de registrar lançamentos.');
+    }
+
     const amount = parseFloat(data.amount);
     const amountChange = data.type === 'receita' ? amount : -amount;
 
@@ -3504,6 +3515,7 @@ export class DatabaseStorage implements IStorage {
           recordedByUserId: userId,
           branchId: data.branchId || null,
           cashRegisterId: data.cashRegisterId,
+          shiftId: activeShift.id,
           categoryId: data.categoryId,
           type: data.type,
           paymentMethod: data.paymentMethod,
@@ -3711,6 +3723,177 @@ export class DatabaseStorage implements IStorage {
       totalExpense: totalExpense.toFixed(2),
       netResult: netResult.toFixed(2),
     };
+  }
+
+  // Cash Register Shift operations
+  async getCashRegisterShifts(
+    restaurantId: string,
+    branchId: string | null,
+    filters?: {
+      cashRegisterId?: string;
+      status?: 'aberto' | 'fechado';
+    }
+  ): Promise<Array<CashRegisterShift & { cashRegister: CashRegister; openedBy: User; closedBy?: User }>> {
+    let conditions = [eq(cashRegisterShifts.restaurantId, restaurantId)];
+
+    if (branchId !== null) {
+      conditions.push(
+        or(
+          eq(cashRegisterShifts.branchId, branchId),
+          isNull(cashRegisterShifts.branchId)
+        )!
+      );
+    }
+
+    if (filters?.cashRegisterId) {
+      conditions.push(eq(cashRegisterShifts.cashRegisterId, filters.cashRegisterId));
+    }
+
+    if (filters?.status) {
+      conditions.push(eq(cashRegisterShifts.status, filters.status));
+    }
+
+    const results = await db
+      .select({
+        shift: cashRegisterShifts,
+        cashRegister: cashRegisters,
+        openedBy: users,
+      })
+      .from(cashRegisterShifts)
+      .leftJoin(cashRegisters, eq(cashRegisterShifts.cashRegisterId, cashRegisters.id))
+      .leftJoin(users, eq(cashRegisterShifts.openedByUserId, users.id))
+      .where(and(...conditions))
+      .orderBy(desc(cashRegisterShifts.openedAt));
+
+    return results.map((r: any) => ({
+      ...r.shift,
+      cashRegister: r.cashRegister!,
+      openedBy: r.openedBy!,
+    }));
+  }
+
+  async getActiveCashRegisterShift(cashRegisterId: string, restaurantId: string): Promise<CashRegisterShift | undefined> {
+    const [shift] = await db
+      .select()
+      .from(cashRegisterShifts)
+      .where(and(
+        eq(cashRegisterShifts.cashRegisterId, cashRegisterId),
+        eq(cashRegisterShifts.restaurantId, restaurantId),
+        eq(cashRegisterShifts.status, 'aberto')
+      ))
+      .limit(1);
+
+    return shift;
+  }
+
+  async getCashRegistersWithActiveShift(restaurantId: string, branchId: string | null): Promise<CashRegister[]> {
+    let conditions = [
+      eq(cashRegisters.restaurantId, restaurantId),
+      eq(cashRegisters.isActive, 1)
+    ];
+
+    if (branchId !== null) {
+      conditions.push(eq(cashRegisters.branchId, branchId));
+    }
+
+    const registers = await db
+      .select()
+      .from(cashRegisters)
+      .where(and(...conditions));
+
+    const registersWithShifts: CashRegister[] = [];
+
+    for (const register of registers) {
+      const activeShift = await this.getActiveCashRegisterShift(register.id, restaurantId);
+      if (activeShift) {
+        registersWithShifts.push(register);
+      }
+    }
+
+    return registersWithShifts;
+  }
+
+  async openCashRegisterShift(
+    restaurantId: string,
+    userId: string,
+    data: Omit<InsertCashRegisterShift, 'restaurantId' | 'openedByUserId'>
+  ): Promise<CashRegisterShift> {
+    const existingShift = await this.getActiveCashRegisterShift(data.cashRegisterId, restaurantId);
+    
+    if (existingShift) {
+      throw new Error('Já existe um turno aberto para esta caixa. Feche o turno atual antes de abrir um novo.');
+    }
+
+    const [shift] = await db
+      .insert(cashRegisterShifts)
+      .values({
+        restaurantId,
+        openedByUserId: userId,
+        branchId: data.branchId || null,
+        cashRegisterId: data.cashRegisterId,
+        openingAmount: data.openingAmount,
+        notes: data.notes,
+      })
+      .returning();
+
+    return shift;
+  }
+
+  async closeCashRegisterShift(
+    shiftId: string,
+    restaurantId: string,
+    userId: string,
+    data: CloseCashRegisterShift
+  ): Promise<CashRegisterShift> {
+    const [shift] = await db
+      .select()
+      .from(cashRegisterShifts)
+      .where(and(
+        eq(cashRegisterShifts.id, shiftId),
+        eq(cashRegisterShifts.restaurantId, restaurantId),
+        eq(cashRegisterShifts.status, 'aberto')
+      ))
+      .limit(1);
+
+    if (!shift) {
+      throw new Error('Turno não encontrado ou já fechado.');
+    }
+
+    const transactions = await db
+      .select()
+      .from(financialTransactions)
+      .where(eq(financialTransactions.shiftId, shiftId));
+
+    const totalRevenues = transactions
+      .filter((t: FinancialTransaction) => t.type === 'receita')
+      .reduce((sum: number, t: FinancialTransaction) => sum + parseFloat(t.amount), 0);
+
+    const totalExpenses = transactions
+      .filter((t: FinancialTransaction) => t.type === 'despesa')
+      .reduce((sum: number, t: FinancialTransaction) => sum + parseFloat(t.amount), 0);
+
+    const openingAmount = parseFloat(shift.openingAmount);
+    const closingAmountExpected = openingAmount + totalRevenues - totalExpenses;
+    const closingAmountCounted = parseFloat(data.closingAmountCounted);
+    const difference = closingAmountCounted - closingAmountExpected;
+
+    const [closedShift] = await db
+      .update(cashRegisterShifts)
+      .set({
+        status: 'fechado',
+        closedByUserId: userId,
+        closingAmountExpected: closingAmountExpected.toFixed(2),
+        closingAmountCounted: data.closingAmountCounted,
+        difference: difference.toFixed(2),
+        totalRevenues: totalRevenues.toFixed(2),
+        totalExpenses: totalExpenses.toFixed(2),
+        closedAt: new Date(),
+        notes: data.notes || shift.notes,
+      })
+      .where(eq(cashRegisterShifts.id, shiftId))
+      .returning();
+
+    return closedShift;
   }
 }
 

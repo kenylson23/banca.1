@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Trash2, DollarSign, TrendingUp, TrendingDown, Wallet, Calendar as CalendarIcon, Filter } from "lucide-react";
+import { Plus, Trash2, DollarSign, TrendingUp, TrendingDown, Wallet, Calendar as CalendarIcon, Filter, Settings } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -140,6 +140,12 @@ export default function FinancialTransactions() {
             </p>
           </div>
           <div className="flex gap-3">
+            <Link href="/financial/cash-registers">
+              <Button variant="outline" data-testid="button-cash-registers">
+                <Settings className="h-4 w-4 mr-2" />
+                Caixas
+              </Button>
+            </Link>
             <Link href="/financial/categories">
               <Button variant="outline" data-testid="button-categories">
                 <Filter className="h-4 w-4 mr-2" />

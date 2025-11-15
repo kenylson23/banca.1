@@ -1160,8 +1160,66 @@ export const insertCashRegisterSchema = createInsertSchema(cashRegisters).omit({
   isActive: z.number().optional(),
 });
 
+export const updateCashRegisterSchema = z.object({
+  name: z.string().min(1, "Nome da caixa é obrigatório").optional(),
+  isActive: z.number().optional(),
+});
+
 export type InsertCashRegister = z.infer<typeof insertCashRegisterSchema>;
+export type UpdateCashRegister = z.infer<typeof updateCashRegisterSchema>;
 export type CashRegister = typeof cashRegisters.$inferSelect;
+
+// Cash Register Shift Status Enum
+export const cashRegisterShiftStatusEnum = pgEnum('cash_register_shift_status', ['aberto', 'fechado']);
+
+// Financial Module - Cash Register Shifts (Turnos de Caixa)
+export const cashRegisterShifts = pgTable("cash_register_shifts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  cashRegisterId: varchar("cash_register_id").notNull().references(() => cashRegisters.id, { onDelete: 'restrict' }),
+  openedByUserId: varchar("opened_by_user_id").notNull().references(() => users.id, { onDelete: 'restrict' }),
+  closedByUserId: varchar("closed_by_user_id").references(() => users.id, { onDelete: 'restrict' }),
+  status: cashRegisterShiftStatusEnum("status").notNull().default('aberto'),
+  openingAmount: decimal("opening_amount", { precision: 10, scale: 2 }).notNull().default('0.00'),
+  closingAmountExpected: decimal("closing_amount_expected", { precision: 10, scale: 2 }).default('0.00'),
+  closingAmountCounted: decimal("closing_amount_counted", { precision: 10, scale: 2 }).default('0.00'),
+  difference: decimal("difference", { precision: 10, scale: 2 }).default('0.00'),
+  totalRevenues: decimal("total_revenues", { precision: 10, scale: 2 }).default('0.00'),
+  totalExpenses: decimal("total_expenses", { precision: 10, scale: 2 }).default('0.00'),
+  openedAt: timestamp("opened_at").defaultNow(),
+  closedAt: timestamp("closed_at"),
+  notes: text("notes"),
+});
+
+export const insertCashRegisterShiftSchema = createInsertSchema(cashRegisterShifts).omit({
+  id: true,
+  restaurantId: true,
+  openedByUserId: true,
+  closedByUserId: true,
+  status: true,
+  closingAmountExpected: true,
+  closingAmountCounted: true,
+  difference: true,
+  totalRevenues: true,
+  totalExpenses: true,
+  openedAt: true,
+  closedAt: true,
+}).extend({
+  branchId: z.string().optional().nullable(),
+  cashRegisterId: z.string().min(1, "Caixa registradora é obrigatória"),
+  openingAmount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor de abertura inválido"),
+  notes: z.string().optional(),
+});
+
+export const closeCashRegisterShiftSchema = z.object({
+  closingAmountCounted: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor contado inválido"),
+  notes: z.string().optional(),
+});
+
+export type InsertCashRegisterShift = z.infer<typeof insertCashRegisterShiftSchema>;
+export type CloseCashRegisterShift = z.infer<typeof closeCashRegisterShiftSchema>;
+export type CashRegisterShift = typeof cashRegisterShifts.$inferSelect;
 
 // Financial Module - Transaction Types
 export const transactionTypeEnum = pgEnum('transaction_type', ['receita', 'despesa']);
@@ -1203,6 +1261,7 @@ export const financialTransactions = pgTable("financial_transactions", {
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
   cashRegisterId: varchar("cash_register_id").notNull().references(() => cashRegisters.id, { onDelete: 'restrict' }),
+  shiftId: varchar("shift_id").references(() => cashRegisterShifts.id, { onDelete: 'restrict' }),
   categoryId: varchar("category_id").notNull().references(() => financialCategories.id, { onDelete: 'restrict' }),
   recordedByUserId: varchar("recorded_by_user_id").notNull().references(() => users.id, { onDelete: 'restrict' }),
   type: transactionTypeEnum("type").notNull(),
@@ -1243,6 +1302,31 @@ export const cashRegistersRelations = relations(cashRegisters, ({ one, many }) =
     references: [branches.id],
   }),
   transactions: many(financialTransactions),
+  shifts: many(cashRegisterShifts),
+}));
+
+export const cashRegisterShiftsRelations = relations(cashRegisterShifts, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [cashRegisterShifts.restaurantId],
+    references: [restaurants.id],
+  }),
+  branch: one(branches, {
+    fields: [cashRegisterShifts.branchId],
+    references: [branches.id],
+  }),
+  cashRegister: one(cashRegisters, {
+    fields: [cashRegisterShifts.cashRegisterId],
+    references: [cashRegisters.id],
+  }),
+  openedBy: one(users, {
+    fields: [cashRegisterShifts.openedByUserId],
+    references: [users.id],
+  }),
+  closedBy: one(users, {
+    fields: [cashRegisterShifts.closedByUserId],
+    references: [users.id],
+  }),
+  transactions: many(financialTransactions),
 }));
 
 export const financialCategoriesRelations = relations(financialCategories, ({ one, many }) => ({
@@ -1269,6 +1353,10 @@ export const financialTransactionsRelations = relations(financialTransactions, (
   cashRegister: one(cashRegisters, {
     fields: [financialTransactions.cashRegisterId],
     references: [cashRegisters.id],
+  }),
+  shift: one(cashRegisterShifts, {
+    fields: [financialTransactions.shiftId],
+    references: [cashRegisterShifts.id],
   }),
   category: one(financialCategories, {
     fields: [financialTransactions.categoryId],

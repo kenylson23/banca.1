@@ -17,6 +17,7 @@ import OrderDetail from "@/pages/order-detail";
 import FinancialTransactions from "@/pages/financial-transactions";
 import FinancialCategories from "@/pages/financial-categories";
 import FinancialNewTransaction from "@/pages/financial-new-transaction";
+import FinancialCashRegisters from "@/pages/financial-cash-registers";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -157,6 +158,13 @@ function Router() {
           <Route path="/financial/new" component={() => {
             if (user?.role === 'admin') {
               return <FinancialNewTransaction />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
+          <Route path="/financial/cash-registers" component={() => {
+            if (user?.role === 'admin') {
+              return <FinancialCashRegisters />;
             }
             return <Redirect to="/" />;
           }} />

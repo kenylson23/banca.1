@@ -3121,6 +3121,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Financial Module - Cash Register Shifts
+  app.get("/api/cash-register-shifts", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      let restaurantId: string;
+      
+      if (currentUser.role === 'superadmin') {
+        const queryRestaurantId = req.query.restaurantId as string;
+        if (!queryRestaurantId) {
+          return res.status(400).json({ message: "Super admin deve fornecer restaurantId" });
+        }
+        restaurantId = queryRestaurantId;
+      } else {
+        if (!currentUser.restaurantId) {
+          return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+        }
+        restaurantId = currentUser.restaurantId;
+      }
+
+      const branchId = currentUser.role === 'superadmin' ? null : (currentUser.activeBranchId || null);
+      const cashRegisterId = req.query.cashRegisterId as string | undefined;
+      const status = req.query.status as 'aberto' | 'fechado' | undefined;
+      
+      const shifts = await storage.getCashRegisterShifts(restaurantId, branchId, {
+        cashRegisterId,
+        status,
+      });
+      
+      res.json(shifts);
+    } catch (error) {
+      console.error('Cash register shifts fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar turnos de caixa" });
+    }
+  });
+
+  app.get("/api/cash-register-shifts/active-registers", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      let restaurantId: string;
+      
+      if (currentUser.role === 'superadmin') {
+        const queryRestaurantId = req.query.restaurantId as string;
+        if (!queryRestaurantId) {
+          return res.status(400).json({ message: "Super admin deve fornecer restaurantId" });
+        }
+        restaurantId = queryRestaurantId;
+      } else {
+        if (!currentUser.restaurantId) {
+          return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+        }
+        restaurantId = currentUser.restaurantId;
+      }
+
+      const branchId = currentUser.role === 'superadmin' ? null : (currentUser.activeBranchId || null);
+      const registers = await storage.getCashRegistersWithActiveShift(restaurantId, branchId);
+      
+      res.json(registers);
+    } catch (error) {
+      console.error('Active cash registers fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar caixas com turno aberto" });
+    }
+  });
+
+  app.post("/api/cash-register-shifts", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const shiftSchema = z.object({
+        cashRegisterId: z.string().min(1, "Caixa registradora é obrigatória"),
+        openingAmount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor de abertura inválido"),
+        branchId: z.string().optional().nullable(),
+        notes: z.string().optional(),
+      });
+
+      const validatedData = shiftSchema.parse(req.body);
+
+      const newShift = await storage.openCashRegisterShift(
+        currentUser.restaurantId,
+        currentUser.id,
+        {
+          cashRegisterId: validatedData.cashRegisterId,
+          openingAmount: validatedData.openingAmount,
+          branchId: validatedData.branchId || currentUser.activeBranchId || null,
+          notes: validatedData.notes,
+        }
+      );
+
+      res.json(newShift);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      console.error('Cash register shift open error:', error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Erro ao abrir turno de caixa" });
+    }
+  });
+
+  app.patch("/api/cash-register-shifts/:id/close", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const closeSchema = z.object({
+        closingAmountCounted: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor contado inválido"),
+        notes: z.string().optional(),
+      });
+
+      const validatedData = closeSchema.parse(req.body);
+
+      const closedShift = await storage.closeCashRegisterShift(
+        req.params.id,
+        currentUser.restaurantId,
+        currentUser.id,
+        validatedData
+      );
+
+      res.json(closedShift);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      console.error('Cash register shift close error:', error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Erro ao fechar turno de caixa" });
+    }
+  });
+
   // Financial Module - Categories
   app.get("/api/financial/categories", isAdmin, async (req, res) => {
     try {

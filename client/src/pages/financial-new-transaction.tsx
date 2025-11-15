@@ -43,7 +43,7 @@ export default function FinancialNewTransaction() {
   });
 
   const { data: cashRegisters } = useQuery<CashRegister[]>({
-    queryKey: ["/api/financial/cash-registers"],
+    queryKey: ["/api/cash-register-shifts/active-registers"],
   });
 
   const { data: allCategories } = useQuery<FinancialCategory[]>({
