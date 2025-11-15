@@ -69,7 +69,7 @@ import {
   type InsertOrderItemOption,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, gte, or, isNull } from "drizzle-orm";
+import { eq, desc, sql, and, gte, or, isNull, inArray } from "drizzle-orm";
 import type { PgTransaction } from "drizzle-orm/pg-core";
 
 function generateSlug(name: string): string {
@@ -3315,7 +3315,7 @@ export class DatabaseStorage implements IStorage {
         })
         .from(orderItems)
         .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
-        .where(sql`${orderItems.orderId} = ANY(${orderIds})`);
+        .where(inArray(orderItems.orderId, orderIds));
 
       const productMap: Record<string, { name: string; quantity: number }> = {};
       items.forEach((item: any) => {
