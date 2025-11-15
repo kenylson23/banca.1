@@ -342,6 +342,18 @@ export async function ensureTablesExist() {
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN packaging_fee DECIMAL(10, 2) DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN table_session_id VARCHAR REFERENCES table_sessions(id) ON DELETE SET NULL; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN refund_amount DECIMAL(10, 2) DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN cancellation_reason TEXT; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN closed_by VARCHAR REFERENCES users(id); 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Create order_items table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS order_items (
