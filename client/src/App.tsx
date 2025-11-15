@@ -18,6 +18,7 @@ import FinancialTransactions from "@/pages/financial-transactions";
 import FinancialCategories from "@/pages/financial-categories";
 import FinancialNewTransaction from "@/pages/financial-new-transaction";
 import FinancialCashRegisters from "@/pages/financial-cash-registers";
+import CashShifts from "@/pages/cash-shifts";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -165,6 +166,13 @@ function Router() {
           <Route path="/financial/cash-registers" component={() => {
             if (user?.role === 'admin') {
               return <FinancialCashRegisters />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
+          <Route path="/financial/shifts" component={() => {
+            if (user?.role === 'admin') {
+              return <CashShifts />;
             }
             return <Redirect to="/" />;
           }} />
