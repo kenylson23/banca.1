@@ -171,6 +171,7 @@ export default function PDV() {
           {user?.restaurantId && (
             <NewOrderDialog 
               restaurantId={user.restaurantId}
+              onOrderCreated={handleOrderCreated}
               trigger={
                 <Button size="lg" data-testid="button-new-order-empty">
                   <Plus className="h-4 w-4 mr-2" />
@@ -399,6 +400,12 @@ export default function PDV() {
     setOrderFilter("all");
   };
 
+  const handleOrderCreated = (orderId: string, isOnline: boolean) => {
+    if (isOnline) {
+      setLocation(`/orders/${orderId}`);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -424,6 +431,7 @@ export default function PDV() {
           {user?.restaurantId && (
             <NewOrderDialog 
               restaurantId={user.restaurantId}
+              onOrderCreated={handleOrderCreated}
               trigger={
                 <Button size="lg" data-testid="button-new-order">
                   <Plus className="h-4 w-4 mr-2" />
