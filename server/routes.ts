@@ -1957,6 +1957,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/orders/:id", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      
+      try {
+        await storage.deleteOrder(restaurantId, req.params.id);
+        
+        broadcastToClients({ 
+          type: 'order_deleted', 
+          data: { orderId: req.params.id }
+        });
+        
+        res.json({ message: "Pedido cancelado com sucesso" });
+      } catch (error: any) {
+        if (error.message === 'Order not found') {
+          return res.status(404).json({ message: "Pedido não encontrado" });
+        }
+        if (error.message.includes('Unauthorized') || error.message.includes('not belong')) {
+          return res.status(403).json({ message: "Não autorizado a cancelar este pedido" });
+        }
+        if (error.message === 'Cannot delete paid orders') {
+          return res.status(400).json({ message: "Não é possível cancelar pedidos já pagos" });
+        }
+        throw error;
+      }
+    } catch (error: any) {
+      console.error('Error deleting order:', error);
+      res.status(500).json({ message: "Erro ao cancelar pedido" });
+    }
+  });
+
   // ===== STATS ROUTES (Admin Only) =====
   app.get("/api/stats/dashboard", isAdmin, async (req, res) => {
     try {

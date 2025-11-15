@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, RefreshCw, Search, ShoppingBag, Truck, UtensilsCrossed, Map, Wifi, WifiOff, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, RefreshCw, Search, ShoppingBag, Truck, UtensilsCrossed, Map, Wifi, WifiOff, ArrowUpDown, ArrowUp, ArrowDown, Eye, X, DollarSign, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,8 @@ import { formatKwanza } from "@/lib/formatters";
 import { format } from "date-fns";
 import type { Order, OrderItem, MenuItem, Table } from "@shared/schema";
 import { TablesPanel } from "@/components/TablesPanel";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 type OrderType = "balcao" | "delivery" | "mesas";
 type OrderFilter = "all" | "pendente" | "em_curso";
@@ -145,17 +147,70 @@ export default function PDV() {
   const mesasCounts = getOrderCounts("mesas");
 
   const filteredOrders = getFilteredOrders(activeTab, orderFilter);
+  const { toast } = useToast();
+
+  const cancelOrderMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const response = await apiRequest("DELETE", `/api/orders/${orderId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({ title: "Pedido cancelado" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao cancelar pedido", variant: "destructive" });
+    },
+  });
+
+  const updateOrderStatusMutation = useMutation({
+    mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
+      const response = await apiRequest("PATCH", `/api/orders/${orderId}/status`, { status });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({ title: "Status atualizado" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao atualizar status", variant: "destructive" });
+    },
+  });
+
+  const getElapsedTime = (createdAt: Date | string) => {
+    const now = new Date();
+    const created = new Date(createdAt);
+    const diff = Math.floor((now.getTime() - created.getTime()) / 1000 / 60);
+    return `${diff} min`;
+  };
+
+  const getOrderTypeLabel = (orderType: string) => {
+    const labels: Record<string, string> = {
+      mesa: "Mesa",
+      delivery: "Delivery",
+      balcao: "Balcão",
+      pdv: "PDV",
+      takeout: "Retirada",
+    };
+    return labels[orderType] || orderType;
+  };
+
+  const getPaymentStatusBadge = (paymentStatus: string) => {
+    if (paymentStatus === "pago") {
+      return <Badge className="bg-chart-3 text-chart-3-foreground">Pago</Badge>;
+    } else if (paymentStatus === "parcial") {
+      return <Badge className="bg-chart-4 text-chart-4-foreground">Parcial</Badge>;
+    } else {
+      return <Badge className="bg-chart-1 text-chart-1-foreground">Não pago</Badge>;
+    }
+  };
 
   const renderOrdersList = () => {
     if (isLoading) {
       return (
-        <div className="grid gap-4">
+        <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <Skeleton className="h-24 w-full" />
-              </CardContent>
-            </Card>
+            <Skeleton key={i} className="h-16 w-full" />
           ))}
         </div>
       );
@@ -185,84 +240,93 @@ export default function PDV() {
     }
 
     return (
-      <div className="grid gap-4">
+      <div className="space-y-1">
         {filteredOrders.map((order) => {
-          const TypeIcon = orderTypeIcons[order.orderType as keyof typeof orderTypeIcons] || ShoppingBag;
           return (
-            <Card
+            <div
               key={order.id}
-              className="hover-elevate cursor-pointer"
-              onClick={() => setLocation(`/orders/${order.id}`)}
-              data-testid={`card-order-${order.id}`}
+              className="grid grid-cols-[2fr_2fr_1fr_1.5fr_2.5fr] gap-4 items-center p-4 border-b hover-elevate"
+              data-testid={`row-order-${order.id}`}
             >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className="p-3 rounded-lg bg-muted">
-                      <TypeIcon className="h-6 w-6" />
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-lg" data-testid={`text-order-id-${order.id}`}>
-                          #{order.id.slice(0, 8)}
-                        </h3>
-                        <Badge className={statusColors[order.status as keyof typeof statusColors]}>
-                          {statusLabels[order.status as keyof typeof statusLabels]}
-                        </Badge>
-                        {!order.isSynced && (
-                          <Badge variant="secondary" className="gap-1">
-                            <WifiOff className="h-3 w-3" />
-                            Pendente Sincronização
-                          </Badge>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
-                        {order.customerName && (
-                          <div>
-                            <span className="font-medium">Cliente:</span> {order.customerName}
-                          </div>
-                        )}
-                        {order.table && (
-                          <div>
-                            <span className="font-medium">Mesa:</span> {order.table.number}
-                          </div>
-                        )}
-                        <div>
-                          <span className="font-medium">Data:</span>{" "}
-                          {order.createdAt ? format(new Date(order.createdAt), "dd/MM/yyyy HH:mm") : "-"}
-                        </div>
-                        <div>
-                          <span className="font-medium">Itens:</span> {order.orderItems.length}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        {order.orderItems.slice(0, 3).map((item) => (
-                          <Badge key={item.id} variant="secondary">
-                            {item.quantity}x {item.menuItem.name}
-                          </Badge>
-                        ))}
-                        {order.orderItems.length > 3 && (
-                          <Badge variant="secondary">
-                            +{order.orderItems.length - 3} mais
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-right space-y-2">
-                    <div className="text-2xl font-bold" data-testid={`text-order-total-${order.id}`}>
-                      {formatKwanza(order.totalAmount)}
-                    </div>
-                    {order.paymentMethod && (
-                      <Badge variant="outline">{order.paymentMethod}</Badge>
-                    )}
-                  </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-chart-1" data-testid={`text-order-number-${order.id}`}>
+                    #{order.id.slice(-4)}
+                  </span>
+                  <span className="text-muted-foreground">@</span>
+                  <span className="text-sm text-muted-foreground">
+                    {order.table ? `Mesa ${order.table.number}` : getOrderTypeLabel(order.orderType)}
+                  </span>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="text-sm text-chart-1" data-testid={`text-elapsed-${order.id}`}>
+                  {getElapsedTime(order.createdAt || new Date())}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {order.createdAt ? format(new Date(order.createdAt), "dd/MM/yy HH:mm") : "-"}
+                </div>
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <span>keny</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Badge className={statusColors[order.status as keyof typeof statusColors]}>
+                  {statusLabels[order.status as keyof typeof statusLabels]}
+                </Badge>
+                <div className="text-xs text-muted-foreground">
+                  PDV • AO-{order.id.slice(0, 4)}...
+                </div>
+                {getPaymentStatusBadge(order.paymentStatus || "nao_pago")}
+              </div>
+
+              <div className="font-semibold" data-testid={`text-order-total-${order.id}`}>
+                {formatKwanza(order.totalAmount)}
+              </div>
+
+              <div className="text-sm" data-testid={`text-customer-${order.id}`}>
+                {order.customerName || "-"}
+              </div>
+
+              <div className="flex items-center gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    cancelOrderMutation.mutate(order.id);
+                  }}
+                  data-testid={`button-cancel-${order.id}`}
+                  className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLocation(`/orders/${order.id}`);
+                  }}
+                  disabled={order.paymentStatus === "pago"}
+                  data-testid={`button-pay-${order.id}`}
+                >
+                  Pagar
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateOrderStatusMutation.mutate({ orderId: order.id, status: "em_preparo" });
+                  }}
+                  disabled={order.status !== "pendente"}
+                  data-testid={`button-accept-${order.id}`}
+                  className="bg-chart-3 hover:bg-chart-3/90 text-chart-3-foreground"
+                >
+                  Aceitar
+                </Button>
+              </div>
+            </div>
           );
         })}
       </div>
@@ -273,9 +337,17 @@ export default function PDV() {
     return (
       <div className="flex items-center gap-2">
         <span className="text-sm text-muted-foreground">Total:</span>
-        <span className="text-xl font-bold" data-testid={`text-revenue-${tabType}`}>
+        <span className="text-lg font-semibold" data-testid={`text-revenue-${tabType}`}>
           {formatKwanza(revenue)}
         </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          data-testid={`button-view-revenue-${tabType}`}
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
       </div>
     );
   };
@@ -283,55 +355,48 @@ export default function PDV() {
   const renderSortHeader = () => {
     const SortIcon = ({ field }: { field: SortField }) => {
       if (sortField !== field) {
-        return <ArrowUpDown className="h-4 w-4 opacity-40" />;
+        return <ArrowUpDown className="h-3 w-3 opacity-40 ml-1" />;
       }
       return sortDirection === "asc" ? 
-        <ArrowUp className="h-4 w-4" /> : 
-        <ArrowDown className="h-4 w-4" />;
+        <ArrowUp className="h-3 w-3 ml-1" /> : 
+        <ArrowDown className="h-3 w-3 ml-1" />;
     };
 
     return (
-      <div className="grid grid-cols-4 gap-4 mb-4 px-4 py-2 rounded-md bg-muted/50">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="justify-start font-semibold hover-elevate"
+      <div className="grid grid-cols-[2fr_2fr_1fr_1.5fr_2.5fr] gap-4 px-4 py-2 mb-1 text-xs font-medium text-muted-foreground uppercase border-b">
+        <div
+          className="flex items-center cursor-pointer hover:text-foreground"
           onClick={() => handleSort("date")}
           data-testid="sort-date"
         >
           DATA
           <SortIcon field="date" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="justify-start font-semibold hover-elevate"
+        </div>
+        <div
+          className="flex items-center cursor-pointer hover:text-foreground"
           onClick={() => handleSort("status")}
           data-testid="sort-status"
         >
           ESTADO
           <SortIcon field="status" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="justify-start font-semibold hover-elevate"
+        </div>
+        <div
+          className="flex items-center cursor-pointer hover:text-foreground"
           onClick={() => handleSort("total")}
           data-testid="sort-total"
         >
           TOTAL
           <SortIcon field="total" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="justify-start font-semibold hover-elevate"
+        </div>
+        <div
+          className="flex items-center cursor-pointer hover:text-foreground"
           onClick={() => handleSort("customer")}
           data-testid="sort-customer"
         >
           CLIENTE
           <SortIcon field="customer" />
-        </Button>
+        </div>
+        <div></div>
       </div>
     );
   };

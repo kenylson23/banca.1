@@ -117,6 +117,7 @@ export interface IStorage {
   searchOrders(restaurantId: string, searchTerm: string): Promise<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
   createOrder(order: InsertOrder, items: PublicOrderItem[]): Promise<Order>;
   updateOrderStatus(restaurantId: string, id: string, status: string): Promise<Order>;
+  deleteOrder(restaurantId: string, id: string): Promise<void>;
   
   // Checkout operations
   getOrderById(restaurantId: string, id: string): Promise<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> } | undefined>;
@@ -1246,6 +1247,52 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orders.id, id))
       .returning();
     return updated;
+  }
+
+  async deleteOrder(restaurantId: string, id: string): Promise<void> {
+    const [orderData] = await db
+      .select()
+      .from(orders)
+      .leftJoin(tables, eq(orders.tableId, tables.id))
+      .where(eq(orders.id, id));
+    
+    if (!orderData || !orderData.orders) {
+      throw new Error('Order not found');
+    }
+    
+    if (orderData.orders.tableId && orderData.tables) {
+      if (orderData.tables.restaurantId !== restaurantId) {
+        throw new Error('Unauthorized: Order does not belong to your restaurant');
+      }
+    } else {
+      if (orderData.orders.restaurantId !== restaurantId) {
+        throw new Error('Unauthorized: Order does not belong to your restaurant');
+      }
+    }
+
+    if (orderData.orders.paymentStatus === 'pago') {
+      throw new Error('Cannot delete paid orders');
+    }
+
+    await db.delete(orderItemOptions).where(
+      eq(orderItemOptions.orderItemId, 
+        db.select({ id: orderItems.id }).from(orderItems).where(eq(orderItems.orderId, id)) as any
+      )
+    );
+
+    await db.delete(orderItems).where(eq(orderItems.orderId, id));
+    await db.delete(orders).where(eq(orders.id, id));
+
+    if (orderData.orders.tableId) {
+      const remainingOrders = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.tableId, orderData.orders.tableId));
+      
+      if (remainingOrders.length === 0) {
+        await this.updateTableOccupancy(restaurantId, orderData.orders.tableId, false);
+      }
+    }
   }
 
   async getOrderById(restaurantId: string, id: string): Promise<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> } | undefined> {
