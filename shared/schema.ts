@@ -435,6 +435,30 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   deliveryFee: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de entrega inválida").optional(),
 });
 
+// Public order schema for customer checkout (omits advanced controls)
+// This schema is used for /api/public/orders to prevent customers from setting
+// professional features like discounts, service charges, payment methods, etc.
+export const publicOrderSchema = createInsertSchema(orders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  subtotal: true,
+  totalAmount: true,
+  paymentStatus: true,
+  paidAmount: true,
+  changeAmount: true,
+  // Omit professional/admin-only fields
+  discount: true,
+  discountType: true,
+  serviceCharge: true,
+  deliveryFee: true,
+  paymentMethod: true,
+  createdBy: true,
+}).extend({
+  // Restrict order types to customer-accessible ones only
+  orderType: z.enum(['mesa', 'delivery', 'takeout']).default('mesa'),
+});
+
 export const updateOrderStatusSchema = z.object({
   status: z.enum(['pendente', 'em_preparo', 'pronto', 'servido']),
 });

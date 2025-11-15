@@ -13,6 +13,7 @@ import {
   insertCategorySchema,
   insertMenuItemSchema,
   insertOrderSchema,
+  publicOrderSchema,
   insertOrderItemSchema,
   publicOrderItemSchema,
   insertUserSchema,
@@ -724,14 +725,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Customers use a simple checkout without advanced controls (discounts, service charges, payments)
   app.post("/api/public/orders", async (req, res) => {
     try {
-      const { items, createdBy, ...orderData } = req.body;
+      const { items, ...orderData } = req.body;
       
-      // Prevent customers from setting createdBy field (security)
-      if (createdBy) {
-        return res.status(400).json({ message: "Campo createdBy não permitido em pedidos públicos" });
-      }
-      
-      let validatedOrder = insertOrderSchema.parse(orderData);
+      // Use publicOrderSchema which automatically blocks professional fields
+      // (discount, discountType, serviceCharge, deliveryFee, paymentMethod, createdBy)
+      let validatedOrder = publicOrderSchema.parse(orderData);
       
       const validatedItems = z.array(publicOrderItemSchema).parse(items);
 
