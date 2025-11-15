@@ -1023,6 +1023,278 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== FINANCIAL ROUTES (Admin Only) =====
+  // 
+  // IMPORTANT: Financial routes are designed ONLY for admins with restaurantId.
+  // ALL financial routes block superadmins and users without restaurantId.
+  // The financial management UI is hidden from superadmins in the frontend.
+  //
+  // SECURITY: All routes use ONLY currentUser.restaurantId - NEVER accept from request.
+  // This prevents cross-tenant data leakage and ensures proper tenant isolation.
+  //
+  // Routes:
+  // - GET /api/financial-shifts - List shifts for current user's restaurant
+  // - GET /api/financial-shifts/:id - Get specific shift (validates ownership)
+  // - POST /api/financial-shifts - Create new shift
+  // - PATCH /api/financial-shifts/:id/close - Close shift (validates ownership)
+  // - GET /api/financial-events - List financial events
+  // - POST /api/financial-events - Create financial event
+  // - GET /api/order-adjustments/:orderId - Get order adjustments
+  // - POST /api/order-adjustments - Create order adjustment
+  // - GET /api/payment-events - List payment events
+  // - GET /api/report-aggregations - Get report aggregations
+  
+  // Financial Shifts
+  app.get("/api/financial-shifts", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      // Only admins with restaurantId can access financial data
+      // Superadmins are blocked as they lack restaurant context
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Acesso negado. Funcionalidades financeiras requerem associação a um restaurante." });
+      }
+      
+      // SECURITY: Always use currentUser.restaurantId - never accept from request
+      const restaurantId = currentUser.restaurantId;
+      const branchId = currentUser.activeBranchId || null;
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      const shifts = await storage.getAllShifts(restaurantId, branchId, startDate, endDate);
+      res.json(shifts);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar turnos" });
+    }
+  });
+
+  app.get("/api/financial-shifts/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      // Only admins with restaurantId can access financial data
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Acesso negado. Funcionalidades financeiras requerem associação a um restaurante." });
+      }
+      
+      const shift = await storage.getShiftById(req.params.id);
+      
+      if (!shift) {
+        return res.status(404).json({ message: "Turno não encontrado" });
+      }
+      
+      // SECURITY: Validate restaurant access
+      if (shift.restaurantId !== currentUser.restaurantId) {
+        return res.status(403).json({ message: "Acesso negado a este turno" });
+      }
+      
+      res.json(shift);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar turno" });
+    }
+  });
+
+  app.post("/api/financial-shifts", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      // Only admins with restaurantId can access financial data
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Acesso negado. Funcionalidades financeiras requerem associação a um restaurante." });
+      }
+      
+      // SECURITY: Always use currentUser.restaurantId - never accept from request
+      const restaurantId = currentUser.restaurantId;
+      const branchId = currentUser.activeBranchId || null;
+      const { openingBalance, notes } = req.body;
+      
+      const shift = await storage.createShift(restaurantId, branchId, {
+        operatorId: currentUser.id,
+        branchId,
+        openingBalance: openingBalance || '0',
+        notes,
+      });
+      
+      res.json(shift);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao criar turno" });
+    }
+  });
+
+  app.patch("/api/financial-shifts/:id/close", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      // Only admins with restaurantId can access financial data
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Acesso negado. Funcionalidades financeiras requerem associação a um restaurante." });
+      }
+      
+      const { closingBalance, notes } = req.body;
+      
+      if (!closingBalance) {
+        return res.status(400).json({ message: "Saldo de fechamento é obrigatório" });
+      }
+      
+      // SECURITY: Validate restaurant access before closing
+      const shift = await storage.getShiftById(req.params.id);
+      if (!shift) {
+        return res.status(404).json({ message: "Turno não encontrado" });
+      }
+      
+      if (shift.restaurantId !== currentUser.restaurantId) {
+        return res.status(403).json({ message: "Acesso negado a este turno" });
+      }
+      
+      const closedShift = await storage.closeShift(req.params.id, closingBalance, notes);
+      res.json(closedShift);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Erro ao fechar turno" });
+    }
+  });
+
+  // Financial Events
+  app.get("/api/financial-events", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      // Only admins with restaurantId can access financial data
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Acesso negado. Funcionalidades financeiras requerem associação a um restaurante." });
+      }
+      
+      // SECURITY: Always use currentUser.restaurantId - never accept from request
+      const restaurantId = currentUser.restaurantId;
+      const branchId = currentUser.activeBranchId || null;
+      
+      const filters: any = {};
+      if (req.query.sessionId) filters.sessionId = req.query.sessionId as string;
+      if (req.query.orderId) filters.orderId = req.query.orderId as string;
+      if (req.query.tableId) filters.tableId = req.query.tableId as string;
+      if (req.query.eventType) filters.eventType = req.query.eventType as string;
+      if (req.query.startDate) filters.startDate = new Date(req.query.startDate as string);
+      if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
+      
+      const events = await storage.getFinancialEvents(restaurantId, branchId, filters);
+      res.json(events);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar eventos financeiros" });
+    }
+  });
+
+  app.post("/api/financial-events", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      // Only admins with restaurantId can access financial data
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Acesso negado. Funcionalidades financeiras requerem associação a um restaurante." });
+      }
+      
+      // SECURITY: Always use currentUser.restaurantId - never accept from request
+      const restaurantId = currentUser.restaurantId;
+      const event = await storage.createFinancialEvent(restaurantId, req.body);
+      res.json(event);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao criar evento financeiro" });
+    }
+  });
+
+  // Order Adjustments
+  app.get("/api/order-adjustments/:orderId", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      // Only admins with restaurantId can access financial data
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Acesso negado. Funcionalidades financeiras requerem associação a um restaurante." });
+      }
+      
+      const adjustments = await storage.getOrderAdjustments(req.params.orderId);
+      res.json(adjustments);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar ajustes" });
+    }
+  });
+
+  app.post("/api/order-adjustments", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      // Only admins with restaurantId can access financial data
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Acesso negado. Funcionalidades financeiras requerem associação a um restaurante." });
+      }
+      
+      // SECURITY: Always use currentUser.restaurantId - never accept from request
+      const restaurantId = currentUser.restaurantId;
+      const adjustment = await storage.createOrderAdjustment(restaurantId, {
+        ...req.body,
+        appliedBy: currentUser.id,
+      });
+      res.json(adjustment);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao criar ajuste" });
+    }
+  });
+
+  // Payment Events
+  app.get("/api/payment-events", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      // Only admins with restaurantId can access financial data
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Acesso negado. Funcionalidades financeiras requerem associação a um restaurante." });
+      }
+      
+      // SECURITY: Always use currentUser.restaurantId - never accept from request
+      const restaurantId = currentUser.restaurantId;
+      
+      const filters: any = {};
+      if (req.query.orderId) filters.orderId = req.query.orderId as string;
+      if (req.query.sessionId) filters.sessionId = req.query.sessionId as string;
+      if (req.query.paymentMethod) filters.paymentMethod = req.query.paymentMethod as string;
+      if (req.query.startDate) filters.startDate = new Date(req.query.startDate as string);
+      if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
+      
+      const paymentEvents = await storage.getPaymentEvents(restaurantId, filters);
+      res.json(paymentEvents);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar eventos de pagamento" });
+    }
+  });
+
+  // Report Aggregations
+  app.get("/api/report-aggregations", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      // Only admins with restaurantId can access financial data
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Acesso negado. Funcionalidades financeiras requerem associação a um restaurante." });
+      }
+      
+      // SECURITY: Always use currentUser.restaurantId - never accept from request
+      const restaurantId = currentUser.restaurantId;
+      const branchId = currentUser.activeBranchId || null;
+      
+      const periodType = (req.query.periodType as 'daily' | 'weekly' | 'monthly') || 'daily';
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      
+      const aggregations = await storage.getReportAggregations(
+        restaurantId,
+        branchId,
+        periodType,
+        startDate,
+        endDate
+      );
+      res.json(aggregations);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar agregações de relatório" });
+    }
+  });
+
   // ===== CATEGORY ROUTES (Admin Only) =====
   app.get("/api/categories", isAdmin, async (req, res) => {
     try {

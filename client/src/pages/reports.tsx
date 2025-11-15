@@ -11,11 +11,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { TrendingUp, ShoppingCart, Package, Clock, Download, Filter, Eye } from "lucide-react";
+import { TrendingUp, ShoppingCart, Package, Clock, Download, Filter, Eye, Wallet } from "lucide-react";
 import { format } from "date-fns";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import { PrintOrder } from "@/components/PrintOrder";
+import { FinancialShiftManager } from "@/components/FinancialShiftManager";
 
 type SalesReport = {
   totalSales: string;
@@ -82,6 +84,7 @@ const typeLabels = {
 const CHART_COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export default function Reports() {
+  const { user } = useAuth();
   const today = new Date();
   const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -89,6 +92,8 @@ export default function Reports() {
   const [endDate, setEndDate] = useState(format(today, 'yyyy-MM-dd'));
   const [orderStatus, setOrderStatus] = useState<string>("todos");
   const [orderType, setOrderType] = useState<string>("todos");
+  
+  const isSuperadmin = user?.role === 'superadmin';
 
   const { data: salesReport, isLoading: loadingSales } = useQuery<SalesReport>({
     queryKey: ['/api/reports/sales', { startDate, endDate }],
@@ -271,7 +276,7 @@ export default function Reports() {
       </Card>
 
       <Tabs defaultValue="sales" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1">
+        <TabsList className={`grid w-full gap-1 ${isSuperadmin ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-5'}`}>
           <TabsTrigger value="sales" data-testid="tab-sales" className="text-xs sm:text-sm">
             <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
             <span className="hidden sm:inline">Vendas</span>
@@ -292,6 +297,13 @@ export default function Reports() {
             <span className="hidden sm:inline">Performance</span>
             <span className="inline sm:hidden">Perf.</span>
           </TabsTrigger>
+          {!isSuperadmin && (
+            <TabsTrigger value="financial" data-testid="tab-financial" className="text-xs sm:text-sm">
+              <Wallet className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Gestão Financeira</span>
+              <span className="inline sm:hidden">Finan.</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="sales" className="space-y-4">
@@ -645,6 +657,12 @@ export default function Reports() {
             </>
           )}
         </TabsContent>
+
+        {!isSuperadmin && (
+          <TabsContent value="financial" className="space-y-4">
+            <FinancialShiftManager />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

@@ -32,7 +32,9 @@ import { ptBR } from 'date-fns/locale';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { PrintOrder } from '@/components/PrintOrder';
+import { FinancialDashboard } from '@/components/FinancialDashboard';
 import type { Table } from '@shared/schema';
 
 interface TableDetailsDialogProps {
@@ -65,11 +67,14 @@ const getOrderStatusLabel = (status: string) => {
 
 export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: TableDetailsDialogProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [customerName, setCustomerName] = useState('');
   const [customerCount, setCustomerCount] = useState('');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('dinheiro');
   const [showEndSessionDialog, setShowEndSessionDialog] = useState(false);
+  
+  const isSuperadmin = user?.role === 'superadmin';
 
   const startSessionMutation = useMutation({
     mutationFn: async () => {
@@ -203,10 +208,11 @@ export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: Tabl
           </DialogHeader>
 
           <Tabs defaultValue="overview" className="flex-1 overflow-hidden flex flex-col">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className={`grid w-full ${isSuperadmin ? 'grid-cols-3' : 'grid-cols-4'}`}>
               <TabsTrigger value="overview">Visão Geral</TabsTrigger>
               <TabsTrigger value="orders">Pedidos ({activeOrders.length})</TabsTrigger>
               <TabsTrigger value="payment">Pagamento</TabsTrigger>
+              {!isSuperadmin && <TabsTrigger value="financial">Financeiro</TabsTrigger>}
             </TabsList>
 
             <ScrollArea className="flex-1 mt-4">
@@ -435,6 +441,10 @@ export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: Tabl
                     </div>
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              <TabsContent value="financial" className="space-y-4 m-0">
+                <FinancialDashboard tableId={table.id} sessionId={table.currentSessionId || undefined} />
               </TabsContent>
             </ScrollArea>
           </Tabs>
