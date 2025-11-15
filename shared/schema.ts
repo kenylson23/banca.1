@@ -66,6 +66,15 @@ export const insertRestaurantSchema = createInsertSchema(restaurants).omit({
 export type InsertRestaurant = z.infer<typeof insertRestaurantSchema>;
 export type Restaurant = typeof restaurants.$inferSelect;
 
+export const updateRestaurantSlugSchema = z.object({
+  slug: z.string()
+    .min(3, "Slug deve ter no mínimo 3 caracteres")
+    .max(100, "Slug deve ter no máximo 100 caracteres")
+    .regex(/^[a-z0-9-]+$/, "Slug deve conter apenas letras minúsculas, números e hífens")
+});
+
+export type UpdateRestaurantSlug = z.infer<typeof updateRestaurantSlugSchema>;
+
 // Branches - Filiais/Unidades do Restaurante
 export const branches = pgTable("branches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -204,18 +213,83 @@ export type InsertTable = z.infer<typeof insertTableSchema>;
 export type UpdateTableStatus = z.infer<typeof updateTableStatusSchema>;
 export type Table = typeof tables.$inferSelect;
 
+// ===== FINANCIAL SYSTEM ENUMS =====
+
+// Shift Status Enum
+export const shiftStatusEnum = pgEnum('shift_status', ['aberto', 'fechado']);
+
+// Financial Event Type Enum
+export const financialEventTypeEnum = pgEnum('financial_event_type', [
+  'ITEM_ADDED', 'ITEM_REMOVED', 'ITEM_QUANTITY_CHANGED',
+  'PAYMENT_CAPTURED', 'PAYMENT_PARTIAL',
+  'REFUND_ISSUED', 'REFUND_PARTIAL',
+  'CANCELLED_ORDER', 'CANCELLED_ITEM',
+  'DISCOUNT_APPLIED', 'DISCOUNT_REMOVED',
+  'SERVICE_CHARGE_APPLIED',
+  'SESSION_STARTED', 'SESSION_CLOSED',
+  'TABLE_MOVED', 'TABLE_MERGED'
+]);
+
+// Event Source Enum
+export const eventSourceEnum = pgEnum('event_source', ['UI', 'API', 'AUTO']);
+
+// Adjustment Type Enum
+export const adjustmentTypeEnum = pgEnum('adjustment_type', ['discount', 'service_charge', 'delivery_fee', 'packaging_fee', 'other']);
+
+// Report Period Type Enum
+export const reportPeriodTypeEnum = pgEnum('report_period_type', ['daily', 'weekly', 'monthly']);
+
+// Payment Method Enum (used by financial tables)
+export const paymentMethodEnum = pgEnum('payment_method', ['dinheiro', 'multicaixa', 'transferencia', 'cartao']);
+
+// ===== FINANCIAL SHIFTS =====
+// Must be declared before tableSessions since tableSessions references it
+
+export const financialShifts = pgTable("financial_shifts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  operatorId: varchar("operator_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  status: shiftStatusEnum("status").notNull().default('aberto'),
+  openingBalance: decimal("opening_balance", { precision: 10, scale: 2 }).default('0'),
+  closingBalance: decimal("closing_balance", { precision: 10, scale: 2 }).default('0'),
+  expectedBalance: decimal("expected_balance", { precision: 10, scale: 2 }).default('0'),
+  discrepancy: decimal("discrepancy", { precision: 10, scale: 2 }).default('0'),
+  notes: text("notes"),
+  startedAt: timestamp("started_at").defaultNow(),
+  endedAt: timestamp("ended_at"),
+});
+
+export const insertFinancialShiftSchema = createInsertSchema(financialShifts).omit({
+  id: true,
+  restaurantId: true,
+  status: true,
+  startedAt: true,
+  endedAt: true,
+}).extend({
+  openingBalance: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido").optional(),
+});
+
+export type InsertFinancialShift = z.infer<typeof insertFinancialShiftSchema>;
+export type FinancialShift = typeof financialShifts.$inferSelect;
+
 // Table Sessions - Histórico de sessões das mesas
 export const tableSessions = pgTable("table_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tableId: varchar("table_id").notNull().references(() => tables.id, { onDelete: 'cascade' }),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  shiftId: varchar("shift_id").references(() => financialShifts.id, { onDelete: 'set null' }),
+  operatorId: varchar("operator_id").references(() => users.id, { onDelete: 'set null' }),
   customerName: varchar("customer_name", { length: 200 }),
   customerCount: integer("customer_count"),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull().default('0'),
   paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default('0'),
+  sessionTotals: jsonb("session_totals"),
+  closingSnapshot: jsonb("closing_snapshot"),
   status: tableStatusEnum("status").notNull().default('ocupada'),
   startedAt: timestamp("started_at").defaultNow(),
   endedAt: timestamp("ended_at"),
+  closedById: varchar("closed_by_id").references(() => users.id, { onDelete: 'set null' }),
   notes: text("notes"),
 });
 
@@ -238,8 +312,12 @@ export const tablePayments = pgTable("table_payments", {
   tableId: varchar("table_id").notNull().references(() => tables.id, { onDelete: 'cascade' }),
   sessionId: varchar("session_id").references(() => tableSessions.id, { onDelete: 'cascade' }),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  operatorId: varchar("operator_id").references(() => users.id, { onDelete: 'set null' }),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  paymentMethod: varchar("payment_method", { length: 50 }).notNull(), // dinheiro, multicaixa, transferencia, etc
+  paymentMethod: varchar("payment_method", { length: 50 }).notNull(),
+  paymentSource: varchar("payment_source", { length: 100 }),
+  methodDetails: jsonb("method_details"),
+  reconciliationBatchId: varchar("reconciliation_batch_id", { length: 100 }),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -247,6 +325,7 @@ export const tablePayments = pgTable("table_payments", {
 export const insertTablePaymentSchema = createInsertSchema(tablePayments).omit({
   id: true,
   restaurantId: true,
+  operatorId: true,
   createdAt: true,
 }).extend({
   amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
@@ -255,6 +334,312 @@ export const insertTablePaymentSchema = createInsertSchema(tablePayments).omit({
 
 export type InsertTablePayment = z.infer<typeof insertTablePaymentSchema>;
 export type TablePayment = typeof tablePayments.$inferSelect;
+
+// ===== ORDERS SECTION =====
+
+// Order Status Enum
+export const orderStatusEnum = pgEnum('order_status', ['pendente', 'em_preparo', 'pronto', 'servido']);
+
+// Order Type Enum
+export const orderTypeEnum = pgEnum('order_type', ['mesa', 'delivery', 'takeout', 'balcao', 'pdv']);
+
+// Payment Status Enum
+export const paymentStatusEnum = pgEnum('payment_status', ['nao_pago', 'parcial', 'pago']);
+
+// Discount Type Enum
+export const discountTypeEnum = pgEnum('discount_type', ['valor', 'percentual']);
+
+// Orders - Pedidos
+export const orders = pgTable("orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  tableId: varchar("table_id").references(() => tables.id, { onDelete: 'cascade' }),
+  tableSessionId: varchar("table_session_id").references(() => tableSessions.id, { onDelete: 'set null' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  orderType: orderTypeEnum("order_type").notNull().default('mesa'),
+  customerName: varchar("customer_name", { length: 200 }),
+  customerPhone: varchar("customer_phone", { length: 50 }),
+  deliveryAddress: text("delivery_address"),
+  orderNotes: text("order_notes"),
+  orderTitle: varchar("order_title", { length: 200 }),
+  status: orderStatusEnum("status").notNull().default('pendente'),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default('0'),
+  discount: decimal("discount", { precision: 10, scale: 2 }).default('0'),
+  discountType: discountTypeEnum("discount_type").default('valor'),
+  serviceCharge: decimal("service_charge", { precision: 10, scale: 2 }).default('0'),
+  serviceName: varchar("service_name", { length: 200 }),
+  deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).default('0'),
+  packagingFee: decimal("packaging_fee", { precision: 10, scale: 2 }).default('0'),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  paymentStatus: paymentStatusEnum("payment_status").notNull().default('nao_pago'),
+  paymentMethod: paymentMethodEnum("payment_method"),
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default('0'),
+  changeAmount: decimal("change_amount", { precision: 10, scale: 2 }).default('0'),
+  refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }).default('0'),
+  cancellationReason: text("cancellation_reason"),
+  isSynced: integer("is_synced").default(1),
+  createdBy: varchar("created_by").references(() => users.id),
+  closedBy: varchar("closed_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertOrderSchema = createInsertSchema(orders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  subtotal: true,
+  totalAmount: true,
+  paymentStatus: true,
+  paidAmount: true,
+  changeAmount: true,
+}).extend({
+  orderType: z.enum(['mesa', 'delivery', 'takeout', 'balcao', 'pdv']).default('mesa'),
+  discount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Desconto inválido").optional(),
+  discountType: z.enum(['valor', 'percentual']).optional(),
+  serviceCharge: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de serviço inválida").optional(),
+  deliveryFee: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de entrega inválida").optional(),
+});
+
+// Public order schema for customer checkout (omits advanced controls)
+// This schema is used for /api/public/orders to prevent customers from setting
+// professional features like discounts, service charges, payment methods, etc.
+export const publicOrderSchema = createInsertSchema(orders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  subtotal: true,
+  totalAmount: true,
+  paymentStatus: true,
+  paidAmount: true,
+  changeAmount: true,
+  // Omit professional/admin-only fields
+  discount: true,
+  discountType: true,
+  serviceCharge: true,
+  deliveryFee: true,
+  paymentMethod: true,
+  createdBy: true,
+}).extend({
+  // Restrict order types to customer-accessible ones only
+  orderType: z.enum(['mesa', 'delivery', 'takeout']).default('mesa'),
+});
+
+export const updateOrderStatusSchema = z.object({
+  status: z.enum(['pendente', 'em_preparo', 'pronto', 'servido']),
+});
+
+export const updateOrderMetadataSchema = z.object({
+  orderTitle: z.string().max(200).optional(),
+  customerName: z.string().max(200).optional(),
+  customerPhone: z.string().max(50).optional(),
+  deliveryAddress: z.string().optional(),
+  orderNotes: z.string().optional(),
+});
+
+export const applyDiscountSchema = z.object({
+  discount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Desconto inválido"),
+  discountType: z.enum(['valor', 'percentual']),
+});
+
+export const applyServiceChargeSchema = z.object({
+  serviceCharge: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de serviço inválida"),
+  serviceName: z.string().max(200).optional(),
+});
+
+export const applyDeliveryFeeSchema = z.object({
+  deliveryFee: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de entrega inválida"),
+});
+
+export const applyPackagingFeeSchema = z.object({
+  packagingFee: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de embalagem inválida"),
+});
+
+export const recordPaymentSchema = z.object({
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
+  paymentMethod: z.enum(['dinheiro', 'multicaixa', 'transferencia', 'cartao']),
+  receivedAmount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor recebido inválido").optional(),
+});
+
+export const updateOrderItemQuantitySchema = z.object({
+  quantity: z.number().int().min(1, "Quantidade deve ser pelo menos 1"),
+});
+
+export type UpdateOrderStatus = z.infer<typeof updateOrderStatusSchema>;
+export type UpdateOrderMetadata = z.infer<typeof updateOrderMetadataSchema>;
+export type ApplyDiscount = z.infer<typeof applyDiscountSchema>;
+export type ApplyServiceCharge = z.infer<typeof applyServiceChargeSchema>;
+export type ApplyDeliveryFee = z.infer<typeof applyDeliveryFeeSchema>;
+export type ApplyPackagingFee = z.infer<typeof applyPackagingFeeSchema>;
+export type RecordPayment = z.infer<typeof recordPaymentSchema>;
+export type UpdateOrderItemQuantity = z.infer<typeof updateOrderItemQuantitySchema>;
+
+export type InsertOrder = z.infer<typeof insertOrderSchema>;
+export type Order = typeof orders.$inferSelect;
+
+// Order Items - Itens do pedido
+export const orderItems = pgTable("order_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  menuItemId: varchar("menu_item_id").notNull().references(() => menuItems.id),
+  quantity: integer("quantity").notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOrderItemSchema = createInsertSchema(orderItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const publicOrderItemSchema = createInsertSchema(orderItems).omit({
+  id: true,
+  orderId: true,
+  createdAt: true,
+}).extend({
+  selectedOptions: z.array(z.object({
+    optionId: z.string(),
+    optionName: z.string(),
+    optionGroupName: z.string(),
+    priceAdjustment: z.string(),
+    quantity: z.number().int().min(1).default(1),
+  })).optional().default([]),
+});
+
+export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
+export type PublicOrderItem = z.infer<typeof publicOrderItemSchema>;
+export type OrderItem = typeof orderItems.$inferSelect;
+
+// Order Item Options - Opções selecionadas em cada item do pedido
+export const orderItemOptions = pgTable("order_item_options", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderItemId: varchar("order_item_id").notNull().references(() => orderItems.id, { onDelete: 'cascade' }),
+  optionId: varchar("option_id").notNull().references(() => options.id),
+  optionName: varchar("option_name", { length: 200 }).notNull(), // Armazenar nome para histórico
+  optionGroupName: varchar("option_group_name", { length: 200 }).notNull(), // Armazenar nome do grupo
+  priceAdjustment: decimal("price_adjustment", { precision: 10, scale: 2 }).notNull().default('0'),
+  quantity: integer("quantity").notNull().default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOrderItemOptionSchema = createInsertSchema(orderItemOptions).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  priceAdjustment: z.string().regex(/^-?\d+(\.\d{1,2})?$/, "Preço inválido").default('0'),
+});
+
+export type InsertOrderItemOption = z.infer<typeof insertOrderItemOptionSchema>;
+export type OrderItemOption = typeof orderItemOptions.$inferSelect;
+
+// ===== FINANCIAL TABLES =====
+
+// Financial Events - Log de eventos financeiros (Audit Trail)
+export const financialEvents = pgTable("financial_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  sessionId: varchar("session_id").references(() => tableSessions.id, { onDelete: 'set null' }),
+  orderId: varchar("order_id").references(() => orders.id, { onDelete: 'set null' }),
+  tableId: varchar("table_id").references(() => tables.id, { onDelete: 'set null' }),
+  shiftId: varchar("shift_id").references(() => financialShifts.id, { onDelete: 'set null' }),
+  eventType: financialEventTypeEnum("event_type").notNull(),
+  payload: jsonb("payload").notNull(),
+  operatorId: varchar("operator_id").references(() => users.id, { onDelete: 'set null' }),
+  source: eventSourceEnum("source").notNull().default('UI'),
+  metadata: jsonb("metadata"),
+  version: integer("version").notNull().default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFinancialEventSchema = createInsertSchema(financialEvents).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+  version: true,
+});
+
+export type InsertFinancialEvent = z.infer<typeof insertFinancialEventSchema>;
+export type FinancialEvent = typeof financialEvents.$inferSelect;
+
+// Order Adjustments - Ajustes de pedidos
+export const orderAdjustments = pgTable("order_adjustments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  adjustmentType: adjustmentTypeEnum("adjustment_type").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  reason: text("reason"),
+  operatorId: varchar("operator_id").references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOrderAdjustmentSchema = createInsertSchema(orderAdjustments).omit({
+  id: true,
+  restaurantId: true,
+  operatorId: true,
+  createdAt: true,
+}).extend({
+  amount: z.string().regex(/^-?\d+(\.\d{1,2})?$/, "Valor inválido"),
+});
+
+export type InsertOrderAdjustment = z.infer<typeof insertOrderAdjustmentSchema>;
+export type OrderAdjustment = typeof orderAdjustments.$inferSelect;
+
+// Payment Events - Eventos de pagamento detalhados
+export const paymentEvents = pgTable("payment_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").references(() => orders.id, { onDelete: 'cascade' }),
+  sessionId: varchar("session_id").references(() => tableSessions.id, { onDelete: 'cascade' }),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  paymentSource: varchar("payment_source", { length: 100 }),
+  methodDetails: jsonb("method_details"),
+  reconciliationBatchId: varchar("reconciliation_batch_id", { length: 100 }),
+  operatorId: varchar("operator_id").references(() => users.id, { onDelete: 'set null' }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPaymentEventSchema = createInsertSchema(paymentEvents).omit({
+  id: true,
+  restaurantId: true,
+  operatorId: true,
+  createdAt: true,
+}).extend({
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
+});
+
+export type InsertPaymentEvent = z.infer<typeof insertPaymentEventSchema>;
+export type PaymentEvent = typeof paymentEvents.$inferSelect;
+
+// Report Aggregations - Agregações para relatórios
+export const reportAggregations = pgTable("report_aggregations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  periodType: reportPeriodTypeEnum("period_type").notNull(),
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  totals: jsonb("totals").notNull(),
+  byTable: jsonb("by_table"),
+  byCategory: jsonb("by_category"),
+  byOperator: jsonb("by_operator"),
+  topProducts: jsonb("top_products"),
+  cancellations: jsonb("cancellations"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertReportAggregationSchema = createInsertSchema(reportAggregations).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+});
+
+export type InsertReportAggregation = z.infer<typeof insertReportAggregationSchema>;
+export type ReportAggregation = typeof reportAggregations.$inferSelect;
 
 // Categories - Categorias do menu
 export const categories = pgTable("categories", {
@@ -374,209 +759,6 @@ export type InsertOption = z.infer<typeof insertOptionSchema>;
 export type UpdateOption = z.infer<typeof updateOptionSchema>;
 export type Option = typeof options.$inferSelect;
 
-// Order Status Enum
-export const orderStatusEnum = pgEnum('order_status', ['pendente', 'em_preparo', 'pronto', 'servido']);
-
-// Order Type Enum
-export const orderTypeEnum = pgEnum('order_type', ['mesa', 'delivery', 'takeout', 'balcao', 'pdv']);
-
-// Payment Status Enum
-export const paymentStatusEnum = pgEnum('payment_status', ['nao_pago', 'parcial', 'pago']);
-
-// Payment Method Enum
-export const paymentMethodEnum = pgEnum('payment_method', ['dinheiro', 'multicaixa', 'transferencia', 'cartao']);
-
-// Discount Type Enum
-export const discountTypeEnum = pgEnum('discount_type', ['valor', 'percentual']);
-
-// Orders - Pedidos
-export const orders = pgTable("orders", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
-  tableId: varchar("table_id").references(() => tables.id, { onDelete: 'cascade' }),
-  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
-  orderType: orderTypeEnum("order_type").notNull().default('mesa'),
-  customerName: varchar("customer_name", { length: 200 }),
-  customerPhone: varchar("customer_phone", { length: 50 }),
-  deliveryAddress: text("delivery_address"),
-  orderNotes: text("order_notes"),
-  orderTitle: varchar("order_title", { length: 200 }), // Título personalizado do pedido
-  status: orderStatusEnum("status").notNull().default('pendente'),
-  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default('0'), // Subtotal antes de descontos/taxas
-  discount: decimal("discount", { precision: 10, scale: 2 }).default('0'), // Valor do desconto
-  discountType: discountTypeEnum("discount_type").default('valor'), // Tipo de desconto
-  serviceCharge: decimal("service_charge", { precision: 10, scale: 2 }).default('0'), // Taxa de serviço
-  serviceName: varchar("service_name", { length: 200 }), // Nome da taxa de serviço (opcional)
-  deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).default('0'), // Taxa de entrega
-  packagingFee: decimal("packaging_fee", { precision: 10, scale: 2 }).default('0'), // Taxa de embalagem
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(), // Total final
-  paymentStatus: paymentStatusEnum("payment_status").notNull().default('nao_pago'), // Status de pagamento
-  paymentMethod: paymentMethodEnum("payment_method"), // Método de pagamento principal
-  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default('0'), // Valor já pago
-  changeAmount: decimal("change_amount", { precision: 10, scale: 2 }).default('0'), // Troco
-  isSynced: integer("is_synced").default(1),
-  createdBy: varchar("created_by").references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-export const insertOrderSchema = createInsertSchema(orders).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-  subtotal: true,
-  totalAmount: true,
-  paymentStatus: true,
-  paidAmount: true,
-  changeAmount: true,
-}).extend({
-  orderType: z.enum(['mesa', 'delivery', 'takeout', 'balcao', 'pdv']).default('mesa'),
-  discount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Desconto inválido").optional(),
-  discountType: z.enum(['valor', 'percentual']).optional(),
-  serviceCharge: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de serviço inválida").optional(),
-  deliveryFee: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de entrega inválida").optional(),
-});
-
-// Public order schema for customer checkout (omits advanced controls)
-// This schema is used for /api/public/orders to prevent customers from setting
-// professional features like discounts, service charges, payment methods, etc.
-export const publicOrderSchema = createInsertSchema(orders).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-  subtotal: true,
-  totalAmount: true,
-  paymentStatus: true,
-  paidAmount: true,
-  changeAmount: true,
-  // Omit professional/admin-only fields
-  discount: true,
-  discountType: true,
-  serviceCharge: true,
-  deliveryFee: true,
-  paymentMethod: true,
-  createdBy: true,
-}).extend({
-  // Restrict order types to customer-accessible ones only
-  orderType: z.enum(['mesa', 'delivery', 'takeout']).default('mesa'),
-});
-
-export const updateOrderStatusSchema = z.object({
-  status: z.enum(['pendente', 'em_preparo', 'pronto', 'servido']),
-});
-
-export const updateOrderMetadataSchema = z.object({
-  orderTitle: z.string().max(200).optional(),
-  customerName: z.string().max(200).optional(),
-  customerPhone: z.string().max(50).optional(),
-  deliveryAddress: z.string().optional(),
-  orderNotes: z.string().optional(),
-});
-
-export const applyDiscountSchema = z.object({
-  discount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Desconto inválido"),
-  discountType: z.enum(['valor', 'percentual']),
-});
-
-export const applyServiceChargeSchema = z.object({
-  serviceCharge: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de serviço inválida"),
-  serviceName: z.string().max(200).optional(),
-});
-
-export const applyDeliveryFeeSchema = z.object({
-  deliveryFee: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de entrega inválida"),
-});
-
-export const applyPackagingFeeSchema = z.object({
-  packagingFee: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de embalagem inválida"),
-});
-
-export const recordPaymentSchema = z.object({
-  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
-  paymentMethod: z.enum(['dinheiro', 'multicaixa', 'transferencia', 'cartao']),
-  receivedAmount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor recebido inválido").optional(),
-});
-
-export const updateOrderItemQuantitySchema = z.object({
-  quantity: z.number().int().min(1, "Quantidade deve ser pelo menos 1"),
-});
-
-export type UpdateOrderStatus = z.infer<typeof updateOrderStatusSchema>;
-export type UpdateOrderMetadata = z.infer<typeof updateOrderMetadataSchema>;
-export type ApplyDiscount = z.infer<typeof applyDiscountSchema>;
-export type ApplyServiceCharge = z.infer<typeof applyServiceChargeSchema>;
-export type ApplyDeliveryFee = z.infer<typeof applyDeliveryFeeSchema>;
-export type ApplyPackagingFee = z.infer<typeof applyPackagingFeeSchema>;
-export type RecordPayment = z.infer<typeof recordPaymentSchema>;
-export type UpdateOrderItemQuantity = z.infer<typeof updateOrderItemQuantitySchema>;
-
-export const updateRestaurantSlugSchema = z.object({
-  slug: z.string()
-    .min(3, "Slug deve ter no mínimo 3 caracteres")
-    .max(100, "Slug deve ter no máximo 100 caracteres")
-    .regex(/^[a-z0-9-]+$/, "Slug deve conter apenas letras minúsculas, números e hífens")
-});
-
-export type InsertOrder = z.infer<typeof insertOrderSchema>;
-export type Order = typeof orders.$inferSelect;
-export type UpdateRestaurantSlug = z.infer<typeof updateRestaurantSlugSchema>;
-
-// Order Items - Itens do pedido
-export const orderItems = pgTable("order_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
-  menuItemId: varchar("menu_item_id").notNull().references(() => menuItems.id),
-  quantity: integer("quantity").notNull(),
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const insertOrderItemSchema = createInsertSchema(orderItems).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const publicOrderItemSchema = createInsertSchema(orderItems).omit({
-  id: true,
-  orderId: true,
-  createdAt: true,
-}).extend({
-  selectedOptions: z.array(z.object({
-    optionId: z.string(),
-    optionName: z.string(),
-    optionGroupName: z.string(),
-    priceAdjustment: z.string(),
-    quantity: z.number().int().min(1).default(1),
-  })).optional().default([]),
-});
-
-export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
-export type PublicOrderItem = z.infer<typeof publicOrderItemSchema>;
-export type OrderItem = typeof orderItems.$inferSelect;
-
-// Order Item Options - Opções selecionadas em cada item do pedido
-export const orderItemOptions = pgTable("order_item_options", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  orderItemId: varchar("order_item_id").notNull().references(() => orderItems.id, { onDelete: 'cascade' }),
-  optionId: varchar("option_id").notNull().references(() => options.id),
-  optionName: varchar("option_name", { length: 200 }).notNull(), // Armazenar nome para histórico
-  optionGroupName: varchar("option_group_name", { length: 200 }).notNull(), // Armazenar nome do grupo
-  priceAdjustment: decimal("price_adjustment", { precision: 10, scale: 2 }).notNull().default('0'),
-  quantity: integer("quantity").notNull().default(1),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const insertOrderItemOptionSchema = createInsertSchema(orderItemOptions).omit({
-  id: true,
-  createdAt: true,
-}).extend({
-  priceAdjustment: z.string().regex(/^-?\d+(\.\d{1,2})?$/, "Preço inválido").default('0'),
-});
-
-export type InsertOrderItemOption = z.infer<typeof insertOrderItemOptionSchema>;
-export type OrderItemOption = typeof orderItemOptions.$inferSelect;
-
 // Messages - Comunicações entre superadmin e restaurantes
 export const messages = pgTable("messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -681,7 +863,22 @@ export const tableSessionsRelations = relations(tableSessions, ({ one, many }) =
     fields: [tableSessions.restaurantId],
     references: [restaurants.id],
   }),
+  shift: one(financialShifts, {
+    fields: [tableSessions.shiftId],
+    references: [financialShifts.id],
+  }),
+  operator: one(users, {
+    fields: [tableSessions.operatorId],
+    references: [users.id],
+  }),
+  closedBy: one(users, {
+    fields: [tableSessions.closedById],
+    references: [users.id],
+  }),
   payments: many(tablePayments),
+  orders: many(orders),
+  events: many(financialEvents),
+  paymentEvents: many(paymentEvents),
 }));
 
 export const tablePaymentsRelations = relations(tablePayments, ({ one }) => ({
@@ -697,6 +894,10 @@ export const tablePaymentsRelations = relations(tablePayments, ({ one }) => ({
     fields: [tablePayments.restaurantId],
     references: [restaurants.id],
   }),
+  operator: one(users, {
+    fields: [tablePayments.operatorId],
+    references: [users.id],
+  }),
 }));
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
@@ -708,7 +909,22 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     fields: [orders.tableId],
     references: [tables.id],
   }),
+  tableSession: one(tableSessions, {
+    fields: [orders.tableSessionId],
+    references: [tableSessions.id],
+  }),
+  createdByUser: one(users, {
+    fields: [orders.createdBy],
+    references: [users.id],
+  }),
+  closedByUser: one(users, {
+    fields: [orders.closedBy],
+    references: [users.id],
+  }),
   orderItems: many(orderItems),
+  adjustments: many(orderAdjustments),
+  events: many(financialEvents),
+  paymentEvents: many(paymentEvents),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one, many }) => ({
@@ -754,5 +970,94 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   restaurant: one(restaurants, {
     fields: [messages.restaurantId],
     references: [restaurants.id],
+  }),
+}));
+
+export const financialShiftsRelations = relations(financialShifts, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [financialShifts.restaurantId],
+    references: [restaurants.id],
+  }),
+  branch: one(branches, {
+    fields: [financialShifts.branchId],
+    references: [branches.id],
+  }),
+  operator: one(users, {
+    fields: [financialShifts.operatorId],
+    references: [users.id],
+  }),
+  sessions: many(tableSessions),
+  events: many(financialEvents),
+}));
+
+export const financialEventsRelations = relations(financialEvents, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [financialEvents.restaurantId],
+    references: [restaurants.id],
+  }),
+  session: one(tableSessions, {
+    fields: [financialEvents.sessionId],
+    references: [tableSessions.id],
+  }),
+  order: one(orders, {
+    fields: [financialEvents.orderId],
+    references: [orders.id],
+  }),
+  table: one(tables, {
+    fields: [financialEvents.tableId],
+    references: [tables.id],
+  }),
+  shift: one(financialShifts, {
+    fields: [financialEvents.shiftId],
+    references: [financialShifts.id],
+  }),
+  operator: one(users, {
+    fields: [financialEvents.operatorId],
+    references: [users.id],
+  }),
+}));
+
+export const orderAdjustmentsRelations = relations(orderAdjustments, ({ one }) => ({
+  order: one(orders, {
+    fields: [orderAdjustments.orderId],
+    references: [orders.id],
+  }),
+  restaurant: one(restaurants, {
+    fields: [orderAdjustments.restaurantId],
+    references: [restaurants.id],
+  }),
+  operator: one(users, {
+    fields: [orderAdjustments.operatorId],
+    references: [users.id],
+  }),
+}));
+
+export const paymentEventsRelations = relations(paymentEvents, ({ one }) => ({
+  order: one(orders, {
+    fields: [paymentEvents.orderId],
+    references: [orders.id],
+  }),
+  session: one(tableSessions, {
+    fields: [paymentEvents.sessionId],
+    references: [tableSessions.id],
+  }),
+  restaurant: one(restaurants, {
+    fields: [paymentEvents.restaurantId],
+    references: [restaurants.id],
+  }),
+  operator: one(users, {
+    fields: [paymentEvents.operatorId],
+    references: [users.id],
+  }),
+}));
+
+export const reportAggregationsRelations = relations(reportAggregations, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [reportAggregations.restaurantId],
+    references: [restaurants.id],
+  }),
+  branch: one(branches, {
+    fields: [reportAggregations.branchId],
+    references: [branches.id],
   }),
 }));

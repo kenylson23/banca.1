@@ -6,6 +6,11 @@ import {
   tables,
   tableSessions,
   tablePayments,
+  financialShifts,
+  financialEvents,
+  orderAdjustments,
+  paymentEvents,
+  reportAggregations,
   categories,
   menuItems,
   orders,
@@ -27,6 +32,16 @@ import {
   type InsertTableSession,
   type TablePayment,
   type InsertTablePayment,
+  type FinancialShift,
+  type InsertFinancialShift,
+  type FinancialEvent,
+  type InsertFinancialEvent,
+  type OrderAdjustment,
+  type InsertOrderAdjustment,
+  type PaymentEvent,
+  type InsertPaymentEvent,
+  type ReportAggregation,
+  type InsertReportAggregation,
   type Category,
   type InsertCategory,
   type MenuItem,
@@ -249,6 +264,44 @@ export interface IStorage {
   // Order Item Option operations
   createOrderItemOptions(orderItemId: string, options: InsertOrderItemOption[]): Promise<OrderItemOption[]>;
   getOrderItemOptions(orderItemId: string): Promise<OrderItemOption[]>;
+  
+  // Financial Shift operations
+  getActiveShift(restaurantId: string, branchId: string | null, operatorId: string): Promise<FinancialShift | undefined>;
+  getAllShifts(restaurantId: string, branchId: string | null, startDate?: Date, endDate?: Date): Promise<FinancialShift[]>;
+  getShiftById(id: string): Promise<FinancialShift | undefined>;
+  createShift(restaurantId: string, branchId: string | null, shift: InsertFinancialShift): Promise<FinancialShift>;
+  closeShift(id: string, closingBalance: string, notes?: string): Promise<FinancialShift>;
+  
+  // Financial Event operations
+  createFinancialEvent(restaurantId: string, event: Omit<InsertFinancialEvent, 'restaurantId'>): Promise<FinancialEvent>;
+  getFinancialEvents(restaurantId: string, branchId: string | null, filters?: {
+    sessionId?: string;
+    orderId?: string;
+    tableId?: string;
+    shiftId?: string;
+    operatorId?: string;
+    eventType?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<FinancialEvent[]>;
+  
+  // Order Adjustment operations
+  createOrderAdjustment(restaurantId: string, adjustment: Omit<InsertOrderAdjustment, 'restaurantId'>): Promise<OrderAdjustment>;
+  getOrderAdjustments(orderId: string): Promise<OrderAdjustment[]>;
+  
+  // Payment Event operations
+  createPaymentEvent(restaurantId: string, event: Omit<InsertPaymentEvent, 'restaurantId'>): Promise<PaymentEvent>;
+  getPaymentEvents(restaurantId: string, filters?: {
+    orderId?: string;
+    sessionId?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<PaymentEvent[]>;
+  
+  // Report Aggregation operations
+  createReportAggregation(restaurantId: string, aggregation: Omit<InsertReportAggregation, 'restaurantId'>): Promise<ReportAggregation>;
+  getReportAggregations(restaurantId: string, branchId: string | null, periodType: 'daily' | 'weekly' | 'monthly', startDate?: Date, endDate?: Date): Promise<ReportAggregation[]>;
+  getLatestAggregation(restaurantId: string, branchId: string | null, periodType: 'daily' | 'weekly' | 'monthly'): Promise<ReportAggregation | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2544,6 +2597,259 @@ export class DatabaseStorage implements IStorage {
       .from(orderItemOptions)
       .where(eq(orderItemOptions.orderItemId, orderItemId))
       .orderBy(orderItemOptions.createdAt);
+  }
+
+  // Financial Shift operations
+  async getActiveShift(restaurantId: string, branchId: string | null, operatorId: string): Promise<FinancialShift | undefined> {
+    const conditions = [
+      eq(financialShifts.restaurantId, restaurantId),
+      eq(financialShifts.operatorId, operatorId),
+      eq(financialShifts.status, 'aberto'),
+    ];
+
+    if (branchId) {
+      conditions.push(eq(financialShifts.branchId, branchId));
+    } else {
+      conditions.push(isNull(financialShifts.branchId));
+    }
+
+    const [shift] = await db
+      .select()
+      .from(financialShifts)
+      .where(and(...conditions));
+    
+    return shift;
+  }
+
+  async getAllShifts(restaurantId: string, branchId: string | null, startDate?: Date, endDate?: Date): Promise<FinancialShift[]> {
+    let conditions = [eq(financialShifts.restaurantId, restaurantId)];
+    
+    // Always filter by branch - either specific branch or null branch
+    if (branchId) {
+      conditions.push(eq(financialShifts.branchId, branchId));
+    } else {
+      conditions.push(isNull(financialShifts.branchId));
+    }
+    
+    if (startDate) {
+      conditions.push(gte(financialShifts.startedAt, startDate));
+    }
+    
+    if (endDate) {
+      conditions.push(sql`${financialShifts.endedAt} <= ${endDate}`);
+    }
+
+    return await db
+      .select()
+      .from(financialShifts)
+      .where(and(...conditions))
+      .orderBy(desc(financialShifts.startedAt));
+  }
+
+  async getShiftById(id: string): Promise<FinancialShift | undefined> {
+    const [shift] = await db.select().from(financialShifts).where(eq(financialShifts.id, id));
+    return shift;
+  }
+
+  async createShift(restaurantId: string, branchId: string | null, shift: InsertFinancialShift): Promise<FinancialShift> {
+    const [newShift] = await db
+      .insert(financialShifts)
+      .values({
+        restaurantId,
+        branchId,
+        ...shift,
+      })
+      .returning();
+    return newShift;
+  }
+
+  async closeShift(id: string, closingBalance: string, notes?: string): Promise<FinancialShift> {
+    const shift = await this.getShiftById(id);
+    if (!shift) throw new Error('Turno não encontrado');
+
+    const openingBalance = parseFloat(shift.openingBalance || '0');
+    const expectedBalance = parseFloat(shift.expectedBalance || '0');
+    const closing = parseFloat(closingBalance);
+    const discrepancy = closing - expectedBalance;
+
+    const [updated] = await db
+      .update(financialShifts)
+      .set({
+        status: 'fechado',
+        closingBalance,
+        discrepancy: discrepancy.toFixed(2),
+        endedAt: new Date(),
+        notes: notes || shift.notes,
+      })
+      .where(eq(financialShifts.id, id))
+      .returning();
+    
+    return updated;
+  }
+
+  // Financial Event operations
+  async createFinancialEvent(restaurantId: string, event: Omit<InsertFinancialEvent, 'restaurantId'>): Promise<FinancialEvent> {
+    const [newEvent] = await db
+      .insert(financialEvents)
+      .values({
+        restaurantId,
+        ...event,
+      })
+      .returning();
+    return newEvent;
+  }
+
+  async getFinancialEvents(restaurantId: string, branchId: string | null, filters?: {
+    sessionId?: string;
+    orderId?: string;
+    tableId?: string;
+    shiftId?: string;
+    operatorId?: string;
+    eventType?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<FinancialEvent[]> {
+    let conditions = [eq(financialEvents.restaurantId, restaurantId)];
+
+    // Always filter by branch - either specific branch or null branch
+    if (branchId) {
+      conditions.push(eq(financialEvents.branchId, branchId));
+    } else {
+      conditions.push(isNull(financialEvents.branchId));
+    }
+
+    if (filters) {
+      if (filters.sessionId) conditions.push(eq(financialEvents.sessionId, filters.sessionId));
+      if (filters.orderId) conditions.push(eq(financialEvents.orderId, filters.orderId));
+      if (filters.tableId) conditions.push(eq(financialEvents.tableId, filters.tableId));
+      if (filters.shiftId) conditions.push(eq(financialEvents.shiftId, filters.shiftId));
+      if (filters.operatorId) conditions.push(eq(financialEvents.operatorId, filters.operatorId));
+      if (filters.startDate) conditions.push(gte(financialEvents.createdAt, filters.startDate));
+      if (filters.endDate) conditions.push(sql`${financialEvents.createdAt} <= ${filters.endDate}`);
+    }
+
+    return await db
+      .select()
+      .from(financialEvents)
+      .where(and(...conditions))
+      .orderBy(desc(financialEvents.createdAt));
+  }
+
+  // Order Adjustment operations
+  async createOrderAdjustment(restaurantId: string, adjustment: Omit<InsertOrderAdjustment, 'restaurantId'>): Promise<OrderAdjustment> {
+    const [newAdjustment] = await db
+      .insert(orderAdjustments)
+      .values({
+        restaurantId,
+        ...adjustment,
+      })
+      .returning();
+    return newAdjustment;
+  }
+
+  async getOrderAdjustments(orderId: string): Promise<OrderAdjustment[]> {
+    return await db
+      .select()
+      .from(orderAdjustments)
+      .where(eq(orderAdjustments.orderId, orderId))
+      .orderBy(desc(orderAdjustments.createdAt));
+  }
+
+  // Payment Event operations
+  async createPaymentEvent(restaurantId: string, event: Omit<InsertPaymentEvent, 'restaurantId'>): Promise<PaymentEvent> {
+    const [newEvent] = await db
+      .insert(paymentEvents)
+      .values({
+        restaurantId,
+        ...event,
+      })
+      .returning();
+    return newEvent;
+  }
+
+  async getPaymentEvents(restaurantId: string, filters?: {
+    orderId?: string;
+    sessionId?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<PaymentEvent[]> {
+    let conditions = [eq(paymentEvents.restaurantId, restaurantId)];
+
+    if (filters) {
+      if (filters.orderId) conditions.push(eq(paymentEvents.orderId, filters.orderId));
+      if (filters.sessionId) conditions.push(eq(paymentEvents.sessionId, filters.sessionId));
+      if (filters.startDate) conditions.push(gte(paymentEvents.createdAt, filters.startDate));
+      if (filters.endDate) conditions.push(sql`${paymentEvents.createdAt} <= ${filters.endDate}`);
+    }
+
+    return await db
+      .select()
+      .from(paymentEvents)
+      .where(and(...conditions))
+      .orderBy(desc(paymentEvents.createdAt));
+  }
+
+  // Report Aggregation operations
+  async createReportAggregation(restaurantId: string, aggregation: Omit<InsertReportAggregation, 'restaurantId'>): Promise<ReportAggregation> {
+    const [newAggregation] = await db
+      .insert(reportAggregations)
+      .values({
+        restaurantId,
+        ...aggregation,
+      })
+      .returning();
+    return newAggregation;
+  }
+
+  async getReportAggregations(restaurantId: string, branchId: string | null, periodType: 'daily' | 'weekly' | 'monthly', startDate?: Date, endDate?: Date): Promise<ReportAggregation[]> {
+    let conditions = [
+      eq(reportAggregations.restaurantId, restaurantId),
+      eq(reportAggregations.periodType, periodType)
+    ];
+
+    // Always filter by branch - either specific branch or null branch
+    if (branchId) {
+      conditions.push(eq(reportAggregations.branchId, branchId));
+    } else {
+      conditions.push(isNull(reportAggregations.branchId));
+    }
+
+    if (startDate) {
+      conditions.push(gte(reportAggregations.periodStart, startDate));
+    }
+
+    if (endDate) {
+      conditions.push(sql`${reportAggregations.periodEnd} <= ${endDate}`);
+    }
+
+    return await db
+      .select()
+      .from(reportAggregations)
+      .where(and(...conditions))
+      .orderBy(desc(reportAggregations.periodStart));
+  }
+
+  async getLatestAggregation(restaurantId: string, branchId: string | null, periodType: 'daily' | 'weekly' | 'monthly'): Promise<ReportAggregation | undefined> {
+    let conditions = [
+      eq(reportAggregations.restaurantId, restaurantId),
+      eq(reportAggregations.periodType, periodType)
+    ];
+
+    // Always filter by branch - either specific branch or null branch
+    if (branchId) {
+      conditions.push(eq(reportAggregations.branchId, branchId));
+    } else {
+      conditions.push(isNull(reportAggregations.branchId));
+    }
+
+    const [latest] = await db
+      .select()
+      .from(reportAggregations)
+      .where(and(...conditions))
+      .orderBy(desc(reportAggregations.periodStart))
+      .limit(1);
+
+    return latest;
   }
 }
 

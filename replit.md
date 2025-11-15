@@ -33,7 +33,8 @@ The backend is built with **Express** and **TypeScript**, leveraging **Replit Au
 -   **Automatic Cache Busting:** Comprehensive system using Service Workers for seamless updates and prevention of stale assets after deployments.
 
 ### System Design Choices
--   **Database Schema:** Includes `restaurants`, `users`, `sessions`, `tables`, `categories`, `menu_items`, `orders`, `order_items`, `option_groups`, `options`, and `order_item_options`, with all restaurant-specific data scoped by `restaurantId`.
+-   **Database Schema:** Includes `restaurants`, `users`, `sessions`, `tables`, `categories`, `menu_items`, `orders`, `order_items`, `option_groups`, `options`, `order_item_options`, `table_sessions`, `table_payments`, and financial system tables (`financial_shifts`, `financial_events`, `order_adjustments`, `payment_events`, `report_aggregations`), with all restaurant-specific data scoped by `restaurantId` and `branchId` where applicable.
+-   **Financial System:** Event-based immutable audit trail with 7-year retention. Tracks all financial operations (payments, cancellations, refunds, adjustments) by operator with shift management and end-of-day reconciliation. Complete branch scoping ensures data isolation between branches.
 -   **Order Status Flow:** Pedido (Pendente) → Em Preparo → Pronto → Servido.
 -   **WebSocket Events:** Critical events like `table_created`, `table_deleted`, `table_freed`, `new_order`, and `order_status_updated` are broadcasted.
 -   **API Endpoints:** Comprehensive RESTful endpoints for all functionalities, including public endpoints for menu and order tracking with multi-tenancy security.
