@@ -328,7 +328,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {tables.filter(t => t.status === "disponivel").map((table) => (
+                              {tables.filter(t => t.status === "livre").map((table) => (
                                 <SelectItem key={table.id} value={table.id}>
                                   Mesa {table.number}
                                 </SelectItem>

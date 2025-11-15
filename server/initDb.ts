@@ -422,6 +422,30 @@ export async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW()
       );`);
       
+      // Create menu_visits table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS menu_visits (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
+        visit_source VARCHAR(50) NOT NULL DEFAULT 'qr_code',
+        ip_address VARCHAR(50),
+        user_agent TEXT,
+        referrer TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create customer_reviews table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS customer_reviews (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
+        order_id VARCHAR REFERENCES orders(id) ON DELETE SET NULL,
+        customer_name VARCHAR(200),
+        rating INTEGER NOT NULL,
+        comment TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
       // Create initial super admin user if it doesn't exist
       const superAdminEmail = 'superadmin@nabancada.com';
       const checkSuperAdmin = await db.execute(sql`SELECT id FROM users WHERE email = ${superAdminEmail} AND role = 'superadmin'`);
