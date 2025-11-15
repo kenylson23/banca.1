@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { NewOrderDialog } from "@/components/new-order-dialog";
+import { OrderDetailsDialog } from "@/components/order-details-dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatKwanza } from "@/lib/formatters";
@@ -55,6 +56,8 @@ export default function PDV() {
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [selectedOrder, setSelectedOrder] = useState<PDVOrder | null>(null);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -289,6 +292,19 @@ export default function PDV() {
               </div>
 
               <div className="flex items-center gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedOrder(order);
+                    setDetailsDialogOpen(true);
+                  }}
+                  data-testid={`button-view-details-${order.id}`}
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  Ver Detalhes
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -574,6 +590,12 @@ export default function PDV() {
           <TablesPanel />
         </TabsContent>
       </Tabs>
+
+      <OrderDetailsDialog
+        order={selectedOrder}
+        open={detailsDialogOpen}
+        onOpenChange={setDetailsDialogOpen}
+      />
     </div>
   );
 }
