@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useRoute } from 'wouter';
 import { useCart } from '@/contexts/CartContext';
@@ -53,6 +53,19 @@ export default function PublicMenu() {
     queryKey: ['/api/public/menu-items', restaurantId],
     enabled: !!restaurantId,
   });
+
+  useEffect(() => {
+    if (!restaurantId) return;
+
+    apiRequest('POST', '/api/menu-visits', {
+      restaurantId,
+      branchId: null,
+      visitSource: 'web',
+      ipAddress: '',
+      userAgent: navigator.userAgent,
+      referrer: document.referrer || '',
+    }).catch(() => {});
+  }, [restaurantId]);
 
   const createOrderMutation = useMutation({
     mutationFn: async (orderData: {

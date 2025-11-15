@@ -78,6 +78,19 @@ export default function CustomerMenu() {
     };
   }, [tableId]);
 
+  useEffect(() => {
+    if (!restaurantId || !currentTable?.branchId) return;
+
+    apiRequest('POST', '/api/menu-visits', {
+      restaurantId,
+      branchId: currentTable.branchId,
+      visitSource: 'qr_code',
+      ipAddress: '',
+      userAgent: navigator.userAgent,
+      referrer: document.referrer || '',
+    }).catch(() => {});
+  }, [restaurantId, currentTable?.branchId]);
+
   const createOrderMutation = useMutation({
     mutationFn: async (orderData: { 
       restaurantId: string; 
