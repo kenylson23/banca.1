@@ -58,6 +58,7 @@ export default function OrderDetail() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
 
   const { data: order, isLoading } = useQuery<OrderDetail>({
     queryKey: ["/api/orders", orderId],
@@ -193,9 +194,14 @@ export default function OrderDetail() {
       queryClient.invalidateQueries({ queryKey: ["/api/orders", orderId] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       toast({ title: "Pagamento registrado" });
+      setPaymentDialogOpen(false);
     },
-    onError: () => {
-      toast({ title: "Erro ao registrar pagamento", variant: "destructive" });
+    onError: (error: any) => {
+      toast({ 
+        title: "Erro ao registrar pagamento", 
+        description: error.message || "Não foi possível registrar o pagamento.",
+        variant: "destructive" 
+      });
     },
   });
 
@@ -594,7 +600,7 @@ export default function OrderDetail() {
           <X className="h-4 w-4 mr-2" />
           Cancelar
         </Button>
-        <Dialog>
+        <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
           <DialogTrigger asChild>
             <Button
               variant="default"
@@ -614,6 +620,7 @@ export default function OrderDetail() {
               onSubmit={(data) => recordPaymentMutation.mutate(data)}
               totalAmount={Number(order.totalAmount)}
               paidAmount={Number(order.paidAmount || 0)}
+              isPending={recordPaymentMutation.isPending}
             />
           </DialogContent>
         </Dialog>
@@ -715,10 +722,12 @@ function PaymentForm({
   onSubmit,
   totalAmount,
   paidAmount,
+  isPending,
 }: {
   onSubmit: (data: { amount: string; paymentMethod: string; receivedAmount?: string }) => void;
   totalAmount: number;
   paidAmount: number;
+  isPending?: boolean;
 }) {
   const remaining = totalAmount - paidAmount;
   const [amount, setAmount] = useState(remaining.toString());
@@ -789,9 +798,10 @@ function PaymentForm({
       <Button
         onClick={() => onSubmit({ amount, paymentMethod, receivedAmount: receivedAmount || undefined })}
         className="w-full"
+        disabled={isPending || Number(amount) <= 0}
         data-testid="button-confirm-payment"
       >
-        Confirmar Pagamento
+        {isPending ? "Processando..." : "Confirmar Pagamento"}
       </Button>
     </div>
   );
