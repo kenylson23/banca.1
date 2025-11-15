@@ -28,6 +28,12 @@ import {
   updateOptionGroupSchema,
   insertOptionSchema,
   updateOptionSchema,
+  updateOrderMetadataSchema,
+  updateOrderItemQuantitySchema,
+  applyDiscountSchema,
+  applyServiceChargeSchema,
+  applyDeliveryFeeSchema,
+  recordPaymentSchema,
   type User,
 } from "@shared/schema";
 import { z } from "zod";
@@ -1482,6 +1488,332 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(order);
     } catch (error) {
       res.status(500).json({ message: "Failed to update order status" });
+    }
+  });
+
+  // Checkout routes
+  app.get("/api/orders/:id", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const order = await storage.getOrderById(restaurantId, req.params.id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      res.json(order);
+    } catch (error) {
+      console.error('Error fetching order:', error);
+      res.status(500).json({ message: "Erro ao buscar pedido" });
+    }
+  });
+
+  app.put("/api/orders/:id/metadata", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const order = await storage.getOrderById(restaurantId, req.params.id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      if (order.status === 'servido') {
+        return res.status(400).json({ message: "Não é possível editar pedido já servido" });
+      }
+
+      const data = updateOrderMetadataSchema.parse(req.body);
+      const updated = await storage.updateOrderMetadata(restaurantId, req.params.id, data);
+      
+      broadcastToClients({ 
+        type: 'order_updated', 
+        data: { id: updated.id }
+      });
+
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Error updating order metadata:', error);
+      res.status(500).json({ message: "Erro ao atualizar metadados do pedido" });
+    }
+  });
+
+  app.post("/api/orders/:id/items", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const order = await storage.getOrderById(restaurantId, req.params.id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      if (order.status === 'servido') {
+        return res.status(400).json({ message: "Não é possível adicionar itens a pedido já servido" });
+      }
+
+      const item = publicOrderItemSchema.parse(req.body);
+      const created = await storage.addOrderItem(restaurantId, req.params.id, item);
+      
+      broadcastToClients({ 
+        type: 'order_items_changed', 
+        data: { orderId: req.params.id }
+      });
+
+      res.json(created);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Error adding order item:', error);
+      res.status(500).json({ message: "Erro ao adicionar item ao pedido" });
+    }
+  });
+
+  app.put("/api/orders/:id/items/:itemId", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const order = await storage.getOrderById(restaurantId, req.params.id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      if (order.status === 'servido') {
+        return res.status(400).json({ message: "Não é possível editar pedido já servido" });
+      }
+
+      const { quantity } = updateOrderItemQuantitySchema.parse(req.body);
+      const updated = await storage.updateOrderItemQuantity(
+        restaurantId, 
+        req.params.id, 
+        req.params.itemId, 
+        quantity
+      );
+      
+      broadcastToClients({ 
+        type: 'order_items_changed', 
+        data: { orderId: req.params.id }
+      });
+
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Error updating order item:', error);
+      res.status(500).json({ message: "Erro ao atualizar item do pedido" });
+    }
+  });
+
+  app.delete("/api/orders/:id/items/:itemId", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const order = await storage.getOrderById(restaurantId, req.params.id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      if (order.status === 'servido') {
+        return res.status(400).json({ message: "Não é possível remover itens de pedido já servido" });
+      }
+
+      await storage.removeOrderItem(restaurantId, req.params.id, req.params.itemId);
+      
+      broadcastToClients({ 
+        type: 'order_items_changed', 
+        data: { orderId: req.params.id }
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error removing order item:', error);
+      res.status(500).json({ message: "Erro ao remover item do pedido" });
+    }
+  });
+
+  app.put("/api/orders/:id/discount", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const order = await storage.getOrderById(restaurantId, req.params.id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      if (order.status === 'servido') {
+        return res.status(400).json({ message: "Não é possível aplicar desconto a pedido já servido" });
+      }
+
+      const { discount, discountType } = applyDiscountSchema.parse(req.body);
+      const updated = await storage.applyDiscount(restaurantId, req.params.id, discount, discountType);
+      
+      broadcastToClients({ 
+        type: 'order_totals_changed', 
+        data: { orderId: req.params.id, totalAmount: updated.totalAmount }
+      });
+
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Error applying discount:', error);
+      res.status(500).json({ message: "Erro ao aplicar desconto" });
+    }
+  });
+
+  app.put("/api/orders/:id/service-charge", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const order = await storage.getOrderById(restaurantId, req.params.id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      if (order.status === 'servido') {
+        return res.status(400).json({ message: "Não é possível aplicar taxa de serviço a pedido já servido" });
+      }
+
+      const { serviceCharge } = applyServiceChargeSchema.parse(req.body);
+      const updated = await storage.applyServiceCharge(restaurantId, req.params.id, serviceCharge);
+      
+      broadcastToClients({ 
+        type: 'order_totals_changed', 
+        data: { orderId: req.params.id, totalAmount: updated.totalAmount }
+      });
+
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Error applying service charge:', error);
+      res.status(500).json({ message: "Erro ao aplicar taxa de serviço" });
+    }
+  });
+
+  app.put("/api/orders/:id/delivery-fee", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const order = await storage.getOrderById(restaurantId, req.params.id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      if (order.status === 'servido') {
+        return res.status(400).json({ message: "Não é possível aplicar taxa de entrega a pedido já servido" });
+      }
+
+      const { deliveryFee } = applyDeliveryFeeSchema.parse(req.body);
+      const updated = await storage.applyDeliveryFee(restaurantId, req.params.id, deliveryFee);
+      
+      broadcastToClients({ 
+        type: 'order_totals_changed', 
+        data: { orderId: req.params.id, totalAmount: updated.totalAmount }
+      });
+
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Error applying delivery fee:', error);
+      res.status(500).json({ message: "Erro ao aplicar taxa de entrega" });
+    }
+  });
+
+  app.post("/api/orders/:id/payments", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const order = await storage.getOrderById(restaurantId, req.params.id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      if (order.status === 'servido') {
+        return res.status(400).json({ message: "Não é possível registrar pagamento para pedido já servido" });
+      }
+
+      const payment = recordPaymentSchema.parse(req.body);
+      const updated = await storage.recordPayment(restaurantId, req.params.id, payment);
+      
+      if (updated.paymentStatus === 'pago') {
+        broadcastToClients({ 
+          type: 'order_payment_completed', 
+          data: { 
+            orderId: req.params.id, 
+            totalAmount: updated.totalAmount,
+            paymentMethod: updated.paymentMethod
+          }
+        });
+      } else {
+        broadcastToClients({ 
+          type: 'order_payment_recorded', 
+          data: { 
+            orderId: req.params.id, 
+            paidAmount: updated.paidAmount,
+            paymentStatus: updated.paymentStatus
+          }
+        });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Error recording payment:', error);
+      res.status(500).json({ message: "Erro ao registrar pagamento" });
     }
   });
 

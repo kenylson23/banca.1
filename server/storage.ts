@@ -49,6 +49,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, or, isNull } from "drizzle-orm";
+import type { PgTransaction } from "drizzle-orm/pg-core";
 
 function generateSlug(name: string): string {
   return name
@@ -116,6 +117,28 @@ export interface IStorage {
   searchOrders(restaurantId: string, searchTerm: string): Promise<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
   createOrder(order: InsertOrder, items: PublicOrderItem[]): Promise<Order>;
   updateOrderStatus(restaurantId: string, id: string, status: string): Promise<Order>;
+  
+  // Checkout operations
+  getOrderById(restaurantId: string, id: string): Promise<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> } | undefined>;
+  updateOrderMetadata(restaurantId: string, id: string, data: {
+    orderTitle?: string;
+    customerName?: string;
+    customerPhone?: string;
+    deliveryAddress?: string;
+    orderNotes?: string;
+  }): Promise<Order>;
+  addOrderItem(restaurantId: string, orderId: string, item: PublicOrderItem): Promise<OrderItem>;
+  updateOrderItemQuantity(restaurantId: string, orderId: string, itemId: string, quantity: number): Promise<OrderItem>;
+  removeOrderItem(restaurantId: string, orderId: string, itemId: string): Promise<void>;
+  applyDiscount(restaurantId: string, orderId: string, discount: string, discountType: 'valor' | 'percentual'): Promise<Order>;
+  applyServiceCharge(restaurantId: string, orderId: string, serviceCharge: string): Promise<Order>;
+  applyDeliveryFee(restaurantId: string, orderId: string, deliveryFee: string): Promise<Order>;
+  recordPayment(restaurantId: string, orderId: string, data: {
+    amount: string;
+    paymentMethod: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
+    receivedAmount?: string;
+  }): Promise<Order>;
+  calculateOrderTotal(orderId: string): Promise<Order>;
   
   // Stats operations
   getTodayStats(restaurantId: string, branchId?: string | null): Promise<{
@@ -1183,6 +1206,392 @@ export class DatabaseStorage implements IStorage {
       .set({ status: status as any, updatedAt: new Date() })
       .where(eq(orders.id, id))
       .returning();
+    return updated;
+  }
+
+  async getOrderById(restaurantId: string, id: string): Promise<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> } | undefined> {
+    const [orderData] = await db
+      .select()
+      .from(orders)
+      .leftJoin(tables, eq(orders.tableId, tables.id))
+      .where(eq(orders.id, id));
+    
+    if (!orderData || !orderData.orders) {
+      return undefined;
+    }
+    
+    if (orderData.orders.tableId && orderData.tables) {
+      if (orderData.tables.restaurantId !== restaurantId) {
+        throw new Error('Unauthorized: Order does not belong to your restaurant');
+      }
+    } else {
+      if (orderData.orders.restaurantId !== restaurantId) {
+        throw new Error('Unauthorized: Order does not belong to your restaurant');
+      }
+    }
+    
+    const items = await db
+      .select()
+      .from(orderItems)
+      .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+      .where(eq(orderItems.orderId, id));
+
+    const itemsWithOptions = await Promise.all(
+      items.map(async (item: { order_items: OrderItem; menu_items: MenuItem | null }) => {
+        const options = await db
+          .select()
+          .from(orderItemOptions)
+          .where(eq(orderItemOptions.orderItemId, item.order_items.id));
+        
+        return {
+          ...item.order_items,
+          menuItem: item.menu_items!,
+          options,
+        };
+      })
+    );
+
+    return {
+      ...orderData.orders,
+      table: orderData.tables,
+      orderItems: itemsWithOptions,
+    };
+  }
+
+  async updateOrderMetadata(restaurantId: string, id: string, data: {
+    orderTitle?: string;
+    customerName?: string;
+    customerPhone?: string;
+    deliveryAddress?: string;
+    orderNotes?: string;
+  }): Promise<Order> {
+    const order = await this.getOrderById(restaurantId, id);
+    if (!order) {
+      throw new Error('Order not found');
+    }
+    
+    if (order.orderType === 'delivery' && data.deliveryAddress === '') {
+      throw new Error('Delivery address is required for delivery orders');
+    }
+    
+    const [updated] = await db
+      .update(orders)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(orders.id, id))
+      .returning();
+    
+    return updated;
+  }
+
+  async addOrderItem(restaurantId: string, orderId: string, item: PublicOrderItem): Promise<OrderItem> {
+    return db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const [orderData] = await tx
+        .select()
+        .from(orders)
+        .where(eq(orders.id, orderId))
+        .for('update');
+      
+      if (!orderData) {
+        throw new Error('Order not found');
+      }
+
+      const menuItem = await this.getMenuItemById(item.menuItemId);
+      if (!menuItem) {
+        throw new Error('Menu item not found');
+      }
+      if (menuItem.restaurantId !== restaurantId) {
+        throw new Error('Menu item does not belong to your restaurant');
+      }
+
+      const { selectedOptions, ...itemData } = item;
+      
+      const [createdItem] = await tx.insert(orderItems).values({
+        ...itemData,
+        orderId,
+      }).returning();
+      
+      if (selectedOptions && selectedOptions.length > 0) {
+        const optionsToInsert = selectedOptions.map(opt => ({
+          orderItemId: createdItem.id,
+          optionId: opt.optionId,
+          optionName: opt.optionName,
+          optionGroupName: opt.optionGroupName,
+          priceAdjustment: opt.priceAdjustment,
+          quantity: opt.quantity,
+        }));
+        
+        await tx.insert(orderItemOptions).values(optionsToInsert);
+      }
+
+      await this.calculateOrderTotal(orderId);
+      
+      return createdItem;
+    });
+  }
+
+  async updateOrderItemQuantity(restaurantId: string, orderId: string, itemId: string, quantity: number): Promise<OrderItem> {
+    return db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const [orderData] = await tx
+        .select()
+        .from(orders)
+        .where(eq(orders.id, orderId))
+        .for('update');
+      
+      if (!orderData) {
+        throw new Error('Order not found');
+      }
+
+      if (quantity < 1) {
+        throw new Error('Quantity must be at least 1');
+      }
+
+      const [updated] = await tx
+        .update(orderItems)
+        .set({ quantity })
+        .where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId)))
+        .returning();
+      
+      if (!updated) {
+        throw new Error('Order item not found');
+      }
+
+      await this.calculateOrderTotal(orderId);
+      
+      return updated;
+    });
+  }
+
+  async removeOrderItem(restaurantId: string, orderId: string, itemId: string): Promise<void> {
+    return db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const [orderData] = await tx
+        .select()
+        .from(orders)
+        .where(eq(orders.id, orderId))
+        .for('update');
+      
+      if (!orderData) {
+        throw new Error('Order not found');
+      }
+
+      await tx.delete(orderItems)
+        .where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId)));
+
+      const remainingItems = await tx
+        .select()
+        .from(orderItems)
+        .where(eq(orderItems.orderId, orderId));
+
+      if (remainingItems.length === 0 && orderData.orderType === 'mesa' && orderData.tableId) {
+        await this.updateTableOccupancy(orderData.restaurantId!, orderData.tableId, false);
+      }
+
+      await this.calculateOrderTotal(orderId);
+    });
+  }
+
+  async applyDiscount(restaurantId: string, orderId: string, discount: string, discountType: 'valor' | 'percentual'): Promise<Order> {
+    const order = await this.getOrderById(restaurantId, orderId);
+    if (!order) {
+      throw new Error('Order not found');
+    }
+
+    const discountValue = parseFloat(discount);
+    if (discountValue < 0) {
+      throw new Error('Discount cannot be negative');
+    }
+
+    const subtotal = parseFloat(order.subtotal || '0');
+    
+    if (discountType === 'percentual' && discountValue > 100) {
+      throw new Error('Discount percentage cannot exceed 100%');
+    }
+    
+    if (discountType === 'valor' && discountValue > subtotal) {
+      throw new Error('Discount value cannot exceed order subtotal');
+    }
+
+    const [updated] = await db
+      .update(orders)
+      .set({ 
+        discount: discount,
+        discountType,
+        updatedAt: new Date()
+      })
+      .where(eq(orders.id, orderId))
+      .returning();
+
+    return this.calculateOrderTotal(orderId);
+  }
+
+  async applyServiceCharge(restaurantId: string, orderId: string, serviceCharge: string): Promise<Order> {
+    const order = await this.getOrderById(restaurantId, orderId);
+    if (!order) {
+      throw new Error('Order not found');
+    }
+
+    const chargeValue = parseFloat(serviceCharge);
+    if (chargeValue < 0) {
+      throw new Error('Service charge cannot be negative');
+    }
+
+    const [updated] = await db
+      .update(orders)
+      .set({ 
+        serviceCharge,
+        updatedAt: new Date()
+      })
+      .where(eq(orders.id, orderId))
+      .returning();
+
+    return this.calculateOrderTotal(orderId);
+  }
+
+  async applyDeliveryFee(restaurantId: string, orderId: string, deliveryFee: string): Promise<Order> {
+    const order = await this.getOrderById(restaurantId, orderId);
+    if (!order) {
+      throw new Error('Order not found');
+    }
+
+    if (order.orderType !== 'delivery') {
+      throw new Error('Delivery fee can only be applied to delivery orders');
+    }
+
+    const feeValue = parseFloat(deliveryFee);
+    if (feeValue < 0) {
+      throw new Error('Delivery fee cannot be negative');
+    }
+
+    const [updated] = await db
+      .update(orders)
+      .set({ 
+        deliveryFee,
+        updatedAt: new Date()
+      })
+      .where(eq(orders.id, orderId))
+      .returning();
+
+    return this.calculateOrderTotal(orderId);
+  }
+
+  async recordPayment(restaurantId: string, orderId: string, data: {
+    amount: string;
+    paymentMethod: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
+    receivedAmount?: string;
+  }): Promise<Order> {
+    const order = await this.getOrderById(restaurantId, orderId);
+    if (!order) {
+      throw new Error('Order not found');
+    }
+
+    const paymentAmount = parseFloat(data.amount);
+    if (paymentAmount <= 0) {
+      throw new Error('Payment amount must be greater than zero');
+    }
+
+    const currentPaid = parseFloat(order.paidAmount || '0');
+    const total = parseFloat(order.totalAmount);
+    const remainingBalance = total - currentPaid;
+
+    if (paymentAmount > remainingBalance + 0.01) {
+      throw new Error(`Payment amount (${paymentAmount.toFixed(2)}) exceeds remaining balance (${remainingBalance.toFixed(2)})`);
+    }
+
+    const newPaidAmount = Math.min(currentPaid + paymentAmount, total);
+
+    let changeAmount = 0;
+    if (data.receivedAmount) {
+      const received = parseFloat(data.receivedAmount);
+      if (received >= paymentAmount) {
+        changeAmount = received - paymentAmount;
+      }
+    }
+
+    let paymentStatus: 'nao_pago' | 'parcial' | 'pago' = 'nao_pago';
+    const tolerance = 0.01;
+    if (newPaidAmount < tolerance) {
+      paymentStatus = 'nao_pago';
+    } else if (newPaidAmount < total - tolerance) {
+      paymentStatus = 'parcial';
+    } else {
+      paymentStatus = 'pago';
+    }
+
+    const [updated] = await db
+      .update(orders)
+      .set({ 
+        paidAmount: newPaidAmount.toFixed(2),
+        changeAmount: Math.max(0, changeAmount).toFixed(2),
+        paymentStatus,
+        paymentMethod: data.paymentMethod,
+        updatedAt: new Date()
+      })
+      .where(eq(orders.id, orderId))
+      .returning();
+
+    return updated;
+  }
+
+  async calculateOrderTotal(orderId: string): Promise<Order> {
+    const [result] = await db
+      .select({
+        subtotal: sql<string>`
+          COALESCE(
+            SUM(
+              (${orderItems.price}::numeric + 
+                COALESCE(
+                  (SELECT SUM(${orderItemOptions.priceAdjustment}::numeric * ${orderItemOptions.quantity})
+                   FROM ${orderItemOptions}
+                   WHERE ${orderItemOptions.orderItemId} = ${orderItems.id}), 
+                  0
+                )
+              ) * ${orderItems.quantity}
+            ), 
+            0
+          )::text
+        `
+      })
+      .from(orderItems)
+      .where(eq(orderItems.orderId, orderId));
+
+    const subtotal = parseFloat(result?.subtotal || '0');
+
+    const [currentOrder] = await db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, orderId));
+
+    if (!currentOrder) {
+      throw new Error('Order not found');
+    }
+
+    let total = subtotal;
+    
+    if (currentOrder.discountType === 'percentual') {
+      const discountPercent = Math.min(parseFloat(currentOrder.discount || '0'), 100);
+      const discountAmount = (subtotal * discountPercent) / 100;
+      total -= discountAmount;
+    } else {
+      const discountValue = parseFloat(currentOrder.discount || '0');
+      total -= Math.min(discountValue, subtotal);
+    }
+
+    total = Math.max(0, total);
+    
+    total += parseFloat(currentOrder.serviceCharge || '0');
+    total += parseFloat(currentOrder.deliveryFee || '0');
+
+    total = Math.round(total * 100) / 100;
+
+    const [updated] = await db
+      .update(orders)
+      .set({ 
+        subtotal: subtotal.toFixed(2),
+        totalAmount: total.toFixed(2),
+        updatedAt: new Date()
+      })
+      .where(eq(orders.id, orderId))
+      .returning();
+
     return updated;
   }
 

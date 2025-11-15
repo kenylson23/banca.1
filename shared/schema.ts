@@ -380,6 +380,15 @@ export const orderStatusEnum = pgEnum('order_status', ['pendente', 'em_preparo',
 // Order Type Enum
 export const orderTypeEnum = pgEnum('order_type', ['mesa', 'delivery', 'takeout', 'balcao', 'pdv']);
 
+// Payment Status Enum
+export const paymentStatusEnum = pgEnum('payment_status', ['nao_pago', 'parcial', 'pago']);
+
+// Payment Method Enum
+export const paymentMethodEnum = pgEnum('payment_method', ['dinheiro', 'multicaixa', 'transferencia', 'cartao']);
+
+// Discount Type Enum
+export const discountTypeEnum = pgEnum('discount_type', ['valor', 'percentual']);
+
 // Orders - Pedidos
 export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -391,10 +400,18 @@ export const orders = pgTable("orders", {
   customerPhone: varchar("customer_phone", { length: 50 }),
   deliveryAddress: text("delivery_address"),
   orderNotes: text("order_notes"),
+  orderTitle: varchar("order_title", { length: 200 }), // Título personalizado do pedido
   status: orderStatusEnum("status").notNull().default('pendente'),
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  paymentMethod: varchar("payment_method", { length: 50 }),
-  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default('0'),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default('0'), // Subtotal antes de descontos/taxas
+  discount: decimal("discount", { precision: 10, scale: 2 }).default('0'), // Valor do desconto
+  discountType: discountTypeEnum("discount_type").default('valor'), // Tipo de desconto
+  serviceCharge: decimal("service_charge", { precision: 10, scale: 2 }).default('0'), // Taxa de serviço
+  deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).default('0'), // Taxa de entrega
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(), // Total final
+  paymentStatus: paymentStatusEnum("payment_status").notNull().default('nao_pago'), // Status de pagamento
+  paymentMethod: paymentMethodEnum("payment_method"), // Método de pagamento principal
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default('0'), // Valor já pago
+  changeAmount: decimal("change_amount", { precision: 10, scale: 2 }).default('0'), // Troco
   isSynced: integer("is_synced").default(1),
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -405,15 +422,61 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  subtotal: true,
+  totalAmount: true,
+  paymentStatus: true,
+  paidAmount: true,
+  changeAmount: true,
 }).extend({
   orderType: z.enum(['mesa', 'delivery', 'takeout', 'balcao', 'pdv']).default('mesa'),
+  discount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Desconto inválido").optional(),
+  discountType: z.enum(['valor', 'percentual']).optional(),
+  serviceCharge: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de serviço inválida").optional(),
+  deliveryFee: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de entrega inválida").optional(),
 });
 
 export const updateOrderStatusSchema = z.object({
   status: z.enum(['pendente', 'em_preparo', 'pronto', 'servido']),
 });
 
+export const updateOrderMetadataSchema = z.object({
+  orderTitle: z.string().max(200).optional(),
+  customerName: z.string().max(200).optional(),
+  customerPhone: z.string().max(50).optional(),
+  deliveryAddress: z.string().optional(),
+  orderNotes: z.string().optional(),
+});
+
+export const applyDiscountSchema = z.object({
+  discount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Desconto inválido"),
+  discountType: z.enum(['valor', 'percentual']),
+});
+
+export const applyServiceChargeSchema = z.object({
+  serviceCharge: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de serviço inválida"),
+});
+
+export const applyDeliveryFeeSchema = z.object({
+  deliveryFee: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de entrega inválida"),
+});
+
+export const recordPaymentSchema = z.object({
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
+  paymentMethod: z.enum(['dinheiro', 'multicaixa', 'transferencia', 'cartao']),
+  receivedAmount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor recebido inválido").optional(),
+});
+
+export const updateOrderItemQuantitySchema = z.object({
+  quantity: z.number().int().min(1, "Quantidade deve ser pelo menos 1"),
+});
+
 export type UpdateOrderStatus = z.infer<typeof updateOrderStatusSchema>;
+export type UpdateOrderMetadata = z.infer<typeof updateOrderMetadataSchema>;
+export type ApplyDiscount = z.infer<typeof applyDiscountSchema>;
+export type ApplyServiceCharge = z.infer<typeof applyServiceChargeSchema>;
+export type ApplyDeliveryFee = z.infer<typeof applyDeliveryFeeSchema>;
+export type RecordPayment = z.infer<typeof recordPaymentSchema>;
+export type UpdateOrderItemQuantity = z.infer<typeof updateOrderItemQuantitySchema>;
 
 export const updateRestaurantSlugSchema = z.object({
   slug: z.string()
