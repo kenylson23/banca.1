@@ -196,16 +196,16 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
         });
       }
       
-      setOpen(false);
-      setCart([]);
-      form.reset();
-      
       if (onOrderCreated && data?.id) {
         console.log('Calling onOrderCreated callback with orderId:', data.id);
         onOrderCreated(data.id, isOnline);
       } else {
         console.warn('onOrderCreated not called:', { hasCallback: !!onOrderCreated, hasOrderId: !!data?.id });
       }
+      
+      setOpen(false);
+      setCart([]);
+      form.reset();
     },
     onError: () => {
       toast({
