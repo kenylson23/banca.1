@@ -487,6 +487,7 @@ export default function PDV() {
   };
 
   const handleOrderCreated = (orderId: string, isOnline: boolean) => {
+    console.log('PDV handleOrderCreated called:', { orderId, isOnline });
     setLocation(`/orders/${orderId}`);
   };
 
