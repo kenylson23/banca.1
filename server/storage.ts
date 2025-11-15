@@ -1143,7 +1143,46 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
-    const [newOrder] = await db.insert(orders).values(order).returning();
+    // Calculate subtotal from items and options
+    let subtotal = 0;
+    for (const item of items) {
+      const itemPrice = parseFloat(item.price) * item.quantity;
+      let optionsTotal = 0;
+      
+      if (item.selectedOptions && item.selectedOptions.length > 0) {
+        for (const option of item.selectedOptions) {
+          optionsTotal += parseFloat(option.priceAdjustment) * option.quantity;
+        }
+      }
+      
+      subtotal += itemPrice + optionsTotal;
+    }
+    
+    // Calculate total with discount, service charge, and delivery fee
+    const discount = parseFloat(order.discount || '0');
+    const serviceCharge = parseFloat(order.serviceCharge || '0');
+    const deliveryFee = parseFloat(order.deliveryFee || '0');
+    
+    let totalAmount = subtotal;
+    
+    // Apply discount
+    if (order.discountType === 'percentual') {
+      totalAmount -= (subtotal * discount / 100);
+    } else {
+      totalAmount -= discount;
+    }
+    
+    // Add service charge and delivery fee
+    totalAmount += serviceCharge + deliveryFee;
+    
+    // Ensure totalAmount is not negative
+    totalAmount = Math.max(0, totalAmount);
+    
+    const [newOrder] = await db.insert(orders).values({
+      ...order,
+      subtotal: subtotal.toFixed(2),
+      totalAmount: totalAmount.toFixed(2),
+    }).returning();
     
     if (items.length > 0) {
       for (const item of items) {
