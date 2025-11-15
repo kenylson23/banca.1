@@ -132,8 +132,9 @@ export interface IStorage {
   updateOrderItemQuantity(restaurantId: string, orderId: string, itemId: string, quantity: number): Promise<OrderItem>;
   removeOrderItem(restaurantId: string, orderId: string, itemId: string): Promise<void>;
   applyDiscount(restaurantId: string, orderId: string, discount: string, discountType: 'valor' | 'percentual'): Promise<Order>;
-  applyServiceCharge(restaurantId: string, orderId: string, serviceCharge: string): Promise<Order>;
+  applyServiceCharge(restaurantId: string, orderId: string, serviceCharge: string, serviceName?: string): Promise<Order>;
   applyDeliveryFee(restaurantId: string, orderId: string, deliveryFee: string): Promise<Order>;
+  applyPackagingFee(restaurantId: string, orderId: string, packagingFee: string): Promise<Order>;
   recordPayment(restaurantId: string, orderId: string, data: {
     amount: string;
     paymentMethod: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
@@ -1509,7 +1510,7 @@ export class DatabaseStorage implements IStorage {
     return this.calculateOrderTotal(orderId);
   }
 
-  async applyServiceCharge(restaurantId: string, orderId: string, serviceCharge: string): Promise<Order> {
+  async applyServiceCharge(restaurantId: string, orderId: string, serviceCharge: string, serviceName?: string): Promise<Order> {
     const order = await this.getOrderById(restaurantId, orderId);
     if (!order) {
       throw new Error('Order not found');
@@ -1524,6 +1525,7 @@ export class DatabaseStorage implements IStorage {
       .update(orders)
       .set({ 
         serviceCharge,
+        serviceName: serviceName || null,
         updatedAt: new Date()
       })
       .where(eq(orders.id, orderId))
@@ -1551,6 +1553,29 @@ export class DatabaseStorage implements IStorage {
       .update(orders)
       .set({ 
         deliveryFee,
+        updatedAt: new Date()
+      })
+      .where(eq(orders.id, orderId))
+      .returning();
+
+    return this.calculateOrderTotal(orderId);
+  }
+
+  async applyPackagingFee(restaurantId: string, orderId: string, packagingFee: string): Promise<Order> {
+    const order = await this.getOrderById(restaurantId, orderId);
+    if (!order) {
+      throw new Error('Order not found');
+    }
+
+    const feeValue = parseFloat(packagingFee);
+    if (feeValue < 0) {
+      throw new Error('Packaging fee cannot be negative');
+    }
+
+    const [updated] = await db
+      .update(orders)
+      .set({ 
+        packagingFee,
         updatedAt: new Date()
       })
       .where(eq(orders.id, orderId))
@@ -1665,6 +1690,7 @@ export class DatabaseStorage implements IStorage {
     
     total += parseFloat(currentOrder.serviceCharge || '0');
     total += parseFloat(currentOrder.deliveryFee || '0');
+    total += parseFloat(currentOrder.packagingFee || '0');
 
     total = Math.round(total * 100) / 100;
 

@@ -406,7 +406,9 @@ export const orders = pgTable("orders", {
   discount: decimal("discount", { precision: 10, scale: 2 }).default('0'), // Valor do desconto
   discountType: discountTypeEnum("discount_type").default('valor'), // Tipo de desconto
   serviceCharge: decimal("service_charge", { precision: 10, scale: 2 }).default('0'), // Taxa de serviço
+  serviceName: varchar("service_name", { length: 200 }), // Nome da taxa de serviço (opcional)
   deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).default('0'), // Taxa de entrega
+  packagingFee: decimal("packaging_fee", { precision: 10, scale: 2 }).default('0'), // Taxa de embalagem
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(), // Total final
   paymentStatus: paymentStatusEnum("payment_status").notNull().default('nao_pago'), // Status de pagamento
   paymentMethod: paymentMethodEnum("payment_method"), // Método de pagamento principal
@@ -478,10 +480,15 @@ export const applyDiscountSchema = z.object({
 
 export const applyServiceChargeSchema = z.object({
   serviceCharge: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de serviço inválida"),
+  serviceName: z.string().max(200).optional(),
 });
 
 export const applyDeliveryFeeSchema = z.object({
   deliveryFee: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de entrega inválida"),
+});
+
+export const applyPackagingFeeSchema = z.object({
+  packagingFee: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de embalagem inválida"),
 });
 
 export const recordPaymentSchema = z.object({
@@ -499,6 +506,7 @@ export type UpdateOrderMetadata = z.infer<typeof updateOrderMetadataSchema>;
 export type ApplyDiscount = z.infer<typeof applyDiscountSchema>;
 export type ApplyServiceCharge = z.infer<typeof applyServiceChargeSchema>;
 export type ApplyDeliveryFee = z.infer<typeof applyDeliveryFeeSchema>;
+export type ApplyPackagingFee = z.infer<typeof applyPackagingFeeSchema>;
 export type RecordPayment = z.infer<typeof recordPaymentSchema>;
 export type UpdateOrderItemQuantity = z.infer<typeof updateOrderItemQuantitySchema>;
 

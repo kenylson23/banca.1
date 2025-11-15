@@ -3,7 +3,7 @@ import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   ArrowLeft, Plus, Trash2, DollarSign, Percent, 
-  UtensilsCrossed, Clock, Edit2, Check, X, Printer 
+  UtensilsCrossed, Clock, Edit2, Check, X, Printer, Package 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -171,8 +171,8 @@ export default function OrderDetail() {
   });
 
   const applyServiceChargeMutation = useMutation({
-    mutationFn: async (serviceCharge: string) => {
-      const response = await apiRequest("PUT", `/api/orders/${orderId}/service-charge`, { serviceCharge });
+    mutationFn: async (data: { serviceCharge: string; serviceName?: string }) => {
+      const response = await apiRequest("PUT", `/api/orders/${orderId}/service-charge`, data);
       return response.json();
     },
     onSuccess: () => {
@@ -182,6 +182,21 @@ export default function OrderDetail() {
     },
     onError: () => {
       toast({ title: "Erro ao aplicar taxa de serviço", variant: "destructive" });
+    },
+  });
+
+  const applyPackagingFeeMutation = useMutation({
+    mutationFn: async (packagingFee: string) => {
+      const response = await apiRequest("PUT", `/api/orders/${orderId}/packaging-fee`, { packagingFee });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({ title: "Taxa de embalagem aplicada" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao aplicar taxa de embalagem", variant: "destructive" });
     },
   });
 
@@ -539,11 +554,30 @@ export default function OrderDetail() {
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Taxa de Serviço</DialogTitle>
+                        <DialogTitle>Serviço</DialogTitle>
                       </DialogHeader>
                       <ServiceChargeForm
-                        onSubmit={(value) => applyServiceChargeMutation.mutate(value)}
+                        onSubmit={(data) => applyServiceChargeMutation.mutate(data)}
                         currentCharge={Number(order.serviceCharge || 0)}
+                        currentName={order.serviceName || ""}
+                      />
+                    </DialogContent>
+                  </Dialog>
+
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="flex-1" data-testid="button-packaging">
+                        <Package className="h-4 w-4 mr-2" />
+                        Embalagem
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Embalagem:</DialogTitle>
+                      </DialogHeader>
+                      <PackagingFeeForm
+                        onSubmit={(value) => applyPackagingFeeMutation.mutate(value)}
+                        currentFee={Number(order.packagingFee || 0)}
                       />
                     </DialogContent>
                   </Dialog>
@@ -558,8 +592,15 @@ export default function OrderDetail() {
 
                 {Number(order.serviceCharge || 0) > 0 && (
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Taxa de Serviço</span>
+                    <span>Taxa de Serviço{order.serviceName ? ` (${order.serviceName})` : ""}</span>
                     <span>+{formatKwanza(order.serviceCharge || 0)}</span>
+                  </div>
+                )}
+
+                {Number(order.packagingFee || 0) > 0 && (
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Embalagem</span>
+                    <span>+{formatKwanza(order.packagingFee || 0)}</span>
                   </div>
                 )}
 
@@ -689,31 +730,98 @@ function DiscountForm({
 function ServiceChargeForm({
   onSubmit,
   currentCharge,
+  currentName,
 }: {
-  onSubmit: (value: string) => void;
+  onSubmit: (data: { serviceCharge: string; serviceName?: string }) => void;
   currentCharge: number;
+  currentName: string;
 }) {
   const [charge, setCharge] = useState(currentCharge.toString());
+  const [name, setName] = useState(currentName);
 
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label>Taxa de Serviço</Label>
+        <Input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nome (opcional)"
+          data-testid="input-service-name"
+        />
+      </div>
+      <div className="relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
         <Input
           type="number"
           value={charge}
           onChange={(e) => setCharge(e.target.value)}
-          placeholder="0.00"
+          placeholder="0"
+          className="pl-8"
           data-testid="input-service-charge"
         />
       </div>
-      <Button
-        onClick={() => onSubmit(charge)}
-        className="w-full"
-        data-testid="button-apply-service"
-      >
-        Aplicar Taxa
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          variant="ghost"
+          onClick={() => {
+            setCharge(currentCharge.toString());
+            setName(currentName);
+          }}
+          className="flex-1"
+          data-testid="button-cancel-service"
+        >
+          Cancelar
+        </Button>
+        <Button
+          onClick={() => onSubmit({ serviceCharge: charge, serviceName: name || undefined })}
+          className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+          data-testid="button-apply-service"
+        >
+          Confirmar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function PackagingFeeForm({
+  onSubmit,
+  currentFee,
+}: {
+  onSubmit: (value: string) => void;
+  currentFee: number;
+}) {
+  const [fee, setFee] = useState(currentFee.toString());
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Input
+          type="number"
+          value={fee}
+          onChange={(e) => setFee(e.target.value)}
+          placeholder="0"
+          data-testid="input-packaging-fee"
+        />
+      </div>
+      <div className="flex gap-2">
+        <Button
+          variant="ghost"
+          onClick={() => setFee(currentFee.toString())}
+          className="flex-1"
+          data-testid="button-cancel-packaging"
+        >
+          Cancelar
+        </Button>
+        <Button
+          onClick={() => onSubmit(fee)}
+          className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+          data-testid="button-apply-packaging"
+        >
+          Confirmar
+        </Button>
+      </div>
     </div>
   );
 }

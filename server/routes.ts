@@ -34,6 +34,7 @@ import {
   applyDiscountSchema,
   applyServiceChargeSchema,
   applyDeliveryFeeSchema,
+  applyPackagingFeeSchema,
   recordPaymentSchema,
   type User,
 } from "@shared/schema";
@@ -1724,8 +1725,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Não é possível aplicar taxa de serviço a pedido já servido" });
       }
 
-      const { serviceCharge } = applyServiceChargeSchema.parse(req.body);
-      const updated = await storage.applyServiceCharge(restaurantId, req.params.id, serviceCharge);
+      const { serviceCharge, serviceName } = applyServiceChargeSchema.parse(req.body);
+      const updated = await storage.applyServiceCharge(restaurantId, req.params.id, serviceCharge, serviceName);
       
       broadcastToClients({ 
         type: 'order_totals_changed', 
@@ -1775,6 +1776,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error('Error applying delivery fee:', error);
       res.status(500).json({ message: "Erro ao aplicar taxa de entrega" });
+    }
+  });
+
+  app.put("/api/orders/:id/packaging-fee", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const order = await storage.getOrderById(restaurantId, req.params.id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      if (order.status === 'servido') {
+        return res.status(400).json({ message: "Não é possível aplicar taxa de embalagem a pedido já servido" });
+      }
+
+      const { packagingFee } = applyPackagingFeeSchema.parse(req.body);
+      const updated = await storage.applyPackagingFee(restaurantId, req.params.id, packagingFee);
+      
+      broadcastToClients({ 
+        type: 'order_totals_changed', 
+        data: { orderId: req.params.id, totalAmount: updated.totalAmount }
+      });
+
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Error applying packaging fee:', error);
+      res.status(500).json({ message: "Erro ao aplicar taxa de embalagem" });
     }
   });
 
