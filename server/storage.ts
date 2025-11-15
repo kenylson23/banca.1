@@ -3236,7 +3236,10 @@ export class DatabaseStorage implements IStorage {
     ];
 
     if (branchId !== null) {
-      orderConditions.push(eq(orders.branchId, branchId));
+      orderConditions.push(or(
+        eq(orders.branchId, branchId),
+        sql`${orders.branchId} IS NULL`
+      ) as any);
     }
 
     if (orderType && orderType !== 'all') {

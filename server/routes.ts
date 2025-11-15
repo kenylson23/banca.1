@@ -1714,10 +1714,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Creating order with data:', JSON.stringify({ orderData, items }, null, 2));
       
-      // Automatically set createdBy to track which admin created the order
+      // Automatically set createdBy and branchId to track which admin created the order
       const validatedOrder = insertOrderSchema.parse({
         ...orderData,
         createdBy: currentUser.id,
+        branchId: currentUser.activeBranchId || null,
       });
       const validatedItems = z.array(publicOrderItemSchema).parse(items);
 
