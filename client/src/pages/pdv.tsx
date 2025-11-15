@@ -33,9 +33,9 @@ const orderTypeIcons = {
 };
 
 const statusColors = {
-  pendente: "bg-chart-4 text-chart-4-foreground",
-  em_preparo: "bg-chart-2 text-chart-2-foreground",
-  pronto: "bg-chart-3 text-chart-3-foreground",
+  pendente: "bg-orange-500 text-white",
+  em_preparo: "bg-blue-500 text-white",
+  pronto: "bg-green-500 text-white",
   servido: "bg-muted text-muted-foreground",
 };
 
@@ -197,11 +197,11 @@ export default function PDV() {
 
   const getPaymentStatusBadge = (paymentStatus: string) => {
     if (paymentStatus === "pago") {
-      return <Badge className="bg-chart-3 text-chart-3-foreground">Pago</Badge>;
+      return <Badge className="bg-green-500 text-white">Pago</Badge>;
     } else if (paymentStatus === "parcial") {
-      return <Badge className="bg-chart-4 text-chart-4-foreground">Parcial</Badge>;
+      return <Badge className="bg-yellow-500 text-white">Parcial</Badge>;
     } else {
-      return <Badge className="bg-chart-1 text-chart-1-foreground">Não pago</Badge>;
+      return <Badge className="bg-orange-500 text-white">Não pago</Badge>;
     }
   };
 
@@ -242,6 +242,7 @@ export default function PDV() {
     return (
       <div className="space-y-1">
         {filteredOrders.map((order) => {
+          const OrderTypeIcon = orderTypeIcons[order.orderType as keyof typeof orderTypeIcons] || ShoppingBag;
           return (
             <div
               key={order.id}
@@ -250,15 +251,15 @@ export default function PDV() {
             >
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-chart-1" data-testid={`text-order-number-${order.id}`}>
+                  <span className="font-medium text-orange-500" data-testid={`text-order-number-${order.id}`}>
                     #{order.id.slice(-4)}
                   </span>
-                  <span className="text-muted-foreground">@</span>
+                  <OrderTypeIcon className="h-4 w-4 text-orange-500" />
                   <span className="text-sm text-muted-foreground">
                     {order.table ? `Mesa ${order.table.number}` : getOrderTypeLabel(order.orderType)}
                   </span>
                 </div>
-                <div className="text-sm text-chart-1" data-testid={`text-elapsed-${order.id}`}>
+                <div className="text-sm text-orange-500 font-medium" data-testid={`text-elapsed-${order.id}`}>
                   {getElapsedTime(order.createdAt || new Date())}
                 </div>
                 <div className="text-xs text-muted-foreground">
@@ -296,8 +297,9 @@ export default function PDV() {
                     cancelOrderMutation.mutate(order.id);
                   }}
                   data-testid={`button-cancel-${order.id}`}
-                  className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  className="text-red-500 border-red-500 hover:bg-red-500 hover:text-white"
                 >
+                  <X className="h-4 w-4 mr-1" />
                   Cancelar
                 </Button>
                 <Button
@@ -309,7 +311,9 @@ export default function PDV() {
                   }}
                   disabled={order.paymentStatus === "pago"}
                   data-testid={`button-pay-${order.id}`}
+                  className="bg-blue-500 hover:bg-blue-600 text-white"
                 >
+                  <DollarSign className="h-4 w-4 mr-1" />
                   Pagar
                 </Button>
                 <Button
@@ -321,8 +325,9 @@ export default function PDV() {
                   }}
                   disabled={order.status !== "pendente"}
                   data-testid={`button-accept-${order.id}`}
-                  className="bg-chart-3 hover:bg-chart-3/90 text-chart-3-foreground"
+                  className="bg-green-500 hover:bg-green-600 text-white"
                 >
+                  <Check className="h-4 w-4 mr-1" />
                   Aceitar
                 </Button>
               </div>
