@@ -118,20 +118,69 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
         return await response.json();
       } else {
         const orderId = crypto.randomUUID();
-        const offlineOrder = { ...data, id: orderId } as any;
+        const now = new Date().toISOString();
+        const itemsWithOrderId = orderItems.map(item => {
+          const cartItem = cart.find(c => c.menuItemId === item.menuItemId);
+          const menuItemData = rawMenuItems.find(m => m.id === item.menuItemId);
+          return {
+            ...item,
+            orderId,
+            id: crypto.randomUUID(),
+            price: parseFloat(item.price),
+            menuItem: menuItemData ? {
+              id: menuItemData.id,
+              name: menuItemData.name,
+              price: parseFloat(menuItemData.price),
+              description: menuItemData.description || '',
+              categoryId: menuItemData.categoryId,
+              isAvailable: menuItemData.isAvailable === 1 || menuItemData.isAvailable === true,
+              category: menuItemData.category || null,
+            } : {
+              id: item.menuItemId,
+              name: cartItem?.name || 'Item',
+              price: parseFloat(item.price),
+              description: '',
+              categoryId: '',
+              isAvailable: true,
+              category: null,
+            }
+          };
+        });
+        
+        const itemsTotal = itemsWithOrderId.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        
+        const offlineOrder = { 
+          ...data,
+          id: orderId,
+          orderNumber: Math.floor(Math.random() * 9000) + 1000,
+          createdAt: now,
+          updatedAt: now,
+          totalAmount: parseFloat(data.totalAmount || itemsTotal.toString()),
+          discount: data.discount ? parseFloat(data.discount) : null,
+          serviceCharge: data.serviceCharge ? parseFloat(data.serviceCharge) : null,
+          deliveryFee: data.deliveryFee ? parseFloat(data.deliveryFee) : null,
+          paidAmount: "0",
+          paymentStatus: "nao_pago",
+          orderItems: itemsWithOrderId,
+          isSynced: false,
+          table: data.tableId ? tables.find(t => t.id === data.tableId) || null : null
+        } as any;
         await indexedDB.saveOrder(offlineOrder);
-        const itemsWithOrderId = orderItems.map(item => ({
-          ...item,
-          orderId,
-          id: crypto.randomUUID(),
-        }));
         await indexedDB.saveOrderItems(itemsWithOrderId as any);
         return offlineOrder;
       }
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       const isOnline = typeof navigator !== 'undefined' && navigator.onLine;
+      
+      if (!isOnline && data?.id) {
+        queryClient.setQueryData(["/api/orders", data.id], data);
+        
+        const currentOrders = queryClient.getQueryData(["/api/orders"]) as any[] || [];
+        queryClient.setQueryData(["/api/orders"], [data, ...currentOrders]);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      }
       
       if (onOrderCreated && data?.id) {
         onOrderCreated(data.id, isOnline);
