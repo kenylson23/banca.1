@@ -2577,6 +2577,204 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== SALES/VENDAS API ROUTES =====
+  
+  // Get sales list with filters
+  app.get("/api/sales", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      let restaurantId: string;
+      if (currentUser.role === 'superadmin') {
+        const queryRestaurantId = req.query.restaurantId as string;
+        if (!queryRestaurantId) {
+          return res.status(400).json({ message: "Super admin deve fornecer restaurantId como query parameter" });
+        }
+        restaurantId = queryRestaurantId;
+      } else {
+        if (!currentUser.restaurantId) {
+          return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+        }
+        restaurantId = currentUser.restaurantId;
+      }
+
+      const { 
+        dateFilter, 
+        periodFilter, 
+        orderBy, 
+        orderStatus, 
+        paymentStatus, 
+        orderType,
+        customFrom,
+        customTo
+      } = req.query;
+
+      // Calculate date range based on filter
+      let startDate: Date;
+      let endDate: Date;
+
+      if (dateFilter === 'custom' && customFrom) {
+        startDate = new Date(customFrom as string);
+        endDate = customTo ? new Date(customTo as string) : new Date();
+      } else if (dateFilter === 'today') {
+        startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+      } else if (dateFilter === 'yesterday') {
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 1);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setDate(endDate.getDate() - 1);
+        endDate.setHours(23, 59, 59, 999);
+      } else if (dateFilter === '7days') {
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 7);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+      } else if (dateFilter === '30days') {
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+      } else {
+        // Default to today
+        startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+      }
+
+      // Note: Period filter doesn't modify the date range itself
+      // It will be applied in the database query as an additional condition
+
+      const branchId = currentUser.role === 'superadmin' ? null : (currentUser.activeBranchId || null);
+      
+      // Get orders with table info
+      const orders = await storage.getOrdersForSales(
+        restaurantId,
+        branchId,
+        startDate,
+        endDate,
+        orderStatus as string || 'all',
+        paymentStatus as string || 'all',
+        orderType as string || 'all',
+        orderBy as string || 'created',
+        periodFilter as string
+      );
+
+      res.json(orders);
+    } catch (error) {
+      console.error('Sales API error:', error);
+      res.status(500).json({ message: "Erro ao buscar vendas" });
+    }
+  });
+
+  // Get sales statistics/KPIs
+  app.get("/api/sales/stats", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      let restaurantId: string;
+      if (currentUser.role === 'superadmin') {
+        const queryRestaurantId = req.query.restaurantId as string;
+        if (!queryRestaurantId) {
+          return res.status(400).json({ message: "Super admin deve fornecer restaurantId como query parameter" });
+        }
+        restaurantId = queryRestaurantId;
+      } else {
+        if (!currentUser.restaurantId) {
+          return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+        }
+        restaurantId = currentUser.restaurantId;
+      }
+
+      const { 
+        dateFilter, 
+        periodFilter, 
+        orderBy, 
+        orderStatus, 
+        paymentStatus, 
+        orderType,
+        customFrom,
+        customTo
+      } = req.query;
+
+      // Calculate date range (same logic as above)
+      let startDate: Date;
+      let endDate: Date;
+
+      if (dateFilter === 'custom' && customFrom) {
+        startDate = new Date(customFrom as string);
+        endDate = customTo ? new Date(customTo as string) : new Date();
+      } else if (dateFilter === 'today') {
+        startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+      } else if (dateFilter === 'yesterday') {
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 1);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setDate(endDate.getDate() - 1);
+        endDate.setHours(23, 59, 59, 999);
+      } else if (dateFilter === '7days') {
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 7);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+      } else if (dateFilter === '30days') {
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+      } else {
+        startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+      }
+
+      // Apply period filter
+      if (periodFilter && periodFilter !== 'all') {
+        if (periodFilter === 'morning') {
+          startDate.setHours(6, 0, 0, 0);
+          endDate.setHours(11, 59, 59, 999);
+        } else if (periodFilter === 'afternoon') {
+          startDate.setHours(12, 0, 0, 0);
+          endDate.setHours(17, 59, 59, 999);
+        } else if (periodFilter === 'night') {
+          startDate.setHours(18, 0, 0, 0);
+          endDate.setHours(23, 59, 59, 999);
+        }
+      }
+
+      const branchId = currentUser.role === 'superadmin' ? null : (currentUser.activeBranchId || null);
+      
+      const stats = await storage.getSalesStats(
+        restaurantId,
+        branchId,
+        startDate,
+        endDate,
+        orderStatus as string || 'all',
+        paymentStatus as string || 'all',
+        orderType as string || 'all',
+        periodFilter as string
+      );
+
+      res.json(stats);
+    } catch (error) {
+      console.error('Sales stats API error:', error);
+      res.status(500).json({ message: "Erro ao buscar estatísticas" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // Setup WebSocket server for real-time updates

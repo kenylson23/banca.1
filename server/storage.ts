@@ -241,6 +241,37 @@ export interface IStorage {
     topTables: Array<{ tableNumber: number; orders: number; revenue: string }>;
   }>;
   
+  // Sales/Vendas operations
+  getOrdersForSales(
+    restaurantId: string,
+    branchId: string | null,
+    startDate: Date,
+    endDate: Date,
+    orderStatus: string,
+    paymentStatus: string,
+    orderType: string,
+    orderBy: string,
+    periodFilter?: string
+  ): Promise<Array<Order & { tableNumber?: number }>>;
+  
+  getSalesStats(
+    restaurantId: string,
+    branchId: string | null,
+    startDate: Date,
+    endDate: Date,
+    orderStatus: string,
+    paymentStatus: string,
+    orderType: string,
+    periodFilter?: string
+  ): Promise<{
+    totalOrders: number;
+    totalRevenue: number;
+    averageTicket: number;
+    paidOrders: number;
+    pendingOrders: number;
+    cancelledOrders: number;
+  }>;
+  
   // Message operations
   getMessages(restaurantId: string): Promise<Message[]>;
   getAllMessages(): Promise<Array<Message & { restaurant: Restaurant }>>;
@@ -2453,6 +2484,192 @@ export class DatabaseStorage implements IStorage {
       completionRate: completionRate.toFixed(1),
       peakHours,
       topTables,
+    };
+  }
+
+  // Sales/Vendas operations
+  async getOrdersForSales(
+    restaurantId: string,
+    branchId: string | null,
+    startDate: Date,
+    endDate: Date,
+    orderStatus: string,
+    paymentStatus: string,
+    orderType: string,
+    orderBy: string,
+    periodFilter?: string
+  ): Promise<Array<Order & { tableNumber?: number }>> {
+    let query = db
+      .select({
+        order: orders,
+        tableNumber: tables.number,
+      })
+      .from(orders)
+      .leftJoin(tables, eq(orders.tableId, tables.id))
+      .$dynamic();
+
+    const conditions = [
+      eq(orders.restaurantId, restaurantId),
+      gte(orders.createdAt, startDate),
+      sql`${orders.createdAt} <= ${endDate}`
+    ];
+
+    // Apply period filter (time of day) without modifying the date range
+    if (periodFilter && periodFilter !== 'all') {
+      if (periodFilter === 'morning') {
+        conditions.push(sql`EXTRACT(HOUR FROM ${orders.createdAt}) >= 6 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 12`);
+      } else if (periodFilter === 'afternoon') {
+        conditions.push(sql`EXTRACT(HOUR FROM ${orders.createdAt}) >= 12 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 18`);
+      } else if (periodFilter === 'night') {
+        conditions.push(sql`EXTRACT(HOUR FROM ${orders.createdAt}) >= 18 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 24`);
+      }
+    }
+
+    if (branchId) {
+      conditions.push(
+        or(
+          eq(tables.branchId, branchId),
+          sql`${orders.tableId} IS NULL`
+        ) as any
+      );
+    }
+
+    if (orderStatus && orderStatus !== 'all') {
+      conditions.push(eq(orders.status, orderStatus as any));
+    }
+
+    if (paymentStatus && paymentStatus !== 'all') {
+      conditions.push(eq(orders.paymentStatus, paymentStatus as any));
+    }
+
+    if (orderType && orderType !== 'all') {
+      conditions.push(eq(orders.orderType, orderType as any));
+    }
+
+    query = query.where(and(...conditions));
+
+    if (orderBy === 'updated') {
+      query = query.orderBy(desc(orders.updatedAt));
+    } else {
+      query = query.orderBy(desc(orders.createdAt));
+    }
+
+    const results = await query;
+
+    return results.map((row: any) => ({
+      ...row.order,
+      tableNumber: row.tableNumber,
+    }));
+  }
+
+  async getSalesStats(
+    restaurantId: string,
+    branchId: string | null,
+    startDate: Date,
+    endDate: Date,
+    orderStatus: string,
+    paymentStatus: string,
+    orderType: string,
+    periodFilter?: string
+  ): Promise<{
+    totalOrders: number;
+    totalRevenue: number;
+    averageTicket: number;
+    paidOrders: number;
+    pendingOrders: number;
+    cancelledOrders: number;
+  }> {
+    // Build base conditions that apply to both queries
+    const baseConditions: any[] = [
+      eq(orders.restaurantId, restaurantId),
+      gte(orders.createdAt, startDate),
+      sql`${orders.createdAt} <= ${endDate}`
+    ];
+
+    // Apply period filter (time of day) to base conditions
+    if (periodFilter && periodFilter !== 'all') {
+      if (periodFilter === 'morning') {
+        baseConditions.push(sql`EXTRACT(HOUR FROM ${orders.createdAt}) >= 6 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 12`);
+      } else if (periodFilter === 'afternoon') {
+        baseConditions.push(sql`EXTRACT(HOUR FROM ${orders.createdAt}) >= 12 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 18`);
+      } else if (periodFilter === 'night') {
+        baseConditions.push(sql`EXTRACT(HOUR FROM ${orders.createdAt}) >= 18 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 24`);
+      }
+    }
+
+    if (branchId) {
+      baseConditions.push(
+        or(
+          eq(tables.branchId, branchId),
+          sql`${orders.tableId} IS NULL`
+        ) as any
+      );
+    }
+
+    if (orderStatus && orderStatus !== 'all') {
+      baseConditions.push(eq(orders.status, orderStatus as any));
+    }
+
+    if (paymentStatus && paymentStatus !== 'all') {
+      baseConditions.push(eq(orders.paymentStatus, paymentStatus as any));
+    }
+
+    if (orderType && orderType !== 'all') {
+      baseConditions.push(eq(orders.orderType, orderType as any));
+    }
+
+    // Query 1: Get ALL matching orders (including cancelled) for cancelled count
+    let allQuery = db
+      .select()
+      .from(orders)
+      .leftJoin(tables, eq(orders.tableId, tables.id))
+      .where(and(...baseConditions))
+      .$dynamic();
+
+    const allResults = await allQuery;
+    const allOrders = allResults.map((row: any) => row.orders);
+
+    // Count cancelled orders from the full set
+    const cancelledOrders = allOrders.filter((o: Order) => 
+      o.cancellationReason !== null && o.cancellationReason !== ''
+    ).length;
+
+    // Query 2: Get valid (non-cancelled) orders for KPIs
+    const validConditions = [
+      ...baseConditions,
+      // Exclude cancelled orders in the query
+      or(
+        sql`${orders.cancellationReason} IS NULL`,
+        sql`${orders.cancellationReason} = ''`
+      ) as any
+    ];
+
+    let validQuery = db
+      .select()
+      .from(orders)
+      .leftJoin(tables, eq(orders.tableId, tables.id))
+      .where(and(...validConditions))
+      .$dynamic();
+
+    const validResults = await validQuery;
+    const validOrders = validResults.map((row: any) => row.orders);
+
+    const totalOrders = validOrders.length;
+    const totalRevenue = validOrders.reduce((sum: number, order: Order) => 
+      sum + parseFloat(order.totalAmount), 0
+    );
+    const averageTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    
+    const paidOrders = validOrders.filter((o: Order) => o.paymentStatus === 'pago').length;
+    const pendingOrders = validOrders.filter((o: Order) => o.paymentStatus === 'nao_pago').length;
+
+    return {
+      totalOrders,
+      totalRevenue,
+      averageTicket,
+      paidOrders,
+      pendingOrders,
+      cancelledOrders,
     };
   }
 

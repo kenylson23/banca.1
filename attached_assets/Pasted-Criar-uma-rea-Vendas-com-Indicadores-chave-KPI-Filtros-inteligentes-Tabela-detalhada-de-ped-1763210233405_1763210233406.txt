@@ -1,0 +1,171 @@
+Criar uma área “Vendas” com:
+
+Indicadores-chave (KPI)
+
+Filtros inteligentes
+
+Tabela detalhada de pedidos
+
+Resumo financeiro
+
+Categorias de análise (Pagamentos, Status, Entregadores, Despesas, Anulações etc.)
+
+Integração total com os pedidos PDV / Delivery / Mesas / Balcão
+
+Tudo deve ser idêntico à referência, adaptado ao sistema existente.
+
+📌 Requisitos principais
+1. Criar menu lateral “Vendas” com submenus
+
+Pagamentos
+
+Status do pedido
+
+Status do pagamento
+
+Gorjeta
+
+Entregador próprio
+
+Fornecedores de entrega
+
+Anulações
+
+Outros
+
+Cada submenu deve exibir sua respectiva análise usando os dados dos pedidos.
+
+2. Área de indicadores superiores
+
+Assim como na imagem:
+
+Filtro de datas (Hoje, Ontem, 7 dias, 30 dias, intervalo personalizado)
+
+Filtro de período do dia (Dia inteiro / Manhã / Tarde / Noite)
+
+Filtro de ordenação (Criação, Pagamento, Fechamento)
+
+Contador de pedidos
+
+Total geral do período
+
+Botão Indicadores-chave que abre/fecha estatísticas adicionais
+
+3. “Soma dos pagamentos & porcentagem”
+
+Criar um painel que:
+
+Soma todos os valores a cobrar
+
+Exibe percentagem (100% sendo todo o período)
+
+Ignora:
+
+Gorjetas
+
+Anulações
+
+Pedidos cancelados
+
+Igual ao exemplo das imagens.
+
+4. Tabela de vendas (igual à lista da imagem)
+
+A tabela deve exibir:
+
+#ID do pedido
+
+Tipo de origem (PDV / Delivery / Mesa / Balcão)
+
+Data de criação e fechamento
+
+Mesa (quando aplicável)
+
+Cliente (quando aplicável)
+
+Status do pagamento (Pago / Não pago / Parcial)
+
+Status do pedido (Pendente / Em preparação / Finalizado / Cancelado)
+
+Total em Kz (não usar nenhuma outra moeda)
+
+Com ordenação, filtros e paginação iguais à referência.
+
+5. Padronizar a moeda
+
+Todos os valores devem aparecer em Kz
+
+Nunca mostrar preços em Reais ou USD
+
+6. Integração com pedidos PDV
+
+Todos os pedidos criados no PDV devem:
+
+Aparecer automaticamente na aba “Vendas”
+
+Exibir corretamente:
+
+Status
+
+Total
+
+Mesa (se houver)
+
+Origem = PDV
+
+Pagamento = Não Pago (caso não registrado)
+
+7. Integração com Mesas
+
+Os pedidos criados via mesas devem:
+
+Preencher campo “Mesa”
+
+Ser filtráveis
+
+Ser contabilizados nos indicadores
+
+Permitir fechar mesa sem aparecer abas desnecessárias
+
+8. Implementar filtro por status de pedido
+
+Pendente / Em preparação / Pronto / Finalizado / Cancelado
+
+9. Implementar filtro por status de pagamento
+
+Pago / Não pago / Parcial / Aguardando
+
+10. Navegação fluida
+
+A página deve:
+
+Abrir rapidamente
+
+Atualizar dados ao trocar filtros
+
+Recalcular indicadores automaticamente
+
+📌 Detalhes importantes
+
+A aba Vendas NÃO é apenas um relatório.
+Ela é um painel de monitoramento completo.
+
+Toda a lógica deve usar o banco de dados atual, sem quebrar nada que já existe.
+
+As funções de PDV, Mesas, Delivery e Balcão devem alimentar os mesmos dados.
+
+Os status devem estar padronizados em todos os módulos.
+
+Os totais financeiros devem sempre bater com a aba “Lançamentos financeiros” e “Caixas”.
+
+📌 Finalização
+
+Quando concluir:
+
+Validar que todos os pedidos aparecem corretamente
+
+Validar que os totais e indicadores batem com os números reais
+
+Validar que todos os filtros funcionam
+
+Validar moeda (sempre Kz)

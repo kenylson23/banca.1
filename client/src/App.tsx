@@ -105,6 +105,13 @@ function Router() {
             return <Redirect to="/" />;
           }} />
           
+          <Route path="/sales" component={() => {
+            if (user?.role === 'admin') {
+              return <MainDashboard section="sales" />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
           <Route path="/profile" component={() => {
             return <MainDashboard section="profile" />;
           }} />

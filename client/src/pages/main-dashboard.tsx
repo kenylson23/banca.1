@@ -9,6 +9,7 @@ import Kitchen from "./kitchen";
 import Users from "./users";
 import Branches from "./branches";
 import Reports from "./reports";
+import Sales from "./sales";
 import Profile from "./profile";
 import Settings from "./settings";
 import SuperAdmin from "./superadmin";
@@ -22,6 +23,7 @@ export type Section =
   | "users" 
   | "branches"
   | "reports"
+  | "sales"
   | "profile" 
   | "settings"
   | "superadmin";
@@ -56,6 +58,8 @@ export default function MainDashboard({ section }: MainDashboardProps) {
         return <Branches />;
       case "reports":
         return <Reports />;
+      case "sales":
+        return <Sales />;
       case "profile":
         return <Profile />;
       case "settings":
@@ -89,6 +93,7 @@ export default function MainDashboard({ section }: MainDashboardProps) {
                currentSection === "users" ? "Usuários" :
                currentSection === "branches" ? "Unidades" :
                currentSection === "reports" ? "Relatórios" :
+               currentSection === "sales" ? "Vendas" :
                currentSection === "profile" ? "Perfil" :
                currentSection === "settings" ? "Configurações" :
                currentSection === "superadmin" ? "Super Admin" : ""}
