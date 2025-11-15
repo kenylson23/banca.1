@@ -719,11 +719,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public order creation route (for customers)
+  // This route does NOT require authentication and does NOT set createdBy
+  // Customers use a simple checkout without advanced controls (discounts, service charges, payments)
   app.post("/api/public/orders", async (req, res) => {
     try {
+      const { items, createdBy, ...orderData } = req.body;
       
-      const { items, ...orderData } = req.body;
-      
+      // Prevent customers from setting createdBy field (security)
+      if (createdBy) {
+        return res.status(400).json({ message: "Campo createdBy não permitido em pedidos públicos" });
+      }
       
       let validatedOrder = insertOrderSchema.parse(orderData);
       
@@ -1427,13 +1433,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Professional order creation route (for POS/PDV - Admin only)
+  // This route requires admin authentication and automatically sets createdBy
+  // Admins have access to advanced controls (discounts, service charges, payment methods, etc.)
   app.post("/api/orders", isAdmin, async (req, res) => {
     try {
+      const currentUser = req.user as User;
       const { items, ...orderData } = req.body;
       
       console.log('Creating order with data:', JSON.stringify({ orderData, items }, null, 2));
       
-      const validatedOrder = insertOrderSchema.parse(orderData);
+      // Automatically set createdBy to track which admin created the order
+      const validatedOrder = insertOrderSchema.parse({
+        ...orderData,
+        createdBy: currentUser.id,
+      });
       const validatedItems = z.array(publicOrderItemSchema).parse(items);
 
       const order = await storage.createOrder(validatedOrder, validatedItems);
