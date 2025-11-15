@@ -1,0 +1,54 @@
+1. 🛠️ Passo Inicial: Organizar as Regras (A Configuração)
+Antes de registrar qualquer movimento, o usuário precisa dizer ao sistema como ele classifica o dinheiro que entra e sai.
+
+Tela de Destino: Configuração de Movimentações (Categorias).
+
+Ação: O usuário define e gerencia as Categorias do restaurante.
+
+Tipos de Categoria: O sistema deve listar as categorias separadas em dois grupos:
+
+Despesas: (Ex: Insumos, Pagamento a entregadores, Outros).
+
+Receitas: (Ex: Registro manual, Vendas do PDV - se integrado).
+
+Novas Opções: O usuário pode adicionar uma nova categoria (ex: "Conserto de Equipamento") e indicar se ela é uma Despesa ou Receita.
+
+Restrição: O sistema deve impedir que uma categoria seja excluída se ela já foi usada para registrar qualquer movimento financeiro.
+
+2. ➕ Passo Principal: O Registro da Transação (Novo Lançamento)
+Esta é a entrada de dados. O sistema precisa guiar o usuário para garantir que todas as informações críticas sejam capturadas.
+
+Tela de Destino: Novo Lançamento (Formulário).
+
+Fluxo de Preenchimento:
+
+Quando e Onde: O usuário informa a Data, Hora e qual Caixa Registradora foi usada (Ex: Caixa principal).
+
+O Tipo: O usuário escolhe se o movimento é uma Despesa ou uma Receita.
+
+A Classificação: Com base no Tipo (Despesa/Receita), o sistema deve mostrar apenas as Categorias relevantes (definidas no Passo 1).
+
+Como: O usuário indica o Método de pagamento (Dinheiro ou Cartão).
+
+O Valor: O usuário insere o Valor da transação (em AOA).
+
+A Regra Mais Importante (Controle de Saldo): Assim que o usuário confirma o lançamento:
+
+O sistema deve imediatamente ajustar o saldo da Caixa Registradora escolhida, garantindo que o valor seja somado (se Receita) ou subtraído (se Despesa).
+
+3. 📊 Passo de Revisão: Acompanhamento e Controle (Lançamentos Financeiros)
+O usuário precisa de uma visão clara do que aconteceu e a capacidade de conferir.
+
+Tela de Destino: Lançamentos Financeiros (Lista e Filtros).
+
+Visualização: O sistema deve mostrar uma tabela completa com todos os dados: Data, Caixa, Quem registrou (Usuário), Tipo (Despesa/Receita), Categoria, Método de Pagamento e Valor.
+
+Ferramentas de Busca: O usuário deve ter filtros fáceis de usar para:
+
+Período: Ver transações de hoje, ontem, ou um intervalo personalizado.
+
+Caixa: Ver o movimento de uma caixa específica.
+
+Método: Ver apenas pagamentos em Dinheiro ou apenas em Cartão.
+
+Correção: O sistema deve permitir que o usuário exclua um lançamento. Se um lançamento for excluído, o sistema deve reverter o ajuste de saldo que foi feito originalmente (Ex: se era uma despesa, o valor deve ser devolvido ao saldo da caixa).
