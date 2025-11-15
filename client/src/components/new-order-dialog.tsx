@@ -61,9 +61,10 @@ function normalizeMenuItem(item: MenuItem): NormalizedMenuItem {
 interface NewOrderDialogProps {
   trigger?: React.ReactNode;
   restaurantId: string;
+  onOrderCreated?: (orderId: string, isOnline: boolean) => void;
 }
 
-export function NewOrderDialog({ trigger, restaurantId }: NewOrderDialogProps) {
+export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrderDialogProps) {
   const [open, setOpen] = useState(false);
   const [cart, setCart] = useState<OrderItem[]>([]);
   const { toast } = useToast();
@@ -128,12 +129,26 @@ export function NewOrderDialog({ trigger, restaurantId }: NewOrderDialogProps) {
         return offlineOrder;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      toast({
-        title: "Pedido criado",
-        description: "O pedido foi criado com sucesso.",
-      });
+      const isOnline = typeof navigator !== 'undefined' && navigator.onLine;
+      
+      if (onOrderCreated && data?.id) {
+        onOrderCreated(data.id, isOnline);
+      }
+      
+      if (!isOnline) {
+        toast({
+          title: "Pedido criado offline",
+          description: "O pedido será sincronizado quando houver conexão.",
+        });
+      } else {
+        toast({
+          title: "Pedido criado",
+          description: "O pedido foi criado com sucesso.",
+        });
+      }
+      
       setOpen(false);
       setCart([]);
       form.reset();
