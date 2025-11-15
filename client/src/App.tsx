@@ -13,6 +13,7 @@ import CustomerMenu from "@/pages/customer-menu";
 import PublicMenu from "@/pages/public-menu";
 import TrackOrder from "@/pages/track-order";
 import MainDashboard from "@/pages/main-dashboard";
+import OrderDetail from "@/pages/order-detail";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -118,6 +119,13 @@ function Router() {
           <Route path="/superadmin" component={() => {
             if (user?.role === 'superadmin') {
               return <MainDashboard section="superadmin" />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
+          <Route path="/orders/:id" component={() => {
+            if (user?.role === 'admin') {
+              return <OrderDetail />;
             }
             return <Redirect to="/" />;
           }} />

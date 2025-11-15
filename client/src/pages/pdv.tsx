@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Plus, RefreshCw, Search, ShoppingBag, Truck, UtensilsCrossed, Map, Wifi, WifiOff, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,6 +45,7 @@ const statusLabels = {
 };
 
 export default function PDV() {
+  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<OrderType>("balcao");
   const [orderFilter, setOrderFilter] = useState<OrderFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -189,6 +191,7 @@ export default function PDV() {
             <Card
               key={order.id}
               className="hover-elevate cursor-pointer"
+              onClick={() => setLocation(`/orders/${order.id}`)}
               data-testid={`card-order-${order.id}`}
             >
               <CardContent className="p-6">
