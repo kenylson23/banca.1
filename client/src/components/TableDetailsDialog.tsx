@@ -9,13 +9,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -25,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Users, DollarSign, Clock, CheckCircle2, XCircle, Receipt, Trash2 } from 'lucide-react';
+import { Users, Clock, Trash2 } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -33,7 +26,6 @@ import { useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { PrintOrder } from '@/components/PrintOrder';
 import { FinancialDashboard } from '@/components/FinancialDashboard';
 import type { Table } from '@shared/schema';
 
@@ -55,23 +47,11 @@ const getStatusLabel = (status: string) => {
   return labels[status] || status;
 };
 
-const getOrderStatusLabel = (status: string) => {
-  const labels: Record<string, string> = {
-    pendente: 'Pendente',
-    em_preparo: 'Em Preparo',
-    pronto: 'Pronto',
-    servido: 'Servido',
-  };
-  return labels[status] || status;
-};
-
 export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: TableDetailsDialogProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [customerName, setCustomerName] = useState('');
   const [customerCount, setCustomerCount] = useState('');
-  const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('dinheiro');
   const [showEndSessionDialog, setShowEndSessionDialog] = useState(false);
   
   const isSuperadmin = user?.role === 'superadmin';
@@ -121,34 +101,6 @@ export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: Tabl
     },
   });
 
-  const addPaymentMutation = useMutation({
-    mutationFn: async () => {
-      if (!table) return;
-      const amount = parseFloat(paymentAmount);
-      if (isNaN(amount) || amount <= 0) {
-        throw new Error('Valor inválido');
-      }
-      const res = await apiRequest('POST', `/api/tables/${table.id}/payments`, {
-        amount: amount.toFixed(2),
-        paymentMethod,
-      });
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
-      toast({ title: 'Pagamento registrado', description: 'Pagamento adicionado com sucesso.' });
-      setPaymentAmount('');
-      setPaymentMethod('dinheiro');
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Erro',
-        description: error.message || 'Não foi possível registrar o pagamento.',
-        variant: 'destructive',
-      });
-    },
-  });
-
   const endSessionMutation = useMutation({
     mutationFn: async () => {
       if (!table) return;
@@ -171,10 +123,6 @@ export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: Tabl
   });
 
   if (!table) return null;
-
-  const activeOrders = table.orders?.filter(
-    (o) => ['pendente', 'em_preparo', 'pronto'].includes(o.status)
-  ) || [];
   
   const totalAmount = parseFloat(table.totalAmount || '0');
 
@@ -208,10 +156,8 @@ export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: Tabl
           </DialogHeader>
 
           <Tabs defaultValue="overview" className="flex-1 overflow-hidden flex flex-col">
-            <TabsList className={`grid w-full ${isSuperadmin ? 'grid-cols-3' : 'grid-cols-4'}`}>
+            <TabsList className={`grid w-full ${isSuperadmin ? 'grid-cols-1' : 'grid-cols-2'}`}>
               <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-              <TabsTrigger value="orders">Pedidos ({activeOrders.length})</TabsTrigger>
-              <TabsTrigger value="payment">Pagamento</TabsTrigger>
               {!isSuperadmin && <TabsTrigger value="financial">Financeiro</TabsTrigger>}
             </TabsList>
 
@@ -341,108 +287,6 @@ export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: Tabl
                 )}
               </TabsContent>
 
-              <TabsContent value="orders" className="space-y-3 m-0">
-                {activeOrders.length === 0 ? (
-                  <Card>
-                    <CardContent className="py-8 text-center text-muted-foreground">
-                      Nenhum pedido ativo nesta mesa
-                    </CardContent>
-                  </Card>
-                ) : (
-                  activeOrders.map((order) => (
-                    <Card key={order.id}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm">Pedido #{order.id.substring(0, 8).toUpperCase()}</CardTitle>
-                          <Badge variant="outline">{getOrderStatusLabel(order.status)}</Badge>
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {format(new Date(order.createdAt), "HH:mm", { locale: ptBR })}
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          {order.orderItems?.map((item: any) => (
-                            <div key={item.id} className="flex justify-between text-sm">
-                              <span>
-                                {item.quantity}x {item.menuItem?.name || 'Item'}
-                              </span>
-                              <span className="font-medium">{formatKwanza(parseFloat(item.price) * item.quantity)}</span>
-                            </div>
-                          ))}
-                          <Separator />
-                          <div className="flex justify-between font-semibold">
-                            <span>Total:</span>
-                            <span>{formatKwanza(order.totalAmount)}</span>
-                          </div>
-                          <div className="mt-3 pt-3 border-t">
-                            <PrintOrder order={order} variant="outline" size="sm" />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </TabsContent>
-
-              <TabsContent value="payment" className="space-y-4 m-0">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Registrar Pagamento</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <Label htmlFor="amount">Valor</Label>
-                      <Input
-                        id="amount"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={paymentAmount}
-                        onChange={(e) => setPaymentAmount(e.target.value)}
-                        placeholder="0,00"
-                        data-testid="input-payment-amount"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="paymentMethod">Método de Pagamento</Label>
-                      <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                        <SelectTrigger id="paymentMethod" data-testid="select-payment-method">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                          <SelectItem value="multicaixa">Multicaixa</SelectItem>
-                          <SelectItem value="transferencia">Transferência</SelectItem>
-                          <SelectItem value="cartao">Cartão</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button
-                      className="w-full"
-                      onClick={() => addPaymentMutation.mutate()}
-                      disabled={addPaymentMutation.isPending || !paymentAmount}
-                      data-testid="button-add-payment"
-                    >
-                      <Receipt className="h-4 w-4 mr-2" />
-                      {addPaymentMutation.isPending ? 'Registrando...' : 'Registrar Pagamento'}
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Resumo</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="flex justify-between text-lg font-semibold">
-                      <span>Total da Conta:</span>
-                      <span className="text-primary">{formatKwanza(totalAmount)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
               <TabsContent value="financial" className="space-y-4 m-0">
                 <FinancialDashboard tableId={table.id} sessionId={table.currentSessionId || undefined} />
               </TabsContent>
@@ -458,11 +302,6 @@ export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: Tabl
             <AlertDialogDescription>
               Esta ação irá encerrar a sessão atual e liberar a mesa. A conta total é de{' '}
               <span className="font-bold">{formatKwanza(totalAmount)}</span>.
-              {activeOrders.length > 0 && (
-                <span className="block mt-2 text-destructive">
-                  Atenção: Ainda há {activeOrders.length} pedido(s) ativo(s).
-                </span>
-              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
