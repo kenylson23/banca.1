@@ -190,6 +190,27 @@ export async function ensureTablesExist() {
         ALTER TABLE tables ADD COLUMN area VARCHAR(100); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
+      // Create shift_status enum if it doesn't exist
+      await db.execute(sql`DO $$ BEGIN
+        CREATE TYPE shift_status AS ENUM ('aberto', 'fechado');
+      EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Create financial_shifts table (referenced by table_sessions)
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS financial_shifts (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
+        operator_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        status shift_status NOT NULL DEFAULT 'aberto',
+        opening_balance DECIMAL(10, 2) DEFAULT 0,
+        closing_balance DECIMAL(10, 2) DEFAULT 0,
+        expected_balance DECIMAL(10, 2) DEFAULT 0,
+        discrepancy DECIMAL(10, 2) DEFAULT 0,
+        notes TEXT,
+        started_at TIMESTAMP DEFAULT NOW(),
+        ended_at TIMESTAMP
+      );`);
+      
       // Create table_sessions table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS table_sessions (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -205,6 +226,31 @@ export async function ensureTablesExist() {
         notes TEXT
       );`);
       
+      // Add shift_id to table_sessions
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE table_sessions ADD COLUMN shift_id VARCHAR REFERENCES financial_shifts(id) ON DELETE SET NULL; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Add operator_id to table_sessions
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE table_sessions ADD COLUMN operator_id VARCHAR REFERENCES users(id) ON DELETE SET NULL; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Add session_totals to table_sessions
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE table_sessions ADD COLUMN session_totals JSONB; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Add closing_snapshot to table_sessions
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE table_sessions ADD COLUMN closing_snapshot JSONB; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Add closed_by_id to table_sessions
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE table_sessions ADD COLUMN closed_by_id VARCHAR REFERENCES users(id) ON DELETE SET NULL; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
       // Create table_payments table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS table_payments (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -216,6 +262,26 @@ export async function ensureTablesExist() {
         notes TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
+      
+      // Add operator_id to table_payments
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE table_payments ADD COLUMN operator_id VARCHAR REFERENCES users(id) ON DELETE SET NULL; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Add payment_source to table_payments
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE table_payments ADD COLUMN payment_source VARCHAR(100); 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Add method_details to table_payments
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE table_payments ADD COLUMN method_details JSONB; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Add reconciliation_batch_id to table_payments
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE table_payments ADD COLUMN reconciliation_batch_id VARCHAR(100); 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Create categories with restaurantId
       await db.execute(sql`CREATE TABLE IF NOT EXISTS categories (
@@ -443,6 +509,81 @@ export async function ensureTablesExist() {
         customer_name VARCHAR(200),
         rating INTEGER NOT NULL,
         comment TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create financial module tables
+      // Create transaction_type enum if it doesn't exist
+      await db.execute(sql`DO $$ BEGIN
+        CREATE TYPE transaction_type AS ENUM ('receita', 'despesa');
+      EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Create cash_register_shift_status enum if it doesn't exist
+      await db.execute(sql`DO $$ BEGIN
+        CREATE TYPE cash_register_shift_status AS ENUM ('aberto', 'fechado');
+      EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Create cash_registers table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS cash_registers (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
+        name VARCHAR(200) NOT NULL,
+        initial_balance DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        current_balance DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create financial_categories table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS financial_categories (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
+        type transaction_type NOT NULL,
+        name VARCHAR(200) NOT NULL,
+        description TEXT,
+        is_default INTEGER NOT NULL DEFAULT 0,
+        is_archived INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create cash_register_shifts table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS cash_register_shifts (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
+        cash_register_id VARCHAR NOT NULL REFERENCES cash_registers(id) ON DELETE RESTRICT,
+        opened_by_user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+        closed_by_user_id VARCHAR REFERENCES users(id) ON DELETE RESTRICT,
+        status cash_register_shift_status NOT NULL DEFAULT 'aberto',
+        opening_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        closing_amount_expected DECIMAL(10, 2) DEFAULT 0.00,
+        closing_amount_counted DECIMAL(10, 2) DEFAULT 0.00,
+        difference DECIMAL(10, 2) DEFAULT 0.00,
+        total_revenues DECIMAL(10, 2) DEFAULT 0.00,
+        total_expenses DECIMAL(10, 2) DEFAULT 0.00,
+        opened_at TIMESTAMP DEFAULT NOW(),
+        closed_at TIMESTAMP,
+        notes TEXT
+      );`);
+      
+      // Create financial_transactions table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS financial_transactions (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
+        cash_register_id VARCHAR NOT NULL REFERENCES cash_registers(id) ON DELETE RESTRICT,
+        shift_id VARCHAR REFERENCES cash_register_shifts(id) ON DELETE RESTRICT,
+        category_id VARCHAR NOT NULL REFERENCES financial_categories(id) ON DELETE RESTRICT,
+        recorded_by_user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+        type transaction_type NOT NULL,
+        payment_method payment_method NOT NULL,
+        amount DECIMAL(10, 2) NOT NULL,
+        occurred_at TIMESTAMP NOT NULL,
+        note TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
       
