@@ -3130,7 +3130,13 @@ export class DatabaseStorage implements IStorage {
     ];
 
     if (branchId !== null) {
-      conditions.push(eq(menuVisits.branchId, branchId));
+      const branchCondition = or(
+        eq(menuVisits.branchId, branchId),
+        isNull(menuVisits.branchId)
+      );
+      if (branchCondition) {
+        conditions.push(branchCondition);
+      }
     }
 
     const allVisits = await db
