@@ -1133,3 +1133,149 @@ export const reportAggregationsRelations = relations(reportAggregations, ({ one 
     references: [branches.id],
   }),
 }));
+
+// Financial Module - Cash Registers
+export const cashRegisters = pgTable("cash_registers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  name: varchar("name", { length: 200 }).notNull(),
+  initialBalance: decimal("initial_balance", { precision: 10, scale: 2 }).notNull().default('0.00'),
+  currentBalance: decimal("current_balance", { precision: 10, scale: 2 }).notNull().default('0.00'),
+  isActive: integer("is_active").notNull().default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCashRegisterSchema = createInsertSchema(cashRegisters).omit({
+  id: true,
+  restaurantId: true,
+  currentBalance: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Nome da caixa é obrigatório"),
+  branchId: z.string().optional().nullable(),
+  initialBalance: z.string().optional(),
+  isActive: z.number().optional(),
+});
+
+export type InsertCashRegister = z.infer<typeof insertCashRegisterSchema>;
+export type CashRegister = typeof cashRegisters.$inferSelect;
+
+// Financial Module - Transaction Types
+export const transactionTypeEnum = pgEnum('transaction_type', ['receita', 'despesa']);
+
+// Financial Module - Categories
+export const financialCategories = pgTable("financial_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  type: transactionTypeEnum("type").notNull(),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  isDefault: integer("is_default").notNull().default(0),
+  isArchived: integer("is_archived").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFinancialCategorySchema = createInsertSchema(financialCategories).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  type: z.enum(['receita', 'despesa']),
+  name: z.string().min(1, "Nome da categoria é obrigatório"),
+  branchId: z.string().optional().nullable(),
+  description: z.string().optional(),
+  isDefault: z.number().optional(),
+  isArchived: z.number().optional(),
+});
+
+export type InsertFinancialCategory = z.infer<typeof insertFinancialCategorySchema>;
+export type FinancialCategory = typeof financialCategories.$inferSelect;
+
+// Financial Module - Transactions
+export const financialTransactions = pgTable("financial_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  cashRegisterId: varchar("cash_register_id").notNull().references(() => cashRegisters.id, { onDelete: 'restrict' }),
+  categoryId: varchar("category_id").notNull().references(() => financialCategories.id, { onDelete: 'restrict' }),
+  recordedByUserId: varchar("recorded_by_user_id").notNull().references(() => users.id, { onDelete: 'restrict' }),
+  type: transactionTypeEnum("type").notNull(),
+  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  occurredAt: timestamp("occurred_at").notNull(),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFinancialTransactionSchema = createInsertSchema(financialTransactions).omit({
+  id: true,
+  restaurantId: true,
+  recordedByUserId: true,
+  createdAt: true,
+}).extend({
+  branchId: z.string().optional().nullable(),
+  cashRegisterId: z.string().min(1, "Caixa registradora é obrigatória"),
+  categoryId: z.string().min(1, "Categoria é obrigatória"),
+  type: z.enum(['receita', 'despesa']),
+  paymentMethod: z.enum(['dinheiro', 'multicaixa', 'transferencia', 'cartao']),
+  amount: z.string().min(1, "Valor é obrigatório"),
+  occurredAt: z.string().min(1, "Data e hora são obrigatórias"),
+  note: z.string().optional(),
+});
+
+export type InsertFinancialTransaction = z.infer<typeof insertFinancialTransactionSchema>;
+export type FinancialTransaction = typeof financialTransactions.$inferSelect;
+
+// Relations
+export const cashRegistersRelations = relations(cashRegisters, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [cashRegisters.restaurantId],
+    references: [restaurants.id],
+  }),
+  branch: one(branches, {
+    fields: [cashRegisters.branchId],
+    references: [branches.id],
+  }),
+  transactions: many(financialTransactions),
+}));
+
+export const financialCategoriesRelations = relations(financialCategories, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [financialCategories.restaurantId],
+    references: [restaurants.id],
+  }),
+  branch: one(branches, {
+    fields: [financialCategories.branchId],
+    references: [branches.id],
+  }),
+  transactions: many(financialTransactions),
+}));
+
+export const financialTransactionsRelations = relations(financialTransactions, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [financialTransactions.restaurantId],
+    references: [restaurants.id],
+  }),
+  branch: one(branches, {
+    fields: [financialTransactions.branchId],
+    references: [branches.id],
+  }),
+  cashRegister: one(cashRegisters, {
+    fields: [financialTransactions.cashRegisterId],
+    references: [cashRegisters.id],
+  }),
+  category: one(financialCategories, {
+    fields: [financialTransactions.categoryId],
+    references: [financialCategories.id],
+  }),
+  recordedBy: one(users, {
+    fields: [financialTransactions.recordedByUserId],
+    references: [users.id],
+  }),
+}));

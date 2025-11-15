@@ -3019,6 +3019,337 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Financial Module - Cash Registers
+  app.get("/api/financial/cash-registers", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      let restaurantId: string;
+      
+      if (currentUser.role === 'superadmin') {
+        const queryRestaurantId = req.query.restaurantId as string;
+        if (!queryRestaurantId) {
+          return res.status(400).json({ message: "Super admin deve fornecer restaurantId" });
+        }
+        restaurantId = queryRestaurantId;
+      } else {
+        if (!currentUser.restaurantId) {
+          return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+        }
+        restaurantId = currentUser.restaurantId;
+      }
+
+      const branchId = currentUser.role === 'superadmin' ? null : (currentUser.activeBranchId || null);
+      const registers = await storage.getCashRegisters(restaurantId, branchId);
+      
+      res.json(registers);
+    } catch (error) {
+      console.error('Cash registers fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar caixas registradoras" });
+    }
+  });
+
+  app.post("/api/financial/cash-registers", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const registerSchema = z.object({
+        name: z.string().min(1, "Nome da caixa é obrigatório"),
+        branchId: z.string().optional().nullable(),
+        initialBalance: z.string().optional(),
+        isActive: z.number().optional(),
+      });
+
+      const validatedData = registerSchema.parse(req.body);
+
+      const newRegister = await storage.createCashRegister(currentUser.restaurantId, {
+        name: validatedData.name,
+        branchId: validatedData.branchId || currentUser.activeBranchId || null,
+        initialBalance: validatedData.initialBalance,
+        isActive: validatedData.isActive,
+      });
+
+      res.json(newRegister);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      console.error('Cash register creation error:', error);
+      res.status(500).json({ message: "Erro ao criar caixa registradora" });
+    }
+  });
+
+  app.patch("/api/financial/cash-registers/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const updatedRegister = await storage.updateCashRegister(
+        req.params.id,
+        currentUser.restaurantId,
+        req.body
+      );
+
+      if (!updatedRegister) {
+        return res.status(404).json({ message: "Caixa registradora não encontrada" });
+      }
+
+      res.json(updatedRegister);
+    } catch (error) {
+      console.error('Cash register update error:', error);
+      res.status(500).json({ message: "Erro ao atualizar caixa registradora" });
+    }
+  });
+
+  app.delete("/api/financial/cash-registers/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      await storage.deleteCashRegister(req.params.id, currentUser.restaurantId);
+
+      res.json({ message: "Caixa registradora excluída com sucesso" });
+    } catch (error) {
+      console.error('Cash register delete error:', error);
+      res.status(500).json({ message: "Erro ao excluir caixa registradora" });
+    }
+  });
+
+  // Financial Module - Categories
+  app.get("/api/financial/categories", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      let restaurantId: string;
+      
+      if (currentUser.role === 'superadmin') {
+        const queryRestaurantId = req.query.restaurantId as string;
+        if (!queryRestaurantId) {
+          return res.status(400).json({ message: "Super admin deve fornecer restaurantId" });
+        }
+        restaurantId = queryRestaurantId;
+      } else {
+        if (!currentUser.restaurantId) {
+          return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+        }
+        restaurantId = currentUser.restaurantId;
+      }
+
+      const branchId = currentUser.role === 'superadmin' ? null : (currentUser.activeBranchId || null);
+      const type = req.query.type as 'receita' | 'despesa' | undefined;
+      const categories = await storage.getFinancialCategories(restaurantId, branchId, type);
+      
+      res.json(categories);
+    } catch (error) {
+      console.error('Financial categories fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar categorias" });
+    }
+  });
+
+  app.post("/api/financial/categories", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const categorySchema = z.object({
+        type: z.enum(['receita', 'despesa']),
+        name: z.string().min(1, "Nome da categoria é obrigatório"),
+        branchId: z.string().optional().nullable(),
+        description: z.string().optional(),
+        isDefault: z.number().optional(),
+      });
+
+      const validatedData = categorySchema.parse(req.body);
+
+      const newCategory = await storage.createFinancialCategory(currentUser.restaurantId, {
+        ...validatedData,
+        branchId: validatedData.branchId || null,
+      });
+
+      res.json(newCategory);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      console.error('Financial category creation error:', error);
+      res.status(500).json({ message: "Erro ao criar categoria" });
+    }
+  });
+
+  app.delete("/api/financial/categories/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const result = await storage.deleteFinancialCategory(req.params.id, currentUser.restaurantId);
+
+      if (!result.success) {
+        return res.status(400).json({ message: result.message });
+      }
+
+      res.json({ message: "Categoria excluída com sucesso" });
+    } catch (error) {
+      console.error('Financial category delete error:', error);
+      res.status(500).json({ message: "Erro ao excluir categoria" });
+    }
+  });
+
+  // Financial Module - Transactions
+  app.get("/api/financial/transactions", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      let restaurantId: string;
+      
+      if (currentUser.role === 'superadmin') {
+        const queryRestaurantId = req.query.restaurantId as string;
+        if (!queryRestaurantId) {
+          return res.status(400).json({ message: "Super admin deve fornecer restaurantId" });
+        }
+        restaurantId = queryRestaurantId;
+      } else {
+        if (!currentUser.restaurantId) {
+          return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+        }
+        restaurantId = currentUser.restaurantId;
+      }
+
+      const branchId = currentUser.role === 'superadmin' ? null : (currentUser.activeBranchId || null);
+      
+      const filters: any = {};
+      
+      if (req.query.startDate) {
+        filters.startDate = new Date(req.query.startDate as string);
+      }
+      
+      if (req.query.endDate) {
+        filters.endDate = new Date(req.query.endDate as string);
+      }
+      
+      if (req.query.cashRegisterId) {
+        filters.cashRegisterId = req.query.cashRegisterId as string;
+      }
+      
+      if (req.query.paymentMethod) {
+        filters.paymentMethod = req.query.paymentMethod as 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
+      }
+      
+      if (req.query.type) {
+        filters.type = req.query.type as 'receita' | 'despesa';
+      }
+
+      const transactions = await storage.getFinancialTransactions(restaurantId, branchId, filters);
+      
+      res.json(transactions);
+    } catch (error) {
+      console.error('Financial transactions fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar lançamentos" });
+    }
+  });
+
+  app.post("/api/financial/transactions", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const transactionSchema = z.object({
+        cashRegisterId: z.string().min(1, "Caixa registradora é obrigatória"),
+        categoryId: z.string().min(1, "Categoria é obrigatória"),
+        type: z.enum(['receita', 'despesa']),
+        paymentMethod: z.enum(['dinheiro', 'multicaixa', 'transferencia', 'cartao']),
+        amount: z.string().min(1, "Valor é obrigatório"),
+        occurredAt: z.string().min(1, "Data e hora são obrigatórias"),
+        note: z.string().optional(),
+        branchId: z.string().optional().nullable(),
+      });
+
+      const validatedData = transactionSchema.parse(req.body);
+
+      const newTransaction = await storage.createFinancialTransaction(
+        currentUser.restaurantId,
+        currentUser.id,
+        {
+          ...validatedData,
+          branchId: validatedData.branchId || currentUser.activeBranchId || null,
+        }
+      );
+
+      res.json(newTransaction);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      console.error('Financial transaction creation error:', error);
+      res.status(500).json({ message: "Erro ao criar lançamento" });
+    }
+  });
+
+  app.delete("/api/financial/transactions/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      await storage.deleteFinancialTransaction(req.params.id, currentUser.restaurantId);
+
+      res.json({ message: "Lançamento excluído e saldo revertido com sucesso" });
+    } catch (error) {
+      console.error('Financial transaction delete error:', error);
+      res.status(500).json({ message: "Erro ao excluir lançamento" });
+    }
+  });
+
+  // Financial Module - Summary
+  app.get("/api/financial/summary", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      let restaurantId: string;
+      
+      if (currentUser.role === 'superadmin') {
+        const queryRestaurantId = req.query.restaurantId as string;
+        if (!queryRestaurantId) {
+          return res.status(400).json({ message: "Super admin deve fornecer restaurantId" });
+        }
+        restaurantId = queryRestaurantId;
+      } else {
+        if (!currentUser.restaurantId) {
+          return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+        }
+        restaurantId = currentUser.restaurantId;
+      }
+
+      const branchId = currentUser.role === 'superadmin' ? null : (currentUser.activeBranchId || null);
+      
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      const cashRegisterId = req.query.cashRegisterId as string | undefined;
+
+      const summary = await storage.getFinancialSummary(
+        restaurantId,
+        branchId,
+        startDate,
+        endDate,
+        cashRegisterId
+      );
+      
+      res.json(summary);
+    } catch (error) {
+      console.error('Financial summary fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar resumo financeiro" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // Setup WebSocket server for real-time updates

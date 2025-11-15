@@ -14,6 +14,9 @@ import PublicMenu from "@/pages/public-menu";
 import TrackOrder from "@/pages/track-order";
 import MainDashboard from "@/pages/main-dashboard";
 import OrderDetail from "@/pages/order-detail";
+import FinancialTransactions from "@/pages/financial-transactions";
+import FinancialCategories from "@/pages/financial-categories";
+import FinancialNewTransaction from "@/pages/financial-new-transaction";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -133,6 +136,27 @@ function Router() {
           <Route path="/orders/:id" component={() => {
             if (user?.role === 'admin') {
               return <OrderDetail />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
+          <Route path="/financial" component={() => {
+            if (user?.role === 'admin') {
+              return <FinancialTransactions />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
+          <Route path="/financial/categories" component={() => {
+            if (user?.role === 'admin') {
+              return <FinancialCategories />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
+          <Route path="/financial/new" component={() => {
+            if (user?.role === 'admin') {
+              return <FinancialNewTransaction />;
             }
             return <Redirect to="/" />;
           }} />

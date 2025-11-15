@@ -21,6 +21,9 @@ import {
   optionGroups,
   options,
   orderItemOptions,
+  cashRegisters,
+  financialCategories,
+  financialTransactions,
   type User,
   type InsertUser,
   type Restaurant,
@@ -67,6 +70,12 @@ import {
   type UpdateOption,
   type OrderItemOption,
   type InsertOrderItemOption,
+  type CashRegister,
+  type InsertCashRegister,
+  type FinancialCategory,
+  type InsertFinancialCategory,
+  type FinancialTransaction,
+  type InsertFinancialTransaction,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, or, isNull, inArray } from "drizzle-orm";
@@ -3346,6 +3355,361 @@ export class DatabaseStorage implements IStorage {
       averageRating,
       totalReviews,
       topProducts
+    };
+  }
+
+  // Cash Register operations
+  async getCashRegisters(restaurantId: string, branchId: string | null): Promise<CashRegister[]> {
+    let conditions = [eq(cashRegisters.restaurantId, restaurantId)];
+    
+    if (branchId !== null) {
+      conditions.push(eq(cashRegisters.branchId, branchId));
+    }
+
+    return await db
+      .select()
+      .from(cashRegisters)
+      .where(and(...conditions))
+      .orderBy(desc(cashRegisters.createdAt));
+  }
+
+  async getCashRegisterById(id: string, restaurantId: string): Promise<CashRegister | undefined> {
+    const [cashRegister] = await db
+      .select()
+      .from(cashRegisters)
+      .where(and(
+        eq(cashRegisters.id, id),
+        eq(cashRegisters.restaurantId, restaurantId)
+      ))
+      .limit(1);
+    return cashRegister;
+  }
+
+  async createCashRegister(restaurantId: string, data: Omit<InsertCashRegister, 'restaurantId'>): Promise<CashRegister> {
+    const initialBalance = data.initialBalance || '0.00';
+    const [newRegister] = await db
+      .insert(cashRegisters)
+      .values({
+        restaurantId,
+        branchId: data.branchId || null,
+        name: data.name,
+        initialBalance,
+        currentBalance: initialBalance,
+        isActive: data.isActive ?? 1,
+      })
+      .returning();
+    return newRegister;
+  }
+
+  async updateCashRegister(id: string, restaurantId: string, data: Partial<InsertCashRegister>): Promise<CashRegister | undefined> {
+    const [updated] = await db
+      .update(cashRegisters)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(cashRegisters.id, id),
+        eq(cashRegisters.restaurantId, restaurantId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async deleteCashRegister(id: string, restaurantId: string): Promise<void> {
+    await db
+      .delete(cashRegisters)
+      .where(and(
+        eq(cashRegisters.id, id),
+        eq(cashRegisters.restaurantId, restaurantId)
+      ));
+  }
+
+  // Financial Category operations
+  async getFinancialCategories(restaurantId: string, branchId: string | null, type?: 'receita' | 'despesa'): Promise<FinancialCategory[]> {
+    let conditions = [
+      eq(financialCategories.restaurantId, restaurantId),
+      eq(financialCategories.isArchived, 0)
+    ];
+    
+    if (branchId !== null) {
+      conditions.push(
+        or(
+          eq(financialCategories.branchId, branchId),
+          isNull(financialCategories.branchId)
+        )!
+      );
+    }
+
+    if (type) {
+      conditions.push(eq(financialCategories.type, type));
+    }
+
+    return await db
+      .select()
+      .from(financialCategories)
+      .where(and(...conditions))
+      .orderBy(desc(financialCategories.isDefault), financialCategories.name);
+  }
+
+  async createFinancialCategory(restaurantId: string, data: Omit<InsertFinancialCategory, 'restaurantId'>): Promise<FinancialCategory> {
+    const [newCategory] = await db
+      .insert(financialCategories)
+      .values({
+        restaurantId,
+        ...data,
+        branchId: data.branchId || null,
+      })
+      .returning();
+    return newCategory;
+  }
+
+  async deleteFinancialCategory(id: string, restaurantId: string): Promise<{ success: boolean; message?: string }> {
+    const usageCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(financialTransactions)
+      .where(eq(financialTransactions.categoryId, id));
+
+    if (usageCount[0].count > 0) {
+      return {
+        success: false,
+        message: 'Categoria não pode ser excluída pois possui lançamentos associados'
+      };
+    }
+
+    await db
+      .delete(financialCategories)
+      .where(and(
+        eq(financialCategories.id, id),
+        eq(financialCategories.restaurantId, restaurantId)
+      ));
+
+    return { success: true };
+  }
+
+  // Financial Transaction operations
+  async createFinancialTransaction(
+    restaurantId: string, 
+    userId: string, 
+    data: Omit<InsertFinancialTransaction, 'restaurantId' | 'recordedByUserId'>
+  ): Promise<FinancialTransaction> {
+    const amount = parseFloat(data.amount);
+    const amountChange = data.type === 'receita' ? amount : -amount;
+
+    const [transaction] = await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const [newTransaction] = await tx
+        .insert(financialTransactions)
+        .values({
+          restaurantId,
+          recordedByUserId: userId,
+          branchId: data.branchId || null,
+          cashRegisterId: data.cashRegisterId,
+          categoryId: data.categoryId,
+          type: data.type,
+          paymentMethod: data.paymentMethod,
+          amount: data.amount,
+          occurredAt: new Date(data.occurredAt),
+          note: data.note,
+        })
+        .returning();
+
+      await tx
+        .update(cashRegisters)
+        .set({
+          currentBalance: sql`${cashRegisters.currentBalance} + ${amountChange}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(cashRegisters.id, data.cashRegisterId));
+
+      return [newTransaction];
+    });
+
+    return transaction;
+  }
+
+  async getFinancialTransactions(
+    restaurantId: string,
+    branchId: string | null,
+    filters?: {
+      startDate?: Date;
+      endDate?: Date;
+      cashRegisterId?: string;
+      paymentMethod?: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
+      type?: 'receita' | 'despesa';
+    }
+  ): Promise<Array<FinancialTransaction & { 
+    cashRegister: CashRegister; 
+    category: FinancialCategory;
+    recordedBy: User;
+  }>> {
+    let conditions = [eq(financialTransactions.restaurantId, restaurantId)];
+
+    if (branchId !== null) {
+      conditions.push(
+        or(
+          eq(financialTransactions.branchId, branchId),
+          isNull(financialTransactions.branchId)
+        )!
+      );
+    }
+
+    if (filters?.startDate) {
+      conditions.push(gte(financialTransactions.occurredAt, filters.startDate));
+    }
+
+    if (filters?.endDate) {
+      conditions.push(sql`${financialTransactions.occurredAt} <= ${filters.endDate}`);
+    }
+
+    if (filters?.cashRegisterId) {
+      conditions.push(eq(financialTransactions.cashRegisterId, filters.cashRegisterId));
+    }
+
+    if (filters?.paymentMethod) {
+      conditions.push(eq(financialTransactions.paymentMethod, filters.paymentMethod));
+    }
+
+    if (filters?.type) {
+      conditions.push(eq(financialTransactions.type, filters.type));
+    }
+
+    const results = await db
+      .select({
+        transaction: financialTransactions,
+        cashRegister: cashRegisters,
+        category: financialCategories,
+        recordedBy: users,
+      })
+      .from(financialTransactions)
+      .leftJoin(cashRegisters, eq(financialTransactions.cashRegisterId, cashRegisters.id))
+      .leftJoin(financialCategories, eq(financialTransactions.categoryId, financialCategories.id))
+      .leftJoin(users, eq(financialTransactions.recordedByUserId, users.id))
+      .where(and(...conditions))
+      .orderBy(desc(financialTransactions.occurredAt));
+
+    return results.map((r: any) => ({
+      ...r.transaction,
+      cashRegister: r.cashRegister!,
+      category: r.category!,
+      recordedBy: r.recordedBy!,
+    }));
+  }
+
+  async deleteFinancialTransaction(id: string, restaurantId: string): Promise<void> {
+    const [transaction] = await db
+      .select()
+      .from(financialTransactions)
+      .where(and(
+        eq(financialTransactions.id, id),
+        eq(financialTransactions.restaurantId, restaurantId)
+      ))
+      .limit(1);
+
+    if (!transaction) {
+      throw new Error('Transação não encontrada');
+    }
+
+    const amount = parseFloat(transaction.amount);
+    const amountChange = transaction.type === 'receita' ? -amount : amount;
+
+    await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      await tx
+        .delete(financialTransactions)
+        .where(eq(financialTransactions.id, id));
+
+      await tx
+        .update(cashRegisters)
+        .set({
+          currentBalance: sql`${cashRegisters.currentBalance} + ${amountChange}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(cashRegisters.id, transaction.cashRegisterId));
+    });
+  }
+
+  async getFinancialSummary(
+    restaurantId: string,
+    branchId: string | null,
+    startDate?: Date,
+    endDate?: Date,
+    cashRegisterId?: string
+  ): Promise<{
+    totalBalance: string;
+    cashRegisterBalances: Array<{ id: string; name: string; balance: string }>;
+    totalIncome: string;
+    totalExpense: string;
+    netResult: string;
+  }> {
+    let registerConditions = [
+      eq(cashRegisters.restaurantId, restaurantId),
+      eq(cashRegisters.isActive, 1)
+    ];
+
+    if (branchId !== null) {
+      registerConditions.push(eq(cashRegisters.branchId, branchId));
+    }
+
+    if (cashRegisterId) {
+      registerConditions.push(eq(cashRegisters.id, cashRegisterId));
+    }
+
+    const registers = await db
+      .select()
+      .from(cashRegisters)
+      .where(and(...registerConditions));
+
+    const totalBalance = registers.reduce((sum: number, r: CashRegister) => sum + parseFloat(r.currentBalance), 0);
+
+    const cashRegisterBalances = registers.map((r: CashRegister) => ({
+      id: r.id,
+      name: r.name,
+      balance: r.currentBalance,
+    }));
+
+    let transactionConditions = [eq(financialTransactions.restaurantId, restaurantId)];
+
+    if (branchId !== null) {
+      transactionConditions.push(
+        or(
+          eq(financialTransactions.branchId, branchId),
+          isNull(financialTransactions.branchId)
+        )!
+      );
+    }
+
+    if (startDate) {
+      transactionConditions.push(gte(financialTransactions.occurredAt, startDate));
+    }
+
+    if (endDate) {
+      transactionConditions.push(sql`${financialTransactions.occurredAt} <= ${endDate}`);
+    }
+
+    if (cashRegisterId) {
+      transactionConditions.push(eq(financialTransactions.cashRegisterId, cashRegisterId));
+    }
+
+    const transactions = await db
+      .select()
+      .from(financialTransactions)
+      .where(and(...transactionConditions));
+
+    const totalIncome = transactions
+      .filter((t: FinancialTransaction) => t.type === 'receita')
+      .reduce((sum: number, t: FinancialTransaction) => sum + parseFloat(t.amount), 0);
+
+    const totalExpense = transactions
+      .filter((t: FinancialTransaction) => t.type === 'despesa')
+      .reduce((sum: number, t: FinancialTransaction) => sum + parseFloat(t.amount), 0);
+
+    const netResult = totalIncome - totalExpense;
+
+    return {
+      totalBalance: totalBalance.toFixed(2),
+      cashRegisterBalances,
+      totalIncome: totalIncome.toFixed(2),
+      totalExpense: totalExpense.toFixed(2),
+      netResult: netResult.toFixed(2),
     };
   }
 }

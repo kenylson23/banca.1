@@ -1,0 +1,47 @@
+1. 🔍 Destaque de Saldo na Tela Principal
+O usuário precisa saber o status financeiro de suas caixas sem precisar procurar.
+
+Local de Implementação: No topo da Tela de Lançamentos Financeiros (acima da lista/filtros).
+
+Funcionalidade de Saldo: O sistema deve ter uma área de destaque que mostra o Saldo Total consolidado de todas as caixas.
+
+Detalhe por Caixa: Deve ser possível ver rapidamente o saldo individual da Caixa Registradora selecionada nos filtros.
+
+Regra: O Saldo deve ser o reflexo exato de todos os lançamentos (receitas menos despesas) associados àquela caixa, até o momento atual.
+
+2. 📊 Relatório Resumido (Somatórias por Período)
+Na mesma Tela de Lançamentos Financeiros, o usuário precisa de um resumo instantâneo dos valores do período que está visualizando.
+
+Local de Implementação: Na área de filtros, ou imediatamente abaixo dos filtros/acima da tabela.
+
+Funcionalidades de Resumo:
+
+Receita Total: Somatória de todos os lançamentos de Receita no período e filtros aplicados (ex: 15 de Nov, apenas Dinheiro, Caixa Principal).
+
+Despesa Total: Somatória de todos os lançamentos de Despesa no mesmo período e filtros.
+
+Resultado Líquido do Período: Cálculo direto (Receita Total - Despesa Total).
+
+Regra: Se o usuário mudar o filtro de Data ou de Caixa, esses três valores (Receita Total, Despesa Total, Resultado Líquido) devem ser imediatamente recalculados e atualizados.
+
+3. 🎯 Visualização Consistente
+Todos os valores de saldo e somatórias (Receita Total, Despesa Total) devem ser apresentados:
+
+Com o formato de moeda correto (AOA).
+
+Com cores distintas para fácil identificação:
+
+Receita/Resultado Positivo: Cor verde.
+
+Despesa/Resultado Negativo: Cor vermelha.
+
+4. 🔗 Lógica de Interligação
+O agente deve garantir que a lógica de atualização seja coerente com o fluxo anterior:
+
+Um novo Lançamento é registrado (Passo 2 do fluxo anterior).
+
+O Saldo da Caixa Registradora é atualizado (Regra Crítica).
+
+O usuário volta para a Tela Principal (Passo 3 do fluxo anterior).
+
+O sistema reflete imediatamente o novo saldo da caixa no destaque superior (Passo 1 deste fluxo) e recalcula as somatórias de Receita/Despesa do dia/período (Passo 2 deste fluxo).
