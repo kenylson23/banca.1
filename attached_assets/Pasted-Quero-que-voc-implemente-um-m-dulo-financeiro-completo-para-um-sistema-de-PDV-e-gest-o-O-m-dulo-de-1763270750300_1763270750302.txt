@@ -1,0 +1,181 @@
+Quero que você implemente um módulo financeiro completo para um sistema de PDV e gestão.
+O módulo deve incluir a lógica de: Caixa, Lançamentos Financeiros, Despesas, Receitas e Relatórios.
+Siga as regras abaixo à risca para garantir consistência e precisão no fluxo financeiro.
+
+📌 1. Estrutura de Dados Obrigatória
+1.1. Caixa
+
+Crie a tabela/estrutura:
+
+id_caixa
+data_abertura
+hora_abertura
+valor_inicial
+status (aberto / fechado)
+data_fecho
+hora_fecho
+saldo_final
+observacoes
+
+1.2. Lançamentos Financeiros
+
+Cada movimento deve gerar um lançamento:
+
+id_lancamento
+id_caixa (nullable)
+data
+hora
+tipo (receita, despesa, ajuste)
+origem (pdv, web, manual)
+categoria
+descricao
+valor
+metodo_pagamento (dinheiro, tpa, transferencia, multicaixa, crédito…)
+referencia (id_pedido, id_despesa…)
+
+1.3. Despesas
+id_despesa
+descricao
+categoria
+valor
+data
+pagamento (dinheiro, transferencia, tpa)
+id_lancamento (vinculado automaticamente)
+
+📌 2. Regras Gerais do Sistema (ESSENCIAL)
+2.1. Tudo é um lançamento financeiro
+
+Cada venda, despesa ou ajuste deve obrigatoriamente gerar um lançamento financeiro.
+
+*2.2. O caixa só controla movimentos em dinheiro
+
+Se o método for:
+
+Dinheiro → entra no caixa
+
+TPA, transferência, multicaixa → não entram no caixa
+
+📌 3. Lógica Detalhada de Funcionamento
+3.1. Abertura do Caixa
+
+Ao abrir o caixa:
+
+Registrar valor inicial
+
+Criar o registro do caixa
+
+Gerar lançamento automático:
+
+tipo: ajuste
+descricao: abertura do caixa
+valor: +valor_inicial
+metodo_pagamento: dinheiro
+id_caixa: caixa_aberto
+
+3.2. Venda no PDV
+
+Ao finalizar um pedido:
+
+Se o pagamento é em dinheiro:
+tipo: receita
+origem: pdv
+categoria: venda
+valor: total_pago
+metodo_pagamento: dinheiro
+id_caixa: caixa_aberto
+
+Se o pagamento é TPA / transferência / multicaixa:
+tipo: receita
+origem: pdv
+categoria: venda
+valor: total_pago
+metodo_pagamento: tpa / transferencia
+id_caixa: NULL
+
+
+Apenas vendas em dinheiro influenciam o saldo do caixa.
+
+3.3. Registrar Despesa
+
+Ao criar uma despesa, sempre criar o lançamento financeiro vinculado.
+
+Despesa paga com dinheiro
+
+Sai do caixa.
+
+tipo: despesa
+valor: -X
+metodo_pagamento: dinheiro
+id_caixa: caixa_aberto
+
+Despesa paga por transferência, TPA, multibanco
+
+Não afeta o caixa.
+
+tipo: despesa
+valor: -X
+metodo_pagamento: transferencia
+id_caixa: NULL
+
+3.4. Ajustes Manuais no Caixa
+Entrada manual:
+tipo: ajuste
+valor: +X
+metodo: dinheiro
+id_caixa: caixa_aberto
+
+Saída manual:
+tipo: ajuste
+valor: -X
+metodo: dinheiro
+id_caixa: caixa_aberto
+descricao: retirada
+
+📌 4. Fecho do Caixa
+
+Ao fechar:
+
+Somar todos os lançamentos com id_caixa = X
+
+Calcular:
+
+saldo = valor_inicial + receitas - despesas + ajustes
+
+
+Operador informa o dinheiro físico
+
+Registrar:
+
+saldo_final
+diferenca (informado - calculado)
+
+
+Caixa muda para status "fechado"
+
+📌 5. Relatórios Obrigatórios
+
+Gerar os seguintes:
+
+Vendas por período
+
+Ticket médio
+
+Movimentação por método de pagamento
+
+Receita vs despesa
+
+Fechos de caixa por dia
+
+Ranking de produtos
+
+Relatório financeiro consolidado (baseado nos lançamentos)
+
+📌 6. Regras adicionais
+
+Um caixa só pode existir 1 por operador por dia (opcional, se quiser).
+
+Não permitir registrar despesas em dinheiro se não houver caixa aberto.
+
+Todo pagamento deve gerar lançamento automaticamente.
+
+Nenhum lançamento em dinheiro pode existir sem estar vinculado a um caixa.
