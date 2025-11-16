@@ -711,9 +711,28 @@ export class DatabaseStorage implements IStorage {
   // Table operations
   async getTables(restaurantId: string, branchId?: string | null): Promise<Table[]> {
     if (branchId) {
-      return await db.select().from(tables)
+      // Para mesas, usamos lógica de OVERRIDE:
+      // - Primeiro busca todas as mesas compartilhadas (branchId = null)
+      // - Depois busca mesas específicas da filial
+      // - Remove compartilhadas que foram sobrescritas por específicas
+      const sharedTables = await db.select().from(tables)
+        .where(and(eq(tables.restaurantId, restaurantId), isNull(tables.branchId)))
+        .orderBy(tables.number);
+      
+      const branchTables = await db.select().from(tables)
         .where(and(eq(tables.restaurantId, restaurantId), eq(tables.branchId, branchId)))
         .orderBy(tables.number);
+      
+      // Números de mesa que foram sobrescritos pela filial
+      const overriddenNumbers = new Set(branchTables.map((t: Table) => t.number));
+      
+      // Retorna mesas específicas + compartilhadas não sobrescritas
+      const result = [
+        ...branchTables,
+        ...sharedTables.filter((t: Table) => !overriddenNumbers.has(t.number))
+      ];
+      
+      return result.sort((a, b) => a.number - b.number);
     }
     return await db.select().from(tables).where(eq(tables.restaurantId, restaurantId)).orderBy(tables.number);
   }
@@ -1016,10 +1035,20 @@ export class DatabaseStorage implements IStorage {
   // Category operations
   async getCategories(restaurantId: string, branchId?: string | null): Promise<Category[]> {
     if (branchId) {
+      // Retorna categorias compartilhadas (branchId = null) + categorias específicas da filial
       return await db.select().from(categories)
-        .where(and(eq(categories.restaurantId, restaurantId), eq(categories.branchId, branchId)))
+        .where(
+          and(
+            eq(categories.restaurantId, restaurantId),
+            or(
+              isNull(categories.branchId),
+              eq(categories.branchId, branchId)
+            )
+          )
+        )
         .orderBy(categories.name);
     }
+    // Retorna todas as categorias do restaurante (quando não há filial ativa)
     return await db.select().from(categories).where(eq(categories.restaurantId, restaurantId)).orderBy(categories.name);
   }
 
@@ -1071,11 +1100,20 @@ export class DatabaseStorage implements IStorage {
   async getMenuItems(restaurantId: string, branchId?: string | null): Promise<Array<MenuItem & { category: Category }>> {
     let results;
     if (branchId) {
+      // Retorna itens compartilhados (branchId = null) + itens específicos da filial
       results = await db
         .select()
         .from(menuItems)
         .leftJoin(categories, eq(menuItems.categoryId, categories.id))
-        .where(and(eq(menuItems.restaurantId, restaurantId), eq(menuItems.branchId, branchId)))
+        .where(
+          and(
+            eq(menuItems.restaurantId, restaurantId),
+            or(
+              isNull(menuItems.branchId),
+              eq(menuItems.branchId, branchId)
+            )
+          )
+        )
         .orderBy(categories.name, menuItems.name);
     } else {
       results = await db
@@ -1141,13 +1179,24 @@ export class DatabaseStorage implements IStorage {
   async getKitchenOrders(restaurantId: string, branchId?: string | null): Promise<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> }>> {
     let allOrders;
     if (branchId) {
+      // Busca IDs das mesas da filial usando lógica de override
+      const branchTables = await this.getTables(restaurantId, branchId);
+      const tableIds = branchTables.map((t: Table) => t.id);
+      
+      // ISOLAMENTO DE DADOS: Filtra por restaurantId, branchId (específico + compartilhado), e mesas
+      const branchCondition = or(eq(orders.branchId, branchId), isNull(orders.branchId));  // Filial OU compartilhado
+      const tableCondition = tableIds.length > 0
+        ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId))  // Mesas da filial OU delivery/takeout
+        : sql`true`;  // Sem mesas, aceita qualquer tableId (já garantido por branchCondition)
+      
       allOrders = await db
         .select()
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), isNull(orders.tableId))
+          branchCondition,  // CRÍTICO: Garante isolamento de filial
+          tableCondition
         ))
         .orderBy(desc(orders.createdAt));
     } else {
@@ -1196,13 +1245,24 @@ export class DatabaseStorage implements IStorage {
   async getRecentOrders(restaurantId: string, branchId: string | null, limit: number): Promise<Array<Order & { table: { number: number } }>> {
     let results;
     if (branchId) {
+      // Busca IDs das mesas da filial usando lógica de override
+      const branchTables = await this.getTables(restaurantId, branchId);
+      const tableIds = branchTables.map((t: Table) => t.id);
+      
+      // ISOLAMENTO DE DADOS: Filtra por restaurantId, branchId (específico + compartilhado), e mesas
+      const branchCondition = or(eq(orders.branchId, branchId), isNull(orders.branchId));  // Filial OU compartilhado
+      const tableCondition = tableIds.length > 0
+        ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId))  // Mesas da filial OU delivery/takeout
+        : sql`true`;  // Sem mesas, aceita qualquer tableId (já garantido por branchCondition)
+      
       results = await db
         .select()
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), isNull(orders.tableId))
+          branchCondition,  // CRÍTICO: Garante isolamento de filial
+          tableCondition
         ))
         .orderBy(desc(orders.createdAt))
         .limit(limit);

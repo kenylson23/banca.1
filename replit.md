@@ -34,6 +34,10 @@ The backend is built with **Express** and **TypeScript**, leveraging **Replit Au
 
 ### System Design Choices
 -   **Database Schema:** Includes `restaurants`, `users`, `sessions`, `tables`, `categories`, `menu_items`, `orders`, `order_items`, `option_groups`, `options`, `order_item_options`, `table_sessions`, `table_payments`, and financial system tables (`financial_shifts`, `financial_events`, `order_adjustments`, `payment_events`, `report_aggregations`), with all restaurant-specific data scoped by `restaurantId` and `branchId` where applicable.
+-   **Multi-Filial (Branch) Strategy:**
+    -   **Categorias e Itens do Menu:** Modelo compartilhado + específico. Itens com `branchId = null` são compartilhados entre todas as filiais. Itens com `branchId` específico são exclusivos daquela filial. Queries retornam compartilhados + específicos da filial ativa.
+    -   **Mesas (Tables):** Modelo de override. Mesas específicas da filial sobrescrevem mesas compartilhadas com o mesmo número. Evita duplicação de números de mesa na mesma filial.
+    -   **Isolamento de Dados:** Usuários com `activeBranchId` veem apenas dados da filial ativa + dados compartilhados. Mudança de filial altera escopo dos dados visíveis.
 -   **Financial System:** Event-based immutable audit trail with 7-year retention. Tracks all financial operations (payments, cancellations, refunds, adjustments) by operator with shift management and end-of-day reconciliation. Complete branch scoping ensures data isolation between branches.
 -   **Order Status Flow:** Pedido (Pendente) → Em Preparo → Pronto → Servido.
 -   **WebSocket Events:** Critical events like `table_created`, `table_deleted`, `table_freed`, `new_order`, and `order_status_updated` are broadcasted.
