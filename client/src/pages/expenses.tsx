@@ -33,11 +33,12 @@ import { ArrowLeft, Plus, Edit2, Trash2, Receipt, Calendar, DollarSign } from "l
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import type { Expense, FinancialCategory } from "@shared/schema";
+import type { FinancialTransaction, FinancialCategory, User, CashRegister } from "@shared/schema";
 
-interface ExpenseWithDetails extends Expense {
-  category: FinancialCategory;
-  recordedBy: { id: string; firstName?: string; email: string };
+interface ExpenseWithDetails extends FinancialTransaction {
+  category: FinancialCategory | null;
+  recordedBy: User | null;
+  cashRegister: CashRegister | null;
 }
 
 function formatKwanza(value: string | number): string {
@@ -66,7 +67,7 @@ export default function ExpensesPage() {
   });
 
   const { data: expenses } = useQuery<ExpenseWithDetails[]>({
-    queryKey: ["/api/expenses"],
+    queryKey: ["/api/financial/transactions", { type: 'despesa' }],
   });
 
   const { data: categories } = useQuery<FinancialCategory[]>({
@@ -77,10 +78,14 @@ export default function ExpensesPage() {
 
   const createExpenseMutation = useMutation({
     mutationFn: async (data: typeof expenseForm) => {
-      await apiRequest("POST", "/api/expenses", data);
+      await apiRequest("POST", "/api/financial/transactions", {
+        ...data,
+        type: 'despesa'
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/financial/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/financial/summary"] });
       toast({ title: "Despesa criada com sucesso" });
       setNewExpenseDialog(false);
       setExpenseForm({
@@ -103,10 +108,11 @@ export default function ExpensesPage() {
 
   const updateExpenseMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<typeof expenseForm> }) => {
-      await apiRequest("PUT", `/api/expenses/${id}`, data);
+      await apiRequest("PUT", `/api/financial/transactions/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/financial/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/financial/summary"] });
       toast({ title: "Despesa atualizada com sucesso" });
       setEditExpenseDialog(false);
       setSelectedExpense(null);
@@ -122,10 +128,11 @@ export default function ExpensesPage() {
 
   const deleteExpenseMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/expenses/${id}`, {});
+      await apiRequest("DELETE", `/api/financial/transactions/${id}`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/financial/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/financial/summary"] });
       toast({ title: "Despesa excluída com sucesso" });
       setDeleteExpenseDialog(false);
       setSelectedExpense(null);
@@ -241,9 +248,9 @@ export default function ExpensesPage() {
                     <TableCell>
                       {new Date(expense.occurredAt).toLocaleDateString('pt-AO')}
                     </TableCell>
-                    <TableCell className="font-medium">{expense.description}</TableCell>
+                    <TableCell className="font-medium">{expense.description || 'Sem descrição'}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{expense.category.name}</Badge>
+                      <Badge variant="outline">{expense.category?.name || 'Sem categoria'}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge>
@@ -265,7 +272,7 @@ export default function ExpensesPage() {
                             setSelectedExpense(expense);
                             setExpenseForm({
                               categoryId: expense.categoryId,
-                              description: expense.description,
+                              description: expense.description || "",
                               amount: expense.amount,
                               paymentMethod: expense.paymentMethod,
                               occurredAt: new Date(expense.occurredAt).toISOString().slice(0, 16),
