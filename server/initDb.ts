@@ -518,6 +518,11 @@ export async function ensureTablesExist() {
         CREATE TYPE transaction_type AS ENUM ('receita', 'despesa', 'ajuste');
       EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       
+      // Add 'ajuste' to existing transaction_type enum if not present
+      await db.execute(sql`DO $$ BEGIN
+        ALTER TYPE transaction_type ADD VALUE IF NOT EXISTS 'ajuste';
+      EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
       // Create transaction_origin enum if it doesn't exist
       await db.execute(sql`DO $$ BEGIN
         CREATE TYPE transaction_origin AS ENUM ('pdv', 'web', 'manual');
