@@ -2107,7 +2107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const payment = recordPaymentSchema.parse(req.body);
-      const updated = await storage.recordPayment(restaurantId, req.params.id, payment);
+      const updated = await storage.recordPayment(restaurantId, req.params.id, payment, currentUser.id);
       
       if (updated.paymentStatus === 'pago') {
         broadcastToClients({ 

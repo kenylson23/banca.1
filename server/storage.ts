@@ -174,7 +174,7 @@ export interface IStorage {
     amount: string;
     paymentMethod: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
     receivedAmount?: string;
-  }): Promise<Order>;
+  }, userId?: string): Promise<Order>;
   calculateOrderTotal(orderId: string): Promise<Order>;
   
   // Stats operations
