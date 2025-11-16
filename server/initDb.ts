@@ -515,7 +515,12 @@ export async function ensureTablesExist() {
       // Create financial module tables
       // Create transaction_type enum if it doesn't exist
       await db.execute(sql`DO $$ BEGIN
-        CREATE TYPE transaction_type AS ENUM ('receita', 'despesa');
+        CREATE TYPE transaction_type AS ENUM ('receita', 'despesa', 'ajuste');
+      EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Create transaction_origin enum if it doesn't exist
+      await db.execute(sql`DO $$ BEGIN
+        CREATE TYPE transaction_origin AS ENUM ('pdv', 'web', 'manual');
       EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       
       // Create cash_register_shift_status enum if it doesn't exist
@@ -575,14 +580,47 @@ export async function ensureTablesExist() {
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
-        cash_register_id VARCHAR NOT NULL REFERENCES cash_registers(id) ON DELETE RESTRICT,
+        cash_register_id VARCHAR REFERENCES cash_registers(id) ON DELETE RESTRICT,
         shift_id VARCHAR REFERENCES cash_register_shifts(id) ON DELETE RESTRICT,
         category_id VARCHAR NOT NULL REFERENCES financial_categories(id) ON DELETE RESTRICT,
         recorded_by_user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
         type transaction_type NOT NULL,
+        origin transaction_origin NOT NULL DEFAULT 'manual',
+        description VARCHAR(500),
         payment_method payment_method NOT NULL,
         amount DECIMAL(10, 2) NOT NULL,
+        reference_order_id VARCHAR REFERENCES orders(id) ON DELETE SET NULL,
         occurred_at TIMESTAMP NOT NULL,
+        note TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Add missing columns to existing financial_transactions table
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE financial_transactions ADD COLUMN origin transaction_origin NOT NULL DEFAULT 'manual'; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE financial_transactions ADD COLUMN description VARCHAR(500); 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE financial_transactions ADD COLUMN reference_order_id VARCHAR REFERENCES orders(id) ON DELETE SET NULL; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE financial_transactions ALTER COLUMN cash_register_id DROP NOT NULL; 
+      EXCEPTION WHEN others THEN null; END $$;`);
+      
+      // Create expenses table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS expenses (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
+        category_id VARCHAR NOT NULL REFERENCES financial_categories(id) ON DELETE RESTRICT,
+        transaction_id VARCHAR REFERENCES financial_transactions(id) ON DELETE RESTRICT,
+        description VARCHAR(500) NOT NULL,
+        amount DECIMAL(10, 2) NOT NULL,
+        payment_method payment_method NOT NULL,
+        occurred_at TIMESTAMP NOT NULL,
+        recorded_by_user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
         note TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
