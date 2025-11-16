@@ -36,9 +36,9 @@ import { cn } from "@/lib/utils";
 import type { FinancialTransaction, CashRegister, FinancialCategory, User } from "@shared/schema";
 
 type TransactionWithDetails = FinancialTransaction & {
-  cashRegister: CashRegister;
-  category: FinancialCategory;
-  recordedBy: User;
+  cashRegister: CashRegister | null;
+  category: FinancialCategory | null;
+  recordedBy: User | null;
 };
 
 type FinancialSummary = {
@@ -353,16 +353,24 @@ export default function FinancialTransactions() {
                         >
                           {transaction.type === 'receita' ? 'Receita' : 'Despesa'}
                         </Badge>
-                        <p className="font-medium">{transaction.category.name}</p>
+                        <p className="font-medium">{transaction.category?.name || 'Sem categoria'}</p>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span>{format(new Date(transaction.occurredAt), 'dd/MM/yyyy HH:mm')}</span>
-                        <span>•</span>
-                        <span>{transaction.cashRegister.name}</span>
+                        {transaction.cashRegister && (
+                          <>
+                            <span>•</span>
+                            <span>{transaction.cashRegister.name}</span>
+                          </>
+                        )}
                         <span>•</span>
                         <span className="capitalize">{transaction.paymentMethod}</span>
-                        <span>•</span>
-                        <span>{transaction.recordedBy.firstName || transaction.recordedBy.email}</span>
+                        {transaction.recordedBy && (
+                          <>
+                            <span>•</span>
+                            <span>{transaction.recordedBy.firstName || transaction.recordedBy.email}</span>
+                          </>
+                        )}
                       </div>
                       {transaction.note && (
                         <p className="text-sm text-muted-foreground">{transaction.note}</p>
