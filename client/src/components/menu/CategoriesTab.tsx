@@ -142,6 +142,12 @@ export function CategoriesTab() {
     setCategoryName("");
   };
 
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      handleCloseDialog();
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -151,7 +157,7 @@ export function CategoriesTab() {
             Organize seu menu em categorias
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
+        <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
           <DialogTrigger asChild>
             <Button onClick={handleOpenDialog} data-testid="button-create-category">
               <Plus className="h-4 w-4 mr-2" />
