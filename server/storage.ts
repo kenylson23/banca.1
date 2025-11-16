@@ -1723,7 +1723,7 @@ export class DatabaseStorage implements IStorage {
     amount: string;
     paymentMethod: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
     receivedAmount?: string;
-  }): Promise<Order> {
+  }, userId?: string): Promise<Order> {
     const order = await this.getOrderById(restaurantId, orderId);
     if (!order) {
       throw new Error('Order not found');
@@ -1762,19 +1762,94 @@ export class DatabaseStorage implements IStorage {
       paymentStatus = 'pago';
     }
 
-    const [updated] = await db
-      .update(orders)
-      .set({ 
-        paidAmount: newPaidAmount.toFixed(2),
-        changeAmount: Math.max(0, changeAmount).toFixed(2),
-        paymentStatus,
-        paymentMethod: data.paymentMethod,
-        updatedAt: new Date()
-      })
-      .where(eq(orders.id, orderId))
-      .returning();
+    return await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const [updated] = await tx
+        .update(orders)
+        .set({ 
+          paidAmount: newPaidAmount.toFixed(2),
+          changeAmount: Math.max(0, changeAmount).toFixed(2),
+          paymentStatus,
+          paymentMethod: data.paymentMethod,
+          updatedAt: new Date()
+        })
+        .where(eq(orders.id, orderId))
+        .returning();
 
-    return updated;
+      if (userId) {
+        const saleCategoryResults = await tx
+          .select()
+          .from(financialCategories)
+          .where(and(
+            eq(financialCategories.restaurantId, restaurantId),
+            eq(financialCategories.type, 'receita'),
+            eq(financialCategories.name, 'Vendas PDV')
+          ))
+          .limit(1);
+
+        let categoryId = saleCategoryResults[0]?.id;
+
+        if (!categoryId) {
+          const [category] = await tx
+            .insert(financialCategories)
+            .values({
+              restaurantId,
+              branchId: order.branchId || null,
+              type: 'receita',
+              name: 'Vendas PDV',
+              description: 'Receita de vendas através do PDV',
+              isDefault: 1,
+            })
+            .returning();
+          categoryId = category.id;
+        }
+
+        let cashRegisterId: string | null = null;
+        let shiftId: string | null = null;
+
+        if (data.paymentMethod === 'dinheiro') {
+          const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, order.branchId || null);
+          
+          if (activeCashRegisters.length > 0) {
+            const cashRegister = activeCashRegisters[0];
+            const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
+            
+            if (activeShift && cashRegister) {
+              cashRegisterId = cashRegister.id;
+              shiftId = activeShift.id;
+
+              await tx
+                .update(cashRegisters)
+                .set({
+                  currentBalance: sql`${cashRegisters.currentBalance} + ${parseFloat(data.amount)}`,
+                  updatedAt: new Date(),
+                })
+                .where(eq(cashRegisters.id, cashRegister.id));
+            }
+          }
+        }
+
+        await tx
+          .insert(financialTransactions)
+          .values({
+            restaurantId,
+            recordedByUserId: userId,
+            branchId: order.branchId || null,
+            cashRegisterId: cashRegisterId,
+            shiftId: shiftId,
+            categoryId,
+            type: 'receita',
+            origin: order.orderType === 'pdv' || order.orderType === 'balcao' ? 'pdv' : 'web',
+            description: `Venda - Pedido #${orderId.substring(0, 8)}`,
+            paymentMethod: data.paymentMethod,
+            amount: data.amount,
+            referenceOrderId: orderId,
+            occurredAt: new Date(),
+            note: order.orderNotes || null,
+          });
+      }
+
+      return updated;
+    });
   }
 
   async calculateOrderTotal(orderId: string): Promise<Order> {
@@ -3518,8 +3593,11 @@ export class DatabaseStorage implements IStorage {
           shiftId: activeShift.id,
           categoryId: data.categoryId,
           type: data.type,
+          origin: data.origin || 'manual',
+          description: data.description,
           paymentMethod: data.paymentMethod,
           amount: data.amount,
+          referenceOrderId: data.referenceOrderId || null,
           occurredAt: new Date(data.occurredAt),
           note: data.note,
         })
@@ -3824,19 +3902,75 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Já existe um turno aberto para esta caixa. Feche o turno atual antes de abrir um novo.');
     }
 
-    const [shift] = await db
-      .insert(cashRegisterShifts)
-      .values({
-        restaurantId,
-        openedByUserId: userId,
-        branchId: data.branchId || null,
-        cashRegisterId: data.cashRegisterId,
-        openingAmount: data.openingAmount,
-        notes: data.notes,
-      })
-      .returning();
+    return await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const [shift] = await tx
+        .insert(cashRegisterShifts)
+        .values({
+          restaurantId,
+          openedByUserId: userId,
+          branchId: data.branchId || null,
+          cashRegisterId: data.cashRegisterId,
+          openingAmount: data.openingAmount,
+          notes: data.notes,
+        })
+        .returning();
 
-    return shift;
+      const openingCategoryResults = await tx
+        .select()
+        .from(financialCategories)
+        .where(and(
+          eq(financialCategories.restaurantId, restaurantId),
+          eq(financialCategories.type, 'ajuste'),
+          eq(financialCategories.isDefault, 1)
+        ))
+        .limit(1);
+
+      let categoryId = openingCategoryResults[0]?.id;
+
+      if (!categoryId) {
+        const [category] = await tx
+          .insert(financialCategories)
+          .values({
+            restaurantId,
+            branchId: data.branchId || null,
+            type: 'ajuste',
+            name: 'Abertura de Caixa',
+            description: 'Valor inicial ao abrir o caixa',
+            isDefault: 1,
+          })
+          .returning();
+        categoryId = category.id;
+      }
+
+      await tx
+        .insert(financialTransactions)
+        .values({
+          restaurantId,
+          recordedByUserId: userId,
+          branchId: data.branchId || null,
+          cashRegisterId: data.cashRegisterId,
+          shiftId: shift.id,
+          categoryId,
+          type: 'ajuste',
+          origin: 'manual',
+          description: 'Abertura do caixa',
+          paymentMethod: 'dinheiro',
+          amount: data.openingAmount,
+          referenceOrderId: null,
+          occurredAt: new Date(),
+          note: data.notes,
+        });
+
+      await tx
+        .update(cashRegisters)
+        .set({
+          currentBalance: sql`${cashRegisters.currentBalance} + ${data.openingAmount}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(cashRegisters.id, data.cashRegisterId));
+
+      return shift;
+    });
   }
 
   async closeCashRegisterShift(
@@ -3859,21 +3993,29 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Turno não encontrado ou já fechado.');
     }
 
-    const transactions = await db
+    const allTransactions = await db
       .select()
       .from(financialTransactions)
       .where(eq(financialTransactions.shiftId, shiftId));
 
-    const totalRevenues = transactions
+    const cashTransactions = allTransactions.filter((t: FinancialTransaction) => 
+      t.paymentMethod === 'dinheiro'
+    );
+
+    const totalRevenues = cashTransactions
       .filter((t: FinancialTransaction) => t.type === 'receita')
       .reduce((sum: number, t: FinancialTransaction) => sum + parseFloat(t.amount), 0);
 
-    const totalExpenses = transactions
+    const totalExpenses = cashTransactions
       .filter((t: FinancialTransaction) => t.type === 'despesa')
       .reduce((sum: number, t: FinancialTransaction) => sum + parseFloat(t.amount), 0);
 
+    const totalAdjustments = cashTransactions
+      .filter((t: FinancialTransaction) => t.type === 'ajuste')
+      .reduce((sum: number, t: FinancialTransaction) => sum + parseFloat(t.amount), 0);
+
     const openingAmount = parseFloat(shift.openingAmount);
-    const closingAmountExpected = openingAmount + totalRevenues - totalExpenses;
+    const closingAmountExpected = totalRevenues - totalExpenses + totalAdjustments;
     const closingAmountCounted = parseFloat(data.closingAmountCounted);
     const difference = closingAmountCounted - closingAmountExpected;
 

@@ -3396,7 +3396,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const transactionSchema = z.object({
         cashRegisterId: z.string().min(1, "Caixa registradora é obrigatória"),
         categoryId: z.string().min(1, "Categoria é obrigatória"),
-        type: z.enum(['receita', 'despesa']),
+        type: z.enum(['receita', 'despesa', 'ajuste']),
+        origin: z.enum(['pdv', 'web', 'manual']).optional(),
+        description: z.string().optional(),
         paymentMethod: z.enum(['dinheiro', 'multicaixa', 'transferencia', 'cartao']),
         amount: z.string().min(1, "Valor é obrigatório"),
         occurredAt: z.string().min(1, "Data e hora são obrigatórias"),
@@ -3412,6 +3414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         {
           ...validatedData,
           branchId: validatedData.branchId || currentUser.activeBranchId || null,
+          origin: validatedData.origin || 'manual',
         }
       );
 

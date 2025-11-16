@@ -1222,7 +1222,10 @@ export type CloseCashRegisterShift = z.infer<typeof closeCashRegisterShiftSchema
 export type CashRegisterShift = typeof cashRegisterShifts.$inferSelect;
 
 // Financial Module - Transaction Types
-export const transactionTypeEnum = pgEnum('transaction_type', ['receita', 'despesa']);
+export const transactionTypeEnum = pgEnum('transaction_type', ['receita', 'despesa', 'ajuste']);
+
+// Financial Module - Transaction Origin
+export const transactionOriginEnum = pgEnum('transaction_origin', ['pdv', 'web', 'manual']);
 
 // Financial Module - Categories
 export const financialCategories = pgTable("financial_categories", {
@@ -1244,7 +1247,7 @@ export const insertFinancialCategorySchema = createInsertSchema(financialCategor
   createdAt: true,
   updatedAt: true,
 }).extend({
-  type: z.enum(['receita', 'despesa']),
+  type: z.enum(['receita', 'despesa', 'ajuste']),
   name: z.string().min(1, "Nome da categoria é obrigatório"),
   branchId: z.string().optional().nullable(),
   description: z.string().optional(),
@@ -1260,13 +1263,16 @@ export const financialTransactions = pgTable("financial_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
-  cashRegisterId: varchar("cash_register_id").notNull().references(() => cashRegisters.id, { onDelete: 'restrict' }),
+  cashRegisterId: varchar("cash_register_id").references(() => cashRegisters.id, { onDelete: 'restrict' }),
   shiftId: varchar("shift_id").references(() => cashRegisterShifts.id, { onDelete: 'restrict' }),
   categoryId: varchar("category_id").notNull().references(() => financialCategories.id, { onDelete: 'restrict' }),
   recordedByUserId: varchar("recorded_by_user_id").notNull().references(() => users.id, { onDelete: 'restrict' }),
   type: transactionTypeEnum("type").notNull(),
+  origin: transactionOriginEnum("origin").notNull().default('manual'),
+  description: varchar("description", { length: 500 }),
   paymentMethod: paymentMethodEnum("payment_method").notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  referenceOrderId: varchar("reference_order_id").references(() => orders.id, { onDelete: 'set null' }),
   occurredAt: timestamp("occurred_at").notNull(),
   note: text("note"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -1279,11 +1285,15 @@ export const insertFinancialTransactionSchema = createInsertSchema(financialTran
   createdAt: true,
 }).extend({
   branchId: z.string().optional().nullable(),
-  cashRegisterId: z.string().min(1, "Caixa registradora é obrigatória"),
+  cashRegisterId: z.string().optional().nullable(),
+  shiftId: z.string().optional().nullable(),
   categoryId: z.string().min(1, "Categoria é obrigatória"),
-  type: z.enum(['receita', 'despesa']),
+  type: z.enum(['receita', 'despesa', 'ajuste']),
+  origin: z.enum(['pdv', 'web', 'manual']).default('manual'),
+  description: z.string().optional(),
   paymentMethod: z.enum(['dinheiro', 'multicaixa', 'transferencia', 'cartao']),
   amount: z.string().min(1, "Valor é obrigatório"),
+  referenceOrderId: z.string().optional().nullable(),
   occurredAt: z.string().min(1, "Data e hora são obrigatórias"),
   note: z.string().optional(),
 });
@@ -1365,5 +1375,9 @@ export const financialTransactionsRelations = relations(financialTransactions, (
   recordedBy: one(users, {
     fields: [financialTransactions.recordedByUserId],
     references: [users.id],
+  }),
+  referenceOrder: one(orders, {
+    fields: [financialTransactions.referenceOrderId],
+    references: [orders.id],
   }),
 }));
