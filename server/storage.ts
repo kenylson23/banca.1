@@ -3573,14 +3573,18 @@ export class DatabaseStorage implements IStorage {
     userId: string, 
     data: Omit<InsertFinancialTransaction, 'restaurantId' | 'recordedByUserId'>
   ): Promise<FinancialTransaction> {
-    const activeShift = await this.getActiveCashRegisterShift(data.cashRegisterId, restaurantId);
-    
-    if (!activeShift) {
-      throw new Error('Não existe um turno aberto para esta caixa. Abra um turno antes de registrar lançamentos.');
+    let activeShift: CashRegisterShift | undefined = undefined;
+
+    if (data.cashRegisterId) {
+      activeShift = await this.getActiveCashRegisterShift(data.cashRegisterId, restaurantId);
+      
+      if (!activeShift) {
+        throw new Error('Não existe um turno aberto para esta caixa. Abra um turno antes de registrar lançamentos.');
+      }
     }
 
     const amount = parseFloat(data.amount);
-    const amountChange = data.type === 'receita' ? amount : -amount;
+    const amountChange = data.type === 'despesa' ? -amount : amount;
 
     const [transaction] = await db.transaction(async (tx: PgTransaction<any, any, any>) => {
       const [newTransaction] = await tx
@@ -3589,8 +3593,8 @@ export class DatabaseStorage implements IStorage {
           restaurantId,
           recordedByUserId: userId,
           branchId: data.branchId || null,
-          cashRegisterId: data.cashRegisterId,
-          shiftId: activeShift.id,
+          cashRegisterId: data.cashRegisterId || null,
+          shiftId: data.shiftId || (activeShift?.id || null),
           categoryId: data.categoryId,
           type: data.type,
           origin: data.origin || 'manual',
@@ -3603,13 +3607,15 @@ export class DatabaseStorage implements IStorage {
         })
         .returning();
 
-      await tx
-        .update(cashRegisters)
-        .set({
-          currentBalance: sql`${cashRegisters.currentBalance} + ${amountChange}`,
-          updatedAt: new Date(),
-        })
-        .where(eq(cashRegisters.id, data.cashRegisterId));
+      if (data.cashRegisterId) {
+        await tx
+          .update(cashRegisters)
+          .set({
+            currentBalance: sql`${cashRegisters.currentBalance} + ${amountChange}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(cashRegisters.id, data.cashRegisterId));
+      }
 
       return [newTransaction];
     });
