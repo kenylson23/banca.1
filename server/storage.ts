@@ -51,6 +51,7 @@ import {
   type InsertReportAggregation,
   type Category,
   type InsertCategory,
+  type UpdateCategory,
   type MenuItem,
   type InsertMenuItem,
   type Order,
@@ -141,6 +142,7 @@ export interface IStorage {
   getCategories(restaurantId: string, branchId?: string | null): Promise<Category[]>;
   getCategoryById(id: string): Promise<Category | undefined>;
   createCategory(restaurantId: string, branchId: string | null, category: Omit<InsertCategory, 'restaurantId'>): Promise<Category>;
+  updateCategory(restaurantId: string, id: string, data: UpdateCategory): Promise<Category>;
   deleteCategory(restaurantId: string, id: string): Promise<void>;
 
   // Menu item operations
@@ -1033,6 +1035,23 @@ export class DatabaseStorage implements IStorage {
       ...category,
     }).returning();
     return newCategory;
+  }
+
+  async updateCategory(restaurantId: string, id: string, data: UpdateCategory): Promise<Category> {
+    const existing = await this.getCategoryById(id);
+    if (!existing) {
+      throw new Error('Category not found');
+    }
+    if (existing.restaurantId !== restaurantId) {
+      throw new Error('Unauthorized: Category does not belong to your restaurant');
+    }
+    
+    const [updated] = await db
+      .update(categories)
+      .set(data)
+      .where(eq(categories.id, id))
+      .returning();
+    return updated;
   }
 
   async deleteCategory(restaurantId: string, id: string): Promise<void> {

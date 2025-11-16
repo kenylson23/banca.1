@@ -11,6 +11,7 @@ import PDFDocument from "pdfkit";
 import {
   insertTableSchema,
   insertCategorySchema,
+  updateCategorySchema,
   insertMenuItemSchema,
   insertOrderSchema,
   publicOrderSchema,
@@ -1329,6 +1330,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: error.errors[0].message });
       }
       res.status(500).json({ message: "Failed to create category" });
+    }
+  });
+
+  app.patch("/api/categories/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const data = updateCategorySchema.parse(req.body);
+      const category = await storage.updateCategory(restaurantId, req.params.id, data);
+      res.json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Failed to update category" });
     }
   });
 

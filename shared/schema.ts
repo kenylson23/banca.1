@@ -657,7 +657,12 @@ export const insertCategorySchema = createInsertSchema(categories).omit({
   createdAt: true,
 });
 
+export const updateCategorySchema = z.object({
+  name: z.string().min(1, "Nome da categoria é obrigatório").max(100, "Nome muito longo"),
+});
+
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type UpdateCategory = z.infer<typeof updateCategorySchema>;
 export type Category = typeof categories.$inferSelect;
 
 // Menu Items - Pratos do menu
