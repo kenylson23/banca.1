@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, UtensilsCrossed, FolderPlus, Settings2 } from "lucide-react";
+import { ExternalLink, UtensilsCrossed, Folder, Settings, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
@@ -7,6 +7,7 @@ import type { Restaurant } from "@shared/schema";
 import { MenuItemsTab } from "@/components/menu/MenuItemsTab";
 import { CategoriesTab } from "@/components/menu/CategoriesTab";
 import { CustomizationsTab } from "@/components/menu/CustomizationsTab";
+import { PreviewTab } from "@/components/menu/PreviewTab";
 
 export default function Menu() {
   const { toast } = useToast();
@@ -54,18 +55,25 @@ export default function Menu() {
       </div>
 
       <Tabs defaultValue="items" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1">
           <TabsTrigger value="items" data-testid="tab-menu-items">
             <UtensilsCrossed className="h-4 w-4 mr-2" />
-            Itens do Menu
+            <span className="hidden sm:inline">Itens do Menu</span>
+            <span className="sm:hidden">Itens</span>
           </TabsTrigger>
           <TabsTrigger value="categories" data-testid="tab-categories">
-            <FolderPlus className="h-4 w-4 mr-2" />
+            <Folder className="h-4 w-4 mr-2" />
             Categorias
           </TabsTrigger>
-          <TabsTrigger value="customizations" data-testid="tab-customizations">
-            <Settings2 className="h-4 w-4 mr-2" />
-            Personalizações
+          <TabsTrigger value="options" data-testid="tab-options">
+            <Settings className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Opções</span>
+            <span className="sm:hidden">Opções</span>
+          </TabsTrigger>
+          <TabsTrigger value="preview" data-testid="tab-preview">
+            <Eye className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Pré-visualização</span>
+            <span className="sm:hidden">Preview</span>
           </TabsTrigger>
         </TabsList>
 
@@ -77,8 +85,12 @@ export default function Menu() {
           <CategoriesTab />
         </TabsContent>
 
-        <TabsContent value="customizations" className="mt-6">
+        <TabsContent value="options" className="mt-6">
           <CustomizationsTab />
+        </TabsContent>
+
+        <TabsContent value="preview" className="mt-6">
+          <PreviewTab />
         </TabsContent>
       </Tabs>
     </div>
