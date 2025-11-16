@@ -89,6 +89,7 @@ import {
 import { db } from "./db";
 import { eq, desc, sql, and, gte, or, isNull, inArray } from "drizzle-orm";
 import type { PgTransaction } from "drizzle-orm/pg-core";
+import { alias } from "drizzle-orm/pg-core";
 
 function generateSlug(name: string): string {
   return name
@@ -3893,15 +3894,20 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(cashRegisterShifts.status, filters.status));
     }
 
+    const openedByUsers = alias(users, 'openedByUsers');
+    const closedByUsers = alias(users, 'closedByUsers');
+
     const results = await db
       .select({
         shift: cashRegisterShifts,
         cashRegister: cashRegisters,
-        openedBy: users,
+        openedBy: openedByUsers,
+        closedBy: closedByUsers,
       })
       .from(cashRegisterShifts)
       .leftJoin(cashRegisters, eq(cashRegisterShifts.cashRegisterId, cashRegisters.id))
-      .leftJoin(users, eq(cashRegisterShifts.openedByUserId, users.id))
+      .leftJoin(openedByUsers, eq(cashRegisterShifts.openedByUserId, openedByUsers.id))
+      .leftJoin(closedByUsers, eq(cashRegisterShifts.closedByUserId, closedByUsers.id))
       .where(and(...conditions))
       .orderBy(desc(cashRegisterShifts.openedAt));
 
@@ -3909,6 +3915,7 @@ export class DatabaseStorage implements IStorage {
       ...r.shift,
       cashRegister: r.cashRegister!,
       openedBy: r.openedBy!,
+      closedBy: r.closedBy || undefined,
     }));
   }
 
