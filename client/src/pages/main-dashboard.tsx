@@ -1,6 +1,3 @@
-import { useAuth } from "@/hooks/useAuth";
-import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import Dashboard from "./dashboard";
 import PDV from "./pdv";
 import Tables from "./tables";
@@ -49,11 +46,6 @@ interface MainDashboardProps {
 export default function MainDashboard({ section }: MainDashboardProps) {
   const currentSection = section;
 
-  const style = {
-    "--sidebar-width": "16rem",
-    "--sidebar-width-icon": "3rem",
-  };
-
   const renderContent = () => {
     switch (currentSection) {
       case "dashboard":
@@ -99,47 +91,5 @@ export default function MainDashboard({ section }: MainDashboardProps) {
     }
   };
 
-  return (
-    <SidebarProvider style={style as React.CSSProperties}>
-      <a href="#main-content" className="skip-to-content">
-        Pular para o conteúdo principal
-      </a>
-      <div className="flex h-screen w-full">
-        <AppSidebar currentSection={currentSection} />
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center justify-between p-4 border-b bg-background" role="banner">
-            <SidebarTrigger 
-              data-testid="button-sidebar-toggle" 
-              aria-label="Abrir menu lateral"
-            />
-            <h1 className="text-xl font-semibold capitalize" data-testid="text-current-section">
-              {currentSection === "dashboard" ? "Dashboard" :
-               currentSection === "pdv" ? "PDV" :
-               currentSection === "tables" ? "Mesas" :
-               currentSection === "menu" ? "Menu" :
-               currentSection === "kitchen" ? "Cozinha" :
-               currentSection === "users" ? "Usuários" :
-               currentSection === "branches" ? "Unidades" :
-               currentSection === "reports" ? "Relatórios" :
-               currentSection === "sales" ? "Vendas" :
-               currentSection === "profile" ? "Perfil" :
-               currentSection === "settings" ? "Configurações" :
-               currentSection === "superadmin" ? "Super Admin" :
-               currentSection === "financial" ? "Lançamentos" :
-               currentSection === "financial-categories" ? "Categorias Financeiras" :
-               currentSection === "financial-new" ? "Novo Lançamento" :
-               currentSection === "financial-cash-registers" ? "Caixa" :
-               currentSection === "financial-shifts" ? "Turnos de Caixa" :
-               currentSection === "expenses" ? "Despesas" :
-               currentSection === "financial-reports" ? "Relatórios Financeiros" : ""}
-            </h1>
-            <div className="w-10" aria-hidden="true" />
-          </header>
-          <main id="main-content" className="flex-1 overflow-auto bg-background" role="main">
-            {renderContent()}
-          </main>
-        </div>
-      </div>
-    </SidebarProvider>
-  );
+  return renderContent();
 }
