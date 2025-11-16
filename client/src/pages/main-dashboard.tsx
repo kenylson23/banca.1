@@ -13,6 +13,13 @@ import Sales from "./sales";
 import Profile from "./profile";
 import Settings from "./settings";
 import SuperAdmin from "./superadmin";
+import FinancialTransactions from "./financial-transactions";
+import FinancialCategories from "./financial-categories";
+import FinancialNewTransaction from "./financial-new-transaction";
+import FinancialCashRegisters from "./financial-cash-registers";
+import CashShifts from "./cash-shifts";
+import Expenses from "./expenses";
+import FinancialReports from "./financial-reports";
 
 export type Section = 
   | "dashboard" 
@@ -26,7 +33,14 @@ export type Section =
   | "sales"
   | "profile" 
   | "settings"
-  | "superadmin";
+  | "superadmin"
+  | "financial"
+  | "financial-categories"
+  | "financial-new"
+  | "financial-cash-registers"
+  | "financial-shifts"
+  | "expenses"
+  | "financial-reports";
 
 interface MainDashboardProps {
   section: Section;
@@ -66,6 +80,20 @@ export default function MainDashboard({ section }: MainDashboardProps) {
         return <Settings />;
       case "superadmin":
         return <SuperAdmin />;
+      case "financial":
+        return <FinancialTransactions />;
+      case "financial-categories":
+        return <FinancialCategories />;
+      case "financial-new":
+        return <FinancialNewTransaction />;
+      case "financial-cash-registers":
+        return <FinancialCashRegisters />;
+      case "financial-shifts":
+        return <CashShifts />;
+      case "expenses":
+        return <Expenses />;
+      case "financial-reports":
+        return <FinancialReports />;
       default:
         return <Dashboard />;
     }
@@ -96,7 +124,14 @@ export default function MainDashboard({ section }: MainDashboardProps) {
                currentSection === "sales" ? "Vendas" :
                currentSection === "profile" ? "Perfil" :
                currentSection === "settings" ? "Configurações" :
-               currentSection === "superadmin" ? "Super Admin" : ""}
+               currentSection === "superadmin" ? "Super Admin" :
+               currentSection === "financial" ? "Lançamentos" :
+               currentSection === "financial-categories" ? "Categorias Financeiras" :
+               currentSection === "financial-new" ? "Novo Lançamento" :
+               currentSection === "financial-cash-registers" ? "Caixa" :
+               currentSection === "financial-shifts" ? "Turnos de Caixa" :
+               currentSection === "expenses" ? "Despesas" :
+               currentSection === "financial-reports" ? "Relatórios Financeiros" : ""}
             </h1>
             <div className="w-10" aria-hidden="true" />
           </header>
