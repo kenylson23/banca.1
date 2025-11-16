@@ -151,6 +151,8 @@ export interface IStorage {
   createMenuItem(restaurantId: string, branchId: string | null, item: Omit<InsertMenuItem, 'restaurantId'>): Promise<MenuItem>;
   updateMenuItem(restaurantId: string, id: string, item: Partial<InsertMenuItem>): Promise<MenuItem>;
   deleteMenuItem(restaurantId: string, id: string): Promise<void>;
+  reorderCategories(restaurantId: string, orderedIds: string[]): Promise<void>;
+  reorderMenuItems(restaurantId: string, categoryId: string, orderedIds: string[]): Promise<void>;
 
   // Order operations
   getKitchenOrders(restaurantId: string, branchId?: string | null): Promise<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> }>>;
@@ -1046,10 +1048,10 @@ export class DatabaseStorage implements IStorage {
             )
           )
         )
-        .orderBy(categories.name);
+        .orderBy(categories.displayOrder, categories.name);
     }
     // Retorna todas as categorias do restaurante (quando não há filial ativa)
-    return await db.select().from(categories).where(eq(categories.restaurantId, restaurantId)).orderBy(categories.name);
+    return await db.select().from(categories).where(eq(categories.restaurantId, restaurantId)).orderBy(categories.displayOrder, categories.name);
   }
 
   async getCategoryById(id: string): Promise<Category | undefined> {
@@ -1114,14 +1116,14 @@ export class DatabaseStorage implements IStorage {
             )
           )
         )
-        .orderBy(categories.name, menuItems.name);
+        .orderBy(categories.displayOrder, categories.name, menuItems.displayOrder, menuItems.name);
     } else {
       results = await db
         .select()
         .from(menuItems)
         .leftJoin(categories, eq(menuItems.categoryId, categories.id))
         .where(eq(menuItems.restaurantId, restaurantId))
-        .orderBy(categories.name, menuItems.name);
+        .orderBy(categories.displayOrder, categories.name, menuItems.displayOrder, menuItems.name);
     }
 
     return results.map((row: { menu_items: MenuItem; categories: Category | null }) => ({
@@ -1173,6 +1175,32 @@ export class DatabaseStorage implements IStorage {
     }
     
     await db.delete(menuItems).where(eq(menuItems.id, id));
+  }
+
+  async reorderCategories(restaurantId: string, orderedIds: string[]): Promise<void> {
+    // Update displayOrder for each category in the provided order
+    for (let i = 0; i < orderedIds.length; i++) {
+      const categoryId = orderedIds[i];
+      const category = await this.getCategoryById(categoryId);
+      if (category && category.restaurantId === restaurantId) {
+        await db.update(categories)
+          .set({ displayOrder: i })
+          .where(eq(categories.id, categoryId));
+      }
+    }
+  }
+
+  async reorderMenuItems(restaurantId: string, categoryId: string, orderedIds: string[]): Promise<void> {
+    // Update displayOrder for each menu item in the provided order within a category
+    for (let i = 0; i < orderedIds.length; i++) {
+      const itemId = orderedIds[i];
+      const item = await this.getMenuItemById(itemId);
+      if (item && item.restaurantId === restaurantId && item.categoryId === categoryId) {
+        await db.update(menuItems)
+          .set({ displayOrder: i })
+          .where(eq(menuItems.id, itemId));
+      }
+    }
   }
 
   // Order operations

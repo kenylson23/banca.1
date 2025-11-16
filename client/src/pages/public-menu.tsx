@@ -202,14 +202,16 @@ export default function PublicMenu() {
     });
   };
 
-  const groupedByCategory = menuItems?.reduce((acc, item) => {
-    const categoryName = item.category.name;
-    if (!acc[categoryName]) {
-      acc[categoryName] = [];
-    }
-    acc[categoryName].push(item);
-    return acc;
-  }, {} as Record<string, Array<MenuItem & { category: Category }>>);
+  const groupedByCategory = menuItems
+    ?.filter(item => item.isVisible === 1)
+    ?.reduce((acc, item) => {
+      const categoryName = item.category.name;
+      if (!acc[categoryName]) {
+        acc[categoryName] = [];
+      }
+      acc[categoryName].push(item);
+      return acc;
+    }, {} as Record<string, Array<MenuItem & { category: Category }>>);
 
   if (!slug) {
     return (

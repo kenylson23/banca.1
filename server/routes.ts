@@ -1367,6 +1367,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/categories/reorder", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const { orderedIds } = req.body;
+      
+      if (!Array.isArray(orderedIds)) {
+        return res.status(400).json({ message: "orderedIds must be an array" });
+      }
+      
+      await storage.reorderCategories(restaurantId, orderedIds);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to reorder categories" });
+    }
+  });
+
   // ===== MENU ITEM ROUTES (Admin Only) =====
   app.get("/api/menu-items", isAdmin, async (req, res) => {
     try {
@@ -1435,6 +1456,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete menu item" });
+    }
+  });
+
+  app.post("/api/menu-items/reorder", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const { categoryId, orderedIds } = req.body;
+      
+      if (!categoryId || !Array.isArray(orderedIds)) {
+        return res.status(400).json({ message: "categoryId and orderedIds are required" });
+      }
+      
+      await storage.reorderMenuItems(restaurantId, categoryId, orderedIds);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to reorder menu items" });
     }
   });
 
