@@ -647,6 +647,9 @@ export const categories = pgTable("categories", {
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }), // Filial específica (null = compartilhado)
   name: varchar("name", { length: 100 }).notNull(),
+  imageUrl: text("image_url"), // URL da imagem/ícone da categoria
+  displayOrder: integer("display_order").notNull().default(0), // Ordem de exibição
+  isVisible: integer("is_visible").notNull().default(1), // 0 = oculto, 1 = visível
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -659,6 +662,9 @@ export const insertCategorySchema = createInsertSchema(categories).omit({
 
 export const updateCategorySchema = z.object({
   name: z.string().min(1, "Nome da categoria é obrigatório").max(100, "Nome muito longo"),
+  imageUrl: z.string().nullable().optional(),
+  displayOrder: z.number().optional(),
+  isVisible: z.number().min(0).max(1).optional(),
 });
 
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
@@ -675,7 +681,10 @@ export const menuItems = pgTable("menu_items", {
   description: text("description"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   imageUrl: text("image_url"),
+  displayOrder: integer("display_order").notNull().default(0), // Ordem de exibição
+  isVisible: integer("is_visible").notNull().default(1), // 0 = oculto no menu, 1 = visível
   isAvailable: integer("is_available").notNull().default(1), // 0 = indisponível, 1 = disponível
+  isFavorite: integer("is_favorite").notNull().default(0), // 0 = não é favorito, 1 = favorito
   createdAt: timestamp("created_at").defaultNow(),
 });
 

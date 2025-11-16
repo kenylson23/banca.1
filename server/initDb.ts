@@ -301,6 +301,17 @@ export async function ensureTablesExist() {
         ALTER TABLE categories ADD COLUMN branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
+      // Add customization fields to categories
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE categories ADD COLUMN image_url TEXT; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE categories ADD COLUMN display_order INTEGER NOT NULL DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE categories ADD COLUMN is_visible INTEGER NOT NULL DEFAULT 1; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
       // Create menu_items with restaurantId
       await db.execute(sql`CREATE TABLE IF NOT EXISTS menu_items (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
@@ -322,6 +333,17 @@ export async function ensureTablesExist() {
       // Add branch_id to menu_items
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE menu_items ADD COLUMN branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Add customization fields to menu_items
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE menu_items ADD COLUMN display_order INTEGER NOT NULL DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE menu_items ADD COLUMN is_visible INTEGER NOT NULL DEFAULT 1; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE menu_items ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Create orders table
