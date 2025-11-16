@@ -14,13 +14,6 @@ import PublicMenu from "@/pages/public-menu";
 import TrackOrder from "@/pages/track-order";
 import MainDashboard from "@/pages/main-dashboard";
 import OrderDetail from "@/pages/order-detail";
-import FinancialTransactions from "@/pages/financial-transactions";
-import FinancialCategories from "@/pages/financial-categories";
-import FinancialNewTransaction from "@/pages/financial-new-transaction";
-import FinancialCashRegisters from "@/pages/financial-cash-registers";
-import CashShifts from "@/pages/cash-shifts";
-import Expenses from "@/pages/expenses";
-import FinancialReports from "@/pages/financial-reports";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -146,49 +139,49 @@ function Router() {
           
           <Route path="/financial" component={() => {
             if (user?.role === 'admin') {
-              return <FinancialTransactions />;
+              return <MainDashboard section="financial" />;
             }
             return <Redirect to="/" />;
           }} />
           
           <Route path="/financial/categories" component={() => {
             if (user?.role === 'admin') {
-              return <FinancialCategories />;
+              return <MainDashboard section="financial-categories" />;
             }
             return <Redirect to="/" />;
           }} />
           
           <Route path="/financial/new" component={() => {
             if (user?.role === 'admin') {
-              return <FinancialNewTransaction />;
+              return <MainDashboard section="financial-new" />;
             }
             return <Redirect to="/" />;
           }} />
           
           <Route path="/financial/cash-registers" component={() => {
             if (user?.role === 'admin') {
-              return <FinancialCashRegisters />;
+              return <MainDashboard section="financial-cash-registers" />;
             }
             return <Redirect to="/" />;
           }} />
           
           <Route path="/financial/shifts" component={() => {
             if (user?.role === 'admin') {
-              return <CashShifts />;
+              return <MainDashboard section="financial-shifts" />;
             }
             return <Redirect to="/" />;
           }} />
           
           <Route path="/expenses" component={() => {
             if (user?.role === 'admin') {
-              return <Expenses />;
+              return <MainDashboard section="expenses" />;
             }
             return <Redirect to="/" />;
           }} />
           
           <Route path="/financial/reports" component={() => {
             if (user?.role === 'admin') {
-              return <FinancialReports />;
+              return <MainDashboard section="financial-reports" />;
             }
             return <Redirect to="/" />;
           }} />
