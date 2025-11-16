@@ -1301,6 +1301,51 @@ export const insertFinancialTransactionSchema = createInsertSchema(financialTran
 export type InsertFinancialTransaction = z.infer<typeof insertFinancialTransactionSchema>;
 export type FinancialTransaction = typeof financialTransactions.$inferSelect;
 
+// Financial Module - Expenses (Despesas)
+export const expenses = pgTable("expenses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  categoryId: varchar("category_id").notNull().references(() => financialCategories.id, { onDelete: 'restrict' }),
+  transactionId: varchar("transaction_id").references(() => financialTransactions.id, { onDelete: 'restrict' }),
+  description: varchar("description", { length: 500 }).notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  occurredAt: timestamp("occurred_at").notNull(),
+  recordedByUserId: varchar("recorded_by_user_id").notNull().references(() => users.id, { onDelete: 'restrict' }),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertExpenseSchema = createInsertSchema(expenses).omit({
+  id: true,
+  restaurantId: true,
+  transactionId: true,
+  recordedByUserId: true,
+  createdAt: true,
+}).extend({
+  branchId: z.string().optional().nullable(),
+  categoryId: z.string().min(1, "Categoria é obrigatória"),
+  description: z.string().min(1, "Descrição é obrigatória"),
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
+  paymentMethod: z.enum(['dinheiro', 'multicaixa', 'transferencia', 'cartao']),
+  occurredAt: z.string().min(1, "Data e hora são obrigatórias"),
+  note: z.string().optional(),
+});
+
+export const updateExpenseSchema = z.object({
+  categoryId: z.string().min(1, "Categoria é obrigatória").optional(),
+  description: z.string().min(1, "Descrição é obrigatória").optional(),
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido").optional(),
+  paymentMethod: z.enum(['dinheiro', 'multicaixa', 'transferencia', 'cartao']).optional(),
+  occurredAt: z.string().min(1, "Data e hora são obrigatórias").optional(),
+  note: z.string().optional(),
+});
+
+export type InsertExpense = z.infer<typeof insertExpenseSchema>;
+export type UpdateExpense = z.infer<typeof updateExpenseSchema>;
+export type Expense = typeof expenses.$inferSelect;
+
 // Relations
 export const cashRegistersRelations = relations(cashRegisters, ({ one, many }) => ({
   restaurant: one(restaurants, {
@@ -1379,5 +1424,28 @@ export const financialTransactionsRelations = relations(financialTransactions, (
   referenceOrder: one(orders, {
     fields: [financialTransactions.referenceOrderId],
     references: [orders.id],
+  }),
+}));
+
+export const expensesRelations = relations(expenses, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [expenses.restaurantId],
+    references: [restaurants.id],
+  }),
+  branch: one(branches, {
+    fields: [expenses.branchId],
+    references: [branches.id],
+  }),
+  category: one(financialCategories, {
+    fields: [expenses.categoryId],
+    references: [financialCategories.id],
+  }),
+  transaction: one(financialTransactions, {
+    fields: [expenses.transactionId],
+    references: [financialTransactions.id],
+  }),
+  recordedBy: one(users, {
+    fields: [expenses.recordedByUserId],
+    references: [users.id],
   }),
 }));

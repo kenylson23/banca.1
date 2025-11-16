@@ -3484,6 +3484,155 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== EXPENSES MODULE =====
+
+  app.get("/api/expenses", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const branchId = currentUser.activeBranchId || null;
+      const filters: any = {};
+
+      if (req.query.categoryId) {
+        filters.categoryId = req.query.categoryId as string;
+      }
+
+      if (req.query.startDate) {
+        filters.startDate = new Date(req.query.startDate as string);
+      }
+
+      if (req.query.endDate) {
+        filters.endDate = new Date(req.query.endDate as string);
+      }
+
+      const expenses = await storage.getExpenses(currentUser.restaurantId, branchId, filters);
+      res.json(expenses);
+    } catch (error) {
+      console.error('Expenses fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar despesas" });
+    }
+  });
+
+  app.post("/api/expenses", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const expenseSchema = z.object({
+        categoryId: z.string().min(1, "Categoria é obrigatória"),
+        description: z.string().min(1, "Descrição é obrigatória"),
+        amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
+        paymentMethod: z.enum(['dinheiro', 'multicaixa', 'transferencia', 'cartao']),
+        occurredAt: z.string().min(1, "Data e hora são obrigatórias"),
+        note: z.string().optional(),
+      });
+
+      const validatedData = expenseSchema.parse(req.body);
+      const branchId = currentUser.activeBranchId || null;
+
+      const newExpense = await storage.createExpense(
+        currentUser.restaurantId,
+        branchId,
+        currentUser.id,
+        validatedData
+      );
+
+      res.json(newExpense);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Expense creation error:', error);
+      res.status(500).json({ message: "Erro ao criar despesa" });
+    }
+  });
+
+  app.put("/api/expenses/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const updateSchema = z.object({
+        categoryId: z.string().min(1).optional(),
+        description: z.string().min(1).optional(),
+        amount: z.string().regex(/^\d+(\.\d{1,2})?$/).optional(),
+        paymentMethod: z.enum(['dinheiro', 'multicaixa', 'transferencia', 'cartao']).optional(),
+        occurredAt: z.string().min(1).optional(),
+        note: z.string().optional(),
+      });
+
+      const validatedData = updateSchema.parse(req.body);
+
+      const updatedExpense = await storage.updateExpense(
+        currentUser.restaurantId,
+        req.params.id,
+        validatedData
+      );
+
+      res.json(updatedExpense);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Expense update error:', error);
+      res.status(500).json({ message: "Erro ao atualizar despesa" });
+    }
+  });
+
+  app.delete("/api/expenses/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      await storage.deleteExpense(currentUser.restaurantId, req.params.id);
+
+      res.json({ message: "Despesa excluída com sucesso" });
+    } catch (error) {
+      console.error('Expense delete error:', error);
+      res.status(500).json({ message: "Erro ao excluir despesa" });
+    }
+  });
+
+  // ===== FINANCIAL REPORTS =====
+
+  app.get("/api/financial/reports", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      if (!req.query.startDate || !req.query.endDate) {
+        return res.status(400).json({ message: "Data inicial e final são obrigatórias" });
+      }
+
+      const branchId = currentUser.activeBranchId || null;
+      const startDate = new Date(req.query.startDate as string);
+      const endDate = new Date(req.query.endDate as string);
+
+      const report = await storage.getFinancialReport(
+        currentUser.restaurantId,
+        branchId,
+        startDate,
+        endDate
+      );
+
+      res.json(report);
+    } catch (error) {
+      console.error('Financial report fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar relatório financeiro" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // Setup WebSocket server for real-time updates
