@@ -14,7 +14,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 function formatKwanza(value: string | number): string {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
@@ -51,14 +50,7 @@ export default function FinancialReports() {
   const isPositive = netBalance >= 0;
 
   return (
-    <AdminLTELayout
-      pageTitle="Relatórios Financeiros"
-      breadcrumbs={[
-        { label: "Home", href: "/" },
-        { label: "Financeiro", href: "/financial" },
-        { label: "Relatórios" }
-      ]}
-    >
+    <div className="p-4 sm:p-6 space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Período do Relatório</CardTitle>
@@ -278,6 +270,6 @@ export default function FinancialReports() {
           </CardContent>
         </Card>
       )}
-    </AdminLTELayout>
+    </div>
   );
 }

@@ -13,7 +13,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatKwanza } from "@/lib/formatters";
 import { PrintOrder } from "@/components/PrintOrder";
 import type { Order, OrderItem, MenuItem, Table, OrderItemOption } from "@shared/schema";
-import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 type OrderStatus = "pendente" | "em_preparo" | "pronto" | "servido";
 type StatsPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
@@ -294,14 +293,7 @@ export default function Kitchen() {
   };
 
   return (
-    <AdminLTELayout
-      pageTitle="Cozinha"
-      breadcrumbs={[
-        { label: "Home", href: "/" },
-        { label: "Cozinha" }
-      ]}
-    >
-      <div className="space-y-6 sm:space-y-8">
+      <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-4 sm:px-6">
           <div className="flex items-center flex-wrap gap-2">
           <Button
@@ -692,6 +684,5 @@ export default function Kitchen() {
         </div>
       )}
       </div>
-    </AdminLTELayout>
   );
 }

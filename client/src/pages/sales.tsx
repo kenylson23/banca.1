@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { SalesKPIs } from '@/components/SalesKPIs';
 import { SalesFilters } from '@/components/SalesFilters';
 import { SalesTable } from '@/components/SalesTable';
-import { AdminLTELayout } from '@/components/AdminLTELayout';
 
 export default function Sales() {
   const [dateFilter, setDateFilter] = useState('today');
@@ -17,13 +16,7 @@ export default function Sales() {
   const [orderTypeFilter, setOrderTypeFilter] = useState('all');
 
   return (
-    <AdminLTELayout
-      pageTitle="Vendas"
-      breadcrumbs={[
-        { label: "Home", href: "/" },
-        { label: "Vendas" }
-      ]}
-    >
+    <div className="p-4 sm:p-6 space-y-6">
       <SalesFilters
         dateFilter={dateFilter}
         onDateFilterChange={setDateFilter}
@@ -60,6 +53,6 @@ export default function Sales() {
         paymentStatusFilter={paymentStatusFilter}
         orderTypeFilter={orderTypeFilter}
       />
-    </AdminLTELayout>
+    </div>
   );
 }

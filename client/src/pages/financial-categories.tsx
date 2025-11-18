@@ -37,7 +37,6 @@ import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { FinancialCategory } from "@shared/schema";
-import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 interface CategoryFormData {
   type: 'receita' | 'despesa';
@@ -137,15 +136,7 @@ export default function FinancialCategories() {
   const incomeCategories = categories?.filter(c => c.type === 'receita') || [];
 
   return (
-    <AdminLTELayout
-      pageTitle="Categorias Financeiras"
-      breadcrumbs={[
-        { label: "Home", href: "/" },
-        { label: "Financeiro", href: "/financial" },
-        { label: "Categorias" }
-      ]}
-    >
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <Button data-testid="button-new-category" onClick={() => setIsDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -317,28 +308,28 @@ export default function FinancialCategories() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
-        open={deleteCategoryId !== null}
-        onOpenChange={(open) => !open && setDeleteCategoryId(null)}
-      >
-        <AlertDialogContent data-testid="dialog-delete-category">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir categoria?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. A categoria só pode ser excluída se não tiver sido usada em nenhum lançamento.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteCategoryId && deleteCategoryMutation.mutate(deleteCategoryId)}
-              data-testid="button-confirm-delete"
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </AdminLTELayout>
+        <AlertDialog
+          open={deleteCategoryId !== null}
+          onOpenChange={(open) => !open && setDeleteCategoryId(null)}
+        >
+          <AlertDialogContent data-testid="dialog-delete-category">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir categoria?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação não pode ser desfeita. A categoria só pode ser excluída se não tiver sido usada em nenhum lançamento.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-delete">Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => deleteCategoryId && deleteCategoryMutation.mutate(deleteCategoryId)}
+                data-testid="button-confirm-delete"
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
   );
 }

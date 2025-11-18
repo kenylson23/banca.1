@@ -37,7 +37,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { CashRegister, CashRegisterShift } from "@shared/schema";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 interface ShiftWithDetails extends CashRegisterShift {
   cashRegister: CashRegister;
@@ -168,15 +167,7 @@ export default function CashShifts() {
   };
 
   return (
-    <AdminLTELayout
-      pageTitle="Turnos de Caixa"
-      breadcrumbs={[
-        { label: "Home", href: "/" },
-        { label: "Financeiro", href: "/financial" },
-        { label: "Turnos" }
-      ]}
-    >
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex gap-2">
             <Button
@@ -567,6 +558,5 @@ export default function CashShifts() {
           </DialogContent>
         </Dialog>
       </div>
-    </AdminLTELayout>
   );
 }

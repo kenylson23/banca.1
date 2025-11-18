@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Trash2, Edit, MapPin, Phone } from "lucide-react";
-import { AdminLTELayout } from "@/components/AdminLTELayout";
 import {
   Dialog,
   DialogContent,
@@ -157,13 +156,7 @@ export default function Branches() {
   };
 
   return (
-    <AdminLTELayout
-      pageTitle="Unidades"
-      breadcrumbs={[
-        { label: "Home", href: "/" },
-        { label: "Unidades" }
-      ]}
-    >
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
           <DialogTrigger asChild>
@@ -332,6 +325,6 @@ export default function Branches() {
           ))}
         </div>
       )}
-    </AdminLTELayout>
+    </div>
   );
 }

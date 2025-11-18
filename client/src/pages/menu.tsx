@@ -9,8 +9,6 @@ import { CategoriesTab } from "@/components/menu/CategoriesTab";
 import { CustomizationsTab } from "@/components/menu/CustomizationsTab";
 import { PreviewTab } from "@/components/menu/PreviewTab";
 import { CustomizeMenuTab } from "@/components/menu/CustomizeMenuTab";
-import { AdminLTELayout } from "@/components/AdminLTELayout";
-
 export default function Menu() {
   const { toast } = useToast();
 
@@ -24,14 +22,7 @@ export default function Menu() {
   });
 
   return (
-    <AdminLTELayout 
-      pageTitle="Gestão de Produtos"
-      breadcrumbs={[
-        { label: 'Home', href: '/dashboard' },
-        { label: 'Menu' }
-      ]}
-    >
-    <div className="space-y-6 sm:space-y-8">
+    <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <Button 
           variant="outline" 
@@ -106,6 +97,5 @@ export default function Menu() {
         </TabsContent>
       </Tabs>
     </div>
-    </AdminLTELayout>
   );
 }

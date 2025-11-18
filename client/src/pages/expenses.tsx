@@ -34,7 +34,6 @@ import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import type { FinancialTransaction, FinancialCategory, User, CashRegister } from "@shared/schema";
-import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 interface ExpenseWithDetails extends FinancialTransaction {
   category: FinancialCategory | null;
@@ -150,14 +149,7 @@ export default function ExpensesPage() {
   const totalExpenses = expenses?.reduce((sum, exp) => sum + parseFloat(exp.amount), 0) || 0;
 
   return (
-    <AdminLTELayout
-      pageTitle="Despesas"
-      breadcrumbs={[
-        { label: "Home", href: "/" },
-        { label: "Financeiro", href: "/financial" },
-        { label: "Despesas" }
-      ]}
-    >
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <Button 
           onClick={() => setNewExpenseDialog(true)}
@@ -536,6 +528,6 @@ export default function ExpensesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AdminLTELayout>
+    </div>
   );
 }

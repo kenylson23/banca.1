@@ -18,7 +18,6 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { CashRegister, FinancialCategory } from "@shared/schema";
-import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 interface TransactionFormData {
   cashRegisterId: string;
@@ -129,15 +128,7 @@ export default function FinancialNewTransaction() {
   };
 
   return (
-    <AdminLTELayout
-      pageTitle="Novo Lançamento"
-      breadcrumbs={[
-        { label: "Home", href: "/" },
-        { label: "Financeiro", href: "/financial" },
-        { label: "Novo Lançamento" }
-      ]}
-    >
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -290,6 +281,5 @@ export default function FinancialNewTransaction() {
           </CardContent>
         </Card>
       </div>
-    </AdminLTELayout>
   );
 }

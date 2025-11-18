@@ -29,7 +29,6 @@ import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import type { CashRegister, CashRegisterShift } from "@shared/schema";
-import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 interface ShiftWithDetails extends CashRegisterShift {
   cashRegister: CashRegister;
@@ -196,15 +195,7 @@ export default function FinancialCashRegisters() {
   };
 
   return (
-    <AdminLTELayout
-      pageTitle="Caixas"
-      breadcrumbs={[
-        { label: "Home", href: "/" },
-        { label: "Financeiro", href: "/financial" },
-        { label: "Caixas" }
-      ]}
-    >
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
           <Button onClick={() => setNewRegisterDialog(true)} data-testid="button-new-register">
             <Plus className="h-4 w-4 mr-2" />
@@ -605,6 +596,5 @@ export default function FinancialCashRegisters() {
           </DialogContent>
         </Dialog>
       </div>
-    </AdminLTELayout>
   );
 }

@@ -10,7 +10,6 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
-import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 export default function Profile() {
   const { user } = useAuth();
@@ -85,14 +84,7 @@ export default function Profile() {
   };
 
   return (
-    <AdminLTELayout
-      pageTitle="Perfil"
-      breadcrumbs={[
-        { label: "Home", href: "/" },
-        { label: "Perfil" }
-      ]}
-    >
-      <div className="space-y-6 sm:space-y-8 max-w-4xl">
+      <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 max-w-4xl">
         <Card>
         <CardHeader>
           <CardTitle>Informações Pessoais</CardTitle>
@@ -268,6 +260,5 @@ export default function Profile() {
         </CardContent>
       </Card>
       </div>
-    </AdminLTELayout>
   );
 }

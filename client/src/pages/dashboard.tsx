@@ -8,7 +8,6 @@ import type { Order, MenuItem } from "@shared/schema";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
-import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 interface DashboardStats {
   todaySales: string;
@@ -81,14 +80,7 @@ export default function Dashboard() {
   });
 
   return (
-    <AdminLTELayout 
-      pageTitle="Dashboard" 
-      breadcrumbs={[
-        { label: 'Home', href: '/' },
-        { label: 'Dashboard' }
-      ]}
-    >
-    <div className="space-y-6 sm:space-y-8">
+    <div className="space-y-6 sm:space-y-8 p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Dashboard</h1>
@@ -286,6 +278,5 @@ export default function Dashboard() {
         </Card>
       </div>
     </div>
-    </AdminLTELayout>
   );
 }

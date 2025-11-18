@@ -34,7 +34,6 @@ import { formatKwanza } from "@/lib/formatters";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { FinancialTransaction, CashRegister, FinancialCategory, User } from "@shared/schema";
-import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 type TransactionWithDetails = FinancialTransaction & {
   cashRegister: CashRegister | null;
@@ -131,15 +130,7 @@ export default function FinancialTransactions() {
   });
 
   return (
-    <AdminLTELayout
-      pageTitle="Lançamentos Financeiros"
-      breadcrumbs={[
-        { label: "Home", href: "/" },
-        { label: "Financeiro", href: "/financial" },
-        { label: "Lançamentos" }
-      ]}
-    >
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex gap-3">
             <Link href="/financial/shifts">
@@ -407,30 +398,29 @@ export default function FinancialTransactions() {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      <AlertDialog
-        open={deleteTransactionId !== null}
-        onOpenChange={(open) => !open && setDeleteTransactionId(null)}
-      >
-        <AlertDialogContent data-testid="dialog-delete-transaction">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir lançamento?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação irá remover o lançamento e reverter o saldo da caixa registradora. Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteTransactionId && deleteTransactionMutation.mutate(deleteTransactionId)}
-              data-testid="button-confirm-delete"
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </AdminLTELayout>
+        <AlertDialog
+          open={deleteTransactionId !== null}
+          onOpenChange={(open) => !open && setDeleteTransactionId(null)}
+        >
+          <AlertDialogContent data-testid="dialog-delete-transaction">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir lançamento?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação irá remover o lançamento e reverter o saldo da caixa registradora. Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-delete">Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => deleteTransactionId && deleteTransactionMutation.mutate(deleteTransactionId)}
+                data-testid="button-confirm-delete"
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
   );
 }
