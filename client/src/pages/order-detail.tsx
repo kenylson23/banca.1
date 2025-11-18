@@ -19,6 +19,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatKwanza } from "@/lib/formatters";
 import { format } from "date-fns";
 import { PrintOrder } from "@/components/PrintOrder";
+import { ProductSelector } from "@/components/ProductSelector";
 import type { Order, OrderItem, MenuItem } from "@shared/schema";
 
 interface OrderDetail extends Order {
@@ -60,6 +61,7 @@ export default function OrderDetail() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [elapsedTime, setElapsedTime] = useState(0);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [productSelectorOpen, setProductSelectorOpen] = useState(false);
 
   const { data: order, isLoading } = useQuery<OrderDetail>({
     queryKey: ["/api/orders", orderId],
@@ -109,18 +111,21 @@ export default function OrderDetail() {
   });
 
   const addItemMutation = useMutation({
-    mutationFn: async (item: { menuItemId: string; quantity: number; price: string }) => {
-      const response = await apiRequest("POST", `/api/orders/${orderId}/items`, {
-        ...item,
-        notes: "",
-        selectedOptions: [],
-      });
+    mutationFn: async (item: { 
+      menuItemId: string; 
+      quantity: number; 
+      price: string;
+      notes: string;
+      selectedOptions: Array<{ optionId: string; optionGroupId: string }>;
+    }) => {
+      const response = await apiRequest("POST", `/api/orders/${orderId}/items`, item);
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders", orderId] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       toast({ title: "Item adicionado" });
+      setProductSelectorOpen(false);
     },
     onError: () => {
       toast({ title: "Erro ao adicionar item", variant: "destructive" });
@@ -417,42 +422,21 @@ export default function OrderDetail() {
                 <Plus className="h-4 w-4" />
                 Produtos
               </CardTitle>
-              <Dialog>
+              <Dialog open={productSelectorOpen} onOpenChange={setProductSelectorOpen}>
                 <DialogTrigger asChild>
                   <Button variant="ghost" size="sm" data-testid="button-add-product">
                     <Plus className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-6xl max-h-[90vh] p-6">
                   <DialogHeader>
-                    <DialogTitle>Adicionar Produto</DialogTitle>
+                    <DialogTitle>Adicionar Produtos ao Pedido</DialogTitle>
                   </DialogHeader>
-                  <ScrollArea className="max-h-96">
-                    <div className="space-y-2">
-                      {menuItems.filter(item => item.isAvailable === 1).map((item) => (
-                        <Card
-                          key={item.id}
-                          className="hover-elevate cursor-pointer"
-                          onClick={() => {
-                            addItemMutation.mutate({
-                              menuItemId: item.id,
-                              quantity: 1,
-                              price: item.price,
-                            });
-                          }}
-                          data-testid={`add-menu-item-${item.id}`}
-                        >
-                          <CardContent className="p-3">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <p className="font-medium">{item.name}</p>
-                              </div>
-                              <Badge variant="secondary">{formatKwanza(item.price)}</Badge>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+                  <ScrollArea className="h-[calc(90vh-8rem)]">
+                    <ProductSelector
+                      onAddToOrder={(item) => addItemMutation.mutate(item)}
+                      onClose={() => setProductSelectorOpen(false)}
+                    />
                   </ScrollArea>
                 </DialogContent>
               </Dialog>
