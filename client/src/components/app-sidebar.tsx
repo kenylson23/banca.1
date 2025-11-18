@@ -146,17 +146,17 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
   return (
     <Sidebar role="navigation" aria-label="Menu principal de navegação">
       <SidebarContent>
-        <div className="p-4 border-b border-sidebar-border">
+        <div className="p-6 border-b border-sidebar-border bg-gradient-to-br from-primary/10 to-transparent">
           <h1 className="text-xl font-bold text-sidebar-foreground">Na Bancada</h1>
-          <p className="text-sm text-muted-foreground">Sistema de Gestão</p>
+          <p className="text-xs text-muted-foreground mt-1">Sistema de Gestão</p>
         </div>
 
         <BranchSelector />
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
+        <SidebarGroup className="px-3 py-4">
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">Menu Principal</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
@@ -165,9 +165,10 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
                     data-testid={`button-${item.title.toLowerCase()}`}
                     aria-label={`Navegar para ${item.title}`}
                     aria-current={currentSection === item.section ? 'page' : undefined}
+                    className="h-10 px-3 rounded-lg transition-all duration-200"
                   >
-                    <item.icon className="h-4 w-4" aria-hidden="true" />
-                    <span>{item.title}</span>
+                    <item.icon className="h-5 w-5 mr-3" aria-hidden="true" />
+                    <span className="font-medium">{item.title}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -177,15 +178,15 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="p-4 border-t border-sidebar-border space-y-3" role="contentinfo" aria-label="Informações do usuário">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-9 w-9" aria-hidden="true">
-              <AvatarFallback>
+        <div className="p-4 border-t border-sidebar-border space-y-3 bg-gradient-to-t from-sidebar-accent/30 to-transparent" role="contentinfo" aria-label="Informações do usuário">
+          <div className="flex items-center gap-3 p-2 rounded-lg hover-elevate transition-colors">
+            <Avatar className="h-10 w-10 border-2 border-primary/20" aria-hidden="true">
+              <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                 {user?.firstName?.[0] || user?.email?.[0] || "U"}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium text-sidebar-foreground truncate" data-testid="text-user-name">
+              <p className="text-sm font-semibold text-sidebar-foreground truncate" data-testid="text-user-name">
                 {user?.firstName || user?.email || "Usuário"}
               </p>
               {user?.email && (
@@ -199,18 +200,18 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
             <Button
               variant="outline"
               size="sm"
-              className="flex-1"
+              className="flex-1 rounded-lg"
               onClick={() => setLocation("/profile")}
               data-testid="button-profile"
               aria-label="Ver perfil do usuário"
             >
-              <User className="h-4 w-4 mr-2" aria-hidden="true" />
+              <User className="h-4 w-4 mr-1" aria-hidden="true" />
               Perfil
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="flex-1"
+              className="flex-1 rounded-lg"
               onClick={async () => {
                 try {
                   await fetch("/api/auth/logout", { 
@@ -227,7 +228,7 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
               data-testid="button-logout"
               aria-label="Sair do sistema"
             >
-              <LogOut className="h-4 w-4 mr-2" aria-hidden="true" />
+              <LogOut className="h-4 w-4 mr-1" aria-hidden="true" />
               Sair
             </Button>
           </div>
