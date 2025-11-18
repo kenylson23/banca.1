@@ -59,16 +59,16 @@ export function SalesKPIs({
 
   if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {[...Array(4)].map((_, i) => (
-          <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-4 w-4" />
+          <Card key={i} className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <Skeleton className="h-5 w-28" />
+              <Skeleton className="h-10 w-10 rounded-lg" />
             </CardHeader>
             <CardContent>
-              <Skeleton className="h-8 w-32 mb-2" />
-              <Skeleton className="h-3 w-40" />
+              <Skeleton className="h-9 w-36 mb-2" />
+              <Skeleton className="h-4 w-44" />
             </CardContent>
           </Card>
         ))}
@@ -77,70 +77,86 @@ export function SalesKPIs({
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card data-testid="card-total-orders">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <Card data-testid="card-total-orders" className="shadow-sm hover:shadow-md transition-shadow">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
             Total de Pedidos
           </CardTitle>
-          <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+          <div className="p-2.5 rounded-lg bg-primary/10">
+            <ShoppingCart className="h-5 w-5 text-primary" />
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold" data-testid="text-total-orders">
+          <div className="text-3xl font-bold tracking-tight" data-testid="text-total-orders">
             {stats?.totalOrders || 0}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {stats?.paidOrders || 0} pagos • {stats?.pendingOrders || 0} pendentes
+          <p className="text-sm text-muted-foreground mt-2 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
+              {stats?.paidOrders || 0} pagos
+            </span>
+            <span>•</span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-warning"></span>
+              {stats?.pendingOrders || 0} pendentes
+            </span>
           </p>
         </CardContent>
       </Card>
 
-      <Card data-testid="card-total-revenue">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+      <Card data-testid="card-total-revenue" className="shadow-sm hover:shadow-md transition-shadow border-primary/20">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
             Total Geral
           </CardTitle>
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
+          <div className="p-2.5 rounded-lg bg-success/10">
+            <DollarSign className="h-5 w-5 text-success" />
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-primary" data-testid="text-total-revenue">
+          <div className="text-3xl font-bold text-primary tracking-tight" data-testid="text-total-revenue">
             {formatKwanza(stats?.totalRevenue || 0)}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-2">
             Soma de todos os pedidos
           </p>
         </CardContent>
       </Card>
 
-      <Card data-testid="card-average-ticket">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+      <Card data-testid="card-average-ticket" className="shadow-sm hover:shadow-md transition-shadow">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
             Ticket Médio
           </CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <div className="p-2.5 rounded-lg bg-info/10">
+            <TrendingUp className="h-5 w-5 text-info" />
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold" data-testid="text-average-ticket">
+          <div className="text-3xl font-bold tracking-tight" data-testid="text-average-ticket">
             {formatKwanza(stats?.averageTicket || 0)}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-2">
             Por pedido
           </p>
         </CardContent>
       </Card>
 
-      <Card data-testid="card-cancelled-orders">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+      <Card data-testid="card-cancelled-orders" className="shadow-sm hover:shadow-md transition-shadow">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
             Anulações
           </CardTitle>
-          <BarChart3 className="h-4 w-4 text-muted-foreground" />
+          <div className="p-2.5 rounded-lg bg-destructive/10">
+            <BarChart3 className="h-5 w-5 text-destructive" />
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold" data-testid="text-cancelled-orders">
+          <div className="text-3xl font-bold tracking-tight" data-testid="text-cancelled-orders">
             {stats?.cancelledOrders || 0}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-2">
             Pedidos cancelados
           </p>
         </CardContent>
