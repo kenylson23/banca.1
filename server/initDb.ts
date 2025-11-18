@@ -57,6 +57,18 @@ export async function ensureTablesExist() {
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE restaurants ADD COLUMN description TEXT; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE restaurants ADD COLUMN primary_color VARCHAR(7) DEFAULT '#EA580C'; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE restaurants ADD COLUMN secondary_color VARCHAR(7) DEFAULT '#DC2626'; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE restaurants ADD COLUMN accent_color VARCHAR(7) DEFAULT '#0891B2'; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE restaurants ADD COLUMN hero_image_url TEXT; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Create users table with restaurantId
       await db.execute(sql`CREATE TABLE IF NOT EXISTS users (
