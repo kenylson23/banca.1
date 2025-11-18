@@ -8,11 +8,16 @@ import type { Order, MenuItem } from "@shared/schema";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
+import { StatCard } from "@/components/stat-card";
 
 interface DashboardStats {
   todaySales: string;
   todayOrders: number;
   activeTables: number;
+  yesterdaySales: string;
+  yesterdayOrders: number;
+  salesChange: number;
+  ordersChange: number;
   topDishes: Array<{
     menuItem: MenuItem;
     count: number;
@@ -108,74 +113,73 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {dateRange?.from && dateRange?.to ? "Vendas no Período" : "Vendas Hoje"}
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
-              <>
-                <div className="text-3xl font-bold" data-testid="text-total-sales">
-                  {formatKwanza(displayStats?.totalSales || "0")}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {dateRange?.from && dateRange?.to ? "Receita total" : "Receita do dia atual"}
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+        {isLoading ? (
+          <>
+            <Card>
+              <CardContent className="p-6">
+                <Skeleton className="h-24 w-full" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6">
+                <Skeleton className="h-24 w-full" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6">
+                <Skeleton className="h-24 w-full" />
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          <>
+            <StatCard
+              title={dateRange?.from && dateRange?.to ? "Vendas no Período" : "Vendas Hoje"}
+              value={formatKwanza(displayStats?.totalSales || "0")}
+              icon={DollarSign}
+              iconColor="text-green-600 dark:text-green-400"
+              iconBgColor="bg-green-500/10"
+              trend={
+                !dateRange?.from && !dateRange?.to && todayStats
+                  ? {
+                      value: todayStats.salesChange,
+                      label: `vs. ontem (${formatKwanza(todayStats.yesterdaySales)})`,
+                    }
+                  : undefined
+              }
+              subtitle={dateRange?.from && dateRange?.to ? "Receita total" : undefined}
+              testId="text-total-sales"
+            />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {dateRange?.from && dateRange?.to ? "Pedidos no Período" : "Pedidos Hoje"}
-            </CardTitle>
-            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <>
-                <div className="text-3xl font-bold" data-testid="text-total-orders">
-                  {displayStats?.totalOrders || 0}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Total de pedidos
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+            <StatCard
+              title={dateRange?.from && dateRange?.to ? "Pedidos no Período" : "Pedidos Hoje"}
+              value={displayStats?.totalOrders || 0}
+              icon={ShoppingBag}
+              iconColor="text-blue-600 dark:text-blue-400"
+              iconBgColor="bg-blue-500/10"
+              trend={
+                !dateRange?.from && !dateRange?.to && todayStats
+                  ? {
+                      value: todayStats.ordersChange,
+                      label: `vs. ontem (${todayStats.yesterdayOrders} pedidos)`,
+                    }
+                  : undefined
+              }
+              subtitle={dateRange?.from && dateRange?.to ? "Total de pedidos" : undefined}
+              testId="text-total-orders"
+            />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Ticket Médio
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
-              <>
-                <div className="text-3xl font-bold" data-testid="text-avg-ticket">
-                  {formatKwanza(displayStats?.averageOrderValue || "0")}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Valor médio por pedido
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+            <StatCard
+              title="Ticket Médio"
+              value={formatKwanza(displayStats?.averageOrderValue || "0")}
+              icon={TrendingUp}
+              iconColor="text-orange-600 dark:text-orange-400"
+              iconBgColor="bg-orange-500/10"
+              subtitle="Valor médio por pedido"
+              testId="text-avg-ticket"
+            />
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
