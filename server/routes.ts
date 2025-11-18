@@ -1487,6 +1487,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== RECIPE INGREDIENTS ROUTES (Admin Only) =====
+  app.get("/api/menu-items/:id/recipe", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const menuItem = await storage.getMenuItemById(req.params.id);
+      if (!menuItem) {
+        return res.status(404).json({ message: "Prato não encontrado" });
+      }
+      if (menuItem.restaurantId !== currentUser.restaurantId) {
+        return res.status(403).json({ message: "Não autorizado" });
+      }
+      
+      const ingredients = await storage.getRecipeIngredients(currentUser.restaurantId, req.params.id);
+      const cost = await storage.getMenuItemRecipeCost(currentUser.restaurantId, req.params.id);
+      
+      res.json({ ingredients, cost });
+    } catch (error) {
+      console.error('Error fetching recipe:', error);
+      res.status(500).json({ message: "Erro ao buscar receita" });
+    }
+  });
+
+  app.post("/api/menu-items/:id/recipe", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const menuItem = await storage.getMenuItemById(req.params.id);
+      if (!menuItem) {
+        return res.status(404).json({ message: "Prato não encontrado" });
+      }
+      if (menuItem.restaurantId !== currentUser.restaurantId) {
+        return res.status(403).json({ message: "Não autorizado" });
+      }
+      
+      const inventoryItem = await storage.getInventoryItemById(req.body.inventoryItemId);
+      if (!inventoryItem) {
+        return res.status(404).json({ message: "Ingrediente não encontrado" });
+      }
+      if (inventoryItem.restaurantId !== currentUser.restaurantId) {
+        return res.status(403).json({ message: "Ingrediente não pertence ao seu restaurante" });
+      }
+      
+      const data = {
+        menuItemId: req.params.id,
+        inventoryItemId: req.body.inventoryItemId,
+        quantity: String(parseFloat(req.body.quantity || "0")),
+      };
+      
+      if (parseFloat(data.quantity) <= 0) {
+        return res.status(400).json({ message: "Quantidade deve ser maior que zero" });
+      }
+      
+      const ingredient = await storage.addRecipeIngredient(currentUser.restaurantId, data);
+      res.json(ingredient);
+    } catch (error) {
+      console.error('Error adding ingredient:', error);
+      res.status(500).json({ message: "Erro ao adicionar ingrediente" });
+    }
+  });
+
+  app.patch("/api/recipe-ingredients/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const data = { quantity: req.body.quantity };
+      const ingredient = await storage.updateRecipeIngredient(req.params.id, currentUser.restaurantId, data);
+      res.json(ingredient);
+    } catch (error) {
+      console.error('Error updating ingredient:', error);
+      res.status(500).json({ message: "Erro ao atualizar ingrediente" });
+    }
+  });
+
+  app.delete("/api/recipe-ingredients/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      await storage.deleteRecipeIngredient(req.params.id, currentUser.restaurantId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting ingredient:', error);
+      res.status(500).json({ message: "Erro ao deletar ingrediente" });
+    }
+  });
+
   // ===== OPTION GROUP ROUTES (Admin Only) =====
   app.get("/api/menu-items/:menuItemId/option-groups", isAdmin, async (req, res) => {
     try {
@@ -1827,12 +1925,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const order = await storage.updateOrderStatus(restaurantId, req.params.id, status);
       
-      if (status === 'servido' && order.tableId) {
-        await storage.updateTableOccupancy(restaurantId, order.tableId, false);
-        broadcastToClients({ 
-          type: 'table_freed', 
-          data: { tableId: order.tableId }
-        });
+      if (status === 'servido') {
+        if (order.tableId) {
+          await storage.updateTableOccupancy(restaurantId, order.tableId, false);
+          broadcastToClients({ 
+            type: 'table_freed', 
+            data: { tableId: order.tableId }
+          });
+        }
+        
+        if (order.branchId) {
+          try {
+            await storage.deductStockForOrder(restaurantId, order.branchId, order.id, currentUser.id);
+          } catch (error) {
+            console.error('Erro ao dar baixa no estoque:', error);
+          }
+        }
       }
       
       broadcastToClients({ 

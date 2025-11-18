@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, UtensilsCrossed, Folder, Settings, Eye, Palette } from "lucide-react";
+import { ExternalLink, UtensilsCrossed, Folder, Settings, Eye, Palette, ChefHat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +9,7 @@ import { CategoriesTab } from "@/components/menu/CategoriesTab";
 import { CustomizationsTab } from "@/components/menu/CustomizationsTab";
 import { PreviewTab } from "@/components/menu/PreviewTab";
 import { CustomizeMenuTab } from "@/components/menu/CustomizeMenuTab";
+import { RecipesTab } from "@/components/menu/RecipesTab";
 
 export default function Menu() {
   const { toast } = useToast();
@@ -56,7 +57,7 @@ export default function Menu() {
       </div>
 
       <Tabs defaultValue="items" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 gap-1">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-6 gap-1">
           <TabsTrigger value="items" data-testid="tab-menu-items">
             <UtensilsCrossed className="h-4 w-4 mr-2" />
             <span className="hidden sm:inline">Itens do Menu</span>
@@ -65,6 +66,11 @@ export default function Menu() {
           <TabsTrigger value="categories" data-testid="tab-categories">
             <Folder className="h-4 w-4 mr-2" />
             Categorias
+          </TabsTrigger>
+          <TabsTrigger value="recipes" data-testid="tab-recipes">
+            <ChefHat className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Receitas</span>
+            <span className="sm:hidden">Receitas</span>
           </TabsTrigger>
           <TabsTrigger value="customize" data-testid="tab-customize">
             <Palette className="h-4 w-4 mr-2" />
@@ -89,6 +95,10 @@ export default function Menu() {
 
         <TabsContent value="categories" className="mt-6">
           <CategoriesTab />
+        </TabsContent>
+
+        <TabsContent value="recipes" className="mt-6">
+          <RecipesTab />
         </TabsContent>
 
         <TabsContent value="customize" className="mt-6">

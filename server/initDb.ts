@@ -728,6 +728,21 @@ export async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW()
       );`);
       
+      // Create recipe_ingredients table - Liga itens do menu com ingredientes do inventário
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS recipe_ingredients (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        menu_item_id VARCHAR NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+        inventory_item_id VARCHAR NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+        quantity DECIMAL(10, 3) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create unique index on recipe_ingredients to prevent duplicates
+      await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS recipe_ingredients_menu_inventory_idx 
+        ON recipe_ingredients (menu_item_id, inventory_item_id);`);
+      
       // Create initial super admin user if it doesn't exist
       const superAdminEmail = 'superadmin@nabancada.com';
       const checkSuperAdmin = await db.execute(sql`SELECT id FROM users WHERE email = ${superAdminEmail} AND role = 'superadmin'`);

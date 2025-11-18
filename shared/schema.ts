@@ -1713,3 +1713,48 @@ export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// Recipe Ingredients - Liga itens do menu com ingredientes do inventário
+export const recipeIngredients = pgTable("recipe_ingredients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  menuItemId: varchar("menu_item_id").notNull().references(() => menuItems.id, { onDelete: 'cascade' }),
+  inventoryItemId: varchar("inventory_item_id").notNull().references(() => inventoryItems.id, { onDelete: 'cascade' }),
+  quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertRecipeIngredientSchema = createInsertSchema(recipeIngredients).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  menuItemId: z.string().min(1, "Item do menu é obrigatório"),
+  inventoryItemId: z.string().min(1, "Ingrediente é obrigatório"),
+  quantity: z.string().regex(/^\d+(\.\d{1,3})?$/, "Quantidade inválida"),
+});
+
+export const updateRecipeIngredientSchema = z.object({
+  quantity: z.string().regex(/^\d+(\.\d{1,3})?$/, "Quantidade inválida").optional(),
+});
+
+export type InsertRecipeIngredient = z.infer<typeof insertRecipeIngredientSchema>;
+export type UpdateRecipeIngredient = z.infer<typeof updateRecipeIngredientSchema>;
+export type RecipeIngredient = typeof recipeIngredients.$inferSelect;
+
+export const recipeIngredientsRelations = relations(recipeIngredients, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [recipeIngredients.restaurantId],
+    references: [restaurants.id],
+  }),
+  menuItem: one(menuItems, {
+    fields: [recipeIngredients.menuItemId],
+    references: [menuItems.id],
+  }),
+  inventoryItem: one(inventoryItems, {
+    fields: [recipeIngredients.inventoryItemId],
+    references: [inventoryItems.id],
+  }),
+}));

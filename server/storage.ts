@@ -31,6 +31,7 @@ import {
   inventoryItems,
   branchStock,
   stockMovements,
+  recipeIngredients,
   type User,
   type InsertUser,
   type Restaurant,
@@ -103,6 +104,9 @@ import {
   type BranchStock,
   type StockMovement,
   type InsertStockMovement,
+  type RecipeIngredient,
+  type InsertRecipeIngredient,
+  type UpdateRecipeIngredient,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, or, isNull, inArray } from "drizzle-orm";
@@ -507,6 +511,15 @@ export interface IStorage {
     lowStockItems: number;
     outOfStockItems: number;
   }>;
+  
+  // Recipe Ingredients operations
+  getRecipeIngredients(restaurantId: string, menuItemId: string): Promise<Array<RecipeIngredient & { inventoryItem: InventoryItem & { unit: MeasurementUnit } }>>;
+  addRecipeIngredient(restaurantId: string, data: InsertRecipeIngredient): Promise<RecipeIngredient>;
+  updateRecipeIngredient(id: string, restaurantId: string, data: UpdateRecipeIngredient): Promise<RecipeIngredient>;
+  deleteRecipeIngredient(id: string, restaurantId: string): Promise<void>;
+  getMenuItemRecipeCost(restaurantId: string, menuItemId: string): Promise<string>;
+  checkStockAvailability(restaurantId: string, branchId: string, menuItemId: string, quantity: number): Promise<{ available: boolean; missingItems: Array<{ itemName: string; required: string; available: string }> }>;
+  deductStockForOrder(restaurantId: string, branchId: string, orderId: string, userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5106,6 +5119,165 @@ export class DatabaseStorage implements IStorage {
       lowStockItems,
       outOfStockItems,
     };
+  }
+
+  // Recipe Ingredients operations
+  async getRecipeIngredients(
+    restaurantId: string,
+    menuItemId: string
+  ): Promise<Array<RecipeIngredient & { inventoryItem: InventoryItem & { unit: MeasurementUnit } }>> {
+    const ingredients = await db
+      .select()
+      .from(recipeIngredients)
+      .leftJoin(inventoryItems, eq(recipeIngredients.inventoryItemId, inventoryItems.id))
+      .leftJoin(measurementUnits, eq(inventoryItems.unitId, measurementUnits.id))
+      .where(
+        and(
+          eq(recipeIngredients.restaurantId, restaurantId),
+          eq(recipeIngredients.menuItemId, menuItemId)
+        )
+      )
+      .orderBy(inventoryItems.name);
+
+    return ingredients.map((row) => ({
+      ...row.recipe_ingredients,
+      inventoryItem: {
+        ...row.inventory_items!,
+        unit: row.measurement_units!,
+      },
+    }));
+  }
+
+  async addRecipeIngredient(
+    restaurantId: string,
+    data: InsertRecipeIngredient
+  ): Promise<RecipeIngredient> {
+    const [ingredient] = await db
+      .insert(recipeIngredients)
+      .values({
+        ...data,
+        restaurantId,
+      })
+      .returning();
+    return ingredient;
+  }
+
+  async updateRecipeIngredient(
+    id: string,
+    restaurantId: string,
+    data: UpdateRecipeIngredient
+  ): Promise<RecipeIngredient> {
+    const [updated] = await db
+      .update(recipeIngredients)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(recipeIngredients.id, id),
+          eq(recipeIngredients.restaurantId, restaurantId)
+        )
+      )
+      .returning();
+    return updated;
+  }
+
+  async deleteRecipeIngredient(id: string, restaurantId: string): Promise<void> {
+    await db
+      .delete(recipeIngredients)
+      .where(
+        and(
+          eq(recipeIngredients.id, id),
+          eq(recipeIngredients.restaurantId, restaurantId)
+        )
+      );
+  }
+
+  async getMenuItemRecipeCost(restaurantId: string, menuItemId: string): Promise<string> {
+    const ingredients = await this.getRecipeIngredients(restaurantId, menuItemId);
+    
+    const totalCost = ingredients.reduce((sum, ingredient) => {
+      const quantity = parseFloat(ingredient.quantity || "0");
+      const costPrice = parseFloat(ingredient.inventoryItem.costPrice || "0");
+      if (isNaN(quantity) || isNaN(costPrice)) {
+        return sum;
+      }
+      return sum + (quantity * costPrice);
+    }, 0);
+
+    return totalCost.toFixed(2);
+  }
+
+  async checkStockAvailability(
+    restaurantId: string,
+    branchId: string,
+    menuItemId: string,
+    quantity: number
+  ): Promise<{ available: boolean; missingItems: Array<{ itemName: string; required: string; available: string }> }> {
+    const ingredients = await this.getRecipeIngredients(restaurantId, menuItemId);
+    const missingItems: Array<{ itemName: string; required: string; available: string }> = [];
+
+    for (const ingredient of ingredients) {
+      const stock = await this.getStockByItemId(restaurantId, branchId, ingredient.inventoryItemId);
+      const required = parseFloat(ingredient.quantity) * quantity;
+      const available = stock ? parseFloat(stock.quantity) : 0;
+
+      if (available < required) {
+        missingItems.push({
+          itemName: ingredient.inventoryItem.name,
+          required: required.toFixed(2),
+          available: available.toFixed(2),
+        });
+      }
+    }
+
+    return {
+      available: missingItems.length === 0,
+      missingItems,
+    };
+  }
+
+  async deductStockForOrder(
+    restaurantId: string,
+    branchId: string,
+    orderId: string,
+    userId: string
+  ): Promise<void> {
+    const order = await this.getOrderById(restaurantId, orderId);
+    if (!order) {
+      throw new Error('Pedido não encontrado');
+    }
+
+    for (const orderItem of order.orderItems) {
+      try {
+        const ingredients = await this.getRecipeIngredients(restaurantId, orderItem.menuItemId);
+        
+        if (ingredients.length === 0) {
+          console.log(`Prato ${orderItem.menuItemId} não possui receita cadastrada, pulando baixa de estoque`);
+          continue;
+        }
+        
+        for (const ingredient of ingredients) {
+          const quantityToDeduct = parseFloat(ingredient.quantity) * orderItem.quantity;
+          
+          if (quantityToDeduct <= 0) {
+            continue;
+          }
+
+          await this.createStockMovement(restaurantId, userId, {
+            branchId,
+            inventoryItemId: ingredient.inventoryItemId,
+            movementType: 'saida',
+            quantity: quantityToDeduct.toFixed(2),
+            reason: `Venda - Pedido #${orderId.substring(0, 8)}`,
+            referenceId: orderId,
+          });
+        }
+      } catch (error) {
+        console.error(`Erro ao processar receita para item ${orderItem.menuItemId}:`, error);
+      }
+    }
   }
 }
 
