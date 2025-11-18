@@ -1463,3 +1463,253 @@ export const expensesRelations = relations(expenses, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// ===== INVENTORY MODULE =====
+
+// Stock Movement Type Enum
+export const stockMovementTypeEnum = pgEnum('stock_movement_type', [
+  'entrada',      // Entrada de mercadoria
+  'saida',        // Saída de mercadoria
+  'ajuste',       // Ajuste manual de estoque
+  'transferencia' // Transferência entre filiais
+]);
+
+// Inventory Categories
+export const inventoryCategories = pgTable("inventory_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertInventoryCategorySchema = createInsertSchema(inventoryCategories).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Nome da categoria é obrigatório"),
+  description: z.string().optional(),
+});
+
+export const updateInventoryCategorySchema = z.object({
+  name: z.string().min(1, "Nome da categoria é obrigatório").optional(),
+  description: z.string().optional(),
+});
+
+export type InsertInventoryCategory = z.infer<typeof insertInventoryCategorySchema>;
+export type UpdateInventoryCategory = z.infer<typeof updateInventoryCategorySchema>;
+export type InventoryCategory = typeof inventoryCategories.$inferSelect;
+
+// Measurement Units
+export const measurementUnits = pgTable("measurement_units", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  name: varchar("name", { length: 100 }).notNull(),
+  abbreviation: varchar("abbreviation", { length: 20 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMeasurementUnitSchema = createInsertSchema(measurementUnits).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+}).extend({
+  name: z.string().min(1, "Nome da unidade é obrigatório"),
+  abbreviation: z.string().min(1, "Abreviação é obrigatória"),
+});
+
+export const updateMeasurementUnitSchema = z.object({
+  name: z.string().min(1, "Nome da unidade é obrigatório").optional(),
+  abbreviation: z.string().min(1, "Abreviação é obrigatória").optional(),
+});
+
+export type InsertMeasurementUnit = z.infer<typeof insertMeasurementUnitSchema>;
+export type UpdateMeasurementUnit = z.infer<typeof updateMeasurementUnitSchema>;
+export type MeasurementUnit = typeof measurementUnits.$inferSelect;
+
+// Inventory Items
+export const inventoryItems = pgTable("inventory_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  categoryId: varchar("category_id").references(() => inventoryCategories.id, { onDelete: 'set null' }),
+  unitId: varchar("unit_id").notNull().references(() => measurementUnits.id, { onDelete: 'restrict' }),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  sku: varchar("sku", { length: 100 }),
+  costPrice: decimal("cost_price", { precision: 10, scale: 2 }).notNull().default('0'),
+  minStock: decimal("min_stock", { precision: 10, scale: 2 }).default('0'),
+  maxStock: decimal("max_stock", { precision: 10, scale: 2 }).default('0'),
+  reorderPoint: decimal("reorder_point", { precision: 10, scale: 2 }).default('0'),
+  isActive: integer("is_active").notNull().default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  categoryId: z.string().optional().nullable(),
+  unitId: z.string().min(1, "Unidade de medida é obrigatória"),
+  name: z.string().min(1, "Nome do produto é obrigatório"),
+  description: z.string().optional(),
+  sku: z.string().optional(),
+  costPrice: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço de custo inválido").optional(),
+  minStock: z.string().regex(/^\d+(\.\d{1,2})?$/, "Estoque mínimo inválido").optional(),
+  maxStock: z.string().regex(/^\d+(\.\d{1,2})?$/, "Estoque máximo inválido").optional(),
+  reorderPoint: z.string().regex(/^\d+(\.\d{1,2})?$/, "Ponto de recompra inválido").optional(),
+  isActive: z.number().optional(),
+});
+
+export const updateInventoryItemSchema = z.object({
+  categoryId: z.string().optional().nullable(),
+  unitId: z.string().min(1, "Unidade de medida é obrigatória").optional(),
+  name: z.string().min(1, "Nome do produto é obrigatório").optional(),
+  description: z.string().optional(),
+  sku: z.string().optional(),
+  costPrice: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço de custo inválido").optional(),
+  minStock: z.string().regex(/^\d+(\.\d{1,2})?$/, "Estoque mínimo inválido").optional(),
+  maxStock: z.string().regex(/^\d+(\.\d{1,2})?$/, "Estoque máximo inválido").optional(),
+  reorderPoint: z.string().regex(/^\d+(\.\d{1,2})?$/, "Ponto de recompra inválido").optional(),
+  isActive: z.number().optional(),
+});
+
+export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
+export type UpdateInventoryItem = z.infer<typeof updateInventoryItemSchema>;
+export type InventoryItem = typeof inventoryItems.$inferSelect;
+
+// Branch Stock
+export const branchStock = pgTable("branch_stock", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").notNull().references(() => branches.id, { onDelete: 'cascade' }),
+  inventoryItemId: varchar("inventory_item_id").notNull().references(() => inventoryItems.id, { onDelete: 'cascade' }),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull().default('0'),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type BranchStock = typeof branchStock.$inferSelect;
+
+// Stock Movements
+export const stockMovements = pgTable("stock_movements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").notNull().references(() => branches.id, { onDelete: 'cascade' }),
+  inventoryItemId: varchar("inventory_item_id").notNull().references(() => inventoryItems.id, { onDelete: 'cascade' }),
+  movementType: stockMovementTypeEnum("movement_type").notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
+  previousQuantity: decimal("previous_quantity", { precision: 10, scale: 2 }).notNull(),
+  newQuantity: decimal("new_quantity", { precision: 10, scale: 2 }).notNull(),
+  unitCost: decimal("unit_cost", { precision: 10, scale: 2 }).default('0'),
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }).default('0'),
+  reason: text("reason"),
+  referenceId: varchar("reference_id", { length: 100 }),
+  fromBranchId: varchar("from_branch_id").references(() => branches.id, { onDelete: 'set null' }),
+  toBranchId: varchar("to_branch_id").references(() => branches.id, { onDelete: 'set null' }),
+  recordedByUserId: varchar("recorded_by_user_id").notNull().references(() => users.id, { onDelete: 'restrict' }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertStockMovementSchema = createInsertSchema(stockMovements).omit({
+  id: true,
+  restaurantId: true,
+  recordedByUserId: true,
+  previousQuantity: true,
+  newQuantity: true,
+  createdAt: true,
+}).extend({
+  branchId: z.string().min(1, "Filial é obrigatória"),
+  inventoryItemId: z.string().min(1, "Produto é obrigatório"),
+  movementType: z.enum(['entrada', 'saida', 'ajuste', 'transferencia']),
+  quantity: z.string().regex(/^\d+(\.\d{1,2})?$/, "Quantidade inválida"),
+  unitCost: z.string().regex(/^\d+(\.\d{1,2})?$/, "Custo unitário inválido").optional(),
+  totalCost: z.string().regex(/^\d+(\.\d{1,2})?$/, "Custo total inválido").optional(),
+  reason: z.string().optional(),
+  referenceId: z.string().optional(),
+  fromBranchId: z.string().optional().nullable(),
+  toBranchId: z.string().optional().nullable(),
+});
+
+export type InsertStockMovement = z.infer<typeof insertStockMovementSchema>;
+export type StockMovement = typeof stockMovements.$inferSelect;
+
+// Inventory Relations
+export const inventoryCategoriesRelations = relations(inventoryCategories, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [inventoryCategories.restaurantId],
+    references: [restaurants.id],
+  }),
+  items: many(inventoryItems),
+}));
+
+export const measurementUnitsRelations = relations(measurementUnits, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [measurementUnits.restaurantId],
+    references: [restaurants.id],
+  }),
+  items: many(inventoryItems),
+}));
+
+export const inventoryItemsRelations = relations(inventoryItems, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [inventoryItems.restaurantId],
+    references: [restaurants.id],
+  }),
+  category: one(inventoryCategories, {
+    fields: [inventoryItems.categoryId],
+    references: [inventoryCategories.id],
+  }),
+  unit: one(measurementUnits, {
+    fields: [inventoryItems.unitId],
+    references: [measurementUnits.id],
+  }),
+  branchStocks: many(branchStock),
+  movements: many(stockMovements),
+}));
+
+export const branchStockRelations = relations(branchStock, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [branchStock.restaurantId],
+    references: [restaurants.id],
+  }),
+  branch: one(branches, {
+    fields: [branchStock.branchId],
+    references: [branches.id],
+  }),
+  inventoryItem: one(inventoryItems, {
+    fields: [branchStock.inventoryItemId],
+    references: [inventoryItems.id],
+  }),
+}));
+
+export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [stockMovements.restaurantId],
+    references: [restaurants.id],
+  }),
+  branch: one(branches, {
+    fields: [stockMovements.branchId],
+    references: [branches.id],
+  }),
+  inventoryItem: one(inventoryItems, {
+    fields: [stockMovements.inventoryItemId],
+    references: [inventoryItems.id],
+  }),
+  fromBranch: one(branches, {
+    fields: [stockMovements.fromBranchId],
+    references: [branches.id],
+  }),
+  toBranch: one(branches, {
+    fields: [stockMovements.toBranchId],
+    references: [branches.id],
+  }),
+  recordedBy: one(users, {
+    fields: [stockMovements.recordedByUserId],
+    references: [users.id],
+  }),
+}));

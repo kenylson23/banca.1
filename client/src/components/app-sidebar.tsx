@@ -1,4 +1,4 @@
-import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield, Building2, Settings, BarChart3, CreditCard, TrendingUp, DollarSign, Receipt, FileText, Wallet } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield, Building2, Settings, BarChart3, CreditCard, TrendingUp, DollarSign, Receipt, FileText, Wallet, Package } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -90,6 +90,12 @@ const adminMenuItems = [
     section: "financial-reports" as Section,
     path: "/financial/reports",
     icon: FileText,
+  },
+  {
+    title: "Inventário",
+    section: "inventory" as Section,
+    path: "/inventory",
+    icon: Package,
   },
   {
     title: "Configurações",

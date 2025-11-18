@@ -20,6 +20,7 @@ import FinancialCashRegisters from "./financial-cash-registers";
 import CashShifts from "./cash-shifts";
 import Expenses from "./expenses";
 import FinancialReports from "./financial-reports";
+import Inventory from "./inventory";
 
 export type Section = 
   | "dashboard" 
@@ -40,7 +41,8 @@ export type Section =
   | "financial-cash-registers"
   | "financial-shifts"
   | "expenses"
-  | "financial-reports";
+  | "financial-reports"
+  | "inventory";
 
 interface MainDashboardProps {
   section: Section;
@@ -94,6 +96,8 @@ export default function MainDashboard({ section }: MainDashboardProps) {
         return <Expenses />;
       case "financial-reports":
         return <FinancialReports />;
+      case "inventory":
+        return <Inventory />;
       default:
         return <Dashboard />;
     }
@@ -131,7 +135,8 @@ export default function MainDashboard({ section }: MainDashboardProps) {
                currentSection === "financial-cash-registers" ? "Caixa" :
                currentSection === "financial-shifts" ? "Turnos de Caixa" :
                currentSection === "expenses" ? "Despesas" :
-               currentSection === "financial-reports" ? "Relatórios Financeiros" : ""}
+               currentSection === "financial-reports" ? "Relatórios Financeiros" :
+               currentSection === "inventory" ? "Inventário" : ""}
             </h1>
             <div className="w-10" aria-hidden="true" />
           </header>

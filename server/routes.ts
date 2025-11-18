@@ -37,6 +37,13 @@ import {
   applyDeliveryFeeSchema,
   applyPackagingFeeSchema,
   recordPaymentSchema,
+  insertInventoryCategorySchema,
+  updateInventoryCategorySchema,
+  insertMeasurementUnitSchema,
+  updateMeasurementUnitSchema,
+  insertInventoryItemSchema,
+  updateInventoryItemSchema,
+  insertStockMovementSchema,
   type User,
 } from "@shared/schema";
 import { z } from "zod";
@@ -3692,6 +3699,321 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Financial report fetch error:', error);
       res.status(500).json({ message: "Erro ao buscar relatório financeiro" });
+    }
+  });
+
+  // ===== INVENTORY ROUTES =====
+
+  // Inventory Categories
+  app.get("/api/inventory/categories", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const categories = await storage.getInventoryCategories(currentUser.restaurantId);
+      res.json(categories);
+    } catch (error) {
+      console.error('Inventory categories fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar categorias de inventário" });
+    }
+  });
+
+  app.post("/api/inventory/categories", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const data = insertInventoryCategorySchema.parse(req.body);
+      const category = await storage.createInventoryCategory(currentUser.restaurantId, data);
+      res.json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Inventory category create error:', error);
+      res.status(500).json({ message: "Erro ao criar categoria de inventário" });
+    }
+  });
+
+  app.put("/api/inventory/categories/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const data = updateInventoryCategorySchema.parse(req.body);
+      const category = await storage.updateInventoryCategory(req.params.id, currentUser.restaurantId, data);
+      res.json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Inventory category update error:', error);
+      res.status(500).json({ message: "Erro ao atualizar categoria" });
+    }
+  });
+
+  app.delete("/api/inventory/categories/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      await storage.deleteInventoryCategory(req.params.id, currentUser.restaurantId);
+      res.json({ message: "Categoria deletada com sucesso" });
+    } catch (error) {
+      console.error('Inventory category delete error:', error);
+      res.status(500).json({ message: "Erro ao deletar categoria" });
+    }
+  });
+
+  // Measurement Units
+  app.get("/api/inventory/units", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const units = await storage.getMeasurementUnits(currentUser.restaurantId);
+      res.json(units);
+    } catch (error) {
+      console.error('Measurement units fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar unidades de medida" });
+    }
+  });
+
+  app.post("/api/inventory/units", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const data = insertMeasurementUnitSchema.parse(req.body);
+      const unit = await storage.createMeasurementUnit(currentUser.restaurantId, data);
+      res.json(unit);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Measurement unit create error:', error);
+      res.status(500).json({ message: "Erro ao criar unidade de medida" });
+    }
+  });
+
+  app.put("/api/inventory/units/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const data = updateMeasurementUnitSchema.parse(req.body);
+      const unit = await storage.updateMeasurementUnit(req.params.id, currentUser.restaurantId, data);
+      res.json(unit);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Measurement unit update error:', error);
+      res.status(500).json({ message: "Erro ao atualizar unidade" });
+    }
+  });
+
+  app.delete("/api/inventory/units/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      await storage.deleteMeasurementUnit(req.params.id, currentUser.restaurantId);
+      res.json({ message: "Unidade deletada com sucesso" });
+    } catch (error) {
+      console.error('Measurement unit delete error:', error);
+      res.status(500).json({ message: "Erro ao deletar unidade" });
+    }
+  });
+
+  // Inventory Items
+  app.get("/api/inventory/items", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const filters: any = {};
+      if (req.query.categoryId) filters.categoryId = req.query.categoryId as string;
+      if (req.query.isActive) filters.isActive = parseInt(req.query.isActive as string);
+
+      const items = await storage.getInventoryItems(currentUser.restaurantId, filters);
+      res.json(items);
+    } catch (error) {
+      console.error('Inventory items fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar itens de inventário" });
+    }
+  });
+
+  app.get("/api/inventory/items/:id", isAdmin, async (req, res) => {
+    try {
+      const item = await storage.getInventoryItemById(req.params.id);
+      if (!item) {
+        return res.status(404).json({ message: "Item não encontrado" });
+      }
+      res.json(item);
+    } catch (error) {
+      console.error('Inventory item fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar item" });
+    }
+  });
+
+  app.post("/api/inventory/items", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const data = insertInventoryItemSchema.parse(req.body);
+      const item = await storage.createInventoryItem(currentUser.restaurantId, data);
+      res.json(item);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Inventory item create error:', error);
+      res.status(500).json({ message: "Erro ao criar item de inventário" });
+    }
+  });
+
+  app.put("/api/inventory/items/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const data = updateInventoryItemSchema.parse(req.body);
+      const item = await storage.updateInventoryItem(req.params.id, currentUser.restaurantId, data);
+      res.json(item);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Inventory item update error:', error);
+      res.status(500).json({ message: "Erro ao atualizar item" });
+    }
+  });
+
+  app.delete("/api/inventory/items/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      await storage.deleteInventoryItem(req.params.id, currentUser.restaurantId);
+      res.json({ message: "Item deletado com sucesso" });
+    } catch (error) {
+      console.error('Inventory item delete error:', error);
+      res.status(500).json({ message: "Erro ao deletar item" });
+    }
+  });
+
+  // Branch Stock
+  app.get("/api/inventory/stock", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId || !currentUser.activeBranchId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante ou filial" });
+      }
+
+      const stocks = await storage.getBranchStock(currentUser.restaurantId, currentUser.activeBranchId);
+      res.json(stocks);
+    } catch (error) {
+      console.error('Branch stock fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar estoque" });
+    }
+  });
+
+  // Stock Movements
+  app.get("/api/inventory/movements", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId || !currentUser.activeBranchId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante ou filial" });
+      }
+
+      const filters: any = {};
+      if (req.query.inventoryItemId) filters.inventoryItemId = req.query.inventoryItemId as string;
+      if (req.query.movementType) filters.movementType = req.query.movementType as any;
+      if (req.query.startDate) filters.startDate = new Date(req.query.startDate as string);
+      if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
+
+      const movements = await storage.getStockMovements(
+        currentUser.restaurantId,
+        currentUser.activeBranchId,
+        filters
+      );
+      res.json(movements);
+    } catch (error) {
+      console.error('Stock movements fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar movimentações" });
+    }
+  });
+
+  app.post("/api/inventory/movements", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId || !currentUser.activeBranchId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante ou filial" });
+      }
+
+      const data = insertStockMovementSchema.parse(req.body);
+      
+      if (!data.branchId) {
+        data.branchId = currentUser.activeBranchId;
+      }
+
+      const movement = await storage.createStockMovement(
+        currentUser.restaurantId,
+        currentUser.id,
+        data
+      );
+      res.json(movement);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      if (error instanceof Error) {
+        return res.status(400).json({ message: error.message });
+      }
+      console.error('Stock movement create error:', error);
+      res.status(500).json({ message: "Erro ao criar movimentação" });
+    }
+  });
+
+  // Inventory Stats
+  app.get("/api/inventory/stats", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId || !currentUser.activeBranchId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante ou filial" });
+      }
+
+      const stats = await storage.getInventoryStats(currentUser.restaurantId, currentUser.activeBranchId);
+      res.json(stats);
+    } catch (error) {
+      console.error('Inventory stats fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar estatísticas" });
     }
   });
 

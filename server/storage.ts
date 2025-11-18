@@ -26,6 +26,11 @@ import {
   financialCategories,
   financialTransactions,
   expenses,
+  inventoryCategories,
+  measurementUnits,
+  inventoryItems,
+  branchStock,
+  stockMovements,
   type User,
   type InsertUser,
   type Restaurant,
@@ -86,6 +91,18 @@ import {
   type Expense,
   type InsertExpense,
   type UpdateExpense,
+  type InventoryCategory,
+  type InsertInventoryCategory,
+  type UpdateInventoryCategory,
+  type MeasurementUnit,
+  type InsertMeasurementUnit,
+  type UpdateMeasurementUnit,
+  type InventoryItem,
+  type InsertInventoryItem,
+  type UpdateInventoryItem,
+  type BranchStock,
+  type StockMovement,
+  type InsertStockMovement,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, or, isNull, inArray } from "drizzle-orm";
@@ -448,6 +465,47 @@ export interface IStorage {
     revenueByMethod: Array<{ method: string; total: string }>;
     expensesByCategory: Array<{ category: string; total: string }>;
     transactionsByDay: Array<{ date: string; revenue: string; expenses: string }>;
+  }>;
+  
+  // Inventory Category operations
+  getInventoryCategories(restaurantId: string): Promise<InventoryCategory[]>;
+  createInventoryCategory(restaurantId: string, data: InsertInventoryCategory): Promise<InventoryCategory>;
+  updateInventoryCategory(id: string, restaurantId: string, data: UpdateInventoryCategory): Promise<InventoryCategory>;
+  deleteInventoryCategory(id: string, restaurantId: string): Promise<void>;
+  
+  // Measurement Unit operations
+  getMeasurementUnits(restaurantId: string): Promise<MeasurementUnit[]>;
+  createMeasurementUnit(restaurantId: string, data: InsertMeasurementUnit): Promise<MeasurementUnit>;
+  updateMeasurementUnit(id: string, restaurantId: string, data: UpdateMeasurementUnit): Promise<MeasurementUnit>;
+  deleteMeasurementUnit(id: string, restaurantId: string): Promise<void>;
+  
+  // Inventory Item operations
+  getInventoryItems(restaurantId: string, filters?: { categoryId?: string; isActive?: number }): Promise<Array<InventoryItem & { category: InventoryCategory | null; unit: MeasurementUnit }>>;
+  getInventoryItemById(id: string): Promise<InventoryItem | undefined>;
+  createInventoryItem(restaurantId: string, data: InsertInventoryItem): Promise<InventoryItem>;
+  updateInventoryItem(id: string, restaurantId: string, data: UpdateInventoryItem): Promise<InventoryItem>;
+  deleteInventoryItem(id: string, restaurantId: string): Promise<void>;
+  
+  // Branch Stock operations
+  getBranchStock(restaurantId: string, branchId: string): Promise<Array<BranchStock & { inventoryItem: InventoryItem & { category: InventoryCategory | null; unit: MeasurementUnit } }>>;
+  getStockByItemId(restaurantId: string, branchId: string, inventoryItemId: string): Promise<BranchStock | undefined>;
+  updateBranchStock(restaurantId: string, branchId: string, inventoryItemId: string, quantity: string): Promise<BranchStock>;
+  
+  // Stock Movement operations
+  getStockMovements(restaurantId: string, branchId: string, filters?: {
+    inventoryItemId?: string;
+    movementType?: 'entrada' | 'saida' | 'ajuste' | 'transferencia';
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<Array<StockMovement & { inventoryItem: InventoryItem; recordedBy: User }>>;
+  createStockMovement(restaurantId: string, userId: string, data: InsertStockMovement): Promise<StockMovement>;
+  
+  // Inventory Stats
+  getInventoryStats(restaurantId: string, branchId: string): Promise<{
+    totalValue: string;
+    totalItems: number;
+    lowStockItems: number;
+    outOfStockItems: number;
   }>;
 }
 
@@ -4600,6 +4658,453 @@ export class DatabaseStorage implements IStorage {
       revenueByMethod,
       expensesByCategory,
       transactionsByDay,
+    };
+  }
+
+  // Inventory Category operations
+  async getInventoryCategories(restaurantId: string): Promise<InventoryCategory[]> {
+    return await db
+      .select()
+      .from(inventoryCategories)
+      .where(eq(inventoryCategories.restaurantId, restaurantId))
+      .orderBy(inventoryCategories.name);
+  }
+
+  async createInventoryCategory(restaurantId: string, data: InsertInventoryCategory): Promise<InventoryCategory> {
+    const [category] = await db
+      .insert(inventoryCategories)
+      .values({ ...data, restaurantId })
+      .returning();
+    return category;
+  }
+
+  async updateInventoryCategory(id: string, restaurantId: string, data: UpdateInventoryCategory): Promise<InventoryCategory> {
+    const [category] = await db
+      .update(inventoryCategories)
+      .set({ ...data, updatedAt: new Date() })
+      .where(
+        and(
+          eq(inventoryCategories.id, id),
+          eq(inventoryCategories.restaurantId, restaurantId)
+        )
+      )
+      .returning();
+    return category;
+  }
+
+  async deleteInventoryCategory(id: string, restaurantId: string): Promise<void> {
+    await db
+      .delete(inventoryCategories)
+      .where(
+        and(
+          eq(inventoryCategories.id, id),
+          eq(inventoryCategories.restaurantId, restaurantId)
+        )
+      );
+  }
+
+  // Measurement Unit operations
+  async getMeasurementUnits(restaurantId: string): Promise<MeasurementUnit[]> {
+    return await db
+      .select()
+      .from(measurementUnits)
+      .where(eq(measurementUnits.restaurantId, restaurantId))
+      .orderBy(measurementUnits.name);
+  }
+
+  async createMeasurementUnit(restaurantId: string, data: InsertMeasurementUnit): Promise<MeasurementUnit> {
+    const [unit] = await db
+      .insert(measurementUnits)
+      .values({ ...data, restaurantId })
+      .returning();
+    return unit;
+  }
+
+  async updateMeasurementUnit(id: string, restaurantId: string, data: UpdateMeasurementUnit): Promise<MeasurementUnit> {
+    const [unit] = await db
+      .update(measurementUnits)
+      .set(data)
+      .where(
+        and(
+          eq(measurementUnits.id, id),
+          eq(measurementUnits.restaurantId, restaurantId)
+        )
+      )
+      .returning();
+    return unit;
+  }
+
+  async deleteMeasurementUnit(id: string, restaurantId: string): Promise<void> {
+    await db
+      .delete(measurementUnits)
+      .where(
+        and(
+          eq(measurementUnits.id, id),
+          eq(measurementUnits.restaurantId, restaurantId)
+        )
+      );
+  }
+
+  // Inventory Item operations
+  async getInventoryItems(
+    restaurantId: string,
+    filters?: { categoryId?: string; isActive?: number }
+  ): Promise<Array<InventoryItem & { category: InventoryCategory | null; unit: MeasurementUnit }>> {
+    let conditions = [eq(inventoryItems.restaurantId, restaurantId)];
+
+    if (filters?.categoryId) {
+      conditions.push(eq(inventoryItems.categoryId, filters.categoryId));
+    }
+    if (filters?.isActive !== undefined) {
+      conditions.push(eq(inventoryItems.isActive, filters.isActive));
+    }
+
+    const items = await db
+      .select({
+        item: inventoryItems,
+        category: inventoryCategories,
+        unit: measurementUnits,
+      })
+      .from(inventoryItems)
+      .leftJoin(inventoryCategories, eq(inventoryItems.categoryId, inventoryCategories.id))
+      .innerJoin(measurementUnits, eq(inventoryItems.unitId, measurementUnits.id))
+      .where(and(...conditions))
+      .orderBy(inventoryItems.name);
+
+    return items.map((row: any) => ({
+      ...row.item,
+      category: row.category,
+      unit: row.unit,
+    }));
+  }
+
+  async getInventoryItemById(id: string): Promise<InventoryItem | undefined> {
+    const [item] = await db
+      .select()
+      .from(inventoryItems)
+      .where(eq(inventoryItems.id, id));
+    return item;
+  }
+
+  async createInventoryItem(restaurantId: string, data: InsertInventoryItem): Promise<InventoryItem> {
+    const itemData: any = {
+      ...data,
+      restaurantId,
+    };
+    if (data.costPrice) itemData.costPrice = parseFloat(data.costPrice).toFixed(2);
+    if (data.minStock) itemData.minStock = parseFloat(data.minStock).toFixed(2);
+    if (data.maxStock) itemData.maxStock = parseFloat(data.maxStock).toFixed(2);
+    if (data.reorderPoint) itemData.reorderPoint = parseFloat(data.reorderPoint).toFixed(2);
+
+    const [item] = await db
+      .insert(inventoryItems)
+      .values(itemData)
+      .returning();
+    return item;
+  }
+
+  async updateInventoryItem(id: string, restaurantId: string, data: UpdateInventoryItem): Promise<InventoryItem> {
+    const updateData: any = {};
+    if (data.name) updateData.name = data.name;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.sku !== undefined) updateData.sku = data.sku;
+    if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
+    if (data.unitId) updateData.unitId = data.unitId;
+    if (data.costPrice) updateData.costPrice = parseFloat(data.costPrice).toFixed(2);
+    if (data.minStock) updateData.minStock = parseFloat(data.minStock).toFixed(2);
+    if (data.maxStock) updateData.maxStock = parseFloat(data.maxStock).toFixed(2);
+    if (data.reorderPoint) updateData.reorderPoint = parseFloat(data.reorderPoint).toFixed(2);
+    if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    updateData.updatedAt = new Date();
+
+    const [updated] = await db
+      .update(inventoryItems)
+      .set(updateData)
+      .where(
+        and(
+          eq(inventoryItems.id, id),
+          eq(inventoryItems.restaurantId, restaurantId)
+        )
+      )
+      .returning();
+    return updated;
+  }
+
+  async deleteInventoryItem(id: string, restaurantId: string): Promise<void> {
+    await db
+      .delete(inventoryItems)
+      .where(
+        and(
+          eq(inventoryItems.id, id),
+          eq(inventoryItems.restaurantId, restaurantId)
+        )
+      );
+  }
+
+  // Branch Stock operations
+  async getBranchStock(
+    restaurantId: string,
+    branchId: string
+  ): Promise<Array<BranchStock & { inventoryItem: InventoryItem & { category: InventoryCategory | null; unit: MeasurementUnit } }>> {
+    const stocks = await db
+      .select({
+        stock: branchStock,
+        item: inventoryItems,
+        category: inventoryCategories,
+        unit: measurementUnits,
+      })
+      .from(branchStock)
+      .innerJoin(inventoryItems, eq(branchStock.inventoryItemId, inventoryItems.id))
+      .leftJoin(inventoryCategories, eq(inventoryItems.categoryId, inventoryCategories.id))
+      .innerJoin(measurementUnits, eq(inventoryItems.unitId, measurementUnits.id))
+      .where(
+        and(
+          eq(branchStock.restaurantId, restaurantId),
+          eq(branchStock.branchId, branchId)
+        )
+      )
+      .orderBy(inventoryItems.name);
+
+    return stocks.map((row: any) => ({
+      ...row.stock,
+      inventoryItem: {
+        ...row.item,
+        category: row.category,
+        unit: row.unit,
+      },
+    }));
+  }
+
+  async getStockByItemId(
+    restaurantId: string,
+    branchId: string,
+    inventoryItemId: string
+  ): Promise<BranchStock | undefined> {
+    const [stock] = await db
+      .select()
+      .from(branchStock)
+      .where(
+        and(
+          eq(branchStock.restaurantId, restaurantId),
+          eq(branchStock.branchId, branchId),
+          eq(branchStock.inventoryItemId, inventoryItemId)
+        )
+      );
+    return stock;
+  }
+
+  async updateBranchStock(
+    restaurantId: string,
+    branchId: string,
+    inventoryItemId: string,
+    quantity: string
+  ): Promise<BranchStock> {
+    const existing = await this.getStockByItemId(restaurantId, branchId, inventoryItemId);
+
+    if (existing) {
+      const [updated] = await db
+        .update(branchStock)
+        .set({
+          quantity: parseFloat(quantity).toFixed(2),
+          updatedAt: new Date(),
+        })
+        .where(eq(branchStock.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(branchStock)
+        .values({
+          restaurantId,
+          branchId,
+          inventoryItemId,
+          quantity: parseFloat(quantity).toFixed(2),
+        })
+        .returning();
+      return created;
+    }
+  }
+
+  // Stock Movement operations
+  async getStockMovements(
+    restaurantId: string,
+    branchId: string,
+    filters?: {
+      inventoryItemId?: string;
+      movementType?: 'entrada' | 'saida' | 'ajuste' | 'transferencia';
+      startDate?: Date;
+      endDate?: Date;
+    }
+  ): Promise<Array<StockMovement & { inventoryItem: InventoryItem; recordedBy: User }>> {
+    let conditions = [
+      eq(stockMovements.restaurantId, restaurantId),
+      eq(stockMovements.branchId, branchId),
+    ];
+
+    if (filters?.inventoryItemId) {
+      conditions.push(eq(stockMovements.inventoryItemId, filters.inventoryItemId));
+    }
+    if (filters?.movementType) {
+      conditions.push(eq(stockMovements.movementType, filters.movementType));
+    }
+    if (filters?.startDate) {
+      conditions.push(gte(stockMovements.createdAt, filters.startDate));
+    }
+    if (filters?.endDate) {
+      const endOfDay = new Date(filters.endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      conditions.push(sql`${stockMovements.createdAt} <= ${endOfDay}`);
+    }
+
+    const movements = await db
+      .select({
+        movement: stockMovements,
+        item: inventoryItems,
+        user: users,
+      })
+      .from(stockMovements)
+      .innerJoin(inventoryItems, eq(stockMovements.inventoryItemId, inventoryItems.id))
+      .innerJoin(users, eq(stockMovements.recordedByUserId, users.id))
+      .where(and(...conditions))
+      .orderBy(desc(stockMovements.createdAt));
+
+    return movements.map((row: any) => ({
+      ...row.movement,
+      inventoryItem: row.item,
+      recordedBy: row.user,
+    }));
+  }
+
+  async createStockMovement(
+    restaurantId: string,
+    userId: string,
+    data: InsertStockMovement
+  ): Promise<StockMovement> {
+    return await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const currentStock = await this.getStockByItemId(
+        restaurantId,
+        data.branchId,
+        data.inventoryItemId
+      );
+
+      const currentQuantity = currentStock ? parseFloat(currentStock.quantity) : 0;
+      const movementQuantity = parseFloat(data.quantity);
+      let newQuantity = currentQuantity;
+
+      switch (data.movementType) {
+        case 'entrada':
+          newQuantity = currentQuantity + movementQuantity;
+          break;
+        case 'saida':
+          newQuantity = currentQuantity - movementQuantity;
+          if (newQuantity < 0) {
+            throw new Error('Estoque insuficiente para realizar esta saída');
+          }
+          break;
+        case 'ajuste':
+          newQuantity = movementQuantity;
+          break;
+        case 'transferencia':
+          if (data.fromBranchId === data.branchId) {
+            newQuantity = currentQuantity - movementQuantity;
+            if (newQuantity < 0) {
+              throw new Error('Estoque insuficiente para realizar esta transferência');
+            }
+          } else if (data.toBranchId === data.branchId) {
+            newQuantity = currentQuantity + movementQuantity;
+          }
+          break;
+      }
+
+      const [movement] = await tx
+        .insert(stockMovements)
+        .values({
+          ...data,
+          restaurantId,
+          recordedByUserId: userId,
+          previousQuantity: currentQuantity.toFixed(2),
+          newQuantity: newQuantity.toFixed(2),
+          quantity: movementQuantity.toFixed(2),
+          unitCost: data.unitCost ? parseFloat(data.unitCost).toFixed(2) : '0',
+          totalCost: data.totalCost ? parseFloat(data.totalCost).toFixed(2) : '0',
+        })
+        .returning();
+
+      await this.updateBranchStock(
+        restaurantId,
+        data.branchId,
+        data.inventoryItemId,
+        newQuantity.toFixed(2)
+      );
+
+      if (data.movementType === 'transferencia' && data.fromBranchId && data.toBranchId) {
+        if (data.fromBranchId !== data.branchId && data.toBranchId !== data.branchId) {
+          throw new Error('Transferência inválida: a filial de origem ou destino deve ser a filial atual');
+        }
+
+        const otherBranchId = data.branchId === data.fromBranchId ? data.toBranchId : data.fromBranchId;
+
+        const otherStock = await this.getStockByItemId(
+          restaurantId,
+          otherBranchId,
+          data.inventoryItemId
+        );
+        const otherCurrentQuantity = otherStock ? parseFloat(otherStock.quantity) : 0;
+        const otherNewQuantity = data.branchId === data.fromBranchId
+          ? otherCurrentQuantity + movementQuantity
+          : otherCurrentQuantity - movementQuantity;
+
+        if (otherNewQuantity < 0) {
+          throw new Error('Estoque insuficiente na filial de origem');
+        }
+
+        await this.updateBranchStock(
+          restaurantId,
+          otherBranchId,
+          data.inventoryItemId,
+          otherNewQuantity.toFixed(2)
+        );
+      }
+
+      return movement;
+    });
+  }
+
+  // Inventory Stats
+  async getInventoryStats(
+    restaurantId: string,
+    branchId: string
+  ): Promise<{
+    totalValue: string;
+    totalItems: number;
+    lowStockItems: number;
+    outOfStockItems: number;
+  }> {
+    const stocks = await this.getBranchStock(restaurantId, branchId);
+
+    const totalValue = stocks.reduce((sum: number, stock: any) => {
+      const quantity = parseFloat(stock.quantity);
+      const costPrice = parseFloat(stock.inventoryItem.costPrice);
+      return sum + (quantity * costPrice);
+    }, 0);
+
+    const totalItems = stocks.length;
+
+    const lowStockItems = stocks.filter((stock: any) => {
+      const quantity = parseFloat(stock.quantity);
+      const minStock = parseFloat(stock.inventoryItem.minStock);
+      return quantity > 0 && quantity <= minStock;
+    }).length;
+
+    const outOfStockItems = stocks.filter((stock: any) => {
+      return parseFloat(stock.quantity) === 0;
+    }).length;
+
+    return {
+      totalValue: totalValue.toFixed(2),
+      totalItems,
+      lowStockItems,
+      outOfStockItems,
     };
   }
 }

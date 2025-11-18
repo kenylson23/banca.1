@@ -186,6 +186,13 @@ function Router() {
             return <Redirect to="/" />;
           }} />
           
+          <Route path="/inventory" component={() => {
+            if (user?.role === 'admin') {
+              return <MainDashboard section="inventory" />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
           <Route path="/login">
             {() => <Redirect to="/" />}
           </Route>
