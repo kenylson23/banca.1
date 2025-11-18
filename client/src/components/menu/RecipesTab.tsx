@@ -69,7 +69,7 @@ export function RecipesTab() {
 
   const addIngredientMutation = useMutation({
     mutationFn: async (data: { inventoryItemId: string; quantity: string }) => {
-      return await apiRequest(`/api/menu-items/${selectedMenuItem}/recipe`, "POST", data);
+      return await apiRequest("POST", `/api/menu-items/${selectedMenuItem}/recipe`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/menu-items", selectedMenuItem, "recipe"] });
@@ -91,7 +91,7 @@ export function RecipesTab() {
 
   const deleteIngredientMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest(`/api/recipe-ingredients/${id}`, "DELETE");
+      return await apiRequest("DELETE", `/api/recipe-ingredients/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/menu-items", selectedMenuItem, "recipe"] });
