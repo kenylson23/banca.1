@@ -606,4 +606,18 @@
   .stagger-item:nth-child(6) { animation-delay: 0.3s; }
   .stagger-item:nth-child(7) { animation-delay: 0.35s; }
   .stagger-item:nth-child(8) { animation-delay: 0.4s; }
+
+  /* Shimmer animation for loading skeletons */
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s infinite;
+  }
 }

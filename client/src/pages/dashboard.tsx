@@ -1,19 +1,21 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DollarSign, ShoppingBag, TrendingUp, Users } from "lucide-react";
+import { DollarSign, ShoppingBag, TrendingUp, Users, UtensilsCrossed } from "lucide-react";
 import { formatKwanza } from "@/lib/formatters";
 import type { Order, MenuItem } from "@shared/schema";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
-import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
-import { ModernStatCard } from "@/components/modern-stat-card";
-import { SalesChart } from "@/components/sales-chart";
+import { motion } from "framer-motion";
+import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
+import { AdvancedSalesChart } from "@/components/advanced-sales-chart";
+import { SalesHeatmap } from "@/components/sales-heatmap";
+import { ActivityFeed } from "@/components/activity-feed";
+import { GoalsWidget } from "@/components/goals-widget";
+import { QuickActionsWidget } from "@/components/quick-actions-widget";
+import { AdvancedFilters } from "@/components/advanced-filters";
 import { TopDishesCard } from "@/components/top-dishes-card";
 import { RecentOrdersTable } from "@/components/recent-orders-table";
-import { QuickFilters } from "@/components/quick-filters";
-import { motion } from "framer-motion";
+import { useLocation } from "wouter";
 
 interface DashboardStats {
   todaySales: string;
@@ -46,8 +48,10 @@ interface CustomRangeStats {
 type FilterOption = "today" | "week" | "month" | "year";
 
 export default function Dashboard() {
+  const [, setLocation] = useLocation();
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [quickFilter, setQuickFilter] = useState<FilterOption>("today");
+  const [showComparison, setShowComparison] = useState(false);
 
   const handleQuickFilter = (filter: FilterOption) => {
     setQuickFilter(filter);
@@ -131,152 +135,249 @@ export default function Dashboard() {
 
   const salesChartData = historicalData || [];
 
+  // Generate sparkline data from historical data (last 7 days)
+  const sparklineData = useMemo(() => {
+    if (!historicalData || historicalData.length === 0) return undefined;
+    return historicalData.slice(-7).map(d => d.sales);
+  }, [historicalData]);
+
+  // Mock activity feed data (in production, this would come from WebSocket or API)
+  const mockActivities = useMemo(() => {
+    if (!recentOrders || recentOrders.length === 0) return [];
+    
+    return recentOrders.slice(0, 8).map((order, index) => ({
+      id: order.id.toString(),
+      type: "order" as const,
+      title: `Pedido #${order.id}`,
+      description: `Mesa ${order.table.number} - ${order.status}`,
+      timestamp: order.createdAt ? new Date(order.createdAt) : new Date(),
+      status: order.status === "servido" ? "success" as const : "info" as const,
+      value: formatKwanza(order.totalAmount?.toString() || "0"),
+    }));
+  }, [recentOrders]);
+
+  // Mock heatmap data (in production, this would come from API)
+  const mockHeatmapData = useMemo(() => {
+    const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const data = [];
+    
+    for (const day of days) {
+      for (let hour = 10; hour < 23; hour++) {
+        const isLunchRush = hour >= 12 && hour <= 14;
+        const isDinnerRush = hour >= 19 && hour <= 21;
+        const baseValue = Math.random() * 5;
+        const rushBonus = isLunchRush || isDinnerRush ? Math.random() * 15 : 0;
+        
+        data.push({
+          day,
+          hour,
+          value: Math.floor(baseValue + rushBonus),
+        });
+      }
+    }
+    
+    return data;
+  }, []);
+
+  // Mock goals data
+  const mockGoals = useMemo(() => {
+    if (!displayStats) return [];
+    
+    const salesTarget = 50000;
+    const ordersTarget = 100;
+    
+    return [
+      {
+        id: "sales-goal",
+        title: "Meta de Vendas",
+        current: parseFloat(displayStats.totalSales || "0"),
+        target: salesTarget,
+        unit: "currency" as const,
+        period: dateRange?.from && dateRange?.to ? "Período personalizado" : "Hoje",
+      },
+      {
+        id: "orders-goal",
+        title: "Meta de Pedidos",
+        current: displayStats.totalOrders || 0,
+        target: ordersTarget,
+        unit: "number" as const,
+        period: dateRange?.from && dateRange?.to ? "Período personalizado" : "Hoje",
+      },
+    ];
+  }, [displayStats, dateRange]);
+
+  // Quick actions handlers
+  const quickActions = [
+    {
+      id: "new-order",
+      title: "PDV",
+      description: "Abrir caixa",
+      icon: ShoppingBag,
+      color: "primary",
+      onClick: () => setLocation("/pdv"),
+    },
+    {
+      id: "manage-menu",
+      title: "Menu",
+      description: "Gerenciar cardápio",
+      icon: UtensilsCrossed,
+      color: "success",
+      onClick: () => setLocation("/menu"),
+    },
+    {
+      id: "view-orders",
+      title: "Cozinha",
+      description: "Ver pedidos",
+      icon: TrendingUp,
+      color: "warning",
+      onClick: () => setLocation("/kitchen"),
+    },
+    {
+      id: "reports",
+      title: "Relatórios",
+      description: "Ver análises",
+      icon: DollarSign,
+      color: "info",
+      onClick: () => setLocation("/reports"),
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+    <div className="min-h-screen">
       <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-        {/* Header */}
+        {/* Header with Gradient */}
         <motion.div 
-          className="flex flex-col gap-4"
+          className="space-y-4"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <div className="space-y-1">
-              <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                Dashboard
-              </h1>
-              <p className="text-base text-muted-foreground">
-                {dateRange?.from && dateRange?.to 
-                  ? `Estatísticas do período selecionado`
-                  : `Visão geral em tempo real`
-                }
-              </p>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <QuickFilters 
-                selected={quickFilter} 
-                onSelect={handleQuickFilter}
-              />
-              
-              <div className="flex items-center gap-2">
-                <DateRangePicker 
-                  date={dateRange} 
-                  onDateChange={(range) => {
-                    setDateRange(range);
-                  }} 
-                  className="w-full sm:w-auto" 
-                />
-                {dateRange?.from && dateRange?.to && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      setDateRange(undefined);
-                      setQuickFilter("today");
-                    }}
-                    data-testid="button-clear-date-range"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
+          <div className="flex flex-col gap-2">
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+              Dashboard Analítico
+            </h1>
+            <p className="text-base text-muted-foreground">
+              {dateRange?.from && dateRange?.to 
+                ? `Estatísticas do período personalizado`
+                : `Visão geral em tempo real • ${new Date().toLocaleDateString('pt-AO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`
+              }
+            </p>
           </div>
+
+          {/* Advanced Filters */}
+          <AdvancedFilters
+            quickFilter={quickFilter}
+            onQuickFilterChange={handleQuickFilter}
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            showComparison={showComparison}
+            onToggleComparison={() => setShowComparison(!showComparison)}
+            onRefresh={() => window.location.reload()}
+            isLoading={isLoading}
+          />
         </motion.div>
 
-        {/* Stats Cards */}
+        {/* KPI Cards with Sparklines */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
           {isLoading ? (
             <>
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-[160px]">
-                  <Skeleton className="h-full w-full" />
-                </div>
+                <Skeleton key={i} className="h-[180px] w-full rounded-lg" />
               ))}
             </>
           ) : (
             <>
-              <ModernStatCard
-                title={dateRange?.from && dateRange?.to ? "Vendas no Período" : "Vendas Hoje"}
-                value={formatKwanza(displayStats?.totalSales || "0")}
+              <AdvancedKpiCard
+                title="Vendas Totais"
+                value={parseFloat(displayStats?.totalSales || "0")}
+                prefix="Kz "
+                decimals={2}
                 icon={DollarSign}
-                gradient="from-green-500/20 to-emerald-500/20"
-                trend={
-                  !dateRange?.from && !dateRange?.to && todayStats
-                    ? {
-                        value: todayStats.salesChange,
-                        label: `vs. ontem (${formatKwanza(todayStats.yesterdaySales)})`,
-                      }
-                    : undefined
-                }
-                testId="text-total-sales"
+                change={todayStats?.salesChange}
+                changeLabel="vs período anterior"
+                sparklineData={sparklineData}
+                gradient="from-success/10 via-success/5 to-transparent"
                 delay={0}
+                data-testid="card-kpi-sales"
               />
 
-              <ModernStatCard
-                title={dateRange?.from && dateRange?.to ? "Pedidos no Período" : "Pedidos Hoje"}
+              <AdvancedKpiCard
+                title="Pedidos"
                 value={displayStats?.totalOrders || 0}
                 icon={ShoppingBag}
-                gradient="from-blue-500/20 to-cyan-500/20"
-                trend={
-                  !dateRange?.from && !dateRange?.to && todayStats
-                    ? {
-                        value: todayStats.ordersChange,
-                        label: `vs. ontem (${todayStats.yesterdayOrders} pedidos)`,
-                      }
-                    : undefined
-                }
-                testId="text-total-orders"
+                change={todayStats?.ordersChange}
+                changeLabel="vs período anterior"
+                sparklineData={sparklineData?.map((_, i) => historicalData?.[i]?.orders || 0)}
+                gradient="from-primary/10 via-primary/5 to-transparent"
                 delay={0.1}
+                data-testid="card-kpi-orders"
               />
 
-              <ModernStatCard
+              <AdvancedKpiCard
                 title="Ticket Médio"
-                value={formatKwanza(displayStats?.averageOrderValue || "0")}
+                value={parseFloat(displayStats?.averageOrderValue || "0")}
+                prefix="Kz "
+                decimals={2}
                 icon={TrendingUp}
-                gradient="from-orange-500/20 to-amber-500/20"
-                subtitle="Valor médio por pedido"
-                testId="text-avg-ticket"
+                gradient="from-warning/10 via-warning/5 to-transparent"
                 delay={0.2}
+                data-testid="card-kpi-avg-ticket"
               />
 
-              <ModernStatCard
+              <AdvancedKpiCard
                 title="Mesas Ativas"
                 value={displayStats?.activeTables || 0}
                 icon={Users}
-                gradient="from-purple-500/20 to-pink-500/20"
-                subtitle="Atendimento em andamento"
-                testId="text-active-tables"
+                gradient="from-info/10 via-info/5 to-transparent"
                 delay={0.3}
+                data-testid="card-kpi-active-tables"
               />
             </>
           )}
         </div>
 
-        {/* Charts and Tables */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-          <div className="lg:col-span-2">
+        {/* Main Charts Section */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div className="xl:col-span-2 space-y-6">
+            {/* Advanced Sales Chart */}
             {historicalLoading ? (
-              <Skeleton className="h-[400px] w-full" />
+              <Skeleton className="h-[400px] w-full rounded-lg" />
             ) : (
-              <SalesChart data={salesChartData} />
+              <AdvancedSalesChart
+                data={salesChartData}
+                showComparison={showComparison}
+                title="Evolução de Vendas e Pedidos"
+              />
             )}
+
+            {/* Heatmap */}
+            <SalesHeatmap data={mockHeatmapData} />
           </div>
 
-          <div className="lg:col-span-1">
-            {isLoading ? (
-              <Skeleton className="h-[400px] w-full" />
-            ) : (
-              <TopDishesCard dishes={displayStats?.topDishes || []} />
-            )}
+          {/* Sidebar Widgets */}
+          <div className="space-y-6">
+            {/* Goals Widget */}
+            <GoalsWidget goals={mockGoals} />
+
+            {/* Quick Actions */}
+            <QuickActionsWidget actions={quickActions} />
           </div>
         </div>
 
-        {/* Recent Orders */}
+        {/* Activity Feed & Top Dishes */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <ActivityFeed activities={mockActivities} maxHeight={500} />
+          
+          {isLoading ? (
+            <Skeleton className="h-[500px] w-full rounded-lg" />
+          ) : (
+            <TopDishesCard dishes={displayStats?.topDishes || []} />
+          )}
+        </div>
+
+        {/* Recent Orders Table */}
         {ordersLoading ? (
-          <Skeleton className="h-[400px] w-full" />
+          <Skeleton className="h-[400px] w-full rounded-lg" />
         ) : (
           <RecentOrdersTable orders={recentOrders || []} />
         )}
