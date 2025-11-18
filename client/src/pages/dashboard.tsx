@@ -85,11 +85,11 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="space-y-6 sm:space-y-8 p-4 sm:p-6">
+    <div className="space-y-8 p-6 sm:p-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
+        <div className="space-y-2">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Dashboard</h1>
+          <p className="text-base text-muted-foreground">
             {dateRange?.from && dateRange?.to 
               ? `Estatísticas do período selecionado`
               : `Visão geral das operações do restaurante`

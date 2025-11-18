@@ -111,36 +111,38 @@ export default function MainDashboard({ section }: MainDashboardProps) {
       <div className="flex h-screen w-full">
         <AppSidebar currentSection={currentSection} />
         <div className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center justify-between p-4 border-b bg-background" role="banner">
-            <SidebarTrigger 
-              data-testid="button-sidebar-toggle" 
-              aria-label="Abrir menu lateral"
-            />
-            <h1 className="text-xl font-semibold capitalize" data-testid="text-current-section">
-              {currentSection === "dashboard" ? "Dashboard" :
-               currentSection === "pdv" ? "PDV" :
-               currentSection === "tables" ? "Mesas" :
-               currentSection === "menu" ? "Menu" :
-               currentSection === "kitchen" ? "Cozinha" :
-               currentSection === "users" ? "Usuários" :
-               currentSection === "branches" ? "Unidades" :
-               currentSection === "reports" ? "Relatórios" :
-               currentSection === "sales" ? "Vendas" :
-               currentSection === "profile" ? "Perfil" :
-               currentSection === "settings" ? "Configurações" :
-               currentSection === "superadmin" ? "Super Admin" :
-               currentSection === "financial" ? "Lançamentos" :
-               currentSection === "financial-categories" ? "Categorias Financeiras" :
-               currentSection === "financial-new" ? "Novo Lançamento" :
-               currentSection === "financial-cash-registers" ? "Caixa" :
-               currentSection === "financial-shifts" ? "Turnos de Caixa" :
-               currentSection === "expenses" ? "Despesas" :
-               currentSection === "financial-reports" ? "Relatórios Financeiros" :
-               currentSection === "inventory" ? "Inventário" : ""}
-            </h1>
+          <header className="flex items-center justify-between px-6 py-4 border-b bg-background shadow-sm" role="banner">
+            <div className="flex items-center gap-4">
+              <SidebarTrigger 
+                data-testid="button-sidebar-toggle" 
+                aria-label="Abrir menu lateral"
+              />
+              <h1 className="text-xl font-bold tracking-tight capitalize" data-testid="text-current-section">
+                {currentSection === "dashboard" ? "Dashboard" :
+                 currentSection === "pdv" ? "PDV" :
+                 currentSection === "tables" ? "Mesas" :
+                 currentSection === "menu" ? "Menu" :
+                 currentSection === "kitchen" ? "Cozinha" :
+                 currentSection === "users" ? "Usuários" :
+                 currentSection === "branches" ? "Unidades" :
+                 currentSection === "reports" ? "Relatórios" :
+                 currentSection === "sales" ? "Vendas" :
+                 currentSection === "profile" ? "Perfil" :
+                 currentSection === "settings" ? "Configurações" :
+                 currentSection === "superadmin" ? "Super Admin" :
+                 currentSection === "financial" ? "Lançamentos" :
+                 currentSection === "financial-categories" ? "Categorias Financeiras" :
+                 currentSection === "financial-new" ? "Novo Lançamento" :
+                 currentSection === "financial-cash-registers" ? "Caixa" :
+                 currentSection === "financial-shifts" ? "Turnos de Caixa" :
+                 currentSection === "expenses" ? "Despesas" :
+                 currentSection === "financial-reports" ? "Relatórios Financeiros" :
+                 currentSection === "inventory" ? "Inventário" : ""}
+              </h1>
+            </div>
             <div className="w-10" aria-hidden="true" />
           </header>
-          <main id="main-content" className="flex-1 overflow-auto bg-background" role="main">
+          <main id="main-content" className="flex-1 overflow-auto bg-muted/20" role="main">
             {renderContent()}
           </main>
         </div>

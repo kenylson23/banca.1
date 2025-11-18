@@ -16,12 +16,12 @@ export default function Sales() {
   const [orderTypeFilter, setOrderTypeFilter] = useState('all');
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">
+    <div className="space-y-8 p-6 sm:p-8">
+      <div className="space-y-2">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
           Vendas
         </h1>
-        <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
+        <p className="text-base text-muted-foreground">
           Monitore suas vendas em tempo real com indicadores e análises detalhadas
         </p>
       </div>

@@ -55,21 +55,21 @@ const getPaymentStatusLabel = (status: string) => {
   return labels[status] || status;
 };
 
-const getOrderStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
-  const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-    pendente: 'outline',
-    em_preparo: 'default',
-    pronto: 'secondary',
-    servido: 'secondary',
+const getOrderStatusVariant = (status: string): 'pending' | 'in-progress' | 'ready' | 'served' | 'default' => {
+  const variants: Record<string, 'pending' | 'in-progress' | 'ready' | 'served' | 'default'> = {
+    pendente: 'pending',
+    em_preparo: 'in-progress',
+    pronto: 'ready',
+    servido: 'served',
   };
   return variants[status] || 'default';
 };
 
-const getPaymentStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
-  const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const getPaymentStatusVariant = (status: string): 'success' | 'warning' | 'destructive' | 'default' => {
+  const variants: Record<string, 'success' | 'warning' | 'destructive' | 'default'> = {
     nao_pago: 'destructive',
-    parcial: 'outline',
-    pago: 'secondary',
+    parcial: 'warning',
+    pago: 'success',
   };
   return variants[status] || 'default';
 };

@@ -105,7 +105,7 @@ export function SalesKPIs({
         </CardContent>
       </Card>
 
-      <Card data-testid="card-total-revenue" className="shadow-sm hover:shadow-md transition-shadow border-primary/20">
+      <Card data-testid="card-total-revenue" className="shadow-sm hover:shadow-md transition-shadow">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
             Total Geral
