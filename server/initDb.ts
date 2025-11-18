@@ -652,6 +652,82 @@ export async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW()
       );`);
       
+      // Create stock_movement_type enum
+      await db.execute(sql`DO $$ BEGIN 
+        CREATE TYPE stock_movement_type AS ENUM ('entrada', 'saida', 'ajuste', 'transferencia'); 
+      EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Create inventory_categories table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS inventory_categories (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        name VARCHAR(200) NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create measurement_units table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS measurement_units (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        abbreviation VARCHAR(20) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create inventory_items table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS inventory_items (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        category_id VARCHAR REFERENCES inventory_categories(id) ON DELETE SET NULL,
+        unit_id VARCHAR NOT NULL REFERENCES measurement_units(id) ON DELETE RESTRICT,
+        name VARCHAR(200) NOT NULL,
+        description TEXT,
+        sku VARCHAR(100),
+        cost_price DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        min_stock DECIMAL(10, 2) DEFAULT 0,
+        max_stock DECIMAL(10, 2) DEFAULT 0,
+        reorder_point DECIMAL(10, 2) DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create branch_stock table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS branch_stock (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+        inventory_item_id VARCHAR NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+        quantity DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create unique index on branch_stock to prevent duplicates
+      await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS branch_stock_restaurant_branch_item_idx 
+        ON branch_stock (restaurant_id, branch_id, inventory_item_id);`);
+      
+      // Create stock_movements table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS stock_movements (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+        inventory_item_id VARCHAR NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+        movement_type stock_movement_type NOT NULL,
+        quantity DECIMAL(10, 2) NOT NULL,
+        previous_quantity DECIMAL(10, 2) NOT NULL,
+        new_quantity DECIMAL(10, 2) NOT NULL,
+        unit_cost DECIMAL(10, 2) DEFAULT 0,
+        total_cost DECIMAL(10, 2) DEFAULT 0,
+        reason TEXT,
+        reference_id VARCHAR(100),
+        from_branch_id VARCHAR REFERENCES branches(id) ON DELETE SET NULL,
+        to_branch_id VARCHAR REFERENCES branches(id) ON DELETE SET NULL,
+        recorded_by_user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
       // Create initial super admin user if it doesn't exist
       const superAdminEmail = 'superadmin@nabancada.com';
       const checkSuperAdmin = await db.execute(sql`SELECT id FROM users WHERE email = ${superAdminEmail} AND role = 'superadmin'`);
