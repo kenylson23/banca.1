@@ -49,6 +49,25 @@ export function TablesPanel() {
   const [areaFilter, setAreaFilter] = useState<string>('all');
   const [selectedTable, setSelectedTable] = useState<(Table & { orders?: any[] }) | null>(null);
 
+  const navItems = [
+    { name: 'Todas', url: '#', icon: LayoutGrid },
+    { name: 'Livres', url: '#', icon: Check },
+    { name: 'Ocupadas', url: '#', icon: Users },
+    { name: 'Em Andamento', url: '#', icon: Clock },
+    { name: 'Aguardando', url: '#', icon: DollarSign },
+  ];
+
+  const handleNavClick = (item: typeof navItems[0]) => {
+    const filterMap: Record<string, string> = {
+      'Todas': 'all',
+      'Livres': 'livre',
+      'Ocupadas': 'ocupada',
+      'Em Andamento': 'em_andamento',
+      'Aguardando': 'aguardando_pagamento',
+    };
+    setStatusFilter(filterMap[item.name] || 'all');
+  };
+
   const { data: tables, isLoading } = useQuery<Array<Table & { orders?: any[] }>>({
     queryKey: ["/api/tables/with-orders"],
   });
@@ -428,6 +447,18 @@ export function TablesPanel() {
         onOpenChange={(open) => !open && setSelectedTable(null)}
         table={selectedTable}
         onDelete={setDeleteTableId}
+      />
+
+      <TubelightNavBar
+        items={navItems}
+        activeItem={
+          statusFilter === 'all' ? 'Todas' :
+          statusFilter === 'livre' ? 'Livres' :
+          statusFilter === 'ocupada' ? 'Ocupadas' :
+          statusFilter === 'em_andamento' ? 'Em Andamento' :
+          'Aguardando'
+        }
+        onItemClick={handleNavClick}
       />
     </div>
   );
