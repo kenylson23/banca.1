@@ -238,6 +238,12 @@ export interface IStorage {
     periodEnd: Date;
   }>;
   
+  getHistoricalStats(restaurantId: string, branchId: string | null, days: number): Promise<Array<{
+    date: string;
+    sales: number;
+    orders: number;
+  }>>;
+  
   getKitchenStats(restaurantId: string, branchId: string | null, period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): Promise<{
     totalOrders: number;
     totalRevenue: string;
@@ -2427,6 +2433,64 @@ export class DatabaseStorage implements IStorage {
       periodStart,
       periodEnd,
     };
+  }
+
+  async getHistoricalStats(restaurantId: string, branchId: string | null, days: number): Promise<Array<{
+    date: string;
+    sales: number;
+    orders: number;
+  }>> {
+    const result: Array<{ date: string; sales: number; orders: number }> = [];
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    for (let i = days - 1; i >= 0; i--) {
+      const dayStart = new Date(today);
+      dayStart.setDate(dayStart.getDate() - i);
+      dayStart.setHours(0, 0, 0, 0);
+
+      const dayEnd = new Date(today);
+      dayEnd.setDate(dayEnd.getDate() - i);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      let dayOrdersData;
+      if (branchId) {
+        dayOrdersData = await db
+          .select()
+          .from(orders)
+          .leftJoin(tables, eq(orders.tableId, tables.id))
+          .where(and(
+            eq(orders.restaurantId, restaurantId),
+            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+            gte(orders.createdAt, dayStart),
+            sql`${orders.createdAt} <= ${dayEnd}`
+          ));
+      } else {
+        dayOrdersData = await db
+          .select()
+          .from(orders)
+          .leftJoin(tables, eq(orders.tableId, tables.id))
+          .where(and(
+            eq(orders.restaurantId, restaurantId),
+            gte(orders.createdAt, dayStart),
+            sql`${orders.createdAt} <= ${dayEnd}`
+          ));
+      }
+
+      const dayOrders = dayOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
+      const daySales = dayOrders.reduce(
+        (sum: number, order: Order) => sum + parseFloat(order.totalAmount),
+        0
+      );
+
+      result.push({
+        date: dayStart.toLocaleDateString('pt-BR', { weekday: 'short' }),
+        sales: daySales,
+        orders: dayOrders.length
+      });
+    }
+
+    return result;
   }
 
   async getKitchenStats(restaurantId: string, branchId: string | null, period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): Promise<{

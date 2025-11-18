@@ -48,11 +48,11 @@
 
   --popover-border: 214 20% 90%;
 
-  --primary: 213 100% 50%;
+  --primary: 213 94% 55%;
 
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 214 18% 92%;
+  --secondary: 214 25% 90%;
 
   --secondary-foreground: 222 47% 8%;
 
@@ -70,17 +70,17 @@
 
   --input: 214 25% 88%;
   --ring: 213 100% 50%;
-  --chart-1: 213 100% 50%;
-  --chart-2: 142 71% 45%;
-  --chart-3: 45 93% 58%;
-  --chart-4: 221 83% 53%;
-  --chart-5: 0 84% 60%;
+  --chart-1: 213 94% 55%;
+  --chart-2: 142 76% 48%;
+  --chart-3: 45 95% 60%;
+  --chart-4: 280 85% 60%;
+  --chart-5: 0 84% 62%;
 
-  --success: 142 71% 45%;
+  --success: 142 76% 48%;
   --success-foreground: 0 0% 100%;
-  --warning: 45 93% 58%;
-  --warning-foreground: 0 0% 100%;
-  --info: 221 83% 53%;
+  --warning: 45 95% 60%;
+  --warning-foreground: 222 47% 8%;
+  --info: 213 94% 55%;
   --info-foreground: 0 0% 100%;
 
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -173,11 +173,11 @@
 
   --popover-border: 217 33% 26%;
 
-  --primary: 213 100% 55%;
+  --primary: 213 94% 58%;
 
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 217 33% 22%;
+  --secondary: 217 33% 25%;
 
   --secondary-foreground: 210 40% 99%;
 
@@ -195,17 +195,17 @@
 
   --input: 217 33% 25%;
   --ring: 213 100% 55%;
-  --chart-1: 213 100% 55%;
-  --chart-2: 142 71% 55%;
-  --chart-3: 45 93% 68%;
-  --chart-4: 221 83% 63%;
-  --chart-5: 0 84% 70%;
+  --chart-1: 213 94% 58%;
+  --chart-2: 142 76% 52%;
+  --chart-3: 45 95% 65%;
+  --chart-4: 280 85% 65%;
+  --chart-5: 0 84% 68%;
 
-  --success: 142 71% 55%;
+  --success: 142 76% 52%;
   --success-foreground: 0 0% 100%;
-  --warning: 45 93% 68%;
-  --warning-foreground: 0 0% 100%;
-  --info: 221 83% 63%;
+  --warning: 45 95% 65%;
+  --warning-foreground: 222 47% 8%;
+  --info: 213 94% 58%;
   --info-foreground: 0 0% 100%;
 
   --shadow-2xs: 0px 1px 2px 0px hsl(222 47% 6% / 0.20);
