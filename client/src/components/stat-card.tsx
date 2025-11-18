@@ -33,16 +33,16 @@ export function StatCard({
   const isNeutral = trend && trend.value === 0;
 
   return (
-    <Card className="hover-elevate overflow-visible">
+    <Card className="hover-elevate overflow-visible animate-in fade-in slide-in-from-bottom-4 duration-500">
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <p className="text-sm font-medium text-muted-foreground mb-1">
+            <p className="text-sm font-medium text-muted-foreground mb-1 transition-colors">
               {title}
             </p>
             <div className="flex items-baseline gap-2 flex-wrap">
               <h3 
-                className="text-3xl font-bold text-foreground" 
+                className="text-3xl font-bold text-foreground transition-all" 
                 data-testid={testId}
               >
                 {value}
@@ -51,7 +51,7 @@ export function StatCard({
                 <Badge
                   variant="secondary"
                   className={cn(
-                    "gap-1 text-xs font-medium",
+                    "gap-1 text-xs font-medium transition-all animate-in fade-in zoom-in-95 duration-300 delay-150",
                     isPositive && "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20",
                     isNegative && "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
                     isNeutral && "bg-muted text-muted-foreground"
@@ -65,7 +65,7 @@ export function StatCard({
               )}
             </div>
             {(subtitle || trend?.label) && (
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-xs text-muted-foreground mt-2 transition-colors">
                 {trend?.label || subtitle}
               </p>
             )}
@@ -73,11 +73,11 @@ export function StatCard({
 
           <div
             className={cn(
-              "rounded-lg p-3 flex items-center justify-center flex-shrink-0",
+              "rounded-lg p-3 flex items-center justify-center flex-shrink-0 transition-transform hover:scale-110",
               iconBgColor
             )}
           >
-            <Icon className={cn("h-6 w-6", iconColor)} />
+            <Icon className={cn("h-6 w-6 transition-colors", iconColor)} />
           </div>
         </div>
       </CardContent>
