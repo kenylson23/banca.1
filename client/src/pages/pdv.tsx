@@ -16,6 +16,7 @@ import type { Order, OrderItem, MenuItem, Table } from "@shared/schema";
 import { TablesPanel } from "@/components/TablesPanel";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 type OrderType = "balcao" | "delivery" | "mesas";
 type OrderFilter = "all" | "pendente" | "em_curso";
@@ -492,7 +493,13 @@ export default function PDV() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <AdminLTELayout
+      pageTitle="PDV"
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "PDV" }
+      ]}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
@@ -597,6 +604,6 @@ export default function PDV() {
         open={detailsDialogOpen}
         onOpenChange={setDetailsDialogOpen}
       />
-    </div>
+    </AdminLTELayout>
   );
 }

@@ -37,6 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { FinancialCategory } from "@shared/schema";
+import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 interface CategoryFormData {
   type: 'receita' | 'despesa';
@@ -136,15 +137,16 @@ export default function FinancialCategories() {
   const incomeCategories = categories?.filter(c => c.type === 'receita') || [];
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
+    <AdminLTELayout
+      pageTitle="Categorias Financeiras"
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Financeiro", href: "/financial" },
+        { label: "Categorias" }
+      ]}
+    >
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Categorias Financeiras</h1>
-            <p className="text-muted-foreground mt-1">
-              Configure as categorias de receitas e despesas do seu restaurante
-            </p>
-          </div>
           <Button data-testid="button-new-category" onClick={() => setIsDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Nova Categoria
@@ -337,6 +339,7 @@ export default function FinancialCategories() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+      </div>
+    </AdminLTELayout>
   );
 }

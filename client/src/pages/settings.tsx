@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Copy, Check, ExternalLink } from 'lucide-react';
 import type { Restaurant } from '@shared/schema';
+import { AdminLTELayout } from '@/components/AdminLTELayout';
 
 export default function Settings() {
   const [slug, setSlug] = useState('');
@@ -139,14 +140,13 @@ export default function Settings() {
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold">Configurações</h1>
-        <p className="text-sm sm:text-base text-muted-foreground">
-          Configure o link público do seu cardápio
-        </p>
-      </div>
-
+    <AdminLTELayout
+      pageTitle="Configurações"
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Configurações" }
+      ]}
+    >
       <Card>
         <CardHeader>
           <CardTitle>Link Público do Cardápio</CardTitle>
@@ -253,6 +253,6 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </AdminLTELayout>
   );
 }

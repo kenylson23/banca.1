@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { PrintOrder } from "@/components/PrintOrder";
 import { FinancialShiftManager } from "@/components/FinancialShiftManager";
 import ReportsDashboard from "./reports-dashboard";
+import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 type SalesReport = {
   totalSales: string;
@@ -204,16 +205,13 @@ export default function Reports() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-      <div className="flex flex-col gap-2 sm:gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Relatórios</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Análise detalhada de vendas, pedidos e desempenho
-          </p>
-        </div>
-      </div>
-
+    <AdminLTELayout
+      pageTitle="Relatórios"
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Relatórios" }
+      ]}
+    >
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -674,6 +672,6 @@ export default function Reports() {
           </TabsContent>
         )}
       </Tabs>
-    </div>
+    </AdminLTELayout>
   );
 }

@@ -34,6 +34,7 @@ import { formatKwanza } from "@/lib/formatters";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { FinancialTransaction, CashRegister, FinancialCategory, User } from "@shared/schema";
+import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 type TransactionWithDetails = FinancialTransaction & {
   cashRegister: CashRegister | null;
@@ -130,15 +131,16 @@ export default function FinancialTransactions() {
   });
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
+    <AdminLTELayout
+      pageTitle="Lançamentos Financeiros"
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Financeiro", href: "/financial" },
+        { label: "Lançamentos" }
+      ]}
+    >
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Lançamentos Financeiros</h1>
-            <p className="text-muted-foreground mt-1">
-              Acompanhe e gerencie as movimentações financeiras
-            </p>
-          </div>
           <div className="flex gap-3">
             <Link href="/financial/shifts">
               <Button variant="outline" data-testid="button-cash-shifts">
@@ -429,6 +431,7 @@ export default function FinancialTransactions() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+      </div>
+    </AdminLTELayout>
   );
 }

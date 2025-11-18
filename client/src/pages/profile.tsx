@@ -10,6 +10,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 export default function Profile() {
   const { user } = useAuth();
@@ -84,15 +85,15 @@ export default function Profile() {
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 max-w-4xl">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold" data-testid="text-profile-title">Meu Perfil</h1>
-        <p className="text-sm sm:text-base text-muted-foreground" data-testid="text-profile-description">
-          Gerencie suas informações pessoais e segurança da conta
-        </p>
-      </div>
-
-      <Card>
+    <AdminLTELayout
+      pageTitle="Perfil"
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Perfil" }
+      ]}
+    >
+      <div className="space-y-6 sm:space-y-8 max-w-4xl">
+        <Card>
         <CardHeader>
           <CardTitle>Informações Pessoais</CardTitle>
           <CardDescription>
@@ -266,6 +267,7 @@ export default function Profile() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </AdminLTELayout>
   );
 }

@@ -29,6 +29,7 @@ import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import type { CashRegister, CashRegisterShift } from "@shared/schema";
+import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 interface ShiftWithDetails extends CashRegisterShift {
   cashRegister: CashRegister;
@@ -195,20 +196,16 @@ export default function FinancialCashRegisters() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
+    <AdminLTELayout
+      pageTitle="Caixas"
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Financeiro", href: "/financial" },
+        { label: "Caixas" }
+      ]}
+    >
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
-          <Link href="/financial">
-            <Button variant="ghost" size="icon" data-testid="button-back">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold tracking-tight">Configuração de Caixas</h1>
-            <p className="text-muted-foreground mt-1">
-              Gerencie caixas registradoras e controle turnos de caixa
-            </p>
-          </div>
           <Button onClick={() => setNewRegisterDialog(true)} data-testid="button-new-register">
             <Plus className="h-4 w-4 mr-2" />
             Nova Caixa
@@ -608,6 +605,6 @@ export default function FinancialCashRegisters() {
           </DialogContent>
         </Dialog>
       </div>
-    </div>
+    </AdminLTELayout>
   );
 }

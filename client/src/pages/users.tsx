@@ -18,6 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 type User = {
   id: string;
@@ -98,12 +99,15 @@ export default function Users() {
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 p-4 sm:p-6">
+    <AdminLTELayout 
+      pageTitle="Gestão de Usuários"
+      breadcrumbs={[
+        { label: 'Home', href: '/dashboard' },
+        { label: 'Usuários' }
+      ]}
+    >
+    <div className="space-y-6 sm:space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold" data-testid="text-page-title">Gestão de Usuários</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Gerir credenciais de acesso ao sistema</p>
-        </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button data-testid="button-add-user">
@@ -263,5 +267,6 @@ export default function Users() {
         </div>
       )}
     </div>
+    </AdminLTELayout>
   );
 }

@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { CashRegister, FinancialCategory } from "@shared/schema";
+import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 interface TransactionFormData {
   cashRegisterId: string;
@@ -128,25 +129,15 @@ export default function FinancialNewTransaction() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
+    <AdminLTELayout
+      pageTitle="Novo Lançamento"
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Financeiro", href: "/financial" },
+        { label: "Novo Lançamento" }
+      ]}
+    >
       <div className="max-w-3xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setLocation("/financial")}
-            data-testid="button-back"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Novo Lançamento</h1>
-            <p className="text-muted-foreground mt-1">
-              Registre uma nova movimentação financeira
-            </p>
-          </div>
-        </div>
-
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -299,6 +290,6 @@ export default function FinancialNewTransaction() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </AdminLTELayout>
   );
 }

@@ -26,6 +26,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
+import { AdminLTELayout } from "@/components/AdminLTELayout";
 
 interface SuperAdminStats {
   totalRestaurants: number;
@@ -165,13 +166,14 @@ export default function SuperAdmin() {
   };
 
   return (
+    <AdminLTELayout 
+      pageTitle="Super Administrador"
+      breadcrumbs={[
+        { label: 'Home', href: '/superadmin' },
+        { label: 'Super Administrador' }
+      ]}
+    >
     <div className="space-y-6 sm:space-y-8">
-      <div>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Super Administrador</h1>
-        <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
-          Gestão e controle geral da plataforma NaBancada
-        </p>
-      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
         <Card>
@@ -568,5 +570,6 @@ export default function SuperAdmin() {
         </CardContent>
       </Card>
     </div>
+    </AdminLTELayout>
   );
 }

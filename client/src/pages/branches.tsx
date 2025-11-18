@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Trash2, Edit, MapPin, Phone } from "lucide-react";
+import { AdminLTELayout } from "@/components/AdminLTELayout";
 import {
   Dialog,
   DialogContent,
@@ -156,16 +157,14 @@ export default function Branches() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <AdminLTELayout
+      pageTitle="Unidades"
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Unidades" }
+      ]}
+    >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold" data-testid="text-page-title">
-            Gestão de Unidades
-          </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Gerir filiais e localizações do restaurante
-          </p>
-        </div>
         <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
           <DialogTrigger asChild>
             <Button data-testid="button-add-branch">
@@ -333,6 +332,6 @@ export default function Branches() {
           ))}
         </div>
       )}
-    </div>
+    </AdminLTELayout>
   );
 }
