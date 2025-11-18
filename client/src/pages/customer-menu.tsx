@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ShoppingCart, Plus, Minus, Trash2, Check, ClipboardList, Clock, ChefHat, CheckCircle, PackageSearch } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Check, ClipboardList, Clock, ChefHat, CheckCircle, PackageSearch, Home } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { formatKwanza } from '@/lib/formatters';
 import type { MenuItem, Category, Order, OrderItem, Restaurant } from '@shared/schema';
@@ -22,6 +22,7 @@ import { MapPin, Phone, Clock as ClockIcon } from 'lucide-react';
 import { Link } from 'wouter';
 import { CustomerMenuItemOptionsDialog } from '@/components/CustomerMenuItemOptionsDialog';
 import { ShareOrderDialog } from '@/components/ShareOrderDialog';
+import { TubelightNavBar } from '@/components/ui/tubelight-navbar';
 
 export default function CustomerMenu() {
   const [, params] = useRoute('/mesa/:tableNumber');
@@ -34,7 +35,30 @@ export default function CustomerMenu() {
   const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItem | null>(null);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [activeView, setActiveView] = useState<'menu' | 'cart' | 'orders'>('menu');
   const { toast } = useToast();
+
+  const navItems = [
+    { name: 'Menu', url: '#', icon: Home },
+    { name: 'Carrinho', url: '#', icon: ShoppingCart },
+    { name: 'Pedidos', url: '#', icon: ClipboardList },
+  ];
+
+  const handleNavClick = (item: typeof navItems[0]) => {
+    if (item.name === 'Menu') {
+      setActiveView('menu');
+      setIsCartOpen(false);
+      setIsOrdersDialogOpen(false);
+    } else if (item.name === 'Carrinho') {
+      setActiveView('cart');
+      setIsCartOpen(true);
+      setIsOrdersDialogOpen(false);
+    } else if (item.name === 'Pedidos') {
+      setActiveView('orders');
+      setIsOrdersDialogOpen(true);
+      setIsCartOpen(false);
+    }
+  };
 
   const { data: currentTable, isLoading: tableLoading } = useQuery<any>({
     queryKey: ['/api/public/tables', tableNumber],
@@ -721,6 +745,12 @@ export default function CustomerMenu() {
         onOpenChange={setIsShareDialogOpen}
         order={createdOrder}
         restaurantName={restaurant?.name || ''}
+      />
+
+      <TubelightNavBar
+        items={navItems}
+        activeItem={activeView === 'menu' ? 'Menu' : activeView === 'cart' ? 'Carrinho' : 'Pedidos'}
+        onItemClick={handleNavClick}
       />
     </div>
   );

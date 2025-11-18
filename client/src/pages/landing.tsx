@@ -1,15 +1,38 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { QrCode, ChefHat, BarChart3, Zap, Sparkles, Smartphone, TrendingUp, Users, Star, Quote, X } from "lucide-react";
+import { QrCode, ChefHat, BarChart3, Zap, Sparkles, Smartphone, TrendingUp, Users, Star, Quote, X, Home, Info, Mail } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
 import dashboardImage from "@assets/image_1761991208974.png";
 import kitchenImage from "@assets/image_1761991359072.png";
+import { TubelightNavBar } from "@/components/ui/tubelight-navbar";
 
 export default function Landing() {
   const [, setLocation] = useLocation();
   const [selectedImage, setSelectedImage] = useState<{ src: string; alt: string } | null>(null);
+  const [activeSection, setActiveSection] = useState('home');
+
+  const navItems = [
+    { name: 'Início', url: '#', icon: Home },
+    { name: 'Recursos', url: '#features', icon: Info },
+    { name: 'Contato', url: '#contact', icon: Mail },
+  ];
+
+  const handleNavClick = (item: typeof navItems[0]) => {
+    if (item.name === 'Início') {
+      setActiveSection('home');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (item.name === 'Recursos') {
+      setActiveSection('features');
+      const featuresSection = document.getElementById('features');
+      featuresSection?.scrollIntoView({ behavior: 'smooth' });
+    } else if (item.name === 'Contato') {
+      setActiveSection('contact');
+      const contactSection = document.getElementById('contact');
+      contactSection?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   const features = [
     {
@@ -90,7 +113,7 @@ export default function Landing() {
             </div>
 
             {/* Features Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 max-w-6xl mx-auto w-full">
+            <div id="features" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 max-w-6xl mx-auto w-full">
               {features.map((feature, index) => (
                 <div
                   key={feature.title}
@@ -363,7 +386,7 @@ export default function Landing() {
         </section>
 
         {/* Footer */}
-        <footer className="py-6 sm:py-8 border-t border-border/50 backdrop-blur-sm">
+        <footer id="contact" className="py-6 sm:py-8 border-t border-border/50 backdrop-blur-sm">
           <p className="text-center text-sm text-muted-foreground">
             Desenvolvido por{' '}
             <a
@@ -378,6 +401,12 @@ export default function Landing() {
           </p>
         </footer>
       </div>
+
+      <TubelightNavBar
+        items={navItems}
+        activeItem={activeSection === 'home' ? 'Início' : activeSection === 'features' ? 'Recursos' : 'Contato'}
+        onItemClick={handleNavClick}
+      />
 
       {/* Modal para ampliar imagens */}
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>

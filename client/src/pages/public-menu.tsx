@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { ShoppingCart, Plus, Minus, Trash2, MapPin, Phone, Clock, Bike, ShoppingBag, PackageSearch } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, MapPin, Phone, Clock, Bike, ShoppingBag, PackageSearch, Home } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { formatKwanza } from '@/lib/formatters';
 import type { MenuItem, Category, Restaurant, Order } from '@shared/schema';
@@ -21,6 +21,7 @@ import { Link } from 'wouter';
 import { CustomerMenuItemOptionsDialog } from '@/components/CustomerMenuItemOptionsDialog';
 import type { SelectedOption } from '@/contexts/CartContext';
 import { ShareOrderDialog } from '@/components/ShareOrderDialog';
+import { TubelightNavBar } from '@/components/ui/tubelight-navbar';
 
 export default function PublicMenu() {
   const [, params] = useRoute('/r/:slug');
@@ -35,7 +36,23 @@ export default function PublicMenu() {
   const [isOptionsDialogOpen, setIsOptionsDialogOpen] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [activeView, setActiveView] = useState<'menu' | 'cart'>('menu');
   const { toast } = useToast();
+
+  const navItems = [
+    { name: 'Menu', url: '#', icon: Home },
+    { name: 'Carrinho', url: '#', icon: ShoppingCart },
+  ];
+
+  const handleNavClick = (item: typeof navItems[0]) => {
+    if (item.name === 'Menu') {
+      setActiveView('menu');
+      setIsCartOpen(false);
+    } else if (item.name === 'Carrinho') {
+      setActiveView('cart');
+      setIsCartOpen(true);
+    }
+  };
 
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
     queryKey: ['/api/public/restaurants/slug', slug],
@@ -628,6 +645,12 @@ export default function PublicMenu() {
         order={createdOrder}
         restaurantName={restaurant?.name || ''}
         restaurantSlug={slug}
+      />
+
+      <TubelightNavBar
+        items={navItems}
+        activeItem={activeView === 'menu' ? 'Menu' : 'Carrinho'}
+        onItemClick={handleNavClick}
       />
     </div>
   );
