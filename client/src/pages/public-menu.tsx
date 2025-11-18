@@ -67,6 +67,49 @@ export default function PublicMenu() {
     }).catch(() => {});
   }, [restaurantId]);
 
+  const hexToHSL = (hex: string) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    if (!result) return '0 0% 50%';
+
+    let r = parseInt(result[1], 16) / 255;
+    let g = parseInt(result[2], 16) / 255;
+    let b = parseInt(result[3], 16) / 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0, s = 0, l = (max + min) / 2;
+
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+      switch (max) {
+        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+        case g: h = ((b - r) / d + 2) / 6; break;
+        case b: h = ((r - g) / d + 4) / 6; break;
+      }
+    }
+
+    h = Math.round(h * 360);
+    s = Math.round(s * 100);
+    l = Math.round(l * 100);
+
+    return `${h} ${s}% ${l}%`;
+  };
+
+  const customColors: Record<string, string> = {};
+  if (restaurant) {
+    if (restaurant.primaryColor) {
+      customColors['--primary'] = hexToHSL(restaurant.primaryColor);
+    }
+    if (restaurant.secondaryColor) {
+      customColors['--secondary'] = hexToHSL(restaurant.secondaryColor);
+    }
+    if (restaurant.accentColor) {
+      customColors['--accent'] = hexToHSL(restaurant.accentColor);
+    }
+  }
+
   const createOrderMutation = useMutation({
     mutationFn: async (orderData: {
       restaurantId: string;
@@ -240,20 +283,20 @@ export default function PublicMenu() {
     );
   }
 
+  const heroStyle = restaurant?.heroImageUrl ? {
+    backgroundImage: `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6)), url('${restaurant.heroImageUrl}')`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+  } : {
+    backgroundColor: restaurant?.primaryColor || '#EA580C',
+  };
+
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 sm:h-20 items-center justify-between px-4 sm:px-6">
-          <div className="flex-1 min-w-0 mr-2">
-            <h1 className="text-lg sm:text-xl font-semibold truncate" data-testid="text-restaurant-name">{restaurant.name}</h1>
-            <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2">
-              {restaurant.address && (
-                <span className="flex items-center gap-1 truncate">
-                  <MapPin className="h-3 w-3 flex-shrink-0" />
-                  <span className="truncate">{restaurant.address}</span>
-                </span>
-              )}
-            </p>
+    <div className="min-h-screen bg-background" style={customColors as any}>
+      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b">
+        <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg sm:text-xl font-bold" data-testid="text-restaurant-name">{restaurant.name}</h1>
           </div>
           
           <div className="flex items-center gap-2">
@@ -439,14 +482,46 @@ export default function PublicMenu() {
         </div>
       </header>
 
-      <main className="container px-4 sm:px-6 py-6 sm:py-8">
-        {restaurant.description && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardDescription className="text-sm sm:text-base">{restaurant.description}</CardDescription>
-            </CardHeader>
-          </Card>
-        )}
+      <section
+        className="relative flex items-center justify-center min-h-[400px] sm:min-h-[500px] pt-16"
+        style={heroStyle}
+      >
+        <div className="container px-4 sm:px-6 text-center text-white">
+          <h2 className="text-3xl sm:text-5xl md:text-6xl font-bold mb-4">
+            {restaurant.name}
+          </h2>
+          {restaurant.description && (
+            <p className="text-lg sm:text-xl md:text-2xl mb-6 max-w-2xl mx-auto opacity-95">
+              {restaurant.description}
+            </p>
+          )}
+          {restaurant.address && (
+            <div className="flex items-center justify-center gap-2 mb-6 text-sm sm:text-base">
+              <MapPin className="h-4 w-4" />
+              <span>{restaurant.address}</span>
+            </div>
+          )}
+          <Button
+            size="lg"
+            variant="secondary"
+            className="text-lg px-8"
+            onClick={() => {
+              const menuSection = document.getElementById('cardapio');
+              menuSection?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
+            Ver Cardápio
+          </Button>
+        </div>
+      </section>
+
+      <main id="cardapio" className="container px-4 sm:px-6 py-12 sm:py-16">
+        <div className="text-center mb-12">
+          <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3">Nosso Cardápio</h3>
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Explore nossos pratos cuidadosamente preparados
+          </p>
+        </div>
 
         {!menuItems || menuItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -487,6 +562,56 @@ export default function PublicMenu() {
           </div>
         )}
       </main>
+
+      <section className="bg-muted/30 py-12 sm:py-16">
+        <div className="container px-4 sm:px-6">
+          <div className="text-center mb-10">
+            <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3">Entre em Contato</h3>
+            <p className="text-muted-foreground">Estamos prontos para atendê-lo</p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto">
+            {restaurant.address && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MapPin className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-base">Endereço</CardTitle>
+                  </div>
+                  <CardDescription className="text-sm">{restaurant.address}</CardDescription>
+                </CardHeader>
+              </Card>
+            )}
+            {restaurant.phone && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Phone className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-base">Telefone</CardTitle>
+                  </div>
+                  <CardDescription className="text-sm">{restaurant.phone}</CardDescription>
+                </CardHeader>
+              </Card>
+            )}
+            {restaurant.businessHours && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-base">Horário</CardTitle>
+                  </div>
+                  <CardDescription className="text-sm">{restaurant.businessHours}</CardDescription>
+                </CardHeader>
+              </Card>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <footer className="bg-background border-t py-6">
+        <div className="container px-4 sm:px-6 text-center text-sm text-muted-foreground">
+          <p>&copy; {new Date().getFullYear()} {restaurant.name}. Todos os direitos reservados.</p>
+        </div>
+      </footer>
 
       {selectedMenuItem && (
         <CustomerMenuItemOptionsDialog

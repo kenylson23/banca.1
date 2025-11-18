@@ -36,6 +36,7 @@ import {
   type InsertUser,
   type Restaurant,
   type InsertRestaurant,
+  type UpdateRestaurantAppearance,
   type Branch,
   type InsertBranch,
   type UpdateBranch,
@@ -131,6 +132,7 @@ export interface IStorage {
   createRestaurant(restaurant: InsertRestaurant & { password: string }): Promise<{ restaurant: Restaurant; adminUser: User }>;
   updateRestaurantStatus(id: string, status: 'pendente' | 'ativo' | 'suspenso'): Promise<Restaurant>;
   updateRestaurantSlug(restaurantId: string, slug: string): Promise<Restaurant>;
+  updateRestaurantAppearance(restaurantId: string, data: UpdateRestaurantAppearance): Promise<Restaurant>;
   deleteRestaurant(id: string): Promise<void>;
   
   // Branch operations
@@ -547,6 +549,15 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(restaurants)
       .set({ slug, updatedAt: new Date() })
+      .where(eq(restaurants.id, restaurantId))
+      .returning();
+    return updated;
+  }
+
+  async updateRestaurantAppearance(restaurantId: string, data: UpdateRestaurantAppearance): Promise<Restaurant> {
+    const [updated] = await db
+      .update(restaurants)
+      .set({ ...data, updatedAt: new Date() })
       .where(eq(restaurants.id, restaurantId))
       .returning();
     return updated;

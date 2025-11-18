@@ -26,6 +26,7 @@ import {
   insertBranchSchema,
   updateBranchSchema,
   updateRestaurantSlugSchema,
+  updateRestaurantAppearanceSchema,
   insertOptionGroupSchema,
   updateOptionGroupSchema,
   insertOptionSchema,
@@ -422,6 +423,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: error.errors[0].message });
       }
       res.status(500).json({ message: "Erro ao atualizar slug do restaurante" });
+    }
+  });
+
+  app.patch('/api/restaurants/appearance', isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const data = updateRestaurantAppearanceSchema.parse(req.body);
+      const restaurant = await storage.updateRestaurantAppearance(currentUser.restaurantId, data);
+      res.json(restaurant);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Erro ao atualizar aparência do restaurante" });
     }
   });
 

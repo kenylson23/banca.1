@@ -41,6 +41,10 @@ export const restaurants = pgTable("restaurants", {
   businessHours: text("business_hours"),
   description: text("description"),
   status: restaurantStatusEnum("status").notNull().default('pendente'),
+  primaryColor: varchar("primary_color", { length: 7 }).default('#EA580C'),
+  secondaryColor: varchar("secondary_color", { length: 7 }).default('#DC2626'),
+  accentColor: varchar("accent_color", { length: 7 }).default('#0891B2'),
+  heroImageUrl: text("hero_image_url"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -74,6 +78,15 @@ export const updateRestaurantSlugSchema = z.object({
 });
 
 export type UpdateRestaurantSlug = z.infer<typeof updateRestaurantSlugSchema>;
+
+export const updateRestaurantAppearanceSchema = z.object({
+  primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor primária inválida. Use formato hexadecimal (#000000)").optional(),
+  secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor secundária inválida. Use formato hexadecimal (#000000)").optional(),
+  accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor de destaque inválida. Use formato hexadecimal (#000000)").optional(),
+  heroImageUrl: z.string().url("URL da imagem hero inválida").optional().or(z.literal('')),
+});
+
+export type UpdateRestaurantAppearance = z.infer<typeof updateRestaurantAppearanceSchema>;
 
 // Branches - Filiais/Unidades do Restaurante
 export const branches = pgTable("branches", {
