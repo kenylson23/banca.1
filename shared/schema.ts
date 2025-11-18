@@ -1623,7 +1623,7 @@ export const insertStockMovementSchema = createInsertSchema(stockMovements).omit
   newQuantity: true,
   createdAt: true,
 }).extend({
-  branchId: z.string().min(1, "Filial é obrigatória"),
+  branchId: z.string().optional(),
   inventoryItemId: z.string().min(1, "Produto é obrigatório"),
   movementType: z.enum(['entrada', 'saida', 'ajuste', 'transferencia']),
   quantity: z.string().regex(/^\d+(\.\d{1,2})?$/, "Quantidade inválida"),
