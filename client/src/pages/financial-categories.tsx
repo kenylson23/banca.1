@@ -339,7 +339,6 @@ export default function FinancialCategories() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      </div>
     </AdminLTELayout>
   );
 }

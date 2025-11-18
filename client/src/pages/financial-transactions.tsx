@@ -431,7 +431,6 @@ export default function FinancialTransactions() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      </div>
     </AdminLTELayout>
   );
 }
