@@ -45,7 +45,9 @@ export function TubelightNavBar({ items, className, activeItem, onItemClick }: N
   return (
     <div
       className={cn(
-        "fixed bottom-0 left-1/2 -translate-x-1/2 z-50 mb-6",
+        !className?.includes('relative') && !className?.includes('absolute') && !className?.includes('static') 
+          ? "fixed bottom-0 left-1/2 -translate-x-1/2 z-50 mb-6"
+          : "",
         className,
       )}
     >

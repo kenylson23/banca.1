@@ -293,32 +293,22 @@ export function TablesPanel() {
         </Dialog>
       </div>
 
-      <div className="space-y-4">
-        <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="all" data-testid="filter-all">
-              Todas
-              <Badge variant="outline" className="ml-2">{statusCounts.all}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="livre" data-testid="filter-livre">
-              Livres
-              <Badge variant="outline" className="ml-2">{statusCounts.livre}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="ocupada" data-testid="filter-ocupada">
-              Ocupadas
-              <Badge variant="outline" className="ml-2">{statusCounts.ocupada}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="em_andamento" data-testid="filter-em-andamento">
-              Em Andamento
-              <Badge variant="outline" className="ml-2">{statusCounts.em_andamento}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="aguardando_pagamento" data-testid="filter-aguardando">
-              Aguardando
-              <Badge variant="outline" className="ml-2">{statusCounts.aguardando_pagamento}</Badge>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+      <div className="flex justify-center mb-6">
+        <TubelightNavBar
+          items={navItems}
+          activeItem={
+            statusFilter === 'all' ? 'Todas' :
+            statusFilter === 'livre' ? 'Livres' :
+            statusFilter === 'ocupada' ? 'Ocupadas' :
+            statusFilter === 'em_andamento' ? 'Em Andamento' :
+            'Aguardando'
+          }
+          onItemClick={handleNavClick}
+          className="relative"
+        />
+      </div>
 
+      <div className="space-y-4">
         {areas.length > 0 && (
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-muted-foreground">Filtrar por área:</span>
@@ -447,18 +437,6 @@ export function TablesPanel() {
         onOpenChange={(open) => !open && setSelectedTable(null)}
         table={selectedTable}
         onDelete={setDeleteTableId}
-      />
-
-      <TubelightNavBar
-        items={navItems}
-        activeItem={
-          statusFilter === 'all' ? 'Todas' :
-          statusFilter === 'livre' ? 'Livres' :
-          statusFilter === 'ocupada' ? 'Ocupadas' :
-          statusFilter === 'em_andamento' ? 'Em Andamento' :
-          'Aguardando'
-        }
-        onItemClick={handleNavClick}
       />
     </div>
   );
