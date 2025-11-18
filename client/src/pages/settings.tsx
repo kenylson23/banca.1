@@ -139,7 +139,14 @@ export default function Settings() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold">Configurações</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">
+          Configure o link público do seu cardápio
+        </p>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Link Público do Cardápio</CardTitle>

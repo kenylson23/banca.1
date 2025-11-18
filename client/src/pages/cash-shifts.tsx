@@ -167,8 +167,10 @@ export default function CashShifts() {
   };
 
   return (
-      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold tracking-tight">Turnos de Caixa</h1>
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -558,5 +560,6 @@ export default function CashShifts() {
           </DialogContent>
         </Dialog>
       </div>
+    </div>
   );
 }

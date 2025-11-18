@@ -136,8 +136,15 @@ export default function FinancialCategories() {
   const incomeCategories = categories?.filter(c => c.type === 'receita') || [];
 
   return (
-      <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Categorias Financeiras</h1>
+            <p className="text-muted-foreground mt-1">
+              Configure as categorias de receitas e despesas do seu restaurante
+            </p>
+          </div>
           <Button data-testid="button-new-category" onClick={() => setIsDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Nova Categoria
@@ -308,28 +315,28 @@ export default function FinancialCategories() {
         </DialogContent>
       </Dialog>
 
-        <AlertDialog
-          open={deleteCategoryId !== null}
-          onOpenChange={(open) => !open && setDeleteCategoryId(null)}
-        >
-          <AlertDialogContent data-testid="dialog-delete-category">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Excluir categoria?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta ação não pode ser desfeita. A categoria só pode ser excluída se não tiver sido usada em nenhum lançamento.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel data-testid="button-cancel-delete">Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => deleteCategoryId && deleteCategoryMutation.mutate(deleteCategoryId)}
-                data-testid="button-confirm-delete"
-              >
-                Excluir
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
+      <AlertDialog
+        open={deleteCategoryId !== null}
+        onOpenChange={(open) => !open && setDeleteCategoryId(null)}
+      >
+        <AlertDialogContent data-testid="dialog-delete-category">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir categoria?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. A categoria só pode ser excluída se não tiver sido usada em nenhum lançamento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteCategoryId && deleteCategoryMutation.mutate(deleteCategoryId)}
+              data-testid="button-confirm-delete"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }

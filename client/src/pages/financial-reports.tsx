@@ -50,7 +50,21 @@ export default function FinancialReports() {
   const isPositive = netBalance >= 0;
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="p-6 space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Link href="/main-dashboard">
+            <Button variant="ghost" size="icon" data-testid="button-back">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold" data-testid="text-page-title">Relatórios Financeiros</h1>
+            <p className="text-muted-foreground">Análise completa da saúde financeira</p>
+          </div>
+        </div>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Período do Relatório</CardTitle>

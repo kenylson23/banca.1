@@ -9,6 +9,7 @@ import { CategoriesTab } from "@/components/menu/CategoriesTab";
 import { CustomizationsTab } from "@/components/menu/CustomizationsTab";
 import { PreviewTab } from "@/components/menu/PreviewTab";
 import { CustomizeMenuTab } from "@/components/menu/CustomizeMenuTab";
+
 export default function Menu() {
   const { toast } = useToast();
 
@@ -22,8 +23,14 @@ export default function Menu() {
   });
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
+    <div className="space-y-6 sm:space-y-8 p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Gestão de Produtos</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
+            Gerencie categorias, pratos e personalizações do restaurante
+          </p>
+        </div>
         <Button 
           variant="outline" 
           onClick={() => {

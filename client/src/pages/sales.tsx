@@ -16,7 +16,16 @@ export default function Sales() {
   const [orderTypeFilter, setOrderTypeFilter] = useState('all');
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
+      <div>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">
+          Vendas
+        </h1>
+        <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
+          Monitore suas vendas em tempo real com indicadores e análises detalhadas
+        </p>
+      </div>
+
       <SalesFilters
         dateFilter={dateFilter}
         onDateFilterChange={setDateFilter}

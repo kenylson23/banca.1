@@ -293,9 +293,15 @@ export default function Kitchen() {
   };
 
   return (
-      <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-4 sm:px-6">
-          <div className="flex items-center flex-wrap gap-2">
+    <div className="space-y-6 sm:space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-4 sm:px-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Cozinha</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
+            Gerencie pedidos em tempo real
+          </p>
+        </div>
+        <div className="flex items-center flex-wrap gap-2">
           <Button
             variant={showStats ? "default" : "outline"}
             onClick={() => setShowStats(!showStats)}
@@ -683,6 +689,6 @@ export default function Kitchen() {
           ) : null}
         </div>
       )}
-      </div>
+    </div>
   );
 }

@@ -84,8 +84,15 @@ export default function Profile() {
   };
 
   return (
-      <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 max-w-4xl">
-        <Card>
+    <div className="space-y-6 sm:space-y-8 max-w-4xl">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold" data-testid="text-profile-title">Meu Perfil</h1>
+        <p className="text-sm sm:text-base text-muted-foreground" data-testid="text-profile-description">
+          Gerencie suas informações pessoais e segurança da conta
+        </p>
+      </div>
+
+      <Card>
         <CardHeader>
           <CardTitle>Informações Pessoais</CardTitle>
           <CardDescription>
@@ -259,6 +266,6 @@ export default function Profile() {
           </div>
         </CardContent>
       </Card>
-      </div>
+    </div>
   );
 }
