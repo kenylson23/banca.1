@@ -191,6 +191,10 @@ export interface IStorage {
     todaySales: string;
     todayOrders: number;
     activeTables: number;
+    yesterdaySales: string;
+    yesterdayOrders: number;
+    salesChange: number;
+    ordersChange: number;
     topDishes: Array<{
       menuItem: MenuItem;
       count: number;
@@ -2086,6 +2090,10 @@ export class DatabaseStorage implements IStorage {
     todaySales: string;
     todayOrders: number;
     activeTables: number;
+    yesterdaySales: string;
+    yesterdayOrders: number;
+    salesChange: number;
+    ordersChange: number;
     topDishes: Array<{
       menuItem: MenuItem;
       count: number;
@@ -2094,6 +2102,9 @@ export class DatabaseStorage implements IStorage {
   }> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
 
     // Get today's orders for this restaurant
     let todayOrdersData;
@@ -2124,6 +2135,47 @@ export class DatabaseStorage implements IStorage {
       (sum: number, order: Order) => sum + parseFloat(order.totalAmount),
       0
     );
+
+    // Get yesterday's orders for comparison
+    let yesterdayOrdersData;
+    if (branchId) {
+      yesterdayOrdersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+          gte(orders.createdAt, yesterday),
+          sql`${orders.createdAt} < ${today}`
+        ));
+    } else {
+      yesterdayOrdersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          gte(orders.createdAt, yesterday),
+          sql`${orders.createdAt} < ${today}`
+        ));
+    }
+
+    const yesterdayOrders = yesterdayOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
+
+    const yesterdaySales = yesterdayOrders.reduce(
+      (sum: number, order: Order) => sum + parseFloat(order.totalAmount),
+      0
+    );
+
+    // Calculate percentage changes
+    const salesChange = yesterdaySales > 0 
+      ? ((todaySales - yesterdaySales) / yesterdaySales) * 100 
+      : todaySales > 0 ? 100 : 0;
+    
+    const ordersChange = yesterdayOrders.length > 0
+      ? ((todayOrders.length - yesterdayOrders.length) / yesterdayOrders.length) * 100
+      : todayOrders.length > 0 ? 100 : 0;
 
     // Get active tables for this restaurant
     let activeTables;
@@ -2184,6 +2236,10 @@ export class DatabaseStorage implements IStorage {
       todaySales: todaySales.toFixed(2),
       todayOrders: todayOrders.length,
       activeTables: activeTables.length,
+      yesterdaySales: yesterdaySales.toFixed(2),
+      yesterdayOrders: yesterdayOrders.length,
+      salesChange: Math.round(salesChange * 10) / 10,
+      ordersChange: Math.round(ordersChange * 10) / 10,
       topDishes,
     };
   }
