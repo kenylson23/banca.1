@@ -2132,7 +2132,10 @@ export class DatabaseStorage implements IStorage {
     const todayOrders = todayOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
 
     const todaySales = todayOrders.reduce(
-      (sum: number, order: Order) => sum + parseFloat(order.totalAmount),
+      (sum: number, order: Order) => {
+        const amount = parseFloat(order.totalAmount);
+        return sum + (isNaN(amount) ? 0 : amount);
+      },
       0
     );
 
@@ -2164,14 +2167,20 @@ export class DatabaseStorage implements IStorage {
     const yesterdayOrders = yesterdayOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
 
     const yesterdaySales = yesterdayOrders.reduce(
-      (sum: number, order: Order) => sum + parseFloat(order.totalAmount),
+      (sum: number, order: Order) => {
+        const amount = parseFloat(order.totalAmount);
+        return sum + (isNaN(amount) ? 0 : amount);
+      },
       0
     );
 
-    // Calculate percentage changes
-    const salesChange = yesterdaySales > 0 
-      ? ((todaySales - yesterdaySales) / yesterdaySales) * 100 
-      : todaySales > 0 ? 100 : 0;
+    // Calculate percentage changes (ensure numeric values)
+    const todaySalesNum = Number(todaySales) || 0;
+    const yesterdaySalesNum = Number(yesterdaySales) || 0;
+    
+    const salesChange = yesterdaySalesNum > 0 
+      ? ((todaySalesNum - yesterdaySalesNum) / yesterdaySalesNum) * 100 
+      : todaySalesNum > 0 ? 100 : 0;
     
     const ordersChange = yesterdayOrders.length > 0
       ? ((todayOrders.length - yesterdayOrders.length) / yesterdayOrders.length) * 100
@@ -2238,8 +2247,8 @@ export class DatabaseStorage implements IStorage {
       activeTables: activeTables.length,
       yesterdaySales: yesterdaySales.toFixed(2),
       yesterdayOrders: yesterdayOrders.length,
-      salesChange: Math.round(salesChange * 10) / 10,
-      ordersChange: Math.round(ordersChange * 10) / 10,
+      salesChange: isNaN(salesChange) ? 0 : Math.round(salesChange * 10) / 10,
+      ordersChange: isNaN(ordersChange) ? 0 : Math.round(ordersChange * 10) / 10,
       topDishes,
     };
   }

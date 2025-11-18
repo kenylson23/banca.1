@@ -28,9 +28,11 @@ export function StatCard({
   trend,
   testId,
 }: StatCardProps) {
-  const isPositive = trend && trend.value > 0;
-  const isNegative = trend && trend.value < 0;
-  const isNeutral = trend && trend.value === 0;
+  // Validate trend value to prevent NaN display
+  const trendValue = trend && !isNaN(trend.value) ? trend.value : null;
+  const isPositive = trendValue !== null && trendValue > 0;
+  const isNegative = trendValue !== null && trendValue < 0;
+  const isNeutral = trendValue !== null && trendValue === 0;
 
   return (
     <Card className="hover-elevate overflow-visible animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -47,7 +49,7 @@ export function StatCard({
               >
                 {value}
               </h3>
-              {trend && (
+              {trendValue !== null && (
                 <Badge
                   variant="secondary"
                   className={cn(
@@ -60,7 +62,7 @@ export function StatCard({
                 >
                   {isPositive && <TrendingUp className="h-3 w-3" />}
                   {isNegative && <TrendingDown className="h-3 w-3" />}
-                  {isNeutral ? "0%" : `${isPositive ? "+" : ""}${trend.value.toFixed(1)}%`}
+                  {isNeutral ? "0%" : `${isPositive ? "+" : ""}${trendValue.toFixed(1)}%`}
                 </Badge>
               )}
             </div>
