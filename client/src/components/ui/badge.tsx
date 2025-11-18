@@ -5,21 +5,24 @@ import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
   // Whitespace-nowrap: Badges should never wrap.
-  "whitespace-nowrap inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" +
+  "whitespace-nowrap inline-flex items-center rounded-lg border px-3 py-1 text-xs font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" +
   " hover-elevate " ,
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-primary text-primary-foreground shadow-xs",
-        secondary: "border-transparent bg-secondary text-secondary-foreground",
+          "border-transparent bg-primary text-primary-foreground shadow-sm",
+        secondary: "border-transparent bg-secondary text-secondary-foreground shadow-sm",
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground shadow-xs",
-        outline: " border [border-color:var(--badge-outline)] shadow-xs",
-        pending: "border-transparent bg-chart-4 text-chart-4-foreground shadow-xs",
-        "in-progress": "border-transparent bg-chart-2 text-white shadow-xs",
-        ready: "border-transparent bg-chart-3 text-white shadow-xs",
-        served: "border-transparent bg-muted text-muted-foreground shadow-xs",
+          "border-transparent bg-destructive text-destructive-foreground shadow-sm",
+        outline: " border [border-color:var(--badge-outline)] shadow-sm",
+        pending: "border-transparent bg-warning/90 text-warning-foreground shadow-sm",
+        "in-progress": "border-transparent bg-info text-info-foreground shadow-sm",
+        ready: "border-transparent bg-success text-success-foreground shadow-sm",
+        served: "border-transparent bg-muted text-muted-foreground shadow-sm",
+        success: "border-transparent bg-success text-success-foreground shadow-sm",
+        warning: "border-transparent bg-warning text-warning-foreground shadow-sm",
+        info: "border-transparent bg-info text-info-foreground shadow-sm",
       },
     },
     defaultVariants: {
