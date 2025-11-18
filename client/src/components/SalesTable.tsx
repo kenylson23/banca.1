@@ -109,36 +109,40 @@ export function SalesTable({
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Detalhes de Vendas</CardTitle>
+    <Card className="shadow-sm">
+      <CardHeader className="border-b bg-muted/30">
+        <CardTitle className="text-lg font-semibold">Detalhes de Vendas</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         {isLoading ? (
-          <div className="space-y-2">
+          <div className="space-y-2 p-6">
             {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full" />
+              <Skeleton key={i} className="h-16 w-full rounded-lg" />
             ))}
           </div>
         ) : orders && orders.length > 0 ? (
-          <div className="rounded-md border overflow-x-auto">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[100px]">#ID</TableHead>
-                  <TableHead>Origem</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Mesa</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Status Pedido</TableHead>
-                  <TableHead>Status Pag.</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
+                <TableRow className="hover:bg-transparent border-b">
+                  <TableHead className="w-[120px] font-semibold text-xs uppercase tracking-wide">#ID</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide">Origem</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide">Data</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide">Mesa</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide">Cliente</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide">Status Pedido</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide">Status Pag.</TableHead>
+                  <TableHead className="text-right font-semibold text-xs uppercase tracking-wide">Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {orders.map((order) => (
-                  <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
-                    <TableCell className="font-mono text-xs" data-testid={`text-order-id-${order.id}`}>
+                  <TableRow 
+                    key={order.id} 
+                    data-testid={`row-order-${order.id}`}
+                    className="hover:bg-muted/50 transition-colors border-b last:border-0"
+                  >
+                    <TableCell className="font-mono text-xs font-medium text-muted-foreground" data-testid={`text-order-id-${order.id}`}>
                       #{order.id.substring(0, 8).toUpperCase()}
                     </TableCell>
                     <TableCell>
@@ -146,13 +150,13 @@ export function SalesTable({
                         {getOrderTypeLabel(order.orderType)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm" data-testid={`text-order-date-${order.id}`}>
+                    <TableCell className="text-sm text-foreground" data-testid={`text-order-date-${order.id}`}>
                       {order.createdAt ? format(new Date(order.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : '-'}
                     </TableCell>
-                    <TableCell data-testid={`text-order-table-${order.id}`}>
+                    <TableCell className="text-sm font-medium" data-testid={`text-order-table-${order.id}`}>
                       {order.tableNumber ? `Mesa ${order.tableNumber}` : '-'}
                     </TableCell>
-                    <TableCell data-testid={`text-order-customer-${order.id}`}>
+                    <TableCell className="text-sm" data-testid={`text-order-customer-${order.id}`}>
                       {order.customerName || '-'}
                     </TableCell>
                     <TableCell>
@@ -165,7 +169,7 @@ export function SalesTable({
                         {getPaymentStatusLabel(order.paymentStatus)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-semibold" data-testid={`text-order-total-${order.id}`}>
+                    <TableCell className="text-right font-semibold text-base" data-testid={`text-order-total-${order.id}`}>
                       {formatKwanza(parseFloat(order.totalAmount))}
                     </TableCell>
                   </TableRow>
@@ -174,8 +178,14 @@ export function SalesTable({
             </Table>
           </div>
         ) : (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Nenhuma venda encontrada para os filtros selecionados</p>
+          <div className="text-center py-16">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted/50 mb-4">
+              <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              </svg>
+            </div>
+            <p className="text-muted-foreground font-medium">Nenhuma venda encontrada</p>
+            <p className="text-sm text-muted-foreground mt-1">Ajuste os filtros para ver mais resultados</p>
           </div>
         )}
       </CardContent>
