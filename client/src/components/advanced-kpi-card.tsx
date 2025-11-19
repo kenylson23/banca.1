@@ -61,13 +61,13 @@ export function AdvancedKpiCard({
       <Card className="relative overflow-hidden group hover-elevate active-elevate-2 transition-all duration-300">
         <div className={cn("absolute inset-0 bg-gradient-to-br opacity-50", gradient)} />
         
-        <CardContent className="p-6 relative">
-          <div className="flex items-start justify-between mb-4">
+        <CardContent className="p-4 relative">
+          <div className="flex items-start justify-between mb-3">
             <div className="flex-1">
-              <p className="text-sm font-medium text-muted-foreground mb-1">
+              <p className="text-xs font-medium text-muted-foreground mb-1">
                 {title}
               </p>
-              <div className="text-3xl font-bold tracking-tight">
+              <div className="text-2xl font-bold tracking-tight">
                 <AnimatedCounter
                   value={value}
                   decimals={decimals}
@@ -79,17 +79,17 @@ export function AdvancedKpiCard({
             </div>
             
             <motion.div
-              className="p-3 rounded-lg bg-primary/10"
+              className="p-2 rounded-lg bg-primary/10"
               whileHover={{ scale: 1.1, rotate: 5 }}
               transition={{ type: "spring", stiffness: 400, damping: 10 }}
             >
-              <Icon className="w-5 h-5 text-primary" />
+              <Icon className="w-4 h-4 text-primary" />
             </motion.div>
           </div>
 
           {sparklineData && sparklineData.length > 0 && (
-            <div className="mb-3 -mx-2">
-              <MiniSparkline data={sparklineData} height={32} />
+            <div className="mb-2 -mx-2">
+              <MiniSparkline data={sparklineData} height={24} />
             </div>
           )}
 

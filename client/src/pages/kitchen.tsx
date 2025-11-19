@@ -319,18 +319,18 @@ export default function Kitchen() {
 
   return (
     <div className="min-h-screen">
-      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="space-y-4 p-4 sm:p-6">
         <motion.div
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
           <div>
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
               Cozinha
             </h1>
-            <p className="text-base text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Gerencie pedidos em tempo real
             </p>
           </div>
@@ -369,13 +369,13 @@ export default function Kitchen() {
 
       <div className="px-4 sm:px-6">
         {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-4">
           {[...Array(6)].map((_, i) => (
             <Skeleton key={i} className="h-64" />
           ))}
         </div>
       ) : filteredOrders.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-4">
           {filteredOrders.map((order) => {
             const isNew = newOrderIds.has(order.id);
             const nextStatus = getNextStatus(order.status);
@@ -552,7 +552,7 @@ export default function Kitchen() {
 
       {showStats && (
         <div className="space-y-6 mt-8 px-4 sm:px-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <h2 className="text-xl sm:text-2xl font-bold">Estatísticas de Produção</h2>
             <Tabs value={statsPeriod} onValueChange={(value) => setStatsPeriod(value as StatsPeriod)}>
               <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -578,14 +578,14 @@ export default function Kitchen() {
           </div>
 
           {statsLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {[...Array(4)].map((_, i) => (
                 <Skeleton key={i} className="h-32" />
               ))}
             </div>
           ) : stats ? (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-4">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground">

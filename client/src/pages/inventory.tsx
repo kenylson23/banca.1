@@ -504,24 +504,24 @@ export default function InventoryPage() {
   return (
     <div className="min-h-screen">
       <ScrollArea className="h-screen">
-        <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <div className="space-y-4 p-4 sm:p-6">
           <motion.div 
             className="space-y-4"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <Link href="/main-dashboard">
                 <Button variant="ghost" size="icon" data-testid="button-back">
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
               </Link>
               <div className="flex flex-col gap-2">
-                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent" data-testid="text-page-title">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent" data-testid="text-page-title">
                   Inventário
                 </h1>
-                <p className="text-base text-muted-foreground">Gerencie produtos, estoque e movimentações</p>
+                <p className="text-sm text-muted-foreground">Gerencie produtos, estoque e movimentações</p>
               </div>
             </div>
           </motion.div>
@@ -582,8 +582,8 @@ export default function InventoryPage() {
             </div>
           )}
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-2 space-y-6">
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="lg:col-span-2 space-y-4">
               <AdvancedFilters
                 quickFilter={quickFilter}
                 onQuickFilterChange={handleQuickFilterChange}
@@ -848,7 +848,7 @@ export default function InventoryPage() {
               </div>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-4">
               <QuickActionsWidget actions={quickActions} />
               
               {movementsLoading ? (
@@ -871,7 +871,7 @@ export default function InventoryPage() {
                 <DialogDescription>Adicione um novo produto ao inventário</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="name">Nome *</Label>
                     <Input
@@ -905,7 +905,7 @@ export default function InventoryPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="category">Categoria</Label>
                     <Select
@@ -945,7 +945,7 @@ export default function InventoryPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="costPrice">Preço de Custo</Label>
                     <Input
@@ -970,7 +970,7 @@ export default function InventoryPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="minStock">Estoque Mínimo</Label>
                     <Input
@@ -1018,7 +1018,7 @@ export default function InventoryPage() {
                 <DialogDescription>Atualize as informações do produto</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="edit-name">Nome *</Label>
                     <Input
@@ -1049,7 +1049,7 @@ export default function InventoryPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="edit-category">Categoria</Label>
                     <Select
@@ -1089,7 +1089,7 @@ export default function InventoryPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="edit-costPrice">Preço de Custo</Label>
                     <Input
@@ -1114,7 +1114,7 @@ export default function InventoryPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="edit-minStock">Estoque Mínimo</Label>
                     <Input
@@ -1339,7 +1339,7 @@ export default function InventoryPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="movement-unit-cost">Custo Unitário</Label>
                     <Input

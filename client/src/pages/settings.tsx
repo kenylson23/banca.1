@@ -136,7 +136,7 @@ export default function Settings() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
+      <div className="flex items-center justify-center p-6">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
@@ -144,7 +144,7 @@ export default function Settings() {
 
   if (isError || (currentUser && !currentUser.restaurantId && currentUser.role !== 'superadmin')) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div>
           <h1 className="text-3xl font-bold">Configurações</h1>
           <p className="text-muted-foreground">
@@ -152,7 +152,7 @@ export default function Settings() {
           </p>
         </div>
         <Card>
-          <CardContent className="p-8">
+          <CardContent className="p-6">
             <div className="text-center space-y-4">
               <p className="text-muted-foreground">
                 {isError 
@@ -171,7 +171,7 @@ export default function Settings() {
 
   if (currentUser?.role === 'superadmin') {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div>
           <h1 className="text-3xl font-bold">Configurações</h1>
           <p className="text-muted-foreground">
@@ -192,16 +192,16 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen">
-      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="space-y-4 p-4 sm:p-6">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
             Configurações
           </h1>
-          <p className="text-base text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Configure seu restaurante e personalize o menu público
           </p>
         </motion.div>
@@ -218,7 +218,7 @@ export default function Settings() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="link" className="space-y-6">
+        <TabsContent value="link" className="space-y-4">
           <Card>
         <CardHeader>
           <CardTitle>Link Público do Cardápio</CardTitle>
@@ -327,7 +327,7 @@ export default function Settings() {
       </Card>
         </TabsContent>
 
-        <TabsContent value="appearance" className="space-y-6">
+        <TabsContent value="appearance" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Personalizar Cores</CardTitle>
@@ -335,8 +335,8 @@ export default function Settings() {
                 Escolha as cores que representam sua marca. Elas serão aplicadas no seu menu público.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-6 sm:grid-cols-3">
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="primaryColor">Cor Primária</Label>
                   <div className="flex gap-2">

@@ -313,7 +313,7 @@ export default function FinancialCashRegisters() {
 
   return (
     <div className="min-h-screen">
-      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="space-y-4 p-4 sm:p-6">
         {/* Header */}
         <motion.div 
           className="space-y-4"
@@ -321,18 +321,18 @@ export default function FinancialCashRegisters() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
               <Link href="/main-dashboard">
                 <Button variant="ghost" size="icon" data-testid="button-back">
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
               </Link>
               <div className="flex flex-col gap-2">
-                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
                   Caixas Registradoras
                 </h1>
-                <p className="text-base text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Gerencie caixas registradoras e controle turnos de caixa
                 </p>
               </div>

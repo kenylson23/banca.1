@@ -165,7 +165,7 @@ export default function SuperAdmin() {
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="space-y-4">
       <div>
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Super Administrador</h1>
         <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
@@ -173,7 +173,7 @@ export default function SuperAdmin() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -428,7 +428,7 @@ export default function SuperAdmin() {
           <CardTitle>Contatos dos Restaurantes</CardTitle>
           <CardDescription>Envie mensagens e acompanhe o histórico de comunicação com os restaurantes</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4">
           <div>
             <h3 className="text-lg font-semibold mb-4">Enviar Nova Mensagem</h3>
             <Dialog open={isMessageDialogOpen} onOpenChange={setIsMessageDialogOpen}>

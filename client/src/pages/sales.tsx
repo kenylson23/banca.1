@@ -236,7 +236,7 @@ export default function Sales() {
 
   return (
     <div className="min-h-screen">
-      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="space-y-4 p-4 sm:p-6">
         <motion.div
           className="space-y-4"
           initial={{ opacity: 0, y: -20 }}
@@ -244,10 +244,10 @@ export default function Sales() {
           transition={{ duration: 0.5 }}
         >
           <div className="flex flex-col gap-2">
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
               Relatório de Vendas
             </h1>
-            <p className="text-base text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {dateRange?.from && dateRange?.to 
                 ? `Análise detalhada do período personalizado`
                 : `Monitore suas vendas em tempo real • ${new Date().toLocaleDateString('pt-AO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`
@@ -277,7 +277,7 @@ export default function Sales() {
           />
         </motion.div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-4">
           {loadingSales ? (
             <>
               {[...Array(4)].map((_, i) => (
@@ -331,8 +331,8 @@ export default function Sales() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <div className="xl:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div className="xl:col-span-2 space-y-4">
             {historicalLoading || loadingSales ? (
               <Skeleton className="h-[400px] w-full rounded-lg" />
             ) : salesError ? (
@@ -432,7 +432,7 @@ export default function Sales() {
             )}
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4">
             <GoalsWidget goals={mockGoals} />
             <ActivityFeed activities={mockActivities} maxHeight={400} />
           </div>

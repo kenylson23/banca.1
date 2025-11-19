@@ -242,25 +242,25 @@ export default function ExpensesPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="space-y-4 p-4 sm:p-6">
         <motion.div 
           className="space-y-4"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
               <Link href="/main-dashboard">
                 <Button variant="ghost" size="icon" data-testid="button-back">
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
               </Link>
               <div className="flex flex-col gap-2">
-                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent" data-testid="text-page-title">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent" data-testid="text-page-title">
                   Despesas
                 </h1>
-                <p className="text-base text-muted-foreground">Gerencie as despesas do restaurante</p>
+                <p className="text-sm text-muted-foreground">Gerencie as despesas do restaurante</p>
               </div>
             </div>
             <div className="flex gap-3">
@@ -415,7 +415,7 @@ export default function ExpensesPage() {
                       >
                         <Card className="hover-elevate active-elevate-2 transition-all duration-200">
                           <CardContent className="p-4">
-                            <div className="flex items-start gap-4">
+                            <div className="flex items-start gap-3">
                               <div className="relative flex-shrink-0">
                                 <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
                                   <Receipt className="w-6 h-6 text-destructive" />

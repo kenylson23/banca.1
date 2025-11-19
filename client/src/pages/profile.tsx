@@ -84,7 +84,7 @@ export default function Profile() {
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 max-w-4xl">
+    <div className="space-y-4 max-w-4xl">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold" data-testid="text-profile-title">Meu Perfil</h1>
         <p className="text-sm sm:text-base text-muted-foreground" data-testid="text-profile-description">

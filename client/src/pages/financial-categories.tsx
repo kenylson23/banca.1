@@ -136,8 +136,8 @@ export default function FinancialCategories() {
   const incomeCategories = categories?.filter(c => c.type === 'receita') || [];
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background p-4 sm:p-6">
+      <div className="max-w-6xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Categorias Financeiras</h1>

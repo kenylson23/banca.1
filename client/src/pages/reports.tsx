@@ -377,7 +377,7 @@ export default function Reports() {
 
   return (
     <div className="min-h-screen">
-      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="space-y-4 p-4 sm:p-6">
         {/* Header with Gradient */}
         <motion.div
           className="space-y-4"
@@ -386,10 +386,10 @@ export default function Reports() {
           transition={{ duration: 0.5 }}
         >
           <div className="flex flex-col gap-2">
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
               Relatórios Avançados
             </h1>
-            <p className="text-base text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {dateRange?.from && dateRange?.to 
                 ? `Análise do período personalizado`
                 : `Análise detalhada de vendas, pedidos e desempenho • Últimos 7 dias`
@@ -431,10 +431,10 @@ export default function Reports() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="space-y-6"
+            className="space-y-4"
           >
             {/* KPI Cards with Sparklines */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-4">
               {loadingOrders || loadingPerformance ? (
                 <>
                   {[...Array(4)].map((_, i) => (
@@ -491,8 +491,8 @@ export default function Reports() {
             </div>
 
             {/* Main Charts Section */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-              <div className="xl:col-span-2 space-y-6">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+              <div className="xl:col-span-2 space-y-4">
                 {/* Advanced Sales Chart */}
                 {historicalLoading ? (
                   <Skeleton className="h-[400px] w-full rounded-lg" />
@@ -509,7 +509,7 @@ export default function Reports() {
               </div>
 
               {/* Sidebar Widgets */}
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* Goals Widget */}
                 <GoalsWidget goals={goalsData} />
 
@@ -554,7 +554,7 @@ export default function Reports() {
             </div>
 
             {/* Activity Feed & Top Dishes */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <ActivityFeed activities={activities} maxHeight={500} />
               
               {loadingProducts ? (
