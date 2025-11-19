@@ -23,12 +23,15 @@ export function ProfileMenu() {
         credentials: "include"
       });
       queryClient.clear();
-      setLocation("/");
+      // Force immediate refetch to update auth state
+      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      window.location.href = "/login";
     } catch (error) {
       console.error("Logout failed:", error);
       // Even if logout fails, clear cache and redirect
       queryClient.clear();
-      setLocation("/");
+      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      window.location.href = "/login";
     }
   };
 
