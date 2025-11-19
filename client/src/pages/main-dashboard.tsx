@@ -114,8 +114,8 @@ export default function MainDashboard({ section }: MainDashboardProps) {
         <AppSidebar currentSection={currentSection} />
         <div className="flex flex-col flex-1 min-w-0">
           <header className="fixed top-0 left-0 right-0 flex items-center justify-between py-4 pr-6 bg-sidebar z-50" role="banner">
-            <div className="flex items-center gap-4 w-64">
-              <div className="w-16 flex items-center justify-center shrink-0">
+            <div className="flex items-center w-64 pl-4">
+              <div className="w-12 flex items-center justify-center shrink-0">
                 <SidebarTrigger data-testid="button-sidebar-toggle" />
               </div>
               <h1 className="text-lg font-bold text-sidebar-foreground truncate">Na Bancada</h1>
