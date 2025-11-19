@@ -73,7 +73,7 @@ export default function Menu() {
   };
 
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen">
       <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         <motion.div
           className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
@@ -113,6 +113,15 @@ export default function Menu() {
           </Button>
         </motion.div>
 
+        <div className="flex justify-center">
+          <TubelightNavBar
+            items={navItems}
+            activeItem={Object.keys(tabMapping).find(key => tabMapping[key] === activeTab)}
+            onItemClick={handleNavClick}
+            className="relative"
+          />
+        </div>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -122,12 +131,6 @@ export default function Menu() {
           {renderContent()}
         </motion.div>
       </div>
-
-      <TubelightNavBar
-        items={navItems}
-        activeItem={Object.keys(tabMapping).find(key => tabMapping[key] === activeTab)}
-        onItemClick={handleNavClick}
-      />
     </div>
   );
 }
