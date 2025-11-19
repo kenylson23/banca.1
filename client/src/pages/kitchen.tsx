@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, Filter, Volume2, VolumeX, BarChart3, TrendingUp, Package, DollarSign, Printer, UtensilsCrossed, Truck, ShoppingBag, Eye } from "lucide-react";
+import { Clock, Filter, Volume2, VolumeX, BarChart3, TrendingUp, Package, DollarSign, Printer, UtensilsCrossed, Truck, ShoppingBag, Eye, ChefHat, Loader2, CheckCircle2, CircleCheck } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { formatKwanza } from "@/lib/formatters";
 import { PrintOrder } from "@/components/PrintOrder";
 import type { Order, OrderItem, MenuItem, Table, OrderItemOption } from "@shared/schema";
 import { motion } from "framer-motion";
+import { TubelightNavBar } from "@/components/ui/tubelight-navbar";
 
 type OrderStatus = "pendente" | "em_preparo" | "pronto" | "servido";
 type StatsPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
@@ -293,6 +294,29 @@ export default function Kitchen() {
     yearly: "Anual",
   };
 
+  const navItems = [
+    { name: "Todos", url: "#", icon: Filter },
+    { name: "Pendente", url: "#", icon: Clock },
+    { name: "Em Preparo", url: "#", icon: ChefHat },
+    { name: "Pronto", url: "#", icon: CheckCircle2 },
+    { name: "Servido", url: "#", icon: CircleCheck },
+  ];
+
+  const statusMapping: Record<string, string> = {
+    "Todos": "all",
+    "Pendente": "pendente",
+    "Em Preparo": "em_preparo",
+    "Pronto": "pronto",
+    "Servido": "servido",
+  };
+
+  const handleNavClick = (item: typeof navItems[0]) => {
+    const statusValue = statusMapping[item.name];
+    if (statusValue) {
+      setSelectedStatus(statusValue);
+    }
+  };
+
   return (
     <div className="min-h-screen">
       <div className="space-y-6 p-4 sm:p-6 lg:p-8">
@@ -334,29 +358,13 @@ export default function Kitchen() {
           </div>
         </motion.div>
 
-      <div className="px-4 sm:px-6">
-        <Tabs value={selectedStatus} onValueChange={setSelectedStatus}>
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-            <TabsList className="inline-flex w-auto min-w-full sm:w-full">
-            <TabsTrigger value="all" data-testid="tab-all-orders" className="whitespace-nowrap">
-              <Filter className="h-4 w-4 mr-2" />
-              Todos
-            </TabsTrigger>
-            <TabsTrigger value="pendente" data-testid="tab-pending" className="whitespace-nowrap">
-              Pendente
-            </TabsTrigger>
-            <TabsTrigger value="em_preparo" data-testid="tab-in-progress" className="whitespace-nowrap">
-              Em Preparo
-            </TabsTrigger>
-            <TabsTrigger value="pronto" data-testid="tab-ready" className="whitespace-nowrap">
-              Pronto
-            </TabsTrigger>
-            <TabsTrigger value="servido" data-testid="tab-served" className="whitespace-nowrap">
-              Servido
-            </TabsTrigger>
-            </TabsList>
-          </div>
-        </Tabs>
+      <div className="flex justify-center">
+        <TubelightNavBar
+          items={navItems}
+          activeItem={Object.keys(statusMapping).find(key => statusMapping[key] === selectedStatus)}
+          onItemClick={handleNavClick}
+          className="relative"
+        />
       </div>
 
       <div className="px-4 sm:px-6">
