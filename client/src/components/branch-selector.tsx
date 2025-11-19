@@ -83,7 +83,7 @@ export function BranchSelector() {
   const activeBranchName = activeBranch?.name || "Selecione uma unidade";
 
   return (
-    <div className={`p-4 border-b border-sidebar-border ${!sidebarOpen ? 'flex justify-center' : ''}`}>
+    <div className={`p-4 ${!sidebarOpen ? 'flex justify-center' : ''}`}>
       {sidebarOpen && <p className="text-xs text-muted-foreground mb-2">Unidade Ativa</p>}
       <Popover open={open} onOpenChange={setOpen}>
         <Tooltip>
