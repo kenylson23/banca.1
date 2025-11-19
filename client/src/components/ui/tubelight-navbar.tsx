@@ -37,7 +37,11 @@ export function TubelightNavBar({ items, className, activeItem, onItemClick }: N
     return () => window.removeEventListener("resize", handleResize)
   }, [])
 
-  const handleClick = (item: NavItem) => {
+  const handleClick = (item: NavItem, e?: React.MouseEvent) => {
+    // Prevent navigation for hash links
+    if (item.url === "#" && e) {
+      e.preventDefault()
+    }
     setActiveTab(item.name)
     onItemClick?.(item)
   }
@@ -56,18 +60,8 @@ export function TubelightNavBar({ items, className, activeItem, onItemClick }: N
           const Icon = item.icon
           const isActive = activeTab === item.name
 
-          return (
-            <Link
-              key={item.name}
-              href={item.url}
-              onClick={() => handleClick(item)}
-              className={cn(
-                "relative cursor-pointer text-sm font-semibold px-6 py-2 rounded-full transition-colors",
-                "text-foreground/80 hover:text-primary",
-                isActive && "bg-muted text-primary",
-              )}
-              data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-            >
+          const itemContent = (
+            <>
               <span className="hidden md:inline">{item.name}</span>
               <span className="md:hidden">
                 <Icon size={18} strokeWidth={2.5} />
@@ -75,7 +69,7 @@ export function TubelightNavBar({ items, className, activeItem, onItemClick }: N
               {isActive && (
                 <motion.div
                   layoutId="lamp"
-                  className="absolute inset-0 w-full bg-primary/5 rounded-full -z-10"
+                  className="absolute inset-0 w-full bg-primary/5 rounded-full -z-10 pointer-events-none"
                   initial={false}
                   transition={{
                     type: "spring",
@@ -83,13 +77,47 @@ export function TubelightNavBar({ items, className, activeItem, onItemClick }: N
                     damping: 30,
                   }}
                 >
-                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-t-full">
-                    <div className="absolute w-12 h-6 bg-primary/20 rounded-full blur-md -top-2 -left-2" />
-                    <div className="absolute w-8 h-6 bg-primary/20 rounded-full blur-md -top-1" />
-                    <div className="absolute w-4 h-4 bg-primary/20 rounded-full blur-sm top-0 left-2" />
+                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-t-full pointer-events-none">
+                    <div className="absolute w-12 h-6 bg-primary/20 rounded-full blur-md -top-2 -left-2 pointer-events-none" />
+                    <div className="absolute w-8 h-6 bg-primary/20 rounded-full blur-md -top-1 pointer-events-none" />
+                    <div className="absolute w-4 h-4 bg-primary/20 rounded-full blur-sm top-0 left-2 pointer-events-none" />
                   </div>
                 </motion.div>
               )}
+            </>
+          )
+
+          const itemClasses = cn(
+            "relative cursor-pointer text-sm font-semibold px-6 py-2 rounded-full transition-colors border-0 bg-transparent",
+            "text-foreground/80 hover:text-primary",
+            isActive && "bg-muted text-primary",
+          )
+
+          // Use button for hash links to prevent navigation
+          if (item.url === "#") {
+            return (
+              <button
+                key={item.name}
+                type="button"
+                onClick={(e) => handleClick(item, e)}
+                className={itemClasses}
+                data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+              >
+                {itemContent}
+              </button>
+            )
+          }
+
+          // Use Link for actual routes
+          return (
+            <Link
+              key={item.name}
+              href={item.url}
+              onClick={(e) => handleClick(item, e)}
+              className={itemClasses}
+              data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+            >
+              {itemContent}
             </Link>
           )
         })}

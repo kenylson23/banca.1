@@ -1,23 +1,30 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { ShoppingCart, Package, Clock, Download, Filter, Eye, LayoutDashboard } from "lucide-react";
+import { ShoppingCart, Package, Clock, Download, Eye, LayoutDashboard, DollarSign, TrendingUp, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { queryClient } from "@/lib/queryClient";
 import { PrintOrder } from "@/components/PrintOrder";
-import ReportsDashboard from "./reports-dashboard";
 import { motion } from "framer-motion";
+import { TubelightNavBar } from "@/components/ui/tubelight-navbar";
+import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
+import { AdvancedSalesChart } from "@/components/advanced-sales-chart";
+import { AdvancedFilters } from "@/components/advanced-filters";
+import { SalesHeatmap } from "@/components/sales-heatmap";
+import { ActivityFeed } from "@/components/activity-feed";
+import { GoalsWidget } from "@/components/goals-widget";
+import { TopDishesCard } from "@/components/top-dishes-card";
+import { formatKwanza } from "@/lib/formatters";
+import { DateRange } from "react-day-picker";
+import type { Order, MenuItem } from "@shared/schema";
 
 type OrderReport = {
   id: string;
@@ -72,14 +79,54 @@ const typeLabels = {
   takeout: "Retirada",
 };
 
+type FilterOption = "today" | "week" | "month" | "year";
+type TabValue = "dashboard" | "orders" | "products" | "performance";
+
 export default function Reports() {
   const today = new Date();
   const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  const [startDate, setStartDate] = useState(format(sevenDaysAgo, 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(today, 'yyyy-MM-dd'));
+  const [activeTab, setActiveTab] = useState<TabValue>("dashboard");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [quickFilter, setQuickFilter] = useState<FilterOption>("week");
+  const [showComparison, setShowComparison] = useState(false);
   const [orderStatus, setOrderStatus] = useState<string>("todos");
   const [orderType, setOrderType] = useState<string>("todos");
+
+  // Calculate date range based on quick filter
+  const effectiveDateRange = useMemo(() => {
+    if (dateRange?.from && dateRange?.to) {
+      return { from: dateRange.from, to: dateRange.to };
+    }
+
+    const end = new Date();
+    let start = new Date();
+
+    switch (quickFilter) {
+      case "today":
+        start = new Date();
+        break;
+      case "week":
+        start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case "month":
+        start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case "year":
+        start = new Date(end.getTime() - 365 * 24 * 60 * 60 * 1000);
+        break;
+    }
+
+    return { from: start, to: end };
+  }, [quickFilter, dateRange]);
+
+  const startDate = format(effectiveDateRange.from, 'yyyy-MM-dd');
+  const endDate = format(effectiveDateRange.to, 'yyyy-MM-dd');
+
+  const handleQuickFilter = (filter: FilterOption) => {
+    setQuickFilter(filter);
+    setDateRange(undefined);
+  };
 
   const { data: ordersReport, isLoading: loadingOrders } = useQuery<OrderReport[]>({
     queryKey: ['/api/reports/orders', { startDate, endDate, status: orderStatus, orderType }],
@@ -96,6 +143,25 @@ export default function Reports() {
     enabled: !!startDate && !!endDate,
   });
 
+  // Historical data for charts (limited to 30 days max per backend)
+  const historicalDays = useMemo(() => {
+    if (effectiveDateRange?.from && effectiveDateRange?.to) {
+      const diffTime = Math.abs(effectiveDateRange.to.getTime() - effectiveDateRange.from.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return Math.min(diffDays, 30); // Backend only supports 30 days max
+    }
+    return 30;
+  }, [effectiveDateRange]);
+
+  const { data: historicalData, isLoading: historicalLoading } = useQuery<Array<{ date: string; sales: number; orders: number }>>({
+    queryKey: ["/api/stats/historical", historicalDays],
+    queryFn: async () => {
+      const response = await fetch(`/api/stats/historical?days=${historicalDays}`);
+      if (!response.ok) throw new Error('Failed to fetch historical stats');
+      return response.json();
+    },
+  });
+
   // WebSocket handler for real-time updates
   const handleWebSocketMessage = useCallback((message: any) => {
     if (message.type === 'new_order' || message.type === 'order_status_updated') {
@@ -103,6 +169,7 @@ export default function Reports() {
       queryClient.invalidateQueries({ queryKey: ["/api/reports/orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reports/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reports/performance"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/historical"] });
     }
   }, []);
 
@@ -176,116 +243,340 @@ export default function Reports() {
     exportToCSV(formatted, 'relatorio_produtos');
   };
 
+  // Aggregate stats from reports
+  const aggregateStats = useMemo(() => {
+    const totalSales = ordersReport?.reduce((sum, order) => sum + parseFloat(order.totalAmount), 0) || 0;
+    const totalOrders = ordersReport?.length || 0;
+    const avgTicket = totalOrders > 0 ? totalSales / totalOrders : 0;
+    const completionRate = parseFloat(performanceReport?.completionRate || "0");
+
+    return {
+      totalSales,
+      totalOrders,
+      avgTicket,
+      completionRate,
+    };
+  }, [ordersReport, performanceReport]);
+
+  // Sparkline data from historical data
+  const sparklineData = useMemo(() => {
+    if (!historicalData || historicalData.length === 0) return undefined;
+    return historicalData.slice(-7).map(d => d.sales);
+  }, [historicalData]);
+
+  // Chart data
+  const salesChartData = historicalData || [];
+
+  // Activity feed from orders - memoized per orders dependency
+  const activities = useMemo(() => {
+    if (!ordersReport || ordersReport.length === 0) return [];
+    
+    return ordersReport.slice(0, 8).map((order) => ({
+      id: order.id.toString(),
+      type: "order" as const,
+      title: `Pedido #${order.id.slice(0, 8)}`,
+      description: `${order.table ? `Mesa ${order.table.number}` : typeLabels[order.orderType as keyof typeof typeLabels]} - ${statusLabels[order.status as keyof typeof statusLabels]}`,
+      timestamp: order.createdAt ? new Date(order.createdAt) : new Date(),
+      status: order.status === "servido" ? "success" as const : "info" as const,
+      value: formatKwanza(order.totalAmount || "0"),
+    }));
+  }, [ordersReport]);
+
+  // Heatmap data from performance report
+  const heatmapData = useMemo(() => {
+    if (!performanceReport?.peakHours) {
+      // Mock data if no real data
+      const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+      const data = [];
+      
+      for (const day of days) {
+        for (let hour = 10; hour < 23; hour++) {
+          const isLunchRush = hour >= 12 && hour <= 14;
+          const isDinnerRush = hour >= 19 && hour <= 21;
+          const baseValue = Math.random() * 5;
+          const rushBonus = isLunchRush || isDinnerRush ? Math.random() * 15 : 0;
+          
+          data.push({
+            day,
+            hour,
+            value: Math.floor(baseValue + rushBonus),
+          });
+        }
+      }
+      
+      return data;
+    }
+
+    // Convert peak hours to heatmap format
+    const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const data = [];
+    
+    for (const day of days) {
+      for (let hour = 10; hour < 23; hour++) {
+        const peakData = performanceReport.peakHours.find(p => p.hour === hour);
+        data.push({
+          day,
+          hour,
+          value: peakData?.orders || 0,
+        });
+      }
+    }
+    
+    return data;
+  }, [performanceReport]);
+
+  // Goals widget data
+  const goalsData = useMemo(() => {
+    const salesTarget = 100000;
+    const ordersTarget = 200;
+    
+    return [
+      {
+        id: "sales-goal",
+        title: "Meta de Vendas",
+        current: aggregateStats.totalSales,
+        target: salesTarget,
+        unit: "currency" as const,
+        period: dateRange?.from && dateRange?.to ? "Período personalizado" : "Últimos 7 dias",
+      },
+      {
+        id: "orders-goal",
+        title: "Meta de Pedidos",
+        current: aggregateStats.totalOrders,
+        target: ordersTarget,
+        unit: "number" as const,
+        period: dateRange?.from && dateRange?.to ? "Período personalizado" : "Últimos 7 dias",
+      },
+    ];
+  }, [aggregateStats, dateRange]);
+
+  // Navigation items for TubelightNavBar
+  const navItems = [
+    { name: "Dashboard", url: "#", icon: LayoutDashboard },
+    { name: "Pedidos", url: "#", icon: ShoppingCart },
+    { name: "Produtos", url: "#", icon: Package },
+    { name: "Performance", url: "#", icon: Clock },
+  ];
+
+  const tabMapping: Record<string, TabValue> = {
+    "Dashboard": "dashboard",
+    "Pedidos": "orders",
+    "Produtos": "products",
+    "Performance": "performance",
+  };
+
+  const handleNavClick = (item: typeof navItems[0]) => {
+    const tabValue = tabMapping[item.name];
+    if (tabValue) {
+      setActiveTab(tabValue);
+    }
+  };
+
+  // Get current active item name for TubelightNavBar
+  const currentActiveItem = Object.keys(tabMapping).find(key => tabMapping[key] === activeTab) || "Dashboard";
+
   return (
     <div className="min-h-screen">
       <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        {/* Header with Gradient */}
         <motion.div
-          className="flex flex-col gap-2"
+          className="space-y-4"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div>
+          <div className="flex flex-col gap-2">
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
-              Relatórios
+              Relatórios Avançados
             </h1>
-            <p className="text-base text-muted-foreground mt-1">
-              Análise detalhada de vendas, pedidos e desempenho
+            <p className="text-base text-muted-foreground">
+              {dateRange?.from && dateRange?.to 
+                ? `Análise do período personalizado`
+                : `Análise detalhada de vendas, pedidos e desempenho • Últimos 7 dias`
+              }
             </p>
           </div>
+
+          {/* Advanced Filters */}
+          <AdvancedFilters
+            quickFilter={quickFilter}
+            onQuickFilterChange={handleQuickFilter}
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            showComparison={showComparison}
+            onToggleComparison={() => setShowComparison(!showComparison)}
+            onRefresh={() => {
+              queryClient.invalidateQueries({ queryKey: ["/api/reports/orders"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/reports/products"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/reports/performance"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/stats/historical"] });
+            }}
+            isLoading={loadingOrders || loadingProducts || loadingPerformance}
+          />
         </motion.div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filtros
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-2">
-              <Label htmlFor="startDate">Data Inicial</Label>
-              <Input
-                id="startDate"
-                data-testid="input-start-date"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="endDate">Data Final</Label>
-              <Input
-                id="endDate"
-                data-testid="input-end-date"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Status do Pedido</Label>
-              <Select value={orderStatus} onValueChange={setOrderStatus}>
-                <SelectTrigger data-testid="select-order-status">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="pendente">Pendente</SelectItem>
-                  <SelectItem value="em_preparo">Em Preparo</SelectItem>
-                  <SelectItem value="pronto">Pronto</SelectItem>
-                  <SelectItem value="servido">Servido</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo de Pedido</Label>
-              <Select value={orderType} onValueChange={setOrderType}>
-                <SelectTrigger data-testid="select-order-type">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="mesa">Mesa</SelectItem>
-                  <SelectItem value="delivery">Delivery</SelectItem>
-                  <SelectItem value="takeout">Retirada</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        {/* TubelightNavBar Navigation */}
+        <div className="flex justify-center">
+          <TubelightNavBar
+            items={navItems}
+            activeItem={currentActiveItem}
+            onItemClick={handleNavClick}
+            className="relative"
+          />
+        </div>
 
-      <Tabs defaultValue="dashboard" className="space-y-4">
-        <TabsList className="grid w-full gap-1 grid-cols-2 sm:grid-cols-4">
-          <TabsTrigger value="dashboard" data-testid="tab-dashboard" className="text-xs sm:text-sm">
-            <LayoutDashboard className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-            <span className="hidden sm:inline">Dashboard</span>
-            <span className="inline sm:hidden">Dash</span>
-          </TabsTrigger>
-          <TabsTrigger value="orders" data-testid="tab-orders" className="text-xs sm:text-sm">
-            <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-            <span className="hidden sm:inline">Pedidos</span>
-            <span className="inline sm:hidden">Pedido</span>
-          </TabsTrigger>
-          <TabsTrigger value="products" data-testid="tab-products" className="text-xs sm:text-sm">
-            <Package className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-            <span className="hidden sm:inline">Produtos</span>
-            <span className="inline sm:hidden">Prod.</span>
-          </TabsTrigger>
-          <TabsTrigger value="performance" data-testid="tab-performance" className="text-xs sm:text-sm">
-            <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-            <span className="hidden sm:inline">Performance</span>
-            <span className="inline sm:hidden">Perf.</span>
-          </TabsTrigger>
-        </TabsList>
+        {/* Dashboard Tab */}
+        {activeTab === "dashboard" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
+            {/* KPI Cards with Sparklines */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+              {loadingOrders || loadingPerformance ? (
+                <>
+                  {[...Array(4)].map((_, i) => (
+                    <Skeleton key={i} className="h-[180px] w-full rounded-lg" />
+                  ))}
+                </>
+              ) : (
+                <>
+                  <AdvancedKpiCard
+                    title="Vendas Totais"
+                    value={aggregateStats.totalSales}
+                    prefix="Kz "
+                    decimals={2}
+                    icon={DollarSign}
+                    sparklineData={sparklineData}
+                    gradient="from-success/10 via-success/5 to-transparent"
+                    delay={0}
+                    data-testid="card-kpi-sales"
+                  />
 
-        <TabsContent value="dashboard" className="space-y-4">
-          <ReportsDashboard />
-        </TabsContent>
+                  <AdvancedKpiCard
+                    title="Total de Pedidos"
+                    value={aggregateStats.totalOrders}
+                    icon={ShoppingCart}
+                    sparklineData={sparklineData?.map((_, i) => historicalData?.[i]?.orders || 0)}
+                    gradient="from-primary/10 via-primary/5 to-transparent"
+                    delay={0.1}
+                    data-testid="card-kpi-orders"
+                  />
 
-        <TabsContent value="orders" className="space-y-4">
+                  <AdvancedKpiCard
+                    title="Ticket Médio"
+                    value={aggregateStats.avgTicket}
+                    prefix="Kz "
+                    decimals={2}
+                    icon={TrendingUp}
+                    gradient="from-warning/10 via-warning/5 to-transparent"
+                    delay={0.2}
+                    data-testid="card-kpi-avg-ticket"
+                  />
+
+                  <AdvancedKpiCard
+                    title="Taxa de Conclusão"
+                    value={aggregateStats.completionRate}
+                    suffix="%"
+                    decimals={1}
+                    icon={CheckCircle2}
+                    gradient="from-info/10 via-info/5 to-transparent"
+                    delay={0.3}
+                    data-testid="card-kpi-completion"
+                  />
+                </>
+              )}
+            </div>
+
+            {/* Main Charts Section */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              <div className="xl:col-span-2 space-y-6">
+                {/* Advanced Sales Chart */}
+                {historicalLoading ? (
+                  <Skeleton className="h-[400px] w-full rounded-lg" />
+                ) : (
+                  <AdvancedSalesChart
+                    data={salesChartData}
+                    showComparison={showComparison}
+                    title="Evolução de Vendas e Pedidos"
+                  />
+                )}
+
+                {/* Heatmap */}
+                <SalesHeatmap data={heatmapData} />
+              </div>
+
+              {/* Sidebar Widgets */}
+              <div className="space-y-6">
+                {/* Goals Widget */}
+                <GoalsWidget goals={goalsData} />
+
+                {/* Additional filters for Orders/Products tabs */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Filtros Adicionais</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Status do Pedido</label>
+                      <Select value={orderStatus} onValueChange={setOrderStatus}>
+                        <SelectTrigger data-testid="select-order-status">
+                          <SelectValue placeholder="Todos" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="todos">Todos</SelectItem>
+                          <SelectItem value="pendente">Pendente</SelectItem>
+                          <SelectItem value="em_preparo">Em Preparo</SelectItem>
+                          <SelectItem value="pronto">Pronto</SelectItem>
+                          <SelectItem value="servido">Servido</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Tipo de Pedido</label>
+                      <Select value={orderType} onValueChange={setOrderType}>
+                        <SelectTrigger data-testid="select-order-type">
+                          <SelectValue placeholder="Todos" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="todos">Todos</SelectItem>
+                          <SelectItem value="mesa">Mesa</SelectItem>
+                          <SelectItem value="delivery">Delivery</SelectItem>
+                          <SelectItem value="takeout">Retirada</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Activity Feed & Top Dishes */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ActivityFeed activities={activities} maxHeight={500} />
+              
+              {loadingProducts ? (
+                <Skeleton className="h-[500px] w-full rounded-lg" />
+              ) : (
+                <TopDishesCard dishes={productsReport?.topProducts?.map(p => ({
+                  menuItem: p.menuItem as any,
+                  count: p.quantity,
+                  totalRevenue: p.revenue,
+                })) || []} />
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Orders Tab */}
+        {activeTab === "orders" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
           <Card>
             <CardHeader className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between space-y-0 pb-2">
               <div>
@@ -391,9 +682,16 @@ export default function Reports() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+          </motion.div>
+        )}
 
-        <TabsContent value="products" className="space-y-4">
+        {/* Products Tab */}
+        {activeTab === "products" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
           {loadingProducts ? (
             <Skeleton className="h-96 w-full" />
           ) : (
@@ -451,9 +749,16 @@ export default function Reports() {
               </Card>
             </>
           )}
-        </TabsContent>
+          </motion.div>
+        )}
 
-        <TabsContent value="performance" className="space-y-4">
+        {/* Performance Tab */}
+        {activeTab === "performance" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
           {loadingPerformance ? (
             <Skeleton className="h-96 w-full" />
           ) : (
@@ -526,8 +831,8 @@ export default function Reports() {
               </div>
             </>
           )}
-        </TabsContent>
-      </Tabs>
+          </motion.div>
+        )}
       </div>
     </div>
   );
