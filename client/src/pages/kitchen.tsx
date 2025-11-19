@@ -13,6 +13,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatKwanza } from "@/lib/formatters";
 import { PrintOrder } from "@/components/PrintOrder";
 import type { Order, OrderItem, MenuItem, Table, OrderItemOption } from "@shared/schema";
+import { motion } from "framer-motion";
 
 type OrderStatus = "pendente" | "em_preparo" | "pronto" | "servido";
 type StatsPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
@@ -293,37 +294,45 @@ export default function Kitchen() {
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-4 sm:px-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Cozinha</h1>
-          <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
-            Gerencie pedidos em tempo real
-          </p>
-        </div>
-        <div className="flex items-center flex-wrap gap-2">
-          <Button
-            variant={showStats ? "default" : "outline"}
-            onClick={() => setShowStats(!showStats)}
-            data-testid="button-toggle-stats"
-          >
-            <BarChart3 className="h-5 w-5 mr-2" />
-            Estatísticas
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleMuteToggle}
-            data-testid="button-toggle-sound"
-          >
-            {isMuted ? (
-              <VolumeX className="h-5 w-5" />
-            ) : (
-              <Volume2 className="h-5 w-5" />
-            )}
-          </Button>
-        </div>
-      </div>
+    <div className="min-h-screen">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <motion.div
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div>
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+              Cozinha
+            </h1>
+            <p className="text-base text-muted-foreground mt-1">
+              Gerencie pedidos em tempo real
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={showStats ? "default" : "outline"}
+              onClick={() => setShowStats(!showStats)}
+              data-testid="button-toggle-stats"
+            >
+              <BarChart3 className="h-5 w-5 mr-2" />
+              Estatísticas
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleMuteToggle}
+              data-testid="button-toggle-sound"
+            >
+              {isMuted ? (
+                <VolumeX className="h-5 w-5" />
+              ) : (
+                <Volume2 className="h-5 w-5" />
+              )}
+            </Button>
+          </div>
+        </motion.div>
 
       <div className="px-4 sm:px-6">
         <Tabs value={selectedStatus} onValueChange={setSelectedStatus}>
@@ -689,6 +698,7 @@ export default function Kitchen() {
           ) : null}
         </div>
       )}
+      </div>
     </div>
   );
 }
