@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
 import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { ProfileMenu } from "@/components/profile-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 import Dashboard from "./dashboard";
@@ -113,32 +113,7 @@ export default function MainDashboard({ section }: MainDashboardProps) {
       <div className="flex h-screen w-full overflow-hidden">
         <AppSidebar currentSection={currentSection} />
         <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex items-center justify-between px-6 py-4 bg-sidebar z-10" role="banner">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <h1 className="text-xl font-bold tracking-tight capitalize text-sidebar-foreground" data-testid="text-current-section">
-                {currentSection === "dashboard" ? "Dashboard" :
-                 currentSection === "pdv" ? "PDV" :
-                 currentSection === "tables" ? "Mesas" :
-                 currentSection === "menu" ? "Menu" :
-                 currentSection === "kitchen" ? "Cozinha" :
-                 currentSection === "users" ? "Usuários" :
-                 currentSection === "branches" ? "Unidades" :
-                 currentSection === "reports" ? "Relatórios" :
-                 currentSection === "sales" ? "Vendas" :
-                 currentSection === "profile" ? "Perfil" :
-                 currentSection === "settings" ? "Configurações" :
-                 currentSection === "superadmin" ? "Super Admin" :
-                 currentSection === "financial" ? "Lançamentos" :
-                 currentSection === "financial-categories" ? "Categorias Financeiras" :
-                 currentSection === "financial-new" ? "Novo Lançamento" :
-                 currentSection === "financial-cash-registers" ? "Caixa" :
-                 currentSection === "financial-shifts" ? "Turnos de Caixa" :
-                 currentSection === "expenses" ? "Despesas" :
-                 currentSection === "financial-reports" ? "Relatórios Financeiros" :
-                 currentSection === "inventory" ? "Inventário" : ""}
-              </h1>
-            </div>
+          <header className="flex items-center justify-end px-6 py-4 bg-sidebar z-10" role="banner">
             <div className="flex items-center gap-3">
               <ProfileMenu />
               <ThemeToggle />
