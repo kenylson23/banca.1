@@ -113,10 +113,12 @@ export default function MainDashboard({ section }: MainDashboardProps) {
       <div className="flex h-screen w-full overflow-hidden relative">
         <AppSidebar currentSection={currentSection} />
         <div className="flex flex-col flex-1 min-w-0">
-          <header className="fixed top-0 left-0 right-0 flex items-center justify-between px-6 py-4 bg-sidebar z-50" role="banner">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <h1 className="text-lg font-bold text-sidebar-foreground">Na Bancada</h1>
+          <header className="fixed top-0 left-0 right-0 flex items-center justify-between py-4 pr-6 bg-sidebar z-50" role="banner">
+            <div className="flex items-center gap-4 w-64">
+              <div className="w-16 flex items-center justify-center shrink-0">
+                <SidebarTrigger data-testid="button-sidebar-toggle" />
+              </div>
+              <h1 className="text-lg font-bold text-sidebar-foreground truncate">Na Bancada</h1>
             </div>
             <div className="flex items-center gap-3">
               <ProfileMenu />
