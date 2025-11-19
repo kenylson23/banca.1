@@ -1,4 +1,4 @@
-import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield, Building2, Settings, BarChart3, CreditCard, TrendingUp, DollarSign, Receipt, FileText, Wallet, Package } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield, Building2, Settings, BarChart3, CreditCard, TrendingUp, DollarSign, Receipt, FileText, Wallet, Package, PanelLeftClose, PanelLeft } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -8,14 +8,12 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import type { Section } from "@/pages/main-dashboard";
-import { queryClient } from "@/lib/queryClient";
 import { BranchSelector } from "@/components/branch-selector";
 
 const adminMenuItems = [
@@ -136,6 +134,7 @@ interface AppSidebarProps {
 export function AppSidebar({ currentSection }: AppSidebarProps) {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
+  const { toggleSidebar, open } = useSidebar();
   
   const menuItems = user?.role === 'superadmin' 
     ? superAdminMenuItems 
@@ -147,8 +146,22 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
     <Sidebar role="navigation" aria-label="Menu principal de navegação">
       <SidebarContent>
         <div className="p-6 border-b border-sidebar-border bg-gradient-to-br from-primary/10 to-transparent">
-          <h1 className="text-xl font-bold text-sidebar-foreground">Na Bancada</h1>
-          <p className="text-xs text-muted-foreground mt-1">Sistema de Gestão</p>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-bold text-sidebar-foreground truncate">Na Bancada</h1>
+              <p className="text-xs text-muted-foreground mt-1 truncate">Sistema de Gestão</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSidebar}
+              className="shrink-0"
+              data-testid="button-sidebar-toggle-internal"
+              aria-label={open ? "Recolher menu lateral" : "Expandir menu lateral"}
+            >
+              {open ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeft className="h-5 w-5" />}
+            </Button>
+          </div>
         </div>
 
         <BranchSelector />
@@ -176,64 +189,6 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-
-      <SidebarFooter>
-        <div className="p-4 border-t border-sidebar-border space-y-3 bg-gradient-to-t from-sidebar-accent/30 to-transparent" role="contentinfo" aria-label="Informações do usuário">
-          <div className="flex items-center gap-3 p-2 rounded-lg hover-elevate transition-colors">
-            <Avatar className="h-10 w-10 border-2 border-primary/20" aria-hidden="true">
-              <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                {user?.firstName?.[0] || user?.email?.[0] || "U"}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-semibold text-sidebar-foreground truncate" data-testid="text-user-name">
-                {user?.firstName || user?.email || "Usuário"}
-              </p>
-              {user?.email && (
-                <p className="text-xs text-muted-foreground truncate" data-testid="text-user-email">
-                  {user.email}
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="flex gap-2" role="group" aria-label="Ações do usuário">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 rounded-lg"
-              onClick={() => setLocation("/profile")}
-              data-testid="button-profile"
-              aria-label="Ver perfil do usuário"
-            >
-              <User className="h-4 w-4 mr-1" aria-hidden="true" />
-              Perfil
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 rounded-lg"
-              onClick={async () => {
-                try {
-                  await fetch("/api/auth/logout", { 
-                    method: "POST",
-                    credentials: "include"
-                  });
-                } catch (error) {
-                  // Logout failed silently
-                } finally {
-                  queryClient.clear();
-                  window.location.href = "/";
-                }
-              }}
-              data-testid="button-logout"
-              aria-label="Sair do sistema"
-            >
-              <LogOut className="h-4 w-4 mr-1" aria-hidden="true" />
-              Sair
-            </Button>
-          </div>
-        </div>
-      </SidebarFooter>
     </Sidebar>
   );
 }
