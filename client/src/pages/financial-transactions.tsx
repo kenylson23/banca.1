@@ -133,34 +133,36 @@ export default function FinancialTransactions() {
   return (
     <div className="min-h-screen">
       <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-        <motion.div
-          className="flex items-center justify-between"
+        <motion.div 
+          className="space-y-4"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div>
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
-              Lançamentos Financeiros
-            </h1>
-            <p className="text-base text-muted-foreground mt-1">
-              Acompanhe e gerencie as movimentações financeiras
-            </p>
-          </div>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-col gap-2">
+              <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+                Lançamentos Financeiros
+              </h1>
+              <p className="text-base text-muted-foreground">
+                Acompanhe e gerencie as movimentações financeiras
+              </p>
+            </div>
 
-          <div className="flex gap-3">
-            <Link href="/financial/categories">
-              <Button variant="outline" data-testid="button-categories">
-                <Filter className="h-4 w-4 mr-2" />
-                Categorias
-              </Button>
-            </Link>
-            <Link href="/financial/new">
-              <Button data-testid="button-new-transaction">
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Lançamento
-              </Button>
-            </Link>
+            <div className="flex gap-3">
+              <Link href="/financial/categories">
+                <Button variant="outline" data-testid="button-categories">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Categorias
+                </Button>
+              </Link>
+              <Link href="/financial/new">
+                <Button data-testid="button-new-transaction">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Lançamento
+                </Button>
+              </Link>
+            </div>
           </div>
         </motion.div>
 
