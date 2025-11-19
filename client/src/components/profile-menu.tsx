@@ -22,11 +22,13 @@ export function ProfileMenu() {
         method: "POST",
         credentials: "include"
       });
-    } catch (error) {
-      // Logout failed silently
-    } finally {
       queryClient.clear();
-      window.location.href = "/";
+      setLocation("/");
+    } catch (error) {
+      console.error("Logout failed:", error);
+      // Even if logout fails, clear cache and redirect
+      queryClient.clear();
+      setLocation("/");
     }
   };
 

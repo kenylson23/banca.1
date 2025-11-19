@@ -156,16 +156,25 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
               <h1 className="text-xl font-bold text-sidebar-foreground truncate">Na Bancada</h1>
               <p className="text-xs text-muted-foreground mt-1 truncate">Sistema de Gestão</p>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleSidebar}
-              className="shrink-0"
-              data-testid="button-sidebar-toggle-internal"
-              aria-label={open ? "Recolher menu lateral" : "Expandir menu lateral"}
-            >
-              {open ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeft className="h-5 w-5" />}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleSidebar}
+                  className="shrink-0"
+                  data-testid="button-sidebar-toggle-internal"
+                  aria-label={open ? "Recolher menu lateral" : "Expandir menu lateral"}
+                >
+                  {open ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeft className="h-5 w-5" />}
+                </Button>
+              </TooltipTrigger>
+              {!open && (
+                <TooltipContent side="right" className="font-semibold">
+                  Expandir menu
+                </TooltipContent>
+              )}
+            </Tooltip>
           </div>
         </div>
 

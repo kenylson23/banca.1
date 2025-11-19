@@ -8,6 +8,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -17,6 +22,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { useSidebar } from "@/components/ui/sidebar";
 import { useState } from "react";
 
 type Branch = {
@@ -34,6 +40,7 @@ type Branch = {
 export function BranchSelector() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { open: sidebarOpen } = useSidebar();
   const [open, setOpen] = useState(false);
 
   const { data: branches = [] } = useQuery<Branch[]>({
@@ -76,24 +83,41 @@ export function BranchSelector() {
   const activeBranchName = activeBranch?.name || "Selecione uma unidade";
 
   return (
-    <div className="p-4 border-b border-sidebar-border">
-      <p className="text-xs text-muted-foreground mb-2">Unidade Ativa</p>
+    <div className={`p-4 border-b border-sidebar-border ${!sidebarOpen ? 'flex justify-center' : ''}`}>
+      {sidebarOpen && <p className="text-xs text-muted-foreground mb-2">Unidade Ativa</p>}
       <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="w-full justify-between"
-            data-testid="button-branch-selector"
-          >
-            <div className="flex items-center gap-2 overflow-hidden">
-              <Building2 className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate">{activeBranchName}</span>
-            </div>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={open}
+                aria-label={sidebarOpen ? undefined : `Unidade ativa: ${activeBranchName}`}
+                size={sidebarOpen ? "default" : "icon"}
+                className={sidebarOpen ? "w-full justify-between" : ""}
+                data-testid="button-branch-selector"
+              >
+                {sidebarOpen ? (
+                  <>
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <Building2 className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{activeBranchName}</span>
+                    </div>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </>
+                ) : (
+                  <Building2 className="h-4 w-4" />
+                )}
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          {!sidebarOpen && (
+            <TooltipContent side="right" className="font-semibold">
+              {activeBranchName}
+            </TooltipContent>
+          )}
+        </Tooltip>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
           <Command>
             <CommandInput placeholder="Buscar unidade..." />
