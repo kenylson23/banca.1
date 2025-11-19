@@ -18,6 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { motion } from "framer-motion";
 
 type User = {
   id: string;
@@ -98,19 +99,29 @@ export default function Users() {
   };
 
   return (
-    <div className="space-y-8 p-6 sm:p-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-2">
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" data-testid="text-page-title">Gestão de Usuários</h1>
-          <p className="text-base text-muted-foreground">Gerir credenciais de acesso ao sistema</p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-user">
-              <UserPlus className="h-4 w-4 mr-2" />
-              Novo Usuário
-            </Button>
-          </DialogTrigger>
+    <div className="min-h-screen">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <motion.div
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div>
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent" data-testid="text-page-title">
+              Gestão de Usuários
+            </h1>
+            <p className="text-base text-muted-foreground mt-1">
+              Gerir credenciais de acesso ao sistema
+            </p>
+          </div>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-user">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Novo Usuário
+              </Button>
+            </DialogTrigger>
           <DialogContent data-testid="dialog-create-user">
             <DialogHeader>
               <DialogTitle>Criar Novo Usuário</DialogTitle>
@@ -205,9 +216,9 @@ export default function Users() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+        </motion.div>
 
-      {isLoading ? (
+        {isLoading ? (
         <div className="text-center py-12" data-testid="text-loading">
           A carregar usuários...
         </div>
@@ -262,6 +273,7 @@ export default function Users() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
