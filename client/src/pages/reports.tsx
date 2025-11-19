@@ -17,6 +17,7 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { queryClient } from "@/lib/queryClient";
 import { PrintOrder } from "@/components/PrintOrder";
 import ReportsDashboard from "./reports-dashboard";
+import { motion } from "framer-motion";
 
 type OrderReport = {
   id: string;
@@ -176,15 +177,23 @@ export default function Reports() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-      <div className="flex flex-col gap-2 sm:gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Relatórios</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Análise detalhada de vendas, pedidos e desempenho
-          </p>
-        </div>
-      </div>
+    <div className="min-h-screen">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <motion.div
+          className="flex flex-col gap-2"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div>
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+              Relatórios
+            </h1>
+            <p className="text-base text-muted-foreground mt-1">
+              Análise detalhada de vendas, pedidos e desempenho
+            </p>
+          </div>
+        </motion.div>
 
       <Card>
         <CardHeader>
@@ -519,6 +528,7 @@ export default function Reports() {
           )}
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }

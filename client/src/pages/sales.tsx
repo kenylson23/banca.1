@@ -11,6 +11,7 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { format, startOfDay, endOfDay, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { queryClient } from '@/lib/queryClient';
+import { motion } from 'framer-motion';
 
 type SalesReport = {
   totalSales: string;
@@ -132,15 +133,21 @@ export default function Sales() {
   };
 
   return (
-    <div className="space-y-8 p-6 sm:p-8">
-      <div className="space-y-2">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
-          Vendas
-        </h1>
-        <p className="text-base text-muted-foreground">
-          Monitore suas vendas em tempo real com indicadores e análises detalhadas
-        </p>
-      </div>
+    <div className="min-h-screen">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <motion.div
+          className="space-y-2"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+            Vendas
+          </h1>
+          <p className="text-base text-muted-foreground mt-1">
+            Monitore suas vendas em tempo real com indicadores e análises detalhadas
+          </p>
+        </motion.div>
 
       <SalesFilters
         dateFilter={dateFilter}
@@ -305,6 +312,7 @@ export default function Sales() {
         paymentStatusFilter={paymentStatusFilter}
         orderTypeFilter={orderTypeFilter}
       />
+      </div>
     </div>
   );
 }

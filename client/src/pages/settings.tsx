@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -190,13 +191,20 @@ export default function Settings() {
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold">Configurações</h1>
-        <p className="text-sm sm:text-base text-muted-foreground">
-          Configure seu restaurante e personalize o menu público
-        </p>
-      </div>
+    <div className="min-h-screen">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+            Configurações
+          </h1>
+          <p className="text-base text-muted-foreground mt-1">
+            Configure seu restaurante e personalize o menu público
+          </p>
+        </motion.div>
 
       <Tabs defaultValue="link" className="w-full">
         <TabsList>
@@ -459,6 +467,7 @@ export default function Settings() {
           </Card>
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }

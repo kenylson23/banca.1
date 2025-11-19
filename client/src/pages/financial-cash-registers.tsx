@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -195,17 +196,24 @@ export default function FinancialCashRegisters() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
+    <div className="min-h-screen">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <motion.div
+          className="flex items-center gap-4"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
           <Link href="/financial">
             <Button variant="ghost" size="icon" data-testid="button-back">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold tracking-tight">Configuração de Caixas</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+              Configuração de Caixas
+            </h1>
+            <p className="text-base text-muted-foreground mt-1">
               Gerencie caixas registradoras e controle turnos de caixa
             </p>
           </div>
@@ -213,7 +221,7 @@ export default function FinancialCashRegisters() {
             <Plus className="h-4 w-4 mr-2" />
             Nova Caixa
           </Button>
-        </div>
+        </motion.div>
 
         <div className="grid gap-6 md:grid-cols-2">
           <Card>

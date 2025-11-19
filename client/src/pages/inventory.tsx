@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -330,20 +331,28 @@ export default function InventoryPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link href="/main-dashboard">
-            <Button variant="ghost" size="icon" data-testid="button-back">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold" data-testid="text-page-title">Inventário</h1>
-            <p className="text-muted-foreground">Gerencie produtos, estoque e movimentações</p>
+    <div className="min-h-screen">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <motion.div
+          className="flex flex-wrap items-center justify-between gap-4"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="flex items-center gap-4">
+            <Link href="/main-dashboard">
+              <Button variant="ghost" size="icon" data-testid="button-back">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent" data-testid="text-page-title">
+                Inventário
+              </h1>
+              <p className="text-base text-muted-foreground mt-1">Gerencie produtos, estoque e movimentações</p>
+            </div>
           </div>
-        </div>
-      </div>
+        </motion.div>
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
@@ -1126,6 +1135,7 @@ export default function InventoryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }
