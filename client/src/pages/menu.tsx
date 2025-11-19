@@ -1,7 +1,7 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, UtensilsCrossed, Folder, Settings, Eye, Palette, ChefHat } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import type { Restaurant } from "@shared/schema";
 import { MenuItemsTab } from "@/components/menu/MenuItemsTab";
@@ -11,9 +11,13 @@ import { PreviewTab } from "@/components/menu/PreviewTab";
 import { CustomizeMenuTab } from "@/components/menu/CustomizeMenuTab";
 import { RecipesTab } from "@/components/menu/RecipesTab";
 import { motion } from "framer-motion";
+import { TubelightNavBar } from "@/components/ui/tubelight-navbar";
+
+type TabValue = "items" | "categories" | "recipes" | "customize" | "options" | "preview";
 
 export default function Menu() {
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<TabValue>("items");
 
   const { data: currentUser } = useQuery<any>({
     queryKey: ['/api/auth/user'],
@@ -24,8 +28,52 @@ export default function Menu() {
     enabled: !!currentUser?.restaurantId,
   });
 
+  const navItems = [
+    { name: "Itens", url: "#", icon: UtensilsCrossed },
+    { name: "Categorias", url: "#", icon: Folder },
+    { name: "Receitas", url: "#", icon: ChefHat },
+    { name: "Personalizar", url: "#", icon: Palette },
+    { name: "Opções", url: "#", icon: Settings },
+    { name: "Preview", url: "#", icon: Eye },
+  ];
+
+  const tabMapping: Record<string, TabValue> = {
+    "Itens": "items",
+    "Categorias": "categories",
+    "Receitas": "recipes",
+    "Personalizar": "customize",
+    "Opções": "options",
+    "Preview": "preview",
+  };
+
+  const handleNavClick = (item: typeof navItems[0]) => {
+    const tabValue = tabMapping[item.name];
+    if (tabValue) {
+      setActiveTab(tabValue);
+    }
+  };
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case "items":
+        return <MenuItemsTab />;
+      case "categories":
+        return <CategoriesTab />;
+      case "recipes":
+        return <RecipesTab />;
+      case "customize":
+        return <CustomizeMenuTab />;
+      case "options":
+        return <CustomizationsTab />;
+      case "preview":
+        return <PreviewTab />;
+      default:
+        return <MenuItemsTab />;
+    }
+  };
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-24">
       <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         <motion.div
           className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
@@ -65,64 +113,21 @@ export default function Menu() {
           </Button>
         </motion.div>
 
-      <Tabs defaultValue="items" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-6 gap-1">
-          <TabsTrigger value="items" data-testid="tab-menu-items">
-            <UtensilsCrossed className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Itens do Menu</span>
-            <span className="sm:hidden">Itens</span>
-          </TabsTrigger>
-          <TabsTrigger value="categories" data-testid="tab-categories">
-            <Folder className="h-4 w-4 mr-2" />
-            Categorias
-          </TabsTrigger>
-          <TabsTrigger value="recipes" data-testid="tab-recipes">
-            <ChefHat className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Receitas</span>
-            <span className="sm:hidden">Receitas</span>
-          </TabsTrigger>
-          <TabsTrigger value="customize" data-testid="tab-customize">
-            <Palette className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Personalizar</span>
-            <span className="sm:hidden">Custom</span>
-          </TabsTrigger>
-          <TabsTrigger value="options" data-testid="tab-options">
-            <Settings className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Opções</span>
-            <span className="sm:hidden">Opções</span>
-          </TabsTrigger>
-          <TabsTrigger value="preview" data-testid="tab-preview">
-            <Eye className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Pré-visualização</span>
-            <span className="sm:hidden">Preview</span>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="items" className="mt-6">
-          <MenuItemsTab />
-        </TabsContent>
-
-        <TabsContent value="categories" className="mt-6">
-          <CategoriesTab />
-        </TabsContent>
-
-        <TabsContent value="recipes" className="mt-6">
-          <RecipesTab />
-        </TabsContent>
-
-        <TabsContent value="customize" className="mt-6">
-          <CustomizeMenuTab />
-        </TabsContent>
-
-        <TabsContent value="options" className="mt-6">
-          <CustomizationsTab />
-        </TabsContent>
-
-        <TabsContent value="preview" className="mt-6">
-          <PreviewTab />
-        </TabsContent>
-      </Tabs>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="mt-6"
+        >
+          {renderContent()}
+        </motion.div>
       </div>
+
+      <TubelightNavBar
+        items={navItems}
+        activeItem={Object.keys(tabMapping).find(key => tabMapping[key] === activeTab)}
+        onItemClick={handleNavClick}
+      />
     </div>
   );
 }
