@@ -341,7 +341,7 @@ export default function Products() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-center sm:text-left">
               <p className="text-sm opacity-75">
-                Crie seu menu digital com <span className="font-semibold">olaclick</span>
+                Crie seu menu digital com <span className="font-semibold">Na Bancada</span>
               </p>
             </div>
             <div className="flex items-center gap-6 text-sm">
