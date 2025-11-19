@@ -11,6 +11,7 @@ import PDFDocument from "pdfkit";
 import multer from "multer";
 import path from "path";
 import { nanoid } from "nanoid";
+import fs from "fs/promises";
 import {
   insertTableSchema,
   insertCategorySchema,
@@ -70,9 +71,15 @@ const uploadRestaurantImage = multer({
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: (req, file, cb) => {
+    // Reject SVG explicitly due to XSS risks (can contain embedded scripts)
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
+    
+    // Additional check to reject SVG and other dangerous types
+    if (file.mimetype === 'image/svg+xml' || path.extname(file.originalname).toLowerCase() === '.svg') {
+      return cb(new Error('Arquivos SVG não são permitidos por motivos de segurança'));
+    }
     
     if (mimetype && extname) {
       return cb(null, true);
@@ -81,6 +88,23 @@ const uploadRestaurantImage = multer({
     }
   }
 });
+
+// Helper function to delete old image files
+async function deleteOldImage(imageUrl: string | null | undefined) {
+  if (!imageUrl) return;
+  
+  try {
+    // Extract filename from URL (e.g., /uploads/restaurants/abc-123.jpg -> abc-123.jpg)
+    const filename = imageUrl.split('/').pop();
+    if (!filename) return;
+    
+    const filePath = path.join('client/public/uploads/restaurants', filename);
+    await fs.unlink(filePath);
+  } catch (error) {
+    // Ignore errors (file might not exist)
+    console.log('Could not delete old image:', error);
+  }
+}
 
 // Middleware to check if user is admin (restaurant admin)
 function isAdmin(req: any, res: any, next: any) {
@@ -491,6 +515,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Nenhum arquivo enviado" });
       }
 
+      // Get current restaurant to delete old logo
+      const currentRestaurant = await storage.getRestaurantById(currentUser.restaurantId);
+      if (currentRestaurant?.logoUrl) {
+        await deleteOldImage(currentRestaurant.logoUrl);
+      }
+
       const logoUrl = `/uploads/restaurants/${req.file.filename}`;
       const restaurant = await storage.updateRestaurantAppearance(currentUser.restaurantId, { logoUrl });
       
@@ -515,6 +545,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!req.file) {
         return res.status(400).json({ message: "Nenhum arquivo enviado" });
+      }
+
+      // Get current restaurant to delete old hero image
+      const currentRestaurant = await storage.getRestaurantById(currentUser.restaurantId);
+      if (currentRestaurant?.heroImageUrl) {
+        await deleteOldImage(currentRestaurant.heroImageUrl);
       }
 
       const heroImageUrl = `/uploads/restaurants/${req.file.filename}`;

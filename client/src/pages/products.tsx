@@ -223,6 +223,19 @@ export default function Products() {
         </div>
       </header>
 
+      {/* Hero Image */}
+      {restaurant.heroImageUrl && (
+        <section className="relative h-64 overflow-hidden">
+          <img
+            src={restaurant.heroImageUrl}
+            alt={`${restaurant.name} - Banner`}
+            className="w-full h-full object-cover"
+            data-testid="img-hero"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+        </section>
+      )}
+
       {/* Search Bar */}
       <section className="bg-gray-50 border-b border-gray-200">
         <div className="container mx-auto px-6 py-4 max-w-6xl">
