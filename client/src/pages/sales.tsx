@@ -221,8 +221,7 @@ export default function Sales() {
     
     const headers = 'Data,Vendas,Pedidos';
     const rows = salesReport.salesByDay.map(row => {
-      const salesStr = typeof row.sales === 'string' ? row.sales.replace(/[^\d.-]/g, '') : String(row.sales || 0);
-      const sales = parseFloat(salesStr) || 0;
+      const sales = typeof row.sales === 'number' ? row.sales : (parseFloat(row.sales) || 0);
       const orders = row.orders || 0;
       return `${row.date},${sales.toFixed(2)},${orders}`;
     }).join('\n');
