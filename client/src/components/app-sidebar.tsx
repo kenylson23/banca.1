@@ -216,7 +216,7 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" role="navigation" aria-label="Menu principal de navegação" className="border-r border-sidebar-border">
       <SidebarContent className="flex flex-col h-full">
-        <div className="flex items-center justify-center gap-3 p-4 border-b border-sidebar-border shrink-0 group-data-[collapsible=icon]:justify-center">
+        <div className="flex items-center justify-center gap-3 p-4 shrink-0 group-data-[collapsible=icon]:justify-center">
           <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
             <h1 className="text-lg font-bold text-sidebar-foreground truncate">Na Bancada</h1>
             {open && <p className="text-xs text-muted-foreground mt-0.5 truncate">Sistema de Gestão</p>}
