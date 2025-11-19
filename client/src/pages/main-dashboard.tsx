@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
 import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ProfileMenu } from "@/components/profile-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 import Dashboard from "./dashboard";
@@ -110,16 +110,20 @@ export default function MainDashboard({ section }: MainDashboardProps) {
       <a href="#main-content" className="skip-to-content">
         Pular para o conteúdo principal
       </a>
-      <div className="flex h-screen w-full overflow-hidden">
+      <div className="flex h-screen w-full overflow-hidden relative">
         <AppSidebar currentSection={currentSection} />
         <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex items-center justify-end px-6 py-4 bg-sidebar z-10" role="banner">
+          <header className="fixed top-0 left-0 right-0 flex items-center justify-between px-6 py-4 bg-sidebar z-50" role="banner">
+            <div className="flex items-center gap-4">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              <h1 className="text-lg font-bold text-sidebar-foreground">Na Bancada</h1>
+            </div>
             <div className="flex items-center gap-3">
               <ProfileMenu />
               <ThemeToggle />
             </div>
           </header>
-          <main id="main-content" className="flex-1 overflow-auto bg-muted/20" role="main">
+          <main id="main-content" className="flex-1 overflow-auto bg-muted/20 mt-20" role="main">
             {renderContent()}
           </main>
         </div>

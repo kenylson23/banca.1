@@ -215,32 +215,7 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
 
   return (
     <Sidebar collapsible="icon" role="navigation" aria-label="Menu principal de navegação" className="border-r border-sidebar-border">
-      <SidebarContent className="flex flex-col h-full">
-        <div className="flex items-center justify-center gap-3 p-4 shrink-0 group-data-[collapsible=icon]:justify-center">
-          <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-            <h1 className="text-lg font-bold text-sidebar-foreground truncate">Na Bancada</h1>
-          </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleSidebar}
-                className="shrink-0 h-8 w-8"
-                data-testid="button-sidebar-toggle-internal"
-                aria-label={open ? "Recolher menu lateral" : "Expandir menu lateral"}
-              >
-                {open ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
-              </Button>
-            </TooltipTrigger>
-            {!open && (
-              <TooltipContent side="right" className="font-semibold">
-                Expandir menu
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </div>
-
+      <SidebarContent className="flex flex-col h-full pt-20">
         <BranchSelector />
 
         <div className="flex-1 overflow-y-auto">
