@@ -10,6 +10,7 @@ import { CustomizationsTab } from "@/components/menu/CustomizationsTab";
 import { PreviewTab } from "@/components/menu/PreviewTab";
 import { CustomizeMenuTab } from "@/components/menu/CustomizeMenuTab";
 import { RecipesTab } from "@/components/menu/RecipesTab";
+import { motion } from "framer-motion";
 
 export default function Menu() {
   const { toast } = useToast();
@@ -24,37 +25,45 @@ export default function Menu() {
   });
 
   return (
-    <div className="space-y-8 p-6 sm:p-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-2">
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Gestão de Produtos</h1>
-          <p className="text-base text-muted-foreground">
-            Gerencie categorias, pratos e personalizações do restaurante
-          </p>
-        </div>
-        <Button 
-          variant="outline" 
-          onClick={() => {
-            const publicLink = restaurant?.slug 
-              ? `${window.location.origin}/r/${restaurant.slug}`
-              : null;
-            if (publicLink) {
-              window.open(publicLink, '_blank');
-            } else {
-              toast({
-                title: 'Link público não disponível',
-                description: 'Configure o slug do restaurante em Configurações.',
-                variant: 'destructive',
-              });
-            }
-          }}
-          data-testid="button-view-menu"
-          disabled={!restaurant?.slug}
+    <div className="min-h-screen">
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <motion.div
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
         >
-          <ExternalLink className="h-4 w-4 mr-2" />
-          Visualizar Menu Público
-        </Button>
-      </div>
+          <div>
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+              Gestão de Produtos
+            </h1>
+            <p className="text-base text-muted-foreground mt-1">
+              Gerencie categorias, pratos e personalizações do restaurante
+            </p>
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              const publicLink = restaurant?.slug 
+                ? `${window.location.origin}/r/${restaurant.slug}`
+                : null;
+              if (publicLink) {
+                window.open(publicLink, '_blank');
+              } else {
+                toast({
+                  title: 'Link público não disponível',
+                  description: 'Configure o slug do restaurante em Configurações.',
+                  variant: 'destructive',
+                });
+              }
+            }}
+            data-testid="button-view-menu"
+            disabled={!restaurant?.slug}
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Visualizar Menu Público
+          </Button>
+        </motion.div>
 
       <Tabs defaultValue="items" className="w-full">
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-6 gap-1">
@@ -113,6 +122,7 @@ export default function Menu() {
           <PreviewTab />
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }
