@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
-import { Copy, Check, ExternalLink, Link2, Palette } from 'lucide-react';
+import { Copy, Check, ExternalLink, Link2, Palette, Image as ImageIcon, Upload } from 'lucide-react';
 import type { Restaurant } from '@shared/schema';
 
 export default function Settings() {
@@ -18,6 +18,8 @@ export default function Settings() {
   const [secondaryColor, setSecondaryColor] = useState('#DC2626');
   const [accentColor, setAccentColor] = useState('#0891B2');
   const [heroImageUrl, setHeroImageUrl] = useState('');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingHero, setUploadingHero] = useState(false);
   const { toast } = useToast();
 
   const { data: currentUser } = useQuery<any>({
@@ -132,6 +134,99 @@ export default function Settings() {
       accentColor,
       heroImageUrl: heroImageUrl || '',
     });
+  };
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'Arquivo muito grande',
+        description: 'O tamanho máximo permitido é 5MB.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setUploadingLogo(true);
+    const formData = new FormData();
+    formData.append('logo', file);
+
+    try {
+      const response = await fetch('/api/restaurants/upload-logo', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Erro ao fazer upload');
+      }
+
+      const data = await response.json();
+      toast({
+        title: 'Logo atualizado!',
+        description: 'O logo do restaurante foi atualizado com sucesso.',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/public/restaurants'] });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao fazer upload',
+        description: error?.message || 'Tente novamente mais tarde.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleHeroImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'Arquivo muito grande',
+        description: 'O tamanho máximo permitido é 5MB.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setUploadingHero(true);
+    const formData = new FormData();
+    formData.append('heroImage', file);
+
+    try {
+      const response = await fetch('/api/restaurants/upload-hero', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Erro ao fazer upload');
+      }
+
+      const data = await response.json();
+      setHeroImageUrl(data.heroImageUrl);
+      toast({
+        title: 'Foto de capa atualizada!',
+        description: 'A foto de capa foi atualizada com sucesso.',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/public/restaurants'] });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao fazer upload',
+        description: error?.message || 'Tente novamente mais tarde.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingHero(false);
+    }
   };
 
   if (isLoading) {
@@ -330,6 +425,94 @@ export default function Settings() {
         <TabsContent value="appearance" className="space-y-4">
           <Card>
             <CardHeader>
+              <CardTitle>Logo do Restaurante</CardTitle>
+              <CardDescription>
+                Faça upload do logo que aparecerá no menu público (PNG, JPG, GIF ou WebP - máx 5MB)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {restaurant?.logoUrl && (
+                <div className="flex justify-center p-4 border rounded-lg bg-muted/50">
+                  <img 
+                    src={restaurant.logoUrl} 
+                    alt="Logo atual" 
+                    className="h-24 w-24 object-contain"
+                  />
+                </div>
+              )}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  disabled={uploadingLogo}
+                  className="flex-1"
+                  data-testid="input-logo-upload"
+                />
+                <Button
+                  disabled={uploadingLogo}
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
+                  {uploadingLogo ? (
+                    <>Enviando...</>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Selecionar Logo
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Foto de Capa (Hero)</CardTitle>
+              <CardDescription>
+                Faça upload da imagem de destaque que aparecerá no topo do menu público (1200x400px recomendado - máx 5MB)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {restaurant?.heroImageUrl && (
+                <div className="flex justify-center p-4 border rounded-lg bg-muted/50">
+                  <img 
+                    src={restaurant.heroImageUrl} 
+                    alt="Foto de capa atual" 
+                    className="max-h-48 w-full object-cover rounded-md"
+                  />
+                </div>
+              )}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleHeroImageUpload}
+                  disabled={uploadingHero}
+                  className="flex-1"
+                  data-testid="input-hero-upload"
+                />
+                <Button
+                  disabled={uploadingHero}
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
+                  {uploadingHero ? (
+                    <>Enviando...</>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Selecionar Foto
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Personalizar Cores</CardTitle>
               <CardDescription>
                 Escolha as cores que representam sua marca. Elas serão aplicadas no seu menu público.
@@ -407,27 +590,13 @@ export default function Settings() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="heroImageUrl">Imagem Hero (Banner)</Label>
-                <Input
-                  id="heroImageUrl"
-                  value={heroImageUrl}
-                  onChange={(e) => setHeroImageUrl(e.target.value)}
-                  placeholder="https://exemplo.com/imagem-banner.jpg"
-                  data-testid="input-hero-image-url"
-                />
-                <p className="text-xs text-muted-foreground">
-                  URL da imagem de destaque que aparecerá no topo do menu público (1200x400px recomendado)
-                </p>
-              </div>
-
               <Button
                 onClick={handleSaveAppearance}
                 disabled={updateAppearanceMutation.isPending}
                 data-testid="button-save-appearance"
                 className="w-full sm:w-auto"
               >
-                {updateAppearanceMutation.isPending ? 'Salvando...' : 'Salvar Aparência'}
+                {updateAppearanceMutation.isPending ? 'Salvando...' : 'Salvar Cores'}
               </Button>
             </CardContent>
           </Card>

@@ -8,6 +8,9 @@ import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import passport from "passport";
 import QRCode from "qrcode";
 import PDFDocument from "pdfkit";
+import multer from "multer";
+import path from "path";
+import { nanoid } from "nanoid";
 import {
   insertTableSchema,
   insertCategorySchema,
@@ -48,6 +51,36 @@ import {
   type User,
 } from "@shared/schema";
 import { z } from "zod";
+
+// Configure multer for file uploads
+const restaurantStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'client/public/uploads/restaurants');
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const filename = `${nanoid()}-${Date.now()}${ext}`;
+    cb(null, filename);
+  }
+});
+
+const uploadRestaurantImage = multer({
+  storage: restaurantStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Apenas imagens são permitidas (jpeg, jpg, png, gif, webp)'));
+    }
+  }
+});
 
 // Middleware to check if user is admin (restaurant admin)
 function isAdmin(req: any, res: any, next: any) {
@@ -443,6 +476,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: error.errors[0].message });
       }
       res.status(500).json({ message: "Erro ao atualizar aparência do restaurante" });
+    }
+  });
+
+  // Upload restaurant logo
+  app.post('/api/restaurants/upload-logo', isAdmin, uploadRestaurantImage.single('logo'), async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhum arquivo enviado" });
+      }
+
+      const logoUrl = `/uploads/restaurants/${req.file.filename}`;
+      const restaurant = await storage.updateRestaurantAppearance(currentUser.restaurantId, { logoUrl });
+      
+      res.json({ 
+        message: "Logo atualizado com sucesso",
+        logoUrl,
+        restaurant 
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao fazer upload do logo';
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  // Upload restaurant hero image
+  app.post('/api/restaurants/upload-hero', isAdmin, uploadRestaurantImage.single('heroImage'), async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhum arquivo enviado" });
+      }
+
+      const heroImageUrl = `/uploads/restaurants/${req.file.filename}`;
+      const restaurant = await storage.updateRestaurantAppearance(currentUser.restaurantId, { heroImageUrl });
+      
+      res.json({ 
+        message: "Foto de capa atualizada com sucesso",
+        heroImageUrl,
+        restaurant 
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao fazer upload da foto de capa';
+      res.status(500).json({ message: errorMessage });
     }
   });
 

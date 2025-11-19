@@ -83,7 +83,8 @@ export const updateRestaurantAppearanceSchema = z.object({
   primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor primária inválida. Use formato hexadecimal (#000000)").optional(),
   secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor secundária inválida. Use formato hexadecimal (#000000)").optional(),
   accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor de destaque inválida. Use formato hexadecimal (#000000)").optional(),
-  heroImageUrl: z.string().url("URL da imagem hero inválida").optional().or(z.literal('')),
+  logoUrl: z.string().optional().or(z.literal('')),
+  heroImageUrl: z.string().optional().or(z.literal('')),
 });
 
 export type UpdateRestaurantAppearance = z.infer<typeof updateRestaurantAppearanceSchema>;
