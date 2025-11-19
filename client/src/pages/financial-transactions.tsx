@@ -32,7 +32,7 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, 
 import { cn } from "@/lib/utils";
 import type { FinancialTransaction, CashRegister, FinancialCategory, User } from "@shared/schema";
 import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
-import { AdvancedFilters } from "@/components/advanced-filters";
+import { AdvancedFilters, type FilterOption } from "@/components/advanced-filters";
 import { ShimmerSkeleton } from "@/components/shimmer-skeleton";
 import { DateRange } from "react-day-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -50,8 +50,6 @@ type FinancialSummary = {
   totalExpense: string;
   netResult: string;
 };
-
-type FilterOption = "today" | "week" | "month" | "year";
 
 export default function FinancialTransactions() {
   const { toast } = useToast();
@@ -99,9 +97,22 @@ export default function FinancialTransactions() {
           endDate = endOfMonth(new Date());
           endDate.setHours(23, 59, 59, 999);
           break;
+        case '3months':
+          startDate = new Date();
+          startDate.setMonth(startDate.getMonth() - 3);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date();
+          endDate.setHours(23, 59, 59, 999);
+          break;
         case 'year':
           startDate = startOfYear(new Date());
           endDate = endOfYear(new Date());
+          endDate.setHours(23, 59, 59, 999);
+          break;
+        default:
+          startDate = new Date();
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date();
           endDate.setHours(23, 59, 59, 999);
           break;
       }

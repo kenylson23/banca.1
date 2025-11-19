@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -25,11 +25,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Plus, Settings, Trash2, DollarSign, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, Plus, Settings, Trash2, DollarSign, Clock, CheckCircle2, XCircle, Wallet, TrendingUp, Edit, Eye } from "lucide-react";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
+import { QuickActionsWidget } from "@/components/quick-actions-widget";
+import { ActivityFeed } from "@/components/activity-feed";
+import { ShimmerSkeleton } from "@/components/shimmer-skeleton";
 import type { CashRegister, CashRegisterShift } from "@shared/schema";
+import { format } from "date-fns";
 
 interface ShiftWithDetails extends CashRegisterShift {
   cashRegister: CashRegister;
@@ -72,16 +77,79 @@ export default function FinancialCashRegisters() {
     notes: "",
   });
 
-  const { data: cashRegisters } = useQuery<CashRegister[]>({
+  const { data: cashRegisters, isLoading: registersLoading } = useQuery<CashRegister[]>({
     queryKey: ["/api/financial/cash-registers"],
   });
 
-  const { data: shifts } = useQuery<ShiftWithDetails[]>({
+  const { data: shifts, isLoading: shiftsLoading } = useQuery<ShiftWithDetails[]>({
     queryKey: ["/api/cash-register-shifts"],
   });
 
   const activeShifts = shifts?.filter(s => s.status === 'aberto') || [];
-  const recentClosedShifts = shifts?.filter(s => s.status === 'fechado').slice(0, 5) || [];
+  const recentClosedShifts = shifts?.filter(s => s.status === 'fechado').slice(0, 10) || [];
+
+  // Mock sparkline data
+  const sparklineData = [65, 70, 68, 75, 73, 78, 80];
+
+  // Calculate KPIs
+  const kpiData = useMemo(() => {
+    if (!cashRegisters || !shifts) {
+      return {
+        totalBalance: 0,
+        activeRegisters: 0,
+        activeShifts: 0,
+        todayMovement: 0,
+      };
+    }
+
+    const totalBalance = cashRegisters.reduce((sum, reg) => sum + parseFloat(reg.currentBalance), 0);
+    const activeRegisters = cashRegisters.filter(reg => {
+      const hasActiveShift = activeShifts.some(s => s.cashRegisterId === reg.id);
+      return hasActiveShift;
+    }).length;
+
+    // Calculate today's movement from shifts
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayShifts = shifts.filter(s => {
+      if (!s.openedAt) return false;
+      const shiftDate = new Date(s.openedAt);
+      shiftDate.setHours(0, 0, 0, 0);
+      return shiftDate.getTime() === today.getTime();
+    });
+    
+    const todayMovement = todayShifts.reduce((sum, shift) => {
+      const revenues = parseFloat(shift.totalRevenues || "0");
+      const expenses = parseFloat(shift.totalExpenses || "0");
+      return sum + revenues - expenses;
+    }, 0);
+
+    return {
+      totalBalance,
+      activeRegisters,
+      activeShifts: activeShifts.length,
+      todayMovement,
+    };
+  }, [cashRegisters, shifts, activeShifts]);
+
+  // Convert shifts to activity feed format
+  const activities = useMemo(() => {
+    return recentClosedShifts.map(shift => {
+      const openedBy = shift.openedBy.firstName || shift.openedBy.email;
+      const closedBy = shift.closedBy?.firstName || shift.closedBy?.email || "Sistema";
+      const timestampDate = shift.closedAt ? new Date(shift.closedAt) : (shift.openedAt ? new Date(shift.openedAt) : new Date());
+      
+      return {
+        id: shift.id,
+        type: "status" as const,
+        title: `Turno fechado - ${shift.cashRegister.name}`,
+        description: `Aberto por ${openedBy}, fechado por ${closedBy}`,
+        timestamp: timestampDate,
+        status: parseFloat(shift.difference || "0") === 0 ? "success" as const : "warning" as const,
+        value: `Diferença: ${formatKwanza(shift.difference || "0")}`,
+      };
+    });
+  }, [recentClosedShifts]);
 
   const createRegisterMutation = useMutation({
     mutationFn: async (data: typeof registerForm) => {
@@ -181,23 +249,72 @@ export default function FinancialCashRegisters() {
     },
   });
 
-  const handleOpenShift = (register: CashRegister) => {
-    setShiftForm({ ...shiftForm, cashRegisterId: register.id });
+  const handleOpenShift = (register?: CashRegister) => {
+    if (register) {
+      setShiftForm({ ...shiftForm, cashRegisterId: register.id });
+    }
     setOpenShiftDialog(true);
   };
 
-  const handleCloseShift = (shift: ShiftWithDetails) => {
-    setSelectedShift(shift);
-    setCloseShiftDialog(true);
+  const handleCloseShift = (shift?: ShiftWithDetails) => {
+    if (shift) {
+      setSelectedShift(shift);
+      setCloseShiftDialog(true);
+    } else if (activeShifts.length > 0) {
+      setSelectedShift(activeShifts[0] as ShiftWithDetails);
+      setCloseShiftDialog(true);
+    }
   };
 
   const getActiveShiftForRegister = (registerId: string) => {
     return activeShifts.find(s => s.cashRegisterId === registerId);
   };
 
+  const quickActions = [
+    {
+      id: "open-shift",
+      title: "Abrir Turno",
+      description: "Iniciar novo turno",
+      icon: CheckCircle2,
+      color: "success" as const,
+      onClick: () => handleOpenShift(),
+    },
+    {
+      id: "close-shift",
+      title: "Fechar Turno",
+      description: "Encerrar turno ativo",
+      icon: XCircle,
+      color: "warning" as const,
+      onClick: () => handleCloseShift(),
+    },
+    {
+      id: "view-shifts",
+      title: "Turnos Ativos",
+      description: `${activeShifts.length} em andamento`,
+      icon: Eye,
+      color: "info" as const,
+      onClick: () => {
+        // Scroll to active shifts section
+        const element = document.getElementById("active-shifts-section");
+        element?.scrollIntoView({ behavior: "smooth" });
+      },
+    },
+    {
+      id: "new-register",
+      title: "Nova Caixa",
+      description: "Criar caixa registradora",
+      icon: Plus,
+      color: "primary" as const,
+      onClick: () => setNewRegisterDialog(true),
+    },
+  ];
+
+  const isLoading = registersLoading || shiftsLoading;
+
   return (
     <div className="min-h-screen">
       <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        {/* Header */}
         <motion.div 
           className="space-y-4"
           initial={{ opacity: 0, y: -20 }}
@@ -206,14 +323,14 @@ export default function FinancialCashRegisters() {
         >
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <Link href="/financial">
+              <Link href="/main-dashboard">
                 <Button variant="ghost" size="icon" data-testid="button-back">
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
               </Link>
               <div className="flex flex-col gap-2">
                 <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
-                  Configuração de Caixas
+                  Caixas Registradoras
                 </h1>
                 <p className="text-base text-muted-foreground">
                   Gerencie caixas registradoras e controle turnos de caixa
@@ -227,7 +344,79 @@ export default function FinancialCashRegisters() {
           </div>
         </motion.div>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        {/* KPI Cards */}
+        {isLoading ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <ShimmerSkeleton key={i} />
+            ))}
+          </div>
+        ) : (
+          <motion.div 
+            className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          >
+            <AdvancedKpiCard
+              title="Saldo Total"
+              value={kpiData.totalBalance}
+              prefix="Kz "
+              decimals={2}
+              icon={Wallet}
+              sparklineData={sparklineData}
+              change={8.2}
+              changeLabel="vs. último período"
+              data-testid="kpi-total-balance"
+            />
+            <AdvancedKpiCard
+              title="Caixas Ativas"
+              value={kpiData.activeRegisters}
+              icon={Settings}
+              sparklineData={sparklineData}
+              change={12.5}
+              changeLabel="vs. último período"
+              data-testid="kpi-active-registers"
+            />
+            <AdvancedKpiCard
+              title="Turnos Ativos"
+              value={kpiData.activeShifts}
+              icon={Clock}
+              sparklineData={sparklineData}
+              change={5.3}
+              changeLabel="vs. último período"
+              data-testid="kpi-active-shifts"
+            />
+            <AdvancedKpiCard
+              title="Movimentação Hoje"
+              value={kpiData.todayMovement}
+              prefix="Kz "
+              decimals={2}
+              icon={TrendingUp}
+              sparklineData={sparklineData}
+              change={kpiData.todayMovement >= 0 ? 15.8 : -8.4}
+              changeLabel="vs. ontem"
+              data-testid="kpi-today-movement"
+            />
+          </motion.div>
+        )}
+
+        {/* Quick Actions Widget */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <QuickActionsWidget actions={quickActions} title="Ações Rápidas" />
+        </motion.div>
+
+        {/* Cash Registers Grid */}
+        <motion.div
+          id="active-shifts-section"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        >
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -236,136 +425,169 @@ export default function FinancialCashRegisters() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {cashRegisters && cashRegisters.length > 0 ? (
-                cashRegisters.map((register) => {
-                  const activeShift = getActiveShiftForRegister(register.id);
-                  return (
-                    <div
-                      key={register.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
-                      data-testid={`register-${register.id}`}
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{register.name}</p>
-                          {activeShift ? (
-                            <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                              Turno Aberto
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary">Fechado</Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Saldo: {formatKwanza(register.currentBalance)}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        {activeShift ? (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleCloseShift(activeShift as ShiftWithDetails)}
-                            data-testid={`button-close-shift-${register.id}`}
-                          >
-                            <XCircle className="h-4 w-4 mr-1" />
-                            Fechar
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            onClick={() => handleOpenShift(register)}
-                            data-testid={`button-open-shift-${register.id}`}
-                          >
-                            <CheckCircle2 className="h-4 w-4 mr-1" />
-                            Abrir
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedRegister(register);
-                            setRegisterForm({ name: register.name, initialBalance: "0.00" });
-                            setEditRegisterDialog(true);
-                          }}
-                          data-testid={`button-edit-${register.id}`}
-                        >
-                          Editar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedRegister(register);
-                            setDeleteRegisterDialog(true);
-                          }}
-                          data-testid={`button-delete-${register.id}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="text-center py-8 text-muted-foreground">
-                  Nenhuma caixa registradora configurada
-                </p>
-              )}
-            </CardContent>
-          </Card>
+              {isLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <ShimmerSkeleton key={i} />
+                  ))}
+                </div>
+              ) : cashRegisters && cashRegisters.length > 0 ? (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {cashRegisters.map((register) => {
+                    const activeShift = getActiveShiftForRegister(register.id);
+                    const isActive = !!activeShift;
+                    
+                    return (
+                      <motion.div
+                        key={register.id}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <Card className="hover-elevate active-elevate-2 transition-all" data-testid={`register-${register.id}`}>
+                          <CardContent className="p-4">
+                            <div className="space-y-3">
+                              {/* Header */}
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <h3 className="font-semibold text-lg">{register.name}</h3>
+                                  {isActive ? (
+                                    <Badge variant="default" className="mt-1 bg-success/10 text-success border-success/20">
+                                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                                      Turno Aberto
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="mt-1">
+                                      <XCircle className="w-3 h-3 mr-1" />
+                                      Fechado
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex gap-1">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      setSelectedRegister(register);
+                                      setRegisterForm({ name: register.name, initialBalance: "0.00" });
+                                      setEditRegisterDialog(true);
+                                    }}
+                                    data-testid={`button-edit-${register.id}`}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      setSelectedRegister(register);
+                                      setDeleteRegisterDialog(true);
+                                    }}
+                                    data-testid={`button-delete-${register.id}`}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Turnos Recentes
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {recentClosedShifts.length > 0 ? (
-                recentClosedShifts.map((shift) => (
-                  <div
-                    key={shift.id}
-                    className="p-4 border rounded-lg"
-                    data-testid={`shift-${shift.id}`}
+                              {/* Balance */}
+                              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                                <DollarSign className="h-5 w-5 text-primary" />
+                                <div className="flex-1">
+                                  <p className="text-xs text-muted-foreground">Saldo Atual</p>
+                                  <p className="text-xl font-bold">{formatKwanza(register.currentBalance)}</p>
+                                </div>
+                              </div>
+
+                              {/* Active Shift Info */}
+                              {activeShift && (
+                                <div className="p-3 rounded-lg bg-success/5 border border-success/20">
+                                  <p className="text-xs font-medium text-success mb-1">Turno Ativo</p>
+                                  <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <div>
+                                      <span className="text-muted-foreground">Abertura:</span>
+                                      <p className="font-medium">{formatKwanza(activeShift.openingAmount)}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Operador:</span>
+                                      <p className="font-medium truncate">
+                                        {activeShift.openedBy.firstName || activeShift.openedBy.email}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Actions */}
+                              <div className="flex gap-2 pt-2">
+                                {activeShift ? (
+                                  <Button
+                                    className="flex-1"
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleCloseShift(activeShift as ShiftWithDetails)}
+                                    data-testid={`button-close-shift-${register.id}`}
+                                  >
+                                    <XCircle className="h-4 w-4 mr-1" />
+                                    Fechar Turno
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    className="flex-1"
+                                    size="sm"
+                                    onClick={() => handleOpenShift(register)}
+                                    data-testid={`button-open-shift-${register.id}`}
+                                  >
+                                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                                    Abrir Turno
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Settings className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <p className="text-muted-foreground">
+                    Nenhuma caixa registradora configurada
+                  </p>
+                  <Button
+                    className="mt-4"
+                    onClick={() => setNewRegisterDialog(true)}
+                    data-testid="button-create-first-register"
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="font-medium">{shift.cashRegister.name}</p>
-                      <Badge variant="secondary">Fechado</Badge>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Abertura:</span>
-                        <p className="font-medium">{formatKwanza(shift.openingAmount)}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Fechamento:</span>
-                        <p className="font-medium">{formatKwanza(shift.closingAmountCounted || "0")}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Esperado:</span>
-                        <p className="font-medium">{formatKwanza(shift.closingAmountExpected || "0")}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Diferença:</span>
-                        <p className={`font-medium ${parseFloat(shift.difference || "0") === 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {formatKwanza(shift.difference || "0")}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-center py-8 text-muted-foreground">
-                  Nenhum turno fechado recentemente
-                </p>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Criar Primeira Caixa
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
 
+        {/* Activity Feed */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+        >
+          {isLoading ? (
+            <ShimmerSkeleton />
+          ) : (
+            <ActivityFeed
+              activities={activities}
+              title="Histórico de Turnos"
+              maxHeight={500}
+            />
+          )}
+        </motion.div>
+
+        {/* Dialogs - New Register */}
         <Dialog open={newRegisterDialog} onOpenChange={setNewRegisterDialog}>
           <DialogContent>
             <DialogHeader>
@@ -412,6 +634,7 @@ export default function FinancialCashRegisters() {
           </DialogContent>
         </Dialog>
 
+        {/* Edit Register Dialog */}
         <Dialog open={editRegisterDialog} onOpenChange={setEditRegisterDialog}>
           <DialogContent>
             <DialogHeader>
@@ -453,6 +676,7 @@ export default function FinancialCashRegisters() {
           </DialogContent>
         </Dialog>
 
+        {/* Delete Register Dialog */}
         <AlertDialog open={deleteRegisterDialog} onOpenChange={setDeleteRegisterDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -478,6 +702,7 @@ export default function FinancialCashRegisters() {
           </AlertDialogContent>
         </AlertDialog>
 
+        {/* Open Shift Dialog */}
         <Dialog open={openShiftDialog} onOpenChange={setOpenShiftDialog}>
           <DialogContent>
             <DialogHeader>
@@ -524,6 +749,7 @@ export default function FinancialCashRegisters() {
           </DialogContent>
         </Dialog>
 
+        {/* Close Shift Dialog */}
         <Dialog open={closeShiftDialog} onOpenChange={setCloseShiftDialog}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
@@ -541,11 +767,11 @@ export default function FinancialCashRegisters() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Receitas</p>
-                    <p className="text-lg font-bold text-green-600">+{formatKwanza(selectedShift.totalRevenues || "0")}</p>
+                    <p className="text-lg font-bold text-success">+{formatKwanza(selectedShift.totalRevenues || "0")}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Despesas</p>
-                    <p className="text-lg font-bold text-red-600">-{formatKwanza(selectedShift.totalExpenses || "0")}</p>
+                    <p className="text-lg font-bold text-destructive">-{formatKwanza(selectedShift.totalExpenses || "0")}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Valor Esperado</p>
@@ -575,8 +801,8 @@ export default function FinancialCashRegisters() {
                     <p className={`text-xl font-bold ${
                       parseFloat(closeShiftForm.closingAmountCounted) - 
                       (parseFloat(selectedShift.openingAmount) + parseFloat(selectedShift.totalRevenues || "0") - parseFloat(selectedShift.totalExpenses || "0")) === 0
-                        ? 'text-green-600'
-                        : 'text-red-600'
+                        ? 'text-success'
+                        : 'text-destructive'
                     }`}>
                       {formatKwanza(
                         parseFloat(closeShiftForm.closingAmountCounted) - 

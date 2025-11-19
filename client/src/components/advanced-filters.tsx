@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { DateRange } from "react-day-picker";
 
-type FilterOption = "today" | "week" | "month" | "year";
+export type FilterOption = "today" | "week" | "month" | "3months" | "year";
 
 interface AdvancedFiltersProps {
   quickFilter: FilterOption;
@@ -32,6 +32,7 @@ const filterOptions: Array<{ value: FilterOption; label: string; icon: any }> = 
   { value: "today", label: "Hoje", icon: Calendar },
   { value: "week", label: "Semana", icon: TrendingUp },
   { value: "month", label: "Mês", icon: CalendarIcon },
+  { value: "3months", label: "3 Meses", icon: BarChart3 },
   { value: "year", label: "Ano", icon: BarChart3 },
 ];
 

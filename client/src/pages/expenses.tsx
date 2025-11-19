@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -22,18 +22,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { ArrowLeft, Plus, Edit2, Trash2, Receipt, Calendar, DollarSign } from "lucide-react";
+import { ArrowLeft, Plus, Edit2, Trash2, Receipt, TrendingDown, Hash, Tag } from "lucide-react";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
+import { AdvancedFilters, type FilterOption } from "@/components/advanced-filters";
+import { ShimmerSkeleton } from "@/components/shimmer-skeleton";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
+import { DateRange } from "react-day-picker";
+import { cn } from "@/lib/utils";
 import type { FinancialTransaction, FinancialCategory, User, CashRegister } from "@shared/schema";
 
 interface ExpenseWithDetails extends FinancialTransaction {
@@ -57,6 +56,9 @@ export default function ExpensesPage() {
   const [editExpenseDialog, setEditExpenseDialog] = useState(false);
   const [deleteExpenseDialog, setDeleteExpenseDialog] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<ExpenseWithDetails | null>(null);
+  const [quickFilter, setQuickFilter] = useState<FilterOption>("today");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   
   const [expenseForm, setExpenseForm] = useState({
     categoryId: "",
@@ -67,8 +69,80 @@ export default function ExpensesPage() {
     note: "",
   });
 
-  const { data: expenses } = useQuery<ExpenseWithDetails[]>({
-    queryKey: ["/api/financial/transactions", { type: 'despesa' }],
+  const expenseParams = useMemo(() => {
+    const params: any = { type: 'despesa' };
+
+    if (dateRange?.from) {
+      const startDate = new Date(dateRange.from);
+      startDate.setHours(0, 0, 0, 0);
+      params.startDate = startDate.toISOString();
+      
+      if (dateRange.to) {
+        const endDate = new Date(dateRange.to);
+        endDate.setHours(23, 59, 59, 999);
+        params.endDate = endDate.toISOString();
+      } else {
+        const endDate = new Date(dateRange.from);
+        endDate.setHours(23, 59, 59, 999);
+        params.endDate = endDate.toISOString();
+      }
+    } else {
+      let startDate: Date;
+      let endDate: Date;
+
+      switch (quickFilter) {
+        case 'today':
+          startDate = new Date();
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date();
+          endDate.setHours(23, 59, 59, 999);
+          break;
+        case 'week':
+          startDate = startOfWeek(new Date(), { weekStartsOn: 1 });
+          endDate = endOfWeek(new Date(), { weekStartsOn: 1 });
+          endDate.setHours(23, 59, 59, 999);
+          break;
+        case 'month':
+          startDate = startOfMonth(new Date());
+          endDate = endOfMonth(new Date());
+          endDate.setHours(23, 59, 59, 999);
+          break;
+        case 'year':
+          startDate = startOfYear(new Date());
+          endDate = endOfYear(new Date());
+          endDate.setHours(23, 59, 59, 999);
+          break;
+      }
+      
+      params.startDate = startDate.toISOString();
+      params.endDate = endDate.toISOString();
+    }
+
+    if (selectedCategory !== 'all') {
+      params.categoryId = selectedCategory;
+    }
+
+    return params;
+  }, [dateRange, quickFilter, selectedCategory]);
+
+  const handleQuickFilterChange = (filter: FilterOption) => {
+    setQuickFilter(filter);
+    setDateRange(undefined);
+  };
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/financial/transactions", expenseParams] });
+  };
+
+  const handleExport = () => {
+    toast({
+      title: "Exportar dados",
+      description: "Funcionalidade de exportação em desenvolvimento",
+    });
+  };
+
+  const { data: expenses, isLoading: expensesLoading } = useQuery<ExpenseWithDetails[]>({
+    queryKey: ["/api/financial/transactions", expenseParams],
   });
 
   const { data: categories } = useQuery<FinancialCategory[]>({
@@ -148,6 +222,23 @@ export default function ExpensesPage() {
   });
 
   const totalExpenses = expenses?.reduce((sum, exp) => sum + parseFloat(exp.amount), 0) || 0;
+  const expenseCount = expenses?.length || 0;
+  const averageExpense = expenseCount > 0 ? totalExpenses / expenseCount : 0;
+
+  const topCategory = useMemo(() => {
+    if (!expenses || expenses.length === 0) return null;
+    
+    const categoryTotals = expenses.reduce((acc, exp) => {
+      const categoryName = exp.category?.name || 'Sem categoria';
+      acc[categoryName] = (acc[categoryName] || 0) + parseFloat(exp.amount);
+      return acc;
+    }, {} as Record<string, number>);
+
+    const topCat = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0];
+    return topCat ? { name: topCat[0], amount: topCat[1] } : null;
+  }, [expenses]);
+
+  const sparklineData = [65, 70, 68, 75, 73, 78, 80];
 
   return (
     <div className="min-h-screen">
@@ -172,149 +263,256 @@ export default function ExpensesPage() {
                 <p className="text-base text-muted-foreground">Gerencie as despesas do restaurante</p>
               </div>
             </div>
-            <Button 
-              onClick={() => setNewExpenseDialog(true)}
-              data-testid="button-new-expense"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Despesa
-            </Button>
+            <div className="flex gap-3">
+              <Link href="/main-dashboard">
+                <Button variant="outline" data-testid="button-return">
+                  Voltar
+                </Button>
+              </Link>
+              <Button 
+                onClick={() => setNewExpenseDialog(true)}
+                data-testid="button-new-expense"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Despesa
+              </Button>
+            </div>
           </div>
         </motion.div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Despesas</CardTitle>
-            <Receipt className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-total-expenses">
-              {formatKwanza(totalExpenses)}
-            </div>
-            <p className="text-xs text-muted-foreground">Todas as despesas registradas</p>
-          </CardContent>
-        </Card>
+        <motion.div 
+          className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <AdvancedKpiCard
+            title="Total de Despesas"
+            value={totalExpenses}
+            prefix="Kz "
+            decimals={2}
+            icon={TrendingDown}
+            sparklineData={sparklineData.map(v => -v)}
+            change={-5.3}
+            changeLabel="vs. período anterior"
+            data-testid="kpi-total-expenses"
+          />
+          <AdvancedKpiCard
+            title="Quantidade de Despesas"
+            value={expenseCount}
+            decimals={0}
+            icon={Hash}
+            sparklineData={sparklineData}
+            change={8.2}
+            changeLabel="vs. período anterior"
+            data-testid="kpi-expense-count"
+          />
+          <AdvancedKpiCard
+            title="Média por Despesa"
+            value={averageExpense}
+            prefix="Kz "
+            decimals={2}
+            icon={Receipt}
+            sparklineData={sparklineData}
+            change={-2.1}
+            changeLabel="vs. período anterior"
+            data-testid="kpi-average-expense"
+          />
+          <AdvancedKpiCard
+            title={topCategory ? topCategory.name : "Categoria Top"}
+            value={topCategory ? topCategory.amount : 0}
+            prefix="Kz "
+            decimals={2}
+            icon={Tag}
+            sparklineData={sparklineData}
+            change={topCategory ? 12.5 : 0}
+            changeLabel="categoria com mais gasto"
+            data-testid="kpi-top-category"
+          />
+        </motion.div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Despesas do Mês</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatKwanza(
-                expenses?.filter(e => {
-                  const expenseDate = new Date(e.occurredAt);
-                  const now = new Date();
-                  return expenseDate.getMonth() === now.getMonth() && 
-                         expenseDate.getFullYear() === now.getFullYear();
-                }).reduce((sum, e) => sum + parseFloat(e.amount), 0) || 0
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">Despesas do mês atual</p>
-          </CardContent>
-        </Card>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <AdvancedFilters
+            quickFilter={quickFilter}
+            onQuickFilterChange={handleQuickFilterChange}
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            onRefresh={handleRefresh}
+            onExport={handleExport}
+            isLoading={expensesLoading}
+          />
+        </motion.div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Registros</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-expense-count">
-              {expenses?.length || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">Despesas registradas</p>
-          </CardContent>
-        </Card>
-      </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.25 }}
+        >
+          <Card>
+            <CardContent className="p-4">
+              <div className="space-y-2">
+                <Label htmlFor="categoryFilter">Filtrar por Categoria</Label>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger data-testid="select-category-filter">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" data-testid="option-all-categories">Todas as categorias</SelectItem>
+                    {expenseCategories.map((category) => (
+                      <SelectItem key={category.id} value={category.id} data-testid={`option-category-${category.id}`}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de Despesas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead>Método de Pagamento</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {expenses?.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
-                    Nenhuma despesa registrada
-                  </TableCell>
-                </TableRow>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        >
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-primary" />
+                Despesas Recentes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {expensesLoading ? (
+                <div className="space-y-3">
+                  <ShimmerSkeleton className="h-24 w-full rounded-lg" />
+                  <ShimmerSkeleton className="h-24 w-full rounded-lg" />
+                  <ShimmerSkeleton className="h-24 w-full rounded-lg" />
+                </div>
+              ) : !expenses || expenses.length === 0 ? (
+                <div className="text-center py-12">
+                  <Receipt className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+                  <p className="text-muted-foreground">Nenhuma despesa registrada</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    As despesas aparecerão aqui conforme forem registradas
+                  </p>
+                </div>
               ) : (
-                expenses?.map((expense) => (
-                  <TableRow key={expense.id} data-testid={`row-expense-${expense.id}`}>
-                    <TableCell>
-                      {new Date(expense.occurredAt).toLocaleDateString('pt-AO')}
-                    </TableCell>
-                    <TableCell className="font-medium">{expense.description || 'Sem descrição'}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{expense.category?.name || 'Sem categoria'}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge>
-                        {expense.paymentMethod === 'dinheiro' && 'Dinheiro'}
-                        {expense.paymentMethod === 'multicaixa' && 'Multicaixa'}
-                        {expense.paymentMethod === 'transferencia' && 'Transferência'}
-                        {expense.paymentMethod === 'cartao' && 'Cartão'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatKwanza(expense.amount)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setSelectedExpense(expense);
-                            setExpenseForm({
-                              categoryId: expense.categoryId,
-                              description: expense.description || "",
-                              amount: expense.amount,
-                              paymentMethod: expense.paymentMethod,
-                              occurredAt: new Date(expense.occurredAt).toISOString().slice(0, 16),
-                              note: expense.note || "",
-                            });
-                            setEditExpenseDialog(true);
-                          }}
-                          data-testid={`button-edit-${expense.id}`}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setSelectedExpense(expense);
-                            setDeleteExpenseDialog(true);
-                          }}
-                          data-testid={`button-delete-${expense.id}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                <ScrollArea className="h-[600px] pr-4">
+                  <div className="space-y-3">
+                    {expenses.map((expense, index) => (
+                      <motion.div
+                        key={expense.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                        className="group"
+                        data-testid={`expense-item-${expense.id}`}
+                      >
+                        <Card className="hover-elevate active-elevate-2 transition-all duration-200">
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-4">
+                              <div className="relative flex-shrink-0">
+                                <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                                  <Receipt className="w-6 h-6 text-destructive" />
+                                </div>
+                              </div>
+
+                              <div className="flex-1 min-w-0 space-y-2">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                                      <Badge variant="outline" className="text-xs">
+                                        {expense.category?.name || 'Sem categoria'}
+                                      </Badge>
+                                      <Badge variant="secondary" className="text-xs">
+                                        {expense.paymentMethod === 'dinheiro' && 'Dinheiro'}
+                                        {expense.paymentMethod === 'multicaixa' && 'Multicaixa'}
+                                        {expense.paymentMethod === 'transferencia' && 'Transferência'}
+                                        {expense.paymentMethod === 'cartao' && 'Cartão'}
+                                      </Badge>
+                                    </div>
+                                    <p className="font-medium text-sm line-clamp-1">
+                                      {expense.description || 'Sem descrição'}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    <span className="text-lg font-bold text-destructive whitespace-nowrap">
+                                      {formatKwanza(expense.amount)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                                  <div className="flex items-center gap-3 flex-wrap">
+                                    <span className="flex items-center gap-1">
+                                      {format(new Date(expense.occurredAt), "dd/MM/yyyy 'às' HH:mm")}
+                                    </span>
+                                    {expense.recordedBy && (
+                                      <span className="flex items-center gap-1">
+                                        Registrado por {expense.recordedBy.firstName || expense.recordedBy.email}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => {
+                                        setSelectedExpense(expense);
+                                        setExpenseForm({
+                                          categoryId: expense.categoryId,
+                                          description: expense.description || "",
+                                          amount: expense.amount,
+                                          paymentMethod: expense.paymentMethod,
+                                          occurredAt: new Date(expense.occurredAt).toISOString().slice(0, 16),
+                                          note: expense.note || "",
+                                        });
+                                        setEditExpenseDialog(true);
+                                      }}
+                                      data-testid={`button-edit-${expense.id}`}
+                                    >
+                                      <Edit2 className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-destructive hover:text-destructive"
+                                      onClick={() => {
+                                        setSelectedExpense(expense);
+                                        setDeleteExpenseDialog(true);
+                                      }}
+                                      data-testid={`button-delete-${expense.id}`}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                {expense.note && (
+                                  <p className="text-xs text-muted-foreground italic line-clamp-2">
+                                    {expense.note}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </div>
+                </ScrollArea>
               )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </motion.div>
 
       <Dialog open={newExpenseDialog} onOpenChange={setNewExpenseDialog}>
         <DialogContent data-testid="dialog-new-expense">
