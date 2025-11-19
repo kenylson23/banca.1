@@ -30,8 +30,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Plus, Edit2, Trash2, Package, TrendingDown, TrendingUp, AlertTriangle, Box, Archive } from "lucide-react";
+import { TabsContent } from "@/components/ui/tabs";
+import { ArrowLeft, Plus, Edit2, Trash2, Package, TrendingDown, TrendingUp, AlertTriangle, Box, Archive, Warehouse } from "lucide-react";
+import { TubelightNavBar } from "@/components/ui/tubelight-navbar";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -603,12 +604,30 @@ export default function InventoryPage() {
                 />
               )}
 
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="produtos" data-testid="tab-products">Produtos</TabsTrigger>
-                  <TabsTrigger value="estoque" data-testid="tab-stock">Estoque</TabsTrigger>
-                  <TabsTrigger value="movimentacoes" data-testid="tab-movements">Movimentações</TabsTrigger>
-                </TabsList>
+              <div className="flex justify-center mb-6">
+                <TubelightNavBar
+                  className="relative"
+                  items={[
+                    { name: "Produtos", url: "#", icon: Package },
+                    { name: "Estoque", url: "#", icon: Warehouse },
+                    { name: "Movimentações", url: "#", icon: TrendingUp },
+                  ]}
+                  activeItem={
+                    activeTab === "produtos" ? "Produtos" :
+                    activeTab === "estoque" ? "Estoque" :
+                    "Movimentações"
+                  }
+                  onItemClick={(item) => {
+                    const tabValue = 
+                      item.name === "Produtos" ? "produtos" :
+                      item.name === "Estoque" ? "estoque" :
+                      "movimentacoes";
+                    setActiveTab(tabValue);
+                  }}
+                />
+              </div>
+
+              <div>
 
                 <TabsContent value="produtos" className="space-y-4">
                   <div className="flex gap-2">
@@ -822,7 +841,7 @@ export default function InventoryPage() {
                     </CardContent>
                   </Card>
                 </TabsContent>
-              </Tabs>
+              </div>
             </div>
 
             <div className="space-y-6">
