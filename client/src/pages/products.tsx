@@ -4,8 +4,9 @@ import { useRoute } from 'wouter';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Clock, Phone } from 'lucide-react';
+import { Plus, Clock, Phone, Search } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import type { MenuItem, Category, Restaurant } from '@shared/schema';
 
@@ -13,6 +14,7 @@ export default function Products() {
   const [, params] = useRoute('/r/:slug');
   const slug = params?.slug;
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
     queryKey: ['/api/public/restaurants/slug', slug],
@@ -45,7 +47,10 @@ export default function Products() {
     ?.filter(item => item.isVisible === 1)
     ?.filter(item => {
       const matchesCategory = selectedCategory === 'all' || String(item.categoryId) === selectedCategory;
-      return matchesCategory;
+      const matchesSearch = !searchQuery || 
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      return matchesCategory && matchesSearch;
     }) || [];
 
   if (!slug) {
@@ -132,6 +137,23 @@ export default function Products() {
           </div>
         </div>
       </header>
+
+      {/* Search Bar */}
+      <section className="bg-gray-50 border-b border-gray-200">
+        <div className="container mx-auto px-6 py-4 max-w-6xl">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="Buscar produtos..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-white border-gray-300 focus:border-[#0FA958] focus:ring-[#0FA958]"
+              data-testid="input-search-products"
+            />
+          </div>
+        </div>
+      </section>
 
       {/* Category Tabs */}
       {categories.length > 0 && (
