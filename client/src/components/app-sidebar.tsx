@@ -10,6 +10,11 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
@@ -172,17 +177,26 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
             <SidebarMenu className="space-y-1">
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    isActive={currentSection === item.section}
-                    onClick={() => setLocation(item.path)}
-                    data-testid={`button-${item.title.toLowerCase()}`}
-                    aria-label={`Navegar para ${item.title}`}
-                    aria-current={currentSection === item.section ? 'page' : undefined}
-                    className="h-10 px-3 rounded-lg transition-all duration-200"
-                  >
-                    <item.icon className="h-5 w-5 mr-3" aria-hidden="true" />
-                    <span className="font-medium">{item.title}</span>
-                  </SidebarMenuButton>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <SidebarMenuButton
+                        isActive={currentSection === item.section}
+                        onClick={() => setLocation(item.path)}
+                        data-testid={`button-${item.title.toLowerCase()}`}
+                        aria-label={`Navegar para ${item.title}`}
+                        aria-current={currentSection === item.section ? 'page' : undefined}
+                        className="h-10 px-3 rounded-lg transition-all duration-200"
+                      >
+                        <item.icon className="h-5 w-5 mr-3" aria-hidden="true" />
+                        <span className="font-medium">{item.title}</span>
+                      </SidebarMenuButton>
+                    </TooltipTrigger>
+                    {!open && (
+                      <TooltipContent side="right" className="font-semibold">
+                        {item.title}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
