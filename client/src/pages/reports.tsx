@@ -11,13 +11,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { ShoppingCart, Package, Clock, Download, Filter, Eye, Wallet, LayoutDashboard } from "lucide-react";
+import { ShoppingCart, Package, Clock, Download, Filter, Eye, LayoutDashboard } from "lucide-react";
 import { format } from "date-fns";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { queryClient } from "@/lib/queryClient";
-import { useAuth } from "@/hooks/useAuth";
 import { PrintOrder } from "@/components/PrintOrder";
-import { FinancialShiftManager } from "@/components/FinancialShiftManager";
 import ReportsDashboard from "./reports-dashboard";
 
 type OrderReport = {
@@ -74,7 +72,6 @@ const typeLabels = {
 };
 
 export default function Reports() {
-  const { user } = useAuth();
   const today = new Date();
   const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -82,8 +79,6 @@ export default function Reports() {
   const [endDate, setEndDate] = useState(format(today, 'yyyy-MM-dd'));
   const [orderStatus, setOrderStatus] = useState<string>("todos");
   const [orderType, setOrderType] = useState<string>("todos");
-  
-  const isSuperadmin = user?.role === 'superadmin';
 
   const { data: ordersReport, isLoading: loadingOrders } = useQuery<OrderReport[]>({
     queryKey: ['/api/reports/orders', { startDate, endDate, status: orderStatus, orderType }],
@@ -254,7 +249,7 @@ export default function Reports() {
       </Card>
 
       <Tabs defaultValue="dashboard" className="space-y-4">
-        <TabsList className={`grid w-full gap-1 ${isSuperadmin ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3 sm:grid-cols-5'}`}>
+        <TabsList className="grid w-full gap-1 grid-cols-2 sm:grid-cols-4">
           <TabsTrigger value="dashboard" data-testid="tab-dashboard" className="text-xs sm:text-sm">
             <LayoutDashboard className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
             <span className="hidden sm:inline">Dashboard</span>
@@ -275,13 +270,6 @@ export default function Reports() {
             <span className="hidden sm:inline">Performance</span>
             <span className="inline sm:hidden">Perf.</span>
           </TabsTrigger>
-          {!isSuperadmin && (
-            <TabsTrigger value="financial" data-testid="tab-financial" className="text-xs sm:text-sm">
-              <Wallet className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Gestão Financeira</span>
-              <span className="inline sm:hidden">Finan.</span>
-            </TabsTrigger>
-          )}
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-4">
@@ -530,12 +518,6 @@ export default function Reports() {
             </>
           )}
         </TabsContent>
-
-        {!isSuperadmin && (
-          <TabsContent value="financial" className="space-y-4">
-            <FinancialShiftManager />
-          </TabsContent>
-        )}
       </Tabs>
     </div>
   );
