@@ -30,7 +30,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TabsContent } from "@/components/ui/tabs";
 import { ArrowLeft, Plus, Edit2, Trash2, Package, TrendingDown, TrendingUp, AlertTriangle, Box, Archive, Warehouse } from "lucide-react";
 import { TubelightNavBar } from "@/components/ui/tubelight-navbar";
 import { Link } from "wouter";
@@ -628,8 +627,8 @@ export default function InventoryPage() {
               </div>
 
               <div>
-
-                <TabsContent value="produtos" className="space-y-4">
+                {activeTab === "produtos" && (
+                <div className="space-y-4">
                   <div className="flex gap-2">
                     <Button onClick={() => setNewItemDialog(true)} data-testid="button-new-product">
                       <Plus className="h-4 w-4 mr-2" />
@@ -717,9 +716,11 @@ export default function InventoryPage() {
                       )}
                     </CardContent>
                   </Card>
-                </TabsContent>
+                </div>
+                )}
 
-                <TabsContent value="estoque" className="space-y-4">
+                {activeTab === "estoque" && (
+                <div className="space-y-4">
                   <Button onClick={() => setNewMovementDialog(true)} data-testid="button-new-movement">
                     <Plus className="h-4 w-4 mr-2" />
                     Nova Movimentação
@@ -773,9 +774,11 @@ export default function InventoryPage() {
                       )}
                     </CardContent>
                   </Card>
-                </TabsContent>
+                </div>
+                )}
 
-                <TabsContent value="movimentacoes" className="space-y-4">
+                {activeTab === "movimentacoes" && (
+                <div className="space-y-4">
                   <Button onClick={() => setNewMovementDialog(true)} data-testid="button-new-movement-2">
                     <Plus className="h-4 w-4 mr-2" />
                     Nova Movimentação
@@ -840,7 +843,8 @@ export default function InventoryPage() {
                       )}
                     </CardContent>
                   </Card>
-                </TabsContent>
+                </div>
+                )}
               </div>
             </div>
 
