@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
 import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ProfileMenu } from "@/components/profile-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 import Dashboard from "./dashboard";
@@ -115,6 +115,7 @@ export default function MainDashboard({ section }: MainDashboardProps) {
         <div className="flex flex-col flex-1 min-w-0">
           <header className="flex items-center justify-between px-6 py-4 border-b border-sidebar-border bg-background shadow-sm z-10" role="banner">
             <div className="flex items-center gap-4">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
               <h1 className="text-xl font-bold tracking-tight capitalize" data-testid="text-current-section">
                 {currentSection === "dashboard" ? "Dashboard" :
                  currentSection === "pdv" ? "PDV" :
