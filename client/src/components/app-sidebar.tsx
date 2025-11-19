@@ -216,7 +216,7 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" role="navigation" aria-label="Menu principal de navegação" className="border-r border-sidebar-border">
       <SidebarContent className="flex flex-col h-full">
-        <div className="flex items-center justify-between gap-3 p-4 border-b border-sidebar-border shrink-0">
+        <div className="flex items-center justify-center gap-3 p-4 border-b border-sidebar-border shrink-0 group-data-[collapsible=icon]:justify-center">
           <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
             <h1 className="text-lg font-bold text-sidebar-foreground truncate">Na Bancada</h1>
             {open && <p className="text-xs text-muted-foreground mt-0.5 truncate">Sistema de Gestão</p>}
@@ -245,9 +245,9 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
         <BranchSelector />
 
         <div className="flex-1 overflow-y-auto">
-          <SidebarGroup className="px-3 py-4">
-            <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
-              {open ? "Menu Principal" : "Menu"}
+          <SidebarGroup className="px-3 py-4 group-data-[collapsible=icon]:px-2">
+            <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2 group-data-[collapsible=icon]:hidden">
+              Menu Principal
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="space-y-1">
@@ -270,7 +270,7 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
                                 <SidebarMenuButton
                                   isActive={isActive}
                                   data-testid={`button-${item.title.toLowerCase()}`}
-                                  className="h-10 px-3 rounded-lg transition-all duration-200"
+                                  className="h-10 px-3 rounded-lg transition-all duration-200 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
                                 >
                                   <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
                                   <span className="font-medium group-data-[collapsible=icon]:hidden">{item.title}</span>
@@ -329,7 +329,7 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
                             data-testid={`button-${item.title.toLowerCase()}`}
                             aria-label={`Navegar para ${item.title}`}
                             aria-current={currentSection === item.section ? 'page' : undefined}
-                            className="h-10 px-3 rounded-lg transition-all duration-200"
+                            className="h-10 px-3 rounded-lg transition-all duration-200 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
                           >
                             <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
                             <span className="font-medium group-data-[collapsible=icon]:hidden">{item.title}</span>
