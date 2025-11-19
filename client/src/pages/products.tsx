@@ -11,7 +11,7 @@ import { formatKwanza } from '@/lib/formatters';
 import type { MenuItem, Category, Restaurant } from '@shared/schema';
 
 export default function Products() {
-  const [, params] = useRoute('/r/:slug/products');
+  const [, params] = useRoute('/r/:slug');
   const slug = params?.slug;
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
