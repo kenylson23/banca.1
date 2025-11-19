@@ -10,8 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { TrendingUp, ShoppingCart, Package, Clock, Download, Filter, Eye, Wallet, LayoutDashboard } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { ShoppingCart, Package, Clock, Download, Filter, Eye, Wallet, LayoutDashboard } from "lucide-react";
 import { format } from "date-fns";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { queryClient } from "@/lib/queryClient";
@@ -19,15 +19,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { PrintOrder } from "@/components/PrintOrder";
 import { FinancialShiftManager } from "@/components/FinancialShiftManager";
 import ReportsDashboard from "./reports-dashboard";
-
-type SalesReport = {
-  totalSales: string;
-  totalOrders: number;
-  averageTicket: string;
-  ordersByType: Array<{ type: string; count: number; revenue: string }>;
-  ordersByStatus: Array<{ status: string; count: number }>;
-  salesByDay: Array<{ date: string; sales: string; orders: number }>;
-};
 
 type OrderReport = {
   id: string;
@@ -82,8 +73,6 @@ const typeLabels = {
   takeout: "Retirada",
 };
 
-const CHART_COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-
 export default function Reports() {
   const { user } = useAuth();
   const today = new Date();
@@ -95,11 +84,6 @@ export default function Reports() {
   const [orderType, setOrderType] = useState<string>("todos");
   
   const isSuperadmin = user?.role === 'superadmin';
-
-  const { data: salesReport, isLoading: loadingSales } = useQuery<SalesReport>({
-    queryKey: ['/api/reports/sales', { startDate, endDate }],
-    enabled: !!startDate && !!endDate,
-  });
 
   const { data: ordersReport, isLoading: loadingOrders } = useQuery<OrderReport[]>({
     queryKey: ['/api/reports/orders', { startDate, endDate, status: orderStatus, orderType }],
@@ -120,7 +104,6 @@ export default function Reports() {
   const handleWebSocketMessage = useCallback((message: any) => {
     if (message.type === 'new_order' || message.type === 'order_status_updated') {
       // Invalidate all reports to ensure they show updated data
-      queryClient.invalidateQueries({ queryKey: ["/api/reports/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reports/orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reports/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reports/performance"] });
@@ -140,7 +123,6 @@ export default function Reports() {
       });
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["/api/reports/orders"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/reports/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reports/performance"] });
     } catch (error) {
       // Error updating status - will be handled by query invalidation
@@ -172,11 +154,6 @@ export default function Reports() {
     link.href = URL.createObjectURL(blob);
     link.download = `${filename}_${startDate}_${endDate}.csv`;
     link.click();
-  };
-
-  const exportSalesCSV = () => {
-    if (!salesReport?.salesByDay) return;
-    exportToCSV(salesReport.salesByDay, 'relatorio_vendas');
   };
 
   const exportOrdersCSV = () => {
@@ -277,16 +254,11 @@ export default function Reports() {
       </Card>
 
       <Tabs defaultValue="dashboard" className="space-y-4">
-        <TabsList className={`grid w-full gap-1 ${isSuperadmin ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-3 sm:grid-cols-6'}`}>
+        <TabsList className={`grid w-full gap-1 ${isSuperadmin ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3 sm:grid-cols-5'}`}>
           <TabsTrigger value="dashboard" data-testid="tab-dashboard" className="text-xs sm:text-sm">
             <LayoutDashboard className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
             <span className="hidden sm:inline">Dashboard</span>
             <span className="inline sm:hidden">Dash</span>
-          </TabsTrigger>
-          <TabsTrigger value="sales" data-testid="tab-sales" className="text-xs sm:text-sm">
-            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-            <span className="hidden sm:inline">Vendas</span>
-            <span className="inline sm:hidden">Venda</span>
           </TabsTrigger>
           <TabsTrigger value="orders" data-testid="tab-orders" className="text-xs sm:text-sm">
             <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
@@ -314,115 +286,6 @@ export default function Reports() {
 
         <TabsContent value="dashboard" className="space-y-4">
           <ReportsDashboard />
-        </TabsContent>
-
-        <TabsContent value="sales" className="space-y-4">
-          {loadingSales ? (
-            <div className="space-y-4">
-              <Skeleton className="h-32 w-full" />
-              <Skeleton className="h-64 w-full" />
-            </div>
-          ) : (
-            <>
-              <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardDescription>Vendas Totais</CardDescription>
-                    <CardTitle className="text-3xl" data-testid="text-total-sales">
-                      Kz {salesReport?.totalSales || "0.00"}
-                    </CardTitle>
-                  </CardHeader>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardDescription>Total de Pedidos</CardDescription>
-                    <CardTitle className="text-3xl" data-testid="text-total-orders">
-                      {salesReport?.totalOrders || 0}
-                    </CardTitle>
-                  </CardHeader>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardDescription>Ticket Médio</CardDescription>
-                    <CardTitle className="text-3xl" data-testid="text-average-ticket">
-                      Kz {salesReport?.averageTicket || "0.00"}
-                    </CardTitle>
-                  </CardHeader>
-                </Card>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <Card>
-                  <CardHeader className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between space-y-0 pb-2">
-                    <CardTitle className="text-base sm:text-lg">Vendas por Dia</CardTitle>
-                    <Button size="sm" variant="outline" onClick={exportSalesCSV} data-testid="button-export-sales" className="w-full sm:w-auto">
-                      <Download className="h-4 w-4 mr-2" />
-                      Exportar
-                    </Button>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <LineChart data={salesReport?.salesByDay || []}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="date" tickFormatter={(date) => format(new Date(date), 'dd/MM')} tick={{fontSize: 12}} />
-                        <YAxis tick={{fontSize: 12}} />
-                        <Tooltip 
-                          labelFormatter={(date) => format(new Date(date), 'dd/MM/yyyy')}
-                          formatter={(value: any) => [`Kz ${Number(value).toFixed(2)}`, 'Vendas']}
-                        />
-                        <Legend wrapperStyle={{fontSize: '12px'}} />
-                        <Line type="monotone" dataKey="sales" stroke="#0ea5e9" name="Vendas" />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base sm:text-lg">Vendas por Tipo de Pedido</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={salesReport?.ordersByType || []}
-                          dataKey="revenue"
-                          nameKey="type"
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={100}
-                          label={(entry) => `${typeLabels[entry.type as keyof typeof typeLabels]}: Kz ${Number(entry.revenue).toFixed(2)}`}
-                        >
-                          {(salesReport?.ordersByType || []).map((_: any, index: number) => (
-                            <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value: any) => `Kz ${Number(value).toFixed(2)}`} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base sm:text-lg">Pedidos por Status</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={salesReport?.ordersByStatus || []}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="status" tickFormatter={(status) => statusLabels[status as keyof typeof statusLabels]} tick={{fontSize: 12}} />
-                      <YAxis tick={{fontSize: 12}} />
-                      <Tooltip labelFormatter={(status) => statusLabels[status as keyof typeof statusLabels]} />
-                      <Legend wrapperStyle={{fontSize: '12px'}} />
-                      <Bar dataKey="count" fill="#10b981" name="Quantidade" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </>
-          )}
         </TabsContent>
 
         <TabsContent value="orders" className="space-y-4">
