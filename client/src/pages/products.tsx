@@ -1,13 +1,19 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useRoute } from 'wouter';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Clock, Phone, Search } from 'lucide-react';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Plus, Clock, Phone, Search, ShoppingCart, Trash2, Minus } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
+import { useCart } from '@/contexts/CartContext';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
 import type { MenuItem, Category, Restaurant } from '@shared/schema';
 
 export default function Products() {
@@ -15,6 +21,13 @@ export default function Products() {
   const slug = params?.slug;
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [deliveryType, setDeliveryType] = useState<'delivery' | 'retirada'>('delivery');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const { items, addItem, updateQuantity, removeItem, clearCart, getTotal, getItemCount, orderNotes, setOrderNotes } = useCart();
+  const { toast } = useToast();
 
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
     queryKey: ['/api/public/restaurants/slug', slug],
@@ -52,6 +65,78 @@ export default function Products() {
         (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
       return matchesCategory && matchesSearch;
     }) || [];
+
+  const createOrderMutation = useMutation({
+    mutationFn: async (orderData: any) => {
+      return await apiRequest('POST', '/api/public/orders', orderData);
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Pedido criado!',
+        description: 'Seu pedido foi enviado com sucesso.',
+      });
+      clearCart();
+      setCustomerName('');
+      setCustomerPhone('');
+      setDeliveryAddress('');
+      setIsCartOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Erro ao criar pedido',
+        description: error?.message || 'Tente novamente mais tarde.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleCheckout = () => {
+    if (!customerName || !customerPhone) {
+      toast({
+        title: 'Informações incompletas',
+        description: 'Por favor, preencha seu nome e telefone.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (deliveryType === 'delivery' && !deliveryAddress) {
+      toast({
+        title: 'Endereço necessário',
+        description: 'Por favor, informe o endereço de entrega.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!restaurant) {
+      toast({
+        title: 'Erro',
+        description: 'Restaurante não encontrado.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const orderItems = items.map(item => ({
+      menuItemId: item.menuItem.id,
+      quantity: item.quantity,
+      price: item.menuItem.price,
+      selectedOptions: item.selectedOptions,
+    }));
+
+    const orderData = {
+      restaurantId: restaurant.id,
+      orderType: deliveryType,
+      customerName,
+      customerPhone,
+      deliveryAddress: deliveryType === 'delivery' ? deliveryAddress : undefined,
+      notes: orderNotes || undefined,
+      items: orderItems,
+    };
+
+    createOrderMutation.mutate(orderData);
+  };
 
   if (!slug) {
     return (
@@ -241,18 +326,20 @@ export default function Products() {
                               )}
 
                               {/* Floating Add Button */}
-                              {whatsappNumber && (
-                                <Button
-                                  size="icon"
-                                  className="absolute bottom-3 right-3 h-10 w-10 rounded-full bg-[#0FA958] hover:bg-[#0D8A4A] text-white shadow-lg border-0"
-                                  data-testid={`button-add-${item.id}`}
-                                  onClick={() => {
-                                    window.open(whatsappLink, '_blank');
-                                  }}
-                                >
-                                  <Plus className="h-5 w-5" />
-                                </Button>
-                              )}
+                              <Button
+                                size="icon"
+                                className="absolute bottom-3 right-3 h-10 w-10 rounded-full bg-[#0FA958] hover:bg-[#0D8A4A] text-white shadow-lg border-0"
+                                data-testid={`button-add-${item.id}`}
+                                onClick={() => {
+                                  addItem(item);
+                                  toast({
+                                    title: 'Adicionado ao carrinho!',
+                                    description: `${item.name} foi adicionado ao carrinho.`,
+                                  });
+                                }}
+                              >
+                                <Plus className="h-5 w-5" />
+                              </Button>
                             </div>
 
                             {/* Product Info */}
@@ -317,18 +404,20 @@ export default function Products() {
                         )}
 
                         {/* Floating Add Button */}
-                        {whatsappNumber && (
-                          <Button
-                            size="icon"
-                            className="absolute bottom-3 right-3 h-10 w-10 rounded-full bg-[#0FA958] hover:bg-[#0D8A4A] text-white shadow-lg border-0"
-                            data-testid={`button-add-${item.id}`}
-                            onClick={() => {
-                              window.open(whatsappLink, '_blank');
-                            }}
-                          >
-                            <Plus className="h-5 w-5" />
-                          </Button>
-                        )}
+                        <Button
+                          size="icon"
+                          className="absolute bottom-3 right-3 h-10 w-10 rounded-full bg-[#0FA958] hover:bg-[#0D8A4A] text-white shadow-lg border-0"
+                          data-testid={`button-add-${item.id}`}
+                          onClick={() => {
+                            addItem(item);
+                            toast({
+                              title: 'Adicionado ao carrinho!',
+                              description: `${item.name} foi adicionado ao carrinho.`,
+                            });
+                          }}
+                        >
+                          <Plus className="h-5 w-5" />
+                        </Button>
                       </div>
 
                       {/* Product Info */}
@@ -356,6 +445,179 @@ export default function Products() {
           </div>
         )}
       </main>
+
+      {/* Floating Cart Button */}
+      {getItemCount() > 0 && (
+        <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
+          <SheetTrigger asChild>
+            <Button
+              size="icon"
+              className="fixed bottom-6 right-6 h-16 w-16 rounded-full bg-[#0FA958] hover:bg-[#0D8A4A] text-white shadow-2xl border-0 z-50"
+              data-testid="button-cart-float"
+            >
+              <div className="relative">
+                <ShoppingCart className="h-6 w-6" />
+                <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 bg-red-500 hover:bg-red-500 text-white border-0">
+                  {getItemCount()}
+                </Badge>
+              </div>
+            </Button>
+          </SheetTrigger>
+          <SheetContent className="w-full sm:max-w-lg overflow-y-auto" data-testid="sheet-cart">
+            <SheetHeader>
+              <SheetTitle>Seu Carrinho</SheetTitle>
+              <SheetDescription>
+                Revise seus itens e finalize o pedido
+              </SheetDescription>
+            </SheetHeader>
+
+            <div className="mt-6 space-y-6">
+              {/* Cart Items */}
+              <div className="space-y-4">
+                {items.map((item) => (
+                  <Card key={item.id} className="p-4">
+                    <div className="flex gap-4">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm mb-1">{item.menuItem.name}</h4>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          {formatKwanza(item.menuItem.price)} × {item.quantity}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-8 w-8"
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            data-testid={`button-decrease-${item.id}`}
+                          >
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                          <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-8 w-8"
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            data-testid={`button-increase-${item.id}`}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end justify-between">
+                        <p className="font-bold">
+                          {formatKwanza(String(parseFloat(item.menuItem.price) * item.quantity))}
+                        </p>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => removeItem(item.id)}
+                          data-testid={`button-remove-${item.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Customer Info Form */}
+              <div className="space-y-4 border-t pt-4">
+                <h3 className="font-semibold text-sm">Informações do Pedido</h3>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="customerName">Nome</Label>
+                  <Input
+                    id="customerName"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Seu nome"
+                    data-testid="input-customer-name"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="customerPhone">Telefone</Label>
+                  <Input
+                    id="customerPhone"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    placeholder="Seu telefone"
+                    data-testid="input-customer-phone"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Tipo de Pedido</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={deliveryType === 'delivery' ? 'default' : 'outline'}
+                      className="flex-1"
+                      onClick={() => setDeliveryType('delivery')}
+                      data-testid="button-delivery-type-delivery"
+                    >
+                      Delivery
+                    </Button>
+                    <Button
+                      variant={deliveryType === 'retirada' ? 'default' : 'outline'}
+                      className="flex-1"
+                      onClick={() => setDeliveryType('retirada')}
+                      data-testid="button-delivery-type-retirada"
+                    >
+                      Retirada
+                    </Button>
+                  </div>
+                </div>
+
+                {deliveryType === 'delivery' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="deliveryAddress">Endereço de Entrega</Label>
+                    <Textarea
+                      id="deliveryAddress"
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                      placeholder="Rua, número, bairro..."
+                      data-testid="input-delivery-address"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="orderNotes">Observações (opcional)</Label>
+                  <Textarea
+                    id="orderNotes"
+                    value={orderNotes}
+                    onChange={(e) => setOrderNotes(e.target.value)}
+                    placeholder="Alguma observação sobre o pedido?"
+                    data-testid="input-order-notes"
+                  />
+                </div>
+              </div>
+
+              {/* Total and Checkout */}
+              <div className="border-t pt-4 space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-lg">Total</span>
+                  <span className="font-bold text-2xl text-[#0FA958]">
+                    {formatKwanza(String(getTotal()))}
+                  </span>
+                </div>
+
+                <Button
+                  className="w-full bg-[#0FA958] hover:bg-[#0D8A4A] text-white"
+                  onClick={handleCheckout}
+                  disabled={createOrderMutation.isPending}
+                  data-testid="button-checkout"
+                >
+                  {createOrderMutation.isPending ? 'Enviando...' : 'Finalizar Pedido'}
+                </Button>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
 
       {/* Minimal Footer */}
       <footer className="bg-[#222] text-white mt-20">
