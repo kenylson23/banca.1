@@ -113,10 +113,10 @@ export default function MainDashboard({ section }: MainDashboardProps) {
       <div className="flex h-screen w-full overflow-hidden">
         <AppSidebar currentSection={currentSection} />
         <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex items-center justify-between px-6 py-4 border-b border-sidebar-border bg-background shadow-sm z-10" role="banner">
+          <header className="flex items-center justify-between px-6 py-4 bg-sidebar z-10" role="banner">
             <div className="flex items-center gap-4">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <h1 className="text-xl font-bold tracking-tight capitalize" data-testid="text-current-section">
+              <h1 className="text-xl font-bold tracking-tight capitalize text-sidebar-foreground" data-testid="text-current-section">
                 {currentSection === "dashboard" ? "Dashboard" :
                  currentSection === "pdv" ? "PDV" :
                  currentSection === "tables" ? "Mesas" :
