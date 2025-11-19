@@ -53,8 +53,8 @@ export default function FinancialReports() {
   return (
     <div className="min-h-screen">
       <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-        <motion.div
-          className="flex flex-wrap items-center justify-between gap-4"
+        <motion.div 
+          className="space-y-4"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -65,11 +65,11 @@ export default function FinancialReports() {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
-            <div>
+            <div className="flex flex-col gap-2">
               <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent" data-testid="text-page-title">
                 Relatórios Financeiros
               </h1>
-              <p className="text-base text-muted-foreground mt-1">Análise completa da saúde financeira</p>
+              <p className="text-base text-muted-foreground">Análise completa da saúde financeira</p>
             </div>
           </div>
         </motion.div>
