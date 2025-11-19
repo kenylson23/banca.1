@@ -148,7 +148,7 @@ const adminMenuItems: MenuItem[] = [
   },
 ];
 
-const kitchenMenuItems = [
+const kitchenMenuItems: MenuItem[] = [
   {
     title: "Cozinha",
     section: "kitchen" as Section,
@@ -157,7 +157,7 @@ const kitchenMenuItems = [
   },
 ];
 
-const superAdminMenuItems = [
+const superAdminMenuItems: MenuItem[] = [
   {
     title: "Super Admin",
     section: "superadmin" as Section,
