@@ -310,67 +310,78 @@ export default function Products() {
                         return (
                           <Card 
                             key={item.id} 
-                            className="overflow-hidden border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow"
+                            className="group overflow-hidden border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-xl hover:border-gray-300 transition-all duration-300"
                             data-testid={`product-${item.id}`}
                           >
-                            {/* Product Image with Floating Add Button */}
-                            <div className="relative aspect-square overflow-hidden bg-gray-50">
+                            {/* Product Image */}
+                            <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
                               {item.imageUrl ? (
                                 <img
                                   src={item.imageUrl}
                                   alt={item.name}
-                                  className="w-full h-full object-cover"
+                                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                   loading="lazy"
                                 />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <span className="text-6xl opacity-20">{item.name[0]}</span>
+                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                                  <span className="text-7xl font-bold text-gray-300">{item.name[0]}</span>
                                 </div>
                               )}
                               
-                              {/* Discount Badge */}
-                              {hasDiscount && (
-                                <Badge 
-                                  className="absolute top-3 left-3 bg-red-500 hover:bg-red-500 text-white border-0 font-semibold"
-                                  data-testid={`badge-discount-${item.id}`}
-                                >
-                                  -{discountPercent}%
-                                </Badge>
-                              )}
+                              {/* Badges Top Left */}
+                              <div className="absolute top-3 left-3 flex flex-col gap-2">
+                                {item.isFavorite === 1 && (
+                                  <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 font-semibold shadow-lg">
+                                    ⭐ Favorito
+                                  </Badge>
+                                )}
+                                {hasDiscount && (
+                                  <Badge className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white border-0 font-semibold shadow-lg">
+                                    -{discountPercent}%
+                                  </Badge>
+                                )}
+                              </div>
 
-                              {/* Floating Add Button */}
-                              <Button
-                                size="icon"
-                                className="absolute bottom-3 right-3 h-10 w-10 rounded-full bg-[#0FA958] hover:bg-[#0D8A4A] text-white shadow-lg border-0"
-                                data-testid={`button-add-${item.id}`}
-                                onClick={() => {
-                                  addItem(item);
-                                  toast({
-                                    title: 'Adicionado ao carrinho!',
-                                    description: `${item.name} foi adicionado ao carrinho.`,
-                                  });
-                                }}
-                              >
-                                <Plus className="h-5 w-5" />
-                              </Button>
+                              {/* Gradient overlay for better text readability */}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                             </div>
 
                             {/* Product Info */}
-                            <div className="p-4">
-                              <h3 className="font-semibold text-[#222] mb-1 line-clamp-2 min-h-[2.5rem]">
-                                {item.name}
-                              </h3>
-                              {item.description && (
-                                <p className="text-sm text-gray-500 mb-3 line-clamp-2">
-                                  {item.description}
-                                </p>
-                              )}
-                              <p 
-                                className="text-lg font-bold text-[#222]"
-                                data-testid={`price-${item.id}`}
-                              >
-                                {formatKwanza(item.price)}
-                              </p>
+                            <div className="p-4 space-y-3">
+                              <div className="min-h-[4rem]">
+                                <h3 className="font-bold text-[#222] text-base mb-1 line-clamp-2 leading-tight">
+                                  {item.name}
+                                </h3>
+                                {item.description && (
+                                  <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
+                                    {item.description}
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Price and Add Button */}
+                              <div className="flex items-center justify-between gap-3 pt-2 border-t border-gray-100">
+                                <div>
+                                  <p className="text-2xl font-bold text-[#0FA958]" data-testid={`price-${item.id}`}>
+                                    {formatKwanza(item.price)}
+                                  </p>
+                                </div>
+                                <Button
+                                  size="default"
+                                  className="bg-[#0FA958] hover:bg-[#0D8A4A] text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105"
+                                  data-testid={`button-add-${item.id}`}
+                                  onClick={() => {
+                                    addItem(item);
+                                    toast({
+                                      title: 'Adicionado ao carrinho!',
+                                      description: `${item.name} foi adicionado ao carrinho.`,
+                                    });
+                                  }}
+                                >
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Adicionar
+                                </Button>
+                              </div>
                             </div>
                           </Card>
                         );
@@ -388,67 +399,78 @@ export default function Products() {
                   return (
                     <Card 
                       key={item.id} 
-                      className="overflow-hidden border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow"
+                      className="group overflow-hidden border border-gray-200 rounded-xl bg-white shadow-sm hover:shadow-xl hover:border-gray-300 transition-all duration-300"
                       data-testid={`product-${item.id}`}
                     >
-                      {/* Product Image with Floating Add Button */}
-                      <div className="relative aspect-square overflow-hidden bg-gray-50">
+                      {/* Product Image */}
+                      <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
                         {item.imageUrl ? (
                           <img
                             src={item.imageUrl}
                             alt={item.name}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                             loading="lazy"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <span className="text-6xl opacity-20">{item.name[0]}</span>
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                            <span className="text-7xl font-bold text-gray-300">{item.name[0]}</span>
                           </div>
                         )}
                         
-                        {/* Discount Badge */}
-                        {hasDiscount && (
-                          <Badge 
-                            className="absolute top-3 left-3 bg-red-500 hover:bg-red-500 text-white border-0 font-semibold"
-                            data-testid={`badge-discount-${item.id}`}
-                          >
-                            -{discountPercent}%
-                          </Badge>
-                        )}
+                        {/* Badges Top Left */}
+                        <div className="absolute top-3 left-3 flex flex-col gap-2">
+                          {item.isFavorite === 1 && (
+                            <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 font-semibold shadow-lg">
+                              ⭐ Favorito
+                            </Badge>
+                          )}
+                          {hasDiscount && (
+                            <Badge className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white border-0 font-semibold shadow-lg">
+                              -{discountPercent}%
+                            </Badge>
+                          )}
+                        </div>
 
-                        {/* Floating Add Button */}
-                        <Button
-                          size="icon"
-                          className="absolute bottom-3 right-3 h-10 w-10 rounded-full bg-[#0FA958] hover:bg-[#0D8A4A] text-white shadow-lg border-0"
-                          data-testid={`button-add-${item.id}`}
-                          onClick={() => {
-                            addItem(item);
-                            toast({
-                              title: 'Adicionado ao carrinho!',
-                              description: `${item.name} foi adicionado ao carrinho.`,
-                            });
-                          }}
-                        >
-                          <Plus className="h-5 w-5" />
-                        </Button>
+                        {/* Gradient overlay for better text readability */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>
 
                       {/* Product Info */}
-                      <div className="p-4">
-                        <h3 className="font-semibold text-[#222] mb-1 line-clamp-2 min-h-[2.5rem]">
-                          {item.name}
-                        </h3>
-                        {item.description && (
-                          <p className="text-sm text-gray-500 mb-3 line-clamp-2">
-                            {item.description}
-                          </p>
-                        )}
-                        <p 
-                          className="text-lg font-bold text-[#222]"
-                          data-testid={`price-${item.id}`}
-                        >
-                          {formatKwanza(item.price)}
-                        </p>
+                      <div className="p-4 space-y-3">
+                        <div className="min-h-[4rem]">
+                          <h3 className="font-bold text-[#222] text-base mb-1 line-clamp-2 leading-tight">
+                            {item.name}
+                          </h3>
+                          {item.description && (
+                            <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
+                              {item.description}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Price and Add Button */}
+                        <div className="flex items-center justify-between gap-3 pt-2 border-t border-gray-100">
+                          <div>
+                            <p className="text-2xl font-bold text-[#0FA958]" data-testid={`price-${item.id}`}>
+                              {formatKwanza(item.price)}
+                            </p>
+                          </div>
+                          <Button
+                            size="default"
+                            className="bg-[#0FA958] hover:bg-[#0D8A4A] text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105"
+                            data-testid={`button-add-${item.id}`}
+                            onClick={() => {
+                              addItem(item);
+                              toast({
+                                title: 'Adicionado ao carrinho!',
+                                description: `${item.name} foi adicionado ao carrinho.`,
+                              });
+                            }}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Adicionar
+                          </Button>
+                        </div>
                       </div>
                     </Card>
                   );
