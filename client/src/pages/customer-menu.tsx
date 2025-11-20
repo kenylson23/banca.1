@@ -31,6 +31,74 @@ import { TubelightNavBar } from '@/components/ui/tubelight-navbar';
 export default function CustomerMenu() {
   const [, params] = useRoute('/mesa/:tableNumber');
   const tableNumber = params?.tableNumber;
+  
+  // Black and white theme for public menu only
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.id = 'customer-menu-bw-theme';
+    style.innerHTML = `
+      .customer-menu-bw {
+        --foreground: 0 0% 9%;
+        --primary: 0 0% 9%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 0 0% 96%;
+        --secondary-foreground: 0 0% 9%;
+        --muted: 0 0% 96%;
+        --muted-foreground: 0 0% 45%;
+        --accent: 0 0% 96%;
+        --accent-foreground: 0 0% 9%;
+        --destructive: 0 0% 20%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 0 0% 90%;
+        --input: 0 0% 90%;
+        --ring: 0 0% 9%;
+        --card: 0 0% 100%;
+        --card-foreground: 0 0% 9%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 0 0% 9%;
+        --sidebar-primary: 0 0% 9%;
+        --sidebar-primary-foreground: 0 0% 100%;
+        --sidebar-accent: 0 0% 96%;
+        --sidebar-accent-foreground: 0 0% 9%;
+        --sidebar-ring: 0 0% 9%;
+      }
+      
+      .dark .customer-menu-bw {
+        --background: 0 0% 0%;
+        --foreground: 0 0% 98%;
+        --border: 0 0% 20%;
+        --card: 0 0% 10%;
+        --card-foreground: 0 0% 98%;
+        --popover: 0 0% 10%;
+        --popover-foreground: 0 0% 98%;
+        --primary: 0 0% 98%;
+        --primary-foreground: 0 0% 0%;
+        --secondary: 0 0% 20%;
+        --secondary-foreground: 0 0% 98%;
+        --muted: 0 0% 15%;
+        --muted-foreground: 0 0% 60%;
+        --accent: 0 0% 20%;
+        --accent-foreground: 0 0% 98%;
+        --destructive: 0 0% 80%;
+        --destructive-foreground: 0 0% 0%;
+        --input: 0 0% 20%;
+        --ring: 0 0% 98%;
+        --sidebar-primary: 0 0% 98%;
+        --sidebar-primary-foreground: 0 0% 0%;
+        --sidebar-accent: 0 0% 15%;
+        --sidebar-accent-foreground: 0 0% 98%;
+        --sidebar-ring: 0 0% 98%;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      const existingStyle = document.getElementById('customer-menu-bw-theme');
+      if (existingStyle) {
+        existingStyle.remove();
+      }
+    };
+  }, []);
   const { items, orderNotes, addItem, updateQuantity, removeItem, setOrderNotes, clearCart, getTotal, getItemCount } = useCart();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
@@ -352,7 +420,7 @@ export default function CustomerMenu() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="customer-menu-bw min-h-screen bg-background pb-20">
       {/* Header */}
       <motion.header 
         className="sticky top-0 z-50 w-full border-b bg-background"
