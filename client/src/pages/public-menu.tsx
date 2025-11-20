@@ -13,7 +13,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { ShoppingCart, Plus, Minus, Trash2, MapPin, Phone, Clock, Bike, ShoppingBag, PackageSearch, Home } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, MapPin, Phone, Clock, Bike, ShoppingBag, PackageSearch, Home, MessageCircle } from 'lucide-react';
+import { SiWhatsapp } from 'react-icons/si';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { formatKwanza } from '@/lib/formatters';
 import type { MenuItem, Category, Restaurant, Order } from '@shared/schema';
@@ -314,13 +315,19 @@ export default function PublicMenu() {
         <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <h1 className="text-lg sm:text-xl font-bold" data-testid="text-restaurant-name">{restaurant.name}</h1>
+            <Badge 
+              variant={restaurant.isOpen ? "default" : "secondary"} 
+              className={restaurant.isOpen ? "bg-green-600 hover:bg-green-700" : "bg-gray-500 hover:bg-gray-600"}
+              data-testid="badge-restaurant-status"
+            >
+              {restaurant.isOpen ? "Aberto" : "Fechado"}
+            </Badge>
           </div>
           
           <div className="flex items-center gap-2">
             <Link href={`/r/${slug}/rastrear`}>
-              <Button variant="outline" className="h-9 sm:h-10 gap-1.5" data-testid="button-track-order">
-                <PackageSearch className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="hidden sm:inline text-sm">Rastrear Pedido</span>
+              <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-primary hover:text-primary" data-testid="button-track-order">
+                <span className="text-sm font-medium">Último pedido</span>
               </Button>
             </Link>
             
@@ -503,7 +510,19 @@ export default function PublicMenu() {
         className="relative flex items-center justify-center min-h-[400px] sm:min-h-[500px] pt-16"
         style={heroStyle}
       >
-        <div className="container px-4 sm:px-6 text-center text-white">
+        {restaurant?.logoUrl && (
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10">
+            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white shadow-lg overflow-hidden bg-white">
+              <img 
+                src={restaurant.logoUrl} 
+                alt={`${restaurant.name} logo`}
+                className="w-full h-full object-cover"
+                data-testid="img-restaurant-logo"
+              />
+            </div>
+          </div>
+        )}
+        <div className="container px-4 sm:px-6 text-center text-white" style={{ marginTop: restaurant?.logoUrl ? '80px' : '0' }}>
           <h2 className="text-3xl sm:text-5xl md:text-6xl font-bold mb-4">
             {restaurant.name}
           </h2>
@@ -549,30 +568,82 @@ export default function PublicMenu() {
             {Object.entries(groupedByCategory || {}).map(([categoryName, categoryItems]) => (
               <div key={categoryName}>
                 <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4" data-testid={`text-category-${categoryName}`}>{categoryName}</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                  {categoryItems.map((item) => (
-                    <Card key={item.id} data-testid={`menu-item-${item.id}`} className="hover-elevate active-elevate-2">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base sm:text-lg">{item.name}</CardTitle>
-                        {item.description && (
-                          <CardDescription className="line-clamp-2 text-xs sm:text-sm">{item.description}</CardDescription>
-                        )}
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex flex-wrap gap-2 justify-between items-center">
-                          <span className="text-lg sm:text-xl font-bold text-primary">{formatKwanza(item.price)}</span>
-                          <Button
-                            onClick={() => handleAddMenuItem(item)}
-                            data-testid={`button-add-${item.id}`}
-                            size="sm"
-                          >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Adicionar
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {categoryItems.map((item) => {
+                    const hasDiscount = item.originalPrice && parseFloat(item.originalPrice) > parseFloat(item.price);
+                    const discountPercentage = hasDiscount 
+                      ? Math.round(((parseFloat(item.originalPrice!) - parseFloat(item.price)) / parseFloat(item.originalPrice!)) * 100)
+                      : 0;
+
+                    return (
+                      <Card key={item.id} data-testid={`menu-item-${item.id}`} className="hover-elevate active-elevate-2 overflow-hidden">
+                        <CardContent className="p-0">
+                          <div className="relative">
+                            {item.imageUrl ? (
+                              <div className="relative w-full aspect-square p-3">
+                                <div className="w-full h-full rounded-full overflow-hidden bg-muted">
+                                  <img 
+                                    src={item.imageUrl} 
+                                    alt={item.name}
+                                    className="w-full h-full object-cover"
+                                    data-testid={`img-product-${item.id}`}
+                                  />
+                                </div>
+                                <Button
+                                  size="icon"
+                                  className="absolute bottom-1 right-1 h-10 w-10 rounded-full bg-black hover:bg-black/90 text-white shadow-lg"
+                                  onClick={() => handleAddMenuItem(item)}
+                                  data-testid={`button-add-${item.id}`}
+                                  aria-label={`Adicionar ${item.name}`}
+                                >
+                                  <Plus className="h-5 w-5" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="relative w-full aspect-square p-3 bg-muted/30 flex items-center justify-center">
+                                <div className="text-center">
+                                  <p className="text-xs text-muted-foreground mb-2">{item.name}</p>
+                                  <Button
+                                    size="icon"
+                                    className="h-10 w-10 rounded-full bg-black hover:bg-black/90 text-white shadow-lg"
+                                    onClick={() => handleAddMenuItem(item)}
+                                    data-testid={`button-add-${item.id}`}
+                                    aria-label={`Adicionar ${item.name}`}
+                                  >
+                                    <Plus className="h-5 w-5" />
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                            {hasDiscount && (
+                              <Badge 
+                                className="absolute top-2 left-2 bg-red-600 hover:bg-red-700 text-white font-bold"
+                                data-testid={`badge-discount-${item.id}`}
+                              >
+                                -{discountPercentage}%
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="p-3 pt-0">
+                            <h3 className="font-semibold text-sm sm:text-base line-clamp-1 mb-1">{item.name}</h3>
+                            {item.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{item.description}</p>
+                            )}
+                            <div className="flex flex-col gap-1">
+                              {hasDiscount && (
+                                <span className="text-xs text-muted-foreground line-through" data-testid={`text-original-price-${item.id}`}>
+                                  {formatKwanza(item.originalPrice!)}
+                                </span>
+                              )}
+                              <span className="text-base sm:text-lg font-bold" data-testid={`text-price-${item.id}`}>
+                                {formatKwanza(item.price)}
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -624,9 +695,23 @@ export default function PublicMenu() {
         </div>
       </section>
 
-      <footer className="bg-background border-t py-6">
-        <div className="container px-4 sm:px-6 text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} {restaurant.name}. Todos os direitos reservados.</p>
+      <footer className="bg-gray-900 dark:bg-gray-950 py-8">
+        <div className="container px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+            <div className="text-white">
+              <p className="text-sm opacity-90">&copy; {new Date().getFullYear()} {restaurant.name}</p>
+              <p className="text-xs opacity-70 mt-1">Todos os direitos reservados</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-white/70">Crie seu menu digital com</span>
+              <span className="text-xl font-bold text-primary">OlaClick</span>
+            </div>
+          </div>
+          <div className="text-center mt-6 pt-4 border-t border-white/10">
+            <p className="text-xs text-white/60">
+              Início de {restaurant.name} | Reportar algo
+            </p>
+          </div>
         </div>
       </footer>
 
@@ -652,6 +737,19 @@ export default function PublicMenu() {
         activeItem={activeView === 'menu' ? 'Menu' : 'Carrinho'}
         onItemClick={handleNavClick}
       />
+
+      {restaurant?.whatsappNumber && (
+        <a
+          href={`https://wa.me/${restaurant.whatsappNumber.replace(/\D/g, '')}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-40 bg-green-500 hover:bg-green-600 text-white rounded-full p-4 shadow-lg transition-all hover:scale-110"
+          data-testid="button-whatsapp-float"
+          aria-label="Contactar via WhatsApp"
+        >
+          <SiWhatsapp className="h-6 w-6" />
+        </a>
+      )}
     </div>
   );
 }
