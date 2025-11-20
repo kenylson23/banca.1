@@ -440,22 +440,27 @@ export default function Settings() {
                   />
                 </div>
               )}
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Input
+              <div className="space-y-2">
+                <input
+                  id="logo-upload"
                   type="file"
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
                   onChange={handleLogoUpload}
                   disabled={uploadingLogo}
-                  className="flex-1"
+                  className="hidden"
                   data-testid="input-logo-upload"
                 />
                 <Button
+                  onClick={() => document.getElementById('logo-upload')?.click()}
                   disabled={uploadingLogo}
-                  variant="outline"
-                  className="w-full sm:w-auto"
+                  className="w-full"
+                  data-testid="button-upload-logo"
                 >
                   {uploadingLogo ? (
-                    <>Enviando...</>
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Enviando...
+                    </>
                   ) : (
                     <>
                       <Upload className="h-4 w-4 mr-2" />
@@ -463,6 +468,9 @@ export default function Settings() {
                     </>
                   )}
                 </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  Formatos aceitos: PNG, JPG, GIF, WebP • Tamanho máximo: 5MB
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -484,29 +492,37 @@ export default function Settings() {
                   />
                 </div>
               )}
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Input
+              <div className="space-y-2">
+                <input
+                  id="hero-upload"
                   type="file"
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
                   onChange={handleHeroImageUpload}
                   disabled={uploadingHero}
-                  className="flex-1"
+                  className="hidden"
                   data-testid="input-hero-upload"
                 />
                 <Button
+                  onClick={() => document.getElementById('hero-upload')?.click()}
                   disabled={uploadingHero}
-                  variant="outline"
-                  className="w-full sm:w-auto"
+                  className="w-full"
+                  data-testid="button-upload-hero"
                 >
                   {uploadingHero ? (
-                    <>Enviando...</>
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Enviando...
+                    </>
                   ) : (
                     <>
                       <Upload className="h-4 w-4 mr-2" />
-                      Selecionar Foto
+                      Selecionar Foto de Capa
                     </>
                   )}
                 </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  Resolução recomendada: 1200x400px • Tamanho máximo: 5MB
+                </p>
               </div>
             </CardContent>
           </Card>
