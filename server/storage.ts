@@ -5792,6 +5792,8 @@ export class DatabaseStorage implements IStorage {
         restaurantId,
         branchId,
         code: data.code.toUpperCase(),
+        validFrom: new Date(data.validFrom),
+        validUntil: new Date(data.validUntil),
         createdBy: userId || null,
       })
       .returning();
@@ -5802,6 +5804,12 @@ export class DatabaseStorage implements IStorage {
     const updateData: any = { ...data, updatedAt: new Date() };
     if (data.code) {
       updateData.code = data.code.toUpperCase();
+    }
+    if (data.validFrom) {
+      updateData.validFrom = new Date(data.validFrom);
+    }
+    if (data.validUntil) {
+      updateData.validUntil = new Date(data.validUntil);
     }
 
     const [updated] = await db
