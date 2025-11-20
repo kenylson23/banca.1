@@ -24,7 +24,7 @@ export default function Products() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [deliveryType, setDeliveryType] = useState<'delivery' | 'retirada'>('delivery');
+  const [deliveryType, setDeliveryType] = useState<'delivery' | 'takeout'>('delivery');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const { items, addItem, updateQuantity, removeItem, clearCart, getTotal, getItemCount, orderNotes, setOrderNotes } = useCart();
   const { toast } = useToast();
@@ -574,10 +574,10 @@ export default function Products() {
                       Delivery
                     </Button>
                     <Button
-                      variant={deliveryType === 'retirada' ? 'default' : 'outline'}
+                      variant={deliveryType === 'takeout' ? 'default' : 'outline'}
                       className="flex-1"
-                      onClick={() => setDeliveryType('retirada')}
-                      data-testid="button-delivery-type-retirada"
+                      onClick={() => setDeliveryType('takeout')}
+                      data-testid="button-delivery-type-takeout"
                     >
                       Retirada
                     </Button>
