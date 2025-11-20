@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { 
   ShoppingCart, Plus, ClipboardList, Clock, ChefHat, 
@@ -414,7 +415,7 @@ export default function CustomerMenu() {
                   <ScrollArea className="max-h-[65vh] pr-4">
                     {ordersLoading ? (
                       <div className="flex justify-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#4CAF50]"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                       </div>
                     ) : !tableOrders || tableOrders.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -497,7 +498,7 @@ export default function CustomerMenu() {
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                           exit={{ scale: 0 }}
-                          className="absolute -top-1 -right-1 bg-[#4CAF50] text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
+                          className="absolute -top-1 -right-1 bg-primary text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
                         >
                           {getItemCount()}
                         </motion.div>
@@ -557,7 +558,7 @@ export default function CustomerMenu() {
                                   </div>
                                 )}
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[#4CAF50] font-bold text-sm">
+                                  <span className="text-primary font-bold text-sm">
                                     {formatKwanza(
                                       (parseFloat(item.menuItem.price) + 
                                         item.selectedOptions.reduce((sum, opt) => sum + parseFloat(opt.priceAdjustment) * opt.quantity, 0)
@@ -571,7 +572,7 @@ export default function CustomerMenu() {
                                 size="sm"
                                 onClick={() => removeItem(item.id)}
                                 data-testid={`button-remove-${item.id}`}
-                                className="text-[#4CAF50] hover:text-[#45a049] hover:bg-[#4CAF50]/10"
+                                className="text-primary hover:text-primary/90 hover:bg-primary/10"
                               >
                                 Remover
                               </Button>
@@ -617,7 +618,7 @@ export default function CustomerMenu() {
                       </div>
 
                       <Button
-                        className="w-full h-12 bg-[#4CAF50] hover:bg-[#45a049] text-white font-semibold text-base"
+                        className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-semibold text-base"
                         onClick={handleConfirmOrder}
                         disabled={createOrderMutation.isPending}
                         data-testid="button-confirm-order"
@@ -642,7 +643,7 @@ export default function CustomerMenu() {
 
       {/* Hero Section */}
       <section className="relative pt-16 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#4CAF50]/10 via-background to-background"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-background"></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
           <div className="text-center max-w-3xl mx-auto">
             <motion.div
@@ -650,19 +651,29 @@ export default function CustomerMenu() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <div className="inline-flex items-center gap-2 bg-[#4CAF50]/10 text-[#4CAF50] px-4 py-2 rounded-full mb-6">
+              {restaurant?.logoUrl && (
+                <div className="flex justify-center mb-8">
+                  <Avatar className="h-32 w-32 border-4 border-primary/20 shadow-lg">
+                    <AvatarImage src={restaurant.logoUrl} alt={restaurant.name} />
+                    <AvatarFallback className="text-4xl font-bold bg-primary text-primary-foreground">
+                      {restaurant.name.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+              )}
+              <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full mb-6">
                 <Utensils className="h-4 w-4" />
                 <span className="text-sm font-medium">Mesa {tableNumber}</span>
               </div>
               <h1 className="text-4xl sm:text-5xl font-bold text-foreground mb-6">
-                Bem-vindo ao <span className="text-[#4CAF50]">{restaurant?.name || 'Nosso Restaurante'}</span>
+                Bem-vindo ao <span className="text-primary">{restaurant?.name || 'Nosso Restaurante'}</span>
               </h1>
               <p className="text-lg sm:text-xl text-muted-foreground mb-8">
                 Explore nosso cardápio e faça seu pedido diretamente da sua mesa
               </p>
               <Button
                 size="lg"
-                className="bg-[#4CAF50] hover:bg-[#45a049] text-white font-semibold h-12 px-8"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-12 px-8"
                 onClick={() => {
                   const menuSection = document.getElementById('menu-section');
                   menuSection?.scrollIntoView({ behavior: 'smooth' });
@@ -673,6 +684,18 @@ export default function CustomerMenu() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </motion.div>
+
+            {restaurant?.businessHours && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground"
+              >
+                <Clock className="h-4 w-4 text-primary" />
+                <span>{restaurant.businessHours}</span>
+              </motion.div>
+            )}
           </div>
         </div>
       </section>
@@ -700,7 +723,7 @@ export default function CustomerMenu() {
                   variant={selectedCategory === 'all' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setSelectedCategory('all')}
-                  className={selectedCategory === 'all' ? 'bg-[#4CAF50] hover:bg-[#45a049]' : ''}
+                  className={selectedCategory === 'all' ? 'bg-primary hover:bg-primary/90' : ''}
                   data-testid="category-all"
                 >
                   Todos
@@ -711,7 +734,7 @@ export default function CustomerMenu() {
                     variant={selectedCategory === category.id ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSelectedCategory(category.id)}
-                    className={selectedCategory === category.id ? 'bg-[#4CAF50] hover:bg-[#45a049]' : ''}
+                    className={selectedCategory === category.id ? 'bg-primary hover:bg-primary/90' : ''}
                     data-testid={`category-${category.id}`}
                   >
                     {category.name}
@@ -795,7 +818,7 @@ export default function CustomerMenu() {
                             <div className="mt-auto flex items-center justify-between gap-3">
                               <div className="flex flex-col">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[#4CAF50] font-bold text-xl" data-testid={`text-item-price-${item.id}`}>
+                                  <span className="text-primary font-bold text-xl" data-testid={`text-item-price-${item.id}`}>
                                     {formatKwanza(itemPrice)}
                                   </span>
                                   {hasPromo && (
@@ -807,7 +830,7 @@ export default function CustomerMenu() {
                               </div>
                               <Button
                                 size="sm"
-                                className="bg-[#4CAF50] hover:bg-[#45a049] text-white font-medium"
+                                className="bg-primary hover:bg-primary/90 text-white font-medium"
                                 onClick={(e) => handleQuickAddToCart(item, e)}
                                 data-testid={`button-add-${item.id}`}
                               >
@@ -881,7 +904,7 @@ export default function CustomerMenu() {
                         <div className="mt-auto flex items-center justify-between gap-3">
                           <div className="flex flex-col">
                             <div className="flex items-center gap-2">
-                              <span className="text-[#4CAF50] font-bold text-xl" data-testid={`text-item-price-${item.id}`}>
+                              <span className="text-primary font-bold text-xl" data-testid={`text-item-price-${item.id}`}>
                                 {formatKwanza(itemPrice)}
                               </span>
                               {hasPromo && (
@@ -893,7 +916,7 @@ export default function CustomerMenu() {
                           </div>
                           <Button
                             size="sm"
-                            className="bg-[#4CAF50] hover:bg-[#45a049] text-white font-medium"
+                            className="bg-primary hover:bg-primary/90 text-white font-medium"
                             onClick={(e) => handleQuickAddToCart(item, e)}
                             data-testid={`button-add-${item.id}`}
                           >

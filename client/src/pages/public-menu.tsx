@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { 
   ShoppingCart, Plus, Minus, Trash2, Clock, Bike, ShoppingBag, Search, 
@@ -381,7 +382,7 @@ export default function PublicMenu() {
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                           exit={{ scale: 0 }}
-                          className="absolute -top-1 -right-1 bg-[#4CAF50] text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
+                          className="absolute -top-1 -right-1 bg-primary text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
                         >
                           {getItemCount()}
                         </motion.div>
@@ -441,7 +442,7 @@ export default function PublicMenu() {
                                   </div>
                                 )}
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[#4CAF50] font-bold text-sm">
+                                  <span className="text-primary font-bold text-sm">
                                     {formatKwanza(
                                       (parseFloat(item.menuItem.price) + 
                                         item.selectedOptions.reduce((sum, opt) => sum + parseFloat(opt.priceAdjustment) * opt.quantity, 0)
@@ -455,7 +456,7 @@ export default function PublicMenu() {
                                 size="sm"
                                 onClick={() => removeItem(item.id)}
                                 data-testid={`button-remove-${item.id}`}
-                                className="text-[#4CAF50] hover:text-[#45a049] hover:bg-[#4CAF50]/10"
+                                className="text-primary hover:text-primary/90 hover:bg-primary/10"
                               >
                                 Remover
                               </Button>
@@ -516,7 +517,7 @@ export default function PublicMenu() {
                       </div>
 
                       <Button
-                        className="w-full h-12 bg-[#4CAF50] hover:bg-[#45a049] text-white font-semibold text-base"
+                        className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-semibold text-base"
                         onClick={handleConfirmOrder}
                         disabled={createOrderMutation.isPending}
                         data-testid="button-confirm-order"
@@ -541,7 +542,7 @@ export default function PublicMenu() {
 
       {/* Hero Section */}
       <section className="relative pt-16 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#4CAF50]/10 via-background to-background"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-background"></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
           <div className="text-center max-w-3xl mx-auto">
             <motion.div
@@ -549,8 +550,18 @@ export default function PublicMenu() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
+              {restaurant.logoUrl && (
+                <div className="flex justify-center mb-8">
+                  <Avatar className="h-32 w-32 border-4 border-primary/20 shadow-lg">
+                    <AvatarImage src={restaurant.logoUrl} alt={restaurant.name} />
+                    <AvatarFallback className="text-4xl font-bold bg-primary text-primary-foreground">
+                      {restaurant.name.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+              )}
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground mb-6">
-                Bem-vindo ao <span className="text-[#4CAF50]">{restaurant.name}</span>
+                Bem-vindo ao <span className="text-primary">{restaurant.name}</span>
               </h1>
               <p className="text-lg sm:text-xl text-muted-foreground mb-8">
                 Experimente o melhor da nossa culinária no conforto da sua casa ou mesa
@@ -558,7 +569,7 @@ export default function PublicMenu() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <Button
                   size="lg"
-                  className="bg-[#4CAF50] hover:bg-[#45a049] text-white font-semibold h-12 px-8"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-12 px-8"
                   onClick={() => {
                     const menuSection = document.getElementById('menu-section');
                     menuSection?.scrollIntoView({ behavior: 'smooth' });
@@ -589,21 +600,29 @@ export default function PublicMenu() {
               </div>
             </motion.div>
 
-            {restaurant.address && (
+            {(restaurant.address || restaurant.phone || restaurant.businessHours) && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
                 className="mt-12 flex flex-wrap gap-6 justify-center text-sm text-muted-foreground"
               >
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-[#4CAF50]" />
-                  <span>{restaurant.address}</span>
-                </div>
+                {restaurant.address && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    <span>{restaurant.address}</span>
+                  </div>
+                )}
                 {restaurant.phone && (
                   <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-[#4CAF50]" />
+                    <Phone className="h-4 w-4 text-primary" />
                     <span>{restaurant.phone}</span>
+                  </div>
+                )}
+                {restaurant.businessHours && (
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <span>{restaurant.businessHours}</span>
                   </div>
                 )}
               </motion.div>
@@ -635,7 +654,6 @@ export default function PublicMenu() {
                   variant={selectedCategory === 'all' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setSelectedCategory('all')}
-                  className={selectedCategory === 'all' ? 'bg-[#4CAF50] hover:bg-[#45a049]' : ''}
                   data-testid="category-all"
                 >
                   Todos
@@ -646,7 +664,6 @@ export default function PublicMenu() {
                     variant={selectedCategory === category.id ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSelectedCategory(category.id)}
-                    className={selectedCategory === category.id ? 'bg-[#4CAF50] hover:bg-[#45a049]' : ''}
                     data-testid={`category-${category.id}`}
                   >
                     {category.name}
@@ -730,7 +747,7 @@ export default function PublicMenu() {
                             <div className="mt-auto flex items-center justify-between gap-3">
                               <div className="flex flex-col">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[#4CAF50] font-bold text-xl" data-testid={`text-item-price-${item.id}`}>
+                                  <span className="text-primary font-bold text-xl" data-testid={`text-item-price-${item.id}`}>
                                     {formatKwanza(itemPrice)}
                                   </span>
                                   {hasPromo && (
@@ -742,7 +759,7 @@ export default function PublicMenu() {
                               </div>
                               <Button
                                 size="sm"
-                                className="bg-[#4CAF50] hover:bg-[#45a049] text-white font-medium"
+                                className="bg-primary hover:bg-primary/90 text-white font-medium"
                                 onClick={(e) => handleQuickAddToCart(item, e)}
                                 data-testid={`button-add-${item.id}`}
                               >
@@ -816,7 +833,7 @@ export default function PublicMenu() {
                         <div className="mt-auto flex items-center justify-between gap-3">
                           <div className="flex flex-col">
                             <div className="flex items-center gap-2">
-                              <span className="text-[#4CAF50] font-bold text-xl" data-testid={`text-item-price-${item.id}`}>
+                              <span className="text-primary font-bold text-xl" data-testid={`text-item-price-${item.id}`}>
                                 {formatKwanza(itemPrice)}
                               </span>
                               {hasPromo && (
@@ -828,7 +845,7 @@ export default function PublicMenu() {
                           </div>
                           <Button
                             size="sm"
-                            className="bg-[#4CAF50] hover:bg-[#45a049] text-white font-medium"
+                            className="bg-primary hover:bg-primary/90 text-white font-medium"
                             onClick={(e) => handleQuickAddToCart(item, e)}
                             data-testid={`button-add-${item.id}`}
                           >
