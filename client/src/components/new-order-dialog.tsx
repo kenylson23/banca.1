@@ -33,6 +33,7 @@ interface MenuItem {
   name: string;
   price: string;
   categoryId: string;
+  description?: string;
   isAvailable: number | boolean | string;
   category: {
     id: string;
@@ -87,7 +88,6 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
       restaurantId,
       orderType: "balcao",
       status: "pendente",
-      totalAmount: "0",
       customerName: "",
       customerPhone: "",
       deliveryAddress: "",
@@ -155,7 +155,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
           orderNumber: Math.floor(Math.random() * 9000) + 1000,
           createdAt: now,
           updatedAt: now,
-          totalAmount: parseFloat(data.totalAmount || itemsTotal.toString()),
+          totalAmount: itemsTotal,
           discount: data.discount ? parseFloat(data.discount) : null,
           serviceCharge: data.serviceCharge ? parseFloat(data.serviceCharge) : null,
           deliveryFee: data.deliveryFee ? parseFloat(data.deliveryFee) : null,
@@ -286,8 +286,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
         
         <div className="flex gap-4 flex-1 overflow-hidden">
           <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 flex-1 overflow-hidden">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 flex-1 overflow-hidden">
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -475,7 +474,6 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                   </Button>
                 </div>
               </form>
-            </Form>
           </div>
 
           <div className="w-80 flex flex-col gap-4">

@@ -42,6 +42,9 @@ import {
   applyDeliveryFeeSchema,
   applyPackagingFeeSchema,
   recordPaymentSchema,
+  linkCustomerSchema,
+  applyCouponSchema,
+  redeemLoyaltyPointsSchema,
   insertInventoryCategorySchema,
   updateInventoryCategorySchema,
   insertMeasurementUnitSchema,
@@ -49,6 +52,11 @@ import {
   insertInventoryItemSchema,
   updateInventoryItemSchema,
   insertStockMovementSchema,
+  insertCustomerSchema,
+  updateCustomerSchema,
+  insertLoyaltyProgramSchema,
+  insertCouponSchema,
+  updateCouponSchema,
   type User,
 } from "@shared/schema";
 import { z } from "zod";
@@ -2458,6 +2466,180 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/orders/:id/customer", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const order = await storage.getOrderById(restaurantId, req.params.id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      if (order.status === 'servido') {
+        return res.status(400).json({ message: "Não é possível vincular cliente a pedido já servido" });
+      }
+
+      const { customerId } = linkCustomerSchema.parse(req.body);
+      
+      const customer = await storage.getCustomerById(customerId);
+      if (!customer || customer.restaurantId !== restaurantId) {
+        return res.status(404).json({ message: "Cliente não encontrado" });
+      }
+
+      const updated = await storage.linkCustomerToOrder(restaurantId, req.params.id, customerId);
+      
+      broadcastToClients({ 
+        type: 'order_customer_linked', 
+        data: { orderId: req.params.id, customerId }
+      });
+
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Error linking customer:', error);
+      res.status(500).json({ message: "Erro ao vincular cliente ao pedido" });
+    }
+  });
+
+  app.post("/api/orders/:id/coupon", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const order = await storage.getOrderById(restaurantId, req.params.id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      if (order.status === 'servido') {
+        return res.status(400).json({ message: "Não é possível aplicar cupom a pedido já servido" });
+      }
+
+      const { couponCode } = applyCouponSchema.parse(req.body);
+      
+      const subtotal = parseFloat(order.subtotal || "0");
+      const validation = await storage.validateCoupon(
+        restaurantId, 
+        couponCode, 
+        subtotal, 
+        order.orderType,
+        order.customerId || undefined
+      );
+
+      if (!validation.valid || !validation.coupon) {
+        return res.status(400).json({ message: validation.message || "Cupom inválido" });
+      }
+
+      const updated = await storage.applyCouponToOrder(restaurantId, req.params.id, validation.coupon.id, validation.discountAmount || 0);
+      
+      broadcastToClients({ 
+        type: 'order_coupon_applied', 
+        data: { 
+          orderId: req.params.id, 
+          couponId: validation.coupon.id,
+          totalAmount: updated.totalAmount 
+        }
+      });
+
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Error applying coupon:', error);
+      res.status(500).json({ message: "Erro ao aplicar cupom" });
+    }
+  });
+
+  app.post("/api/orders/:id/loyalty/redeem", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const order = await storage.getOrderById(restaurantId, req.params.id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      if (order.status === 'servido') {
+        return res.status(400).json({ message: "Não é possível resgatar pontos em pedido já servido" });
+      }
+
+      if (!order.customerId) {
+        return res.status(400).json({ message: "Pedido não possui cliente vinculado" });
+      }
+
+      const { pointsToRedeem } = redeemLoyaltyPointsSchema.parse(req.body);
+
+      const customer = await storage.getCustomerById(order.customerId);
+      if (!customer || customer.restaurantId !== restaurantId) {
+        return res.status(404).json({ message: "Cliente não encontrado" });
+      }
+
+      const availablePoints = customer.loyaltyPoints || 0;
+      if (pointsToRedeem > availablePoints) {
+        return res.status(400).json({ 
+          message: `Pontos insuficientes. Disponível: ${availablePoints}, Solicitado: ${pointsToRedeem}` 
+        });
+      }
+
+      const loyaltyProgram = await storage.getLoyaltyProgram(restaurantId);
+      if (!loyaltyProgram || !loyaltyProgram.isActive) {
+        return res.status(400).json({ message: "Programa de fidelidade não está ativo" });
+      }
+
+      const minPoints = loyaltyProgram.minPointsToRedeem || 100;
+      if (pointsToRedeem < minPoints) {
+        return res.status(400).json({ 
+          message: `Mínimo de pontos para resgate: ${minPoints}` 
+        });
+      }
+
+      const result = await storage.redeemLoyaltyPointsForOrder(
+        restaurantId, 
+        order.customerId, 
+        pointsToRedeem,
+        req.params.id,
+        currentUser.id
+      );
+
+      const updated = result.order;
+      
+      broadcastToClients({ 
+        type: 'loyalty_points_redeemed', 
+        data: { 
+          orderId: req.params.id, 
+          customerId: order.customerId,
+          pointsRedeemed: pointsToRedeem,
+          totalAmount: updated.totalAmount 
+        }
+      });
+
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Error redeeming loyalty points:', error);
+      res.status(500).json({ message: "Erro ao resgatar pontos de fidelidade" });
+    }
+  });
+
   app.get("/api/orders/:id/print", isAuthenticated, async (req, res) => {
     try {
       const currentUser = req.user as User;
@@ -4477,6 +4659,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Loyalty transactions fetch error:', error);
       res.status(500).json({ message: "Erro ao buscar transações de fidelidade" });
+    }
+  });
+
+  app.get("/api/loyalty/stats", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const stats = await storage.getLoyaltyStats(currentUser.restaurantId);
+      res.json(stats);
+    } catch (error) {
+      console.error('Loyalty stats fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar estatísticas de fidelidade" });
     }
   });
 

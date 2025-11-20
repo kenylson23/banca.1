@@ -3,7 +3,8 @@ import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   ArrowLeft, Plus, Trash2, DollarSign, Percent, 
-  UtensilsCrossed, Clock, Edit2, Check, X, Printer, Package 
+  UtensilsCrossed, Clock, Edit2, Check, X, Printer, Package,
+  Users, Tag, Gift 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +21,7 @@ import { formatKwanza } from "@/lib/formatters";
 import { format } from "date-fns";
 import { PrintOrder } from "@/components/PrintOrder";
 import { ProductSelector } from "@/components/ProductSelector";
-import type { Order, OrderItem, MenuItem } from "@shared/schema";
+import type { Order, OrderItem, MenuItem, Customer, Coupon, LoyaltyProgram } from "@shared/schema";
 
 interface OrderDetail extends Order {
   orderItems: Array<OrderItem & { menuItem: MenuItem }>;
@@ -62,6 +63,9 @@ export default function OrderDetail() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [productSelectorOpen, setProductSelectorOpen] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  const [couponCode, setCouponCode] = useState("");
+  const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState(0);
 
   const { data: order, isLoading } = useQuery<OrderDetail>({
     queryKey: ["/api/orders", orderId],
@@ -71,6 +75,16 @@ export default function OrderDetail() {
   const { data: menuItems = [] } = useQuery<MenuItem[]>({
     queryKey: ["/api/menu-items"],
   });
+
+  const { data: customers = [] } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
+  });
+
+  const { data: loyaltyProgram } = useQuery<LoyaltyProgram>({
+    queryKey: ["/api/loyalty", "program"],
+  });
+
+  const selectedCustomer = customers.find(c => c.id === (selectedCustomerId || order?.customerId));
 
   useEffect(() => {
     if (order) {
@@ -203,6 +217,69 @@ export default function OrderDetail() {
     },
     onError: () => {
       toast({ title: "Erro ao aplicar taxa de embalagem", variant: "destructive" });
+    },
+  });
+
+  const linkCustomerMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const response = await apiRequest("PUT", `/api/orders/${orderId}/customer`, { customerId });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({ title: "Cliente vinculado" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao vincular cliente", variant: "destructive" });
+    },
+  });
+
+  const applyCouponMutation = useMutation({
+    mutationFn: async (code: string) => {
+      const response = await apiRequest("POST", `/api/orders/${orderId}/coupon`, { 
+        code,
+        orderValue: order?.totalAmount?.toString() || "0",
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({ title: "Cupom aplicado" });
+      setCouponCode("");
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Erro ao aplicar cupom", 
+        description: error.message || "Cupom inválido ou expirado",
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const redeemLoyaltyPointsMutation = useMutation({
+    mutationFn: async (points: number) => {
+      const response = await apiRequest("POST", `/api/orders/${orderId}/loyalty/redeem`, { 
+        points,
+        customerId: selectedCustomerId || order?.customerId,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({ title: "Pontos resgatados" });
+      setLoyaltyPointsToRedeem(0);
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Erro ao resgatar pontos", 
+        description: error.message || "Pontos insuficientes",
+        variant: "destructive" 
+      });
     },
   });
 
@@ -496,6 +573,163 @@ export default function OrderDetail() {
               )}
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Cliente
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {order.customerId || selectedCustomerId ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-2 rounded-md bg-muted/50">
+                    <div className="flex-1">
+                      <p className="font-medium">{selectedCustomer?.name}</p>
+                      <p className="text-xs text-muted-foreground">{selectedCustomer?.phone}</p>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6"
+                      onClick={() => {
+                        setSelectedCustomerId("");
+                        linkCustomerMutation.mutate("");
+                      }}
+                      data-testid="button-remove-customer"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  {selectedCustomer && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Gift className="h-3 w-3" />
+                      <span>{selectedCustomer.loyaltyPoints || 0} pontos disponíveis</span>
+                      <Badge variant="secondary" className="ml-auto">
+                        {selectedCustomer.tier || "bronze"}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Select
+                  value={selectedCustomerId}
+                  onValueChange={(id) => {
+                    setSelectedCustomerId(id);
+                    linkCustomerMutation.mutate(id);
+                  }}
+                >
+                  <SelectTrigger data-testid="select-customer">
+                    <SelectValue placeholder="Selecionar cliente..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers.map((customer) => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.name} - {customer.phone || "Sem telefone"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Tag className="h-4 w-4" />
+                Cupom de Desconto
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {order.couponId ? (
+                <div className="flex items-center justify-between p-2 rounded-md bg-success/10 border border-success">
+                  <div className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-success" />
+                    <span className="font-medium text-success">Cupom aplicado</span>
+                  </div>
+                  <span className="text-sm text-muted-foreground">-{formatKwanza(order.couponDiscount || 0)}</span>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Código do cupom"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    data-testid="input-coupon-code"
+                  />
+                  <Button
+                    onClick={() => applyCouponMutation.mutate(couponCode)}
+                    disabled={!couponCode || applyCouponMutation.isPending}
+                    data-testid="button-apply-coupon"
+                  >
+                    {applyCouponMutation.isPending ? "Validando..." : "Aplicar"}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {loyaltyProgram?.isActive === 1 && selectedCustomer && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Gift className="h-4 w-4" />
+                  Programa de Fidelidade
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between p-2 rounded-md bg-muted/50">
+                  <span className="text-sm">Pontos disponíveis</span>
+                  <span className="font-semibold">{selectedCustomer.loyaltyPoints || 0} pts</span>
+                </div>
+
+                {(order.loyaltyPointsRedeemed || 0) > 0 && (
+                  <div className="flex items-center justify-between p-2 rounded-md bg-success/10 border border-success">
+                    <span className="text-sm text-success">Pontos resgatados</span>
+                    <span className="font-semibold text-success">
+                      {order.loyaltyPointsRedeemed} pts = -{formatKwanza(order.loyaltyDiscountAmount || 0)}
+                    </span>
+                  </div>
+                )}
+
+                {!(order.loyaltyPointsRedeemed || 0) && selectedCustomer.loyaltyPoints >= (loyaltyProgram.minPointsToRedeem || 100) && (
+                  <div className="space-y-2">
+                    <Label className="text-xs">Resgatar pontos (min: {loyaltyProgram.minPointsToRedeem})</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Pontos"
+                        value={loyaltyPointsToRedeem || ""}
+                        onChange={(e) => setLoyaltyPointsToRedeem(Number(e.target.value))}
+                        min={loyaltyProgram.minPointsToRedeem || 100}
+                        max={selectedCustomer.loyaltyPoints}
+                        data-testid="input-loyalty-points"
+                      />
+                      <Button
+                        onClick={() => redeemLoyaltyPointsMutation.mutate(loyaltyPointsToRedeem)}
+                        disabled={!loyaltyPointsToRedeem || loyaltyPointsToRedeem < (loyaltyProgram.minPointsToRedeem || 100) || redeemLoyaltyPointsMutation.isPending}
+                        data-testid="button-redeem-loyalty"
+                      >
+                        Resgatar
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Desconto: {formatKwanza((loyaltyPointsToRedeem || 0) * parseFloat(loyaltyProgram.currencyPerPoint || "0"))}
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between p-2 rounded-md bg-primary/10 border border-primary">
+                  <span className="text-sm">Pontos a ganhar neste pedido</span>
+                  <span className="font-semibold text-primary">
+                    +{Math.floor(parseFloat(order.totalAmount?.toString() || "0") * parseFloat(loyaltyProgram.pointsPerCurrency || "1"))} pts
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardContent className="p-4">

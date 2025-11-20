@@ -572,6 +572,13 @@ export interface IStorage {
   createLoyaltyTransaction(restaurantId: string, data: InsertLoyaltyTransaction): Promise<LoyaltyTransaction>;
   calculateLoyaltyPoints(restaurantId: string, orderValue: number): Promise<number>;
   redeemLoyaltyPoints(restaurantId: string, customerId: string, points: number, orderId?: string, userId?: string): Promise<{ transaction: LoyaltyTransaction; discountAmount: number }>;
+  redeemLoyaltyPointsForOrder(restaurantId: string, customerId: string, points: number, orderId: string, userId: string): Promise<{ order: Order; transaction: LoyaltyTransaction; discountAmount: number }>;
+  getLoyaltyStats(restaurantId: string): Promise<{
+    totalPointsEarned: number;
+    totalPointsRedeemed: number;
+    activeCustomers: number;
+    tierDistribution: { bronze: number; prata: number; ouro: number; platina: number };
+  }>;
   
   // Coupon operations
   getCoupons(restaurantId: string, branchId?: string | null, filters?: { isActive?: number; code?: string }): Promise<Coupon[]>;
@@ -592,6 +599,10 @@ export interface IStorage {
     totalDiscount: string;
     topCoupons: Array<{ coupon: Coupon; usageCount: number; totalDiscount: string }>;
   }>;
+  
+  // Order-Customer-Coupon-Loyalty integration
+  linkCustomerToOrder(restaurantId: string, orderId: string, customerId: string): Promise<Order>;
+  applyCouponToOrder(restaurantId: string, orderId: string, couponId: string, discountAmount: number): Promise<Order>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2216,6 +2227,11 @@ export class DatabaseStorage implements IStorage {
       total -= Math.min(discountValue, subtotal);
     }
 
+    total = Math.max(0, total);
+    
+    total -= parseFloat(currentOrder.couponDiscount || '0');
+    total -= parseFloat(currentOrder.loyaltyDiscountAmount || '0');
+    
     total = Math.max(0, total);
     
     total += parseFloat(currentOrder.serviceCharge || '0');
@@ -6002,6 +6018,112 @@ export class DatabaseStorage implements IStorage {
       totalUsages: allUsages.length,
       totalDiscount,
       topCoupons,
+    };
+  }
+
+  // Order-Customer-Coupon-Loyalty integration methods
+  async linkCustomerToOrder(restaurantId: string, orderId: string, customerId: string): Promise<Order> {
+    const [updated] = await db
+      .update(orders)
+      .set({ customerId, updatedAt: new Date() })
+      .where(and(eq(orders.id, orderId), eq(orders.restaurantId, restaurantId)))
+      .returning();
+    
+    if (!updated) {
+      throw new Error("Pedido não encontrado");
+    }
+
+    return updated;
+  }
+
+  async applyCouponToOrder(restaurantId: string, orderId: string, couponId: string, discountAmount: number): Promise<Order> {
+    const order = await this.getOrderById(restaurantId, orderId);
+    if (!order) {
+      throw new Error("Pedido não encontrado");
+    }
+
+    const subtotal = parseFloat(order.subtotal || "0");
+    const discount = Math.min(discountAmount, subtotal);
+
+    await db
+      .update(orders)
+      .set({ 
+        couponId, 
+        couponDiscount: discount.toFixed(2),
+        updatedAt: new Date() 
+      })
+      .where(and(eq(orders.id, orderId), eq(orders.restaurantId, restaurantId)));
+
+    await this.applyCoupon(restaurantId, couponId, orderId, order.customerId || undefined, discount);
+
+    return this.calculateOrderTotal(orderId);
+  }
+
+  async redeemLoyaltyPointsForOrder(
+    restaurantId: string, 
+    customerId: string, 
+    points: number, 
+    orderId: string, 
+    userId: string
+  ): Promise<{ order: Order; transaction: LoyaltyTransaction; discountAmount: number }> {
+    const result = await this.redeemLoyaltyPoints(restaurantId, customerId, points, orderId, userId);
+
+    await db
+      .update(orders)
+      .set({ 
+        loyaltyPointsRedeemed: points,
+        loyaltyDiscountAmount: result.discountAmount.toFixed(2),
+        updatedAt: new Date() 
+      })
+      .where(and(eq(orders.id, orderId), eq(orders.restaurantId, restaurantId)));
+
+    const order = await this.calculateOrderTotal(orderId);
+
+    return {
+      order,
+      transaction: result.transaction,
+      discountAmount: result.discountAmount
+    };
+  }
+
+  async getLoyaltyStats(restaurantId: string): Promise<{
+    totalPointsEarned: number;
+    totalPointsRedeemed: number;
+    activeCustomers: number;
+    tierDistribution: { bronze: number; prata: number; ouro: number; platina: number };
+  }> {
+    const allTransactions = await db
+      .select()
+      .from(loyaltyTransactions)
+      .where(eq(loyaltyTransactions.restaurantId, restaurantId));
+
+    const totalPointsEarned = allTransactions
+      .filter((t: LoyaltyTransaction) => t.type === 'ganho' || t.type === 'bonus')
+      .reduce((sum: number, t: LoyaltyTransaction) => sum + t.points, 0);
+
+    const totalPointsRedeemed = allTransactions
+      .filter((t: LoyaltyTransaction) => t.type === 'resgate' || t.type === 'expiracao')
+      .reduce((sum: number, t: LoyaltyTransaction) => sum + Math.abs(t.points), 0);
+
+    const allCustomers = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.restaurantId, restaurantId));
+
+    const activeCustomers = allCustomers.filter((c: Customer) => (c.loyaltyPoints || 0) > 0).length;
+
+    const tierDistribution = {
+      bronze: allCustomers.filter((c: Customer) => c.tier === 'bronze').length,
+      prata: allCustomers.filter((c: Customer) => c.tier === 'prata').length,
+      ouro: allCustomers.filter((c: Customer) => c.tier === 'ouro').length,
+      platina: allCustomers.filter((c: Customer) => c.tier === 'platina').length,
+    };
+
+    return {
+      totalPointsEarned,
+      totalPointsRedeemed,
+      activeCustomers,
+      tierDistribution,
     };
   }
 }

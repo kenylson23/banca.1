@@ -1,9 +1,12 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DollarSign, ShoppingBag, TrendingUp, Users, UtensilsCrossed } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { DollarSign, ShoppingBag, TrendingUp, Users, UtensilsCrossed, Tag, Gift, UserPlus } from "lucide-react";
 import { formatKwanza } from "@/lib/formatters";
-import type { Order, MenuItem } from "@shared/schema";
+import type { Order, MenuItem, Customer, Coupon } from "@shared/schema";
 import { DateRange } from "react-day-picker";
 import { motion } from "framer-motion";
 import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
@@ -45,7 +48,7 @@ interface CustomRangeStats {
   periodEnd: Date;
 }
 
-type FilterOption = "today" | "week" | "month" | "year";
+type FilterOption = "today" | "week" | "month" | "3months" | "year";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -103,6 +106,32 @@ export default function Dashboard() {
     queryKey: ["/api/orders/recent"],
   });
 
+  const { data: customersStats } = useQuery<{
+    totalCustomers: number;
+    activeCustomers: number;
+    newThisMonth: number;
+  }>({
+    queryKey: ["/api/customers/stats"],
+  });
+
+  const { data: couponsStats } = useQuery<{
+    totalCoupons: number;
+    activeCoupons: number;
+    totalUsages: number;
+    totalDiscount: string;
+  }>({
+    queryKey: ["/api/coupons/stats"],
+  });
+
+  const { data: loyaltyStats } = useQuery<{
+    totalPointsEarned: number;
+    totalPointsRedeemed: number;
+    activeCustomers: number;
+    tierDistribution: { bronze: number; prata: number; ouro: number; platina: number };
+  }>({
+    queryKey: ["/api/loyalty/stats"],
+  });
+
   const historicalDays = useMemo(() => {
     if (dateRange?.from && dateRange?.to) {
       const diffTime = Math.abs(dateRange.to.getTime() - dateRange.from.getTime());
@@ -117,6 +146,8 @@ export default function Dashboard() {
         return 7;
       case "month":
         return 30;
+      case "3months":
+        return 90;
       case "year":
         return 365;
       default:
@@ -335,6 +366,91 @@ export default function Dashboard() {
             </>
           )}
         </div>
+
+        {/* Performance Cards - Clientes, Cupons e Fidelidade */}
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-3 gap-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+        >
+          <Card data-testid="card-customers-performance">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Clientes</CardTitle>
+              <UserPlus className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Total</span>
+                  <span className="text-xl font-bold">{customersStats?.totalCustomers || 0}</span>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Ativos</span>
+                  <Badge variant="secondary">{customersStats?.activeCustomers || 0}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Novos este mês</span>
+                  <Badge variant="default">{customersStats?.newThisMonth || 0}</Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-coupons-performance">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Cupons</CardTitle>
+              <Tag className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Ativos</span>
+                  <span className="text-xl font-bold">{couponsStats?.activeCoupons || 0}</span>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Total de usos</span>
+                  <Badge variant="secondary">{couponsStats?.totalUsages || 0}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Desconto aplicado</span>
+                  <Badge variant="default">{formatKwanza(couponsStats?.totalDiscount || "0")}</Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-loyalty-performance">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Fidelidade</CardTitle>
+              <Gift className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Pts distribuídos</span>
+                  <span className="text-xl font-bold">{loyaltyStats?.totalPointsEarned || 0}</span>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Pts resgatados</span>
+                  <Badge variant="secondary">{loyaltyStats?.totalPointsRedeemed || 0}</Badge>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Tiers:</span>
+                  <div className="flex gap-1">
+                    <Badge variant="outline" className="text-xs">🥉 {loyaltyStats?.tierDistribution?.bronze || 0}</Badge>
+                    <Badge variant="outline" className="text-xs">🥈 {loyaltyStats?.tierDistribution?.prata || 0}</Badge>
+                    <Badge variant="outline" className="text-xs">🥇 {loyaltyStats?.tierDistribution?.ouro || 0}</Badge>
+                    <Badge variant="outline" className="text-xs">💎 {loyaltyStats?.tierDistribution?.platina || 0}</Badge>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
         {/* Main Charts Section */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">

@@ -741,6 +741,18 @@ export const updateOrderItemQuantitySchema = z.object({
   quantity: z.number().int().min(1, "Quantidade deve ser pelo menos 1"),
 });
 
+export const linkCustomerSchema = z.object({
+  customerId: z.string().uuid("ID de cliente inválido"),
+});
+
+export const applyCouponSchema = z.object({
+  couponCode: z.string().min(1, "Código do cupom é obrigatório"),
+});
+
+export const redeemLoyaltyPointsSchema = z.object({
+  pointsToRedeem: z.number().int().min(1, "Pontos a resgatar deve ser pelo menos 1"),
+});
+
 export type UpdateOrderStatus = z.infer<typeof updateOrderStatusSchema>;
 export type UpdateOrderMetadata = z.infer<typeof updateOrderMetadataSchema>;
 export type ApplyDiscount = z.infer<typeof applyDiscountSchema>;
@@ -749,6 +761,9 @@ export type ApplyDeliveryFee = z.infer<typeof applyDeliveryFeeSchema>;
 export type ApplyPackagingFee = z.infer<typeof applyPackagingFeeSchema>;
 export type RecordPayment = z.infer<typeof recordPaymentSchema>;
 export type UpdateOrderItemQuantity = z.infer<typeof updateOrderItemQuantitySchema>;
+export type LinkCustomer = z.infer<typeof linkCustomerSchema>;
+export type ApplyCoupon = z.infer<typeof applyCouponSchema>;
+export type RedeemLoyaltyPoints = z.infer<typeof redeemLoyaltyPointsSchema>;
 
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
