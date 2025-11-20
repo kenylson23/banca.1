@@ -1,4 +1,4 @@
-import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield, Building2, Settings, BarChart3, CreditCard, TrendingUp, DollarSign, Receipt, FileText, Wallet, Package, PanelLeftClose, PanelLeft, ChevronRight, Briefcase, DollarSignIcon, Building } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield, Building2, Settings, BarChart3, CreditCard, TrendingUp, DollarSign, Receipt, FileText, Wallet, Package, PanelLeftClose, PanelLeft, ChevronRight, Briefcase, DollarSignIcon, Building, UserCircle, Gift, Tag } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -131,6 +131,30 @@ const adminMenuItems: MenuItem[] = [
         section: "inventory" as Section,
         path: "/inventory",
         icon: Package,
+      },
+    ],
+  },
+  {
+    title: "Clientes",
+    icon: UserCircle,
+    items: [
+      {
+        title: "Clientes",
+        section: "customers" as Section,
+        path: "/customers",
+        icon: Users,
+      },
+      {
+        title: "Fidelidade",
+        section: "loyalty" as Section,
+        path: "/loyalty",
+        icon: Gift,
+      },
+      {
+        title: "Cupons",
+        section: "coupons" as Section,
+        path: "/coupons",
+        icon: Tag,
       },
     ],
   },
