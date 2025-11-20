@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,7 @@ export default function Settings() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingHero, setUploadingHero] = useState(false);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const { data: currentUser } = useQuery<any>({
     queryKey: ['/api/auth/user'],
@@ -374,7 +376,7 @@ export default function Settings() {
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => window.open(publicLink, '_blank')}
+                  onClick={() => restaurant?.slug && setLocation(`/r/${restaurant.slug}`)}
                   data-testid="button-open-link"
                   className="flex-shrink-0"
                 >

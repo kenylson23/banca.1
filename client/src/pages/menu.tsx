@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { ExternalLink, UtensilsCrossed, Folder, Settings, Eye, Palette, ChefHat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +18,7 @@ type TabValue = "items" | "categories" | "recipes" | "customize" | "options" | "
 
 export default function Menu() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<TabValue>("items");
 
   const { data: currentUser } = useQuery<any>({
@@ -92,11 +94,8 @@ export default function Menu() {
           <Button 
             variant="outline" 
             onClick={() => {
-              const publicLink = restaurant?.slug 
-                ? `${window.location.origin}/r/${restaurant.slug}`
-                : null;
-              if (publicLink) {
-                window.open(publicLink, '_blank');
+              if (restaurant?.slug) {
+                setLocation(`/r/${restaurant.slug}`);
               } else {
                 toast({
                   title: 'Link público não disponível',
