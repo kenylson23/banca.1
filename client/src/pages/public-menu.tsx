@@ -642,6 +642,16 @@ export default function PublicMenu() {
                   Ver Cardápio
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-12 px-8"
+                  onClick={() => setIsRegisterDialogOpen(true)}
+                  data-testid="button-register"
+                >
+                  <UserPlus className="mr-2 h-5 w-5" />
+                  Cadastrar
+                </Button>
                 {restaurant.whatsappNumber && (
                   <Button
                     size="lg"
@@ -938,6 +948,126 @@ export default function PublicMenu() {
           onOpenChange={setIsShareDialogOpen}
         />
       )}
+
+      {/* Customer Registration Dialog */}
+      <Dialog open={isRegisterDialogOpen} onOpenChange={setIsRegisterDialogOpen}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-register-customer">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">Cadastre-se e ganhe benefícios!</DialogTitle>
+            <DialogDescription className="space-y-2 text-sm">
+              <p>Ao se cadastrar você terá acesso a:</p>
+              <ul className="list-none space-y-1 ml-1">
+                <li className="flex items-center gap-2">
+                  <Gift className="h-4 w-4 text-primary flex-shrink-0" />
+                  <span>Programa de fidelidade com pontos em cada compra</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Star className="h-4 w-4 text-primary flex-shrink-0" />
+                  <span>Descontos e promoções exclusivas</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Award className="h-4 w-4 text-primary flex-shrink-0" />
+                  <span>Bônus especial de aniversário</span>
+                </li>
+              </ul>
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            registerCustomerMutation.mutate(registerFormData);
+          }}>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="register-name">Nome Completo *</Label>
+                <Input
+                  id="register-name"
+                  placeholder="Digite seu nome completo"
+                  value={registerFormData.name}
+                  onChange={(e) => setRegisterFormData({ ...registerFormData, name: e.target.value })}
+                  required
+                  data-testid="input-register-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-phone">Telefone</Label>
+                <Input
+                  id="register-phone"
+                  type="tel"
+                  placeholder="+244 900 000 000"
+                  value={registerFormData.phone}
+                  onChange={(e) => setRegisterFormData({ ...registerFormData, phone: e.target.value })}
+                  data-testid="input-register-phone"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-email">Email</Label>
+                <Input
+                  id="register-email"
+                  type="email"
+                  placeholder="seuemail@exemplo.com"
+                  value={registerFormData.email}
+                  onChange={(e) => setRegisterFormData({ ...registerFormData, email: e.target.value })}
+                  data-testid="input-register-email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-cpf">CPF/BI</Label>
+                <Input
+                  id="register-cpf"
+                  placeholder="Documento de identificação"
+                  value={registerFormData.cpf}
+                  onChange={(e) => setRegisterFormData({ ...registerFormData, cpf: e.target.value })}
+                  data-testid="input-register-cpf"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-address">Endereço</Label>
+                <Textarea
+                  id="register-address"
+                  placeholder="Endereço completo"
+                  value={registerFormData.address}
+                  onChange={(e) => setRegisterFormData({ ...registerFormData, address: e.target.value })}
+                  rows={3}
+                  data-testid="input-register-address"
+                />
+              </div>
+            </div>
+            <DialogFooter className="mt-6 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsRegisterDialogOpen(false);
+                  setRegisterFormData({
+                    name: '',
+                    phone: '',
+                    email: '',
+                    cpf: '',
+                    address: '',
+                  });
+                }}
+                data-testid="button-cancel-register"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={registerCustomerMutation.isPending}
+                data-testid="button-submit-register"
+              >
+                {registerCustomerMutation.isPending ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Cadastrando...
+                  </div>
+                ) : (
+                  'Cadastrar'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
