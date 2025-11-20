@@ -956,6 +956,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public customer registration route (for customer self-registration)
+  app.post("/api/public/customers", async (req, res) => {
+    try {
+      const { restaurantId, ...customerData } = req.body;
+      
+      if (!restaurantId) {
+        return res.status(400).json({ message: "ID do restaurante é obrigatório" });
+      }
+
+      const validatedData = insertCustomerSchema.parse(customerData);
+
+      // Check if customer with phone already exists
+      if (validatedData.phone) {
+        const existing = await storage.getCustomerByPhone(restaurantId, validatedData.phone);
+        if (existing) {
+          return res.status(400).json({ message: "Já existe um cliente cadastrado com este telefone" });
+        }
+      }
+
+      const customer = await storage.createCustomer({
+        ...validatedData,
+        restaurantId,
+      });
+
+      res.json(customer);
+    } catch (error: any) {
+      console.error('Public customer registration error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Erro ao cadastrar cliente" });
+    }
+  });
+
   // ===== TABLE ROUTES (Admin Only) =====
   app.get("/api/tables", isAdmin, async (req, res) => {
     try {

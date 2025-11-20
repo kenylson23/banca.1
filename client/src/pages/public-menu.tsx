@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
@@ -17,7 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { 
   ShoppingCart, Plus, Minus, Trash2, Clock, Bike, ShoppingBag, Search, 
-  MapPin, Phone, X, ChevronLeft, ChevronRight, Utensils, Star, ArrowRight
+  MapPin, Phone, X, ChevronLeft, ChevronRight, Utensils, Star, ArrowRight, UserPlus, Gift, Award
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest } from '@/lib/queryClient';
@@ -43,6 +44,14 @@ export default function PublicMenu() {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
+  const [registerFormData, setRegisterFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    cpf: '',
+    address: '',
+  });
   const { toast } = useToast();
 
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
@@ -111,6 +120,37 @@ export default function PublicMenu() {
       items: categoryItems
     };
   }).filter(group => group.items.length > 0);
+
+  const registerCustomerMutation = useMutation({
+    mutationFn: async (customerData: typeof registerFormData) => {
+      if (!restaurantId) throw new Error('Restaurante não encontrado');
+      return await apiRequest('POST', '/api/public/customers', {
+        ...customerData,
+        restaurantId,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Cadastro realizado!',
+        description: 'Você foi cadastrado com sucesso e já pode aproveitar os benefícios.',
+      });
+      setRegisterFormData({
+        name: '',
+        phone: '',
+        email: '',
+        cpf: '',
+        address: '',
+      });
+      setIsRegisterDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Erro ao cadastrar',
+        description: error?.message || 'Tente novamente mais tarde.',
+        variant: 'destructive',
+      });
+    },
+  });
 
   const createOrderMutation = useMutation({
     mutationFn: async (orderData: {
