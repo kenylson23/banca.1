@@ -286,9 +286,10 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
         
         <div className="flex gap-4 flex-1 overflow-hidden">
           <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-            <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 flex-1 overflow-hidden">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 flex-1 overflow-hidden">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
                     control={form.control}
                     name="orderType"
                     render={({ field }) => (
@@ -474,6 +475,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                   </Button>
                 </div>
               </form>
+            </Form>
           </div>
 
           <div className="w-80 flex flex-col gap-4">
