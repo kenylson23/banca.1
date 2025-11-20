@@ -69,6 +69,12 @@ export async function ensureTablesExist() {
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE restaurants ADD COLUMN hero_image_url TEXT; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE restaurants ADD COLUMN whatsapp_number VARCHAR(50); 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE restaurants ADD COLUMN is_open INTEGER NOT NULL DEFAULT 1; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Create users table with restaurantId
       await db.execute(sql`CREATE TABLE IF NOT EXISTS users (
@@ -356,6 +362,9 @@ export async function ensureTablesExist() {
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE menu_items ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE menu_items ADD COLUMN original_price DECIMAL(10, 2); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Create orders table
