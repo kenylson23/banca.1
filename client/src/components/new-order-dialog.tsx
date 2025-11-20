@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Plus, Minus, X, ShoppingCart } from "lucide-react";
+import { Plus, Minus, X, ShoppingCart, Search, User, Phone, MapPin } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -14,7 +14,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { insertOrderSchema, type InsertOrder } from "@shared/schema";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { insertOrderSchema, type InsertOrder, type Customer } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { indexedDB } from "@/lib/indexeddb";
@@ -22,7 +24,7 @@ import { formatKwanza } from "@/lib/formatters";
 
 const newOrderFormSchema = insertOrderSchema.extend({
   orderType: z.enum(["mesa", "delivery", "takeout", "balcao", "pdv"]),
-  paymentMethod: z.string().optional(),
+  paymentMethod: z.enum(["dinheiro", "multicaixa", "transferencia", "cartao"]).optional().nullable(),
   tableId: z.string().optional(),
 });
 
@@ -68,6 +70,8 @@ interface NewOrderDialogProps {
 export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrderDialogProps) {
   const [open, setOpen] = useState(false);
   const [cart, setCart] = useState<OrderItem[]>([]);
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const { toast } = useToast();
 
   const { data: rawMenuItems = [] } = useQuery<MenuItem[]>({
@@ -82,6 +86,11 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
     enabled: open,
   });
 
+  const { data: customers = [] } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
+    enabled: open,
+  });
+
   const form = useForm<NewOrderForm>({
     resolver: zodResolver(newOrderFormSchema),
     defaultValues: {
@@ -92,7 +101,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
       customerPhone: "",
       deliveryAddress: "",
       orderNotes: "",
-      paymentMethod: "dinheiro",
+      paymentMethod: "dinheiro" as const,
     },
   });
 
@@ -250,6 +259,25 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
 
   const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
+  const filteredCustomers = customers.filter(customer => {
+    const searchLower = customerSearchQuery.toLowerCase();
+    return (
+      customer.name.toLowerCase().includes(searchLower) ||
+      customer.phone?.toLowerCase().includes(searchLower) ||
+      customer.email?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  const selectCustomer = (customer: Customer) => {
+    form.setValue("customerName", customer.name);
+    form.setValue("customerPhone", customer.phone || "");
+    if (orderType === "delivery") {
+      form.setValue("deliveryAddress", customer.address || "");
+    }
+    setCustomerSearchOpen(false);
+    setCustomerSearchQuery("");
+  };
+
   const onSubmit = (data: NewOrderForm) => {
     if (cart.length === 0) {
       toast({
@@ -262,7 +290,6 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
 
     const orderData: InsertOrder = {
       ...data,
-      totalAmount: totalAmount.toFixed(2),
       isSynced: typeof navigator !== 'undefined' && navigator.onLine ? 1 : 0,
     };
 
@@ -347,7 +374,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Método de Pagamento</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value || undefined}>
                           <FormControl>
                             <SelectTrigger data-testid="select-payment-method">
                               <SelectValue placeholder="Selecione o método" />
@@ -355,9 +382,9 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                            <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
-                            <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
-                            <SelectItem value="pix">PIX</SelectItem>
+                            <SelectItem value="multicaixa">Multicaixa</SelectItem>
+                            <SelectItem value="transferencia">Transferência</SelectItem>
+                            <SelectItem value="cartao">Cartão</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -367,20 +394,75 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                 </div>
 
                 {(orderType === "delivery" || orderType === "takeout") && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="customerName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Nome do Cliente</FormLabel>
-                          <FormControl>
-                            <Input data-testid="input-customer-name" {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <div className="space-y-4">
+                    <div className="flex items-end gap-2">
+                      <FormField
+                        control={form.control}
+                        name="customerName"
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormLabel>Nome do Cliente</FormLabel>
+                            <FormControl>
+                              <Input data-testid="input-customer-name" {...field} value={field.value || ""} placeholder="Digite o nome" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
+                        <PopoverTrigger asChild>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="icon"
+                            data-testid="button-search-customer"
+                          >
+                            <Search className="h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-96 p-0" align="start">
+                          <Command>
+                            <CommandInput 
+                              placeholder="Buscar cliente..." 
+                              value={customerSearchQuery}
+                              onValueChange={setCustomerSearchQuery}
+                            />
+                            <CommandList>
+                              <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                              <CommandGroup>
+                                <ScrollArea className="h-64">
+                                  {filteredCustomers.map((customer) => (
+                                    <CommandItem
+                                      key={customer.id}
+                                      onSelect={() => selectCustomer(customer)}
+                                      className="flex flex-col items-start gap-1 p-3 cursor-pointer"
+                                      data-testid={`customer-item-${customer.id}`}
+                                    >
+                                      <div className="flex items-center gap-2 w-full">
+                                        <User className="h-4 w-4 text-primary flex-shrink-0" />
+                                        <span className="font-medium">{customer.name}</span>
+                                      </div>
+                                      {customer.phone && (
+                                        <div className="flex items-center gap-2 w-full text-sm text-muted-foreground ml-6">
+                                          <Phone className="h-3 w-3" />
+                                          <span>{customer.phone}</span>
+                                        </div>
+                                      )}
+                                      {customer.address && (
+                                        <div className="flex items-center gap-2 w-full text-sm text-muted-foreground ml-6">
+                                          <MapPin className="h-3 w-3" />
+                                          <span className="truncate">{customer.address}</span>
+                                        </div>
+                                      )}
+                                    </CommandItem>
+                                  ))}
+                                </ScrollArea>
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
 
                     <FormField
                       control={form.control}
@@ -389,7 +471,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                         <FormItem>
                           <FormLabel>Telefone</FormLabel>
                           <FormControl>
-                            <Input data-testid="input-customer-phone" {...field} value={field.value || ""} />
+                            <Input data-testid="input-customer-phone" {...field} value={field.value || ""} placeholder="+244 900 000 000" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
