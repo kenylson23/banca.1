@@ -187,31 +187,31 @@ export default function CustomerMenu() {
         return {
           label: 'Pendente',
           icon: Clock,
-          color: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',
+          color: 'bg-muted text-foreground',
         };
       case 'em_preparo':
         return {
           label: 'Em Preparo',
           icon: ChefHat,
-          color: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
+          color: 'bg-foreground text-background',
         };
       case 'pronto':
         return {
           label: 'Pronto',
           icon: CheckCircle,
-          color: 'bg-green-500/10 text-green-700 dark:text-green-400',
+          color: 'bg-muted text-foreground',
         };
       case 'servido':
         return {
           label: 'Servido',
           icon: Check,
-          color: 'bg-gray-500/10 text-gray-700 dark:text-gray-400',
+          color: 'bg-muted text-muted-foreground',
         };
       default:
         return {
           label: status,
           icon: Clock,
-          color: 'bg-gray-500/10 text-gray-700 dark:text-gray-400',
+          color: 'bg-muted text-muted-foreground',
         };
     }
   };
@@ -359,20 +359,22 @@ export default function CustomerMenu() {
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
       >
-        <div className="container px-4 sm:px-6 py-4 space-y-3">
-          <div className="flex items-start justify-between">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-bold mb-1" data-testid="text-restaurant-name">
-                {restaurant?.name || 'NaBancada'}
-              </h1>
-              <div className="flex items-center gap-2 mb-1">
-                <Badge className="bg-green-500 hover:bg-green-600 text-white" data-testid="badge-restaurant-status">
-                  Aberto
-                </Badge>
+        <div className="container px-4 sm:px-6 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                <UtensilsCrossed className="h-6 w-6 text-muted-foreground" />
               </div>
-              <p className="text-sm text-muted-foreground" data-testid="text-table-number">
-                Mesa {currentTable?.number || tableNumber}
-              </p>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-lg font-bold leading-tight" data-testid="text-restaurant-name">
+                  {restaurant?.name || 'NaBancada'}
+                </h1>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Badge className="text-xs h-5 px-2" data-testid="badge-restaurant-status">
+                    Aberto
+                  </Badge>
+                </div>
+              </div>
             </div>
             
             <div className="flex items-center gap-2">
@@ -383,7 +385,7 @@ export default function CustomerMenu() {
                   rel="noopener noreferrer"
                   data-testid="link-whatsapp"
                 >
-                  <Button variant="outline" size="icon" className="min-h-10 min-w-10 bg-green-50 hover:bg-green-100 text-green-600 border-green-200">
+                  <Button variant="outline" size="icon" className="min-h-10 min-w-10">
                     <MessageCircle className="h-5 w-5" />
                   </Button>
                 </a>
@@ -681,37 +683,27 @@ export default function CustomerMenu() {
         </div>
       </motion.header>
 
-      {/* Search and Filters */}
-      <motion.section 
-        className="container px-4 sm:px-6 py-4 space-y-3 border-b"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <span>Informação</span>
-        </div>
-
-        {/* Category Filters */}
-        {categories.length > 0 && (
+      {/* Category Tabs */}
+      {categories.length > 0 && (
+        <div className="sticky top-[61px] z-40 bg-background border-b">
           <ScrollArea className="w-full">
-            <div className="flex gap-3 pb-2">
+            <div className="container px-4 sm:px-6 flex gap-6 py-3">
               <button
                 onClick={() => setSelectedCategory('all')}
-                className={`text-sm font-medium transition-colors whitespace-nowrap pb-1 ${
+                className={`text-sm font-bold transition-colors whitespace-nowrap pb-2 ${
                   selectedCategory === 'all'
                     ? 'text-foreground border-b-2 border-foreground'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
                 data-testid="filter-all"
               >
-                Todos
+                Pratos
               </button>
               {categories.map((category) => (
                 <button
                   key={category.id}
                   onClick={() => setSelectedCategory(String(category.id))}
-                  className={`text-sm font-medium transition-colors whitespace-nowrap pb-1 ${
+                  className={`text-sm font-bold transition-colors whitespace-nowrap pb-2 ${
                     selectedCategory === String(category.id)
                       ? 'text-foreground border-b-2 border-foreground'
                       : 'text-muted-foreground hover:text-foreground'
@@ -723,71 +715,8 @@ export default function CustomerMenu() {
               ))}
             </div>
           </ScrollArea>
-        )}
-      </motion.section>
-
-      {/* Search Section */}
-      <motion.section 
-        className="container px-4 sm:px-6 py-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.25 }}
-      >
-        <div className="mb-3">
-          <h2 className="text-lg font-semibold">Procurar Resultados</h2>
         </div>
-        <div className="relative">
-          <Input
-            type="text"
-            placeholder="Buscar no cardápio..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-11 text-base"
-            data-testid="input-search"
-          />
-          <div className="absolute left-3 top-1/2 -translate-y-1/2">
-            <Search className="h-4 w-4 text-muted-foreground" />
-          </div>
-        </div>
-
-        {/* Dietary Filters */}
-        {(dietaryTags.some(tag => menuItems?.some(item => item.tags?.includes(tag.value))) || activeFilters.length > 0) && (
-          <div className="flex flex-wrap gap-2 mt-3">
-            {dietaryTags.map(tag => {
-              const Icon = tag.icon;
-              const isActive = activeFilters.includes(tag.value);
-              const hasItems = menuItems?.some(item => item.tags?.includes(tag.value));
-              if (!hasItems && !isActive) return null;
-              
-              return (
-                <Button
-                  key={tag.value}
-                  variant={isActive ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => toggleFilter(tag.value)}
-                  className="gap-1.5 h-8"
-                  data-testid={`dietary-${tag.value}`}
-                >
-                  <Icon className={`h-3 w-3 ${!isActive ? tag.color : ''}`} />
-                  {tag.label}
-                </Button>
-              );
-            })}
-            {activeFilters.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setActiveFilters([])}
-                className="gap-1 h-8"
-                data-testid="button-clear-filters"
-              >
-                <X className="h-3 w-3" />
-                Limpar
-              </Button>
-            )}
-          </div>
-        )}
-      </motion.section>
+      )}
 
       {/* Menu Items */}
       <main className="container px-4 sm:px-6 py-4 pb-24">
@@ -803,7 +732,7 @@ export default function CustomerMenu() {
               {categoryName}
             </h2>
             
-            <div className="space-y-3">
+            <div className="space-y-4">
               {items.map((item, itemIndex) => {
                 const hasDiscount = item.originalPrice && parseFloat(item.originalPrice) > parseFloat(item.price);
                 const discountPercentage = hasDiscount 
@@ -816,56 +745,66 @@ export default function CustomerMenu() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: itemIndex * 0.05 }}
-                    onClick={() => item.isAvailable !== 0 && setSelectedMenuItem(item)}
-                    className={`${item.isAvailable === 0 ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                    className={`${item.isAvailable === 0 ? 'opacity-60' : ''}`}
                     data-testid={`card-menu-item-${item.id}`}
                   >
-                    <div className={`flex gap-3 p-3 rounded-md border ${item.isAvailable !== 0 ? 'hover-elevate active-elevate-2' : ''}`}>
-                      {item.imageUrl && (
-                        <div className="relative w-24 h-24 flex-shrink-0 overflow-hidden rounded-md bg-muted">
-                          <img
-                            src={item.imageUrl}
-                            alt={item.name}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                            data-testid={`img-menu-item-${item.id}`}
-                          />
-                          {hasDiscount && (
-                            <Badge 
-                              className="absolute top-1 left-1 bg-red-500 text-white font-bold text-xs px-1.5 py-0.5"
-                              data-testid={`badge-discount-${item.id}`}
-                            >
-                              -{discountPercentage}%
-                            </Badge>
-                          )}
-                          {item.isAvailable === 0 && (
-                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                              <span className="text-xs text-white font-medium">Indisponível</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      
+                    <div className="flex gap-4 py-4 border-b">
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-base leading-tight mb-1" data-testid={`text-menu-item-name-${item.id}`}>
+                        <h3 className="font-bold text-base leading-tight mb-1" data-testid={`text-menu-item-name-${item.id}`}>
                           {item.name}
                         </h3>
                         {item.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2 mb-2" data-testid={`text-menu-item-description-${item.id}`}>
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-3" data-testid={`text-menu-item-description-${item.id}`}>
                             {item.description}
                           </p>
                         )}
                         <div className="flex items-center gap-2">
                           {hasDiscount && (
-                            <span className="text-sm text-muted-foreground line-through" data-testid={`text-original-price-${item.id}`}>
-                              {formatKwanza(item.originalPrice!)}
-                            </span>
+                            <>
+                              <Badge 
+                                className="font-bold text-xs px-2 py-0.5"
+                                data-testid={`badge-discount-${item.id}`}
+                              >
+                                -{discountPercentage}%
+                              </Badge>
+                              <span className="text-sm text-muted-foreground line-through" data-testid={`text-original-price-${item.id}`}>
+                                {formatKwanza(item.originalPrice!)}
+                              </span>
+                            </>
                           )}
-                          <span className="text-lg font-bold" data-testid={`text-menu-item-price-${item.id}`}>
+                          <span className="text-base font-bold" data-testid={`text-menu-item-price-${item.id}`}>
                             {formatKwanza(item.price)}
                           </span>
                         </div>
                       </div>
+                      
+                      {item.imageUrl && (
+                        <div className="relative w-28 h-28 flex-shrink-0">
+                          <div className="w-full h-full overflow-hidden rounded-lg bg-muted">
+                            <img
+                              src={item.imageUrl}
+                              alt={item.name}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                              data-testid={`img-menu-item-${item.id}`}
+                            />
+                          </div>
+                          {item.isAvailable === 0 ? (
+                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-lg">
+                              <span className="text-xs text-white font-medium">Indisponível</span>
+                            </div>
+                          ) : (
+                            <Button
+                              size="icon"
+                              className="absolute bottom-2 right-2 h-8 w-8 rounded-full bg-foreground text-background hover:bg-foreground/90 shadow-lg"
+                              onClick={() => setSelectedMenuItem(item)}
+                              data-testid={`button-add-${item.id}`}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 );
