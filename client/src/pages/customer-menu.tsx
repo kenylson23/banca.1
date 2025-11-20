@@ -784,20 +784,16 @@ export default function CustomerMenu() {
         {groupedByCategory && Object.entries(groupedByCategory).map(([categoryName, items], catIndex) => (
           <motion.div 
             key={categoryName} 
-            className="mb-10"
+            className="mb-8"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: catIndex * 0.1 }}
           >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent flex-1" />
-              <h2 className="text-xl sm:text-2xl font-bold" data-testid={`text-category-${categoryName}`}>
-                {categoryName}
-              </h2>
-              <div className="h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent flex-1" />
-            </div>
+            <h2 className="text-xl font-bold mb-4" data-testid={`text-category-${categoryName}`}>
+              {categoryName}
+            </h2>
             
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-3">
               {items.map((item, itemIndex) => {
                 const hasDiscount = item.originalPrice && parseFloat(item.originalPrice) > parseFloat(item.price);
                 const discountPercentage = hasDiscount 
@@ -810,123 +806,57 @@ export default function CustomerMenu() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: itemIndex * 0.05 }}
+                    onClick={() => setSelectedMenuItem(item)}
+                    className={`${item.isAvailable === 0 ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                    data-testid={`card-menu-item-${item.id}`}
                   >
-                    <Card 
-                      className="overflow-hidden hover-elevate active-elevate-2 flex flex-col h-full"
-                      data-testid={`card-menu-item-${item.id}`}
-                    >
+                    <div className="flex gap-3 p-3 rounded-md border hover-elevate active-elevate-2">
                       {item.imageUrl && (
-                        <div 
-                          className="relative aspect-video w-full overflow-hidden bg-muted cursor-pointer group"
-                          onClick={() => setImagePreview(item.imageUrl!)}
-                        >
+                        <div className="relative w-24 h-24 flex-shrink-0 overflow-hidden rounded-md bg-muted">
                           <img
                             src={item.imageUrl}
                             alt={item.name}
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            className="h-full w-full object-cover"
                             loading="lazy"
                             data-testid={`img-menu-item-${item.id}`}
                           />
-                          
-                          {/* Badges */}
-                          <div className="absolute top-3 left-3 flex flex-col gap-2">
-                            {hasDiscount && (
-                              <Badge 
-                                className="bg-red-500 hover:bg-red-600 text-white font-bold shadow-lg"
-                                data-testid={`badge-discount-${item.id}`}
-                              >
-                                -{discountPercentage}%
-                              </Badge>
-                            )}
-                            {item.isFeatured === 1 && (
-                              <Badge 
-                                className="bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-lg gap-1"
-                                data-testid={`badge-featured-${item.id}`}
-                              >
-                                <Star className="h-3 w-3 fill-white" />
-                                Destaque
-                              </Badge>
-                            )}
-                            {item.isNew === 1 && (
-                              <Badge 
-                                className="bg-blue-500 hover:bg-blue-600 text-white font-bold shadow-lg gap-1"
-                                data-testid={`badge-new-${item.id}`}
-                              >
-                                <Sparkles className="h-3 w-3" />
-                                Novo
-                              </Badge>
-                            )}
-                          </div>
-
-                          {/* Dietary Tags */}
-                          {item.tags && item.tags.length > 0 && (
-                            <div className="absolute top-3 right-3 flex flex-col gap-1">
-                              {item.tags.map(tag => {
-                                const tagInfo = dietaryTags.find(t => t.value === tag);
-                                if (!tagInfo) return null;
-                                const Icon = tagInfo.icon;
-                                return (
-                                  <div 
-                                    key={tag}
-                                    className="w-7 h-7 rounded-full bg-white/95 shadow-md flex items-center justify-center backdrop-blur-sm"
-                                    title={tagInfo.label}
-                                  >
-                                    <Icon className={`h-3.5 w-3.5 ${tagInfo.color}`} />
-                                  </div>
-                                );
-                              })}
-                            </div>
+                          {hasDiscount && (
+                            <Badge 
+                              className="absolute top-1 left-1 bg-red-500 text-white font-bold text-xs px-1.5 py-0.5"
+                              data-testid={`badge-discount-${item.id}`}
+                            >
+                              -{discountPercentage}%
+                            </Badge>
                           )}
-
                           {item.isAvailable === 0 && (
                             <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                              <Badge variant="secondary" className="text-lg px-4 py-2">
-                                Indisponível
-                              </Badge>
+                              <span className="text-xs text-white font-medium">Indisponível</span>
                             </div>
                           )}
                         </div>
                       )}
                       
-                      <CardHeader className="flex-1">
-                        <CardTitle className="text-lg sm:text-xl" data-testid={`text-menu-item-name-${item.id}`}>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-base leading-tight mb-1" data-testid={`text-menu-item-name-${item.id}`}>
                           {item.name}
-                        </CardTitle>
+                        </h3>
                         {item.description && (
-                          <CardDescription className="text-sm mt-2 line-clamp-2" data-testid={`text-menu-item-description-${item.id}`}>
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-2" data-testid={`text-menu-item-description-${item.id}`}>
                             {item.description}
-                          </CardDescription>
+                          </p>
                         )}
-                        {item.preparationTime && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
-                            <Clock className="h-3 w-3" />
-                            <span>{item.preparationTime} min</span>
-                          </div>
-                        )}
-                      </CardHeader>
-                      
-                      <CardFooter className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
                           {hasDiscount && (
-                            <span className="text-xs text-gray-400 line-through" data-testid={`text-original-price-${item.id}`}>
+                            <span className="text-sm text-muted-foreground line-through" data-testid={`text-original-price-${item.id}`}>
                               {formatKwanza(item.originalPrice!)}
                             </span>
                           )}
-                          <span className="text-xl sm:text-2xl font-bold text-primary" data-testid={`text-menu-item-price-${item.id}`}>
+                          <span className="text-lg font-bold" data-testid={`text-menu-item-price-${item.id}`}>
                             {formatKwanza(item.price)}
                           </span>
                         </div>
-                        <Button
-                          onClick={() => setSelectedMenuItem(item)}
-                          disabled={item.isAvailable === 0}
-                          className="min-h-10 px-6"
-                          data-testid={`button-add-to-cart-${item.id}`}
-                        >
-                          <Plus className="h-5 w-5 mr-2" />
-                          Adicionar
-                        </Button>
-                      </CardFooter>
-                    </Card>
+                      </div>
+                    </div>
                   </motion.div>
                 );
               })}
