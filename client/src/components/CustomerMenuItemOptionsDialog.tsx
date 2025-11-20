@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -8,10 +8,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Minus, ShoppingCart } from 'lucide-react';
+import { Plus, Minus, ShoppingCart, X, Sparkles, Star } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import type { MenuItem, OptionGroup, Option } from '@shared/schema';
 import type { SelectedOption } from '@/contexts/CartContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface CustomerMenuItemOptionsDialogProps {
   open: boolean;
@@ -148,215 +149,330 @@ export function CustomerMenuItemOptionsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="p-6 pb-4">
-          <DialogTitle className="text-xl" data-testid="text-options-dialog-title">
-            {menuItem.name}
-          </DialogTitle>
-          <DialogDescription data-testid="text-options-dialog-description">
-            Personalize seu pedido
-          </DialogDescription>
-        </DialogHeader>
-
-        <ScrollArea className="flex-1 px-6">
-          {isLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          ) : !hasOptions ? (
-            <div className="py-4">
-              <p className="text-sm text-muted-foreground">
-                Este prato não possui opções de personalização.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-6 pb-4">
-              {optionGroups.map((group) => {
-                const groupSelections = selections[group.id] || [];
-                const selectionCount = groupSelections.length;
-                const isRequired = (group.minSelections ?? 0) > 0;
-                const isSingleSelect = group.type === 'single';
-
-                return (
-                  <div key={group.id} className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="font-semibold text-base" data-testid={`text-group-name-${group.id}`}>
-                          {group.name}
-                        </h3>
-                        <div className="flex gap-2 mt-1">
-                          {isRequired && (
-                            <Badge variant="secondary" className="text-xs">
-                              Obrigatório
-                            </Badge>
-                          )}
-                          <Badge variant="outline" className="text-xs">
-                            {isSingleSelect
-                              ? 'Escolha 1'
-                              : group.maxSelections
-                              ? `Escolha até ${group.maxSelections}`
-                              : 'Múltipla escolha'}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {isSingleSelect ? (
-                      <RadioGroup
-                        value={groupSelections[0]?.optionId || ''}
-                        onValueChange={(value) => handleSingleSelect(group.id, value)}
-                      >
-                        <div className="space-y-2">
-                          {[...group.options]
-                            .sort((a, b) => (b.isRecommended || 0) - (a.isRecommended || 0))
-                            .map((option) => {
-                              const isRecommended = option.isRecommended === 1;
-                              return (
-                                <div 
-                                  key={option.id} 
-                                  className={`flex items-center space-x-3 p-3 rounded-md hover-elevate ${
-                                    isRecommended ? 'border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/20' : ''
-                                  }`}
-                                >
-                                  <RadioGroupItem
-                                    value={option.id}
-                                    id={option.id}
-                                    data-testid={`radio-option-${option.id}`}
-                                  />
-                                  <Label htmlFor={option.id} className="flex-1 cursor-pointer">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-medium">{option.name}</span>
-                                        {isRecommended && (
-                                          <Badge variant="default" className="bg-amber-500 hover:bg-amber-600 text-xs">
-                                            ⭐ Sugestão
-                                          </Badge>
-                                        )}
-                                      </div>
-                                      {parseFloat(option.priceAdjustment) !== 0 && (
-                                        <span className="text-sm text-muted-foreground">
-                                          {parseFloat(option.priceAdjustment) > 0 ? '+' : ''}
-                                          {formatKwanza(option.priceAdjustment)}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </Label>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      </RadioGroup>
-                    ) : (
-                      <div className="space-y-2">
-                        {[...group.options]
-                          .sort((a, b) => (b.isRecommended || 0) - (a.isRecommended || 0))
-                          .map((option) => {
-                            const isSelected = groupSelections.some(s => s.optionId === option.id);
-                            const canSelect = !group.maxSelections || selectionCount < group.maxSelections || isSelected;
-                            const isRecommended = option.isRecommended === 1;
-
-                            return (
-                              <div 
-                                key={option.id} 
-                                className={`flex items-center space-x-3 p-3 rounded-md hover-elevate ${
-                                  isRecommended ? 'border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/20' : ''
-                                }`}
-                              >
-                                <Checkbox
-                                  id={option.id}
-                                  checked={isSelected}
-                                  onCheckedChange={(checked) => handleMultiSelect(group.id, option.id, checked as boolean)}
-                                  disabled={!canSelect}
-                                  data-testid={`checkbox-option-${option.id}`}
-                                />
-                                <Label htmlFor={option.id} className="flex-1 cursor-pointer">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-medium">{option.name}</span>
-                                      {isRecommended && (
-                                        <Badge variant="default" className="bg-amber-500 hover:bg-amber-600 text-xs">
-                                          ⭐ Sugestão
-                                        </Badge>
-                                      )}
-                                    </div>
-                                    {parseFloat(option.priceAdjustment) !== 0 && (
-                                      <span className="text-sm text-muted-foreground">
-                                        {parseFloat(option.priceAdjustment) > 0 ? '+' : ''}
-                                        {formatKwanza(option.priceAdjustment)}
-                                      </span>
-                                    )}
-                                  </div>
-                                </Label>
-                              </div>
-                            );
-                          })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </ScrollArea>
-
-        <div className="border-t p-6 space-y-4">
-          {!validation.valid && (
-            <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
-              {validation.errors.map((error, idx) => (
-                <div key={idx}>• {error}</div>
-              ))}
-            </div>
-          )}
-
-          <div className="flex items-center justify-between">
-            <Label className="text-sm font-medium">Quantidade</Label>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9"
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                data-testid="button-decrease-quantity"
-              >
-                <Minus className="h-4 w-4" />
-              </Button>
-              <span className="w-12 text-center font-medium" data-testid="text-quantity">
-                {quantity}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9"
-                onClick={() => setQuantity(quantity + 1)}
-                data-testid="button-increase-quantity"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between">
-            <span className="text-lg font-semibold">Total</span>
-            <span className="text-2xl font-bold text-primary" data-testid="text-total-price">
-              {formatKwanza(calculateTotal())}
-            </span>
-          </div>
-
-          <DialogFooter>
+      <DialogContent className="max-w-3xl max-h-[95vh] p-0 gap-0 overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-50 border-gray-200">
+        {/* Header with Image */}
+        <div className="relative">
+          {/* Image Section */}
+          <div className="relative h-56 sm:h-72 bg-gradient-to-br from-gray-100 via-gray-50 to-white overflow-hidden">
+            {menuItem.imageUrl ? (
+              <>
+                <img 
+                  src={menuItem.imageUrl} 
+                  alt={menuItem.name}
+                  className="w-full h-full object-cover"
+                />
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+              </>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-50">
+                <Sparkles className="h-20 w-20 text-gray-300" />
+              </div>
+            )}
+            
+            {/* Close Button */}
             <Button
-              className="w-full min-h-11"
-              onClick={handleAddToCart}
-              disabled={!validation.valid}
-              data-testid="button-add-to-cart"
+              variant="ghost"
+              size="icon"
+              onClick={() => onOpenChange(false)}
+              className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white text-gray-900 shadow-lg"
+              data-testid="button-close-dialog"
             >
-              <ShoppingCart className="h-5 w-5 mr-2" />
-              Adicionar ao Carrinho ({quantity})
+              <X className="h-5 w-5" />
             </Button>
-          </DialogFooter>
+
+            {/* Title Overlay */}
+            <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 drop-shadow-lg" data-testid="text-options-dialog-title">
+                  {menuItem.name}
+                </h2>
+                {menuItem.description && (
+                  <p className="text-sm sm:text-base text-white/90 drop-shadow-md max-w-2xl" data-testid="text-options-dialog-description">
+                    {menuItem.description}
+                  </p>
+                )}
+              </motion.div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex flex-col max-h-[calc(95vh-14rem)] sm:max-h-[calc(95vh-18rem)]">
+          <ScrollArea className="flex-1 px-6 sm:px-8 py-6">
+            {isLoading ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-10 w-10 border-3 border-gray-200 border-t-gray-900"></div>
+              </div>
+            ) : !hasOptions ? (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="py-8"
+              >
+                <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-100 rounded-2xl p-6 text-center">
+                  <Sparkles className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-600 font-medium">
+                    Este item não possui opções de personalização.
+                  </p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Ajuste apenas a quantidade desejada
+                  </p>
+                </div>
+              </motion.div>
+            ) : (
+              <div className="space-y-6 pb-2">
+                <AnimatePresence>
+                  {optionGroups.map((group, groupIndex) => {
+                    const groupSelections = selections[group.id] || [];
+                    const selectionCount = groupSelections.length;
+                    const isRequired = (group.minSelections ?? 0) > 0;
+                    const isSingleSelect = group.type === 'single';
+
+                    return (
+                      <motion.div
+                        key={group.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: groupIndex * 0.05 }}
+                        className="relative rounded-2xl border border-gray-200 bg-white/50 backdrop-blur-sm p-5 sm:p-6 shadow-sm"
+                      >
+                        {/* Subtle gradient border effect */}
+                        <div className="absolute inset-0 rounded-2xl border border-gray-100/50 pointer-events-none" 
+                          style={{ 
+                            maskImage: 'linear-gradient(135deg, white, transparent 60%)',
+                            WebkitMaskImage: 'linear-gradient(135deg, white, transparent 60%)'
+                          }} 
+                        />
+                        
+                        <div className="space-y-4">
+                          {/* Group Header */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1">
+                              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2" data-testid={`text-group-name-${group.id}`}>
+                                {group.name}
+                                {isRequired && (
+                                  <span className="text-red-500 text-sm">*</span>
+                                )}
+                              </h3>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {isRequired && (
+                                  <Badge className="bg-red-50 text-red-700 border border-red-200 text-xs font-medium">
+                                    Obrigatório
+                                  </Badge>
+                                )}
+                                <Badge variant="outline" className="border-gray-200 text-gray-600 text-xs font-medium">
+                                  {isSingleSelect
+                                    ? 'Escolha 1 opção'
+                                    : group.maxSelections
+                                    ? `Escolha até ${group.maxSelections}`
+                                    : 'Múltipla escolha'}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+
+                          <Separator className="bg-gray-100" />
+
+                          {/* Options */}
+                          {isSingleSelect ? (
+                            <RadioGroup
+                              value={groupSelections[0]?.optionId || ''}
+                              onValueChange={(value) => handleSingleSelect(group.id, value)}
+                            >
+                              <div className="space-y-2">
+                                {[...group.options]
+                                  .sort((a, b) => (b.isRecommended || 0) - (a.isRecommended || 0))
+                                  .map((option) => {
+                                    const isRecommended = option.isRecommended === 1;
+                                    const isSelected = groupSelections[0]?.optionId === option.id;
+                                    
+                                    return (
+                                      <motion.div
+                                        key={option.id}
+                                        whileHover={{ scale: 1.01 }}
+                                        whileTap={{ scale: 0.99 }}
+                                        className={`
+                                          relative flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all duration-200
+                                          ${isSelected 
+                                            ? 'bg-gray-900 text-white shadow-md' 
+                                            : isRecommended 
+                                              ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 hover:border-amber-400' 
+                                              : 'bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                                          }
+                                        `}
+                                      >
+                                        {isRecommended && !isSelected && (
+                                          <div className="absolute -top-2 -right-2">
+                                            <div className="bg-gradient-to-br from-amber-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md flex items-center gap-1">
+                                              <Star className="h-3 w-3 fill-current" />
+                                              Sugestão
+                                            </div>
+                                          </div>
+                                        )}
+                                        
+                                        <RadioGroupItem
+                                          value={option.id}
+                                          id={option.id}
+                                          className={isSelected ? 'border-white text-white' : ''}
+                                          data-testid={`radio-option-${option.id}`}
+                                        />
+                                        <Label htmlFor={option.id} className="flex-1 cursor-pointer">
+                                          <div className="flex items-center justify-between gap-3">
+                                            <span className={`font-semibold ${isSelected ? 'text-white' : 'text-gray-900'}`}>
+                                              {option.name}
+                                            </span>
+                                            {parseFloat(option.priceAdjustment) !== 0 && (
+                                              <span className={`text-sm font-medium ${isSelected ? 'text-white/90' : 'text-gray-600'}`}>
+                                                {parseFloat(option.priceAdjustment) > 0 ? '+' : ''}
+                                                {formatKwanza(option.priceAdjustment)}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </Label>
+                                      </motion.div>
+                                    );
+                                  })}
+                              </div>
+                            </RadioGroup>
+                          ) : (
+                            <div className="space-y-2">
+                              {[...group.options]
+                                .sort((a, b) => (b.isRecommended || 0) - (a.isRecommended || 0))
+                                .map((option) => {
+                                  const isSelected = groupSelections.some(s => s.optionId === option.id);
+                                  const canSelect = !group.maxSelections || selectionCount < group.maxSelections || isSelected;
+                                  const isRecommended = option.isRecommended === 1;
+
+                                  return (
+                                    <motion.div
+                                      key={option.id}
+                                      whileHover={{ scale: canSelect ? 1.01 : 1 }}
+                                      whileTap={{ scale: canSelect ? 0.99 : 1 }}
+                                      className={`
+                                        relative flex items-center gap-3 p-4 rounded-xl transition-all duration-200
+                                        ${isSelected 
+                                          ? 'bg-gray-900 text-white shadow-md' 
+                                          : isRecommended 
+                                            ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 hover:border-amber-400' 
+                                            : 'bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                                        }
+                                        ${!canSelect ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                                      `}
+                                    >
+                                      {isRecommended && !isSelected && (
+                                        <div className="absolute -top-2 -right-2">
+                                          <div className="bg-gradient-to-br from-amber-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md flex items-center gap-1">
+                                            <Star className="h-3 w-3 fill-current" />
+                                            Sugestão
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      <Checkbox
+                                        id={option.id}
+                                        checked={isSelected}
+                                        onCheckedChange={(checked) => handleMultiSelect(group.id, option.id, checked as boolean)}
+                                        disabled={!canSelect}
+                                        className={isSelected ? 'border-white data-[state=checked]:bg-white data-[state=checked]:text-gray-900' : ''}
+                                        data-testid={`checkbox-option-${option.id}`}
+                                      />
+                                      <Label htmlFor={option.id} className={`flex-1 ${canSelect ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+                                        <div className="flex items-center justify-between gap-3">
+                                          <span className={`font-semibold ${isSelected ? 'text-white' : 'text-gray-900'}`}>
+                                            {option.name}
+                                          </span>
+                                          {parseFloat(option.priceAdjustment) !== 0 && (
+                                            <span className={`text-sm font-medium ${isSelected ? 'text-white/90' : 'text-gray-600'}`}>
+                                              {parseFloat(option.priceAdjustment) > 0 ? '+' : ''}
+                                              {formatKwanza(option.priceAdjustment)}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </Label>
+                                    </motion.div>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            )}
+          </ScrollArea>
+
+          {/* Footer */}
+          <div className="border-t border-gray-200 bg-white/80 backdrop-blur-sm px-6 sm:px-8 py-5 space-y-4">
+            {!validation.valid && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-xl"
+              >
+                {validation.errors.map((error, idx) => (
+                  <div key={idx} className="flex items-start gap-2">
+                    <span className="text-red-500 font-bold">•</span>
+                    <span>{error}</span>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+
+            {/* Quantity Selector */}
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+              <Label className="text-base font-semibold text-gray-900">Quantidade</Label>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 rounded-full border-gray-300 hover:bg-gray-100"
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  data-testid="button-decrease-quantity"
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <span className="w-12 text-center text-lg font-bold text-gray-900" data-testid="text-quantity">
+                  {quantity}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 rounded-full border-gray-300 hover:bg-gray-100"
+                  onClick={() => setQuantity(quantity + 1)}
+                  data-testid="button-increase-quantity"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Total and Add Button */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 bg-gradient-to-br from-gray-900 to-gray-800 text-white p-4 rounded-xl shadow-md">
+                <div className="text-xs font-medium text-white/70 mb-1">Total</div>
+                <div className="text-2xl font-bold" data-testid="text-total-price">
+                  {formatKwanza(calculateTotal())}
+                </div>
+              </div>
+              <Button
+                size="lg"
+                className="flex-1 h-auto py-4 bg-gray-900 hover:bg-gray-800 text-white rounded-xl shadow-lg hover:shadow-xl transition-all text-base font-bold"
+                onClick={handleAddToCart}
+                disabled={!validation.valid}
+                data-testid="button-add-to-cart"
+              >
+                <ShoppingCart className="h-5 w-5 mr-2" />
+                Adicionar ({quantity})
+              </Button>
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
