@@ -691,7 +691,7 @@ export default function PublicMenu() {
                 <h2 className="text-3xl font-bold text-foreground mb-2">{group.category.name}</h2>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                 {group.items.map((item, itemIndex) => {
                   const itemPrice = typeof item.price === 'string' ? item.price : Number(item.price).toFixed(2);
                   const itemOriginalPrice = item.originalPrice 
@@ -713,58 +713,50 @@ export default function PublicMenu() {
                       >
                         <CardContent className="p-0 flex flex-col h-full">
                           {item.imageUrl ? (
-                            <div className="relative h-24 sm:h-32 w-full bg-muted overflow-hidden">
+                            <div className="relative aspect-square w-full bg-muted overflow-hidden">
                               <img
                                 src={item.imageUrl}
                                 alt={item.name}
                                 className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                               />
                               {hasPromo && (
-                                <Badge className="absolute top-1.5 right-1.5 bg-red-500 text-white text-[10px] px-1.5 py-0.5">
-                                  Promoção
+                                <Badge className="absolute top-1 right-1 bg-red-500 text-white text-[9px] px-1 py-0.5">
+                                  Promo
                                 </Badge>
                               )}
                             </div>
                           ) : (
-                            <div className="relative h-24 sm:h-32 w-full bg-muted flex items-center justify-center">
-                              <Utensils className="h-8 w-8 text-muted-foreground/30" />
+                            <div className="relative aspect-square w-full bg-muted flex items-center justify-center">
+                              <Utensils className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground/30" />
                               {hasPromo && (
-                                <Badge className="absolute top-1.5 right-1.5 bg-red-500 text-white text-[10px] px-1.5 py-0.5">
-                                  Promoção
+                                <Badge className="absolute top-1 right-1 bg-red-500 text-white text-[9px] px-1 py-0.5">
+                                  Promo
                                 </Badge>
                               )}
                             </div>
                           )}
-                          <div className="p-2.5 sm:p-3 flex flex-col flex-1">
-                            <h3 className="font-bold text-sm sm:text-base mb-1 line-clamp-2" data-testid={`text-item-name-${item.id}`}>
+                          <div className="p-2 sm:p-2.5 flex flex-col flex-1 gap-1">
+                            <h3 className="font-bold text-xs sm:text-sm leading-tight line-clamp-2" data-testid={`text-item-name-${item.id}`}>
                               {item.name}
                             </h3>
-                            {item.description && (
-                              <p className="text-[11px] sm:text-xs text-muted-foreground mb-2 line-clamp-1">
-                                {item.description}
-                              </p>
-                            )}
-                            <div className="mt-auto flex items-center justify-between gap-1.5">
-                              <div className="flex flex-col">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-primary font-bold text-base sm:text-lg" data-testid={`text-item-price-${item.id}`}>
-                                    {formatKwanza(itemPrice)}
+                            <div className="mt-auto flex flex-col gap-1.5">
+                              <div className="flex items-baseline gap-1 flex-wrap">
+                                <span className="text-primary font-bold text-sm sm:text-base" data-testid={`text-item-price-${item.id}`}>
+                                  {formatKwanza(itemPrice)}
+                                </span>
+                                {hasPromo && (
+                                  <span className="text-[9px] sm:text-[10px] text-muted-foreground line-through">
+                                    {formatKwanza(itemOriginalPrice!)}
                                   </span>
-                                  {hasPromo && (
-                                    <span className="text-[10px] sm:text-xs text-muted-foreground line-through">
-                                      {formatKwanza(itemOriginalPrice!)}
-                                    </span>
-                                  )}
-                                </div>
+                                )}
                               </div>
                               <Button
-                                size="sm"
-                                className="bg-primary hover:bg-primary/90 text-white font-medium text-[11px] sm:text-xs px-2 sm:px-3"
+                                size="icon"
+                                className="w-full h-7 sm:h-8 bg-primary hover:bg-primary/90 text-white"
                                 onClick={(e) => handleQuickAddToCart(item, e)}
                                 data-testid={`button-add-${item.id}`}
                               >
-                                <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-0.5 sm:mr-1" />
-                                Adicionar
+                                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                               </Button>
                             </div>
                           </div>
@@ -777,7 +769,7 @@ export default function PublicMenu() {
             </motion.section>
           ))
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {filteredItems.map((item, itemIndex) => {
               const itemPrice = typeof item.price === 'string' ? item.price : Number(item.price).toFixed(2);
               const itemOriginalPrice = item.originalPrice 
@@ -799,58 +791,50 @@ export default function PublicMenu() {
                   >
                     <CardContent className="p-0 flex flex-col h-full">
                       {item.imageUrl ? (
-                        <div className="relative h-24 sm:h-32 w-full bg-muted overflow-hidden">
+                        <div className="relative aspect-square w-full bg-muted overflow-hidden">
                           <img
                             src={item.imageUrl}
                             alt={item.name}
                             className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                           />
                           {hasPromo && (
-                            <Badge className="absolute top-1.5 right-1.5 bg-red-500 text-white text-[10px] px-1.5 py-0.5">
-                              Promoção
+                            <Badge className="absolute top-1 right-1 bg-red-500 text-white text-[9px] px-1 py-0.5">
+                              Promo
                             </Badge>
                           )}
                         </div>
                       ) : (
-                        <div className="relative h-24 sm:h-32 w-full bg-muted flex items-center justify-center">
-                          <Utensils className="h-8 w-8 text-muted-foreground/30" />
+                        <div className="relative aspect-square w-full bg-muted flex items-center justify-center">
+                          <Utensils className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground/30" />
                           {hasPromo && (
-                            <Badge className="absolute top-1.5 right-1.5 bg-red-500 text-white text-[10px] px-1.5 py-0.5">
-                              Promoção
+                            <Badge className="absolute top-1 right-1 bg-red-500 text-white text-[9px] px-1 py-0.5">
+                              Promo
                             </Badge>
                           )}
                         </div>
                       )}
-                      <div className="p-2.5 sm:p-3 flex flex-col flex-1">
-                        <h3 className="font-bold text-sm sm:text-base mb-1 line-clamp-2" data-testid={`text-item-name-${item.id}`}>
+                      <div className="p-2 sm:p-2.5 flex flex-col flex-1 gap-1">
+                        <h3 className="font-bold text-xs sm:text-sm leading-tight line-clamp-2" data-testid={`text-item-name-${item.id}`}>
                           {item.name}
                         </h3>
-                        {item.description && (
-                          <p className="text-[11px] sm:text-xs text-muted-foreground mb-2 line-clamp-1">
-                            {item.description}
-                          </p>
-                        )}
-                        <div className="mt-auto flex items-center justify-between gap-1.5">
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-primary font-bold text-base sm:text-lg" data-testid={`text-item-price-${item.id}`}>
-                                {formatKwanza(itemPrice)}
+                        <div className="mt-auto flex flex-col gap-1.5">
+                          <div className="flex items-baseline gap-1 flex-wrap">
+                            <span className="text-primary font-bold text-sm sm:text-base" data-testid={`text-item-price-${item.id}`}>
+                              {formatKwanza(itemPrice)}
+                            </span>
+                            {hasPromo && (
+                              <span className="text-[9px] sm:text-[10px] text-muted-foreground line-through">
+                                {formatKwanza(itemOriginalPrice!)}
                               </span>
-                              {hasPromo && (
-                                <span className="text-[10px] sm:text-xs text-muted-foreground line-through">
-                                  {formatKwanza(itemOriginalPrice!)}
-                                </span>
-                              )}
-                            </div>
+                            )}
                           </div>
                           <Button
-                            size="sm"
-                            className="bg-primary hover:bg-primary/90 text-white font-medium text-[11px] sm:text-xs px-2 sm:px-3"
+                            size="icon"
+                            className="w-full h-7 sm:h-8 bg-primary hover:bg-primary/90 text-white"
                             onClick={(e) => handleQuickAddToCart(item, e)}
                             data-testid={`button-add-${item.id}`}
                           >
-                            <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-0.5 sm:mr-1" />
-                            Adicionar
+                            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </Button>
                         </div>
                       </div>
