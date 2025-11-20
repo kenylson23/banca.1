@@ -11,10 +11,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { 
   ShoppingCart, Plus, ClipboardList, Clock, ChefHat, 
-  CheckCircle, Check, Search, MessageCircle, ChevronLeft
+  CheckCircle, Check, Search, MessageCircle, ChevronLeft, Utensils, ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest, queryClient } from '@/lib/queryClient';
@@ -38,7 +39,7 @@ export default function CustomerMenu() {
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const { toast } = useToast();
 
   const { data: currentTable, isLoading: tableLoading } = useQuery<any>({
@@ -105,6 +106,16 @@ export default function CustomerMenu() {
       return acc;
     }, [] as Category[])
     .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)) || [];
+
+  const filteredItems = menuItems
+    ?.filter(item => item.isVisible === 1)
+    ?.filter(item => {
+      const matchesCategory = selectedCategory === 'all' || String(item.categoryId) === selectedCategory;
+      const matchesSearch = !searchQuery || 
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      return matchesCategory && matchesSearch;
+    }) || [];
 
   const itemsByCategory = categories.map(category => {
     const categoryItems = menuItems
@@ -281,22 +292,6 @@ export default function CustomerMenu() {
     });
   };
 
-  const banners = [
-    {
-      title: "Flash Offer",
-      subtitle: "We are here with the best deserts. All items",
-      bgColor: "bg-gradient-to-br from-orange-400 to-orange-500",
-    },
-  ];
-
-  useEffect(() => {
-    if (banners.length <= 1) return;
-    const interval = setInterval(() => {
-      setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [banners.length]);
-
   if (!tableNumber) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-background">
@@ -308,9 +303,40 @@ export default function CustomerMenu() {
 
   if (menuLoading || tableLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#4CAF50]"></div>
-        <p className="text-muted-foreground">Carregando menu...</p>
+      <div className="min-h-screen bg-background">
+        <div className="border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-8 w-32" />
+              <Skeleton className="h-10 w-10 rounded-full" />
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+          <Skeleton className="h-96 w-full rounded-2xl" />
+          <div className="space-y-4">
+            <Skeleton className="h-10 w-full max-w-md" />
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} className="h-9 w-24 rounded-full flex-shrink-0" />
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Card key={i} className="overflow-hidden">
+                <Skeleton className="h-48 w-full" />
+                <div className="p-4 space-y-2">
+                  <Skeleton className="h-5 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-6 w-20" />
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -325,25 +351,36 @@ export default function CustomerMenu() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background">
       {/* Fixed Header */}
-      <header className="fixed top-0 left-0 right-0 bg-background border-b z-50">
+      <header className="fixed top-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-b z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" data-testid="button-back">
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
+              <Badge variant="outline" className="text-base font-semibold" data-testid="badge-table-number">
+                Mesa {tableNumber}
+              </Badge>
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="relative">
+              <div className="relative hidden sm:block">
                 <Input
-                  placeholder="Search"
+                  placeholder="Buscar..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-40 h-9 pr-8"
+                  className="w-48 h-9 pr-8"
                   data-testid="input-search"
+                />
+                <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              </div>
+
+              <div className="sm:hidden relative flex-1 max-w-[200px]">
+                <Input
+                  placeholder="Buscar..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-9 pr-8"
+                  data-testid="input-search-header-mobile"
                 />
                 <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               </div>
@@ -471,7 +508,7 @@ export default function CustomerMenu() {
                 <SheetContent className="w-full sm:max-w-md flex flex-col p-0">
                   <div className="p-6 pb-4 border-b">
                     <SheetHeader>
-                      <SheetTitle className="text-2xl font-bold" data-testid="text-cart-title">FOOD CART</SheetTitle>
+                      <SheetTitle className="text-2xl font-bold" data-testid="text-cart-title">Seu Pedido</SheetTitle>
                     </SheetHeader>
                   </div>
 
@@ -536,7 +573,7 @@ export default function CustomerMenu() {
                                 data-testid={`button-remove-${item.id}`}
                                 className="text-[#4CAF50] hover:text-[#45a049] hover:bg-[#4CAF50]/10"
                               >
-                                Remove
+                                Remover
                               </Button>
                             </motion.div>
                           ))}
@@ -549,7 +586,7 @@ export default function CustomerMenu() {
                           data-testid="button-order-more"
                         >
                           <Plus className="h-4 w-4 mr-2" />
-                          Order More
+                          Adicionar Mais Itens
                         </Button>
                       </div>
                     )}
@@ -559,7 +596,7 @@ export default function CustomerMenu() {
                     <div className="p-6 border-t space-y-4">
                       <div className="space-y-3">
                         <Input
-                          placeholder="Seu nome completo"
+                          placeholder="Seu nome"
                           value={customerName}
                           onChange={(e) => setCustomerName(e.target.value)}
                           data-testid="input-customer-name"
@@ -571,7 +608,7 @@ export default function CustomerMenu() {
                           data-testid="input-customer-phone"
                         />
                         <Textarea
-                          placeholder="Observações do pedido (opcional)"
+                          placeholder="Observações do pedido (opcional)..."
                           value={orderNotes}
                           onChange={(e) => setOrderNotes(e.target.value)}
                           rows={2}
@@ -591,7 +628,7 @@ export default function CustomerMenu() {
                             Enviando...
                           </div>
                         ) : (
-                          'Place Order'
+                          'Enviar para Cozinha'
                         )}
                       </Button>
                     </div>
@@ -603,68 +640,107 @@ export default function CustomerMenu() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="pt-16 max-w-7xl mx-auto px-4 sm:px-6">
-        {/* Hero Banner */}
-        <div className="mt-6 mb-8">
-          <div className="relative overflow-hidden rounded-2xl h-56">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentBannerIndex}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.5 }}
-                className={`absolute inset-0 ${banners[currentBannerIndex].bgColor} p-6 flex items-center`}
-              >
-                <div className="flex-1">
-                  <div className="bg-white w-12 h-12 rounded-lg mb-4 flex items-center justify-center">
-                    <div className="text-orange-500 font-bold text-xs">LOGO</div>
-                  </div>
-                  <h2 className="text-white text-3xl font-bold mb-2">
-                    {banners[currentBannerIndex].title}
-                  </h2>
-                  <p className="text-white/90 text-sm max-w-xs">
-                    {banners[currentBannerIndex].subtitle}
-                  </p>
-                </div>
-                <div className="w-48 h-full opacity-80">
-                  {/* Placeholder for food image */}
-                </div>
-              </motion.div>
-            </AnimatePresence>
-            
-            {banners.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                {banners.map((_, index) => (
-                  <div
-                    key={index}
-                    className={`h-2 rounded-full transition-all ${
-                      index === currentBannerIndex ? 'w-8 bg-white' : 'w-2 bg-white/50'
-                    }`}
-                  />
-                ))}
+      {/* Hero Section */}
+      <section className="relative pt-16 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#4CAF50]/10 via-background to-background"></div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
+          <div className="text-center max-w-3xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <div className="inline-flex items-center gap-2 bg-[#4CAF50]/10 text-[#4CAF50] px-4 py-2 rounded-full mb-6">
+                <Utensils className="h-4 w-4" />
+                <span className="text-sm font-medium">Mesa {tableNumber}</span>
               </div>
-            )}
+              <h1 className="text-4xl sm:text-5xl font-bold text-foreground mb-6">
+                Bem-vindo ao <span className="text-[#4CAF50]">{restaurant?.name || 'Nosso Restaurante'}</span>
+              </h1>
+              <p className="text-lg sm:text-xl text-muted-foreground mb-8">
+                Explore nosso cardápio e faça seu pedido diretamente da sua mesa
+              </p>
+              <Button
+                size="lg"
+                className="bg-[#4CAF50] hover:bg-[#45a049] text-white font-semibold h-12 px-8"
+                onClick={() => {
+                  const menuSection = document.getElementById('menu-section');
+                  menuSection?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                data-testid="button-see-menu"
+              >
+                Ver Cardápio
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </motion.div>
           </div>
         </div>
+      </section>
 
-        {/* Menu by Category */}
-        {itemsByCategory.map((group) => (
-          <section key={group.category.id} className="mb-10" id={`category-${group.category.id}`}>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-bold text-foreground">{group.category.name}</h2>
-                <p className="text-sm text-muted-foreground">Best of the today food list update</p>
-              </div>
-              <Button variant="ghost" size="sm" className="text-[#4CAF50]" data-testid={`button-see-all-${group.category.id}`}>
-                See All →
-              </Button>
+      {/* Search and Categories */}
+      <section className="border-t bg-muted/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+          <div className="block sm:hidden mb-4">
+            <div className="relative">
+              <Input
+                placeholder="Buscar pratos..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-10 pr-8"
+                data-testid="input-search-mobile"
+              />
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             </div>
+          </div>
 
+          {categories.length > 0 && (
             <ScrollArea className="w-full">
-              <div className="flex gap-4 pb-4">
-                {group.items.map((item) => {
+              <div className="flex gap-2 pb-2">
+                <Button
+                  variant={selectedCategory === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedCategory('all')}
+                  className={selectedCategory === 'all' ? 'bg-[#4CAF50] hover:bg-[#45a049]' : ''}
+                  data-testid="category-all"
+                >
+                  Todos
+                </Button>
+                {categories.map((category) => (
+                  <Button
+                    key={category.id}
+                    variant={selectedCategory === category.id ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedCategory(category.id)}
+                    className={selectedCategory === category.id ? 'bg-[#4CAF50] hover:bg-[#45a049]' : ''}
+                    data-testid={`category-${category.id}`}
+                  >
+                    {category.name}
+                  </Button>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </div>
+      </section>
+
+      {/* Menu Section */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-12" id="menu-section">
+        {selectedCategory === 'all' ? (
+          itemsByCategory.map((group, groupIndex) => (
+            <motion.section
+              key={group.category.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: groupIndex * 0.1 }}
+              className="mb-16"
+              id={`category-${group.category.id}`}
+            >
+              <div className="mb-8">
+                <h2 className="text-3xl font-bold text-foreground mb-2">{group.category.name}</h2>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {group.items.map((item, itemIndex) => {
                   const itemPrice = typeof item.price === 'string' ? item.price : Number(item.price).toFixed(2);
                   const itemOriginalPrice = item.originalPrice 
                     ? (typeof item.originalPrice === 'string' ? item.originalPrice : Number(item.originalPrice).toFixed(2)) 
@@ -672,61 +748,173 @@ export default function CustomerMenu() {
                   const hasPromo = itemOriginalPrice && parseFloat(itemOriginalPrice) > parseFloat(itemPrice);
 
                   return (
-                    <Card
+                    <motion.div
                       key={item.id}
-                      className="flex-shrink-0 w-48 overflow-hidden hover-elevate cursor-pointer"
-                      onClick={() => handleAddMenuItem(item)}
-                      data-testid={`menu-item-${item.id}`}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.3, delay: itemIndex * 0.05 }}
                     >
-                      <CardContent className="p-0">
-                        {item.imageUrl && (
-                          <div className="relative h-32 w-full bg-muted">
-                            <img
-                              src={item.imageUrl}
-                              alt={item.name}
-                              className="w-full h-full object-cover"
-                            />
+                      <Card
+                        className="overflow-hidden hover-elevate cursor-pointer h-full flex flex-col"
+                        onClick={() => handleAddMenuItem(item)}
+                        data-testid={`menu-item-${item.id}`}
+                      >
+                        <CardContent className="p-0 flex flex-col h-full">
+                          {item.imageUrl ? (
+                            <div className="relative h-56 w-full bg-muted overflow-hidden">
+                              <img
+                                src={item.imageUrl}
+                                alt={item.name}
+                                className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                              />
+                              {hasPromo && (
+                                <Badge className="absolute top-3 right-3 bg-red-500 text-white">
+                                  Promoção
+                                </Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="relative h-56 w-full bg-muted flex items-center justify-center">
+                              <Utensils className="h-16 w-16 text-muted-foreground/30" />
+                              {hasPromo && (
+                                <Badge className="absolute top-3 right-3 bg-red-500 text-white">
+                                  Promoção
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                          <div className="p-5 flex flex-col flex-1">
+                            <h3 className="font-bold text-lg mb-2 line-clamp-2" data-testid={`text-item-name-${item.id}`}>
+                              {item.name}
+                            </h3>
+                            {item.description && (
+                              <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                                {item.description}
+                              </p>
+                            )}
+                            <div className="mt-auto flex items-center justify-between gap-3">
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[#4CAF50] font-bold text-xl" data-testid={`text-item-price-${item.id}`}>
+                                    {formatKwanza(itemPrice)}
+                                  </span>
+                                  {hasPromo && (
+                                    <span className="text-sm text-muted-foreground line-through">
+                                      {formatKwanza(itemOriginalPrice!)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                size="sm"
+                                className="bg-[#4CAF50] hover:bg-[#45a049] text-white font-medium"
+                                onClick={(e) => handleQuickAddToCart(item, e)}
+                                data-testid={`button-add-${item.id}`}
+                              >
+                                <Plus className="h-4 w-4 mr-1" />
+                                Adicionar
+                              </Button>
+                            </div>
                           </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.section>
+          ))
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredItems.map((item, itemIndex) => {
+              const itemPrice = typeof item.price === 'string' ? item.price : Number(item.price).toFixed(2);
+              const itemOriginalPrice = item.originalPrice 
+                ? (typeof item.originalPrice === 'string' ? item.originalPrice : Number(item.originalPrice).toFixed(2)) 
+                : null;
+              const hasPromo = itemOriginalPrice && parseFloat(itemOriginalPrice) > parseFloat(itemPrice);
+
+              return (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, delay: itemIndex * 0.05 }}
+                >
+                  <Card
+                    className="overflow-hidden hover-elevate cursor-pointer h-full flex flex-col"
+                    onClick={() => handleAddMenuItem(item)}
+                    data-testid={`menu-item-${item.id}`}
+                  >
+                    <CardContent className="p-0 flex flex-col h-full">
+                      {item.imageUrl ? (
+                        <div className="relative h-56 w-full bg-muted overflow-hidden">
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                            className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                          />
+                          {hasPromo && (
+                            <Badge className="absolute top-3 right-3 bg-red-500 text-white">
+                              Promoção
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="relative h-56 w-full bg-muted flex items-center justify-center">
+                          <Utensils className="h-16 w-16 text-muted-foreground/30" />
+                          {hasPromo && (
+                            <Badge className="absolute top-3 right-3 bg-red-500 text-white">
+                              Promoção
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                      <div className="p-5 flex flex-col flex-1">
+                        <h3 className="font-bold text-lg mb-2 line-clamp-2" data-testid={`text-item-name-${item.id}`}>
+                          {item.name}
+                        </h3>
+                        {item.description && (
+                          <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                            {item.description}
+                          </p>
                         )}
-                        <div className="p-3">
-                          <h3 className="font-semibold text-sm mb-2 line-clamp-2" data-testid={`text-item-name-${item.id}`}>
-                            {item.name}
-                          </h3>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1">
-                              <span className="text-[#4CAF50] font-bold text-base" data-testid={`text-item-price-${item.id}`}>
+                        <div className="mt-auto flex items-center justify-between gap-3">
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[#4CAF50] font-bold text-xl" data-testid={`text-item-price-${item.id}`}>
                                 {formatKwanza(itemPrice)}
                               </span>
                               {hasPromo && (
-                                <span className="text-xs text-muted-foreground line-through">
+                                <span className="text-sm text-muted-foreground line-through">
                                   {formatKwanza(itemOriginalPrice!)}
                                 </span>
                               )}
                             </div>
-                            <Button
-                              size="sm"
-                              className="h-8 bg-[#4CAF50] hover:bg-[#45a049] text-white font-medium"
-                              onClick={(e) => handleQuickAddToCart(item, e)}
-                              data-testid={`button-add-${item.id}`}
-                            >
-                              Order
-                            </Button>
                           </div>
+                          <Button
+                            size="sm"
+                            className="bg-[#4CAF50] hover:bg-[#45a049] text-white font-medium"
+                            onClick={(e) => handleQuickAddToCart(item, e)}
+                            data-testid={`button-add-${item.id}`}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Adicionar
+                          </Button>
                         </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-          </section>
-        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
 
-        {itemsByCategory.length === 0 && (
+        {filteredItems.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <Search className="h-16 w-16 mb-4 opacity-20" />
             <p className="text-lg font-medium">Nenhum produto encontrado</p>
-            <p className="text-sm mt-1">Tente ajustar sua busca</p>
+            <p className="text-sm mt-1">Tente ajustar sua busca ou filtro</p>
           </div>
         )}
       </main>
@@ -742,11 +930,11 @@ export default function CustomerMenu() {
       )}
 
       {/* Share Order Dialog */}
-      {createdOrder && (
+      {createdOrder && restaurant && (
         <ShareOrderDialog
           order={createdOrder}
-          restaurantName={restaurant?.name || ''}
-          restaurantSlug={''}
+          restaurantName={restaurant.name}
+          restaurantSlug={restaurant.slug || ''}
           open={isShareDialogOpen}
           onOpenChange={setIsShareDialogOpen}
         />
