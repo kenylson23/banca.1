@@ -36,11 +36,13 @@ export const restaurants = pgTable("restaurants", {
   slug: varchar("slug", { length: 100 }).unique(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   phone: varchar("phone", { length: 50 }),
+  whatsappNumber: varchar("whatsapp_number", { length: 50 }),
   address: text("address"),
   logoUrl: text("logo_url"),
   businessHours: text("business_hours"),
   description: text("description"),
   status: restaurantStatusEnum("status").notNull().default('pendente'),
+  isOpen: integer("is_open").notNull().default(1), // 0 = fechado, 1 = aberto
   primaryColor: varchar("primary_color", { length: 7 }).default('#EA580C'),
   secondaryColor: varchar("secondary_color", { length: 7 }).default('#DC2626'),
   accentColor: varchar("accent_color", { length: 7 }).default('#0891B2'),
@@ -52,6 +54,7 @@ export const restaurants = pgTable("restaurants", {
 export const insertRestaurantSchema = createInsertSchema(restaurants).omit({
   id: true,
   status: true,
+  isOpen: true,
   createdAt: true,
   updatedAt: true,
 }).extend({
@@ -60,6 +63,9 @@ export const insertRestaurantSchema = createInsertSchema(restaurants).omit({
   phone: z.string()
     .min(1, "Telefone é obrigatório")
     .regex(/^(\+244|244)?\s*[9][0-9]{2}\s*[0-9]{3}\s*[0-9]{3}$|^(\+244|244)?[9][0-9]{8}$/, "Formato de telefone angolano inválido. Use o formato: +244 9XX XXX XXX"),
+  whatsappNumber: z.string()
+    .regex(/^(\+244|244)?\s*[9][0-9]{2}\s*[0-9]{3}\s*[0-9]{3}$|^(\+244|244)?[9][0-9]{8}$/, "Formato de telefone angolano inválido. Use o formato: +244 9XX XXX XXX")
+    .optional(),
   address: z.string().min(1, "Endereço é obrigatório"),
   logoUrl: z.string().optional(),
   businessHours: z.string().optional(),
@@ -85,6 +91,10 @@ export const updateRestaurantAppearanceSchema = z.object({
   accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor de destaque inválida. Use formato hexadecimal (#000000)").optional(),
   logoUrl: z.string().optional().or(z.literal('')),
   heroImageUrl: z.string().optional().or(z.literal('')),
+  whatsappNumber: z.string()
+    .regex(/^(\+244|244)?\s*[9][0-9]{2}\s*[0-9]{3}\s*[0-9]{3}$|^(\+244|244)?[9][0-9]{8}$/, "Formato de telefone angolano inválido")
+    .optional(),
+  isOpen: z.number().min(0).max(1).optional(),
 });
 
 export type UpdateRestaurantAppearance = z.infer<typeof updateRestaurantAppearanceSchema>;
@@ -694,6 +704,7 @@ export const menuItems = pgTable("menu_items", {
   name: varchar("name", { length: 200 }).notNull(),
   description: text("description"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  originalPrice: decimal("original_price", { precision: 10, scale: 2 }), // Preço original (antes do desconto)
   imageUrl: text("image_url"),
   displayOrder: integer("display_order").notNull().default(0), // Ordem de exibição
   isVisible: integer("is_visible").notNull().default(1), // 0 = oculto no menu, 1 = visível
@@ -709,6 +720,17 @@ export const insertMenuItemSchema = createInsertSchema(menuItems).omit({
   createdAt: true,
 }).extend({
   price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço inválido"),
+  originalPrice: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço original inválido").optional().nullable(),
+}).refine((data) => {
+  if (data.originalPrice) {
+    const price = parseFloat(data.price);
+    const originalPrice = parseFloat(data.originalPrice);
+    return originalPrice >= price;
+  }
+  return true;
+}, {
+  message: "Preço original deve ser maior ou igual ao preço atual",
+  path: ["originalPrice"],
 });
 
 export type InsertMenuItem = z.infer<typeof insertMenuItemSchema>;
