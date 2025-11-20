@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Tag, TrendingUp, Percent, Trash2 } from "lucide-react";
+import { Plus, Search, Tag, TrendingUp, Percent, Trash2, Calendar, ShoppingBag, TicketPercent } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -494,11 +494,14 @@ export default function Coupons() {
                       className="p-4 rounded-lg border hover-elevate active-elevate-2"
                       data-testid={`card-coupon-${coupon.id}`}
                     >
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h3 className="font-bold text-lg">{coupon.code}</h3>
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <TicketPercent className="h-4 w-4 text-primary" />
+                            <h3 className="font-bold text-base">{coupon.code}</h3>
+                          </div>
                           {coupon.description && (
-                            <p className="text-sm text-muted-foreground">{coupon.description}</p>
+                            <p className="text-sm text-muted-foreground line-clamp-2">{coupon.description}</p>
                           )}
                         </div>
                         {coupon.isActive ? (
@@ -513,25 +516,39 @@ export default function Coupons() {
                           <Badge variant="outline">Inativo</Badge>
                         )}
                       </div>
-                      <div className="space-y-1 mb-3 text-sm">
-                        <div className="font-semibold text-primary">
-                          {coupon.discountType === 'percentual'
-                            ? `${coupon.discountValue}% de desconto`
-                            : `${formatKwanza(parseFloat(coupon.discountValue))} de desconto`}
+                      
+                      <div className="space-y-2 mb-4">
+                        <div className="flex items-baseline gap-2 p-3 rounded-md bg-primary/5">
+                          <Percent className="h-4 w-4 text-primary" />
+                          <span className="font-bold text-lg text-primary">
+                            {coupon.discountType === 'percentual'
+                              ? `${coupon.discountValue}%`
+                              : formatKwanza(parseFloat(coupon.discountValue))}
+                          </span>
+                          <span className="text-sm text-muted-foreground">de desconto</span>
                         </div>
-                        {coupon.minOrderValue && parseFloat(coupon.minOrderValue) > 0 && (
-                          <div className="text-muted-foreground">
-                            Pedido mínimo: {formatKwanza(parseFloat(coupon.minOrderValue))}
+                        
+                        <div className="space-y-1.5 text-sm">
+                          {coupon.minOrderValue && parseFloat(coupon.minOrderValue) > 0 && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <ShoppingBag className="h-3.5 w-3.5" />
+                              <span>Pedido mín: {formatKwanza(parseFloat(coupon.minOrderValue))}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Tag className="h-3.5 w-3.5" />
+                            <span>Usos: {coupon.currentUses}/{coupon.maxUses || '∞'}</span>
                           </div>
-                        )}
-                        <div className="text-muted-foreground">
-                          Usos: {coupon.currentUses}/{coupon.maxUses || '∞'}
-                        </div>
-                        <div className="text-muted-foreground text-xs">
-                          Válido: {new Date(coupon.validFrom).toLocaleDateString()} - {new Date(coupon.validUntil).toLocaleDateString()}
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Calendar className="h-3.5 w-3.5" />
+                            <span className="text-xs">
+                              {new Date(coupon.validFrom).toLocaleDateString()} - {new Date(coupon.validUntil).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex gap-2">
+                      
+                      <div className="flex gap-2 pt-3 border-t">
                         <Button
                           variant="outline"
                           size="sm"

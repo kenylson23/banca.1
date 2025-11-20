@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, UserPlus, Search, Users, TrendingUp, Star } from "lucide-react";
+import { Trash2, UserPlus, Search, Users, TrendingUp, Star, Phone, Mail, Award } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -147,10 +147,10 @@ export default function Customers() {
 
   const getTierColor = (tier: string) => {
     switch (tier) {
-      case 'platina': return 'bg-gradient-to-r from-gray-400 to-gray-600 text-white';
-      case 'ouro': return 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-white';
-      case 'prata': return 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-800';
-      default: return 'bg-gradient-to-r from-orange-400 to-orange-600 text-white';
+      case 'platina': return 'bg-slate-600 text-white';
+      case 'ouro': return 'bg-yellow-600 text-white';
+      case 'prata': return 'bg-slate-400 text-white';
+      default: return 'bg-orange-600 text-white';
     }
   };
 
@@ -367,24 +367,38 @@ export default function Customers() {
                       data-testid={`card-customer-${customer.id}`}
                     >
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold">{customer.name}</h3>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-base">{customer.name}</h3>
                           <Badge className={getTierColor(customer.tier || 'bronze')} data-testid={`badge-tier-${customer.id}`}>
                             {(customer.tier || 'bronze').toUpperCase()}
                           </Badge>
                         </div>
-                        <div className="text-sm text-muted-foreground space-y-0.5">
-                          {customer.phone && <div>📞 {customer.phone}</div>}
-                          {customer.email && <div>✉️ {customer.email}</div>}
-                          <div className="flex gap-4 mt-2">
-                            <span className="font-medium">
-                              {customer.loyaltyPoints} pts
+                        <div className="space-y-1">
+                          {customer.phone && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Phone className="h-3.5 w-3.5" />
+                              <span>{customer.phone}</span>
+                            </div>
+                          )}
+                          {customer.email && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Mail className="h-3.5 w-3.5" />
+                              <span>{customer.email}</span>
+                            </div>
+                          )}
+                          <div className="flex flex-wrap gap-4 mt-2 pt-2 border-t">
+                            <span className="flex items-center gap-1 text-sm">
+                              <Award className="h-3.5 w-3.5 text-primary" />
+                              <span className="font-medium">{customer.loyaltyPoints}</span>
+                              <span className="text-muted-foreground">pts</span>
                             </span>
-                            <span>
-                              {customer.visitCount} visitas
+                            <span className="text-sm">
+                              <span className="font-medium">{customer.visitCount}</span>
+                              <span className="text-muted-foreground"> visitas</span>
                             </span>
-                            <span>
-                              {formatKwanza(parseFloat(customer.totalSpent || '0'))} total
+                            <span className="text-sm">
+                              <span className="font-medium">{formatKwanza(parseFloat(customer.totalSpent || '0'))}</span>
+                              <span className="text-muted-foreground"> total</span>
                             </span>
                           </div>
                         </div>

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Award, TrendingUp, Gift } from "lucide-react";
+import { Settings, Award, TrendingUp, Gift, Medal } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatKwanza } from "@/lib/formatters";
 import type { LoyaltyProgram, LoyaltyTransaction, Customer } from "@shared/schema";
@@ -243,17 +243,23 @@ export default function Loyalty() {
                     </p>
                   </div>
 
-                  <div className="space-y-2 pt-2 border-t">
-                    <h3 className="font-semibold text-sm">Níveis de Fidelidade</h3>
-                    <p className="text-xs text-muted-foreground mb-3">
+                  <div className="space-y-2 pt-4 border-t">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Medal className="h-4 w-4 text-primary" />
+                      <h3 className="font-semibold text-sm">Níveis de Fidelidade</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-4">
                       Defina os valores mínimos gastos para cada nível
                     </p>
 
                     <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-2 items-end">
-                        <div>
-                          <Label className="text-xs">🥈 Prata</Label>
-                        </div>
+                      <div className="grid grid-cols-[1fr_2fr] gap-3 items-center">
+                        <Label className="text-sm font-medium">
+                          <span className="inline-flex items-center gap-2">
+                            <div className="h-3 w-3 rounded-full bg-slate-400" />
+                            Prata
+                          </span>
+                        </Label>
                         <Input
                           type="number"
                           placeholder="50000"
@@ -262,10 +268,13 @@ export default function Loyalty() {
                           data-testid="input-silver-tier"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-2 items-end">
-                        <div>
-                          <Label className="text-xs">🥇 Ouro</Label>
-                        </div>
+                      <div className="grid grid-cols-[1fr_2fr] gap-3 items-center">
+                        <Label className="text-sm font-medium">
+                          <span className="inline-flex items-center gap-2">
+                            <div className="h-3 w-3 rounded-full bg-yellow-600" />
+                            Ouro
+                          </span>
+                        </Label>
                         <Input
                           type="number"
                           placeholder="100000"
@@ -274,10 +283,13 @@ export default function Loyalty() {
                           data-testid="input-gold-tier"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-2 items-end">
-                        <div>
-                          <Label className="text-xs">💎 Platina</Label>
-                        </div>
+                      <div className="grid grid-cols-[1fr_2fr] gap-3 items-center">
+                        <Label className="text-sm font-medium">
+                          <span className="inline-flex items-center gap-2">
+                            <div className="h-3 w-3 rounded-full bg-slate-600" />
+                            Platina
+                          </span>
+                        </Label>
                         <Input
                           type="number"
                           placeholder="200000"
