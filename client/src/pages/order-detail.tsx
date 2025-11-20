@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   ArrowLeft, Plus, Trash2, DollarSign, Percent, 
   UtensilsCrossed, Clock, Edit2, Check, X, Printer, Package,
-  Users, Tag, Gift 
+  Users, Tag, Gift, XCircle 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,6 +63,8 @@ export default function OrderDetail() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [productSelectorOpen, setProductSelectorOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [couponCode, setCouponCode] = useState("");
   const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState(0);
@@ -315,6 +317,28 @@ export default function OrderDetail() {
     },
     onError: () => {
       toast({ title: "Erro ao atualizar status", variant: "destructive" });
+    },
+  });
+
+  const cancelOrderMutation = useMutation({
+    mutationFn: async (cancellationReason: string) => {
+      const response = await apiRequest("POST", `/api/orders/${orderId}/cancel`, { cancellationReason });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({ title: "Pedido cancelado com sucesso", description: "Todos os estornos foram processados" });
+      setCancelDialogOpen(false);
+      setCancellationReason("");
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Erro ao cancelar pedido", 
+        description: error.message || "Não foi possível cancelar o pedido",
+        variant: "destructive" 
+      });
     },
   });
 
@@ -850,47 +874,131 @@ export default function OrderDetail() {
       <div className="border-t p-4 flex gap-2">
         <Button
           variant="outline"
-          className="flex-1"
           onClick={() => setLocation("/pdv")}
-          data-testid="button-cancel"
+          data-testid="button-back"
         >
-          <X className="h-4 w-4 mr-2" />
-          Cancelar
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Voltar
         </Button>
-        <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-          <DialogTrigger asChild>
+        
+        {order.cancellationReason && order.cancellationReason !== '' ? (
+          <div className="flex-1 flex items-center justify-center gap-2 text-destructive border border-destructive rounded-md px-4 py-2 bg-destructive/10">
+            <XCircle className="h-4 w-4" />
+            <span className="font-medium">Pedido Cancelado</span>
+          </div>
+        ) : (
+          <>
+            <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  disabled={cancelOrderMutation.isPending}
+                  data-testid="button-cancel-order"
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Cancelar Pedido
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Cancelar Pedido</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Motivo do Cancelamento *</Label>
+                    <Input
+                      placeholder="Ex: Cliente desistiu, produto indisponível, etc."
+                      value={cancellationReason}
+                      onChange={(e) => setCancellationReason(e.target.value)}
+                      data-testid="input-cancellation-reason"
+                    />
+                  </div>
+                  
+                  {Number(order.paidAmount || 0) > 0 && (
+                    <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
+                      <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
+                        ⚠️ Este pedido possui pagamento de {formatKwanza(order.paidAmount || 0)}
+                      </p>
+                      <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-1">
+                        O valor será estornado automaticamente nas transações financeiras
+                      </p>
+                    </div>
+                  )}
+                  
+                  {order.loyaltyPointsEarned && order.loyaltyPointsEarned > 0 && (
+                    <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-md">
+                      <p className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                        ℹ️ Este pedido gerou {order.loyaltyPointsEarned} pontos de fidelidade
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-500 mt-1">
+                        Os pontos serão estornados automaticamente do cliente
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setCancelDialogOpen(false);
+                        setCancellationReason("");
+                      }}
+                      disabled={cancelOrderMutation.isPending}
+                      data-testid="button-cancel-dialog"
+                      className="flex-1"
+                    >
+                      Voltar
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() => cancelOrderMutation.mutate(cancellationReason)}
+                      disabled={!cancellationReason || cancelOrderMutation.isPending}
+                      data-testid="button-confirm-cancel"
+                      className="flex-1"
+                    >
+                      {cancelOrderMutation.isPending ? "Cancelando..." : "Confirmar Cancelamento"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+            
+            <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="default"
+                  className="flex-1"
+                  disabled={order.orderItems.length === 0 || order.paymentStatus === "pago"}
+                  data-testid="button-pay"
+                >
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Pagar
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Registrar Pagamento</DialogTitle>
+                </DialogHeader>
+                <PaymentForm
+                  onSubmit={(data) => recordPaymentMutation.mutate(data)}
+                  totalAmount={Number(order.totalAmount)}
+                  paidAmount={Number(order.paidAmount || 0)}
+                  isPending={recordPaymentMutation.isPending}
+                />
+              </DialogContent>
+            </Dialog>
             <Button
               variant="default"
               className="flex-1"
-              disabled={order.orderItems.length === 0 || order.paymentStatus === "pago"}
-              data-testid="button-pay"
+              disabled={order.orderItems.length === 0 || order.status !== "pendente"}
+              onClick={() => updateStatusMutation.mutate("em_preparo")}
+              data-testid="button-accept"
             >
-              <DollarSign className="h-4 w-4 mr-2" />
-              Pagar
+              <Check className="h-4 w-4 mr-2" />
+              Aceitar
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Registrar Pagamento</DialogTitle>
-            </DialogHeader>
-            <PaymentForm
-              onSubmit={(data) => recordPaymentMutation.mutate(data)}
-              totalAmount={Number(order.totalAmount)}
-              paidAmount={Number(order.paidAmount || 0)}
-              isPending={recordPaymentMutation.isPending}
-            />
-          </DialogContent>
-        </Dialog>
-        <Button
-          variant="default"
-          className="flex-1"
-          disabled={order.orderItems.length === 0 || order.status !== "pendente"}
-          onClick={() => updateStatusMutation.mutate("em_preparo")}
-          data-testid="button-accept"
-        >
-          <Check className="h-4 w-4 mr-2" />
-          Aceitar
-        </Button>
+          </>
+        )}
       </div>
     </div>
   );

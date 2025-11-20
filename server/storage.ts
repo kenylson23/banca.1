@@ -226,6 +226,7 @@ export interface IStorage {
     receivedAmount?: string;
   }, userId?: string): Promise<Order>;
   calculateOrderTotal(orderId: string): Promise<Order>;
+  cancelOrder(restaurantId: string, orderId: string, cancellationReason: string, userId?: string): Promise<Order>;
   
   // Stats operations
   getTodayStats(restaurantId: string, branchId?: string | null): Promise<{
@@ -2364,6 +2365,213 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return updated;
+  }
+
+  async cancelOrder(restaurantId: string, orderId: string, cancellationReason: string, userId?: string): Promise<Order> {
+    return await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      // 1. Buscar o pedido com lock para evitar concorrência
+      const [order] = await tx
+        .select()
+        .from(orders)
+        .where(and(
+          eq(orders.id, orderId),
+          eq(orders.restaurantId, restaurantId)
+        ))
+        .for('update');
+
+      if (!order) {
+        throw new Error('Pedido não encontrado');
+      }
+
+      // Verificar se já está cancelado
+      if (order.cancellationReason && order.cancellationReason !== '') {
+        throw new Error('Pedido já está cancelado');
+      }
+
+      // 2. ESTORNAR PONTOS DE FIDELIDADE (pontos ganhos E pontos resgatados)
+      if (order.customerId && (order.loyaltyPointsEarned > 0 || order.loyaltyPointsRedeemed > 0)) {
+        // Buscar o cliente
+        const [customer] = await tx
+          .select()
+          .from(customers)
+          .where(eq(customers.id, order.customerId));
+
+        if (customer) {
+          const currentPoints = Number(customer.loyaltyPoints ?? 0);
+          const currentTotalSpent = Number(customer.totalSpent ?? 0);
+          const currentVisitCount = Number(customer.visitCount ?? 0);
+          const orderTotal = Number(order.totalAmount ?? 0);
+          
+          // Calcular ajustes de pontos:
+          // - Remover pontos que foram ganhos neste pedido
+          // - Devolver pontos que foram resgatados neste pedido
+          const pointsEarned = order.loyaltyPointsEarned || 0;
+          const pointsRedeemed = order.loyaltyPointsRedeemed || 0;
+          const pointsAdjustment = -pointsEarned + pointsRedeemed; // negativo se ganhou mais que resgatou
+          const newPoints = Math.max(0, currentPoints + pointsAdjustment);
+          
+          // Estornar total gasto e visitas
+          const newTotalSpent = Math.max(0, currentTotalSpent - orderTotal);
+          const newVisitCount = Math.max(0, currentVisitCount - 1);
+
+          // Recalcular tier baseado no novo total gasto
+          const loyaltyProgram = await this.getLoyaltyProgram(restaurantId);
+          let newTier: 'bronze' | 'prata' | 'ouro' | 'platina' = 'bronze';
+          
+          if (loyaltyProgram) {
+            const platinumMin = Number(loyaltyProgram.platinumTierMinSpent ?? 50000);
+            const goldMin = Number(loyaltyProgram.goldTierMinSpent ?? 15000);
+            const silverMin = Number(loyaltyProgram.silverTierMinSpent ?? 5000);
+
+            if (newTotalSpent >= platinumMin) {
+              newTier = 'platina';
+            } else if (newTotalSpent >= goldMin) {
+              newTier = 'ouro';
+            } else if (newTotalSpent >= silverMin) {
+              newTier = 'prata';
+            }
+          }
+
+          // Atualizar cliente com valores estornados
+          await tx
+            .update(customers)
+            .set({
+              loyaltyPoints: newPoints,
+              totalSpent: newTotalSpent.toFixed(2),
+              visitCount: newVisitCount,
+              tier: newTier,
+              updatedAt: new Date(),
+            })
+            .where(eq(customers.id, order.customerId));
+
+          // Criar transações de fidelidade de estorno
+          if (pointsEarned > 0) {
+            await tx
+              .insert(loyaltyTransactions)
+              .values({
+                restaurantId,
+                customerId: order.customerId,
+                orderId: order.id,
+                type: 'ajuste',
+                points: -pointsEarned,
+                description: `Estorno de pontos ganhos - Pedido #${order.id.substring(0, 8)} cancelado: ${cancellationReason}`,
+                createdBy: userId || null,
+              });
+          }
+
+          if (pointsRedeemed > 0) {
+            await tx
+              .insert(loyaltyTransactions)
+              .values({
+                restaurantId,
+                customerId: order.customerId,
+                orderId: order.id,
+                type: 'ajuste',
+                points: pointsRedeemed,
+                description: `Devolução de pontos resgatados - Pedido #${order.id.substring(0, 8)} cancelado: ${cancellationReason}`,
+                createdBy: userId || null,
+              });
+          }
+        }
+      }
+
+      // 3. ESTORNAR PAGAMENTO (se foi pago)
+      const paidAmount = parseFloat(order.paidAmount || '0');
+      if (paidAmount > 0 && userId) {
+        // Buscar categoria de estorno/reembolso
+        let refundCategoryResults = await tx
+          .select()
+          .from(financialCategories)
+          .where(and(
+            eq(financialCategories.restaurantId, restaurantId),
+            eq(financialCategories.type, 'despesa'),
+            eq(financialCategories.name, 'Estornos e Reembolsos')
+          ))
+          .limit(1);
+
+        let refundCategoryId = refundCategoryResults[0]?.id;
+
+        // Se não existe, criar categoria
+        if (!refundCategoryId) {
+          const [category] = await tx
+            .insert(financialCategories)
+            .values({
+              restaurantId,
+              branchId: order.branchId || null,
+              type: 'despesa',
+              name: 'Estornos e Reembolsos',
+              description: 'Estornos de pedidos cancelados',
+              isDefault: 0,
+            })
+            .returning();
+          refundCategoryId = category.id;
+        }
+
+        // Encontrar caixa ativo se o pagamento foi em dinheiro
+        let cashRegisterId: string | null = null;
+        let shiftId: string | null = null;
+
+        if (order.paymentMethod === 'dinheiro') {
+          const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, order.branchId || null);
+          
+          if (activeCashRegisters.length > 0) {
+            const cashRegister = activeCashRegisters[0];
+            const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
+            
+            if (activeShift && cashRegister) {
+              cashRegisterId = cashRegister.id;
+              shiftId = activeShift.id;
+
+              // Deduzir do saldo do caixa
+              await tx
+                .update(cashRegisters)
+                .set({
+                  currentBalance: sql`${cashRegisters.currentBalance} - ${paidAmount}`,
+                  updatedAt: new Date(),
+                })
+                .where(eq(cashRegisters.id, cashRegister.id));
+            }
+          }
+        }
+
+        // Criar transação financeira de estorno
+        await tx
+          .insert(financialTransactions)
+          .values({
+            restaurantId,
+            recordedByUserId: userId,
+            branchId: order.branchId || null,
+            cashRegisterId: cashRegisterId,
+            shiftId: shiftId,
+            categoryId: refundCategoryId,
+            type: 'despesa',
+            origin: order.orderType === 'pdv' || order.orderType === 'balcao' ? 'pdv' : 'web',
+            description: `Estorno - Pedido #${orderId.substring(0, 8)} cancelado: ${cancellationReason}`,
+            paymentMethod: order.paymentMethod || 'dinheiro',
+            amount: paidAmount.toFixed(2),
+            referenceOrderId: orderId,
+            occurredAt: new Date(),
+            note: `Cancelamento: ${cancellationReason}`,
+          });
+      }
+
+      // 4. DEVOLVER ESTOQUE (se foi deduzido - pedido estava servido)
+      // Nota: A devolução de estoque seria implementada aqui
+      // Por agora, o estoque deve ser ajustado manualmente após cancelamento
+
+      // 5. MARCAR PEDIDO COMO CANCELADO
+      const [cancelledOrder] = await tx
+        .update(orders)
+        .set({
+          cancellationReason,
+          refundAmount: paidAmount.toFixed(2),
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, orderId))
+        .returning();
+
+      return cancelledOrder;
+    });
   }
 
   // Stats operations

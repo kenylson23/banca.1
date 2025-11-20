@@ -761,6 +761,10 @@ export const redeemLoyaltyPointsSchema = z.object({
   pointsToRedeem: z.number().int().min(1, "Pontos a resgatar deve ser pelo menos 1"),
 });
 
+export const cancelOrderSchema = z.object({
+  cancellationReason: z.string().min(1, "Motivo do cancelamento é obrigatório").max(500, "Motivo muito longo"),
+});
+
 export type UpdateOrderStatus = z.infer<typeof updateOrderStatusSchema>;
 export type UpdateOrderMetadata = z.infer<typeof updateOrderMetadataSchema>;
 export type ApplyDiscount = z.infer<typeof applyDiscountSchema>;
@@ -772,6 +776,7 @@ export type UpdateOrderItemQuantity = z.infer<typeof updateOrderItemQuantitySche
 export type LinkCustomer = z.infer<typeof linkCustomerSchema>;
 export type ApplyCoupon = z.infer<typeof applyCouponSchema>;
 export type RedeemLoyaltyPoints = z.infer<typeof redeemLoyaltyPointsSchema>;
+export type CancelOrder = z.infer<typeof cancelOrderSchema>;
 
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;

@@ -46,6 +46,7 @@ import {
   linkCustomerSchema,
   applyCouponSchema,
   redeemLoyaltyPointsSchema,
+  cancelOrderSchema,
   insertInventoryCategorySchema,
   updateInventoryCategorySchema,
   insertMeasurementUnitSchema,
@@ -2498,6 +2499,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error('Error recording payment:', error);
       res.status(500).json({ message: "Erro ao registrar pagamento" });
+    }
+  });
+
+  app.post("/api/orders/:id/cancel", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const order = await storage.getOrderById(restaurantId, req.params.id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      if (order.cancellationReason && order.cancellationReason !== '') {
+        return res.status(400).json({ message: "Pedido já está cancelado" });
+      }
+
+      const { cancellationReason } = cancelOrderSchema.parse(req.body);
+      const cancelled = await storage.cancelOrder(restaurantId, req.params.id, cancellationReason, currentUser.id);
+      
+      broadcastToClients({ 
+        type: 'order_cancelled', 
+        data: { 
+          orderId: req.params.id,
+          cancellationReason,
+        }
+      });
+
+      res.json(cancelled);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Error cancelling order:', error);
+      const errorMessage = error instanceof Error ? error.message : "Erro ao cancelar pedido";
+      res.status(500).json({ message: errorMessage });
     }
   });
 
