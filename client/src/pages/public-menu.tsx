@@ -713,45 +713,45 @@ export default function PublicMenu() {
                       >
                         <CardContent className="p-0 flex flex-col h-full">
                           {item.imageUrl ? (
-                            <div className="relative h-32 sm:h-40 w-full bg-muted overflow-hidden">
+                            <div className="relative h-24 sm:h-32 w-full bg-muted overflow-hidden">
                               <img
                                 src={item.imageUrl}
                                 alt={item.name}
                                 className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                               />
                               {hasPromo && (
-                                <Badge className="absolute top-2 right-2 bg-red-500 text-white text-xs">
+                                <Badge className="absolute top-1.5 right-1.5 bg-red-500 text-white text-[10px] px-1.5 py-0.5">
                                   Promoção
                                 </Badge>
                               )}
                             </div>
                           ) : (
-                            <div className="relative h-32 sm:h-40 w-full bg-muted flex items-center justify-center">
-                              <Utensils className="h-12 w-12 text-muted-foreground/30" />
+                            <div className="relative h-24 sm:h-32 w-full bg-muted flex items-center justify-center">
+                              <Utensils className="h-8 w-8 text-muted-foreground/30" />
                               {hasPromo && (
-                                <Badge className="absolute top-2 right-2 bg-red-500 text-white text-xs">
+                                <Badge className="absolute top-1.5 right-1.5 bg-red-500 text-white text-[10px] px-1.5 py-0.5">
                                   Promoção
                                 </Badge>
                               )}
                             </div>
                           )}
-                          <div className="p-3 sm:p-4 flex flex-col flex-1">
-                            <h3 className="font-bold text-base mb-1.5 line-clamp-2" data-testid={`text-item-name-${item.id}`}>
+                          <div className="p-2.5 sm:p-3 flex flex-col flex-1">
+                            <h3 className="font-bold text-sm sm:text-base mb-1 line-clamp-2" data-testid={`text-item-name-${item.id}`}>
                               {item.name}
                             </h3>
                             {item.description && (
-                              <p className="text-xs sm:text-sm text-muted-foreground mb-3 line-clamp-2">
+                              <p className="text-[11px] sm:text-xs text-muted-foreground mb-2 line-clamp-1">
                                 {item.description}
                               </p>
                             )}
-                            <div className="mt-auto flex items-center justify-between gap-2">
+                            <div className="mt-auto flex items-center justify-between gap-1.5">
                               <div className="flex flex-col">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-primary font-bold text-lg" data-testid={`text-item-price-${item.id}`}>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-primary font-bold text-base sm:text-lg" data-testid={`text-item-price-${item.id}`}>
                                     {formatKwanza(itemPrice)}
                                   </span>
                                   {hasPromo && (
-                                    <span className="text-xs text-muted-foreground line-through">
+                                    <span className="text-[10px] sm:text-xs text-muted-foreground line-through">
                                       {formatKwanza(itemOriginalPrice!)}
                                     </span>
                                   )}
@@ -759,11 +759,11 @@ export default function PublicMenu() {
                               </div>
                               <Button
                                 size="sm"
-                                className="bg-primary hover:bg-primary/90 text-white font-medium text-xs sm:text-sm"
+                                className="bg-primary hover:bg-primary/90 text-white font-medium text-[11px] sm:text-xs px-2 sm:px-3"
                                 onClick={(e) => handleQuickAddToCart(item, e)}
                                 data-testid={`button-add-${item.id}`}
                               >
-                                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
+                                <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-0.5 sm:mr-1" />
                                 Adicionar
                               </Button>
                             </div>
@@ -799,45 +799,45 @@ export default function PublicMenu() {
                   >
                     <CardContent className="p-0 flex flex-col h-full">
                       {item.imageUrl ? (
-                        <div className="relative h-32 sm:h-40 w-full bg-muted overflow-hidden">
+                        <div className="relative h-24 sm:h-32 w-full bg-muted overflow-hidden">
                           <img
                             src={item.imageUrl}
                             alt={item.name}
                             className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                           />
                           {hasPromo && (
-                            <Badge className="absolute top-2 right-2 bg-red-500 text-white text-xs">
+                            <Badge className="absolute top-1.5 right-1.5 bg-red-500 text-white text-[10px] px-1.5 py-0.5">
                               Promoção
                             </Badge>
                           )}
                         </div>
                       ) : (
-                        <div className="relative h-32 sm:h-40 w-full bg-muted flex items-center justify-center">
-                          <Utensils className="h-12 w-12 text-muted-foreground/30" />
+                        <div className="relative h-24 sm:h-32 w-full bg-muted flex items-center justify-center">
+                          <Utensils className="h-8 w-8 text-muted-foreground/30" />
                           {hasPromo && (
-                            <Badge className="absolute top-2 right-2 bg-red-500 text-white text-xs">
+                            <Badge className="absolute top-1.5 right-1.5 bg-red-500 text-white text-[10px] px-1.5 py-0.5">
                               Promoção
                             </Badge>
                           )}
                         </div>
                       )}
-                      <div className="p-3 sm:p-4 flex flex-col flex-1">
-                        <h3 className="font-bold text-base mb-1.5 line-clamp-2" data-testid={`text-item-name-${item.id}`}>
+                      <div className="p-2.5 sm:p-3 flex flex-col flex-1">
+                        <h3 className="font-bold text-sm sm:text-base mb-1 line-clamp-2" data-testid={`text-item-name-${item.id}`}>
                           {item.name}
                         </h3>
                         {item.description && (
-                          <p className="text-xs sm:text-sm text-muted-foreground mb-3 line-clamp-2">
+                          <p className="text-[11px] sm:text-xs text-muted-foreground mb-2 line-clamp-1">
                             {item.description}
                           </p>
                         )}
-                        <div className="mt-auto flex items-center justify-between gap-2">
+                        <div className="mt-auto flex items-center justify-between gap-1.5">
                           <div className="flex flex-col">
-                            <div className="flex items-center gap-2">
-                              <span className="text-primary font-bold text-lg" data-testid={`text-item-price-${item.id}`}>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-primary font-bold text-base sm:text-lg" data-testid={`text-item-price-${item.id}`}>
                                 {formatKwanza(itemPrice)}
                               </span>
                               {hasPromo && (
-                                <span className="text-xs text-muted-foreground line-through">
+                                <span className="text-[10px] sm:text-xs text-muted-foreground line-through">
                                   {formatKwanza(itemOriginalPrice!)}
                                 </span>
                               )}
@@ -845,11 +845,11 @@ export default function PublicMenu() {
                           </div>
                           <Button
                             size="sm"
-                            className="bg-primary hover:bg-primary/90 text-white font-medium text-xs sm:text-sm"
+                            className="bg-primary hover:bg-primary/90 text-white font-medium text-[11px] sm:text-xs px-2 sm:px-3"
                             onClick={(e) => handleQuickAddToCart(item, e)}
                             data-testid={`button-add-${item.id}`}
                           >
-                            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
+                            <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-0.5 sm:mr-1" />
                             Adicionar
                           </Button>
                         </div>
