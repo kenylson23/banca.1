@@ -16,7 +16,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { 
   ShoppingCart, Plus, ClipboardList, Clock, ChefHat, 
-  CheckCircle, Check, Search, MessageCircle, ChevronLeft, Utensils, ArrowRight
+  CheckCircle, Check, Search, MessageCircle, ChevronLeft, Utensils, ArrowRight,
+  MapPin, Phone, Mail, Facebook, Instagram
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest, queryClient } from '@/lib/queryClient';
@@ -352,15 +353,37 @@ export default function CustomerMenu() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Fixed Header */}
-      <header className="fixed top-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-b z-50">
+    <div className="min-h-screen bg-background relative overflow-x-hidden">
+      {/* Background moderno azul e branco */}
+      <div className="fixed inset-0 bg-gradient-to-br from-blue-50 via-white to-blue-100 dark:from-blue-950/20 dark:via-background dark:to-blue-900/20 -z-10" />
+      <div className="fixed inset-0 opacity-[0.015] dark:opacity-[0.02] -z-10" style={{
+        backgroundImage: `radial-gradient(circle at 1px 1px, hsl(var(--primary)) 1px, transparent 0)`,
+        backgroundSize: '48px 48px'
+      }} />
+      <div className="fixed top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl -z-10" />
+      <div className="fixed bottom-0 left-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl -z-10" />
+
+      {/* Fixed Header Moderno */}
+      <header className="fixed top-0 left-0 right-0 bg-background/95 backdrop-blur-md border-b border-border/50 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <Badge variant="outline" className="text-base font-semibold" data-testid="badge-table-number">
-                Mesa {tableNumber}
-              </Badge>
+              {restaurant && (
+                <Avatar className="h-10 w-10 ring-2 ring-primary/20" data-testid="avatar-restaurant">
+                  <AvatarImage src={restaurant.logoUrl || undefined} alt={restaurant.name} />
+                  <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                    {restaurant.name.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              )}
+              <div className="flex flex-col">
+                <Badge variant="outline" className="text-sm font-semibold w-fit" data-testid="badge-table-number">
+                  Mesa {tableNumber}
+                </Badge>
+                {restaurant && (
+                  <span className="text-xs text-muted-foreground mt-0.5">{restaurant.name}</span>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -941,6 +964,158 @@ export default function CustomerMenu() {
           </div>
         )}
       </main>
+
+      {/* Seção de Horários de Funcionamento */}
+      {restaurant?.businessHours && (
+        <section className="py-12 sm:py-16 border-t border-border/30 bg-muted/20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6">
+            <div className="text-center mb-8 sm:mb-12">
+              <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
+                Horários de Funcionamento
+              </h2>
+              <p className="text-sm sm:text-base text-muted-foreground">
+                Estamos prontos para atendê-lo
+              </p>
+            </div>
+
+            <div className="max-w-2xl mx-auto">
+              <Card className="overflow-hidden bg-card/70 backdrop-blur-sm">
+                <CardContent className="p-6 sm:p-8">
+                  <div className="flex items-center justify-center gap-3 text-center">
+                    <Clock className="w-5 h-5 text-primary flex-shrink-0" />
+                    <span className="text-base text-foreground font-medium">{restaurant.businessHours}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Footer Moderno */}
+      <footer className="bg-muted/30 border-t border-border/50 backdrop-blur-sm mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 mb-6">
+            {/* Sobre o Restaurante */}
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                {restaurant && (
+                  <>
+                    <Avatar className="h-10 w-10 ring-2 ring-primary/20" data-testid="avatar-footer">
+                      <AvatarImage src={restaurant.logoUrl || undefined} alt={restaurant.name} />
+                      <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                        {restaurant.name.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <h3 className="text-base font-bold text-foreground">{restaurant.name}</h3>
+                  </>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Fazendo pedidos direto da sua mesa através do QR Code. Experiência moderna e sem complicações.
+              </p>
+            </div>
+
+            {/* Contato */}
+            <div>
+              <h4 className="text-sm font-semibold text-foreground mb-3">Contato</h4>
+              <div className="space-y-2">
+                {restaurant?.whatsappNumber && (
+                  <a 
+                    href={`https://wa.me/${restaurant.whatsappNumber.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                    data-testid="link-phone-footer"
+                  >
+                    <Phone className="w-4 h-4" />
+                    <span>{restaurant.whatsappNumber}</span>
+                  </a>
+                )}
+                {restaurant?.email && (
+                  <a 
+                    href={`mailto:${restaurant.email}`}
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                    data-testid="link-email-footer"
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span>{restaurant.email}</span>
+                  </a>
+                )}
+                {restaurant?.address && (
+                  <div className="flex items-start gap-2 text-sm text-muted-foreground" data-testid="text-address-footer">
+                    <MapPin className="w-4 h-4 mt-0.5" />
+                    <span>{restaurant.address}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Redes Sociais */}
+            <div>
+              <h4 className="text-sm font-semibold text-foreground mb-3">Siga-nos</h4>
+              <div className="flex gap-2">
+                <a
+                  href="https://facebook.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 rounded-lg bg-primary/10 text-primary hover-elevate active-elevate-2 transition-colors"
+                  data-testid="link-facebook-footer"
+                  aria-label="Facebook"
+                >
+                  <Facebook className="w-4 h-4" />
+                </a>
+                <a
+                  href="https://instagram.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 rounded-lg bg-primary/10 text-primary hover-elevate active-elevate-2 transition-colors"
+                  data-testid="link-instagram-footer"
+                  aria-label="Instagram"
+                >
+                  <Instagram className="w-4 h-4" />
+                </a>
+                {restaurant?.whatsappNumber && (
+                  <a
+                    href={`https://wa.me/${restaurant.whatsappNumber.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 rounded-lg bg-primary/10 text-primary hover-elevate active-elevate-2 transition-colors"
+                    data-testid="link-whatsapp-footer"
+                    aria-label="WhatsApp"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Copyright */}
+          <div className="pt-6 border-t border-border/50">
+            <p className="text-center text-xs sm:text-sm text-muted-foreground">
+              © {new Date().getFullYear()} {restaurant?.name || 'Na Bancada'}. Todos os direitos reservados.
+            </p>
+          </div>
+        </div>
+      </footer>
+
+      {/* Botão Flutuante WhatsApp */}
+      {restaurant?.whatsappNumber && (
+        <a
+          href={`https://wa.me/${restaurant.whatsappNumber.replace(/\D/g, '')}?text=Olá! Estou na Mesa ${tableNumber} e gostaria de fazer um pedido.`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-6 right-6 z-40 p-4 rounded-full bg-green-500 text-white shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group"
+          data-testid="button-whatsapp-float"
+          aria-label="Fale conosco no WhatsApp"
+        >
+          <MessageCircle className="w-6 h-6" />
+          <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-background text-foreground px-3 py-2 rounded-lg text-sm font-medium shadow-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+            Chamar garçom
+          </span>
+        </a>
+      )}
 
       {/* Options Dialog */}
       {selectedMenuItem && (
