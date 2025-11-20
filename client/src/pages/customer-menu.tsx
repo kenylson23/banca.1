@@ -684,86 +684,99 @@ export default function CustomerMenu() {
 
       {/* Search and Filters */}
       <motion.section 
-        className="container px-4 sm:px-6 py-6 space-y-4"
+        className="container px-4 sm:px-6 py-4 space-y-3 border-b"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <span>Informação</span>
+        </div>
+
+        {/* Category Filters */}
+        {categories.length > 0 && (
+          <ScrollArea className="w-full">
+            <div className="flex gap-3 pb-2">
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCategory(String(category.id))}
+                  className={`text-sm font-medium transition-colors whitespace-nowrap pb-1 ${
+                    selectedCategory === String(category.id)
+                      ? 'text-foreground border-b-2 border-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  data-testid={`filter-${category.id}`}
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
+      </motion.section>
+
+      {/* Search Section */}
+      <motion.section 
+        className="container px-4 sm:px-6 py-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25 }}
+      >
+        <div className="mb-3">
+          <h2 className="text-lg font-semibold">Procurar Resultados</h2>
+        </div>
         <div className="relative">
           <Input
             type="text"
             placeholder="Buscar no cardápio..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-12 text-base"
+            className="pl-10 h-11 text-base"
             data-testid="input-search"
           />
           <div className="absolute left-3 top-1/2 -translate-y-1/2">
-            <UtensilsCrossed className="h-5 w-5 text-muted-foreground" />
+            <Search className="h-4 w-4 text-muted-foreground" />
           </div>
         </div>
 
-        {/* Category Filters */}
-        {categories.length > 0 && (
-          <ScrollArea className="w-full">
-            <div className="flex gap-2 pb-2">
-              <Button
-                variant={selectedCategory === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedCategory('all')}
-                className="rounded-full flex-shrink-0"
-                data-testid="filter-all"
-              >
-                Todos
-              </Button>
-              {categories.map((category) => (
-                <Button
-                  key={category.id}
-                  variant={selectedCategory === String(category.id) ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedCategory(String(category.id))}
-                  className="rounded-full flex-shrink-0 whitespace-nowrap"
-                  data-testid={`filter-${category.id}`}
-                >
-                  {category.name}
-                </Button>
-              ))}
-            </div>
-          </ScrollArea>
-        )}
-
         {/* Dietary Filters */}
-        <div className="flex flex-wrap gap-2">
-          {dietaryTags.map(tag => {
-            const Icon = tag.icon;
-            const isActive = activeFilters.includes(tag.value);
-            return (
+        {(dietaryTags.some(tag => menuItems?.some(item => item.tags?.includes(tag.value))) || activeFilters.length > 0) && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {dietaryTags.map(tag => {
+              const Icon = tag.icon;
+              const isActive = activeFilters.includes(tag.value);
+              const hasItems = menuItems?.some(item => item.tags?.includes(tag.value));
+              if (!hasItems && !isActive) return null;
+              
+              return (
+                <Button
+                  key={tag.value}
+                  variant={isActive ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleFilter(tag.value)}
+                  className="gap-1.5 h-8"
+                  data-testid={`dietary-${tag.value}`}
+                >
+                  <Icon className={`h-3 w-3 ${!isActive ? tag.color : ''}`} />
+                  {tag.label}
+                </Button>
+              );
+            })}
+            {activeFilters.length > 0 && (
               <Button
-                key={tag.value}
-                variant={isActive ? "default" : "outline"}
+                variant="ghost"
                 size="sm"
-                onClick={() => toggleFilter(tag.value)}
-                className="rounded-full gap-1.5"
-                data-testid={`dietary-${tag.value}`}
+                onClick={() => setActiveFilters([])}
+                className="gap-1 h-8"
+                data-testid="button-clear-filters"
               >
-                <Icon className={`h-3 w-3 ${!isActive ? tag.color : ''}`} />
-                {tag.label}
+                <X className="h-3 w-3" />
+                Limpar
               </Button>
-            );
-          })}
-          {activeFilters.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setActiveFilters([])}
-              className="rounded-full gap-1"
-              data-testid="button-clear-filters"
-            >
-              <X className="h-3 w-3" />
-              Limpar
-            </Button>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </motion.section>
 
       {/* Menu Items */}
