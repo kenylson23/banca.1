@@ -320,7 +320,7 @@ export default function PublicMenu() {
   }
 
   const heroStyle = restaurant?.heroImageUrl ? {
-    backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.6) 100%), url('${restaurant.heroImageUrl}')`,
+    backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.7) 100%), url('${restaurant.heroImageUrl}')`,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
   } : {
@@ -536,17 +536,20 @@ export default function PublicMenu() {
       </div>
 
       {/* Hero Section with Floating Logo */}
-      <section className="relative">
+      <section className="relative overflow-hidden">
         <div 
-          className="h-[240px] sm:h-[320px] w-full"
+          className="h-[280px] sm:h-[360px] w-full relative"
           style={heroStyle}
-        />
+        >
+          {/* Decorative overlay pattern */}
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white opacity-60" />
+        </div>
         
         <div className="container px-4 sm:px-6">
-          <div className="relative -mt-16 sm:-mt-20 pb-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+          <div className="relative -mt-20 sm:-mt-24 pb-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 sm:gap-6">
               {restaurant?.logoUrl && (
-                <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white flex-shrink-0 transition-transform hover:scale-105">
+                <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full border-4 border-white shadow-2xl overflow-hidden bg-white flex-shrink-0 transition-all duration-300 hover:scale-105 hover:shadow-3xl">
                   <img 
                     src={restaurant.logoUrl} 
                     alt={`${restaurant.name} logo`}
@@ -558,16 +561,16 @@ export default function PublicMenu() {
               
               <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-2xl sm:text-3xl font-bold" data-testid="text-restaurant-name">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" data-testid="text-restaurant-name">
                       {restaurant.name}
                     </h1>
                     <Badge 
                       variant={restaurant.isOpen ? "default" : "secondary"} 
-                      className={`${restaurant.isOpen ? "bg-green-600 hover:bg-green-700" : "bg-gray-500 hover:bg-gray-600"} flex-shrink-0`}
+                      className={`${restaurant.isOpen ? "bg-green-500 hover:bg-green-600 text-white" : "bg-gray-400 hover:bg-gray-500 text-white"} flex-shrink-0 px-3 py-1 text-xs font-semibold`}
                       data-testid="badge-restaurant-status"
                     >
-                      {restaurant.isOpen ? "Aberto agora" : "Fechado"}
+                      {restaurant.isOpen ? "● Aberto" : "● Fechado"}
                     </Badge>
                   </div>
                   
@@ -660,15 +663,15 @@ export default function PublicMenu() {
 
       {/* Search Bar (Non-sticky) */}
       {!showSearchBar && (
-        <section className="container px-4 sm:px-6 py-6">
-          <div className="relative max-w-2xl mx-auto">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+        <section className="container px-4 sm:px-6 py-8">
+          <div className="relative max-w-3xl mx-auto">
+            <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <Input
               type="text"
               placeholder="O que você está procurando?"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-12 text-base rounded-full shadow-sm"
+              className="pl-14 pr-6 h-14 text-base rounded-2xl border-2 border-gray-200 focus:border-primary transition-all shadow-sm hover:shadow-md bg-white"
               data-testid="input-search-main"
             />
           </div>
@@ -678,12 +681,12 @@ export default function PublicMenu() {
       {/* Products Grid */}
       <main className="container px-4 sm:px-6 py-8 pb-24">
         {!menuItems || filteredItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-            <div className="w-24 h-24 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-              <Search className="h-12 w-12 opacity-50" />
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mb-6 shadow-inner">
+              <Search className="h-16 w-16 text-gray-300" />
             </div>
-            <p className="text-lg font-medium">Nenhum produto encontrado</p>
-            <p className="text-sm mt-1">Tente buscar por outro termo</p>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Nenhum produto encontrado</h3>
+            <p className="text-sm text-gray-500 max-w-sm">Tente buscar por outro termo ou navegue pelas categorias disponíveis</p>
           </div>
         ) : selectedCategory === 'all' ? (
           <div className="space-y-12">
@@ -692,11 +695,15 @@ export default function PublicMenu() {
               if (categoryItems.length === 0) return null;
 
               return (
-                <div key={category.id} id={`category-${category.id}`}>
-                  <h2 className="text-2xl font-bold mb-6" data-testid={`text-category-${category.name}`}>
-                    {category.name}
-                  </h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                <div key={category.id} id={`category-${category.id}`} className="scroll-mt-32">
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent flex-1" />
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid={`text-category-${category.name}`}>
+                      {category.name}
+                    </h2>
+                    <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent flex-1" />
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5">
                     {categoryItems.map((item) => {
                       const hasDiscount = item.originalPrice && parseFloat(item.originalPrice) > parseFloat(item.price);
                       const discountPercentage = hasDiscount 
@@ -707,30 +714,29 @@ export default function PublicMenu() {
                         <Card 
                           key={item.id} 
                           data-testid={`menu-item-${item.id}`} 
-                          className="group hover-elevate active-elevate-2 overflow-hidden cursor-pointer transition-all"
-                          onClick={() => handleAddMenuItem(item)}
+                          className="group hover-elevate active-elevate-2 overflow-hidden cursor-pointer transition-all duration-300 border-2 hover:border-primary/20"
                         >
                           <CardContent className="p-0">
                             {/* Product Image */}
-                            <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-muted/50 to-muted">
+                            <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
                               {item.imageUrl ? (
                                 <img 
                                   src={item.imageUrl} 
                                   alt={item.name}
-                                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                  className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-95"
                                   loading="lazy"
                                   data-testid={`img-product-${item.id}`}
                                 />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <UtensilsCrossed className="h-12 w-12 text-muted-foreground/20" />
+                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                                  <UtensilsCrossed className="h-14 w-14 text-gray-300" />
                                 </div>
                               )}
                               
                               {/* Discount Badge */}
                               {hasDiscount && (
                                 <Badge 
-                                  className="absolute top-2 left-2 bg-red-600 hover:bg-red-700 text-white font-bold shadow-lg"
+                                  className="absolute top-3 left-3 bg-red-500 hover:bg-red-600 text-white font-bold shadow-lg px-2.5 py-1"
                                   data-testid={`badge-discount-${item.id}`}
                                 >
                                   -{discountPercentage}%
@@ -738,10 +744,10 @@ export default function PublicMenu() {
                               )}
 
                               {/* Add Button Overlay */}
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-[2px]">
                                 <Button
                                   size="icon"
-                                  className="h-12 w-12 rounded-full shadow-xl"
+                                  className="h-14 w-14 rounded-full shadow-2xl scale-90 group-hover:scale-100 transition-transform"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleAddMenuItem(item);
@@ -749,28 +755,28 @@ export default function PublicMenu() {
                                   data-testid={`button-add-${item.id}`}
                                   aria-label={`Adicionar ${item.name}`}
                                 >
-                                  <Plus className="h-6 w-6" />
+                                  <Plus className="h-7 w-7" />
                                 </Button>
                               </div>
                             </div>
 
                             {/* Product Info */}
-                            <div className="p-3 sm:p-4">
-                              <h3 className="font-semibold text-sm sm:text-base line-clamp-2 mb-1 min-h-[2.5rem]">
+                            <div className="p-4">
+                              <h3 className="font-bold text-sm sm:text-base line-clamp-2 mb-2 min-h-[2.5rem] text-gray-900">
                                 {item.name}
                               </h3>
                               {item.description && (
-                                <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                                <p className="text-xs text-gray-500 line-clamp-2 mb-3">
                                   {item.description}
                                 </p>
                               )}
-                              <div className="flex flex-col gap-1">
+                              <div className="flex flex-col gap-0.5">
                                 {hasDiscount && (
-                                  <span className="text-xs text-muted-foreground line-through" data-testid={`text-original-price-${item.id}`}>
+                                  <span className="text-xs text-gray-400 line-through" data-testid={`text-original-price-${item.id}`}>
                                     {formatKwanza(item.originalPrice!)}
                                   </span>
                                 )}
-                                <span className="text-lg sm:text-xl font-bold text-primary" data-testid={`text-price-${item.id}`}>
+                                <span className="text-xl sm:text-2xl font-bold text-primary" data-testid={`text-price-${item.id}`}>
                                   {formatKwanza(item.price)}
                                 </span>
                               </div>
@@ -785,11 +791,15 @@ export default function PublicMenu() {
             })}
           </div>
         ) : (
-          <div id={`category-${selectedCategory}`}>
-            <h2 className="text-2xl font-bold mb-6" data-testid={`text-category-selected`}>
-              {categories.find(c => String(c.id) === selectedCategory)?.name}
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div id={`category-${selectedCategory}`} className="scroll-mt-32">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent flex-1" />
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid={`text-category-selected`}>
+                {categories.find(c => String(c.id) === selectedCategory)?.name}
+              </h2>
+              <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent flex-1" />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5">
               {filteredItems.map((item) => {
                 const hasDiscount = item.originalPrice && parseFloat(item.originalPrice) > parseFloat(item.price);
                 const discountPercentage = hasDiscount 
@@ -800,38 +810,37 @@ export default function PublicMenu() {
                   <Card 
                     key={item.id} 
                     data-testid={`menu-item-${item.id}`} 
-                    className="group hover-elevate active-elevate-2 overflow-hidden cursor-pointer transition-all"
-                    onClick={() => handleAddMenuItem(item)}
+                    className="group hover-elevate active-elevate-2 overflow-hidden cursor-pointer transition-all duration-300 border-2 hover:border-primary/20"
                   >
                     <CardContent className="p-0">
-                      <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-muted/50 to-muted">
+                      <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
                         {item.imageUrl ? (
                           <img 
                             src={item.imageUrl} 
                             alt={item.name}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-95"
                             loading="lazy"
                             data-testid={`img-product-${item.id}`}
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <UtensilsCrossed className="h-12 w-12 text-muted-foreground/20" />
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                            <UtensilsCrossed className="h-14 w-14 text-gray-300" />
                           </div>
                         )}
                         
                         {hasDiscount && (
                           <Badge 
-                            className="absolute top-2 left-2 bg-red-600 hover:bg-red-700 text-white font-bold shadow-lg"
+                            className="absolute top-3 left-3 bg-red-500 hover:bg-red-600 text-white font-bold shadow-lg px-2.5 py-1"
                             data-testid={`badge-discount-${item.id}`}
                           >
                             -{discountPercentage}%
                           </Badge>
                         )}
 
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-[2px]">
                           <Button
                             size="icon"
-                            className="h-12 w-12 rounded-full shadow-xl"
+                            className="h-14 w-14 rounded-full shadow-2xl scale-90 group-hover:scale-100 transition-transform"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleAddMenuItem(item);
@@ -839,27 +848,27 @@ export default function PublicMenu() {
                             data-testid={`button-add-${item.id}`}
                             aria-label={`Adicionar ${item.name}`}
                           >
-                            <Plus className="h-6 w-6" />
+                            <Plus className="h-7 w-7" />
                           </Button>
                         </div>
                       </div>
 
-                      <div className="p-3 sm:p-4">
-                        <h3 className="font-semibold text-sm sm:text-base line-clamp-2 mb-1 min-h-[2.5rem]">
+                      <div className="p-4">
+                        <h3 className="font-bold text-sm sm:text-base line-clamp-2 mb-2 min-h-[2.5rem] text-gray-900">
                           {item.name}
                         </h3>
                         {item.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                          <p className="text-xs text-gray-500 line-clamp-2 mb-3">
                             {item.description}
                           </p>
                         )}
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-0.5">
                           {hasDiscount && (
-                            <span className="text-xs text-muted-foreground line-through" data-testid={`text-original-price-${item.id}`}>
+                            <span className="text-xs text-gray-400 line-through" data-testid={`text-original-price-${item.id}`}>
                               {formatKwanza(item.originalPrice!)}
                             </span>
                           )}
-                          <span className="text-lg sm:text-xl font-bold text-primary" data-testid={`text-price-${item.id}`}>
+                          <span className="text-xl sm:text-2xl font-bold text-primary" data-testid={`text-price-${item.id}`}>
                             {formatKwanza(item.price)}
                           </span>
                         </div>
@@ -875,53 +884,53 @@ export default function PublicMenu() {
 
       {/* Contact Section */}
       {(restaurant.address || restaurant.phone || restaurant.businessHours) && (
-        <section className="bg-muted/30 py-12 sm:py-16 border-t">
+        <section className="bg-gradient-to-b from-white to-gray-50 py-16 sm:py-20 border-t">
           <div className="container px-4 sm:px-6">
-            <div className="text-center mb-10">
-              <h3 className="text-2xl sm:text-3xl font-bold mb-2">Informações</h3>
-              <p className="text-muted-foreground">Como chegar até nós</p>
+            <div className="text-center mb-12">
+              <h3 className="text-3xl sm:text-4xl font-bold mb-3 tracking-tight">Informações</h3>
+              <p className="text-gray-600 text-lg">Como chegar até nós</p>
             </div>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
               {restaurant.address && (
-                <Card className="hover-elevate">
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <MapPin className="h-5 w-5 text-primary" />
+                <Card className="hover-elevate border-2 transition-all duration-300 hover:border-primary/20">
+                  <CardContent className="p-7">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0">
+                        <MapPin className="h-6 w-6 text-primary" />
                       </div>
-                      <div>
-                        <h4 className="font-semibold mb-1">Endereço</h4>
-                        <p className="text-sm text-muted-foreground">{restaurant.address}</p>
+                      <div className="flex-1">
+                        <h4 className="font-bold mb-2 text-gray-900">Endereço</h4>
+                        <p className="text-sm text-gray-600 leading-relaxed">{restaurant.address}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               )}
               {restaurant.phone && (
-                <Card className="hover-elevate">
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Phone className="h-5 w-5 text-primary" />
+                <Card className="hover-elevate border-2 transition-all duration-300 hover:border-primary/20">
+                  <CardContent className="p-7">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0">
+                        <Phone className="h-6 w-6 text-primary" />
                       </div>
-                      <div>
-                        <h4 className="font-semibold mb-1">Telefone</h4>
-                        <p className="text-sm text-muted-foreground">{restaurant.phone}</p>
+                      <div className="flex-1">
+                        <h4 className="font-bold mb-2 text-gray-900">Telefone</h4>
+                        <p className="text-sm text-gray-600 leading-relaxed">{restaurant.phone}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               )}
               {restaurant.businessHours && (
-                <Card className="hover-elevate">
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Clock className="h-5 w-5 text-primary" />
+                <Card className="hover-elevate border-2 transition-all duration-300 hover:border-primary/20">
+                  <CardContent className="p-7">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0">
+                        <Clock className="h-6 w-6 text-primary" />
                       </div>
-                      <div>
-                        <h4 className="font-semibold mb-1">Horário</h4>
-                        <p className="text-sm text-muted-foreground">{restaurant.businessHours}</p>
+                      <div className="flex-1">
+                        <h4 className="font-bold mb-2 text-gray-900">Horário</h4>
+                        <p className="text-sm text-gray-600 leading-relaxed">{restaurant.businessHours}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -933,17 +942,20 @@ export default function PublicMenu() {
       )}
 
       {/* Footer */}
-      <footer className="bg-black text-white py-8">
+      <footer className="bg-gradient-to-br from-gray-900 to-black text-white py-10 border-t border-gray-800">
         <div className="container px-4 sm:px-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 text-center sm:text-left">
             <div>
-              <p className="text-sm text-white/70">
-                &copy; {new Date().getFullYear()} {restaurant.name}. Todos os direitos reservados.
+              <p className="text-sm text-white/80 font-medium">
+                &copy; {new Date().getFullYear()} {restaurant.name}
+              </p>
+              <p className="text-xs text-white/50 mt-1">
+                Todos os direitos reservados
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-white/70">Powered by</span>
-              <span className="text-lg font-bold text-white">OlaClick</span>
+            <div className="flex items-center gap-2.5">
+              <span className="text-xs text-white/60">Powered by</span>
+              <span className="text-xl font-bold bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">OlaClick</span>
             </div>
           </div>
         </div>
