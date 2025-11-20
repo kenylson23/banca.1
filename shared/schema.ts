@@ -671,6 +671,10 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   changeAmount: true,
 }).extend({
   orderType: z.enum(['mesa', 'delivery', 'takeout', 'balcao', 'pdv']).default('mesa'),
+  customerId: z.string().optional().nullable(),
+  tableId: z.string().optional().nullable(),
+  tableSessionId: z.string().optional().nullable(),
+  couponId: z.string().optional().nullable(),
   discount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Desconto inválido").optional(),
   discountType: z.enum(['valor', 'percentual']).optional(),
   serviceCharge: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa de serviço inválida").optional(),
@@ -699,6 +703,10 @@ export const publicOrderSchema = createInsertSchema(orders).omit({
 }).extend({
   // Restrict order types to customer-accessible ones only
   orderType: z.enum(['mesa', 'delivery', 'takeout']).default('mesa'),
+  customerId: z.string().optional().nullable(),
+  tableId: z.string().optional().nullable(),
+  tableSessionId: z.string().optional().nullable(),
+  couponId: z.string().optional().nullable(),
 });
 
 export const updateOrderStatusSchema = z.object({
