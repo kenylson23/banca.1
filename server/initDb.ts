@@ -367,6 +367,20 @@ export async function ensureTablesExist() {
         ALTER TABLE menu_items ADD COLUMN original_price DECIMAL(10, 2); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
+      // Add smart badges and filtering fields to menu_items
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE menu_items ADD COLUMN is_featured INTEGER NOT NULL DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE menu_items ADD COLUMN is_new INTEGER NOT NULL DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE menu_items ADD COLUMN tags TEXT[]; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE menu_items ADD COLUMN preparation_time INTEGER; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
       // Create orders table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS orders (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),

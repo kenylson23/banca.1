@@ -985,6 +985,10 @@ export const menuItems = pgTable("menu_items", {
   isVisible: integer("is_visible").notNull().default(1), // 0 = oculto no menu, 1 = visível
   isAvailable: integer("is_available").notNull().default(1), // 0 = indisponível, 1 = disponível
   isFavorite: integer("is_favorite").notNull().default(0), // 0 = não é favorito, 1 = favorito
+  isFeatured: integer("is_featured").notNull().default(0), // 0 = normal, 1 = destaque/mais vendido
+  isNew: integer("is_new").notNull().default(0), // 0 = normal, 1 = novo item
+  tags: text("tags").array(), // Tags: vegetariano, vegano, sem_gluten, picante, etc
+  preparationTime: integer("preparation_time"), // Tempo de preparo em minutos
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1019,6 +1023,10 @@ export const updateMenuItemSchema = z.object({
   isVisible: z.number().min(0).max(1).optional(),
   isAvailable: z.number().min(0).max(1).optional(),
   isFavorite: z.number().min(0).max(1).optional(),
+  isFeatured: z.number().min(0).max(1).optional(),
+  isNew: z.number().min(0).max(1).optional(),
+  tags: z.array(z.string()).optional(),
+  preparationTime: z.number().min(1).optional().nullable(),
 });
 
 export type InsertMenuItem = z.infer<typeof insertMenuItemSchema>;
