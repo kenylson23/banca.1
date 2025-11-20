@@ -83,49 +83,6 @@ export default function PublicMenu() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const hexToHSL = (hex: string) => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    if (!result) return '0 0% 50%';
-
-    let r = parseInt(result[1], 16) / 255;
-    let g = parseInt(result[2], 16) / 255;
-    let b = parseInt(result[3], 16) / 255;
-
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    let h = 0, s = 0, l = (max + min) / 2;
-
-    if (max !== min) {
-      const d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-
-      switch (max) {
-        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-        case g: h = ((b - r) / d + 2) / 6; break;
-        case b: h = ((r - g) / d + 4) / 6; break;
-      }
-    }
-
-    h = Math.round(h * 360);
-    s = Math.round(s * 100);
-    l = Math.round(l * 100);
-
-    return `${h} ${s}% ${l}%`;
-  };
-
-  const customColors: Record<string, string> = {};
-  if (restaurant) {
-    if (restaurant.primaryColor) {
-      customColors['--primary'] = hexToHSL(restaurant.primaryColor);
-    }
-    if (restaurant.secondaryColor) {
-      customColors['--secondary'] = hexToHSL(restaurant.secondaryColor);
-    }
-    if (restaurant.accentColor) {
-      customColors['--accent'] = hexToHSL(restaurant.accentColor);
-    }
-  }
-
   const categories = menuItems
     ?.filter(item => item.isVisible === 1)
     ?.reduce((acc, item) => {
@@ -306,7 +263,7 @@ export default function PublicMenu() {
 
   if (menuLoading || restaurantLoading) {
     return (
-      <div className="min-h-screen bg-background" style={customColors as any}>
+      <div className="min-h-screen bg-white">
         {/* Hero Skeleton */}
         <div className="relative">
           <Skeleton className="h-[240px] sm:h-[320px] w-full rounded-none" />
@@ -324,7 +281,7 @@ export default function PublicMenu() {
         </div>
 
         {/* Categories Skeleton */}
-        <div className="border-b sticky top-0 bg-background/95 backdrop-blur-sm z-40">
+        <div className="border-b sticky top-0 bg-white/95 backdrop-blur-sm z-40">
           <div className="container px-4 sm:px-6 py-4">
             <div className="flex gap-2 overflow-x-auto">
               {[1, 2, 3, 4].map((i) => (
@@ -371,7 +328,7 @@ export default function PublicMenu() {
   };
 
   return (
-    <div className="min-h-screen bg-background" style={customColors as any}>
+    <div className="min-h-screen bg-white">
       {/* Floating Cart Button */}
       <div className="fixed top-4 right-4 z-50">
         <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
@@ -589,7 +546,7 @@ export default function PublicMenu() {
           <div className="relative -mt-16 sm:-mt-20 pb-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
               {restaurant?.logoUrl && (
-                <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-background shadow-xl overflow-hidden bg-background flex-shrink-0 transition-transform hover:scale-105">
+                <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white flex-shrink-0 transition-transform hover:scale-105">
                   <img 
                     src={restaurant.logoUrl} 
                     alt={`${restaurant.name} logo`}
@@ -656,7 +613,7 @@ export default function PublicMenu() {
 
       {/* Sticky Category Navigation */}
       {categories.length > 0 && (
-        <div className={`border-b sticky top-0 bg-background/95 backdrop-blur-sm z-40 transition-all ${showSearchBar ? 'shadow-md' : ''}`}>
+        <div className={`border-b sticky top-0 bg-white/95 backdrop-blur-sm z-40 transition-all ${showSearchBar ? 'shadow-md' : ''}`}>
           <div className="container px-4 sm:px-6 py-4 space-y-3">
             {showSearchBar && (
               <div className="relative animate-in slide-in-from-top-2">
@@ -976,17 +933,17 @@ export default function PublicMenu() {
       )}
 
       {/* Footer */}
-      <footer className="bg-card border-t py-8">
+      <footer className="bg-black text-white py-8">
         <div className="container px-4 sm:px-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
             <div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-white/70">
                 &copy; {new Date().getFullYear()} {restaurant.name}. Todos os direitos reservados.
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Powered by</span>
-              <span className="text-lg font-bold">OlaClick</span>
+              <span className="text-xs text-white/70">Powered by</span>
+              <span className="text-lg font-bold text-white">OlaClick</span>
             </div>
           </div>
         </div>

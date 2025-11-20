@@ -531,9 +531,9 @@ export default function Settings() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Personalizar Cores</CardTitle>
+              <CardTitle>Cores do Cabeçalho</CardTitle>
               <CardDescription>
-                Escolha as cores que representam sua marca. Elas serão aplicadas no seu menu público.
+                Essas cores serão usadas no gradiente do cabeçalho caso você não tenha uma foto de capa. Se você adicionar uma foto de capa acima, ela terá prioridade.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
