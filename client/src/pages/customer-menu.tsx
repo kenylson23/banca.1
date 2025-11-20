@@ -353,18 +353,15 @@ export default function CustomerMenu() {
   }
 
   return (
-    <div className="min-h-screen bg-background relative overflow-x-hidden">
-      {/* Background Moderno com Cores Claras - Mesh Gradient */}
-      <div className="fixed inset-0 bg-gradient-to-br from-blue-50/80 via-purple-50/40 to-pink-50/30 dark:from-blue-950/10 dark:via-purple-950/5 dark:to-pink-950/5 -z-10" />
+    <div className="min-h-screen bg-white dark:bg-background relative overflow-x-hidden">
+      {/* Background Branco Limpo com textura sutil */}
+      <div className="fixed inset-0 bg-white dark:bg-background -z-10" />
       
-      {/* Formas decorativas com gradientes suaves */}
-      <div className="fixed top-[-10%] left-[-5%] w-[70%] h-[70%] bg-gradient-to-br from-blue-100/60 to-cyan-100/40 dark:from-blue-900/10 dark:to-cyan-900/5 rounded-full blur-3xl -z-10" />
-      <div className="fixed top-[20%] right-[-10%] w-[60%] h-[60%] bg-gradient-to-bl from-purple-100/50 to-pink-100/40 dark:from-purple-900/8 dark:to-pink-900/5 rounded-full blur-3xl -z-10" />
-      <div className="fixed bottom-[-15%] left-[10%] w-[65%] h-[65%] bg-gradient-to-tr from-amber-50/60 to-orange-50/40 dark:from-amber-900/8 dark:to-orange-900/5 rounded-full blur-3xl -z-10" />
-      <div className="fixed bottom-[10%] right-[-5%] w-[55%] h-[55%] bg-gradient-to-tl from-teal-100/50 to-emerald-100/40 dark:from-teal-900/8 dark:to-emerald-900/5 rounded-full blur-3xl -z-10" />
-      
-      {/* Overlay sutil para unificar */}
-      <div className="fixed inset-0 bg-white/40 dark:bg-background/60 -z-10" />
+      {/* Padrão de pontos muito sutil para textura */}
+      <div className="fixed inset-0 opacity-[0.02] dark:opacity-[0.03] -z-10" style={{
+        backgroundImage: `radial-gradient(circle at 1px 1px, rgb(0 0 0 / 0.1) 1px, transparent 0)`,
+        backgroundSize: '32px 32px'
+      }} />
 
       {/* Fixed Header Moderno */}
       <header className="fixed top-0 left-0 right-0 bg-background/95 backdrop-blur-md border-b border-border/50 z-50 shadow-sm">
