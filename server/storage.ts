@@ -201,7 +201,7 @@ export interface IStorage {
   getOrdersByTableId(restaurantId: string, tableId: string): Promise<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
   searchOrders(restaurantId: string, searchTerm: string): Promise<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
   createOrder(order: InsertOrder, items: PublicOrderItem[]): Promise<Order>;
-  updateOrderStatus(restaurantId: string, id: string, status: string): Promise<Order>;
+  updateOrderStatus(restaurantId: string, id: string, status: string, userId?: string): Promise<Order>;
   deleteOrder(restaurantId: string, id: string): Promise<void>;
   
   // Checkout operations
@@ -546,7 +546,8 @@ export interface IStorage {
   deleteRecipeIngredient(id: string, restaurantId: string): Promise<void>;
   getMenuItemRecipeCost(restaurantId: string, menuItemId: string): Promise<string>;
   checkStockAvailability(restaurantId: string, branchId: string, menuItemId: string, quantity: number): Promise<{ available: boolean; missingItems: Array<{ itemName: string; required: string; available: string }> }>;
-  deductStockForOrder(restaurantId: string, branchId: string, orderId: string, userId: string): Promise<void>;
+  deductStockForOrder(restaurantId: string, branchId: string, orderId: string, userId: string, tx?: PgTransaction<any, any, any>): Promise<void>;
+  restoreStockForOrder(restaurantId: string, branchId: string, order: Order, userId: string, tx: PgTransaction<any, any, any>): Promise<void>;
   
   // Customer operations
   getCustomers(restaurantId: string, branchId?: string | null, filters?: { search?: string; isActive?: number }): Promise<Customer[]>;
@@ -1691,7 +1692,7 @@ export class DatabaseStorage implements IStorage {
     return newOrder;
   }
 
-  async updateOrderStatus(restaurantId: string, id: string, status: string): Promise<Order> {
+  async updateOrderStatus(restaurantId: string, id: string, status: string, userId?: string): Promise<Order> {
     // Verify the order belongs to the restaurant before updating
     const [orderData] = await db
       .select()
@@ -1715,12 +1716,45 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
-    const [updated] = await db
-      .update(orders)
-      .set({ status: status as any, updatedAt: new Date() })
-      .where(eq(orders.id, id))
-      .returning();
-    return updated;
+    const previousStatus = orderData.orders.status;
+    
+    // Require userId when marking order as served (for stock deduction and audit trail)
+    if (status === 'servido' && previousStatus !== 'servido') {
+      if (!userId) {
+        throw new Error('User ID is required when marking order as served');
+      }
+      if (!orderData.orders.branchId) {
+        throw new Error('Branch ID is required for stock deduction');
+      }
+    }
+    
+    const needsStockDeduction = status === 'servido' && previousStatus !== 'servido' && orderData.orders.branchId && userId;
+    
+    // If we need to deduct stock, wrap both operations in a transaction
+    if (needsStockDeduction) {
+      return await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+        // First, deduct stock (this will fail if insufficient stock)
+        await this.deductStockForOrder(restaurantId, orderData.orders.branchId!, id, userId!, tx);
+        
+        // Only update status if stock deduction succeeded
+        const [updated] = await tx
+          .update(orders)
+          .set({ status: status as any, updatedAt: new Date() })
+          .where(eq(orders.id, id))
+          .returning();
+        
+        return updated;
+      });
+    } else {
+      // No stock deduction needed, just update status
+      const [updated] = await db
+        .update(orders)
+        .set({ status: status as any, updatedAt: new Date() })
+        .where(eq(orders.id, id))
+        .returning();
+      
+      return updated;
+    }
   }
 
   async deleteOrder(restaurantId: string, id: string): Promise<void> {
@@ -2389,7 +2423,7 @@ export class DatabaseStorage implements IStorage {
       }
 
       // 2. ESTORNAR PONTOS DE FIDELIDADE (pontos ganhos E pontos resgatados)
-      if (order.customerId && (order.loyaltyPointsEarned > 0 || order.loyaltyPointsRedeemed > 0)) {
+      if (order.customerId && ((order.loyaltyPointsEarned ?? 0) > 0 || (order.loyaltyPointsRedeemed ?? 0) > 0)) {
         // Buscar o cliente
         const [customer] = await tx
           .select()
@@ -2556,8 +2590,9 @@ export class DatabaseStorage implements IStorage {
       }
 
       // 4. DEVOLVER ESTOQUE (se foi deduzido - pedido estava servido)
-      // Nota: A devolução de estoque seria implementada aqui
-      // Por agora, o estoque deve ser ajustado manualmente após cancelamento
+      if (order.status === 'servido' && order.branchId && userId) {
+        await this.restoreStockForOrder(restaurantId, order.branchId, order, userId, tx);
+      }
 
       // 5. MARCAR PEDIDO COMO CANCELADO
       const [cancelledOrder] = await tx
@@ -5611,9 +5646,11 @@ export class DatabaseStorage implements IStorage {
   // Recipe Ingredients operations
   async getRecipeIngredients(
     restaurantId: string,
-    menuItemId: string
+    menuItemId: string,
+    tx?: PgTransaction<any, any, any>
   ): Promise<Array<RecipeIngredient & { inventoryItem: InventoryItem & { unit: MeasurementUnit } }>> {
-    const ingredients = await db
+    const executor = tx || db;
+    const ingredients = await executor
       .select()
       .from(recipeIngredients)
       .leftJoin(inventoryItems, eq(recipeIngredients.inventoryItemId, inventoryItems.id))
@@ -5729,15 +5766,56 @@ export class DatabaseStorage implements IStorage {
     restaurantId: string,
     branchId: string,
     orderId: string,
-    userId: string
+    userId: string,
+    tx?: PgTransaction<any, any, any>
   ): Promise<void> {
     const order = await this.getOrderById(restaurantId, orderId);
     if (!order) {
       throw new Error('Pedido não encontrado');
     }
 
-    for (const orderItem of order.orderItems) {
-      try {
+    // If transaction provided, use it directly for atomic operations
+    if (tx) {
+      for (const orderItem of order.orderItems) {
+        const ingredients = await this.getRecipeIngredients(restaurantId, orderItem.menuItemId, tx);
+        
+        if (ingredients.length === 0) {
+          console.log(`Prato ${orderItem.menuItemId} não possui receita cadastrada, pulando baixa de estoque`);
+          continue;
+        }
+        
+        for (const ingredient of ingredients) {
+          const quantityToDeduct = parseFloat(ingredient.quantity) * orderItem.quantity;
+          
+          if (quantityToDeduct <= 0) {
+            continue;
+          }
+
+          await tx.insert(stockMovements).values({
+            id: nanoid(),
+            restaurantId,
+            branchId,
+            inventoryItemId: ingredient.inventoryItemId,
+            movementType: 'saida',
+            quantity: quantityToDeduct.toFixed(2),
+            reason: `Venda - Pedido #${orderId.substring(0, 8)}`,
+            referenceId: orderId,
+            performedBy: userId,
+            createdAt: new Date(),
+          });
+
+          await tx
+            .update(inventoryItems)
+            .set({
+              currentStock: sql`${inventoryItems.currentStock} - ${quantityToDeduct}`,
+              updatedAt: new Date(),
+            })
+            .where(eq(inventoryItems.id, ingredient.inventoryItemId));
+        }
+      }
+    } else {
+      // No transaction provided, use createStockMovement which has its own transaction
+      for (const orderItem of order.orderItems) {
         const ingredients = await this.getRecipeIngredients(restaurantId, orderItem.menuItemId);
         
         if (ingredients.length === 0) {
@@ -5761,8 +5839,52 @@ export class DatabaseStorage implements IStorage {
             referenceId: orderId,
           });
         }
-      } catch (error) {
-        console.error(`Erro ao processar receita para item ${orderItem.menuItemId}:`, error);
+      }
+    }
+  }
+
+  async restoreStockForOrder(
+    restaurantId: string,
+    branchId: string,
+    order: Order,
+    userId: string,
+    tx: PgTransaction<any, any, any>
+  ): Promise<void> {
+    for (const orderItem of order.orderItems) {
+      const ingredients = await this.getRecipeIngredients(restaurantId, orderItem.menuItemId, tx);
+      
+      if (ingredients.length === 0) {
+        console.log(`Prato ${orderItem.menuItemId} não possui receita cadastrada, pulando devolução de estoque`);
+        continue;
+      }
+      
+      for (const ingredient of ingredients) {
+        const quantityToRestore = parseFloat(ingredient.quantity) * orderItem.quantity;
+        
+        if (quantityToRestore <= 0) {
+          continue;
+        }
+
+        await tx.insert(stockMovements).values({
+          id: nanoid(),
+          restaurantId,
+          branchId,
+          inventoryItemId: ingredient.inventoryItemId,
+          movementType: 'entrada',
+          quantity: quantityToRestore.toFixed(2),
+          reason: `Devolução - Pedido #${order.id.substring(0, 8)} cancelado`,
+          referenceId: order.id,
+          performedBy: userId,
+          createdAt: new Date(),
+        });
+
+        await tx
+          .update(inventoryItems)
+          .set({
+            currentStock: sql`${inventoryItems.currentStock} + ${quantityToRestore}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(inventoryItems.id, ingredient.inventoryItemId));
       }
     }
   }

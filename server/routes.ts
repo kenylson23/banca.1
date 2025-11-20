@@ -976,10 +976,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const customer = await storage.createCustomer({
-        ...validatedData,
+      const customer = await storage.createCustomer(
         restaurantId,
-      });
+        null,
+        validatedData
+      );
 
       res.json(customer);
     } catch (error: any) {
@@ -2109,7 +2110,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid status" });
       }
 
-      const order = await storage.updateOrderStatus(restaurantId, req.params.id, status);
+      const order = await storage.updateOrderStatus(restaurantId, req.params.id, status, currentUser.id);
       
       if (status === 'servido') {
         if (order.tableId) {
@@ -2118,14 +2119,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             type: 'table_freed', 
             data: { tableId: order.tableId }
           });
-        }
-        
-        if (order.branchId) {
-          try {
-            await storage.deductStockForOrder(restaurantId, order.branchId, order.id, currentUser.id);
-          } catch (error) {
-            console.error('Erro ao dar baixa no estoque:', error);
-          }
         }
       }
       
