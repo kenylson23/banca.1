@@ -10,7 +10,7 @@ import { UpdateNotification } from "@/components/UpdateNotification";
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
 import CustomerMenu from "@/pages/customer-menu";
-import Products from "@/pages/products";
+import PublicMenu from "@/pages/public-menu";
 import TrackOrder from "@/pages/track-order";
 import MainDashboard from "@/pages/main-dashboard";
 import OrderDetail from "@/pages/order-detail";
@@ -27,7 +27,7 @@ function Router() {
     <Switch>
       <Route path="/mesa/:tableNumber" component={CustomerMenu} />
       <Route path="/r/:slug/rastrear" component={TrackOrder} />
-      <Route path="/r/:slug" component={Products} />
+      <Route path="/r/:slug" component={PublicMenu} />
       
       {!isAuthenticated ? (
         <>
