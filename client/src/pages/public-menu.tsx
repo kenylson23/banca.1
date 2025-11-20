@@ -391,13 +391,13 @@ export default function PublicMenu() {
                   </Button>
                 </SheetTrigger>
                 <SheetContent className="w-full sm:max-w-md flex flex-col p-0">
-                  <div className="p-6 pb-4 border-b">
+                  <div className="p-4 sm:p-6 pb-3 sm:pb-4 border-b bg-background">
                     <SheetHeader>
-                      <SheetTitle className="text-2xl font-bold" data-testid="text-cart-title">Seu Pedido</SheetTitle>
+                      <SheetTitle className="text-xl sm:text-2xl font-bold" data-testid="text-cart-title">Seu Pedido</SheetTitle>
                     </SheetHeader>
                   </div>
 
-                  <ScrollArea className="flex-1 px-6 py-4">
+                  <ScrollArea className="flex-1 px-4 sm:px-6 py-3 sm:py-4">
                     {items.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                         <ShoppingCart className="h-16 w-16 mb-4 opacity-20" />
@@ -405,7 +405,7 @@ export default function PublicMenu() {
                         <p className="text-sm mt-1">Adicione itens do cardápio</p>
                       </div>
                     ) : (
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         <AnimatePresence>
                           {items.map((item, index) => (
                             <motion.div
@@ -414,22 +414,22 @@ export default function PublicMenu() {
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -20 }}
                               transition={{ delay: index * 0.05 }}
-                              className="flex gap-4 items-start"
+                              className="flex gap-3 items-start p-3 rounded-lg bg-muted/30 border"
                               data-testid={`cart-item-${item.id}`}
                             >
                               {item.menuItem.imageUrl && (
                                 <img
                                   src={item.menuItem.imageUrl}
                                   alt={item.menuItem.name}
-                                  className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                                  className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
                                 />
                               )}
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-base mb-1">{item.menuItem.name}</h4>
+                                <h4 className="font-bold text-base sm:text-lg mb-1 leading-tight">{item.menuItem.name}</h4>
                                 {item.selectedOptions.length > 0 && (
                                   <div className="mb-2 space-y-0.5">
                                     {item.selectedOptions.map((opt, idx) => (
-                                      <p key={idx} className="text-xs text-muted-foreground">
+                                      <p key={idx} className="text-xs sm:text-sm text-muted-foreground">
                                         + {opt.optionName}
                                         {parseFloat(opt.priceAdjustment) !== 0 && (
                                           <span className="ml-1">
@@ -441,32 +441,32 @@ export default function PublicMenu() {
                                     ))}
                                   </div>
                                 )}
-                                <div className="flex items-center gap-2">
-                                  <span className="text-primary font-bold text-sm">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-primary font-bold text-base sm:text-lg">
                                     {formatKwanza(
                                       (parseFloat(item.menuItem.price) + 
                                         item.selectedOptions.reduce((sum, opt) => sum + parseFloat(opt.priceAdjustment) * opt.quantity, 0)
                                       ) * item.quantity
                                     )}
                                   </span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeItem(item.id)}
+                                    data-testid={`button-remove-${item.id}`}
+                                    className="text-destructive hover:text-destructive/90 hover:bg-destructive/10 h-8 px-2 text-xs"
+                                  >
+                                    Remover
+                                  </Button>
                                 </div>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeItem(item.id)}
-                                data-testid={`button-remove-${item.id}`}
-                                className="text-primary hover:text-primary/90 hover:bg-primary/10"
-                              >
-                                Remover
-                              </Button>
                             </motion.div>
                           ))}
                         </AnimatePresence>
                         
                         <Button 
                           variant="outline"
-                          className="w-full mt-6"
+                          className="w-full mt-4 h-11"
                           onClick={() => setIsCartOpen(false)}
                           data-testid="button-order-more"
                         >
@@ -478,14 +478,21 @@ export default function PublicMenu() {
                   </ScrollArea>
 
                   {items.length > 0 && (
-                    <div className="p-6 border-t space-y-4">
+                    <div className="p-4 sm:p-6 border-t space-y-4 bg-background">
+                      <div className="bg-primary/5 border-2 border-primary/20 rounded-lg p-3 sm:p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-base sm:text-lg font-semibold text-foreground">Total</span>
+                          <span className="text-xl sm:text-2xl font-bold text-primary">{formatKwanza(getTotal())}</span>
+                        </div>
+                      </div>
+
                       <Tabs value={orderType} onValueChange={(v) => setOrderType(v as 'delivery' | 'takeout')}>
-                        <TabsList className="grid w-full grid-cols-2">
-                          <TabsTrigger value="delivery" data-testid="tab-delivery" className="gap-2">
+                        <TabsList className="grid w-full grid-cols-2 h-11">
+                          <TabsTrigger value="delivery" data-testid="tab-delivery" className="gap-2 text-sm sm:text-base">
                             <Bike className="h-4 w-4" />
                             Delivery
                           </TabsTrigger>
-                          <TabsTrigger value="takeout" data-testid="tab-takeout" className="gap-2">
+                          <TabsTrigger value="takeout" data-testid="tab-takeout" className="gap-2 text-sm sm:text-base">
                             <ShoppingBag className="h-4 w-4" />
                             Retirada
                           </TabsTrigger>
@@ -493,38 +500,54 @@ export default function PublicMenu() {
                       </Tabs>
 
                       <div className="space-y-3">
-                        <Input
-                          placeholder="Seu nome completo"
-                          value={customerName}
-                          onChange={(e) => setCustomerName(e.target.value)}
-                          data-testid="input-customer-name"
-                        />
-                        <Input
-                          placeholder="Telefone/WhatsApp"
-                          value={customerPhone}
-                          onChange={(e) => setCustomerPhone(e.target.value)}
-                          data-testid="input-customer-phone"
-                        />
-                        {orderType === 'delivery' && (
-                          <Textarea
-                            placeholder="Endereço de entrega..."
-                            value={deliveryAddress}
-                            onChange={(e) => setDeliveryAddress(e.target.value)}
-                            rows={3}
-                            data-testid="input-delivery-address"
+                        <div>
+                          <Label htmlFor="customer-name" className="text-sm font-medium mb-1.5 block">Nome Completo</Label>
+                          <Input
+                            id="customer-name"
+                            placeholder="Digite seu nome"
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
+                            data-testid="input-customer-name"
+                            className="h-11 text-base"
                           />
+                        </div>
+                        <div>
+                          <Label htmlFor="customer-phone" className="text-sm font-medium mb-1.5 block">Telefone/WhatsApp</Label>
+                          <Input
+                            id="customer-phone"
+                            placeholder="Digite seu telefone"
+                            value={customerPhone}
+                            onChange={(e) => setCustomerPhone(e.target.value)}
+                            data-testid="input-customer-phone"
+                            className="h-11 text-base"
+                            type="tel"
+                          />
+                        </div>
+                        {orderType === 'delivery' && (
+                          <div>
+                            <Label htmlFor="delivery-address" className="text-sm font-medium mb-1.5 block">Endereço de Entrega</Label>
+                            <Textarea
+                              id="delivery-address"
+                              placeholder="Rua, número, bairro..."
+                              value={deliveryAddress}
+                              onChange={(e) => setDeliveryAddress(e.target.value)}
+                              rows={3}
+                              data-testid="input-delivery-address"
+                              className="text-base resize-none"
+                            />
+                          </div>
                         )}
                       </div>
 
                       <Button
-                        className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-semibold text-base"
+                        className="w-full h-12 sm:h-14 bg-primary hover:bg-primary/90 text-white font-bold text-base sm:text-lg"
                         onClick={handleConfirmOrder}
                         disabled={createOrderMutation.isPending}
                         data-testid="button-confirm-order"
                       >
                         {createOrderMutation.isPending ? (
                           <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                             Enviando...
                           </div>
                         ) : (
