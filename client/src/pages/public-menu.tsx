@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { 
   ShoppingCart, Plus, Minus, Trash2, Clock, Bike, ShoppingBag, Search, 
-  MapPin, Phone, X, MessageCircle
+  MapPin, Phone, X, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest } from '@/lib/queryClient';
@@ -42,6 +42,7 @@ export default function PublicMenu() {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const { toast } = useToast();
 
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
@@ -93,24 +94,6 @@ export default function PublicMenu() {
         (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
       return matchesCategory && matchesSearch;
     }) || [];
-
-  const scrollToCategory = (categoryId: string) => {
-    setSelectedCategory(categoryId);
-    if (categoryId !== 'all') {
-      setTimeout(() => {
-        const element = document.getElementById(`category-${categoryId}`);
-        if (element) {
-          const offset = 140;
-          const elementPosition = element.getBoundingClientRect().top;
-          const offsetPosition = elementPosition + window.pageYOffset - offset;
-          window.scrollTo({
-            top: offsetPosition,
-            behavior: 'smooth'
-          });
-        }
-      }, 100);
-    }
-  };
 
   const itemsByCategory = categories.map(category => {
     const categoryItems = menuItems
@@ -193,6 +176,15 @@ export default function PublicMenu() {
     setIsOptionsDialogOpen(true);
   };
 
+  const handleQuickAddToCart = (menuItem: MenuItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    addItem(menuItem, []);
+    toast({
+      title: 'Adicionado',
+      description: `${menuItem.name} adicionado ao carrinho.`,
+    });
+  };
+
   const handleAddToCart = (menuItem: MenuItem, selectedOptions: SelectedOption[]) => {
     addItem(menuItem, selectedOptions);
     toast({
@@ -272,9 +264,25 @@ export default function PublicMenu() {
     });
   };
 
+  const banners = [
+    {
+      title: "Flash Offer",
+      subtitle: "We are here with the best deserts. All items",
+      bgColor: "bg-gradient-to-br from-orange-400 to-orange-500",
+    },
+  ];
+
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [banners.length]);
+
   if (!slug) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-white">
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-background">
         <p className="text-foreground text-lg font-medium">Link inválido</p>
         <p className="text-sm text-muted-foreground">Verifique o link e tente novamente</p>
       </div>
@@ -283,8 +291,8 @@ export default function PublicMenu() {
 
   if (menuLoading || restaurantLoading) {
     return (
-      <div className="min-h-screen bg-white">
-        <div className="border-b border-black/10">
+      <div className="min-h-screen bg-background">
+        <div className="border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
             <div className="flex items-center justify-between">
               <Skeleton className="h-8 w-32" />
@@ -294,6 +302,7 @@ export default function PublicMenu() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+          <Skeleton className="h-48 w-full rounded-2xl" />
           <div className="space-y-4">
             <Skeleton className="h-10 w-full max-w-md" />
             <div className="flex gap-2 overflow-x-auto pb-2">
@@ -306,13 +315,11 @@ export default function PublicMenu() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <Card key={i} className="overflow-hidden">
-                <div className="flex gap-4 p-4">
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-5 w-full" />
-                    <Skeleton className="h-4 w-2/3" />
-                    <Skeleton className="h-6 w-20" />
-                  </div>
-                  <Skeleton className="w-24 h-24 rounded-md flex-shrink-0" />
+                <Skeleton className="h-40 w-full" />
+                <div className="p-4 space-y-2">
+                  <Skeleton className="h-5 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-6 w-20" />
                 </div>
               </Card>
             ))}
@@ -324,7 +331,7 @@ export default function PublicMenu() {
 
   if (!restaurant) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-white">
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-background">
         <p className="text-foreground text-lg font-medium">Restaurante não encontrado</p>
         <p className="text-sm text-muted-foreground">Verifique o link e tente novamente</p>
       </div>
@@ -332,53 +339,31 @@ export default function PublicMenu() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-20">
-      {/* Fixed Navbar */}
-      <nav className="fixed top-0 left-0 right-0 bg-white border-b border-black/10 z-50">
+    <div className="min-h-screen bg-background pb-20">
+      {/* Fixed Header */}
+      <header className="fixed top-0 left-0 right-0 bg-background border-b z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
-            {/* Logo/Name */}
             <div className="flex items-center gap-3">
-              {restaurant.logoUrl ? (
-                <img 
-                  src={restaurant.logoUrl} 
-                  alt={restaurant.name}
-                  className="h-10 w-10 object-contain rounded-full border border-black/10"
-                />
-              ) : (
-                <div className="h-10 w-10 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm">
-                  {restaurant.name.charAt(0)}
-                </div>
-              )}
-              <div>
-                <h1 className="text-lg font-bold text-foreground" data-testid="text-restaurant-name">
-                  {restaurant.name}
-                </h1>
-                <div className="flex items-center gap-2">
-                  <Badge 
-                    variant={restaurant.isOpen ? "default" : "secondary"} 
-                    className="text-xs"
-                    data-testid="badge-restaurant-status"
-                  >
-                    {restaurant.isOpen ? 'Aberto' : 'Fechado'}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    30-40 min
-                  </span>
-                </div>
-              </div>
+              <Button variant="ghost" size="icon" data-testid="button-back">
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex items-center gap-2">
+              <div className="relative">
+                <Input
+                  placeholder="Search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-40 h-9 pr-8"
+                  data-testid="input-search"
+                />
+                <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              </div>
+
               {restaurant.whatsappNumber && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  asChild
-                  data-testid="button-whatsapp"
-                >
+                <Button variant="ghost" size="icon" asChild data-testid="button-whatsapp">
                   <a
                     href={`https://wa.me/${restaurant.whatsappNumber.replace(/\D/g, '')}`}
                     target="_blank"
@@ -392,7 +377,7 @@ export default function PublicMenu() {
               <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
                 <SheetTrigger asChild>
                   <Button 
-                    variant="default"
+                    variant="ghost"
                     size="icon"
                     className="relative"
                     data-testid="button-open-cart"
@@ -404,7 +389,7 @@ export default function PublicMenu() {
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                           exit={{ scale: 0 }}
-                          className="absolute -top-1 -right-1 bg-white text-black text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center border border-black"
+                          className="absolute -top-1 -right-1 bg-[#4CAF50] text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
                         >
                           {getItemCount()}
                         </motion.div>
@@ -412,167 +397,134 @@ export default function PublicMenu() {
                     </AnimatePresence>
                   </Button>
                 </SheetTrigger>
-                <SheetContent className="w-full sm:max-w-md flex flex-col">
-                  <SheetHeader>
-                    <SheetTitle data-testid="text-cart-title">Seu Carrinho</SheetTitle>
-                    <SheetDescription data-testid="text-cart-description">
-                      Revise seu pedido antes de confirmar
-                    </SheetDescription>
-                  </SheetHeader>
+                <SheetContent className="w-full sm:max-w-md flex flex-col p-0">
+                  <div className="p-6 pb-4 border-b">
+                    <SheetHeader>
+                      <SheetTitle className="text-2xl font-bold" data-testid="text-cart-title">FOOD CART</SheetTitle>
+                    </SheetHeader>
+                  </div>
 
-                  <Tabs value={orderType} onValueChange={(v) => setOrderType(v as 'delivery' | 'takeout')} className="mt-4">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="delivery" data-testid="tab-delivery" className="gap-2">
-                        <Bike className="h-4 w-4" />
-                        Delivery
-                      </TabsTrigger>
-                      <TabsTrigger value="takeout" data-testid="tab-takeout" className="gap-2">
-                        <ShoppingBag className="h-4 w-4" />
-                        Retirada
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-
-                  <ScrollArea className="flex-1 my-4">
+                  <ScrollArea className="flex-1 px-6 py-4">
                     {items.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                        <div className="w-20 h-20 rounded-full border-2 border-black/10 flex items-center justify-center mb-4">
-                          <ShoppingCart className="h-10 w-10 text-muted-foreground" />
-                        </div>
-                        <p className="font-medium" data-testid="text-empty-cart">Seu carrinho está vazio</p>
+                        <ShoppingCart className="h-16 w-16 mb-4 opacity-20" />
+                        <p className="font-medium text-lg" data-testid="text-empty-cart">Seu carrinho está vazio</p>
                         <p className="text-sm mt-1">Adicione itens do cardápio</p>
                       </div>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                         <AnimatePresence>
                           {items.map((item, index) => (
                             <motion.div
                               key={item.id}
-                              initial={{ opacity: 0, x: -20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: 20 }}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -20 }}
                               transition={{ delay: index * 0.05 }}
+                              className="flex gap-4 items-start"
+                              data-testid={`cart-item-${item.id}`}
                             >
-                              <Card data-testid={`cart-item-${item.id}`} className="border-black/10">
-                                <CardContent className="p-4">
-                                  <div className="flex justify-between items-start mb-3">
-                                    <div className="flex-1 min-w-0">
-                                      <p className="font-semibold text-sm">{item.menuItem.name}</p>
-                                      {item.selectedOptions.length > 0 && (
-                                        <div className="mt-1 space-y-0.5">
-                                          {item.selectedOptions.map((opt, idx) => (
-                                            <p key={idx} className="text-xs text-muted-foreground">
-                                              + {opt.optionName}
-                                              {parseFloat(opt.priceAdjustment) !== 0 && (
-                                                <span className="ml-1">
-                                                  ({parseFloat(opt.priceAdjustment) > 0 ? '+' : ''}
-                                                  {formatKwanza(opt.priceAdjustment)})
-                                                </span>
-                                              )}
-                                            </p>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => removeItem(item.id)}
-                                      data-testid={`button-remove-${item.id}`}
-                                      className="h-8 w-8 flex-shrink-0"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
+                              {item.menuItem.imageUrl && (
+                                <img
+                                  src={item.menuItem.imageUrl}
+                                  alt={item.menuItem.name}
+                                  className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                                />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-base mb-1">{item.menuItem.name}</h4>
+                                {item.selectedOptions.length > 0 && (
+                                  <div className="mb-2 space-y-0.5">
+                                    {item.selectedOptions.map((opt, idx) => (
+                                      <p key={idx} className="text-xs text-muted-foreground">
+                                        + {opt.optionName}
+                                        {parseFloat(opt.priceAdjustment) !== 0 && (
+                                          <span className="ml-1">
+                                            ({parseFloat(opt.priceAdjustment) > 0 ? '+' : ''}
+                                            {formatKwanza(opt.priceAdjustment)})
+                                          </span>
+                                        )}
+                                      </p>
+                                    ))}
                                   </div>
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2 border border-black/10 rounded-full">
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                        disabled={item.quantity <= 1}
-                                        data-testid={`button-decrease-${item.id}`}
-                                        className="h-8 w-8 rounded-full"
-                                      >
-                                        <Minus className="h-3 w-3" />
-                                      </Button>
-                                      <span className="w-8 text-center font-medium text-sm" data-testid={`text-quantity-${item.id}`}>
-                                        {item.quantity}
-                                      </span>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                        data-testid={`button-increase-${item.id}`}
-                                        className="h-8 w-8 rounded-full"
-                                      >
-                                        <Plus className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                    <p className="font-bold text-sm" data-testid={`text-item-total-${item.id}`}>
-                                      {formatKwanza(
-                                        (parseFloat(item.menuItem.price) + 
-                                          item.selectedOptions.reduce((sum, opt) => sum + parseFloat(opt.priceAdjustment) * opt.quantity, 0)
-                                        ) * item.quantity
-                                      )}
-                                    </p>
-                                  </div>
-                                </CardContent>
-                              </Card>
+                                )}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[#4CAF50] font-bold text-sm">
+                                    {formatKwanza(
+                                      (parseFloat(item.menuItem.price) + 
+                                        item.selectedOptions.reduce((sum, opt) => sum + parseFloat(opt.priceAdjustment) * opt.quantity, 0)
+                                      ) * item.quantity
+                                    )}
+                                  </span>
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeItem(item.id)}
+                                data-testid={`button-remove-${item.id}`}
+                                className="text-[#4CAF50] hover:text-[#45a049] hover:bg-[#4CAF50]/10"
+                              >
+                                Remove
+                              </Button>
                             </motion.div>
                           ))}
                         </AnimatePresence>
+                        
+                        <Button 
+                          variant="outline"
+                          className="w-full mt-6"
+                          onClick={() => setIsCartOpen(false)}
+                          data-testid="button-order-more"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Order More
+                        </Button>
                       </div>
                     )}
                   </ScrollArea>
 
                   {items.length > 0 && (
-                    <div className="space-y-4 mt-auto border-t pt-4">
+                    <div className="p-6 border-t space-y-4">
+                      <Tabs value={orderType} onValueChange={(v) => setOrderType(v as 'delivery' | 'takeout')}>
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="delivery" data-testid="tab-delivery" className="gap-2">
+                            <Bike className="h-4 w-4" />
+                            Delivery
+                          </TabsTrigger>
+                          <TabsTrigger value="takeout" data-testid="tab-takeout" className="gap-2">
+                            <ShoppingBag className="h-4 w-4" />
+                            Retirada
+                          </TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+
                       <div className="space-y-3">
-                        <div>
-                          <Label htmlFor="name" className="text-sm font-medium">Nome *</Label>
-                          <Input
-                            id="name"
-                            value={customerName}
-                            onChange={(e) => setCustomerName(e.target.value)}
-                            placeholder="Seu nome completo"
-                            className="mt-1"
-                            data-testid="input-customer-name"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="phone" className="text-sm font-medium">Telefone/WhatsApp *</Label>
-                          <Input
-                            id="phone"
-                            value={customerPhone}
-                            onChange={(e) => setCustomerPhone(e.target.value)}
-                            placeholder="+244 923 456 789"
-                            className="mt-1"
-                            data-testid="input-customer-phone"
-                          />
-                        </div>
+                        <Input
+                          placeholder="Seu nome completo"
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          data-testid="input-customer-name"
+                        />
+                        <Input
+                          placeholder="Telefone/WhatsApp"
+                          value={customerPhone}
+                          onChange={(e) => setCustomerPhone(e.target.value)}
+                          data-testid="input-customer-phone"
+                        />
                         {orderType === 'delivery' && (
-                          <div>
-                            <Label htmlFor="address" className="text-sm font-medium">Endereço de Entrega *</Label>
-                            <Textarea
-                              id="address"
-                              value={deliveryAddress}
-                              onChange={(e) => setDeliveryAddress(e.target.value)}
-                              placeholder="Rua, número, bairro, ponto de referência..."
-                              rows={3}
-                              className="mt-1"
-                              data-testid="input-delivery-address"
-                            />
-                          </div>
+                          <Textarea
+                            placeholder="Endereço de entrega..."
+                            value={deliveryAddress}
+                            onChange={(e) => setDeliveryAddress(e.target.value)}
+                            rows={3}
+                            data-testid="input-delivery-address"
+                          />
                         )}
                       </div>
-                      <Separator />
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-semibold">Total</span>
-                        <span className="text-2xl font-bold" data-testid="text-cart-total">{formatKwanza(getTotal())}</span>
-                      </div>
+
                       <Button
-                        className="w-full h-12 text-base font-semibold"
+                        className="w-full h-12 bg-[#4CAF50] hover:bg-[#45a049] text-white font-semibold text-base"
                         onClick={handleConfirmOrder}
                         disabled={createOrderMutation.isPending}
                         data-testid="button-confirm-order"
@@ -583,7 +535,7 @@ export default function PublicMenu() {
                             Enviando...
                           </div>
                         ) : (
-                          'Confirmar Pedido'
+                          'Place Order'
                         )}
                       </Button>
                     </div>
@@ -593,265 +545,135 @@ export default function PublicMenu() {
             </div>
           </div>
         </div>
-      </nav>
+      </header>
 
       {/* Main Content */}
-      <main className="pt-20 max-w-7xl mx-auto px-4 sm:px-6">
-        {/* Restaurant Info */}
-        <div className="py-6 space-y-2">
-          {restaurant.description && (
-            <p className="text-sm text-muted-foreground max-w-2xl">{restaurant.description}</p>
-          )}
-          {restaurant.address && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <MapPin className="h-4 w-4" />
-              <span>{restaurant.address}</span>
-            </div>
-          )}
-          {restaurant.phone && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Phone className="h-4 w-4" />
-              <span>{restaurant.phone}</span>
-            </div>
-          )}
-        </div>
-
-        <Separator className="my-6" />
-
-        {/* Search and Categories */}
-        <div className="sticky top-16 bg-white z-40 py-4 space-y-4 border-b border-black/10">
-          {/* Search Bar */}
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar produtos..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 border-black/20"
-              data-testid="input-search"
-            />
-            {searchQuery && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                data-testid="button-clear-search"
+      <main className="pt-16 max-w-7xl mx-auto px-4 sm:px-6">
+        {/* Hero Banner */}
+        <div className="mt-6 mb-8">
+          <div className="relative overflow-hidden rounded-2xl h-56">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentBannerIndex}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.5 }}
+                className={`absolute inset-0 ${banners[currentBannerIndex].bgColor} p-6 flex items-center`}
               >
-                <X className="h-4 w-4" />
-              </Button>
+                <div className="flex-1">
+                  <div className="bg-white w-12 h-12 rounded-lg mb-4 flex items-center justify-center">
+                    <div className="text-orange-500 font-bold text-xs">LOGO</div>
+                  </div>
+                  <h2 className="text-white text-3xl font-bold mb-2">
+                    {banners[currentBannerIndex].title}
+                  </h2>
+                  <p className="text-white/90 text-sm max-w-xs">
+                    {banners[currentBannerIndex].subtitle}
+                  </p>
+                </div>
+                <div className="w-48 h-full opacity-80">
+                  {/* Placeholder for food image */}
+                </div>
+              </motion.div>
+            </AnimatePresence>
+            
+            {banners.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                {banners.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`h-2 rounded-full transition-all ${
+                      index === currentBannerIndex ? 'w-8 bg-white' : 'w-2 bg-white/50'
+                    }`}
+                  />
+                ))}
+              </div>
             )}
           </div>
-
-          {/* Category Filters */}
-          <ScrollArea className="w-full">
-            <div className="flex gap-2 pb-2">
-              <Button
-                variant={selectedCategory === 'all' ? 'default' : 'outline'}
-                onClick={() => setSelectedCategory('all')}
-                className="rounded-full whitespace-nowrap"
-                data-testid="button-category-all"
-              >
-                Todos
-              </Button>
-              {categories.map((category) => (
-                <Button
-                  key={category.id}
-                  variant={selectedCategory === category.id ? 'default' : 'outline'}
-                  onClick={() => scrollToCategory(category.id)}
-                  className="rounded-full whitespace-nowrap"
-                  data-testid={`button-category-${category.id}`}
-                >
-                  {category.name}
-                </Button>
-              ))}
-            </div>
-          </ScrollArea>
         </div>
 
-        {/* Menu Items */}
-        <div className="py-8">
-          {filteredItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <Search className="h-16 w-16 mb-4" />
-              <p className="text-lg font-medium">Nenhum produto encontrado</p>
-              <p className="text-sm mt-1">Tente ajustar sua busca ou filtros</p>
+        {/* Today's Menu Section */}
+        {itemsByCategory.map((group, groupIndex) => (
+          <section key={group.category.id} className="mb-10" id={`category-${group.category.id}`}>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">{group.category.name}</h2>
+                <p className="text-sm text-muted-foreground">Best of the today food list update</p>
+              </div>
+              <Button variant="ghost" size="sm" className="text-[#4CAF50]" data-testid={`button-see-all-${group.category.id}`}>
+                See All →
+              </Button>
             </div>
-          ) : selectedCategory === 'all' && !searchQuery ? (
-            <div className="space-y-12">
-              {itemsByCategory.map((group) => (
-                <section key={group.category.id} id={`category-${group.category.id}`} className="scroll-mt-40">
-                  <h2 className="text-2xl font-bold mb-6">{group.category.name}</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {group.items.map((item) => {
-                      const itemPrice = typeof item.price === 'string' ? item.price : Number(item.price).toFixed(2);
-                      const itemOriginalPrice = item.originalPrice 
-                        ? (typeof item.originalPrice === 'string' ? item.originalPrice : Number(item.originalPrice).toFixed(2)) 
-                        : null;
-                      const hasPromo = itemOriginalPrice && parseFloat(itemOriginalPrice) > parseFloat(itemPrice);
-                      
-                      return (
-                        <Card 
-                          key={item.id} 
-                          className="overflow-hidden hover-elevate border-black/10 cursor-pointer"
-                          onClick={() => handleAddMenuItem(item)}
-                          data-testid={`menu-item-${item.id}`}
-                        >
-                          <CardContent className="p-0">
-                            <div className="flex gap-4 p-4">
-                              <div className="flex-1 flex flex-col justify-between min-w-0">
-                                <div>
-                                  <h3 className="font-semibold text-base mb-1 line-clamp-2" data-testid={`text-item-name-${item.id}`}>
-                                    {item.name}
-                                  </h3>
-                                  {item.description && (
-                                    <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                                      {item.description}
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="space-y-2">
-                                  <div className="flex items-baseline gap-2">
-                                    {hasPromo ? (
-                                      <>
-                                        <span className="text-lg font-bold" data-testid={`text-item-promo-price-${item.id}`}>
-                                          {formatKwanza(itemPrice)}
-                                        </span>
-                                        <span className="text-xs text-muted-foreground line-through">
-                                          {formatKwanza(itemOriginalPrice!)}
-                                        </span>
-                                      </>
-                                    ) : (
-                                      <span className="text-lg font-bold" data-testid={`text-item-price-${item.id}`}>
-                                        {formatKwanza(itemPrice)}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    className="w-full rounded-full border-black/20"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleAddMenuItem(item);
-                                    }}
-                                    data-testid={`button-add-${item.id}`}
-                                  >
-                                    <Plus className="h-4 w-4 mr-1" />
-                                    Adicionar
-                                  </Button>
-                                </div>
-                              </div>
 
-                              {item.imageUrl && (
-                                <div className="w-24 h-24 flex-shrink-0">
-                                  <img 
-                                    src={item.imageUrl} 
-                                    alt={item.name}
-                                    className="w-full h-full object-cover rounded-md border border-black/10"
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredItems.map((item) => {
-                const itemPrice = typeof item.price === 'string' ? item.price : Number(item.price).toFixed(2);
-                const itemOriginalPrice = item.originalPrice 
-                  ? (typeof item.originalPrice === 'string' ? item.originalPrice : Number(item.originalPrice).toFixed(2)) 
-                  : null;
-                const hasPromo = itemOriginalPrice && parseFloat(itemOriginalPrice) > parseFloat(itemPrice);
-                
-                return (
-                  <Card 
-                    key={item.id} 
-                    className="overflow-hidden hover-elevate border-black/10 cursor-pointer"
-                    onClick={() => handleAddMenuItem(item)}
-                    data-testid={`menu-item-${item.id}`}
-                  >
-                    <CardContent className="p-0">
-                      <div className="flex gap-4 p-4">
-                        <div className="flex-1 flex flex-col justify-between min-w-0">
-                          <div>
-                            <h3 className="font-semibold text-base mb-1 line-clamp-2" data-testid={`text-item-name-${item.id}`}>
-                              {item.name}
-                            </h3>
-                            {item.description && (
-                              <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                                {item.description}
-                              </p>
-                            )}
-                          </div>
-                          <div className="space-y-2">
-                            <div className="flex items-baseline gap-2">
-                              {hasPromo ? (
-                                <>
-                                  <span className="text-lg font-bold" data-testid={`text-item-promo-price-${item.id}`}>
-                                    {formatKwanza(itemPrice)}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground line-through">
-                                    {formatKwanza(itemOriginalPrice!)}
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="text-lg font-bold" data-testid={`text-item-price-${item.id}`}>
-                                  {formatKwanza(itemPrice)}
-                                </span>
-                              )}
-                            </div>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              className="w-full rounded-full border-black/20"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAddMenuItem(item);
-                              }}
-                              data-testid={`button-add-${item.id}`}
-                            >
-                              <Plus className="h-4 w-4 mr-1" />
-                              Adicionar
-                            </Button>
-                          </div>
-                        </div>
+            <ScrollArea className="w-full">
+              <div className="flex gap-4 pb-4">
+                {group.items.map((item) => {
+                  const itemPrice = typeof item.price === 'string' ? item.price : Number(item.price).toFixed(2);
+                  const itemOriginalPrice = item.originalPrice 
+                    ? (typeof item.originalPrice === 'string' ? item.originalPrice : Number(item.originalPrice).toFixed(2)) 
+                    : null;
+                  const hasPromo = itemOriginalPrice && parseFloat(itemOriginalPrice) > parseFloat(itemPrice);
 
+                  return (
+                    <Card
+                      key={item.id}
+                      className="flex-shrink-0 w-48 overflow-hidden hover-elevate cursor-pointer"
+                      onClick={() => handleAddMenuItem(item)}
+                      data-testid={`menu-item-${item.id}`}
+                    >
+                      <CardContent className="p-0">
                         {item.imageUrl && (
-                          <div className="w-24 h-24 flex-shrink-0">
-                            <img 
-                              src={item.imageUrl} 
+                          <div className="relative h-32 w-full bg-muted">
+                            <img
+                              src={item.imageUrl}
                               alt={item.name}
-                              className="w-full h-full object-cover rounded-md border border-black/10"
+                              className="w-full h-full object-cover"
                             />
                           </div>
                         )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </main>
+                        <div className="p-3">
+                          <h3 className="font-semibold text-sm mb-2 line-clamp-2" data-testid={`text-item-name-${item.id}`}>
+                            {item.name}
+                          </h3>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[#4CAF50] font-bold text-base" data-testid={`text-item-price-${item.id}`}>
+                                {formatKwanza(itemPrice)}
+                              </span>
+                              {hasPromo && (
+                                <span className="text-xs text-muted-foreground line-through">
+                                  {formatKwanza(itemOriginalPrice!)}
+                                </span>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              className="h-8 bg-[#4CAF50] hover:bg-[#45a049] text-white font-medium"
+                              onClick={(e) => handleQuickAddToCart(item, e)}
+                              data-testid={`button-add-${item.id}`}
+                            >
+                              Order
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </section>
+        ))}
 
-      {/* Footer */}
-      <footer className="border-t border-black/10 bg-white mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-          <div className="text-center text-sm text-muted-foreground">
-            <p className="mb-2">{restaurant.name}</p>
-            {restaurant.phone && <p>{restaurant.phone}</p>}
-            {restaurant.address && <p className="mt-1">{restaurant.address}</p>}
+        {filteredItems.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+            <Search className="h-16 w-16 mb-4 opacity-20" />
+            <p className="text-lg font-medium">Nenhum produto encontrado</p>
+            <p className="text-sm mt-1">Tente ajustar sua busca</p>
           </div>
-        </div>
-      </footer>
+        )}
+      </main>
 
       {/* Options Dialog */}
       {selectedMenuItem && (
