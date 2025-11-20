@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { 
   ShoppingCart, Plus, Minus, Trash2, Check, ClipboardList, Clock, ChefHat, 
   CheckCircle, PackageSearch, Home, MapPin, Phone, Clock as ClockIcon, 
-  UtensilsCrossed, Star, Sparkles, Flame, Leaf, Wheat, X 
+  UtensilsCrossed, Star, Sparkles, Flame, Leaf, Wheat, X, MessageCircle, Search 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest, queryClient } from '@/lib/queryClient';
@@ -353,51 +353,49 @@ export default function CustomerMenu() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50/50 pb-20">
+    <div className="min-h-screen bg-background pb-20">
       {/* Header */}
       <motion.header 
-        className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+        className="sticky top-0 z-50 w-full border-b bg-background"
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
       >
-        <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-semibold truncate" data-testid="text-restaurant-name">
-              {restaurant?.name || 'NaBancada'}
-            </h1>
-            <p className="text-sm text-muted-foreground" data-testid="text-table-number">
-              Mesa {currentTable?.number || tableNumber}
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {restaurant?.slug ? (
-              <Link href={`/r/${restaurant.slug}/rastrear`}>
-                <Button variant="outline" className="min-h-10 gap-1.5" data-testid="button-track-order-page">
-                  <PackageSearch className="h-5 w-5" />
-                  <span className="hidden sm:inline text-sm">Rastrear</span>
-                </Button>
-              </Link>
-            ) : restaurant ? (
-              <Button 
-                variant="outline" 
-                className="min-h-10 gap-1.5 opacity-50 cursor-not-allowed" 
-                disabled
-                data-testid="button-track-order-disabled"
-                title="Link de rastreamento não disponível"
-              >
-                <PackageSearch className="h-5 w-5" />
-                <span className="hidden sm:inline text-sm">Rastrear</span>
-              </Button>
-            ) : null}
+        <div className="container px-4 sm:px-6 py-4 space-y-3">
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold mb-1" data-testid="text-restaurant-name">
+                {restaurant?.name || 'NaBancada'}
+              </h1>
+              <div className="flex items-center gap-2 mb-1">
+                <Badge className="bg-green-500 hover:bg-green-600 text-white" data-testid="badge-restaurant-status">
+                  Aberto
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground" data-testid="text-table-number">
+                Mesa {currentTable?.number || tableNumber}
+              </p>
+            </div>
             
-            <Dialog open={isOrdersDialogOpen} onOpenChange={setIsOrdersDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" data-testid="button-track-orders" className="text-sm min-h-10">
-                  <ClipboardList className="h-5 w-5 sm:mr-2" />
-                  <span className="hidden sm:inline">Meus Pedidos</span>
-                </Button>
-              </DialogTrigger>
+            <div className="flex items-center gap-2">
+              {restaurant?.whatsappNumber && (
+                <a
+                  href={`https://api.whatsapp.com/send?phone=${restaurant.whatsappNumber.replace(/\D/g, '')}&text=${encodeURIComponent(`👋 Olá, venho de ${window.location.origin} \nEu quero fazer o próximo pedido:\n`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="link-whatsapp"
+                >
+                  <Button variant="outline" size="icon" className="min-h-10 min-w-10 bg-green-50 hover:bg-green-100 text-green-600 border-green-200">
+                    <MessageCircle className="h-5 w-5" />
+                  </Button>
+                </a>
+              )}
+              
+              <Dialog open={isOrdersDialogOpen} onOpenChange={setIsOrdersDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="icon" data-testid="button-track-orders" className="min-h-10 min-w-10">
+                    <ClipboardList className="h-5 w-5" />
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[85vh] sm:max-h-[80vh]">
                 <DialogHeader>
                   <DialogTitle className="text-lg sm:text-xl" data-testid="text-orders-dialog-title">Seus Pedidos</DialogTitle>
@@ -482,7 +480,7 @@ export default function CustomerMenu() {
             <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="relative min-h-10 min-w-10" data-testid="button-open-cart">
-                  <ShoppingCart className="h-6 w-6" />
+                  <ShoppingCart className="h-5 w-5" />
                   <AnimatePresence>
                     {getItemCount() > 0 && (
                       <motion.div
@@ -492,7 +490,7 @@ export default function CustomerMenu() {
                         className="absolute -top-2 -right-2"
                       >
                         <Badge 
-                          className="h-6 w-6 flex items-center justify-center p-0 text-xs font-bold"
+                          className="h-5 w-5 flex items-center justify-center p-0 text-xs font-bold"
                           data-testid="badge-cart-count"
                         >
                           {getItemCount()}
@@ -679,6 +677,7 @@ export default function CustomerMenu() {
                 )}
               </SheetContent>
             </Sheet>
+          </div>
           </div>
         </div>
       </motion.header>
