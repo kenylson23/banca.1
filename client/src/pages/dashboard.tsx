@@ -180,7 +180,7 @@ export default function Dashboard() {
       id: order.id.toString(),
       type: "order" as const,
       title: `Pedido #${order.id}`,
-      description: `Mesa ${order.table.number} - ${order.status}`,
+      description: `${order.table ? `Mesa ${order.table.number}` : order.orderType === 'delivery' ? 'Entrega' : 'Balcão'} - ${order.status}`,
       timestamp: order.createdAt ? new Date(order.createdAt) : new Date(),
       status: order.status === "servido" ? "success" as const : "info" as const,
       value: formatKwanza(order.totalAmount?.toString() || "0"),
