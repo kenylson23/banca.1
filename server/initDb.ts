@@ -764,6 +764,120 @@ export async function ensureTablesExist() {
       await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS recipe_ingredients_menu_inventory_idx 
         ON recipe_ingredients (menu_item_id, inventory_item_id);`);
       
+      // ===== CUSTOMER MANAGEMENT TABLES =====
+      
+      // Create customer_tier enum
+      await db.execute(sql`DO $$ BEGIN 
+        CREATE TYPE customer_tier AS ENUM ('bronze', 'prata', 'ouro', 'platina'); 
+      EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Create loyalty_transaction_type enum
+      await db.execute(sql`DO $$ BEGIN 
+        CREATE TYPE loyalty_transaction_type AS ENUM ('ganho', 'resgate', 'expiracao', 'ajuste', 'bonus'); 
+      EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Create customers table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS customers (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE SET NULL,
+        name VARCHAR(200) NOT NULL,
+        phone VARCHAR(50),
+        email VARCHAR(255),
+        cpf VARCHAR(14),
+        birth_date TIMESTAMP,
+        address TEXT,
+        loyalty_points INTEGER NOT NULL DEFAULT 0,
+        tier customer_tier DEFAULT 'bronze',
+        total_spent DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        visit_count INTEGER NOT NULL DEFAULT 0,
+        last_visit TIMESTAMP,
+        notes TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create index on customer phone for faster lookup
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS customers_phone_idx ON customers (restaurant_id, phone);`);
+      
+      // Create loyalty_programs table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS loyalty_programs (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        points_per_currency DECIMAL(10, 2) NOT NULL DEFAULT 1,
+        currency_per_point DECIMAL(10, 2) NOT NULL DEFAULT 0.10,
+        min_points_to_redeem INTEGER NOT NULL DEFAULT 100,
+        max_points_per_order INTEGER,
+        points_expiration_days INTEGER,
+        birthday_bonus_points INTEGER DEFAULT 0,
+        bronze_tier_min_spent DECIMAL(10, 2) DEFAULT 0,
+        silver_tier_min_spent DECIMAL(10, 2) DEFAULT 5000,
+        gold_tier_min_spent DECIMAL(10, 2) DEFAULT 15000,
+        platinum_tier_min_spent DECIMAL(10, 2) DEFAULT 50000,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create loyalty_transactions table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS loyalty_transactions (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        customer_id VARCHAR NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+        order_id VARCHAR REFERENCES orders(id) ON DELETE SET NULL,
+        type loyalty_transaction_type NOT NULL,
+        points INTEGER NOT NULL,
+        description VARCHAR(500),
+        expires_at TIMESTAMP,
+        created_by VARCHAR REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create index on loyalty_transactions for faster queries
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS loyalty_transactions_customer_idx ON loyalty_transactions (customer_id, created_at DESC);`);
+      
+      // Create coupons table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS coupons (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE SET NULL,
+        code VARCHAR(50) NOT NULL,
+        description TEXT,
+        discount_type discount_type NOT NULL,
+        discount_value DECIMAL(10, 2) NOT NULL,
+        min_order_value DECIMAL(10, 2) DEFAULT 0,
+        max_discount DECIMAL(10, 2),
+        valid_from TIMESTAMP NOT NULL,
+        valid_until TIMESTAMP NOT NULL,
+        max_uses INTEGER,
+        max_uses_per_customer INTEGER DEFAULT 1,
+        current_uses INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        applicable_order_types TEXT[],
+        created_by VARCHAR REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create unique index on coupon code per restaurant
+      await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS coupons_restaurant_code_idx ON coupons (restaurant_id, code);`);
+      
+      // Create coupon_usages table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS coupon_usages (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        coupon_id VARCHAR NOT NULL REFERENCES coupons(id) ON DELETE CASCADE,
+        customer_id VARCHAR REFERENCES customers(id) ON DELETE SET NULL,
+        order_id VARCHAR REFERENCES orders(id) ON DELETE SET NULL,
+        discount_applied DECIMAL(10, 2) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create index on coupon_usages for usage tracking
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS coupon_usages_coupon_idx ON coupon_usages (coupon_id);`);
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS coupon_usages_customer_idx ON coupon_usages (customer_id);`);
+      
       // Create initial super admin user if it doesn't exist
       const superAdminEmail = 'superadmin@nabancada.com';
       const checkSuperAdmin = await db.execute(sql`SELECT id FROM users WHERE email = ${superAdminEmail} AND role = 'superadmin'`);
