@@ -492,26 +492,6 @@ export async function ensureTablesExist() {
       // Create loyalty_transaction_type enum if it doesn't exist
       await db.execute(sql`DO $$ BEGIN CREATE TYPE loyalty_transaction_type AS ENUM ('ganho', 'resgate', 'expiracao', 'ajuste', 'bonus'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       
-      // Create coupons table
-      await db.execute(sql`CREATE TABLE IF NOT EXISTS coupons (
-        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
-        branch_id VARCHAR REFERENCES branches(id) ON DELETE SET NULL,
-        code VARCHAR(50) NOT NULL,
-        description TEXT,
-        discount_type discount_type NOT NULL,
-        discount_value DECIMAL(10, 2) NOT NULL,
-        min_order_value DECIMAL(10, 2) DEFAULT 0,
-        max_discount DECIMAL(10, 2),
-        usage_limit INTEGER,
-        times_used INTEGER NOT NULL DEFAULT 0,
-        valid_from TIMESTAMP DEFAULT NOW(),
-        valid_until TIMESTAMP,
-        is_active INTEGER NOT NULL DEFAULT 1,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      );`);
-      
       // Add customer_id to orders
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN customer_id VARCHAR REFERENCES customers(id) ON DELETE SET NULL; 
@@ -931,6 +911,81 @@ export async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
+      
+      // Migrate old coupon table structure to new schema
+      // Check if old columns exist before renaming
+      const hasTimesUsed = await db.execute(sql`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'coupons' AND column_name = 'times_used'
+      `);
+      
+      if (hasTimesUsed.rows.length > 0) {
+        await db.execute(sql`ALTER TABLE coupons RENAME COLUMN times_used TO current_uses;`);
+      }
+      
+      const hasUsageLimit = await db.execute(sql`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'coupons' AND column_name = 'usage_limit'
+      `);
+      
+      if (hasUsageLimit.rows.length > 0) {
+        await db.execute(sql`ALTER TABLE coupons RENAME COLUMN usage_limit TO max_uses;`);
+      }
+      
+      // Add missing columns only if they don't exist
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE coupons ADD COLUMN max_uses_per_customer INTEGER DEFAULT 1; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Only add current_uses if it doesn't exist (it might exist from rename)
+      const hasCurrentUses = await db.execute(sql`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'coupons' AND column_name = 'current_uses'
+      `);
+      
+      if (hasCurrentUses.rows.length === 0) {
+        await db.execute(sql`ALTER TABLE coupons ADD COLUMN current_uses INTEGER NOT NULL DEFAULT 0;`);
+      }
+      
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE coupons ADD COLUMN applicable_order_types TEXT[]; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE coupons ADD COLUMN created_by VARCHAR REFERENCES users(id) ON DELETE SET NULL; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Check for NULL values in critical fields
+      const nullValidFrom = await db.execute(sql`
+        SELECT COUNT(*) as count FROM coupons WHERE valid_from IS NULL
+      `);
+      const nullValidUntil = await db.execute(sql`
+        SELECT COUNT(*) as count FROM coupons WHERE valid_until IS NULL
+      `);
+      
+      const nullFromCount = Number(nullValidFrom.rows[0]?.count ?? 0);
+      const nullUntilCount = Number(nullValidUntil.rows[0]?.count ?? 0);
+      
+      // Only backfill if there are NULL values (should not happen in production)
+      if (nullFromCount > 0) {
+        console.warn(`Warning: Found ${nullFromCount} coupons with NULL valid_from, setting to current time`);
+        await db.execute(sql`UPDATE coupons SET valid_from = NOW() WHERE valid_from IS NULL;`);
+      }
+      
+      if (nullUntilCount > 0) {
+        console.warn(`Warning: Found ${nullUntilCount} coupons with NULL valid_until, setting to 30 days from now`);
+        await db.execute(sql`UPDATE coupons SET valid_until = NOW() + INTERVAL '30 days' WHERE valid_until IS NULL;`);
+      }
+      
+      // Ensure valid_from and valid_until are NOT NULL after backfill
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE coupons ALTER COLUMN valid_from SET NOT NULL; 
+      EXCEPTION WHEN others THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE coupons ALTER COLUMN valid_until SET NOT NULL; 
+      EXCEPTION WHEN others THEN null; END $$;`);
       
       // Create unique index on coupon code per restaurant
       await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS coupons_restaurant_code_idx ON coupons (restaurant_id, code);`);

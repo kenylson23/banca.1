@@ -2094,6 +2094,17 @@ export class DatabaseStorage implements IStorage {
     }
 
     return await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      // Lock the order row to prevent concurrent payment processing
+      const [lockedOrder] = await tx
+        .select()
+        .from(orders)
+        .where(eq(orders.id, orderId))
+        .for('update');
+
+      if (!lockedOrder) {
+        throw new Error('Order not found');
+      }
+
       const [updated] = await tx
         .update(orders)
         .set({ 
@@ -2177,6 +2188,100 @@ export class DatabaseStorage implements IStorage {
             occurredAt: new Date(),
             note: order.orderNotes || null,
           });
+      }
+
+      // Atribuir pontos de fidelidade e atualizar estatísticas do cliente quando pedido é pago
+      // Proteção contra duplicação: só atribui pontos se ainda não foram atribuídos
+      // Usa lockedOrder para verificar o estado antes do bloqueio
+      if (paymentStatus === 'pago' && updated.customerId && !lockedOrder.loyaltyPointsEarned) {
+        const activeLoyaltyPrograms = await tx
+          .select()
+          .from(loyaltyPrograms)
+          .where(and(
+            eq(loyaltyPrograms.restaurantId, restaurantId),
+            eq(loyaltyPrograms.isActive, 1)
+          ))
+          .limit(1);
+
+        if (activeLoyaltyPrograms.length > 0) {
+          const program = activeLoyaltyPrograms[0];
+          const orderTotal = Number(updated.totalAmount ?? 0);
+          
+          // Calcular pontos ganhos
+          const pointsPerCurrency = Number(program.pointsPerCurrency ?? 1);
+          let pointsEarned = Math.floor(orderTotal * pointsPerCurrency);
+          
+          // Verificar se há limite máximo de pontos por pedido
+          if (program.maxPointsPerOrder && pointsEarned > program.maxPointsPerOrder) {
+            pointsEarned = program.maxPointsPerOrder;
+          }
+
+          if (pointsEarned > 0) {
+            // Criar transação de fidelidade
+            await tx
+              .insert(loyaltyTransactions)
+              .values({
+                restaurantId,
+                customerId: updated.customerId,
+                orderId: updated.id,
+                type: 'ganho',
+                points: pointsEarned,
+                description: `Pontos ganhos em compra de ${orderTotal.toFixed(2)} Kz`,
+                createdBy: userId || null,
+              });
+
+            // Atualizar pontos e estatísticas do cliente
+            const [customer] = await tx
+              .select()
+              .from(customers)
+              .where(eq(customers.id, updated.customerId));
+
+            if (customer) {
+              const currentPoints = Number(customer.loyaltyPoints ?? 0);
+              const currentTotalSpent = Number(customer.totalSpent ?? 0);
+              const currentVisitCount = Number(customer.visitCount ?? 0);
+              
+              const newPoints = currentPoints + pointsEarned;
+              const newTotalSpent = currentTotalSpent + orderTotal;
+              const newVisitCount = currentVisitCount + 1;
+
+              // Calcular novo tier baseado no total gasto
+              let newTier: 'bronze' | 'prata' | 'ouro' | 'platina' = 'bronze';
+              const platinumMin = Number(program.platinumTierMinSpent ?? 50000);
+              const goldMin = Number(program.goldTierMinSpent ?? 15000);
+              const silverMin = Number(program.silverTierMinSpent ?? 5000);
+
+              if (newTotalSpent >= platinumMin) {
+                newTier = 'platina';
+              } else if (newTotalSpent >= goldMin) {
+                newTier = 'ouro';
+              } else if (newTotalSpent >= silverMin) {
+                newTier = 'prata';
+              }
+
+              await tx
+                .update(customers)
+                .set({
+                  loyaltyPoints: newPoints,
+                  totalSpent: Number(newTotalSpent.toFixed(2)),
+                  visitCount: newVisitCount,
+                  lastVisit: new Date(),
+                  tier: newTier,
+                  updatedAt: new Date(),
+                })
+                .where(eq(customers.id, updated.customerId));
+            }
+
+            // Atualizar o pedido com os pontos ganhos
+            await tx
+              .update(orders)
+              .set({
+                loyaltyPointsEarned: pointsEarned,
+                updatedAt: new Date(),
+              })
+              .where(eq(orders.id, orderId));
+          }
+        }
       }
 
       return updated;
