@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NewOrderDialog } from "@/components/new-order-dialog";
 import { OrderDetailsDialog } from "@/components/order-details-dialog";
-import type { Order, OrderItem, MenuItem, Table } from "@shared/schema";
+import type { Order, OrderItem, MenuItem, Table, Customer } from "@shared/schema";
 import { TablesPanel } from "@/components/TablesPanel";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -19,6 +19,7 @@ type OrderType = "balcao" | "delivery" | "mesas";
 type OrderFilter = "all" | "pendente" | "em_curso";
 
 interface PDVOrder extends Order {
+  customer: Customer | null;
   table: Table | null;
   orderItems: Array<OrderItem & { menuItem: MenuItem }>;
 }

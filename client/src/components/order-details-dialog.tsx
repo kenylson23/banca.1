@@ -6,10 +6,11 @@ import { PrintOrder } from "@/components/PrintOrder";
 import { formatKwanza } from "@/lib/formatters";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Clock, UtensilsCrossed, Truck, ShoppingBag, MapPin, Phone, User } from "lucide-react";
-import type { Order, OrderItem, MenuItem, Table } from "@shared/schema";
+import { Clock, UtensilsCrossed, Truck, ShoppingBag, MapPin, Phone, User, Award, Mail } from "lucide-react";
+import type { Order, OrderItem, MenuItem, Table, Customer } from "@shared/schema";
 
 interface PDVOrder extends Order {
+  customer: Customer | null;
   table: Table | null;
   orderItems: Array<OrderItem & { menuItem: MenuItem }>;
 }
@@ -114,19 +115,42 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
                 </span>
               </div>
 
-              {order.customerName && (
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Cliente:</span>
-                  <span className="font-medium">{order.customerName}</span>
-                </div>
-              )}
-
-              {order.customerPhone && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Telefone:</span>
-                  <span className="font-medium">{order.customerPhone}</span>
+              {(order.customer || order.customerName) && (
+                <div className="space-y-2 p-3 rounded-lg bg-muted/30 border">
+                  <div className="flex items-center gap-2 text-sm">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Cliente:</span>
+                    <span className="font-medium">{order.customer?.name || order.customerName}</span>
+                    {order.customer?.tier && (
+                      <Badge variant="outline" className="ml-2 capitalize">
+                        {order.customer.tier}
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  {(order.customer?.phone || order.customerPhone) && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Telefone:</span>
+                      <span className="font-medium">{order.customer?.phone || order.customerPhone}</span>
+                    </div>
+                  )}
+                  
+                  {order.customer?.email && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Email:</span>
+                      <span className="font-medium text-xs">{order.customer.email}</span>
+                    </div>
+                  )}
+                  
+                  {order.customer?.loyaltyPoints !== undefined && order.customer.loyaltyPoints > 0 && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Award className="h-4 w-4 text-primary" />
+                      <span className="text-muted-foreground">Pontos:</span>
+                      <span className="font-medium text-primary">{order.customer.loyaltyPoints} pts</span>
+                    </div>
+                  )}
                 </div>
               )}
 

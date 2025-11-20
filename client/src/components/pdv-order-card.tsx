@@ -129,12 +129,17 @@ export function PDVOrderCard({
                   : "-"}
               </span>
 
-              {order.customerName && (
-                <div className="flex items-center gap-1 text-sm">
+              {(order.customer || order.customerName) && (
+                <div className="flex items-center gap-2 text-sm">
                   <User className="h-3 w-3 text-muted-foreground" />
                   <span data-testid={`text-customer-${order.id}`}>
-                    {order.customerName}
+                    {order.customer?.name || order.customerName}
                   </span>
+                  {order.customer?.tier && (
+                    <Badge variant="outline" className="text-[10px] h-4 px-1 capitalize">
+                      {order.customer.tier}
+                    </Badge>
+                  )}
                 </div>
               )}
             </div>

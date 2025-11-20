@@ -196,8 +196,8 @@ export interface IStorage {
   reorderMenuItems(restaurantId: string, categoryId: string, orderedIds: string[]): Promise<void>;
 
   // Order operations
-  getKitchenOrders(restaurantId: string, branchId?: string | null): Promise<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> }>>;
-  getRecentOrders(restaurantId: string, branchId: string | null, limit: number): Promise<Array<Order & { table: { number: number } }>>;
+  getKitchenOrders(restaurantId: string, branchId?: string | null): Promise<Array<Order & { customer: Customer | null; table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> }>>;
+  getRecentOrders(restaurantId: string, branchId: string | null, limit: number): Promise<Array<Order & { customer: Customer | null; table: { number: number } | null }>>;
   getOrdersByTableId(restaurantId: string, tableId: string): Promise<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
   searchOrders(restaurantId: string, searchTerm: string): Promise<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>;
   createOrder(order: InsertOrder, items: PublicOrderItem[]): Promise<Order>;
@@ -205,7 +205,7 @@ export interface IStorage {
   deleteOrder(restaurantId: string, id: string): Promise<void>;
   
   // Checkout operations
-  getOrderById(restaurantId: string, id: string): Promise<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> } | undefined>;
+  getOrderById(restaurantId: string, id: string): Promise<Order & { customer: Customer | null; table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> } | undefined>;
   updateOrderMetadata(restaurantId: string, id: string, data: {
     orderTitle?: string;
     customerName?: string;
@@ -1371,7 +1371,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Order operations
-  async getKitchenOrders(restaurantId: string, branchId?: string | null): Promise<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> }>> {
+  async getKitchenOrders(restaurantId: string, branchId?: string | null): Promise<Array<Order & { customer: Customer | null; table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> }>> {
     let allOrders;
     if (branchId) {
       // Busca IDs das mesas da filial usando lógica de override
@@ -1387,6 +1387,7 @@ export class DatabaseStorage implements IStorage {
       allOrders = await db
         .select()
         .from(orders)
+        .leftJoin(customers, eq(orders.customerId, customers.id))
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
@@ -1398,13 +1399,14 @@ export class DatabaseStorage implements IStorage {
       allOrders = await db
         .select()
         .from(orders)
+        .leftJoin(customers, eq(orders.customerId, customers.id))
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(eq(orders.restaurantId, restaurantId))
         .orderBy(desc(orders.createdAt));
     }
 
     const ordersWithItems = await Promise.all(
-      allOrders.map(async (orderRow: { orders: Order; tables: Table | null }) => {
+      allOrders.map(async (orderRow: { orders: Order; customers: Customer | null; tables: Table | null }) => {
         const items = await db
           .select()
           .from(orderItems)
@@ -1428,6 +1430,7 @@ export class DatabaseStorage implements IStorage {
 
         return {
           ...orderRow.orders,
+          customer: orderRow.customers,
           table: orderRow.tables,
           orderItems: itemsWithOptions,
         };
@@ -1437,7 +1440,7 @@ export class DatabaseStorage implements IStorage {
     return ordersWithItems;
   }
 
-  async getRecentOrders(restaurantId: string, branchId: string | null, limit: number): Promise<Array<Order & { table: { number: number } }>> {
+  async getRecentOrders(restaurantId: string, branchId: string | null, limit: number): Promise<Array<Order & { customer: Customer | null; table: { number: number } | null }>> {
     let results;
     if (branchId) {
       // Busca IDs das mesas da filial usando lógica de override
@@ -1453,6 +1456,7 @@ export class DatabaseStorage implements IStorage {
       results = await db
         .select()
         .from(orders)
+        .leftJoin(customers, eq(orders.customerId, customers.id))
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
@@ -1465,15 +1469,17 @@ export class DatabaseStorage implements IStorage {
       results = await db
         .select()
         .from(orders)
+        .leftJoin(customers, eq(orders.customerId, customers.id))
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(eq(orders.restaurantId, restaurantId))
         .orderBy(desc(orders.createdAt))
         .limit(limit);
     }
 
-    return results.map((row: { orders: Order; tables: Table | null }) => ({
+    return results.map((row: { orders: Order; customers: Customer | null; tables: Table | null }) => ({
       ...row.orders,
-      table: row.tables ? { number: row.tables.number } : { number: 0 },
+      customer: row.customers,
+      table: row.tables ? { number: row.tables.number } : null,
     }));
   }
 
@@ -1762,10 +1768,11 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getOrderById(restaurantId: string, id: string): Promise<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> } | undefined> {
+  async getOrderById(restaurantId: string, id: string): Promise<Order & { customer: Customer | null; table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> } | undefined> {
     const [orderData] = await db
       .select()
       .from(orders)
+      .leftJoin(customers, eq(orders.customerId, customers.id))
       .leftJoin(tables, eq(orders.tableId, tables.id))
       .where(eq(orders.id, id));
     
@@ -1806,6 +1813,7 @@ export class DatabaseStorage implements IStorage {
 
     return {
       ...orderData.orders,
+      customer: orderData.customers,
       table: orderData.tables,
       orderItems: itemsWithOptions,
     };
