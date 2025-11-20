@@ -4289,6 +4289,396 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== CUSTOMER ROUTES =====
+
+  app.get("/api/customers", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const { search, isActive } = req.query;
+      const filters: any = {};
+      
+      if (search) filters.search = search as string;
+      if (isActive !== undefined) filters.isActive = parseInt(isActive as string);
+
+      const customers = await storage.getCustomers(
+        currentUser.restaurantId,
+        currentUser.activeBranchId,
+        filters
+      );
+      res.json(customers);
+    } catch (error) {
+      console.error('Customers fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar clientes" });
+    }
+  });
+
+  app.get("/api/customers/stats", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const stats = await storage.getCustomerStats(
+        currentUser.restaurantId,
+        currentUser.activeBranchId || null
+      );
+      res.json(stats);
+    } catch (error) {
+      console.error('Customer stats fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar estatísticas de clientes" });
+    }
+  });
+
+  app.get("/api/customers/:id", isAuthenticated, async (req, res) => {
+    try {
+      const customer = await storage.getCustomerById(req.params.id);
+      if (!customer) {
+        return res.status(404).json({ message: "Cliente não encontrado" });
+      }
+      res.json(customer);
+    } catch (error) {
+      console.error('Customer fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar cliente" });
+    }
+  });
+
+  app.post("/api/customers", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const validatedData = insertCustomerSchema.parse(req.body);
+
+      if (validatedData.phone) {
+        const existing = await storage.getCustomerByPhone(currentUser.restaurantId, validatedData.phone);
+        if (existing) {
+          return res.status(400).json({ message: "Já existe um cliente com este telefone" });
+        }
+      }
+
+      if (validatedData.cpf) {
+        const existing = await storage.getCustomerByCpf(currentUser.restaurantId, validatedData.cpf);
+        if (existing) {
+          return res.status(400).json({ message: "Já existe um cliente com este CPF" });
+        }
+      }
+
+      const customer = await storage.createCustomer(
+        currentUser.restaurantId,
+        currentUser.activeBranchId || null,
+        validatedData
+      );
+      res.status(201).json(customer);
+    } catch (error: any) {
+      console.error('Customer creation error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao criar cliente" });
+    }
+  });
+
+  app.put("/api/customers/:id", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const validatedData = updateCustomerSchema.parse(req.body);
+      const customer = await storage.updateCustomer(req.params.id, currentUser.restaurantId, validatedData);
+      res.json(customer);
+    } catch (error: any) {
+      console.error('Customer update error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao atualizar cliente" });
+    }
+  });
+
+  app.delete("/api/customers/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      await storage.deleteCustomer(req.params.id, currentUser.restaurantId);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Customer deletion error:', error);
+      res.status(500).json({ message: "Erro ao excluir cliente" });
+    }
+  });
+
+  // ===== LOYALTY PROGRAM ROUTES =====
+
+  app.get("/api/loyalty/program", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const program = await storage.getLoyaltyProgram(currentUser.restaurantId);
+      res.json(program || null);
+    } catch (error) {
+      console.error('Loyalty program fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar programa de fidelidade" });
+    }
+  });
+
+  app.post("/api/loyalty/program", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const validatedData = insertLoyaltyProgramSchema.parse(req.body);
+      const program = await storage.createOrUpdateLoyaltyProgram(currentUser.restaurantId, validatedData);
+      res.json(program);
+    } catch (error: any) {
+      console.error('Loyalty program creation error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao criar/atualizar programa de fidelidade" });
+    }
+  });
+
+  app.get("/api/loyalty/transactions", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const { customerId, startDate, endDate } = req.query;
+      const filters: any = {};
+      
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+
+      const transactions = await storage.getLoyaltyTransactions(
+        currentUser.restaurantId,
+        customerId as string,
+        filters
+      );
+      res.json(transactions);
+    } catch (error) {
+      console.error('Loyalty transactions fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar transações de fidelidade" });
+    }
+  });
+
+  app.post("/api/loyalty/redeem", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const { customerId, points, orderId } = req.body;
+
+      if (!customerId || !points) {
+        return res.status(400).json({ message: "customerId e points são obrigatórios" });
+      }
+
+      const result = await storage.redeemLoyaltyPoints(
+        currentUser.restaurantId,
+        customerId,
+        parseInt(points),
+        orderId,
+        currentUser.id
+      );
+      res.json(result);
+    } catch (error: any) {
+      console.error('Loyalty redeem error:', error);
+      res.status(400).json({ message: error.message || "Erro ao resgatar pontos" });
+    }
+  });
+
+  // ===== COUPON ROUTES =====
+
+  app.get("/api/coupons", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const { isActive, code } = req.query;
+      const filters: any = {};
+      
+      if (isActive !== undefined) filters.isActive = parseInt(isActive as string);
+      if (code) filters.code = code as string;
+
+      const coupons = await storage.getCoupons(
+        currentUser.restaurantId,
+        currentUser.activeBranchId,
+        filters
+      );
+      res.json(coupons);
+    } catch (error) {
+      console.error('Coupons fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar cupons" });
+    }
+  });
+
+  app.get("/api/coupons/stats", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const stats = await storage.getCouponStats(
+        currentUser.restaurantId,
+        currentUser.activeBranchId || null
+      );
+      res.json(stats);
+    } catch (error) {
+      console.error('Coupon stats fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar estatísticas de cupons" });
+    }
+  });
+
+  app.get("/api/coupons/:id", isAuthenticated, async (req, res) => {
+    try {
+      const coupon = await storage.getCouponById(req.params.id);
+      if (!coupon) {
+        return res.status(404).json({ message: "Cupom não encontrado" });
+      }
+      res.json(coupon);
+    } catch (error) {
+      console.error('Coupon fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar cupom" });
+    }
+  });
+
+  app.post("/api/coupons", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const validatedData = insertCouponSchema.parse(req.body);
+
+      const existing = await storage.getCouponByCode(currentUser.restaurantId, validatedData.code);
+      if (existing) {
+        return res.status(400).json({ message: "Já existe um cupom com este código" });
+      }
+
+      const coupon = await storage.createCoupon(
+        currentUser.restaurantId,
+        currentUser.activeBranchId || null,
+        validatedData,
+        currentUser.id
+      );
+      res.status(201).json(coupon);
+    } catch (error: any) {
+      console.error('Coupon creation error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao criar cupom" });
+    }
+  });
+
+  app.put("/api/coupons/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const validatedData = updateCouponSchema.parse(req.body);
+      const coupon = await storage.updateCoupon(req.params.id, currentUser.restaurantId, validatedData);
+      res.json(coupon);
+    } catch (error: any) {
+      console.error('Coupon update error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao atualizar cupom" });
+    }
+  });
+
+  app.delete("/api/coupons/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      await storage.deleteCoupon(req.params.id, currentUser.restaurantId);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Coupon deletion error:', error);
+      res.status(500).json({ message: "Erro ao excluir cupom" });
+    }
+  });
+
+  app.post("/api/coupons/validate", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const { code, orderValue, orderType, customerId } = req.body;
+
+      if (!code || orderValue === undefined) {
+        return res.status(400).json({ message: "code e orderValue são obrigatórios" });
+      }
+
+      const result = await storage.validateCoupon(
+        currentUser.restaurantId,
+        code,
+        parseFloat(orderValue),
+        orderType,
+        customerId
+      );
+      res.json(result);
+    } catch (error) {
+      console.error('Coupon validation error:', error);
+      res.status(500).json({ message: "Erro ao validar cupom" });
+    }
+  });
+
+  app.get("/api/coupon-usages", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const { couponId, customerId, startDate, endDate } = req.query;
+      const filters: any = {};
+      
+      if (couponId) filters.couponId = couponId as string;
+      if (customerId) filters.customerId = customerId as string;
+      if (startDate) filters.startDate = new Date(startDate as string);
+      if (endDate) filters.endDate = new Date(endDate as string);
+
+      const usages = await storage.getCouponUsages(currentUser.restaurantId, filters);
+      res.json(usages);
+    } catch (error) {
+      console.error('Coupon usages fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar usos de cupons" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // Setup WebSocket server for real-time updates

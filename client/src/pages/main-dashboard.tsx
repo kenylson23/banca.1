@@ -23,6 +23,9 @@ import CashShifts from "./cash-shifts";
 import Expenses from "./expenses";
 import FinancialReports from "./financial-reports";
 import Inventory from "./inventory";
+import Customers from "./customers";
+import Loyalty from "./loyalty";
+import Coupons from "./coupons";
 
 export type Section = 
   | "dashboard" 
@@ -44,7 +47,10 @@ export type Section =
   | "financial-shifts"
   | "expenses"
   | "financial-reports"
-  | "inventory";
+  | "inventory"
+  | "customers"
+  | "loyalty"
+  | "coupons";
 
 interface MainDashboardProps {
   section: Section;
@@ -100,6 +106,12 @@ export default function MainDashboard({ section }: MainDashboardProps) {
         return <FinancialReports />;
       case "inventory":
         return <Inventory />;
+      case "customers":
+        return <Customers />;
+      case "loyalty":
+        return <Loyalty />;
+      case "coupons":
+        return <Coupons />;
       default:
         return <Dashboard />;
     }

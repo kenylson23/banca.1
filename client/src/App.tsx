@@ -193,6 +193,27 @@ function Router() {
             return <Redirect to="/" />;
           }} />
           
+          <Route path="/customers" component={() => {
+            if (user?.role === 'admin') {
+              return <MainDashboard section="customers" />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
+          <Route path="/loyalty" component={() => {
+            if (user?.role === 'admin') {
+              return <MainDashboard section="loyalty" />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
+          <Route path="/coupons" component={() => {
+            if (user?.role === 'admin') {
+              return <MainDashboard section="coupons" />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
           <Route path="/login">
             {() => <Redirect to="/" />}
           </Route>

@@ -32,6 +32,11 @@ import {
   branchStock,
   stockMovements,
   recipeIngredients,
+  customers,
+  loyaltyPrograms,
+  loyaltyTransactions,
+  coupons,
+  couponUsages,
   type User,
   type InsertUser,
   type Restaurant,
@@ -108,6 +113,19 @@ import {
   type RecipeIngredient,
   type InsertRecipeIngredient,
   type UpdateRecipeIngredient,
+  type Customer,
+  type InsertCustomer,
+  type UpdateCustomer,
+  type LoyaltyProgram,
+  type InsertLoyaltyProgram,
+  type UpdateLoyaltyProgram,
+  type LoyaltyTransaction,
+  type InsertLoyaltyTransaction,
+  type Coupon,
+  type InsertCoupon,
+  type UpdateCoupon,
+  type CouponUsage,
+  type InsertCouponUsage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, or, isNull, inArray } from "drizzle-orm";
@@ -528,6 +546,52 @@ export interface IStorage {
   getMenuItemRecipeCost(restaurantId: string, menuItemId: string): Promise<string>;
   checkStockAvailability(restaurantId: string, branchId: string, menuItemId: string, quantity: number): Promise<{ available: boolean; missingItems: Array<{ itemName: string; required: string; available: string }> }>;
   deductStockForOrder(restaurantId: string, branchId: string, orderId: string, userId: string): Promise<void>;
+  
+  // Customer operations
+  getCustomers(restaurantId: string, branchId?: string | null, filters?: { search?: string; isActive?: number }): Promise<Customer[]>;
+  getCustomerById(id: string): Promise<Customer | undefined>;
+  getCustomerByPhone(restaurantId: string, phone: string): Promise<Customer | undefined>;
+  getCustomerByCpf(restaurantId: string, cpf: string): Promise<Customer | undefined>;
+  createCustomer(restaurantId: string, branchId: string | null, data: InsertCustomer): Promise<Customer>;
+  updateCustomer(id: string, restaurantId: string, data: UpdateCustomer): Promise<Customer>;
+  deleteCustomer(id: string, restaurantId: string): Promise<void>;
+  updateCustomerTier(customerId: string, restaurantId: string): Promise<Customer>;
+  getCustomerStats(restaurantId: string, branchId: string | null): Promise<{
+    totalCustomers: number;
+    activeCustomers: number;
+    newThisMonth: number;
+    topCustomers: Array<Customer & { orderCount: number }>;
+  }>;
+  
+  // Loyalty Program operations
+  getLoyaltyProgram(restaurantId: string): Promise<LoyaltyProgram | undefined>;
+  createOrUpdateLoyaltyProgram(restaurantId: string, data: InsertLoyaltyProgram): Promise<LoyaltyProgram>;
+  
+  // Loyalty Transaction operations
+  getLoyaltyTransactions(restaurantId: string, customerId?: string, filters?: { startDate?: Date; endDate?: Date }): Promise<Array<LoyaltyTransaction & { customer: Customer }>>;
+  createLoyaltyTransaction(restaurantId: string, data: InsertLoyaltyTransaction): Promise<LoyaltyTransaction>;
+  calculateLoyaltyPoints(restaurantId: string, orderValue: number): Promise<number>;
+  redeemLoyaltyPoints(restaurantId: string, customerId: string, points: number, orderId?: string, userId?: string): Promise<{ transaction: LoyaltyTransaction; discountAmount: number }>;
+  
+  // Coupon operations
+  getCoupons(restaurantId: string, branchId?: string | null, filters?: { isActive?: number; code?: string }): Promise<Coupon[]>;
+  getCouponById(id: string): Promise<Coupon | undefined>;
+  getCouponByCode(restaurantId: string, code: string): Promise<Coupon | undefined>;
+  createCoupon(restaurantId: string, branchId: string | null, data: InsertCoupon, userId?: string): Promise<Coupon>;
+  updateCoupon(id: string, restaurantId: string, data: UpdateCoupon): Promise<Coupon>;
+  deleteCoupon(id: string, restaurantId: string): Promise<void>;
+  validateCoupon(restaurantId: string, code: string, orderValue: number, orderType?: string, customerId?: string): Promise<{ valid: boolean; message?: string; coupon?: Coupon; discountAmount?: number }>;
+  applyCoupon(restaurantId: string, couponId: string, orderId: string, customerId?: string, discountApplied?: number): Promise<CouponUsage>;
+  
+  // Coupon Usage operations
+  getCouponUsages(restaurantId: string, filters?: { couponId?: string; customerId?: string; startDate?: Date; endDate?: Date }): Promise<Array<CouponUsage & { coupon: Coupon; customer?: Customer; order?: Order }>>;
+  getCouponStats(restaurantId: string, branchId: string | null): Promise<{
+    totalCoupons: number;
+    activeCoupons: number;
+    totalUsages: number;
+    totalDiscount: string;
+    topCoupons: Array<{ coupon: Coupon; usageCount: number; totalDiscount: string }>;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5353,6 +5417,592 @@ export class DatabaseStorage implements IStorage {
         console.error(`Erro ao processar receita para item ${orderItem.menuItemId}:`, error);
       }
     }
+  }
+
+  // ===== CUSTOMER OPERATIONS =====
+  
+  async getCustomers(
+    restaurantId: string,
+    branchId?: string | null,
+    filters?: { search?: string; isActive?: number }
+  ): Promise<Customer[]> {
+    let conditions = [eq(customers.restaurantId, restaurantId)];
+    
+    if (branchId !== undefined && branchId !== null) {
+      conditions.push(or(eq(customers.branchId, branchId), isNull(customers.branchId))!);
+    }
+    
+    if (filters?.isActive !== undefined) {
+      conditions.push(eq(customers.isActive, filters.isActive));
+    }
+    
+    let query = db.select().from(customers).where(and(...conditions));
+    
+    const results = await query.orderBy(desc(customers.createdAt));
+    
+    if (filters?.search) {
+      const searchTerm = filters.search.toLowerCase();
+      return results.filter((c: Customer) => 
+        c.name.toLowerCase().includes(searchTerm) ||
+        c.phone?.toLowerCase().includes(searchTerm) ||
+        c.email?.toLowerCase().includes(searchTerm) ||
+        c.cpf?.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    return results;
+  }
+
+  async getCustomerById(id: string): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
+    return customer;
+  }
+
+  async getCustomerByPhone(restaurantId: string, phone: string): Promise<Customer | undefined> {
+    const [customer] = await db
+      .select()
+      .from(customers)
+      .where(and(eq(customers.restaurantId, restaurantId), eq(customers.phone, phone)));
+    return customer;
+  }
+
+  async getCustomerByCpf(restaurantId: string, cpf: string): Promise<Customer | undefined> {
+    const [customer] = await db
+      .select()
+      .from(customers)
+      .where(and(eq(customers.restaurantId, restaurantId), eq(customers.cpf, cpf)));
+    return customer;
+  }
+
+  async createCustomer(
+    restaurantId: string,
+    branchId: string | null,
+    data: InsertCustomer
+  ): Promise<Customer> {
+    const [customer] = await db
+      .insert(customers)
+      .values({
+        ...data,
+        restaurantId,
+        branchId,
+      })
+      .returning();
+    return customer;
+  }
+
+  async updateCustomer(
+    id: string,
+    restaurantId: string,
+    data: UpdateCustomer
+  ): Promise<Customer> {
+    const [updated] = await db
+      .update(customers)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(customers.id, id), eq(customers.restaurantId, restaurantId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteCustomer(id: string, restaurantId: string): Promise<void> {
+    await db
+      .delete(customers)
+      .where(and(eq(customers.id, id), eq(customers.restaurantId, restaurantId)));
+  }
+
+  async updateCustomerTier(customerId: string, restaurantId: string): Promise<Customer> {
+    const customer = await this.getCustomerById(customerId);
+    if (!customer) {
+      throw new Error('Cliente não encontrado');
+    }
+
+    const program = await this.getLoyaltyProgram(restaurantId);
+    if (!program) {
+      return customer;
+    }
+
+    const totalSpent = parseFloat(customer.totalSpent);
+    let newTier: 'bronze' | 'prata' | 'ouro' | 'platina' = 'bronze';
+
+    if (totalSpent >= parseFloat(program.platinumTierMinSpent || '0')) {
+      newTier = 'platina';
+    } else if (totalSpent >= parseFloat(program.goldTierMinSpent || '0')) {
+      newTier = 'ouro';
+    } else if (totalSpent >= parseFloat(program.silverTierMinSpent || '0')) {
+      newTier = 'prata';
+    }
+
+    if (newTier !== customer.tier) {
+      const [updated] = await db
+        .update(customers)
+        .set({ tier: newTier, updatedAt: new Date() })
+        .where(eq(customers.id, customerId))
+        .returning();
+      return updated;
+    }
+
+    return customer;
+  }
+
+  async getCustomerStats(
+    restaurantId: string,
+    branchId: string | null
+  ): Promise<{
+    totalCustomers: number;
+    activeCustomers: number;
+    newThisMonth: number;
+    topCustomers: Array<Customer & { orderCount: number }>;
+  }> {
+    let conditions = [eq(customers.restaurantId, restaurantId)];
+    
+    if (branchId) {
+      conditions.push(or(eq(customers.branchId, branchId), isNull(customers.branchId))!);
+    }
+
+    const allCustomers = await db
+      .select()
+      .from(customers)
+      .where(and(...conditions));
+
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const stats = {
+      totalCustomers: allCustomers.length,
+      activeCustomers: allCustomers.filter((c: Customer) => c.isActive === 1).length,
+      newThisMonth: allCustomers.filter((c: Customer) => c.createdAt && c.createdAt >= firstDayOfMonth).length,
+      topCustomers: [] as Array<Customer & { orderCount: number }>,
+    };
+
+    const topCustomersData = allCustomers
+      .sort((a: Customer, b: Customer) => parseFloat(b.totalSpent) - parseFloat(a.totalSpent))
+      .slice(0, 5)
+      .map((c: Customer) => ({
+        ...c,
+        orderCount: c.visitCount,
+      }));
+
+    stats.topCustomers = topCustomersData;
+
+    return stats;
+  }
+
+  // ===== LOYALTY PROGRAM OPERATIONS =====
+
+  async getLoyaltyProgram(restaurantId: string): Promise<LoyaltyProgram | undefined> {
+    const [program] = await db
+      .select()
+      .from(loyaltyPrograms)
+      .where(eq(loyaltyPrograms.restaurantId, restaurantId));
+    return program;
+  }
+
+  async createOrUpdateLoyaltyProgram(
+    restaurantId: string,
+    data: InsertLoyaltyProgram
+  ): Promise<LoyaltyProgram> {
+    const existing = await this.getLoyaltyProgram(restaurantId);
+
+    if (existing) {
+      const [updated] = await db
+        .update(loyaltyPrograms)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(loyaltyPrograms.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(loyaltyPrograms)
+        .values({ ...data, restaurantId })
+        .returning();
+      return created;
+    }
+  }
+
+  // ===== LOYALTY TRANSACTION OPERATIONS =====
+
+  async getLoyaltyTransactions(
+    restaurantId: string,
+    customerId?: string,
+    filters?: { startDate?: Date; endDate?: Date }
+  ): Promise<Array<LoyaltyTransaction & { customer: Customer }>> {
+    let conditions = [eq(loyaltyTransactions.restaurantId, restaurantId)];
+
+    if (customerId) {
+      conditions.push(eq(loyaltyTransactions.customerId, customerId));
+    }
+
+    if (filters?.startDate) {
+      conditions.push(gte(loyaltyTransactions.createdAt, filters.startDate));
+    }
+
+    if (filters?.endDate) {
+      conditions.push(sql`${loyaltyTransactions.createdAt} <= ${filters.endDate}`);
+    }
+
+    const transactions = await db
+      .select()
+      .from(loyaltyTransactions)
+      .leftJoin(customers, eq(loyaltyTransactions.customerId, customers.id))
+      .where(and(...conditions))
+      .orderBy(desc(loyaltyTransactions.createdAt));
+
+    return transactions.map((t: any) => ({
+      ...t.loyalty_transactions,
+      customer: t.customers!,
+    }));
+  }
+
+  async createLoyaltyTransaction(
+    restaurantId: string,
+    data: InsertLoyaltyTransaction
+  ): Promise<LoyaltyTransaction> {
+    const [transaction] = await db
+      .insert(loyaltyTransactions)
+      .values({ ...data, restaurantId })
+      .returning();
+
+    await db
+      .update(customers)
+      .set({
+        loyaltyPoints: sql`${customers.loyaltyPoints} + ${data.points}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(customers.id, data.customerId));
+
+    return transaction;
+  }
+
+  async calculateLoyaltyPoints(restaurantId: string, orderValue: number): Promise<number> {
+    const program = await this.getLoyaltyProgram(restaurantId);
+    if (!program || program.isActive !== 1) {
+      return 0;
+    }
+
+    const pointsPerCurrency = parseFloat(program.pointsPerCurrency);
+    return Math.floor(orderValue * pointsPerCurrency);
+  }
+
+  async redeemLoyaltyPoints(
+    restaurantId: string,
+    customerId: string,
+    points: number,
+    orderId?: string,
+    userId?: string
+  ): Promise<{ transaction: LoyaltyTransaction; discountAmount: number }> {
+    const customer = await this.getCustomerById(customerId);
+    if (!customer) {
+      throw new Error('Cliente não encontrado');
+    }
+
+    if (customer.loyaltyPoints < points) {
+      throw new Error('Pontos insuficientes');
+    }
+
+    const program = await this.getLoyaltyProgram(restaurantId);
+    if (!program || program.isActive !== 1) {
+      throw new Error('Programa de fidelidade não está ativo');
+    }
+
+    if (points < program.minPointsToRedeem) {
+      throw new Error(`Mínimo de ${program.minPointsToRedeem} pontos necessário para resgate`);
+    }
+
+    const currencyPerPoint = parseFloat(program.currencyPerPoint);
+    const discountAmount = points * currencyPerPoint;
+
+    const transaction = await this.createLoyaltyTransaction(restaurantId, {
+      customerId,
+      orderId: orderId || null,
+      type: 'resgate',
+      points: -points,
+      description: `Resgate de ${points} pontos`,
+      createdBy: userId || null,
+    });
+
+    return { transaction, discountAmount };
+  }
+
+  // ===== COUPON OPERATIONS =====
+
+  async getCoupons(
+    restaurantId: string,
+    branchId?: string | null,
+    filters?: { isActive?: number; code?: string }
+  ): Promise<Coupon[]> {
+    let conditions = [eq(coupons.restaurantId, restaurantId)];
+
+    if (branchId !== undefined && branchId !== null) {
+      conditions.push(or(eq(coupons.branchId, branchId), isNull(coupons.branchId))!);
+    }
+
+    if (filters?.isActive !== undefined) {
+      conditions.push(eq(coupons.isActive, filters.isActive));
+    }
+
+    if (filters?.code) {
+      conditions.push(eq(coupons.code, filters.code.toUpperCase()));
+    }
+
+    return await db
+      .select()
+      .from(coupons)
+      .where(and(...conditions))
+      .orderBy(desc(coupons.createdAt));
+  }
+
+  async getCouponById(id: string): Promise<Coupon | undefined> {
+    const [coupon] = await db.select().from(coupons).where(eq(coupons.id, id));
+    return coupon;
+  }
+
+  async getCouponByCode(restaurantId: string, code: string): Promise<Coupon | undefined> {
+    const [coupon] = await db
+      .select()
+      .from(coupons)
+      .where(and(eq(coupons.restaurantId, restaurantId), eq(coupons.code, code.toUpperCase())));
+    return coupon;
+  }
+
+  async createCoupon(
+    restaurantId: string,
+    branchId: string | null,
+    data: InsertCoupon,
+    userId?: string
+  ): Promise<Coupon> {
+    const [coupon] = await db
+      .insert(coupons)
+      .values({
+        ...data,
+        restaurantId,
+        branchId,
+        code: data.code.toUpperCase(),
+        createdBy: userId || null,
+      })
+      .returning();
+    return coupon;
+  }
+
+  async updateCoupon(id: string, restaurantId: string, data: UpdateCoupon): Promise<Coupon> {
+    const updateData: any = { ...data, updatedAt: new Date() };
+    if (data.code) {
+      updateData.code = data.code.toUpperCase();
+    }
+
+    const [updated] = await db
+      .update(coupons)
+      .set(updateData)
+      .where(and(eq(coupons.id, id), eq(coupons.restaurantId, restaurantId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteCoupon(id: string, restaurantId: string): Promise<void> {
+    await db
+      .delete(coupons)
+      .where(and(eq(coupons.id, id), eq(coupons.restaurantId, restaurantId)));
+  }
+
+  async validateCoupon(
+    restaurantId: string,
+    code: string,
+    orderValue: number,
+    orderType?: string,
+    customerId?: string
+  ): Promise<{ valid: boolean; message?: string; coupon?: Coupon; discountAmount?: number }> {
+    const coupon = await this.getCouponByCode(restaurantId, code);
+
+    if (!coupon) {
+      return { valid: false, message: 'Cupom não encontrado' };
+    }
+
+    if (coupon.isActive !== 1) {
+      return { valid: false, message: 'Cupom inativo' };
+    }
+
+    const now = new Date();
+    if (coupon.validFrom > now) {
+      return { valid: false, message: 'Cupom ainda não válido' };
+    }
+
+    if (coupon.validUntil < now) {
+      return { valid: false, message: 'Cupom expirado' };
+    }
+
+    if (coupon.maxUses && coupon.currentUses >= coupon.maxUses) {
+      return { valid: false, message: 'Cupom atingiu limite de usos' };
+    }
+
+    if (orderValue < parseFloat(coupon.minOrderValue || '0')) {
+      return {
+        valid: false,
+        message: `Pedido mínimo de ${coupon.minOrderValue} necessário`,
+      };
+    }
+
+    if (orderType && coupon.applicableOrderTypes && coupon.applicableOrderTypes.length > 0) {
+      if (!coupon.applicableOrderTypes.includes(orderType)) {
+        return { valid: false, message: 'Cupom não válido para este tipo de pedido' };
+      }
+    }
+
+    if (customerId && coupon.maxUsesPerCustomer) {
+      const usageCount = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(couponUsages)
+        .where(
+          and(
+            eq(couponUsages.couponId, coupon.id),
+            eq(couponUsages.customerId, customerId)
+          )
+        );
+
+      if (usageCount[0].count >= coupon.maxUsesPerCustomer) {
+        return { valid: false, message: 'Você já atingiu o limite de usos deste cupom' };
+      }
+    }
+
+    let discountAmount = 0;
+    if (coupon.discountType === 'valor') {
+      discountAmount = parseFloat(coupon.discountValue);
+    } else {
+      discountAmount = (orderValue * parseFloat(coupon.discountValue)) / 100;
+      if (coupon.maxDiscount) {
+        discountAmount = Math.min(discountAmount, parseFloat(coupon.maxDiscount));
+      }
+    }
+
+    return { valid: true, coupon, discountAmount };
+  }
+
+  async applyCoupon(
+    restaurantId: string,
+    couponId: string,
+    orderId: string,
+    customerId?: string,
+    discountApplied?: number
+  ): Promise<CouponUsage> {
+    const [usage] = await db
+      .insert(couponUsages)
+      .values({
+        restaurantId,
+        couponId,
+        orderId,
+        customerId: customerId || null,
+        discountApplied: discountApplied?.toFixed(2) || '0',
+      })
+      .returning();
+
+    await db
+      .update(coupons)
+      .set({ currentUses: sql`${coupons.currentUses} + 1` })
+      .where(eq(coupons.id, couponId));
+
+    return usage;
+  }
+
+  // ===== COUPON USAGE OPERATIONS =====
+
+  async getCouponUsages(
+    restaurantId: string,
+    filters?: { couponId?: string; customerId?: string; startDate?: Date; endDate?: Date }
+  ): Promise<Array<CouponUsage & { coupon: Coupon; customer?: Customer; order?: Order }>> {
+    let conditions = [eq(couponUsages.restaurantId, restaurantId)];
+
+    if (filters?.couponId) {
+      conditions.push(eq(couponUsages.couponId, filters.couponId));
+    }
+
+    if (filters?.customerId) {
+      conditions.push(eq(couponUsages.customerId, filters.customerId));
+    }
+
+    if (filters?.startDate) {
+      conditions.push(gte(couponUsages.createdAt, filters.startDate));
+    }
+
+    if (filters?.endDate) {
+      conditions.push(sql`${couponUsages.createdAt} <= ${filters.endDate}`);
+    }
+
+    const usages = await db
+      .select()
+      .from(couponUsages)
+      .leftJoin(coupons, eq(couponUsages.couponId, coupons.id))
+      .leftJoin(customers, eq(couponUsages.customerId, customers.id))
+      .leftJoin(orders, eq(couponUsages.orderId, orders.id))
+      .where(and(...conditions))
+      .orderBy(desc(couponUsages.createdAt));
+
+    return usages.map((u: any) => ({
+      ...u.coupon_usages,
+      coupon: u.coupons!,
+      customer: u.customers || undefined,
+      order: u.orders || undefined,
+    }));
+  }
+
+  async getCouponStats(
+    restaurantId: string,
+    branchId: string | null
+  ): Promise<{
+    totalCoupons: number;
+    activeCoupons: number;
+    totalUsages: number;
+    totalDiscount: string;
+    topCoupons: Array<{ coupon: Coupon; usageCount: number; totalDiscount: string }>;
+  }> {
+    let conditions = [eq(coupons.restaurantId, restaurantId)];
+
+    if (branchId) {
+      conditions.push(or(eq(coupons.branchId, branchId), isNull(coupons.branchId))!);
+    }
+
+    const allCoupons = await db
+      .select()
+      .from(coupons)
+      .where(and(...conditions));
+
+    const now = new Date();
+    const activeCoupons = allCoupons.filter(
+      (c: Coupon) => c.isActive === 1 && c.validFrom <= now && c.validUntil >= now
+    );
+
+    let usageConditions = [eq(couponUsages.restaurantId, restaurantId)];
+    const allUsages = await db
+      .select()
+      .from(couponUsages)
+      .where(and(...usageConditions));
+
+    const totalDiscount = allUsages
+      .reduce((sum: number, usage: CouponUsage) => sum + parseFloat(usage.discountApplied), 0)
+      .toFixed(2);
+
+    const couponUsageMap = new Map<string, { count: number; total: number }>();
+    allUsages.forEach((usage: CouponUsage) => {
+      const existing = couponUsageMap.get(usage.couponId) || { count: 0, total: 0 };
+      couponUsageMap.set(usage.couponId, {
+        count: existing.count + 1,
+        total: existing.total + parseFloat(usage.discountApplied),
+      });
+    });
+
+    const topCoupons = Array.from(couponUsageMap.entries())
+      .map(([couponId, stats]) => ({
+        coupon: allCoupons.find((c: Coupon) => c.id === couponId)!,
+        usageCount: stats.count,
+        totalDiscount: stats.total.toFixed(2),
+      }))
+      .filter(item => item.coupon)
+      .sort((a, b) => b.usageCount - a.usageCount)
+      .slice(0, 5);
+
+    return {
+      totalCoupons: allCoupons.length,
+      activeCoupons: activeCoupons.length,
+      totalUsages: allUsages.length,
+      totalDiscount,
+      topCoupons,
+    };
   }
 }
 

@@ -373,6 +373,252 @@ export const paymentStatusEnum = pgEnum('payment_status', ['nao_pago', 'parcial'
 // Discount Type Enum
 export const discountTypeEnum = pgEnum('discount_type', ['valor', 'percentual']);
 
+// ===== CUSTOMER MANAGEMENT SECTION =====
+
+// Customer Tier Enum
+export const customerTierEnum = pgEnum('customer_tier', ['bronze', 'prata', 'ouro', 'platina']);
+
+// Loyalty Transaction Type Enum
+export const loyaltyTransactionTypeEnum = pgEnum('loyalty_transaction_type', [
+  'ganho',        // Points earned from purchase
+  'resgate',      // Points redeemed
+  'expiracao',    // Points expired
+  'ajuste',       // Manual adjustment
+  'bonus'         // Bonus points (birthday, promotion, etc)
+]);
+
+// Customers - Clientes
+export const customers = pgTable("customers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'set null' }),
+  name: varchar("name", { length: 200 }).notNull(),
+  phone: varchar("phone", { length: 50 }),
+  email: varchar("email", { length: 255 }),
+  cpf: varchar("cpf", { length: 14 }),
+  birthDate: timestamp("birth_date"),
+  address: text("address"),
+  loyaltyPoints: integer("loyalty_points").notNull().default(0),
+  tier: customerTierEnum("tier").default('bronze'),
+  totalSpent: decimal("total_spent", { precision: 10, scale: 2 }).notNull().default('0'),
+  visitCount: integer("visit_count").notNull().default(0),
+  lastVisit: timestamp("last_visit"),
+  notes: text("notes"),
+  isActive: integer("is_active").notNull().default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCustomerSchema = createInsertSchema(customers).omit({
+  id: true,
+  restaurantId: true,
+  loyaltyPoints: true,
+  tier: true,
+  totalSpent: true,
+  visitCount: true,
+  lastVisit: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Nome é obrigatório"),
+  phone: z.string().optional(),
+  email: z.string().email("Email inválido").optional().or(z.literal('')),
+  cpf: z.string().optional(),
+  birthDate: z.string().optional(),
+  branchId: z.string().optional().nullable(),
+  address: z.string().optional(),
+  notes: z.string().optional(),
+  isActive: z.number().optional(),
+});
+
+export const updateCustomerSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório").optional(),
+  phone: z.string().optional(),
+  email: z.string().email("Email inválido").optional().or(z.literal('')),
+  cpf: z.string().optional(),
+  birthDate: z.string().optional(),
+  address: z.string().optional(),
+  notes: z.string().optional(),
+  isActive: z.number().optional(),
+});
+
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+export type UpdateCustomer = z.infer<typeof updateCustomerSchema>;
+export type Customer = typeof customers.$inferSelect;
+
+// Loyalty Programs - Configuração do Programa de Fidelidade
+export const loyaltyPrograms = pgTable("loyalty_programs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  isActive: integer("is_active").notNull().default(1),
+  pointsPerCurrency: decimal("points_per_currency", { precision: 10, scale: 2 }).notNull().default('1'),
+  currencyPerPoint: decimal("currency_per_point", { precision: 10, scale: 2 }).notNull().default('0.10'),
+  minPointsToRedeem: integer("min_points_to_redeem").notNull().default(100),
+  maxPointsPerOrder: integer("max_points_per_order"),
+  pointsExpirationDays: integer("points_expiration_days"),
+  birthdayBonusPoints: integer("birthday_bonus_points").default(0),
+  bronzeTierMinSpent: decimal("bronze_tier_min_spent", { precision: 10, scale: 2 }).default('0'),
+  silverTierMinSpent: decimal("silver_tier_min_spent", { precision: 10, scale: 2 }).default('5000'),
+  goldTierMinSpent: decimal("gold_tier_min_spent", { precision: 10, scale: 2 }).default('15000'),
+  platinumTierMinSpent: decimal("platinum_tier_min_spent", { precision: 10, scale: 2 }).default('50000'),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertLoyaltyProgramSchema = createInsertSchema(loyaltyPrograms).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  isActive: z.number().optional(),
+  pointsPerCurrency: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido").optional(),
+  currencyPerPoint: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido").optional(),
+  minPointsToRedeem: z.number().int().min(0).optional(),
+  maxPointsPerOrder: z.number().int().min(0).optional(),
+  pointsExpirationDays: z.number().int().min(0).optional(),
+  birthdayBonusPoints: z.number().int().min(0).optional(),
+  bronzeTierMinSpent: z.string().optional(),
+  silverTierMinSpent: z.string().optional(),
+  goldTierMinSpent: z.string().optional(),
+  platinumTierMinSpent: z.string().optional(),
+});
+
+export const updateLoyaltyProgramSchema = insertLoyaltyProgramSchema;
+
+export type InsertLoyaltyProgram = z.infer<typeof insertLoyaltyProgramSchema>;
+export type UpdateLoyaltyProgram = z.infer<typeof updateLoyaltyProgramSchema>;
+export type LoyaltyProgram = typeof loyaltyPrograms.$inferSelect;
+
+// Loyalty Transactions - Transações de Pontos
+export const loyaltyTransactions = pgTable("loyalty_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: 'cascade' }),
+  orderId: varchar("order_id").references(() => orders.id, { onDelete: 'set null' }),
+  type: loyaltyTransactionTypeEnum("type").notNull(),
+  points: integer("points").notNull(),
+  description: varchar("description", { length: 500 }),
+  expiresAt: timestamp("expires_at"),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertLoyaltyTransactionSchema = createInsertSchema(loyaltyTransactions).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+}).extend({
+  customerId: z.string().min(1, "Cliente é obrigatório"),
+  orderId: z.string().optional().nullable(),
+  type: z.enum(['ganho', 'resgate', 'expiracao', 'ajuste', 'bonus']),
+  points: z.number().int(),
+  description: z.string().optional(),
+  expiresAt: z.string().optional(),
+  createdBy: z.string().optional().nullable(),
+});
+
+export type InsertLoyaltyTransaction = z.infer<typeof insertLoyaltyTransactionSchema>;
+export type LoyaltyTransaction = typeof loyaltyTransactions.$inferSelect;
+
+// Coupons - Cupons de Desconto
+export const coupons = pgTable("coupons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'set null' }),
+  code: varchar("code", { length: 50 }).notNull(),
+  description: text("description"),
+  discountType: discountTypeEnum("discount_type").notNull(),
+  discountValue: decimal("discount_value", { precision: 10, scale: 2 }).notNull(),
+  minOrderValue: decimal("min_order_value", { precision: 10, scale: 2 }).default('0'),
+  maxDiscount: decimal("max_discount", { precision: 10, scale: 2 }),
+  validFrom: timestamp("valid_from").notNull(),
+  validUntil: timestamp("valid_until").notNull(),
+  maxUses: integer("max_uses"),
+  maxUsesPerCustomer: integer("max_uses_per_customer").default(1),
+  currentUses: integer("current_uses").notNull().default(0),
+  isActive: integer("is_active").notNull().default(1),
+  applicableOrderTypes: text("applicable_order_types").array(),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCouponSchema = createInsertSchema(coupons).omit({
+  id: true,
+  restaurantId: true,
+  currentUses: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  code: z.string().min(3, "Código deve ter no mínimo 3 caracteres").max(50),
+  description: z.string().optional(),
+  branchId: z.string().optional().nullable(),
+  discountType: z.enum(['valor', 'percentual']),
+  discountValue: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
+  minOrderValue: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido").optional(),
+  maxDiscount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido").optional(),
+  validFrom: z.string().min(1, "Data inicial é obrigatória"),
+  validUntil: z.string().min(1, "Data final é obrigatória"),
+  maxUses: z.number().int().min(1).optional(),
+  maxUsesPerCustomer: z.number().int().min(1).default(1),
+  isActive: z.number().optional(),
+  applicableOrderTypes: z.array(z.string()).optional(),
+  createdBy: z.string().optional().nullable(),
+});
+
+export const updateCouponSchema = z.object({
+  code: z.string().min(3, "Código deve ter no mínimo 3 caracteres").max(50).optional(),
+  description: z.string().optional(),
+  discountType: z.enum(['valor', 'percentual']).optional(),
+  discountValue: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido").optional(),
+  minOrderValue: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido").optional(),
+  maxDiscount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido").optional(),
+  validFrom: z.string().optional(),
+  validUntil: z.string().optional(),
+  maxUses: z.number().int().min(1).optional(),
+  maxUsesPerCustomer: z.number().int().min(1).optional(),
+  isActive: z.number().optional(),
+  applicableOrderTypes: z.array(z.string()).optional(),
+});
+
+export const validateCouponSchema = z.object({
+  code: z.string().min(1, "Código do cupom é obrigatório"),
+  orderType: z.string().optional(),
+  orderValue: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
+  customerId: z.string().optional(),
+});
+
+export type InsertCoupon = z.infer<typeof insertCouponSchema>;
+export type UpdateCoupon = z.infer<typeof updateCouponSchema>;
+export type ValidateCoupon = z.infer<typeof validateCouponSchema>;
+export type Coupon = typeof coupons.$inferSelect;
+
+// Coupon Usages - Registro de uso de cupons
+export const couponUsages = pgTable("coupon_usages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  couponId: varchar("coupon_id").notNull().references(() => coupons.id, { onDelete: 'cascade' }),
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: 'set null' }),
+  orderId: varchar("order_id").references(() => orders.id, { onDelete: 'set null' }),
+  discountApplied: decimal("discount_applied", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCouponUsageSchema = createInsertSchema(couponUsages).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+}).extend({
+  couponId: z.string().min(1, "Cupom é obrigatório"),
+  customerId: z.string().optional().nullable(),
+  orderId: z.string().optional().nullable(),
+  discountApplied: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
+});
+
+export type InsertCouponUsage = z.infer<typeof insertCouponUsageSchema>;
+export type CouponUsage = typeof couponUsages.$inferSelect;
+
 // Orders - Pedidos
 export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -380,6 +626,8 @@ export const orders = pgTable("orders", {
   tableId: varchar("table_id").references(() => tables.id, { onDelete: 'cascade' }),
   tableSessionId: varchar("table_session_id").references(() => tableSessions.id, { onDelete: 'set null' }),
   branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: 'set null' }),
+  couponId: varchar("coupon_id").references(() => coupons.id, { onDelete: 'set null' }),
   orderType: orderTypeEnum("order_type").notNull().default('mesa'),
   customerName: varchar("customer_name", { length: 200 }),
   customerPhone: varchar("customer_phone", { length: 50 }),
@@ -390,10 +638,14 @@ export const orders = pgTable("orders", {
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default('0'),
   discount: decimal("discount", { precision: 10, scale: 2 }).default('0'),
   discountType: discountTypeEnum("discount_type").default('valor'),
+  couponDiscount: decimal("coupon_discount", { precision: 10, scale: 2 }).default('0'),
   serviceCharge: decimal("service_charge", { precision: 10, scale: 2 }).default('0'),
   serviceName: varchar("service_name", { length: 200 }),
   deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).default('0'),
   packagingFee: decimal("packaging_fee", { precision: 10, scale: 2 }).default('0'),
+  loyaltyPointsEarned: integer("loyalty_points_earned").default(0),
+  loyaltyPointsRedeemed: integer("loyalty_points_redeemed").default(0),
+  loyaltyDiscountAmount: decimal("loyalty_discount_amount", { precision: 10, scale: 2 }).default('0'),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   paymentStatus: paymentStatusEnum("payment_status").notNull().default('nao_pago'),
   paymentMethod: paymentMethodEnum("payment_method"),
@@ -1009,6 +1261,14 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     fields: [orders.tableSessionId],
     references: [tableSessions.id],
   }),
+  customer: one(customers, {
+    fields: [orders.customerId],
+    references: [customers.id],
+  }),
+  coupon: one(coupons, {
+    fields: [orders.couponId],
+    references: [coupons.id],
+  }),
   createdByUser: one(users, {
     fields: [orders.createdBy],
     references: [users.id],
@@ -1021,6 +1281,8 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   adjustments: many(orderAdjustments),
   events: many(financialEvents),
   paymentEvents: many(paymentEvents),
+  loyaltyTransactions: many(loyaltyTransactions),
+  couponUsages: many(couponUsages),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one, many }) => ({
@@ -1792,5 +2054,83 @@ export const recipeIngredientsRelations = relations(recipeIngredients, ({ one })
   inventoryItem: one(inventoryItems, {
     fields: [recipeIngredients.inventoryItemId],
     references: [inventoryItems.id],
+  }),
+}));
+
+// ===== CUSTOMER MANAGEMENT RELATIONS =====
+
+export const customersRelations = relations(customers, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [customers.restaurantId],
+    references: [restaurants.id],
+  }),
+  branch: one(branches, {
+    fields: [customers.branchId],
+    references: [branches.id],
+  }),
+  orders: many(orders),
+  loyaltyTransactions: many(loyaltyTransactions),
+  couponUsages: many(couponUsages),
+}));
+
+export const loyaltyProgramsRelations = relations(loyaltyPrograms, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [loyaltyPrograms.restaurantId],
+    references: [restaurants.id],
+  }),
+}));
+
+export const loyaltyTransactionsRelations = relations(loyaltyTransactions, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [loyaltyTransactions.restaurantId],
+    references: [restaurants.id],
+  }),
+  customer: one(customers, {
+    fields: [loyaltyTransactions.customerId],
+    references: [customers.id],
+  }),
+  order: one(orders, {
+    fields: [loyaltyTransactions.orderId],
+    references: [orders.id],
+  }),
+  createdByUser: one(users, {
+    fields: [loyaltyTransactions.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export const couponsRelations = relations(coupons, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [coupons.restaurantId],
+    references: [restaurants.id],
+  }),
+  branch: one(branches, {
+    fields: [coupons.branchId],
+    references: [branches.id],
+  }),
+  createdByUser: one(users, {
+    fields: [coupons.createdBy],
+    references: [users.id],
+  }),
+  usages: many(couponUsages),
+  orders: many(orders),
+}));
+
+export const couponUsagesRelations = relations(couponUsages, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [couponUsages.restaurantId],
+    references: [restaurants.id],
+  }),
+  coupon: one(coupons, {
+    fields: [couponUsages.couponId],
+    references: [coupons.id],
+  }),
+  customer: one(customers, {
+    fields: [couponUsages.customerId],
+    references: [customers.id],
+  }),
+  order: one(orders, {
+    fields: [couponUsages.orderId],
+    references: [orders.id],
   }),
 }));
