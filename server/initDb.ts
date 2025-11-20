@@ -464,6 +464,78 @@ export async function ensureTablesExist() {
         ALTER TABLE orders ADD COLUMN closed_by VARCHAR REFERENCES users(id); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
+      // Create customer_tier enum if it doesn't exist
+      await db.execute(sql`DO $$ BEGIN CREATE TYPE customer_tier AS ENUM ('bronze', 'prata', 'ouro', 'platina'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Create customers table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS customers (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE SET NULL,
+        name VARCHAR(200) NOT NULL,
+        phone VARCHAR(50),
+        email VARCHAR(255),
+        cpf VARCHAR(14),
+        birth_date TIMESTAMP,
+        address TEXT,
+        loyalty_points INTEGER NOT NULL DEFAULT 0,
+        tier customer_tier DEFAULT 'bronze',
+        total_spent DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        visit_count INTEGER NOT NULL DEFAULT 0,
+        last_visit TIMESTAMP,
+        notes TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create loyalty_transaction_type enum if it doesn't exist
+      await db.execute(sql`DO $$ BEGIN CREATE TYPE loyalty_transaction_type AS ENUM ('ganho', 'resgate', 'expiracao', 'ajuste', 'bonus'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Create coupons table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS coupons (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE SET NULL,
+        code VARCHAR(50) NOT NULL,
+        description TEXT,
+        discount_type discount_type NOT NULL,
+        discount_value DECIMAL(10, 2) NOT NULL,
+        min_order_value DECIMAL(10, 2) DEFAULT 0,
+        max_discount DECIMAL(10, 2),
+        usage_limit INTEGER,
+        times_used INTEGER NOT NULL DEFAULT 0,
+        valid_from TIMESTAMP DEFAULT NOW(),
+        valid_until TIMESTAMP,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Add customer_id to orders
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN customer_id VARCHAR REFERENCES customers(id) ON DELETE SET NULL; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Add coupon_id to orders
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN coupon_id VARCHAR REFERENCES coupons(id) ON DELETE SET NULL; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Add loyalty fields to orders
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN coupon_discount DECIMAL(10, 2) DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN loyalty_points_earned INTEGER DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN loyalty_points_redeemed INTEGER DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN loyalty_discount_amount DECIMAL(10, 2) DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
       // Create order_items table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS order_items (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
