@@ -2,85 +2,85 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LIGHT MODE */
+/* LIGHT MODE - Preto e Branco Minimalista */
 :root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline: rgba(0,0,0, .05);
+  --button-outline: rgba(0,0,0, .12);
+  --badge-outline: rgba(0,0,0, .08);
 
   /* Automatic computation of border around primary / danger buttons */
   --opaque-button-border-intensity: -8; /* In terms of percentages */
 
   /* Backgrounds applied on top of other backgrounds when hovered/active */
-  --elevate-1: rgba(0,0,0, .04);
-  --elevate-2: rgba(0,0,0, .10);
+  --elevate-1: rgba(0,0,0, .03);
+  --elevate-2: rgba(0,0,0, .08);
 
   --background: 0 0% 100%;
 
-  --foreground: 0 0% 13%;
+  --foreground: 0 0% 0%;
 
-  --border: 0 0% 90%;
+  --border: 0 0% 88%;
 
   --card: 0 0% 100%;
 
-  --card-foreground: 0 0% 13%;
+  --card-foreground: 0 0% 0%;
 
-  --card-border: 0 0% 93%;
+  --card-border: 0 0% 90%;
 
-  --sidebar: 0 0% 97%;
+  --sidebar: 0 0% 98%;
 
-  --sidebar-foreground: 0 0% 13%;
+  --sidebar-foreground: 0 0% 0%;
 
-  --sidebar-border: 0 0% 88%;
+  --sidebar-border: 0 0% 85%;
 
-  --sidebar-primary: 145 94% 35%;
+  --sidebar-primary: 0 0% 0%;
 
   --sidebar-primary-foreground: 0 0% 100%;
 
-  --sidebar-accent: 0 0% 96%;
+  --sidebar-accent: 0 0% 97%;
 
-  --sidebar-accent-foreground: 0 0% 13%;
+  --sidebar-accent-foreground: 0 0% 0%;
 
-  --sidebar-ring: 145 94% 35%;
+  --sidebar-ring: 0 0% 0%;
 
   --popover: 0 0% 100%;
 
-  --popover-foreground: 0 0% 13%;
+  --popover-foreground: 0 0% 0%;
 
-  --popover-border: 0 0% 90%;
+  --popover-border: 0 0% 88%;
 
-  --primary: 145 94% 35%;
+  --primary: 0 0% 0%;
 
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 0 0% 96%;
+  --secondary: 0 0% 97%;
 
-  --secondary-foreground: 0 0% 13%;
+  --secondary-foreground: 0 0% 0%;
 
   --muted: 0 0% 96%;
 
-  --muted-foreground: 0 0% 40%;
+  --muted-foreground: 0 0% 45%;
 
   --accent: 0 0% 96%;
 
-  --accent-foreground: 0 0% 13%;
+  --accent-foreground: 0 0% 0%;
 
-  --destructive: 0 84% 60%;
+  --destructive: 0 0% 0%;
 
   --destructive-foreground: 0 0% 100%;
 
-  --input: 0 0% 90%;
-  --ring: 145 94% 35%;
-  --chart-1: 145 94% 35%;
-  --chart-2: 142 76% 48%;
-  --chart-3: 45 95% 60%;
-  --chart-4: 280 85% 60%;
-  --chart-5: 0 84% 62%;
+  --input: 0 0% 92%;
+  --ring: 0 0% 0%;
+  --chart-1: 0 0% 0%;
+  --chart-2: 0 0% 20%;
+  --chart-3: 0 0% 40%;
+  --chart-4: 0 0% 60%;
+  --chart-5: 0 0% 80%;
 
-  --success: 145 94% 35%;
+  --success: 0 0% 0%;
   --success-foreground: 0 0% 100%;
-  --warning: 45 95% 60%;
-  --warning-foreground: 0 0% 13%;
-  --info: 145 94% 35%;
+  --warning: 0 0% 30%;
+  --warning-foreground: 0 0% 100%;
+  --info: 0 0% 0%;
   --info-foreground: 0 0% 100%;
 
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
