@@ -311,37 +311,25 @@ export default function PublicMenu() {
 
   return (
     <div className="min-h-screen bg-background" style={customColors as any}>
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b">
-        <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg sm:text-xl font-bold" data-testid="text-restaurant-name">{restaurant.name}</h1>
-            <Badge 
-              variant={restaurant.isOpen ? "default" : "secondary"} 
-              className={restaurant.isOpen ? "bg-green-600 hover:bg-green-700" : "bg-gray-500 hover:bg-gray-600"}
-              data-testid="badge-restaurant-status"
-            >
-              {restaurant.isOpen ? "Aberto" : "Fechado"}
-            </Badge>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <Link href={`/r/${slug}/rastrear`}>
-              <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-primary hover:text-primary" data-testid="button-track-order">
-                <span className="text-sm font-medium">Último pedido</span>
-              </Button>
-            </Link>
-            
-            <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="icon" className="relative h-9 w-9 sm:h-10 sm:w-10" data-testid="button-open-cart">
-                  <ShoppingCart className="h-5 w-5 sm:h-6 sm:w-6" />
-                  {getItemCount() > 0 && (
-                    <Badge className="absolute -top-2 -right-2 h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0 text-xs">
-                      {getItemCount()}
-                    </Badge>
-                  )}
-                </Button>
-              </SheetTrigger>
+      {/* Floating Action Buttons */}
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        <Link href={`/r/${slug}/rastrear`}>
+          <Button variant="ghost" size="sm" className="h-9 gap-1.5 bg-background/80 backdrop-blur-lg hover:bg-background/90" data-testid="button-track-order">
+            <span className="text-sm font-medium">Último pedido &gt;</span>
+          </Button>
+        </Link>
+        
+        <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="icon" className="relative h-9 w-9 sm:h-10 sm:w-10 bg-background/80 backdrop-blur-lg" data-testid="button-open-cart">
+              <ShoppingCart className="h-5 w-5 sm:h-6 sm:w-6" />
+              {getItemCount() > 0 && (
+                <Badge className="absolute -top-2 -right-2 h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0 text-xs">
+                  {getItemCount()}
+                </Badge>
+              )}
+            </Button>
+          </SheetTrigger>
             <SheetContent className="w-full sm:max-w-md">
               <SheetHeader>
                 <SheetTitle data-testid="text-cart-title">Seu Carrinho</SheetTitle>
@@ -502,52 +490,84 @@ export default function PublicMenu() {
               )}
             </SheetContent>
           </Sheet>
-          </div>
-        </div>
-      </header>
+      </div>
 
-      <section
-        className="relative flex items-center justify-center min-h-[400px] sm:min-h-[500px] pt-16"
-        style={heroStyle}
-      >
-        {restaurant?.logoUrl && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10">
-            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white shadow-lg overflow-hidden bg-white">
-              <img 
-                src={restaurant.logoUrl} 
-                alt={`${restaurant.name} logo`}
-                className="w-full h-full object-cover"
-                data-testid="img-restaurant-logo"
-              />
+      {/* Hero Section with Profile Photo Overlay */}
+      <section className="relative">
+        {/* Cover Photo */}
+        <div 
+          className="h-[140px] sm:h-[180px] w-full"
+          style={heroStyle}
+        />
+        
+        {/* Profile Photo & Info Section - Overlapping */}
+        <div className="container px-4 sm:px-6">
+          <div className="relative -mt-12 sm:-mt-16 pb-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3 sm:gap-4">
+              {/* Profile Photo */}
+              {restaurant?.logoUrl && (
+                <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-background shadow-lg overflow-hidden bg-background flex-shrink-0">
+                  <img 
+                    src={restaurant.logoUrl} 
+                    alt={`${restaurant.name} logo`}
+                    className="w-full h-full object-cover"
+                    data-testid="img-restaurant-logo"
+                  />
+                </div>
+              )}
+              
+              {/* Restaurant Name & Status */}
+              <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <h1 className="text-xl sm:text-2xl font-bold truncate" data-testid="text-restaurant-name">
+                    {restaurant.name}
+                  </h1>
+                  <Badge 
+                    variant={restaurant.isOpen ? "default" : "secondary"} 
+                    className={restaurant.isOpen ? "bg-green-600 hover:bg-green-700 flex-shrink-0" : "bg-gray-500 hover:bg-gray-600 flex-shrink-0"}
+                    data-testid="badge-restaurant-status"
+                  >
+                    {restaurant.isOpen ? "Aberto" : "Fechado"}
+                  </Badge>
+                </div>
+                
+                {/* WhatsApp & Info Buttons */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {restaurant.whatsappNumber && (
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      className="h-9 w-9 sm:h-10 sm:w-10 rounded-full"
+                      onClick={() => window.open(`https://wa.me/${restaurant.whatsappNumber!.replace(/\D/g, '')}`, '_blank')}
+                      data-testid="button-whatsapp"
+                      aria-label="Contato WhatsApp"
+                    >
+                      <SiWhatsapp className="h-5 w-5 text-green-600" />
+                    </Button>
+                  )}
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="h-9"
+                    onClick={() => {
+                      const contactSection = document.getElementById('contato');
+                      contactSection?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    data-testid="button-info"
+                  >
+                    Informação
+                  </Button>
+                </div>
+              </div>
             </div>
+            
+            {/* Restaurant Description (if exists) */}
+            {restaurant.description && (
+              <p className="mt-3 text-sm sm:text-base text-muted-foreground max-w-2xl">
+                {restaurant.description}
+              </p>
+            )}
           </div>
-        )}
-        <div className="container px-4 sm:px-6 text-center text-white" style={{ marginTop: restaurant?.logoUrl ? '80px' : '0' }}>
-          <h2 className="text-3xl sm:text-5xl md:text-6xl font-bold mb-4">
-            {restaurant.name}
-          </h2>
-          {restaurant.description && (
-            <p className="text-lg sm:text-xl md:text-2xl mb-6 max-w-2xl mx-auto opacity-95">
-              {restaurant.description}
-            </p>
-          )}
-          {restaurant.address && (
-            <div className="flex items-center justify-center gap-2 mb-6 text-sm sm:text-base">
-              <MapPin className="h-4 w-4" />
-              <span>{restaurant.address}</span>
-            </div>
-          )}
-          <Button
-            size="lg"
-            variant="secondary"
-            className="text-lg px-8"
-            onClick={() => {
-              const menuSection = document.getElementById('cardapio');
-              menuSection?.scrollIntoView({ behavior: 'smooth' });
-            }}
-          >
-            Ver Cardápio
-          </Button>
         </div>
       </section>
 
@@ -651,7 +671,7 @@ export default function PublicMenu() {
         )}
       </main>
 
-      <section className="bg-muted/30 py-12 sm:py-16">
+      <section id="contato" className="bg-muted/30 py-12 sm:py-16">
         <div className="container px-4 sm:px-6">
           <div className="text-center mb-10">
             <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3">Entre em Contato</h3>
