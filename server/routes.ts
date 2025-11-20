@@ -17,6 +17,7 @@ import {
   insertCategorySchema,
   updateCategorySchema,
   insertMenuItemSchema,
+  updateMenuItemSchema,
   insertOrderSchema,
   publicOrderSchema,
   insertOrderItemSchema,
@@ -1590,7 +1591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const restaurantId = currentUser.restaurantId!;
-      const data = insertMenuItemSchema.partial().parse(req.body);
+      const data = updateMenuItemSchema.parse(req.body);
       const menuItem = await storage.updateMenuItem(restaurantId, req.params.id, data);
       res.json(menuItem);
     } catch (error) {

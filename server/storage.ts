@@ -2263,7 +2263,7 @@ export class DatabaseStorage implements IStorage {
                 .update(customers)
                 .set({
                   loyaltyPoints: newPoints,
-                  totalSpent: Number(newTotalSpent.toFixed(2)),
+                  totalSpent: newTotalSpent.toFixed(2),
                   visitCount: newVisitCount,
                   lastVisit: new Date(),
                   tier: newTier,
@@ -5253,10 +5253,15 @@ export class DatabaseStorage implements IStorage {
     userId: string,
     data: InsertStockMovement
   ): Promise<StockMovement> {
+    const branchId = data.branchId;
+    if (!branchId) {
+      throw new Error('Branch ID é obrigatório para movimento de estoque');
+    }
+
     return await db.transaction(async (tx: PgTransaction<any, any, any>) => {
       const currentStock = await this.getStockByItemId(
         restaurantId,
-        data.branchId,
+        branchId,
         data.inventoryItemId
       );
 
@@ -5292,7 +5297,11 @@ export class DatabaseStorage implements IStorage {
       const [movement] = await tx
         .insert(stockMovements)
         .values({
-          ...data,
+          inventoryItemId: data.inventoryItemId,
+          branchId: branchId,
+          movementType: data.movementType,
+          fromBranchId: data.fromBranchId || null,
+          toBranchId: data.toBranchId || null,
           restaurantId,
           recordedByUserId: userId,
           previousQuantity: currentQuantity.toFixed(2),
@@ -5300,12 +5309,14 @@ export class DatabaseStorage implements IStorage {
           quantity: movementQuantity.toFixed(2),
           unitCost: data.unitCost ? parseFloat(data.unitCost).toFixed(2) : '0',
           totalCost: data.totalCost ? parseFloat(data.totalCost).toFixed(2) : '0',
+          reason: data.reason || null,
+          referenceId: data.referenceId || null,
         })
         .returning();
 
       await this.updateBranchStock(
         restaurantId,
-        data.branchId,
+        branchId,
         data.inventoryItemId,
         newQuantity.toFixed(2)
       );
@@ -5399,7 +5410,7 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(inventoryItems.name);
 
-    return ingredients.map((row) => ({
+    return ingredients.map((row: any) => ({
       ...row.recipe_ingredients,
       inventoryItem: {
         ...row.inventory_items!,

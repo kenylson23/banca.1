@@ -1008,7 +1008,21 @@ export const insertMenuItemSchema = createInsertSchema(menuItems).omit({
   path: ["originalPrice"],
 });
 
+export const updateMenuItemSchema = z.object({
+  categoryId: z.string().optional(),
+  name: z.string().min(1, "Nome do item é obrigatório").max(200, "Nome muito longo").optional(),
+  description: z.string().nullable().optional(),
+  price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço inválido").optional(),
+  originalPrice: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço original inválido").nullable().optional(),
+  imageUrl: z.string().nullable().optional(),
+  displayOrder: z.number().optional(),
+  isVisible: z.number().min(0).max(1).optional(),
+  isAvailable: z.number().min(0).max(1).optional(),
+  isFavorite: z.number().min(0).max(1).optional(),
+});
+
 export type InsertMenuItem = z.infer<typeof insertMenuItemSchema>;
+export type UpdateMenuItem = z.infer<typeof updateMenuItemSchema>;
 export type MenuItem = typeof menuItems.$inferSelect;
 
 // Option Group Type Enum
