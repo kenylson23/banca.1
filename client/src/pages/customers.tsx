@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, UserPlus, Search, Users, TrendingUp, Star, Phone, Mail, Award } from "lucide-react";
+import { Trash2, UserPlus, Search, Users, TrendingUp, Star, Phone, Mail, Award, DollarSign, Calendar, Sparkles, UserCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,8 +17,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
 import { formatKwanza } from "@/lib/formatters";
+import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
+import { ActivityFeed } from "@/components/activity-feed";
 import type { Customer } from "@shared/schema";
 
 type CustomerStats = {
@@ -160,6 +165,40 @@ export default function Customers() {
     customer.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Calculate average lifetime value and order frequency
+  const avgLifetimeValue = useMemo(() => {
+    if (customers.length === 0) return 0;
+    const total = customers.reduce((sum, c) => sum + parseFloat(c.totalSpent || '0'), 0);
+    return total / customers.length;
+  }, [customers]);
+
+  const avgOrderFrequency = useMemo(() => {
+    if (customers.length === 0) return 0;
+    const total = customers.reduce((sum, c) => sum + (c.visitCount || 0), 0);
+    return total / customers.length;
+  }, [customers]);
+
+  // Recent customer activities for ActivityFeed
+  const recentActivities = useMemo(() => {
+    return customers
+      .filter(c => c.visitCount && c.visitCount > 0)
+      .slice(0, 10)
+      .map((customer) => ({
+        id: customer.id,
+        type: "user" as const,
+        title: customer.name,
+        description: `${customer.visitCount} visita${customer.visitCount !== 1 ? 's' : ''} • ${customer.tier || 'bronze'} tier`,
+        timestamp: customer.lastVisit ? new Date(customer.lastVisit) : new Date(),
+        status: "info" as const,
+        value: formatKwanza(parseFloat(customer.totalSpent || '0')),
+      }));
+  }, [customers]);
+
+  // Sparkline data for customers (mock - in production would come from API)
+  const customerSparkline = useMemo(() => {
+    return Array.from({ length: 7 }, () => Math.floor(Math.random() * 50) + 10);
+  }, []);
+
   return (
     <div className="min-h-screen">
       <div className="space-y-4 p-4 sm:p-6">
@@ -174,7 +213,7 @@ export default function Customers() {
               Gestão de Clientes
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Gerir cadastro de clientes e programa de fidelidade
+              Análise de clientes e programa de fidelidade
             </p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -275,163 +314,327 @@ export default function Customers() {
           </Dialog>
         </motion.div>
 
-        {stats && (
-          <motion.div
-            className="grid gap-4 md:grid-cols-3"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
-            <Card data-testid="card-total-customers">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total de Clientes</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalCustomers}</div>
-                <p className="text-xs text-muted-foreground">
-                  {stats.activeCustomers} ativos
-                </p>
-              </CardContent>
-            </Card>
-            <Card data-testid="card-new-customers">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Novos este Mês</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.newThisMonth}</div>
-                <p className="text-xs text-muted-foreground">
-                  Clientes cadastrados
-                </p>
-              </CardContent>
-            </Card>
-            <Card data-testid="card-top-customer">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Melhor Cliente</CardTitle>
-                <Star className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {stats.topCustomers[0]?.name.split(' ')[0] || '-'}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {stats.topCustomers[0] ? formatKwanza(parseFloat(stats.topCustomers[0].totalSpent)) : '-'}
-                </p>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
+        {/* Advanced KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+          {isLoading ? (
+            <>
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-[140px] w-full rounded-lg" />
+              ))}
+            </>
+          ) : (
+            <>
+              <AdvancedKpiCard
+                title="Total de Clientes"
+                value={stats?.totalCustomers || 0}
+                icon={Users}
+                sparklineData={customerSparkline}
+                gradient="from-primary/10 via-primary/5 to-transparent"
+                delay={0}
+                data-testid="card-total-customers"
+              />
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                <div>
-                  <CardTitle>Lista de Clientes</CardTitle>
-                  <CardDescription>
-                    {filteredCustomers.length} cliente{filteredCustomers.length !== 1 ? 's' : ''} cadastrado{filteredCustomers.length !== 1 ? 's' : ''}
-                  </CardDescription>
-                </div>
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar clientes..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                    data-testid="input-search-customers"
-                  />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="text-center py-8 text-muted-foreground">Carregando...</div>
-              ) : filteredCustomers.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  {searchQuery ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}
-                </div>
-              ) : (
+              <AdvancedKpiCard
+                title="Clientes Ativos"
+                value={stats?.activeCustomers || 0}
+                icon={UserCheck}
+                change={stats?.activeCustomers && stats?.totalCustomers ? ((stats.activeCustomers / stats.totalCustomers) * 100 - 100) : undefined}
+                changeLabel="taxa de atividade"
+                gradient="from-success/10 via-success/5 to-transparent"
+                delay={0.1}
+                data-testid="card-active-customers"
+              />
+
+              <AdvancedKpiCard
+                title="Valor Médio Vitalício"
+                value={avgLifetimeValue}
+                prefix="Kz "
+                decimals={2}
+                icon={DollarSign}
+                gradient="from-warning/10 via-warning/5 to-transparent"
+                delay={0.2}
+                data-testid="card-avg-lifetime-value"
+              />
+
+              <AdvancedKpiCard
+                title="Frequência Média"
+                value={avgOrderFrequency}
+                decimals={1}
+                suffix=" visitas"
+                icon={Calendar}
+                gradient="from-info/10 via-info/5 to-transparent"
+                delay={0.3}
+                data-testid="card-avg-frequency"
+              />
+            </>
+          )}
+        </div>
+
+        {/* Top Customers & Tier Distribution */}
+        {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card data-testid="card-top-customers">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Star className="h-5 w-5 text-primary" />
+                  Top Clientes
+                </CardTitle>
+                <CardDescription>Clientes com maior gasto total</CardDescription>
+              </CardHeader>
+              <CardContent>
                 <div className="space-y-3">
-                  {filteredCustomers.map((customer) => (
-                    <motion.div
-                      key={customer.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="flex items-center justify-between p-4 rounded-lg border hover-elevate active-elevate-2"
-                      data-testid={`card-customer-${customer.id}`}
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-semibold text-base">{customer.name}</h3>
-                          <Badge className={getTierColor(customer.tier || 'bronze')} data-testid={`badge-tier-${customer.id}`}>
-                            {(customer.tier || 'bronze').toUpperCase()}
-                          </Badge>
+                  {stats.topCustomers.slice(0, 5).map((customer, index) => (
+                    <div key={customer.name} className="flex items-center justify-between p-3 rounded-lg border hover-elevate active-elevate-2">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm">
+                          {index + 1}
                         </div>
-                        <div className="space-y-1">
-                          {customer.phone && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Phone className="h-3.5 w-3.5" />
-                              <span>{customer.phone}</span>
-                            </div>
-                          )}
-                          {customer.email && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Mail className="h-3.5 w-3.5" />
-                              <span>{customer.email}</span>
-                            </div>
-                          )}
-                          <div className="flex flex-wrap gap-4 mt-2 pt-2 border-t">
-                            <span className="flex items-center gap-1 text-sm">
-                              <Award className="h-3.5 w-3.5 text-primary" />
-                              <span className="font-medium">{customer.loyaltyPoints}</span>
-                              <span className="text-muted-foreground">pts</span>
-                            </span>
-                            <span className="text-sm">
-                              <span className="font-medium">{customer.visitCount}</span>
-                              <span className="text-muted-foreground"> visitas</span>
-                            </span>
-                            <span className="text-sm">
-                              <span className="font-medium">{formatKwanza(parseFloat(customer.totalSpent || '0'))}</span>
-                              <span className="text-muted-foreground"> total</span>
-                            </span>
-                          </div>
+                        <div>
+                          <p className="font-medium text-sm">{customer.name}</p>
+                          <p className="text-xs text-muted-foreground">{customer.orderCount} pedidos</p>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openEditDialog(customer)}
-                          data-testid={`button-edit-${customer.id}`}
-                        >
-                          Editar
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => {
-                            if (confirm(`Tem certeza que deseja deletar ${customer.name}?`)) {
-                              deleteCustomerMutation.mutate(customer.id);
-                            }
-                          }}
-                          data-testid={`button-delete-${customer.id}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      <div className="text-right">
+                        <p className="font-bold text-sm">{formatKwanza(parseFloat(customer.totalSpent))}</p>
+                        <Badge variant="outline" className="text-xs">{customer.tier || 'bronze'}</Badge>
                       </div>
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="card-tier-distribution">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  Distribuição por Nível
+                </CardTitle>
+                <CardDescription>Clientes por tier de fidelidade</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {[
+                    { tier: 'platina', label: 'Platina', color: 'bg-slate-600', icon: '💎' },
+                    { tier: 'ouro', label: 'Ouro', color: 'bg-yellow-600', icon: '🥇' },
+                    { tier: 'prata', label: 'Prata', color: 'bg-slate-400', icon: '🥈' },
+                    { tier: 'bronze', label: 'Bronze', color: 'bg-orange-600', icon: '🥉' },
+                  ].map((t) => {
+                    const count = customers.filter(c => (c.tier || 'bronze') === t.tier).length;
+                    const percentage = customers.length > 0 ? (count / customers.length) * 100 : 0;
+                    return (
+                      <div key={t.tier} className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <span>{t.icon}</span>
+                            <span className="font-medium">{t.label}</span>
+                          </div>
+                          <span className="font-bold">{count}</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full ${t.color} transition-all duration-500`}
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Activity Feed & Customer List */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                  <div>
+                    <CardTitle>Lista de Clientes</CardTitle>
+                    <CardDescription>
+                      {filteredCustomers.length} cliente{filteredCustomers.length !== 1 ? 's' : ''} cadastrado{filteredCustomers.length !== 1 ? 's' : ''}
+                    </CardDescription>
+                  </div>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar clientes..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                      data-testid="input-search-customers"
+                    />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="all" className="w-full">
+                  <TabsList className="grid w-full grid-cols-4 mb-4">
+                    <TabsTrigger value="all" className="text-xs">Todos</TabsTrigger>
+                    <TabsTrigger value="bronze" className="text-xs">Bronze</TabsTrigger>
+                    <TabsTrigger value="prata" className="text-xs">Prata</TabsTrigger>
+                    <TabsTrigger value="ouro" className="text-xs">Ouro+</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="all" className="space-y-3">
+                    {isLoading ? (
+                      <div className="space-y-3">
+                        {[...Array(3)].map((_, i) => (
+                          <Skeleton key={i} className="h-[120px] w-full rounded-lg" />
+                        ))}
+                      </div>
+                    ) : filteredCustomers.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        {searchQuery ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}
+                      </div>
+                    ) : (
+                      filteredCustomers.map((customer) => (
+                        <motion.div
+                          key={customer.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          className="flex items-center justify-between p-4 rounded-lg border hover-elevate active-elevate-2"
+                          data-testid={`card-customer-${customer.id}`}
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h3 className="font-semibold text-base">{customer.name}</h3>
+                              <Badge className={getTierColor(customer.tier || 'bronze')} data-testid={`badge-tier-${customer.id}`}>
+                                {(customer.tier || 'bronze').toUpperCase()}
+                              </Badge>
+                            </div>
+                            <div className="space-y-1">
+                              {customer.phone && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Phone className="h-3.5 w-3.5" />
+                                  <span>{customer.phone}</span>
+                                </div>
+                              )}
+                              {customer.email && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Mail className="h-3.5 w-3.5" />
+                                  <span>{customer.email}</span>
+                                </div>
+                              )}
+                              <div className="flex flex-wrap gap-4 mt-2 pt-2 border-t">
+                                <span className="flex items-center gap-1 text-sm">
+                                  <Award className="h-3.5 w-3.5 text-primary" />
+                                  <span className="font-medium">{customer.loyaltyPoints}</span>
+                                  <span className="text-muted-foreground">pts</span>
+                                </span>
+                                <span className="text-sm">
+                                  <span className="font-medium">{customer.visitCount}</span>
+                                  <span className="text-muted-foreground"> visitas</span>
+                                </span>
+                                <span className="text-sm">
+                                  <span className="font-medium">{formatKwanza(parseFloat(customer.totalSpent || '0'))}</span>
+                                  <span className="text-muted-foreground"> total</span>
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEditDialog(customer)}
+                              data-testid={`button-edit-${customer.id}`}
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => {
+                                if (confirm(`Tem certeza que deseja deletar ${customer.name}?`)) {
+                                  deleteCustomerMutation.mutate(customer.id);
+                                }
+                              }}
+                              data-testid={`button-delete-${customer.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </motion.div>
+                      ))
+                    )}
+                  </TabsContent>
+
+                  {['bronze', 'prata', 'ouro'].map((tier) => (
+                    <TabsContent key={tier} value={tier} className="space-y-3">
+                      {filteredCustomers
+                        .filter(c => tier === 'ouro' ? ['ouro', 'platina'].includes(c.tier || 'bronze') : (c.tier || 'bronze') === tier)
+                        .map((customer) => (
+                          <motion.div
+                            key={customer.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="flex items-center justify-between p-4 rounded-lg border hover-elevate active-elevate-2"
+                            data-testid={`card-customer-${customer.id}`}
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h3 className="font-semibold text-base">{customer.name}</h3>
+                                <Badge className={getTierColor(customer.tier || 'bronze')} data-testid={`badge-tier-${customer.id}`}>
+                                  {(customer.tier || 'bronze').toUpperCase()}
+                                </Badge>
+                              </div>
+                              <div className="flex flex-wrap gap-4 mt-2">
+                                <span className="flex items-center gap-1 text-sm">
+                                  <Award className="h-3.5 w-3.5 text-primary" />
+                                  <span className="font-medium">{customer.loyaltyPoints} pts</span>
+                                </span>
+                                <span className="text-sm">
+                                  <span className="font-medium">{customer.visitCount} visitas</span>
+                                </span>
+                                <span className="text-sm">
+                                  <span className="font-medium">{formatKwanza(parseFloat(customer.totalSpent || '0'))}</span>
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openEditDialog(customer)}
+                                data-testid={`button-edit-${customer.id}`}
+                              >
+                                Editar
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  if (confirm(`Tem certeza que deseja deletar ${customer.name}?`)) {
+                                    deleteCustomerMutation.mutate(customer.id);
+                                  }
+                                }}
+                                data-testid={`button-delete-${customer.id}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </motion.div>
+                        ))}
+                    </TabsContent>
+                  ))}
+                </Tabs>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Activity Feed */}
+          <div>
+            <ActivityFeed
+              activities={recentActivities}
+              title="Atividade de Clientes"
+              maxHeight={600}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

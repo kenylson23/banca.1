@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,10 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Award, TrendingUp, Gift, Medal } from "lucide-react";
+import { Settings, Award, TrendingUp, Gift, Medal, Sparkles, Target, Users, Crown } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatKwanza } from "@/lib/formatters";
+import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
+import { ActivityFeed } from "@/components/activity-feed";
 import type { LoyaltyProgram, LoyaltyTransaction, Customer } from "@shared/schema";
 
 type LoyaltyTransactionWithCustomer = LoyaltyTransaction & { customer: Customer };
@@ -95,6 +100,47 @@ export default function Loyalty() {
       .filter((t: LoyaltyTransaction) => t.type === 'resgate')
       .reduce((sum: number, t: LoyaltyTransaction) => sum + t.points, 0)
   );
+  const activePoints = totalPointsEarned - totalPointsRedeemed;
+  const redemptionRate = totalPointsEarned > 0 ? (totalPointsRedeemed / totalPointsEarned) * 100 : 0;
+
+  // Convert transactions to activity feed format
+  const loyaltyActivities = useMemo(() => {
+    return transactions.slice(0, 10).map((transaction: LoyaltyTransactionWithCustomer) => ({
+      id: transaction.id,
+      type: transaction.type === 'ganho' ? 'goal' as const : 'payment' as const,
+      title: transaction.customer.name,
+      description: transaction.description || `${transaction.type === 'ganho' ? 'Ganhou' : 'Resgatou'} pontos`,
+      timestamp: transaction.createdAt ? new Date(transaction.createdAt) : new Date(),
+      status: transaction.type === 'ganho' ? 'success' as const : 'info' as const,
+      value: `${transaction.points > 0 ? '+' : ''}${transaction.points} pts`,
+    }));
+  }, [transactions]);
+
+  // Sparkline data for loyalty points (mock - in production would come from API)
+  const pointsSparkline = useMemo(() => {
+    return Array.from({ length: 7 }, () => Math.floor(Math.random() * 100) + 50);
+  }, []);
+
+  // Get top customers by current loyalty points from customer objects
+  const topLoyaltyCustomers = useMemo(() => {
+    // Extract unique customers from transactions with their current loyalty points
+    const customerMap = new Map<string, Customer>();
+    transactions.forEach((t: LoyaltyTransactionWithCustomer) => {
+      if (!customerMap.has(t.customer.id)) {
+        customerMap.set(t.customer.id, t.customer);
+      }
+    });
+    
+    // Convert to array and sort by loyaltyPoints (current balance)
+    return Array.from(customerMap.values())
+      .filter(c => c.loyaltyPoints > 0)
+      .sort((a, b) => b.loyaltyPoints - a.loyaltyPoints)
+      .slice(0, 5)
+      .map(customer => ({
+        customer,
+        points: customer.loyaltyPoints,
+      }));
+  }, [transactions]);
 
   return (
     <div className="min-h-screen">
@@ -110,63 +156,170 @@ export default function Loyalty() {
               Programa de Fidelidade
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Configure as regras e benefícios do programa de pontos
+              Configuração e análise do programa de pontos
             </p>
           </div>
         </motion.div>
 
-        <motion.div
-          className="grid gap-4 md:grid-cols-3"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <Card data-testid="card-total-earned">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pontos Concedidos</CardTitle>
-              <Award className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalPointsEarned.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">
-                Total acumulado pelos clientes
-              </p>
-            </CardContent>
-          </Card>
-          <Card data-testid="card-total-redeemed">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pontos Resgatados</CardTitle>
-              <Gift className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalPointsRedeemed.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">
-                Descontos aplicados
-              </p>
-            </CardContent>
-          </Card>
-          <Card data-testid="card-active-points">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pontos Ativos</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {(totalPointsEarned - totalPointsRedeemed).toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Disponíveis para resgate
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
+        {/* Advanced KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+          {programLoading ? (
+            <>
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-[140px] w-full rounded-lg" />
+              ))}
+            </>
+          ) : (
+            <>
+              <AdvancedKpiCard
+                title="Pontos Concedidos"
+                value={totalPointsEarned}
+                icon={Award}
+                sparklineData={pointsSparkline}
+                gradient="from-success/10 via-success/5 to-transparent"
+                delay={0}
+                data-testid="card-total-earned"
+              />
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
+              <AdvancedKpiCard
+                title="Pontos Resgatados"
+                value={totalPointsRedeemed}
+                icon={Gift}
+                change={redemptionRate - 50}
+                changeLabel="taxa de resgate"
+                gradient="from-warning/10 via-warning/5 to-transparent"
+                delay={0.1}
+                data-testid="card-total-redeemed"
+              />
+
+              <AdvancedKpiCard
+                title="Pontos Ativos"
+                value={activePoints}
+                icon={TrendingUp}
+                gradient="from-primary/10 via-primary/5 to-transparent"
+                delay={0.2}
+                data-testid="card-active-points"
+              />
+
+              <AdvancedKpiCard
+                title="Taxa de Resgate"
+                value={redemptionRate}
+                decimals={1}
+                suffix="%"
+                icon={Target}
+                gradient="from-info/10 via-info/5 to-transparent"
+                delay={0.3}
+                data-testid="card-redemption-rate"
+              />
+            </>
+          )}
+        </div>
+
+        {/* Leaderboard & Tier Distribution */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card data-testid="card-loyalty-leaderboard">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Crown className="h-5 w-5 text-primary" />
+                Top Clientes por Pontos
+              </CardTitle>
+              <CardDescription>Maiores acumuladores de pontos</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {topLoyaltyCustomers.map((item, index) => (
+                  <div key={item.customer.id} className="flex items-center justify-between p-3 rounded-lg border hover-elevate active-elevate-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{item.customer.name}</p>
+                        <Badge variant="outline" className="text-xs mt-1">
+                          {item.customer.tier || 'bronze'}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-sm flex items-center gap-1">
+                        <Award className="h-3.5 w-3.5 text-primary" />
+                        {item.points.toLocaleString()} pts
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {topLoyaltyCustomers.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    Nenhum cliente com pontos ainda
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-program-status">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                Status do Programa
+              </CardTitle>
+              <CardDescription>Visão geral das configurações</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${program?.isActive ? 'bg-success' : 'bg-destructive'}`} />
+                    <span className="text-sm font-medium">
+                      Programa {program?.isActive ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </div>
+                  <Badge variant={program?.isActive ? 'default' : 'secondary'}>
+                    {program?.isActive ? 'Ativo' : 'Pausado'}
+                  </Badge>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Pontos por AOA</span>
+                    <span className="font-medium">{program?.pointsPerCurrency || '1'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">AOA por Ponto</span>
+                    <span className="font-medium">{program?.currencyPerPoint || '1'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Mínimo para Resgate</span>
+                    <span className="font-medium">{program?.minPointsToRedeem || '100'} pts</span>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Valores dos Níveis</p>
+                  <div className="space-y-1.5">
+                    {[
+                      { tier: 'Prata', value: program?.silverTierMinSpent },
+                      { tier: 'Ouro', value: program?.goldTierMinSpent },
+                      { tier: 'Platina', value: program?.platinumTierMinSpent },
+                    ].map((t) => (
+                      <div key={t.tier} className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">{t.tier}</span>
+                        <span className="font-medium">{formatKwanza(t.value || '0')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -312,52 +465,16 @@ export default function Loyalty() {
                 </form>
               </CardContent>
             </Card>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle>Transações Recentes</CardTitle>
-                <CardDescription>
-                  Últimas movimentações de pontos
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {recentTransactions.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Nenhuma transação ainda
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {recentTransactions.map((transaction: LoyaltyTransactionWithCustomer) => (
-                      <div
-                        key={transaction.id}
-                        className="flex items-center justify-between p-3 rounded-lg border"
-                        data-testid={`transaction-${transaction.id}`}
-                      >
-                        <div>
-                          <p className="font-medium text-sm">{transaction.customer.name}</p>
-                          <p className="text-xs text-muted-foreground">{transaction.description}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className={`font-semibold ${transaction.points > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {transaction.points > 0 ? '+' : ''}{transaction.points} pts
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {transaction.createdAt ? new Date(transaction.createdAt).toLocaleDateString('pt-AO') : '-'}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
+          {/* Activity Feed */}
+          <div>
+            <ActivityFeed
+              activities={loyaltyActivities}
+              title="Transações Recentes"
+              maxHeight={600}
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Tag, TrendingUp, Percent, Trash2, Calendar, ShoppingBag, TicketPercent } from "lucide-react";
+import { Plus, Search, Tag, TrendingUp, Percent, Trash2, Calendar, ShoppingBag, TicketPercent, Clock, DollarSign, AlertCircle, CheckCircle2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +24,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { formatKwanza } from "@/lib/formatters";
+import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
+import { ActivityFeed } from "@/components/activity-feed";
 import type { Coupon } from "@shared/schema";
 
 type CouponStats = {
@@ -184,6 +189,48 @@ export default function Coupons() {
     coupon.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Calculate additional metrics
+  const avgDiscount = useMemo(() => {
+    if (!stats || stats.totalUsages === 0) return 0;
+    const totalDiscount = typeof stats.totalDiscount === 'string' 
+      ? parseFloat(stats.totalDiscount.replace(/[^\d.-]/g, ''))
+      : parseFloat(String(stats.totalDiscount));
+    return isNaN(totalDiscount) ? 0 : totalDiscount / stats.totalUsages;
+  }, [stats]);
+
+  const expiringCoupons = useMemo(() => {
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    return coupons.filter(c => 
+      c.isActive && 
+      new Date(c.validUntil) > new Date() && 
+      new Date(c.validUntil) <= thirtyDaysFromNow
+    ).length;
+  }, [coupons]);
+
+  // Convert recent coupon usages to activity feed format (mock - would come from API)
+  const couponActivities = useMemo(() => {
+    return coupons
+      .filter(c => c.currentUses > 0)
+      .slice(0, 10)
+      .map((coupon) => ({
+        id: coupon.id,
+        type: "payment" as const,
+        title: coupon.code,
+        description: coupon.description || `${coupon.currentUses} uso${coupon.currentUses !== 1 ? 's' : ''}`,
+        timestamp: new Date(coupon.validFrom),
+        status: coupon.isActive ? "success" as const : "info" as const,
+        value: coupon.discountType === 'percentual' 
+          ? `${coupon.discountValue}%` 
+          : formatKwanza(parseFloat(coupon.discountValue)),
+      }));
+  }, [coupons]);
+
+  // Sparkline data for coupons (mock - in production would come from API)
+  const couponSparkline = useMemo(() => {
+    return Array.from({ length: 7 }, () => Math.floor(Math.random() * 20) + 5);
+  }, []);
+
   return (
     <div className="min-h-screen">
       <div className="space-y-4 p-4 sm:p-6">
@@ -198,7 +245,7 @@ export default function Coupons() {
               Cupons de Desconto
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Gerir cupons promocionais e descontos
+              Gestão e análise de cupons promocionais
             </p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -391,101 +438,206 @@ export default function Coupons() {
           </Dialog>
         </motion.div>
 
+        {/* Advanced KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+          {isLoading ? (
+            <>
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-[140px] w-full rounded-lg" />
+              ))}
+            </>
+          ) : (
+            <>
+              <AdvancedKpiCard
+                title="Cupons Ativos"
+                value={stats?.activeCoupons || 0}
+                icon={Tag}
+                sparklineData={couponSparkline}
+                gradient="from-primary/10 via-primary/5 to-transparent"
+                delay={0}
+                data-testid="card-active-coupons"
+              />
+
+              <AdvancedKpiCard
+                title="Total de Usos"
+                value={stats?.totalUsages || 0}
+                icon={TrendingUp}
+                change={stats?.totalUsages && stats?.activeCoupons ? ((stats.totalUsages / stats.activeCoupons) - 10) : undefined}
+                changeLabel="taxa de conversão"
+                gradient="from-success/10 via-success/5 to-transparent"
+                delay={0.1}
+                data-testid="card-total-usages"
+              />
+
+              <AdvancedKpiCard
+                title="Desconto Total"
+                value={parseFloat(stats?.totalDiscount || '0')}
+                prefix="Kz "
+                decimals={2}
+                icon={DollarSign}
+                gradient="from-warning/10 via-warning/5 to-transparent"
+                delay={0.2}
+                data-testid="card-total-discount"
+              />
+
+              <AdvancedKpiCard
+                title="Desconto Médio"
+                value={avgDiscount}
+                prefix="Kz "
+                decimals={2}
+                icon={Percent}
+                gradient="from-info/10 via-info/5 to-transparent"
+                delay={0.3}
+                data-testid="card-avg-discount"
+              />
+            </>
+          )}
+        </div>
+
+        {/* Coupon Performance & Alerts */}
         {stats && (
-          <motion.div
-            className="grid gap-4 md:grid-cols-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
-            <Card data-testid="card-total-coupons">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total de Cupons</CardTitle>
-                <Tag className="h-4 w-4 text-muted-foreground" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card data-testid="card-top-coupons">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                  Cupons Mais Usados
+                </CardTitle>
+                <CardDescription>Top 5 cupons por utilização</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.totalCoupons}</div>
-                <p className="text-xs text-muted-foreground">
-                  {stats.activeCoupons} ativos
-                </p>
-              </CardContent>
-            </Card>
-            <Card data-testid="card-total-usages">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total de Usos</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalUsages}</div>
-                <p className="text-xs text-muted-foreground">
-                  Cupons utilizados
-                </p>
-              </CardContent>
-            </Card>
-            <Card data-testid="card-total-discount">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Desconto Total</CardTitle>
-                <Percent className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatKwanza(parseFloat(stats.totalDiscount))}</div>
-                <p className="text-xs text-muted-foreground">
-                  Concedido aos clientes
-                </p>
-              </CardContent>
-            </Card>
-            <Card data-testid="card-top-coupon">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Cupom Mais Usado</CardTitle>
-                <Tag className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {stats.topCoupons[0]?.coupon.code || '-'}
+                <div className="space-y-3">
+                  {stats.topCoupons.slice(0, 5).map((item, index) => (
+                    <div key={item.coupon.code} className="flex items-center justify-between p-3 rounded-lg border hover-elevate active-elevate-2">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{item.coupon.code}</p>
+                          <p className="text-xs text-muted-foreground">{item.usageCount} usos</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-sm">{formatKwanza(item.totalDiscount)}</p>
+                        <Badge variant="outline" className="text-xs">
+                          {item.coupon.discountType === 'percentual' 
+                            ? `${item.coupon.discountValue}%` 
+                            : formatKwanza(parseFloat(item.coupon.discountValue))}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                  {stats.topCoupons.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground text-sm">
+                      Nenhum cupom utilizado ainda
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {stats.topCoupons[0] ? `${stats.topCoupons[0].usageCount} usos` : '-'}
-                </p>
               </CardContent>
             </Card>
-          </motion.div>
+
+            <Card data-testid="card-coupon-alerts">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-primary" />
+                  Alertas e Status
+                </CardTitle>
+                <CardDescription>Cupons que requerem atenção</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock className="h-4 w-4 text-warning" />
+                      <span className="font-medium text-sm">Expirando em Breve</span>
+                    </div>
+                    <p className="text-2xl font-bold text-warning">{expiringCoupons}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Cupons expirando nos próximos 30 dias
+                    </p>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Total de Cupons</span>
+                      <span className="font-medium">{stats.totalCoupons}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Cupons Ativos</span>
+                      <span className="font-medium">{stats.activeCoupons}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Cupons Inativos</span>
+                      <span className="font-medium">{stats.totalCoupons - stats.activeCoupons}</span>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-2">
+                      <TicketPercent className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium">Taxa de Utilização</span>
+                    </div>
+                    <p className="text-lg font-bold mt-1">
+                      {stats.activeCoupons > 0 ? ((stats.totalUsages / stats.activeCoupons) * 100).toFixed(1) : '0'}%
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                <div>
-                  <CardTitle>Lista de Cupons</CardTitle>
-                  <CardDescription>
-                    {filteredCoupons.length} cupom{filteredCoupons.length !== 1 ? 'ns' : ''} cadastrado{filteredCoupons.length !== 1 ? 's' : ''}
-                  </CardDescription>
+        {/* Coupon List & Activity Feed */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                  <div>
+                    <CardTitle>Lista de Cupons</CardTitle>
+                    <CardDescription>
+                      {filteredCoupons.length} cupom{filteredCoupons.length !== 1 ? 'ns' : ''} cadastrado{filteredCoupons.length !== 1 ? 's' : ''}
+                    </CardDescription>
+                  </div>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar cupons..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                      data-testid="input-search-coupons"
+                    />
+                  </div>
                 </div>
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar cupons..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                    data-testid="input-search-coupons"
-                  />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="text-center py-8 text-muted-foreground">Carregando...</div>
-              ) : filteredCoupons.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  {searchQuery ? 'Nenhum cupom encontrado' : 'Nenhum cupom cadastrado'}
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="all" className="w-full">
+                  <TabsList className="grid w-full grid-cols-4 mb-4">
+                    <TabsTrigger value="all" className="text-xs">Todos</TabsTrigger>
+                    <TabsTrigger value="active" className="text-xs">Ativos</TabsTrigger>
+                    <TabsTrigger value="expiring" className="text-xs">Expirando</TabsTrigger>
+                    <TabsTrigger value="inactive" className="text-xs">Inativos</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="all">
+                    {isLoading ? (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {[...Array(4)].map((_, i) => (
+                          <Skeleton key={i} className="h-[200px] w-full rounded-lg" />
+                        ))}
+                      </div>
+                    ) : filteredCoupons.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        {searchQuery ? 'Nenhum cupom encontrado' : 'Nenhum cupom cadastrado'}
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-2">
                   {filteredCoupons.map((coupon) => (
                     <motion.div
                       key={coupon.id}
@@ -573,11 +725,93 @@ export default function Coupons() {
                       </div>
                     </motion.div>
                   ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="active">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {filteredCoupons
+                        .filter(c => c.isActive && !isExpired(c) && !isUpcoming(c))
+                        .map((coupon) => (
+                          <div key={coupon.id} className="p-4 rounded-lg border hover-elevate active-elevate-2">
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="font-bold text-sm">{coupon.code}</h3>
+                              <Badge>Ativo</Badge>
+                            </div>
+                            <p className="text-lg font-bold text-primary">
+                              {coupon.discountType === 'percentual' 
+                                ? `${coupon.discountValue}%` 
+                                : formatKwanza(parseFloat(coupon.discountValue))}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              Usos: {coupon.currentUses}/{coupon.maxUses || '∞'}
+                            </p>
+                          </div>
+                        ))}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="expiring">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {filteredCoupons
+                        .filter(c => {
+                          const thirtyDaysFromNow = new Date();
+                          thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+                          return c.isActive && new Date(c.validUntil) > new Date() && new Date(c.validUntil) <= thirtyDaysFromNow;
+                        })
+                        .map((coupon) => (
+                          <div key={coupon.id} className="p-4 rounded-lg border border-warning/50 hover-elevate active-elevate-2">
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="font-bold text-sm">{coupon.code}</h3>
+                              <Badge variant="secondary">Expirando</Badge>
+                            </div>
+                            <p className="text-lg font-bold text-warning">
+                              {coupon.discountType === 'percentual' 
+                                ? `${coupon.discountValue}%` 
+                                : formatKwanza(parseFloat(coupon.discountValue))}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              Expira: {new Date(coupon.validUntil).toLocaleDateString()}
+                            </p>
+                          </div>
+                        ))}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="inactive">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {filteredCoupons
+                        .filter(c => !c.isActive || isExpired(c))
+                        .map((coupon) => (
+                          <div key={coupon.id} className="p-4 rounded-lg border hover-elevate active-elevate-2 opacity-60">
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="font-bold text-sm">{coupon.code}</h3>
+                              <Badge variant="outline">{isExpired(coupon) ? 'Expirado' : 'Inativo'}</Badge>
+                            </div>
+                            <p className="text-lg font-bold text-muted-foreground">
+                              {coupon.discountType === 'percentual' 
+                                ? `${coupon.discountValue}%` 
+                                : formatKwanza(parseFloat(coupon.discountValue))}
+                            </p>
+                          </div>
+                        ))}
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Activity Feed */}
+          <div>
+            <ActivityFeed
+              activities={couponActivities}
+              title="Atividade de Cupons"
+              maxHeight={600}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
