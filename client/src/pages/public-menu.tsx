@@ -323,7 +323,7 @@ export default function PublicMenu() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-muted/20">
       {/* Fixed Header */}
       <header className="fixed top-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-b z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -707,7 +707,7 @@ export default function PublicMenu() {
                       transition={{ duration: 0.3, delay: itemIndex * 0.05 }}
                     >
                       <Card
-                        className="overflow-hidden hover-elevate cursor-pointer h-full flex flex-col"
+                        className="overflow-hidden hover-elevate cursor-pointer h-full flex flex-col border-2 shadow-sm"
                         onClick={() => handleAddMenuItem(item)}
                         data-testid={`menu-item-${item.id}`}
                       >
@@ -785,7 +785,7 @@ export default function PublicMenu() {
                   transition={{ duration: 0.3, delay: itemIndex * 0.05 }}
                 >
                   <Card
-                    className="overflow-hidden hover-elevate cursor-pointer h-full flex flex-col"
+                    className="overflow-hidden hover-elevate cursor-pointer h-full flex flex-col border-2 shadow-sm"
                     onClick={() => handleAddMenuItem(item)}
                     data-testid={`menu-item-${item.id}`}
                   >
