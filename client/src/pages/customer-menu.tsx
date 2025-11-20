@@ -40,7 +40,6 @@ export default function CustomerMenu() {
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [activeView, setActiveView] = useState<'menu' | 'cart' | 'orders'>('menu');
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -697,6 +696,17 @@ export default function CustomerMenu() {
         {categories.length > 0 && (
           <ScrollArea className="w-full">
             <div className="flex gap-3 pb-2">
+              <button
+                onClick={() => setSelectedCategory('all')}
+                className={`text-sm font-medium transition-colors whitespace-nowrap pb-1 ${
+                  selectedCategory === 'all'
+                    ? 'text-foreground border-b-2 border-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                data-testid="filter-all"
+              >
+                Todos
+              </button>
               {categories.map((category) => (
                 <button
                   key={category.id}
@@ -806,11 +816,11 @@ export default function CustomerMenu() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: itemIndex * 0.05 }}
-                    onClick={() => setSelectedMenuItem(item)}
+                    onClick={() => item.isAvailable !== 0 && setSelectedMenuItem(item)}
                     className={`${item.isAvailable === 0 ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                     data-testid={`card-menu-item-${item.id}`}
                   >
-                    <div className="flex gap-3 p-3 rounded-md border hover-elevate active-elevate-2">
+                    <div className={`flex gap-3 p-3 rounded-md border ${item.isAvailable !== 0 ? 'hover-elevate active-elevate-2' : ''}`}>
                       {item.imageUrl && (
                         <div className="relative w-24 h-24 flex-shrink-0 overflow-hidden rounded-md bg-muted">
                           <img
@@ -904,34 +914,6 @@ export default function CustomerMenu() {
         order={createdOrder}
         restaurantName={restaurant?.name || ''}
       />
-
-      {/* Image Preview Modal */}
-      <Dialog open={!!imagePreview} onOpenChange={() => setImagePreview(null)}>
-        <DialogContent className="max-w-4xl w-full p-0 overflow-hidden bg-black/95">
-          <motion.div 
-            className="relative aspect-video w-full"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-          >
-            {imagePreview && (
-              <img 
-                src={imagePreview} 
-                alt="Preview"
-                className="w-full h-full object-contain"
-              />
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-4 right-4 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
-              onClick={() => setImagePreview(null)}
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </motion.div>
-        </DialogContent>
-      </Dialog>
 
       {/* Bottom Navigation */}
       <TubelightNavBar
