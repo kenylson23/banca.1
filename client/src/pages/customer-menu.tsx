@@ -17,7 +17,8 @@ import { useToast } from '@/hooks/use-toast';
 import { 
   ShoppingCart, Plus, ClipboardList, Clock, ChefHat, 
   CheckCircle, Check, Search, MessageCircle, Utensils,
-  X, Minus, User, Phone as PhoneIcon
+  X, Minus, User, Phone as PhoneIcon, ChevronRight, ShoppingBag,
+  FileText, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest, queryClient } from '@/lib/queryClient';
@@ -42,6 +43,7 @@ export default function CustomerMenu() {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [checkoutStep, setCheckoutStep] = useState<'cart' | 'info' | 'review'>('cart');
   const { toast } = useToast();
 
   const { data: currentTable, isLoading: tableLoading } = useQuery<any>({
@@ -164,6 +166,7 @@ export default function CustomerMenu() {
       setCustomerName('');
       setCustomerPhone('');
       setIsCartOpen(false);
+      setCheckoutStep('cart');
       if (tableId) {
         queryClient.invalidateQueries({ queryKey: [`/api/public/orders/table/${tableId}`] });
       }
@@ -215,25 +218,19 @@ export default function CustomerMenu() {
     });
   };
 
-  const handleConfirmOrder = () => {
-    if (!currentTable) {
-      toast({
-        title: 'Mesa não encontrada',
-        description: 'Não foi possível identificar a mesa.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+  const handleProceedToInfo = () => {
     if (items.length === 0) {
       toast({
         title: 'Carrinho vazio',
-        description: 'Adicione itens ao carrinho antes de confirmar o pedido.',
+        description: 'Adicione itens ao carrinho antes de continuar.',
         variant: 'destructive',
       });
       return;
     }
+    setCheckoutStep('info');
+  };
 
+  const handleProceedToReview = () => {
     if (!customerName.trim()) {
       toast({
         title: 'Nome obrigatório',
@@ -247,6 +244,19 @@ export default function CustomerMenu() {
       toast({
         title: 'Telefone obrigatório',
         description: 'Por favor, informe seu telefone/WhatsApp.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setCheckoutStep('review');
+  };
+
+  const handleConfirmOrder = () => {
+    if (!currentTable) {
+      toast({
+        title: 'Mesa não encontrada',
+        description: 'Não foi possível identificar a mesa.',
         variant: 'destructive',
       });
       return;
@@ -440,7 +450,10 @@ export default function CustomerMenu() {
                 </DialogContent>
               </Dialog>
               
-              <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
+              <Sheet open={isCartOpen} onOpenChange={(open) => {
+                setIsCartOpen(open);
+                if (!open) setCheckoutStep('cart');
+              }}>
                 <SheetTrigger asChild>
                   <Button 
                     size="icon"
@@ -463,173 +476,344 @@ export default function CustomerMenu() {
                   </Button>
                 </SheetTrigger>
                 <SheetContent className="w-full sm:max-w-md flex flex-col p-0 bg-white">
+                  {/* Header with Steps */}
                   <div className="p-6 pb-4 border-b border-gray-100">
-                    <SheetHeader>
-                      <SheetTitle className="text-2xl font-bold text-gray-900" data-testid="text-cart-title">Seu Pedido</SheetTitle>
+                    <SheetHeader className="mb-4">
+                      <SheetTitle className="text-2xl font-bold text-gray-900" data-testid="text-cart-title">
+                        {checkoutStep === 'cart' && 'Seu Pedido'}
+                        {checkoutStep === 'info' && 'Seus Dados'}
+                        {checkoutStep === 'review' && 'Revisar Pedido'}
+                      </SheetTitle>
                     </SheetHeader>
+                    
+                    {/* Progress Steps */}
+                    <div className="flex items-center gap-2">
+                      <div className={`flex items-center gap-2 ${checkoutStep === 'cart' ? 'text-gray-900' : 'text-gray-400'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${checkoutStep === 'cart' ? 'bg-gray-900 text-white' : 'bg-gray-100'}`}>
+                          1
+                        </div>
+                        <span className="text-xs font-medium hidden sm:inline">Itens</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-gray-300" />
+                      <div className={`flex items-center gap-2 ${checkoutStep === 'info' ? 'text-gray-900' : 'text-gray-400'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${checkoutStep === 'info' ? 'bg-gray-900 text-white' : 'bg-gray-100'}`}>
+                          2
+                        </div>
+                        <span className="text-xs font-medium hidden sm:inline">Dados</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-gray-300" />
+                      <div className={`flex items-center gap-2 ${checkoutStep === 'review' ? 'text-gray-900' : 'text-gray-400'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${checkoutStep === 'review' ? 'bg-gray-900 text-white' : 'bg-gray-100'}`}>
+                          3
+                        </div>
+                        <span className="text-xs font-medium hidden sm:inline">Revisar</span>
+                      </div>
+                    </div>
                   </div>
 
                   <ScrollArea className="flex-1 px-6 py-4">
-                    {items.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                        <ShoppingCart className="h-16 w-16 mb-4 opacity-20" />
-                        <p className="font-medium text-lg text-gray-600" data-testid="text-empty-cart">Seu carrinho está vazio</p>
-                        <p className="text-sm mt-1">Adicione itens do cardápio</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <AnimatePresence>
-                          {items.map((item, index) => {
-                            const basePrice = parseFloat(item.menuItem.price);
-                            const optionsPrice = item.selectedOptions.reduce((sum, opt) => {
-                              return sum + parseFloat(opt.priceAdjustment) * opt.quantity;
-                            }, 0);
-                            const totalPrice = (basePrice + optionsPrice) * item.quantity;
+                    <AnimatePresence mode="wait">
+                      {/* Step 1: Cart Items */}
+                      {checkoutStep === 'cart' && (
+                        <motion.div
+                          key="cart"
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          className="space-y-4"
+                        >
+                          {items.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                              <ShoppingBag className="h-16 w-16 mb-4 opacity-20" />
+                              <p className="font-medium text-lg text-gray-600" data-testid="text-empty-cart">Seu carrinho está vazio</p>
+                              <p className="text-sm mt-1">Adicione itens do cardápio</p>
+                            </div>
+                          ) : (
+                            <>
+                              {items.map((item, index) => {
+                                const basePrice = parseFloat(item.menuItem.price);
+                                const optionsPrice = item.selectedOptions.reduce((sum, opt) => {
+                                  return sum + parseFloat(opt.priceAdjustment) * opt.quantity;
+                                }, 0);
+                                const totalPrice = (basePrice + optionsPrice) * item.quantity;
 
-                            return (
-                              <motion.div
-                                key={item.id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                transition={{ delay: index * 0.03 }}
-                              >
-                                <Card className="overflow-hidden border-gray-100" data-testid={`cart-item-${item.id}`}>
-                                  <div className="p-4">
-                                    <div className="flex gap-3">
-                                      {item.menuItem.imageUrl && (
-                                        <img 
-                                          src={item.menuItem.imageUrl} 
-                                          alt={item.menuItem.name}
-                                          className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                                        />
-                                      )}
-                                      <div className="flex-1 min-w-0">
-                                        <h4 className="font-semibold text-gray-900 truncate" data-testid={`text-cart-item-name-${item.id}`}>
-                                          {item.menuItem.name}
-                                        </h4>
-                                        {item.selectedOptions.length > 0 && (
-                                          <div className="mt-1 space-y-0.5">
-                                            {item.selectedOptions.map((opt, idx) => (
-                                              <p key={idx} className="text-xs text-gray-500">
-                                                • {opt.optionName} (+{formatKwanza(parseFloat(opt.priceAdjustment) * opt.quantity)})
-                                              </p>
-                                            ))}
+                                return (
+                                  <motion.div
+                                    key={item.id}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ delay: index * 0.03 }}
+                                  >
+                                    <Card className="overflow-hidden border-gray-100 hover:shadow-md transition-shadow" data-testid={`cart-item-${item.id}`}>
+                                      <div className="p-4">
+                                        <div className="flex gap-3">
+                                          {item.menuItem.imageUrl && (
+                                            <img 
+                                              src={item.menuItem.imageUrl} 
+                                              alt={item.menuItem.name}
+                                              className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
+                                            />
+                                          )}
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-start justify-between gap-2">
+                                              <h4 className="font-semibold text-gray-900" data-testid={`text-cart-item-name-${item.id}`}>
+                                                {item.menuItem.name}
+                                              </h4>
+                                              <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-7 w-7 text-gray-400 hover:text-red-500 flex-shrink-0 -mt-1"
+                                                onClick={() => removeItem(item.id)}
+                                                data-testid={`button-remove-${item.id}`}
+                                              >
+                                                <X className="h-4 w-4" />
+                                              </Button>
+                                            </div>
+                                            {item.selectedOptions.length > 0 && (
+                                              <div className="mt-1 space-y-0.5">
+                                                {item.selectedOptions.map((opt, idx) => (
+                                                  <p key={idx} className="text-xs text-gray-500">
+                                                    • {opt.optionName} (+{formatKwanza(parseFloat(opt.priceAdjustment) * opt.quantity)})
+                                                  </p>
+                                                ))}
+                                              </div>
+                                            )}
+                                            <div className="flex items-center justify-between mt-3">
+                                              <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1">
+                                                <Button
+                                                  size="icon"
+                                                  variant="ghost"
+                                                  className="h-7 w-7 hover:bg-white"
+                                                  onClick={() => {
+                                                    if (item.quantity > 1) {
+                                                      const newItem = { ...item, quantity: item.quantity - 1 };
+                                                      removeItem(item.id);
+                                                      addItem(item.menuItem, item.selectedOptions);
+                                                    } else {
+                                                      removeItem(item.id);
+                                                    }
+                                                  }}
+                                                  data-testid={`button-decrease-${item.id}`}
+                                                >
+                                                  <Minus className="h-3 w-3" />
+                                                </Button>
+                                                <span className="text-sm font-semibold w-6 text-center text-gray-900" data-testid={`text-quantity-${item.id}`}>
+                                                  {item.quantity}
+                                                </span>
+                                                <Button
+                                                  size="icon"
+                                                  variant="ghost"
+                                                  className="h-7 w-7 hover:bg-white"
+                                                  onClick={() => addItem(item.menuItem, item.selectedOptions)}
+                                                  data-testid={`button-increase-${item.id}`}
+                                                >
+                                                  <Plus className="h-3 w-3" />
+                                                </Button>
+                                              </div>
+                                              <span className="font-bold text-gray-900" data-testid={`text-item-total-${item.id}`}>
+                                                {formatKwanza(totalPrice)}
+                                              </span>
+                                            </div>
                                           </div>
-                                        )}
-                                        <div className="flex items-center justify-between mt-2">
-                                          <div className="flex items-center gap-2">
-                                            <Button
-                                              size="icon"
-                                              variant="outline"
-                                              className="h-7 w-7 border-gray-200"
-                                              onClick={() => {
-                                                if (item.quantity > 1) {
-                                                  const newItem = { ...item, quantity: item.quantity - 1 };
-                                                  removeItem(item.id);
-                                                  addItem(item.menuItem, item.selectedOptions);
-                                                } else {
-                                                  removeItem(item.id);
-                                                }
-                                              }}
-                                              data-testid={`button-decrease-${item.id}`}
-                                            >
-                                              <Minus className="h-3 w-3" />
-                                            </Button>
-                                            <span className="text-sm font-medium w-6 text-center text-gray-900" data-testid={`text-quantity-${item.id}`}>
-                                              {item.quantity}
-                                            </span>
-                                            <Button
-                                              size="icon"
-                                              variant="outline"
-                                              className="h-7 w-7 border-gray-200"
-                                              onClick={() => addItem(item.menuItem, item.selectedOptions)}
-                                              data-testid={`button-increase-${item.id}`}
-                                            >
-                                              <Plus className="h-3 w-3" />
-                                            </Button>
-                                          </div>
-                                          <span className="font-semibold text-gray-900" data-testid={`text-item-total-${item.id}`}>
-                                            {formatKwanza(totalPrice)}
-                                          </span>
                                         </div>
                                       </div>
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        className="h-8 w-8 text-gray-400 hover:text-red-500 flex-shrink-0"
-                                        onClick={() => removeItem(item.id)}
-                                        data-testid={`button-remove-${item.id}`}
-                                      >
-                                        <X className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </Card>
-                              </motion.div>
-                            );
-                          })}
-                        </AnimatePresence>
+                                    </Card>
+                                  </motion.div>
+                                );
+                              })}
+                            </>
+                          )}
+                        </motion.div>
+                      )}
 
-                        <div className="mt-6 space-y-4">
-                          <Separator className="bg-gray-100" />
-                          <div className="space-y-3">
-                            <div className="relative">
-                              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      {/* Step 2: Customer Info */}
+                      {checkoutStep === 'info' && (
+                        <motion.div
+                          key="info"
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          className="space-y-5"
+                        >
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                                <User className="h-4 w-4" />
+                                Nome completo
+                              </label>
                               <Input
-                                placeholder="Seu nome"
+                                placeholder="Digite seu nome"
                                 value={customerName}
                                 onChange={(e) => setCustomerName(e.target.value)}
-                                className="pl-10 border-gray-200"
+                                className="h-12 border-gray-200"
                                 data-testid="input-customer-name"
                               />
                             </div>
-                            <div className="relative">
-                              <PhoneIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                                <PhoneIcon className="h-4 w-4" />
+                                Telefone/WhatsApp
+                              </label>
                               <Input
-                                placeholder="Seu telefone/WhatsApp"
+                                placeholder="(XX) XXXXX-XXXX"
                                 value={customerPhone}
                                 onChange={(e) => setCustomerPhone(e.target.value)}
-                                className="pl-10 border-gray-200"
+                                className="h-12 border-gray-200"
                                 data-testid="input-customer-phone"
                               />
                             </div>
-                            <Textarea
-                              placeholder="Observações (opcional)"
-                              value={orderNotes}
-                              onChange={(e) => setOrderNotes(e.target.value)}
-                              className="resize-none border-gray-200"
-                              rows={3}
-                              data-testid="input-order-notes"
-                            />
+                            
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                Observações (opcional)
+                              </label>
+                              <Textarea
+                                placeholder="Ex: sem cebola, bem passado, etc."
+                                value={orderNotes}
+                                onChange={(e) => setOrderNotes(e.target.value)}
+                                className="resize-none border-gray-200 min-h-24"
+                                data-testid="input-order-notes"
+                              />
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    )}
+
+                          <Card className="bg-gray-50 border-gray-200">
+                            <CardContent className="p-4">
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <Sparkles className="h-4 w-4 text-gray-400" />
+                                <span>Seus dados são usados apenas para este pedido</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      )}
+
+                      {/* Step 3: Review */}
+                      {checkoutStep === 'review' && (
+                        <motion.div
+                          key="review"
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          className="space-y-5"
+                        >
+                          <Card className="border-gray-200">
+                            <CardContent className="p-4">
+                              <h3 className="font-semibold text-gray-900 mb-3">Seus Dados</h3>
+                              <div className="space-y-2 text-sm">
+                                <div className="flex items-center gap-2 text-gray-600">
+                                  <User className="h-4 w-4" />
+                                  <span>{customerName}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-gray-600">
+                                  <PhoneIcon className="h-4 w-4" />
+                                  <span>{customerPhone}</span>
+                                </div>
+                                {orderNotes && (
+                                  <div className="flex items-start gap-2 text-gray-600 pt-2 border-t border-gray-100">
+                                    <FileText className="h-4 w-4 mt-0.5" />
+                                    <span className="flex-1">{orderNotes}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          <div className="space-y-3">
+                            <h3 className="font-semibold text-gray-900">Itens do Pedido</h3>
+                            {items.map((item) => {
+                              const basePrice = parseFloat(item.menuItem.price);
+                              const optionsPrice = item.selectedOptions.reduce((sum, opt) => {
+                                return sum + parseFloat(opt.priceAdjustment) * opt.quantity;
+                              }, 0);
+                              const totalPrice = (basePrice + optionsPrice) * item.quantity;
+
+                              return (
+                                <div key={item.id} className="flex justify-between text-sm py-2 border-b border-gray-100">
+                                  <div className="flex-1">
+                                    <span className="font-medium text-gray-900">{item.quantity}x {item.menuItem.name}</span>
+                                    {item.selectedOptions.length > 0 && (
+                                      <div className="mt-1 space-y-0.5">
+                                        {item.selectedOptions.map((opt, idx) => (
+                                          <p key={idx} className="text-xs text-gray-500">
+                                            • {opt.optionName}
+                                          </p>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span className="font-semibold text-gray-900 ml-3">
+                                    {formatKwanza(totalPrice)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <Card className="bg-gray-50 border-gray-200">
+                            <CardContent className="p-4">
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <span>Confira os dados antes de confirmar o pedido</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </ScrollArea>
 
+                  {/* Footer with Actions */}
                   {items.length > 0 && (
                     <div className="p-6 pt-4 border-t border-gray-100 space-y-4 bg-white">
-                      <div className="flex items-center justify-between text-lg font-bold">
-                        <span className="text-gray-900">Total</span>
-                        <span className="text-gray-900" data-testid="text-cart-total">{formatKwanza(getTotal())}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Subtotal</span>
+                        <span className="font-semibold text-gray-900">{formatKwanza(getTotal())}</span>
                       </div>
-                      <Button
-                        size="lg"
-                        className="w-full h-14 text-base font-semibold bg-gray-900 hover:bg-gray-800 text-white"
-                        onClick={handleConfirmOrder}
-                        disabled={createOrderMutation.isPending}
-                        data-testid="button-confirm-order"
-                      >
-                        {createOrderMutation.isPending ? (
-                          <div className="flex items-center gap-2">
-                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                            Enviando...
-                          </div>
-                        ) : (
-                          'Fazer Pedido'
+                      <div className="flex items-center justify-between text-lg">
+                        <span className="font-bold text-gray-900">Total</span>
+                        <span className="font-bold text-gray-900" data-testid="text-cart-total">{formatKwanza(getTotal())}</span>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        {checkoutStep !== 'cart' && (
+                          <Button
+                            variant="outline"
+                            size="lg"
+                            className="flex-1 h-14 text-base font-semibold border-gray-200"
+                            onClick={() => setCheckoutStep(checkoutStep === 'review' ? 'info' : 'cart')}
+                          >
+                            Voltar
+                          </Button>
                         )}
-                      </Button>
+                        <Button
+                          size="lg"
+                          className={`h-14 text-base font-semibold bg-gray-900 hover:bg-gray-800 text-white ${checkoutStep === 'cart' ? 'w-full' : 'flex-1'}`}
+                          onClick={() => {
+                            if (checkoutStep === 'cart') handleProceedToInfo();
+                            else if (checkoutStep === 'info') handleProceedToReview();
+                            else handleConfirmOrder();
+                          }}
+                          disabled={createOrderMutation.isPending}
+                          data-testid="button-confirm-order"
+                        >
+                          {createOrderMutation.isPending ? (
+                            <div className="flex items-center gap-2">
+                              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                              Enviando...
+                            </div>
+                          ) : (
+                            <>
+                              {checkoutStep === 'cart' && 'Continuar'}
+                              {checkoutStep === 'info' && 'Revisar Pedido'}
+                              {checkoutStep === 'review' && 'Confirmar Pedido'}
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </SheetContent>
@@ -691,7 +875,7 @@ export default function CustomerMenu() {
             </div>
           )}
 
-          {/* Menu Items Grid */}
+          {/* Menu Items Grid - Cards Modernos */}
           {filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-gray-400">
               <Search className="h-16 w-16 mb-4 opacity-20" />
@@ -710,47 +894,93 @@ export default function CustomerMenu() {
                     transition={{ delay: index * 0.03 }}
                   >
                     <Card 
-                      className="overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer border-gray-100 bg-white h-full"
+                      className="group overflow-hidden hover:shadow-2xl transition-all duration-300 cursor-pointer border-gray-100 bg-white h-full relative"
                       onClick={() => handleAddMenuItem(item)}
                       data-testid={`menu-item-card-${item.id}`}
                     >
-                      {item.imageUrl && (
-                        <div className="relative aspect-[4/3] overflow-hidden bg-gray-50">
-                          <img 
-                            src={item.imageUrl} 
-                            alt={item.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
-                      <CardContent className="p-4 sm:p-5">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <h3 className="font-semibold text-base sm:text-lg text-gray-900" data-testid={`text-item-name-${item.id}`}>
-                            {item.name}
-                          </h3>
+                      {/* Image Container with Overlay */}
+                      <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
+                        {item.imageUrl ? (
+                          <>
+                            <img 
+                              src={item.imageUrl} 
+                              alt={item.name}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                            />
+                            {/* Gradient Overlay */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                          </>
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Utensils className="h-16 w-16 text-gray-300" />
+                          </div>
+                        )}
+                        
+                        {/* Category Badge */}
+                        {item.category && (
+                          <Badge 
+                            variant="secondary" 
+                            className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm text-gray-700 border-0 shadow-sm"
+                          >
+                            {item.category.name}
+                          </Badge>
+                        )}
+                        
+                        {/* Quick Add Button */}
+                        <motion.div
+                          initial={{ scale: 0, opacity: 0 }}
+                          whileHover={{ scale: 1, opacity: 1 }}
+                          className="absolute top-3 right-3"
+                        >
                           <Button
                             size="icon"
-                            className="h-9 w-9 rounded-full bg-gray-900 hover:bg-gray-800 text-white flex-shrink-0"
+                            className="h-10 w-10 rounded-full bg-white text-gray-900 hover:bg-gray-50 shadow-lg group-hover:scale-100 scale-0 transition-transform duration-300"
                             onClick={(e) => handleQuickAddToCart(item, e)}
                             data-testid={`button-quick-add-${item.id}`}
                           >
-                            <Plus className="h-4 w-4" />
+                            <Plus className="h-5 w-5" />
                           </Button>
-                        </div>
-                        {item.description && (
-                          <p className="text-sm text-gray-500 mb-3 line-clamp-2" data-testid={`text-item-description-${item.id}`}>
-                            {item.description}
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between">
-                          <span className="text-xl font-bold text-gray-900" data-testid={`text-item-price-${item.id}`}>
-                            {formatKwanza(item.price)}
-                          </span>
-                          {item.isAvailable === 0 && (
-                            <Badge variant="outline" className="border-red-200 text-red-600 text-xs">
-                              Indisponível
-                            </Badge>
-                          )}
+                        </motion.div>
+                      </div>
+
+                      <CardContent className="p-4 sm:p-5">
+                        <div className="space-y-3">
+                          <div>
+                            <h3 className="font-bold text-base sm:text-lg text-gray-900 line-clamp-1 group-hover:text-gray-700 transition-colors" data-testid={`text-item-name-${item.id}`}>
+                              {item.name}
+                            </h3>
+                            {item.description && (
+                              <p className="text-sm text-gray-500 mt-1 line-clamp-2" data-testid={`text-item-description-${item.id}`}>
+                                {item.description}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2">
+                            <div className="flex flex-col">
+                              <span className="text-2xl font-bold text-gray-900" data-testid={`text-item-price-${item.id}`}>
+                                {formatKwanza(item.price)}
+                              </span>
+                            </div>
+                            
+                            {item.isAvailable === 0 ? (
+                              <Badge variant="outline" className="border-red-200 text-red-600 text-xs">
+                                Indisponível
+                              </Badge>
+                            ) : (
+                              <Button
+                                size="icon"
+                                className="h-11 w-11 rounded-full bg-gray-900 hover:bg-gray-800 text-white shadow-md hover:shadow-lg transition-all"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAddMenuItem(item);
+                                }}
+                                data-testid={`button-add-${item.id}`}
+                              >
+                                <Plus className="h-5 w-5" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
