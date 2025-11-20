@@ -18,9 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import { 
   ShoppingCart, Plus, Minus, Trash2, Clock, Bike, ShoppingBag, Search, Star, 
   TrendingUp, MapPin, Phone, ChevronRight, UtensilsCrossed, Sparkles, Flame,
-  Leaf, X, Filter, Wheat
+  Leaf, X, Filter, Wheat, MessageCircle
 } from 'lucide-react';
-import { SiWhatsapp } from 'react-icons/si';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest } from '@/lib/queryClient';
 import { formatKwanza } from '@/lib/formatters';
@@ -45,10 +44,7 @@ export default function PublicMenu() {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showSearchBar, setShowSearchBar] = useState(false);
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const categoriesRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -82,15 +78,6 @@ export default function PublicMenu() {
     }).catch(() => {});
   }, [restaurantId]);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollY = window.scrollY;
-      setShowSearchBar(scrollY > 300);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   const categories = menuItems
     ?.filter(item => item.isVisible === 1)
@@ -342,16 +329,8 @@ export default function PublicMenu() {
     );
   }
 
-  const heroStyle = restaurant?.heroImageUrl ? {
-    backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.7) 100%), url('${restaurant.heroImageUrl}')`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-  } : {
-    background: `linear-gradient(135deg, ${restaurant?.primaryColor || '#EA580C'} 0%, ${restaurant?.secondaryColor || '#DC2626'} 100%)`,
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50/50">
+    <div className="min-h-screen bg-background pb-20">
       {/* Floating Cart Button */}
       <motion.div 
         className="fixed top-4 right-4 z-50"
@@ -582,233 +561,150 @@ export default function PublicMenu() {
         </Sheet>
       </motion.div>
 
-      {/* Hero Section */}
-      <motion.section 
-        className="relative overflow-hidden"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.6 }}
+      {/* Header */}
+      <motion.header 
+        className="sticky top-0 z-50 w-full border-b bg-background"
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
       >
-        <div 
-          className="h-[280px] sm:h-[360px] w-full relative"
-          style={heroStyle}
-        >
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white opacity-60" />
-        </div>
-        
-        <div className="container px-4 sm:px-6">
-          <div className="relative -mt-20 sm:-mt-24 pb-8">
-            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 sm:gap-6">
-              {restaurant?.logoUrl && (
-                <motion.div 
-                  className="w-28 h-28 sm:w-36 sm:h-36 rounded-full border-4 border-white shadow-2xl overflow-hidden bg-white flex-shrink-0"
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", delay: 0.2 }}
-                  whileHover={{ scale: 1.05 }}
+        <div className="container px-4 sm:px-6 py-4 space-y-3">
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold mb-1" data-testid="text-restaurant-name">
+                {restaurant.name}
+              </h1>
+              <div className="flex items-center gap-2 mb-1">
+                <Badge 
+                  className={restaurant.isOpen ? "bg-green-500 hover:bg-green-600 text-white" : "bg-gray-400 hover:bg-gray-500 text-white"}
+                  data-testid="badge-restaurant-status"
                 >
-                  <img 
-                    src={restaurant.logoUrl} 
-                    alt={`${restaurant.name} logo`}
-                    className="w-full h-full object-cover"
-                    data-testid="img-restaurant-logo"
-                  />
-                </motion.div>
-              )}
-              
-              <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
-                <motion.div 
-                  className="space-y-2"
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                >
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" data-testid="text-restaurant-name">
-                      {restaurant.name}
-                    </h1>
-                    <Badge 
-                      variant={restaurant.isOpen ? "default" : "secondary"} 
-                      className={`${restaurant.isOpen ? "bg-green-500 hover:bg-green-600 text-white" : "bg-gray-400 hover:bg-gray-500 text-white"} flex-shrink-0 px-3 py-1 text-xs font-semibold`}
-                      data-testid="badge-restaurant-status"
-                    >
-                      {restaurant.isOpen ? "● Aberto" : "● Fechado"}
-                    </Badge>
-                  </div>
-                  
-                  {restaurant.businessHours && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Clock className="h-4 w-4" />
-                      <span>{restaurant.businessHours}</span>
-                    </div>
-                  )}
-
-                  {restaurant.description && (
-                    <p className="text-sm text-muted-foreground max-w-2xl line-clamp-2">
-                      {restaurant.description}
-                    </p>
-                  )}
-                </motion.div>
-                
-                <motion.div 
-                  className="flex items-center gap-2 flex-shrink-0"
-                  initial={{ x: 20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                >
-                  {restaurant.whatsappNumber && (
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      className="h-10 w-10 rounded-full hover:bg-green-50 hover:border-green-500 transition-colors"
-                      onClick={() => window.open(`https://wa.me/${restaurant.whatsappNumber!.replace(/\D/g, '')}`, '_blank')}
-                      data-testid="button-whatsapp"
-                      aria-label="Contato WhatsApp"
-                    >
-                      <SiWhatsapp className="h-5 w-5 text-green-600" />
-                    </Button>
-                  )}
-                  <Link href={`/r/${slug}/rastrear`}>
-                    <Button variant="outline" size="sm" className="gap-2 hover-elevate" data-testid="button-track-order">
-                      Rastrear Pedido
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </motion.div>
+                  {restaurant.isOpen ? "Aberto" : "Fechado"}
+                </Badge>
               </div>
             </div>
+            
+            {restaurant.whatsappNumber && (
+              <a
+                href={`https://api.whatsapp.com/send?phone=${restaurant.whatsappNumber.replace(/\D/g, '')}&text=${encodeURIComponent(`👋 Olá, venho de ${window.location.origin} \nEu quero fazer o próximo pedido:\n`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="link-whatsapp"
+              >
+                <Button variant="outline" size="icon" className="min-h-10 min-w-10 bg-green-50 hover:bg-green-100 text-green-600 border-green-200">
+                  <MessageCircle className="h-5 w-5" />
+                </Button>
+              </a>
+            )}
           </div>
         </div>
+      </motion.header>
+
+      {/* Category Filters */}
+      <motion.section 
+        className="container px-4 sm:px-6 py-4 space-y-3 border-b"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <span>Informação</span>
+        </div>
+
+        {categories.length > 0 && (
+          <ScrollArea className="w-full">
+            <div className="flex gap-3 pb-2">
+              <button
+                onClick={() => setSelectedCategory('all')}
+                className={`text-sm font-medium transition-colors whitespace-nowrap pb-1 ${
+                  selectedCategory === 'all'
+                    ? 'text-foreground border-b-2 border-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                data-testid="filter-all"
+              >
+                Todos
+              </button>
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCategory(String(category.id))}
+                  className={`text-sm font-medium transition-colors whitespace-nowrap pb-1 ${
+                    selectedCategory === String(category.id)
+                      ? 'text-foreground border-b-2 border-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  data-testid={`filter-${category.id}`}
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
       </motion.section>
 
-      {/* Filters Bar */}
-      {categories.length > 0 && (
-        <div className={`border-b sticky top-0 bg-white/95 backdrop-blur-sm z-40 transition-all ${showSearchBar ? 'shadow-md' : ''}`}>
-          <div className="container px-4 sm:px-6 py-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <AnimatePresence>
-                {showSearchBar && (
-                  <motion.div 
-                    className="flex-1 relative"
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                  >
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="text"
-                      placeholder="Buscar produtos..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9 h-10"
-                      data-testid="input-search-sticky"
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              
-              <Button
-                variant={showFilters ? "default" : "outline"}
-                size="icon"
-                onClick={() => setShowFilters(!showFilters)}
-                className="h-10 w-10 flex-shrink-0"
-                data-testid="button-toggle-filters"
-              >
-                <Filter className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <AnimatePresence>
-              {showFilters && (
-                <motion.div 
-                  className="flex flex-wrap gap-2"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                >
-                  {dietaryTags.map(tag => {
-                    const Icon = tag.icon;
-                    const isActive = activeFilters.includes(tag.value);
-                    return (
-                      <Button
-                        key={tag.value}
-                        variant={isActive ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => toggleFilter(tag.value)}
-                        className="rounded-full gap-2"
-                        data-testid={`filter-${tag.value}`}
-                      >
-                        <Icon className={`h-3 w-3 ${!isActive ? tag.color : ''}`} />
-                        {tag.label}
-                      </Button>
-                    );
-                  })}
-                  {activeFilters.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setActiveFilters([])}
-                      className="rounded-full gap-1"
-                      data-testid="button-clear-filters"
-                    >
-                      <X className="h-3 w-3" />
-                      Limpar
-                    </Button>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-            
-            <ScrollArea className="w-full" ref={categoriesRef}>
-              <div className="flex gap-2 pb-2">
-                <Button
-                  variant={selectedCategory === 'all' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => scrollToCategory('all')}
-                  className="rounded-full flex-shrink-0 font-medium"
-                  data-testid="tab-all"
-                >
-                  Todos
-                </Button>
-                {categories.map((category) => (
-                  <Button
-                    key={category.id}
-                    variant={selectedCategory === String(category.id) ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => scrollToCategory(String(category.id))}
-                    className="rounded-full flex-shrink-0 font-medium whitespace-nowrap"
-                    data-testid={`tab-${category.id}`}
-                  >
-                    {category.name}
-                  </Button>
-                ))}
-              </div>
-            </ScrollArea>
+      {/* Search Section */}
+      <motion.section 
+        className="container px-4 sm:px-6 py-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25 }}
+      >
+        <div className="mb-3">
+          <h2 className="text-lg font-semibold">Procurar Resultados</h2>
+        </div>
+        <div className="relative">
+          <Input
+            type="text"
+            placeholder="Buscar no cardápio..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 h-11 text-base"
+            data-testid="input-search"
+          />
+          <div className="absolute left-3 top-1/2 -translate-y-1/2">
+            <Search className="h-4 w-4 text-muted-foreground" />
           </div>
         </div>
-      )}
 
-      {/* Search Bar (Non-sticky) */}
-      {!showSearchBar && (
-        <motion.section 
-          className="container px-4 sm:px-6 py-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          <div className="relative max-w-3xl mx-auto">
-            <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <Input
-              type="text"
-              placeholder="O que você está procurando?"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-14 pr-6 h-14 text-base rounded-2xl border-2 border-gray-200 focus:border-primary transition-all shadow-sm hover:shadow-md bg-white"
-              data-testid="input-search-main"
-            />
+        {/* Dietary Filters */}
+        {(dietaryTags.some(tag => menuItems?.some(item => item.tags?.includes(tag.value))) || activeFilters.length > 0) && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {dietaryTags.map(tag => {
+              const Icon = tag.icon;
+              const isActive = activeFilters.includes(tag.value);
+              const hasItems = menuItems?.some(item => item.tags?.includes(tag.value));
+              if (!hasItems && !isActive) return null;
+              
+              return (
+                <Button
+                  key={tag.value}
+                  variant={isActive ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleFilter(tag.value)}
+                  className="gap-1.5 h-8"
+                  data-testid={`dietary-${tag.value}`}
+                >
+                  <Icon className={`h-3 w-3 ${!isActive ? tag.color : ''}`} />
+                  {tag.label}
+                </Button>
+              );
+            })}
+            {activeFilters.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setActiveFilters([])}
+                className="gap-1 h-8"
+                data-testid="button-clear-filters"
+              >
+                <X className="h-3 w-3" />
+                Limpar
+              </Button>
+            )}
           </div>
-        </motion.section>
-      )}
+        )}
+      </motion.section>
 
       {/* Products Grid */}
       <main className="container px-4 sm:px-6 py-8 pb-24">
@@ -834,19 +730,15 @@ export default function PublicMenu() {
                 <motion.div 
                   key={category.id} 
                   id={`category-${category.id}`} 
-                  className="scroll-mt-32"
+                  className="mb-8"
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: catIndex * 0.1 }}
                 >
-                  <div className="flex items-center gap-3 mb-8">
-                    <div className="h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent flex-1" />
-                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid={`text-category-${category.name}`}>
-                      {category.name}
-                    </h2>
-                    <div className="h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent flex-1" />
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5">
+                  <h2 className="text-xl font-bold mb-4" data-testid={`text-category-${category.name}`}>
+                    {category.name}
+                  </h2>
+                  <div className="space-y-3">
                     {categoryItems.map((item, itemIndex) => {
                       const hasDiscount = item.originalPrice && parseFloat(item.originalPrice) > parseFloat(item.price);
                       const discountPercentage = hasDiscount 
@@ -859,131 +751,57 @@ export default function PublicMenu() {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: itemIndex * 0.05 }}
+                          onClick={() => item.isAvailable !== 0 && handleAddMenuItem(item)}
+                          className={`${item.isAvailable === 0 ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                          data-testid={`card-menu-item-${item.id}`}
                         >
-                          <Card 
-                            data-testid={`menu-item-${item.id}`} 
-                            className="group hover-elevate active-elevate-2 overflow-hidden cursor-pointer transition-all duration-300 border-2 hover:border-primary/30 h-full flex flex-col"
-                          >
-                            <CardContent className="p-0 flex-1 flex flex-col">
-                              <div 
-                                className="relative aspect-square overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100"
-                                onClick={() => item.imageUrl && setImagePreview(item.imageUrl)}
-                              >
-                                {item.imageUrl ? (
-                                  <img 
-                                    src={item.imageUrl} 
-                                    alt={item.name}
-                                    className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110"
-                                    loading="lazy"
-                                    data-testid={`img-product-${item.id}`}
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-                                    <UtensilsCrossed className="h-14 w-14 text-gray-300" />
-                                  </div>
-                                )}
-                                
-                                {/* Badges */}
-                                <div className="absolute top-3 left-3 flex flex-col gap-2">
-                                  {hasDiscount && (
-                                    <Badge 
-                                      className="bg-red-500 hover:bg-red-600 text-white font-bold shadow-lg px-2.5 py-1 animate-in zoom-in-50"
-                                      data-testid={`badge-discount-${item.id}`}
-                                    >
-                                      -{discountPercentage}%
-                                    </Badge>
-                                  )}
-                                  {item.isFeatured === 1 && (
-                                    <Badge 
-                                      className="bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-lg px-2.5 py-1 gap-1"
-                                      data-testid={`badge-featured-${item.id}`}
-                                    >
-                                      <Star className="h-3 w-3 fill-white" />
-                                      Destaque
-                                    </Badge>
-                                  )}
-                                  {item.isNew === 1 && (
-                                    <Badge 
-                                      className="bg-blue-500 hover:bg-blue-600 text-white font-bold shadow-lg px-2.5 py-1 gap-1"
-                                      data-testid={`badge-new-${item.id}`}
-                                    >
-                                      <Sparkles className="h-3 w-3" />
-                                      Novo
-                                    </Badge>
-                                  )}
-                                </div>
-
-                                {/* Dietary Tags */}
-                                {item.tags && item.tags.length > 0 && (
-                                  <div className="absolute top-3 right-3 flex flex-col gap-1">
-                                    {item.tags.map(tag => {
-                                      const tagInfo = dietaryTags.find(t => t.value === tag);
-                                      if (!tagInfo) return null;
-                                      const Icon = tagInfo.icon;
-                                      return (
-                                        <div 
-                                          key={tag}
-                                          className="w-7 h-7 rounded-full bg-white/95 shadow-md flex items-center justify-center backdrop-blur-sm"
-                                          title={tagInfo.label}
-                                        >
-                                          <Icon className={`h-3.5 w-3.5 ${tagInfo.color}`} />
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-
-                                {/* Add Button Overlay */}
-                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-[2px]">
-                                  <motion.div
-                                    initial={{ scale: 0.8 }}
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.95 }}
+                          <div className={`flex gap-3 p-3 rounded-md border ${item.isAvailable !== 0 ? 'hover-elevate active-elevate-2' : ''}`}>
+                            {item.imageUrl && (
+                              <div className="relative w-24 h-24 flex-shrink-0 overflow-hidden rounded-md bg-muted">
+                                <img
+                                  src={item.imageUrl}
+                                  alt={item.name}
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                  data-testid={`img-menu-item-${item.id}`}
+                                />
+                                {hasDiscount && (
+                                  <Badge 
+                                    className="absolute top-1 left-1 bg-red-500 text-white font-bold text-xs px-1.5 py-0.5"
+                                    data-testid={`badge-discount-${item.id}`}
                                   >
-                                    <Button
-                                      size="icon"
-                                      className="h-14 w-14 rounded-full shadow-2xl"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleAddMenuItem(item);
-                                      }}
-                                      data-testid={`button-add-${item.id}`}
-                                      aria-label={`Adicionar ${item.name}`}
-                                    >
-                                      <Plus className="h-7 w-7" />
-                                    </Button>
-                                  </motion.div>
-                                </div>
-                              </div>
-
-                              <div className="p-4 flex-1 flex flex-col">
-                                <h3 className="font-bold text-sm sm:text-base line-clamp-2 mb-2 text-gray-900 flex-1">
-                                  {item.name}
-                                </h3>
-                                {item.description && (
-                                  <p className="text-xs text-gray-500 line-clamp-2 mb-3">
-                                    {item.description}
-                                  </p>
+                                    -{discountPercentage}%
+                                  </Badge>
                                 )}
-                                {item.preparationTime && (
-                                  <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-                                    <Clock className="h-3 w-3" />
-                                    <span>{item.preparationTime} min</span>
+                                {item.isAvailable === 0 && (
+                                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                    <span className="text-xs text-white font-medium">Indisponível</span>
                                   </div>
                                 )}
-                                <div className="flex flex-col gap-0.5 mt-auto">
-                                  {hasDiscount && (
-                                    <span className="text-xs text-gray-400 line-through" data-testid={`text-original-price-${item.id}`}>
-                                      {formatKwanza(item.originalPrice!)}
-                                    </span>
-                                  )}
-                                  <span className="text-xl sm:text-2xl font-bold text-primary" data-testid={`text-price-${item.id}`}>
-                                    {formatKwanza(item.price)}
-                                  </span>
-                                </div>
                               </div>
-                            </CardContent>
-                          </Card>
+                            )}
+                            
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-base leading-tight mb-1" data-testid={`text-menu-item-name-${item.id}`}>
+                                {item.name}
+                              </h3>
+                              {item.description && (
+                                <p className="text-sm text-muted-foreground line-clamp-2 mb-2" data-testid={`text-menu-item-description-${item.id}`}>
+                                  {item.description}
+                                </p>
+                              )}
+                              <div className="flex items-center gap-2">
+                                {hasDiscount && (
+                                  <span className="text-sm text-muted-foreground line-through" data-testid={`text-original-price-${item.id}`}>
+                                    {formatKwanza(item.originalPrice!)}
+                                  </span>
+                                )}
+                                <span className="text-lg font-bold" data-testid={`text-menu-item-price-${item.id}`}>
+                                  {formatKwanza(item.price)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
                         </motion.div>
                       );
                     })}
@@ -994,19 +812,15 @@ export default function PublicMenu() {
           </div>
         ) : (
           <motion.div 
-            id={`category-${selectedCategory}`} 
-            className="scroll-mt-32"
+            id={`category-${selectedCategory}`}
+            className="mb-8"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <div className="flex items-center gap-3 mb-8">
-              <div className="h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent flex-1" />
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight" data-testid={`text-category-selected`}>
-                {categories.find(c => String(c.id) === selectedCategory)?.name}
-              </h2>
-              <div className="h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent flex-1" />
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5">
+            <h2 className="text-xl font-bold mb-4" data-testid={`text-category-selected`}>
+              {categories.find(c => String(c.id) === selectedCategory)?.name}
+            </h2>
+            <div className="space-y-3">
               {filteredItems.map((item, itemIndex) => {
                 const hasDiscount = item.originalPrice && parseFloat(item.originalPrice) > parseFloat(item.price);
                 const discountPercentage = hasDiscount 
@@ -1019,128 +833,57 @@ export default function PublicMenu() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: itemIndex * 0.05 }}
+                    onClick={() => item.isAvailable !== 0 && handleAddMenuItem(item)}
+                    className={`${item.isAvailable === 0 ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                    data-testid={`card-menu-item-${item.id}`}
                   >
-                    <Card 
-                      data-testid={`menu-item-${item.id}`} 
-                      className="group hover-elevate active-elevate-2 overflow-hidden cursor-pointer transition-all duration-300 border-2 hover:border-primary/30 h-full flex flex-col"
-                    >
-                      <CardContent className="p-0 flex-1 flex flex-col">
-                        <div 
-                          className="relative aspect-square overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100"
-                          onClick={() => item.imageUrl && setImagePreview(item.imageUrl)}
-                        >
-                          {item.imageUrl ? (
-                            <img 
-                              src={item.imageUrl} 
-                              alt={item.name}
-                              className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110"
-                              loading="lazy"
-                              data-testid={`img-product-${item.id}`}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-                              <UtensilsCrossed className="h-14 w-14 text-gray-300" />
-                            </div>
-                          )}
-                          
-                          <div className="absolute top-3 left-3 flex flex-col gap-2">
-                            {hasDiscount && (
-                              <Badge 
-                                className="bg-red-500 hover:bg-red-600 text-white font-bold shadow-lg px-2.5 py-1 animate-in zoom-in-50"
-                                data-testid={`badge-discount-${item.id}`}
-                              >
-                                -{discountPercentage}%
-                              </Badge>
-                            )}
-                            {item.isFeatured === 1 && (
-                              <Badge 
-                                className="bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-lg px-2.5 py-1 gap-1"
-                                data-testid={`badge-featured-${item.id}`}
-                              >
-                                <Star className="h-3 w-3 fill-white" />
-                                Destaque
-                              </Badge>
-                            )}
-                            {item.isNew === 1 && (
-                              <Badge 
-                                className="bg-blue-500 hover:bg-blue-600 text-white font-bold shadow-lg px-2.5 py-1 gap-1"
-                                data-testid={`badge-new-${item.id}`}
-                              >
-                                <Sparkles className="h-3 w-3" />
-                                Novo
-                              </Badge>
-                            )}
-                          </div>
-
-                          {item.tags && item.tags.length > 0 && (
-                            <div className="absolute top-3 right-3 flex flex-col gap-1">
-                              {item.tags.map(tag => {
-                                const tagInfo = dietaryTags.find(t => t.value === tag);
-                                if (!tagInfo) return null;
-                                const Icon = tagInfo.icon;
-                                return (
-                                  <div 
-                                    key={tag}
-                                    className="w-7 h-7 rounded-full bg-white/95 shadow-md flex items-center justify-center backdrop-blur-sm"
-                                    title={tagInfo.label}
-                                  >
-                                    <Icon className={`h-3.5 w-3.5 ${tagInfo.color}`} />
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-[2px]">
-                            <motion.div
-                              initial={{ scale: 0.8 }}
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.95 }}
+                    <div className={`flex gap-3 p-3 rounded-md border ${item.isAvailable !== 0 ? 'hover-elevate active-elevate-2' : ''}`}>
+                      {item.imageUrl && (
+                        <div className="relative w-24 h-24 flex-shrink-0 overflow-hidden rounded-md bg-muted">
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            data-testid={`img-menu-item-${item.id}`}
+                          />
+                          {hasDiscount && (
+                            <Badge 
+                              className="absolute top-1 left-1 bg-red-500 text-white font-bold text-xs px-1.5 py-0.5"
+                              data-testid={`badge-discount-${item.id}`}
                             >
-                              <Button
-                                size="icon"
-                                className="h-14 w-14 rounded-full shadow-2xl"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAddMenuItem(item);
-                                }}
-                                data-testid={`button-add-${item.id}`}
-                                aria-label={`Adicionar ${item.name}`}
-                              >
-                                <Plus className="h-7 w-7" />
-                              </Button>
-                            </motion.div>
-                          </div>
-                        </div>
-
-                        <div className="p-4 flex-1 flex flex-col">
-                          <h3 className="font-bold text-sm sm:text-base line-clamp-2 mb-2 text-gray-900 flex-1">
-                            {item.name}
-                          </h3>
-                          {item.description && (
-                            <p className="text-xs text-gray-500 line-clamp-2 mb-3">
-                              {item.description}
-                            </p>
+                              -{discountPercentage}%
+                            </Badge>
                           )}
-                          {item.preparationTime && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-                              <Clock className="h-3 w-3" />
-                              <span>{item.preparationTime} min</span>
+                          {item.isAvailable === 0 && (
+                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                              <span className="text-xs text-white font-medium">Indisponível</span>
                             </div>
                           )}
-                          <div className="flex flex-col gap-0.5 mt-auto">
-                            {hasDiscount && (
-                              <span className="text-xs text-gray-400 line-through" data-testid={`text-original-price-${item.id}`}>
-                                {formatKwanza(item.originalPrice!)}
-                              </span>
-                            )}
-                            <span className="text-xl sm:text-2xl font-bold text-primary" data-testid={`text-price-${item.id}`}>
-                              {formatKwanza(item.price)}
-                            </span>
-                          </div>
                         </div>
-                      </CardContent>
-                    </Card>
+                      )}
+                      
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-base leading-tight mb-1" data-testid={`text-menu-item-name-${item.id}`}>
+                          {item.name}
+                        </h3>
+                        {item.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-2" data-testid={`text-menu-item-description-${item.id}`}>
+                            {item.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2">
+                          {hasDiscount && (
+                            <span className="text-sm text-muted-foreground line-through" data-testid={`text-original-price-${item.id}`}>
+                              {formatKwanza(item.originalPrice!)}
+                            </span>
+                          )}
+                          <span className="text-lg font-bold" data-testid={`text-menu-item-price-${item.id}`}>
+                            {formatKwanza(item.price)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </motion.div>
                 );
               })}
@@ -1273,52 +1016,6 @@ export default function PublicMenu() {
         restaurantSlug={slug}
       />
 
-      {/* Image Preview Modal */}
-      <Dialog open={!!imagePreview} onOpenChange={() => setImagePreview(null)}>
-        <DialogContent className="max-w-4xl w-full p-0 overflow-hidden bg-black/95">
-          <motion.div 
-            className="relative aspect-video w-full"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-          >
-            {imagePreview && (
-              <img 
-                src={imagePreview} 
-                alt="Preview"
-                className="w-full h-full object-contain"
-              />
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-4 right-4 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white"
-              onClick={() => setImagePreview(null)}
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </motion.div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Floating WhatsApp Button */}
-      {restaurant?.whatsappNumber && (
-        <motion.a
-          href={`https://wa.me/${restaurant.whatsappNumber.replace(/\D/g, '')}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="fixed bottom-6 left-6 z-40 bg-green-500 hover:bg-green-600 text-white rounded-full p-4 shadow-2xl transition-all"
-          data-testid="button-whatsapp-float"
-          aria-label="Contactar via WhatsApp"
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", delay: 0.5 }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <SiWhatsapp className="h-6 w-6" />
-        </motion.a>
-      )}
     </div>
   );
 }
