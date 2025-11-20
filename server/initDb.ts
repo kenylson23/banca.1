@@ -497,7 +497,68 @@ export async function ensureTablesExist() {
         ALTER TABLE orders ADD COLUMN customer_id VARCHAR REFERENCES customers(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
-      // Add coupon_id to orders
+      // Create coupons table (must exist before adding foreign key to orders)
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS coupons (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE SET NULL,
+        code VARCHAR(50) NOT NULL,
+        description TEXT,
+        discount_type discount_type NOT NULL,
+        discount_value DECIMAL(10, 2) NOT NULL,
+        min_order_value DECIMAL(10, 2) DEFAULT 0,
+        max_discount DECIMAL(10, 2),
+        valid_from TIMESTAMP NOT NULL,
+        valid_until TIMESTAMP NOT NULL,
+        max_uses INTEGER,
+        max_uses_per_customer INTEGER DEFAULT 1,
+        current_uses INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        applicable_order_types TEXT[],
+        created_by VARCHAR REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Migrate old coupon table structure to new schema
+      // Check if old columns exist before renaming
+      const hasTimesUsed = await db.execute(sql`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'coupons' AND column_name = 'times_used'
+      `);
+      
+      if (hasTimesUsed.rows.length > 0) {
+        await db.execute(sql`ALTER TABLE coupons RENAME COLUMN times_used TO current_uses;`);
+      }
+      
+      const hasUsageLimit = await db.execute(sql`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'coupons' AND column_name = 'usage_limit'
+      `);
+      
+      if (hasUsageLimit.rows.length > 0) {
+        await db.execute(sql`ALTER TABLE coupons RENAME COLUMN usage_limit TO max_uses;`);
+      }
+      
+      // Add missing columns only if they don't exist
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE coupons ADD COLUMN max_uses_per_customer INTEGER DEFAULT 1; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Only add current_uses if it doesn't exist (it might exist from rename)
+      const hasCurrentUses = await db.execute(sql`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'coupons' AND column_name = 'current_uses'
+      `);
+      
+      if (hasCurrentUses.rows.length === 0) {
+        await db.execute(sql`ALTER TABLE coupons ADD COLUMN current_uses INTEGER NOT NULL DEFAULT 0;`);
+      }
+      
+      // Add coupon_id to orders (now that coupons table exists)
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN coupon_id VARCHAR REFERENCES coupons(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
@@ -889,67 +950,9 @@ export async function ensureTablesExist() {
       // Create index on loyalty_transactions for faster queries
       await db.execute(sql`CREATE INDEX IF NOT EXISTS loyalty_transactions_customer_idx ON loyalty_transactions (customer_id, created_at DESC);`);
       
-      // Create coupons table
-      await db.execute(sql`CREATE TABLE IF NOT EXISTS coupons (
-        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
-        branch_id VARCHAR REFERENCES branches(id) ON DELETE SET NULL,
-        code VARCHAR(50) NOT NULL,
-        description TEXT,
-        discount_type discount_type NOT NULL,
-        discount_value DECIMAL(10, 2) NOT NULL,
-        min_order_value DECIMAL(10, 2) DEFAULT 0,
-        max_discount DECIMAL(10, 2),
-        valid_from TIMESTAMP NOT NULL,
-        valid_until TIMESTAMP NOT NULL,
-        max_uses INTEGER,
-        max_uses_per_customer INTEGER DEFAULT 1,
-        current_uses INTEGER NOT NULL DEFAULT 0,
-        is_active INTEGER NOT NULL DEFAULT 1,
-        applicable_order_types TEXT[],
-        created_by VARCHAR REFERENCES users(id) ON DELETE SET NULL,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      );`);
+      // Additional coupon-related migrations are done earlier in the file (after creating the coupons table)
       
-      // Migrate old coupon table structure to new schema
-      // Check if old columns exist before renaming
-      const hasTimesUsed = await db.execute(sql`
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'coupons' AND column_name = 'times_used'
-      `);
-      
-      if (hasTimesUsed.rows.length > 0) {
-        await db.execute(sql`ALTER TABLE coupons RENAME COLUMN times_used TO current_uses;`);
-      }
-      
-      const hasUsageLimit = await db.execute(sql`
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'coupons' AND column_name = 'usage_limit'
-      `);
-      
-      if (hasUsageLimit.rows.length > 0) {
-        await db.execute(sql`ALTER TABLE coupons RENAME COLUMN usage_limit TO max_uses;`);
-      }
-      
-      // Add missing columns only if they don't exist
-      await db.execute(sql`DO $$ BEGIN 
-        ALTER TABLE coupons ADD COLUMN max_uses_per_customer INTEGER DEFAULT 1; 
-      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      
-      // Only add current_uses if it doesn't exist (it might exist from rename)
-      const hasCurrentUses = await db.execute(sql`
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'coupons' AND column_name = 'current_uses'
-      `);
-      
-      if (hasCurrentUses.rows.length === 0) {
-        await db.execute(sql`ALTER TABLE coupons ADD COLUMN current_uses INTEGER NOT NULL DEFAULT 0;`);
-      }
-      
+      // Add additional columns to coupons if they don't exist
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE coupons ADD COLUMN applicable_order_types TEXT[]; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
