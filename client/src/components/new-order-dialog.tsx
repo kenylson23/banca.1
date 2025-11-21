@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -74,7 +74,15 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [receiptNumber, setReceiptNumber] = useState(Math.floor(Math.random() * 90000) + 10000);
   const { toast } = useToast();
+
+  // Generate new receipt number when dialog opens
+  useEffect(() => {
+    if (open) {
+      setReceiptNumber(Math.floor(Math.random() * 90000) + 10000);
+    }
+  }, [open]);
 
   const { data: rawMenuItems = [] } = useQuery<MenuItem[]>({
     queryKey: ["/api/menu-items"],
@@ -104,6 +112,14 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
       deliveryAddress: "",
       orderNotes: "",
       paymentMethod: "dinheiro" as const,
+      discount: undefined,
+      discountType: undefined,
+      serviceCharge: undefined,
+      deliveryFee: undefined,
+      customerId: undefined,
+      tableId: undefined,
+      tableSessionId: undefined,
+      couponId: undefined,
     },
   });
 
@@ -466,7 +482,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                 {/* Receipt Header */}
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-lg">Recibo</h3>
-                  <Badge variant="outline">#{Math.floor(Math.random() * 90000) + 10000}</Badge>
+                  <Badge variant="outline">#{receiptNumber}</Badge>
                 </div>
 
                 <Separator />
@@ -722,6 +738,29 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                         </div>
                       </ScrollArea>
                     </div>
+
+                    <Separator />
+
+                    {/* Order Notes */}
+                    <FormField
+                      control={form.control}
+                      name="orderNotes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Observações</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              data-testid="input-order-notes" 
+                              {...field} 
+                              value={field.value || ""}
+                              placeholder="Observações do pedido..."
+                              className="text-sm resize-none"
+                              rows={2}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
 
                     <Separator />
 
