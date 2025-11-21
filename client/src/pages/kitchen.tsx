@@ -16,7 +16,7 @@ import type { Order, OrderItem, MenuItem, Table, OrderItemOption } from "@shared
 import { motion } from "framer-motion";
 import { TubelightNavBar } from "@/components/ui/tubelight-navbar";
 
-type OrderStatus = "pendente" | "em_preparo" | "pronto" | "servido";
+type OrderStatus = "pendente" | "em_preparo" | "pronto" | "servido" | "cancelado";
 type StatsPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
 
 interface KitchenOrder extends Order {
@@ -43,6 +43,7 @@ const statusColors = {
   em_preparo: "bg-chart-2 text-chart-2-foreground",
   pronto: "bg-chart-3 text-chart-3-foreground",
   servido: "bg-muted text-muted-foreground",
+  cancelado: "bg-destructive text-destructive-foreground",
 };
 
 const statusLabels = {
@@ -50,6 +51,7 @@ const statusLabels = {
   em_preparo: "Em Preparo",
   pronto: "Pronto",
   servido: "Servido",
+  cancelado: "Cancelado",
 };
 
 // Shared audio context for sound generation (prevents memory leaks)
