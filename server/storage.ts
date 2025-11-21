@@ -4436,6 +4436,9 @@ export class DatabaseStorage implements IStorage {
           referenceOrderId: data.referenceOrderId || null,
           occurredAt: new Date(data.occurredAt),
           note: data.note,
+          totalInstallments: data.totalInstallments || 1,
+          installmentNumber: data.installmentNumber || 1,
+          parentTransactionId: data.parentTransactionId || null,
         })
         .returning();
 

@@ -1647,9 +1647,6 @@ export const insertFinancialTransactionSchema = createInsertSchema(financialTran
   id: true,
   restaurantId: true,
   recordedByUserId: true,
-  totalInstallments: true,
-  installmentNumber: true,
-  parentTransactionId: true,
   createdAt: true,
 }).extend({
   branchId: z.string().optional().nullable(),
@@ -1664,6 +1661,9 @@ export const insertFinancialTransactionSchema = createInsertSchema(financialTran
   referenceOrderId: z.string().optional().nullable(),
   occurredAt: z.string().min(1, "Data e hora são obrigatórias"),
   note: z.string().optional(),
+  totalInstallments: z.number().int().optional(),
+  installmentNumber: z.number().int().optional(),
+  parentTransactionId: z.string().optional().nullable(),
   installments: z.number().int().min(1).max(36).optional(),
 });
 

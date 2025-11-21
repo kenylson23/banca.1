@@ -3996,21 +3996,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
         occurredAt: z.string().min(1, "Data e hora são obrigatórias"),
         note: z.string().optional(),
         branchId: z.string().optional().nullable(),
+        installments: z.number().int().min(1).max(36).optional(),
       });
 
       const validatedData = transactionSchema.parse(req.body);
+      const installments = validatedData.installments || 1;
 
-      const newTransaction = await storage.createFinancialTransaction(
-        currentUser.restaurantId,
-        currentUser.id,
-        {
-          ...validatedData,
-          branchId: validatedData.branchId || currentUser.activeBranchId || null,
-          origin: validatedData.origin || 'manual',
+      if (installments > 1) {
+        const totalAmount = parseFloat(validatedData.amount);
+        const installmentAmount = totalAmount / installments;
+        const occurredAt = new Date(validatedData.occurredAt);
+        const transactions = [];
+
+        let parentTransactionId: string | null = null;
+
+        for (let i = 1; i <= installments; i++) {
+          const installmentDate = new Date(occurredAt);
+          installmentDate.setMonth(installmentDate.getMonth() + (i - 1));
+
+          const transaction = await storage.createFinancialTransaction(
+            currentUser.restaurantId,
+            currentUser.id,
+            {
+              cashRegisterId: validatedData.cashRegisterId,
+              categoryId: validatedData.categoryId,
+              type: validatedData.type,
+              origin: validatedData.origin || 'manual',
+              description: `${validatedData.description || ''} (Parcela ${i}/${installments})`.trim(),
+              paymentMethod: validatedData.paymentMethod,
+              amount: installmentAmount.toFixed(2),
+              occurredAt: installmentDate.toISOString(),
+              note: validatedData.note,
+              branchId: validatedData.branchId || currentUser.activeBranchId || null,
+              totalInstallments: installments,
+              installmentNumber: i,
+              parentTransactionId: i === 1 ? null : parentTransactionId,
+            }
+          );
+
+          if (i === 1) {
+            parentTransactionId = transaction.id;
+          }
+
+          transactions.push(transaction);
         }
-      );
 
-      res.json(newTransaction);
+        res.json({ 
+          success: true, 
+          transactions, 
+          message: `${installments} parcelas criadas com sucesso` 
+        });
+      } else {
+        const newTransaction = await storage.createFinancialTransaction(
+          currentUser.restaurantId,
+          currentUser.id,
+          {
+            ...validatedData,
+            branchId: validatedData.branchId || currentUser.activeBranchId || null,
+            origin: validatedData.origin || 'manual',
+            totalInstallments: 1,
+            installmentNumber: 1,
+            parentTransactionId: null,
+          }
+        );
+
+        res.json(newTransaction);
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
