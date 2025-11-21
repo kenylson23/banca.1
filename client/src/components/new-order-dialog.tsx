@@ -356,8 +356,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
   };
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const tax = subtotal * 0.1; // 10% tax
-  const totalAmount = subtotal + tax;
+  const totalAmount = subtotal;
 
   const filteredCustomers = customers.filter(customer => {
     const searchLower = customerSearchQuery.toLowerCase();
@@ -718,7 +717,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                     {/* Order List */}
                     <div className="space-y-2">
                       <h4 className="text-sm font-semibold">Lista de Itens</h4>
-                      <ScrollArea className="flex-1 max-h-48">
+                      <ScrollArea className="flex-1 max-h-80">
                         <div className="space-y-2 pr-4">
                           {cart.length === 0 ? (
                             <p className="text-sm text-muted-foreground text-center py-8">
@@ -822,14 +821,6 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
 
                     {/* Payment Details */}
                     <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Subtotal</span>
-                        <span className="font-medium" data-testid="text-subtotal">{formatKwanza(subtotal)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Taxa (10%)</span>
-                        <span className="font-medium" data-testid="text-tax">{formatKwanza(tax)}</span>
-                      </div>
                       <Separator />
                       <div className="flex justify-between text-lg font-bold">
                         <span>Total</span>
