@@ -2509,7 +2509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Pedido não encontrado" });
       }
 
-      if (order.cancellationReason && order.cancellationReason !== '') {
+      if (order.status === 'cancelado' || (order.cancellationReason && order.cancellationReason !== '')) {
         return res.status(400).json({ message: "Pedido já está cancelado" });
       }
 

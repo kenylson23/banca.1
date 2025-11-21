@@ -2429,7 +2429,7 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Verificar se já está cancelado
-      if (order.cancellationReason && order.cancellationReason !== '') {
+      if (order.status === 'cancelado' || (order.cancellationReason && order.cancellationReason !== '')) {
         throw new Error('Pedido já está cancelado');
       }
 
@@ -2619,7 +2619,10 @@ export class DatabaseStorage implements IStorage {
       const [cancelledOrder] = await tx
         .update(orders)
         .set({
+          status: 'cancelado',
           cancellationReason,
+          cancelledAt: new Date(),
+          cancelledBy: userId || null,
           refundAmount: paidAmount.toFixed(2),
           updatedAt: new Date(),
         })
@@ -3536,6 +3539,7 @@ export class DatabaseStorage implements IStorage {
     paidOrders: number;
     pendingOrders: number;
     cancelledOrders: number;
+    cancelledRevenue: number;
   }> {
     // Build base conditions that apply to both queries
     const baseConditions: any[] = [
@@ -3587,19 +3591,18 @@ export class DatabaseStorage implements IStorage {
     const allResults = await allQuery;
     const allOrders = allResults.map((row: any) => row.orders);
 
-    // Count cancelled orders from the full set
-    const cancelledOrders = allOrders.filter((o: Order) => 
-      o.cancellationReason !== null && o.cancellationReason !== ''
-    ).length;
+    // Count cancelled orders and calculate lost revenue from the full set
+    const cancelledOrdersList = allOrders.filter((o: Order) => o.status === 'cancelado');
+    const cancelledOrders = cancelledOrdersList.length;
+    const cancelledRevenue = cancelledOrdersList.reduce((sum: number, order: Order) => 
+      sum + parseFloat(order.totalAmount), 0
+    );
 
     // Query 2: Get valid (non-cancelled) orders for KPIs
     const validConditions = [
       ...baseConditions,
       // Exclude cancelled orders in the query
-      or(
-        sql`${orders.cancellationReason} IS NULL`,
-        sql`${orders.cancellationReason} = ''`
-      ) as any
+      sql`${orders.status} != 'cancelado'` as any
     ];
 
     let validQuery = db
@@ -3628,6 +3631,7 @@ export class DatabaseStorage implements IStorage {
       paidOrders,
       pendingOrders,
       cancelledOrders,
+      cancelledRevenue,
     };
   }
 

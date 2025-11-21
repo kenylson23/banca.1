@@ -362,7 +362,7 @@ export type TablePayment = typeof tablePayments.$inferSelect;
 // ===== ORDERS SECTION =====
 
 // Order Status Enum
-export const orderStatusEnum = pgEnum('order_status', ['pendente', 'em_preparo', 'pronto', 'servido']);
+export const orderStatusEnum = pgEnum('order_status', ['pendente', 'em_preparo', 'pronto', 'servido', 'cancelado']);
 
 // Order Type Enum
 export const orderTypeEnum = pgEnum('order_type', ['mesa', 'delivery', 'takeout', 'balcao', 'pdv']);
@@ -653,6 +653,8 @@ export const orders = pgTable("orders", {
   changeAmount: decimal("change_amount", { precision: 10, scale: 2 }).default('0'),
   refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }).default('0'),
   cancellationReason: text("cancellation_reason"),
+  cancelledAt: timestamp("cancelled_at"),
+  cancelledBy: varchar("cancelled_by").references(() => users.id, { onDelete: 'set null' }),
   isSynced: integer("is_synced").default(1),
   createdBy: varchar("created_by").references(() => users.id),
   closedBy: varchar("closed_by").references(() => users.id),
@@ -710,7 +712,7 @@ export const publicOrderSchema = createInsertSchema(orders).omit({
 });
 
 export const updateOrderStatusSchema = z.object({
-  status: z.enum(['pendente', 'em_preparo', 'pronto', 'servido']),
+  status: z.enum(['pendente', 'em_preparo', 'pronto', 'servido', 'cancelado']),
 });
 
 export const updateOrderMetadataSchema = z.object({
