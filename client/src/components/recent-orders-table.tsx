@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import type { Order } from "@shared/schema";
 
 interface RecentOrdersTableProps {
-  orders: Array<Order & { table: { number: number } }>;
+  orders: Array<Order & { table: { number: number } | null }>;
   className?: string;
 }
 
@@ -68,7 +68,10 @@ export function RecentOrdersTable({ orders, className }: RecentOrdersTableProps)
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-semibold text-foreground text-sm">
-                          Mesa {order.table.number}
+                          {order.table ? `Mesa ${order.table.number}` : 
+                           order.orderType === 'delivery' ? 'Delivery' : 
+                           order.orderType === 'balcao' ? 'Balcão' : 
+                           'Pedido'}
                         </p>
                         <Badge 
                           variant="outline" 
