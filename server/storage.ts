@@ -128,7 +128,7 @@ import {
   type InsertCouponUsage,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, gte, or, isNull, inArray } from "drizzle-orm";
+import { eq, desc, sql, and, gte, or, isNull, inArray, ne } from "drizzle-orm";
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import { alias } from "drizzle-orm/pg-core";
 
@@ -4162,6 +4162,7 @@ export class DatabaseStorage implements IStorage {
     let orderConditions = [
       eq(orders.restaurantId, restaurantId),
       eq(orders.paymentStatus, 'pago'),
+      ne(orders.status, 'cancelado'),
       gte(orders.createdAt, startDate),
       sql`${orders.createdAt} <= ${endDate}`
     ];
