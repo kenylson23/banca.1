@@ -1,6 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { Fragment } from "react";
 import { cn } from "@/lib/utils";
 
 interface HeatmapCell {
@@ -62,8 +61,9 @@ export function SalesHeatmap({
               ))}
 
               {days.map((day, dayIndex) => (
-                <Fragment key={`row-${day}`}>
+                <>
                   <div
+                    key={`label-${day}`}
                     className="text-xs text-muted-foreground font-medium pr-2 flex items-center justify-end h-8"
                   >
                     {day}
@@ -102,7 +102,7 @@ export function SalesHeatmap({
                       </motion.div>
                     );
                   })}
-                </Fragment>
+                </>
               ))}
             </div>
 
