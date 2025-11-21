@@ -23,7 +23,7 @@ interface ProductPreviewPanelProps {
     quantity: number;
     price: string;
     notes: string;
-    selectedOptions: Array<{ optionId: string; optionGroupId: string }>;
+    selectedOptions: Array<{ optionId: string; optionGroupId: string; quantity?: number }>;
   }) => void;
   isFavorite?: boolean;
   onToggleFavorite?: (menuItemId: string) => void;
@@ -40,12 +40,14 @@ export function ProductPreviewPanel({
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState("");
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string | string[]>>({});
+  const [optionQuantities, setOptionQuantities] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (isOpen && product) {
       setQuantity(1);
       setNotes("");
       setSelectedOptions({});
+      setOptionQuantities({});
     }
   }, [isOpen, product]);
 
@@ -54,15 +56,38 @@ export function ProductPreviewPanel({
   const handleOptionChange = (groupId: string, optionId: string, type: "single" | "multiple") => {
     if (type === "single") {
       setSelectedOptions(prev => ({ ...prev, [groupId]: optionId }));
+      setOptionQuantities(prev => ({ ...prev, [optionId]: 1 }));
     } else {
       setSelectedOptions(prev => {
         const current = (prev[groupId] as string[]) || [];
-        const newValue = current.includes(optionId)
+        const isRemoving = current.includes(optionId);
+        const newValue = isRemoving
           ? current.filter(id => id !== optionId)
           : [...current, optionId];
+        
+        // Remove quantity if unchecking
+        if (isRemoving) {
+          setOptionQuantities(prevQty => {
+            const newQty = { ...prevQty };
+            delete newQty[optionId];
+            return newQty;
+          });
+        } else {
+          // Set initial quantity to 1 when checking
+          setOptionQuantities(prevQty => ({ ...prevQty, [optionId]: 1 }));
+        }
+        
         return { ...prev, [groupId]: newValue };
       });
     }
+  };
+
+  const handleOptionQuantityChange = (optionId: string, delta: number) => {
+    setOptionQuantities(prev => {
+      const current = prev[optionId] || 1;
+      const newQuantity = Math.max(1, current + delta);
+      return { ...prev, [optionId]: newQuantity };
+    });
   };
 
   const calculateTotalPrice = () => {
@@ -75,7 +100,8 @@ export function ProductPreviewPanel({
         optionIds.forEach(optionId => {
           const option = group.options.find(opt => opt.id === optionId);
           if (option) {
-            total += Number(option.priceAdjustment || 0);
+            const optionQty = optionQuantities[optionId] || 1;
+            total += Number(option.priceAdjustment || 0) * optionQty;
           }
         });
       }
@@ -85,7 +111,7 @@ export function ProductPreviewPanel({
   };
 
   const handleAddToOrder = () => {
-    const optionsArray: Array<{ optionId: string; optionGroupId: string }> = [];
+    const optionsArray: Array<{ optionId: string; optionGroupId: string; quantity?: number }> = [];
     
     // Calculate base price with option adjustments
     let basePrice = Number(product.price);
@@ -95,12 +121,17 @@ export function ProductPreviewPanel({
       const group = product.optionGroups?.find(g => g.id === groupId);
       
       optionIds.forEach(optionId => {
-        optionsArray.push({ optionId, optionGroupId: groupId });
+        const optionQty = optionQuantities[optionId] || 1;
+        optionsArray.push({ 
+          optionId, 
+          optionGroupId: groupId,
+          quantity: optionQty 
+        });
         
-        // Add option price adjustment to base price
+        // Add option price adjustment to base price (multiplied by quantity)
         const option = group?.options.find(opt => opt.id === optionId);
         if (option) {
-          basePrice += Number(option.priceAdjustment || 0);
+          basePrice += Number(option.priceAdjustment || 0) * optionQty;
         }
       });
     });
@@ -244,37 +275,74 @@ export function ProductPreviewPanel({
                                 {group.options
                                   .filter(opt => opt.isAvailable === 1)
                                   .sort((a, b) => a.displayOrder - b.displayOrder)
-                                  .map((option) => (
-                                    <div
-                                      key={option.id}
-                                      className="flex items-center justify-between p-3 rounded-md border hover-elevate"
-                                    >
-                                      <div className="flex items-center gap-3 flex-1">
-                                        <RadioGroupItem
-                                          value={option.id}
-                                          id={`option-${option.id}`}
-                                          data-testid={`radio-option-${option.id}`}
-                                        />
-                                        <Label
-                                          htmlFor={`option-${option.id}`}
-                                          className="flex-1 cursor-pointer font-normal"
-                                        >
-                                          {option.name}
-                                          {option.isRecommended === 1 && (
-                                            <Badge variant="secondary" className="ml-2 text-xs">
-                                              Recomendado
-                                            </Badge>
+                                  .map((option) => {
+                                    const isSelected = selectedOptions[group.id] === option.id;
+                                    const optionQty = optionQuantities[option.id] || 1;
+                                    return (
+                                      <div key={option.id} className="space-y-2">
+                                        <div className="flex items-center justify-between p-3 rounded-md border hover-elevate">
+                                          <div className="flex items-center gap-3 flex-1">
+                                            <RadioGroupItem
+                                              value={option.id}
+                                              id={`option-${option.id}`}
+                                              data-testid={`radio-option-${option.id}`}
+                                            />
+                                            <Label
+                                              htmlFor={`option-${option.id}`}
+                                              className="flex-1 cursor-pointer font-normal"
+                                            >
+                                              {option.name}
+                                              {option.isRecommended === 1 && (
+                                                <Badge variant="secondary" className="ml-2 text-xs">
+                                                  Recomendado
+                                                </Badge>
+                                              )}
+                                            </Label>
+                                          </div>
+                                          {Number(option.priceAdjustment) !== 0 && (
+                                            <span className="text-sm font-medium">
+                                              {Number(option.priceAdjustment) > 0 ? "+" : ""}
+                                              {formatKwanza(option.priceAdjustment)}
+                                            </span>
                                           )}
-                                        </Label>
+                                        </div>
+                                        {isSelected && (
+                                          <div className="flex items-center gap-2 pl-10">
+                                            <span className="text-xs text-muted-foreground">Quantidade:</span>
+                                            <div className="flex items-center gap-1">
+                                              <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="h-6 w-6"
+                                                onClick={() => handleOptionQuantityChange(option.id, -1)}
+                                                disabled={optionQty <= 1}
+                                                data-testid={`button-decrease-option-${option.id}`}
+                                              >
+                                                <Minus className="h-3 w-3" />
+                                              </Button>
+                                              <span className="text-sm font-semibold w-8 text-center" data-testid={`text-option-qty-${option.id}`}>
+                                                {optionQty}
+                                              </span>
+                                              <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="h-6 w-6"
+                                                onClick={() => handleOptionQuantityChange(option.id, 1)}
+                                                data-testid={`button-increase-option-${option.id}`}
+                                              >
+                                                <Plus className="h-3 w-3" />
+                                              </Button>
+                                            </div>
+                                            {Number(option.priceAdjustment) !== 0 && optionQty > 1 && (
+                                              <span className="text-xs text-muted-foreground ml-2">
+                                                = {formatKwanza(Number(option.priceAdjustment) * optionQty)}
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
                                       </div>
-                                      {Number(option.priceAdjustment) !== 0 && (
-                                        <span className="text-sm font-medium">
-                                          {Number(option.priceAdjustment) > 0 ? "+" : ""}
-                                          {formatKwanza(option.priceAdjustment)}
-                                        </span>
-                                      )}
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                               </RadioGroup>
                             ) : (
                               <div className="space-y-2">
@@ -283,35 +351,69 @@ export function ProductPreviewPanel({
                                   .sort((a, b) => a.displayOrder - b.displayOrder)
                                   .map((option) => {
                                     const isChecked = (selectedOptions[group.id] as string[] || []).includes(option.id);
+                                    const optionQty = optionQuantities[option.id] || 1;
                                     return (
-                                      <div
-                                        key={option.id}
-                                        className="flex items-center justify-between p-3 rounded-md border hover-elevate"
-                                      >
-                                        <div className="flex items-center gap-3 flex-1">
-                                          <Checkbox
-                                            id={`option-${option.id}`}
-                                            checked={isChecked}
-                                            onCheckedChange={() => handleOptionChange(group.id, option.id, "multiple")}
-                                            data-testid={`checkbox-option-${option.id}`}
-                                          />
-                                          <Label
-                                            htmlFor={`option-${option.id}`}
-                                            className="flex-1 cursor-pointer font-normal"
-                                          >
-                                            {option.name}
-                                            {option.isRecommended === 1 && (
-                                              <Badge variant="secondary" className="ml-2 text-xs">
-                                                Recomendado
-                                              </Badge>
-                                            )}
-                                          </Label>
+                                      <div key={option.id} className="space-y-2">
+                                        <div className="flex items-center justify-between p-3 rounded-md border hover-elevate">
+                                          <div className="flex items-center gap-3 flex-1">
+                                            <Checkbox
+                                              id={`option-${option.id}`}
+                                              checked={isChecked}
+                                              onCheckedChange={() => handleOptionChange(group.id, option.id, "multiple")}
+                                              data-testid={`checkbox-option-${option.id}`}
+                                            />
+                                            <Label
+                                              htmlFor={`option-${option.id}`}
+                                              className="flex-1 cursor-pointer font-normal"
+                                            >
+                                              {option.name}
+                                              {option.isRecommended === 1 && (
+                                                <Badge variant="secondary" className="ml-2 text-xs">
+                                                  Recomendado
+                                                </Badge>
+                                              )}
+                                            </Label>
+                                          </div>
+                                          {Number(option.priceAdjustment) !== 0 && (
+                                            <span className="text-sm font-medium">
+                                              {Number(option.priceAdjustment) > 0 ? "+" : ""}
+                                              {formatKwanza(option.priceAdjustment)}
+                                            </span>
+                                          )}
                                         </div>
-                                        {Number(option.priceAdjustment) !== 0 && (
-                                          <span className="text-sm font-medium">
-                                            {Number(option.priceAdjustment) > 0 ? "+" : ""}
-                                            {formatKwanza(option.priceAdjustment)}
-                                          </span>
+                                        {isChecked && (
+                                          <div className="flex items-center gap-2 pl-10">
+                                            <span className="text-xs text-muted-foreground">Quantidade:</span>
+                                            <div className="flex items-center gap-1">
+                                              <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="h-6 w-6"
+                                                onClick={() => handleOptionQuantityChange(option.id, -1)}
+                                                disabled={optionQty <= 1}
+                                                data-testid={`button-decrease-option-${option.id}`}
+                                              >
+                                                <Minus className="h-3 w-3" />
+                                              </Button>
+                                              <span className="text-sm font-semibold w-8 text-center" data-testid={`text-option-qty-${option.id}`}>
+                                                {optionQty}
+                                              </span>
+                                              <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="h-6 w-6"
+                                                onClick={() => handleOptionQuantityChange(option.id, 1)}
+                                                data-testid={`button-increase-option-${option.id}`}
+                                              >
+                                                <Plus className="h-3 w-3" />
+                                              </Button>
+                                            </div>
+                                            {Number(option.priceAdjustment) !== 0 && optionQty > 1 && (
+                                              <span className="text-xs text-muted-foreground ml-2">
+                                                = {formatKwanza(Number(option.priceAdjustment) * optionQty)}
+                                              </span>
+                                            )}
+                                          </div>
                                         )}
                                       </div>
                                     );
