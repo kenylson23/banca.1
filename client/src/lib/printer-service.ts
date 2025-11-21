@@ -44,9 +44,9 @@ class PrinterService {
       const savedPrinters: ConnectedPrinter[] = JSON.parse(saved);
 
       for (const savedPrinter of savedPrinters) {
-        // Verificar se autoReconnect está habilitado para este tipo de impressora
-        const config = this.getConfig(savedPrinter.type);
-        if (config && !config.autoReconnect) {
+        // Verificar preferência de autoReconnect salva para este dispositivo específico
+        const shouldReconnect = (savedPrinter as any).autoReconnect ?? true;
+        if (!shouldReconnect) {
           continue; // Pular impressoras que não devem reconectar automaticamente
         }
 
@@ -99,16 +99,21 @@ class PrinterService {
   }
 
   private savePrinters() {
-    const printers = Array.from(this.connectedPrinters.values()).map(p => ({
-      id: p.id,
-      name: p.name,
-      type: p.type,
-      status: p.status,
-      language: p.language,
-      codepageMapping: p.codepageMapping,
-      endpointNumber: p.endpointNumber,
-      serialNumber: p.serialNumber,
-    }));
+    const printers = Array.from(this.connectedPrinters.values()).map(p => {
+      // Obter preferência de autoReconnect da configuração por tipo
+      const config = this.getConfig(p.type);
+      return {
+        id: p.id,
+        name: p.name,
+        type: p.type,
+        status: p.status,
+        language: p.language,
+        codepageMapping: p.codepageMapping,
+        endpointNumber: p.endpointNumber,
+        serialNumber: p.serialNumber,
+        autoReconnect: config?.autoReconnect ?? true,
+      };
+    });
     localStorage.setItem('connected-printers', JSON.stringify(printers));
   }
 
@@ -284,6 +289,29 @@ class PrinterService {
   private async sendToPrinter(printer: ConnectedPrinter, data: Uint8Array) {
     if (!printer.device) {
       throw new Error('Impressora não está conectada');
+    }
+
+    // Verificar e reestabelecer conexão se necessário
+    try {
+      if (!printer.device.opened) {
+        await printer.device.open();
+      }
+
+      if (printer.device.configuration === null) {
+        await printer.device.selectConfiguration(1);
+      }
+
+      // Verificar se interface está claimed
+      const isClaimed = printer.device.configuration?.interfaces.some(iface => 
+        iface.claimed
+      );
+
+      if (!isClaimed) {
+        await printer.device.claimInterface(0);
+      }
+    } catch (error) {
+      console.error('Error preparing device:', error);
+      throw new Error('Impressora desconectada. Reconecte a impressora.');
     }
 
     if (!printer.endpointNumber) {
