@@ -71,6 +71,20 @@ export function CustomerMenuItemOptionsDialog({
     });
   };
 
+  const handleQuantityChange = (groupId: string, optionId: string, delta: number) => {
+    setSelections(prev => {
+      const current = prev[groupId] || [];
+      return {
+        ...prev,
+        [groupId]: current.map(s =>
+          s.optionId === optionId
+            ? { ...s, quantity: Math.max(1, s.quantity + delta) }
+            : s
+        ),
+      };
+    });
+  };
+
   const calculateTotal = (): number => {
     const basePrice = parseFloat(menuItem.price);
     let optionsPrice = 0;
@@ -290,20 +304,126 @@ export function CustomerMenuItemOptionsDialog({
                                   .map((option) => {
                                     const isRecommended = option.isRecommended === 1;
                                     const isSelected = groupSelections[0]?.optionId === option.id;
+                                    const currentQuantity = groupSelections[0]?.quantity || 1;
                                     
                                     return (
+                                      <div key={option.id} className="space-y-2">
+                                        <motion.div
+                                          whileHover={{ scale: 1.01 }}
+                                          whileTap={{ scale: 0.99 }}
+                                          className={`
+                                            relative flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all duration-200
+                                            ${isSelected 
+                                              ? 'bg-gray-900 text-white shadow-md' 
+                                              : isRecommended 
+                                                ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 hover:border-amber-400' 
+                                                : 'bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                                            }
+                                          `}
+                                        >
+                                          {isRecommended && !isSelected && (
+                                            <div className="absolute -top-2 -right-2">
+                                              <div className="bg-gradient-to-br from-amber-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md flex items-center gap-1">
+                                                <Star className="h-3 w-3 fill-current" />
+                                                Sugestão
+                                              </div>
+                                            </div>
+                                          )}
+                                          
+                                          <RadioGroupItem
+                                            value={option.id}
+                                            id={option.id}
+                                            className={isSelected ? 'border-white text-white' : ''}
+                                            data-testid={`radio-option-${option.id}`}
+                                          />
+                                          <Label htmlFor={option.id} className="flex-1 cursor-pointer">
+                                            <div className="flex items-center justify-between gap-3">
+                                              <span className={`font-semibold ${isSelected ? 'text-white' : 'text-gray-900'}`}>
+                                                {option.name}
+                                              </span>
+                                              {parseFloat(option.priceAdjustment) !== 0 && (
+                                                <span className={`text-sm font-medium ${isSelected ? 'text-white/90' : 'text-gray-600'}`}>
+                                                  {parseFloat(option.priceAdjustment) > 0 ? '+' : ''}
+                                                  {formatKwanza(option.priceAdjustment)}
+                                                </span>
+                                              )}
+                                            </div>
+                                          </Label>
+                                        </motion.div>
+                                        {isSelected && (
+                                          <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            className="flex items-center gap-3 pl-10 pr-4"
+                                          >
+                                            <span className="text-sm text-gray-600">Quantidade:</span>
+                                            <div className="flex items-center gap-2">
+                                              <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="h-7 w-7"
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  handleQuantityChange(group.id, option.id, -1);
+                                                }}
+                                                disabled={currentQuantity <= 1}
+                                                data-testid={`button-decrease-option-${option.id}`}
+                                              >
+                                                <Minus className="h-3 w-3" />
+                                              </Button>
+                                              <span className="text-sm font-bold min-w-8 text-center" data-testid={`text-option-qty-${option.id}`}>
+                                                {currentQuantity}
+                                              </span>
+                                              <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="h-7 w-7"
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  handleQuantityChange(group.id, option.id, 1);
+                                                }}
+                                                data-testid={`button-increase-option-${option.id}`}
+                                              >
+                                                <Plus className="h-3 w-3" />
+                                              </Button>
+                                            </div>
+                                            {parseFloat(option.priceAdjustment) !== 0 && currentQuantity > 1 && (
+                                              <span className="text-xs text-gray-500 ml-auto">
+                                                = {formatKwanza(parseFloat(option.priceAdjustment) * currentQuantity)}
+                                              </span>
+                                            )}
+                                          </motion.div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                            </RadioGroup>
+                          ) : (
+                            <div className="space-y-2">
+                              {[...group.options]
+                                .sort((a, b) => (b.isRecommended || 0) - (a.isRecommended || 0))
+                                .map((option) => {
+                                  const isSelected = groupSelections.some(s => s.optionId === option.id);
+                                  const canSelect = !group.maxSelections || selectionCount < group.maxSelections || isSelected;
+                                  const isRecommended = option.isRecommended === 1;
+                                  const currentQuantity = groupSelections.find(s => s.optionId === option.id)?.quantity || 1;
+
+                                  return (
+                                    <div key={option.id} className="space-y-2">
                                       <motion.div
-                                        key={option.id}
-                                        whileHover={{ scale: 1.01 }}
-                                        whileTap={{ scale: 0.99 }}
+                                        whileHover={{ scale: canSelect ? 1.01 : 1 }}
+                                        whileTap={{ scale: canSelect ? 0.99 : 1 }}
                                         className={`
-                                          relative flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all duration-200
+                                          relative flex items-center gap-3 p-4 rounded-xl transition-all duration-200
                                           ${isSelected 
                                             ? 'bg-gray-900 text-white shadow-md' 
                                             : isRecommended 
                                               ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 hover:border-amber-400' 
                                               : 'bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm'
                                           }
+                                          ${!canSelect ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                                         `}
                                       >
                                         {isRecommended && !isSelected && (
@@ -315,13 +435,15 @@ export function CustomerMenuItemOptionsDialog({
                                           </div>
                                         )}
                                         
-                                        <RadioGroupItem
-                                          value={option.id}
+                                        <Checkbox
                                           id={option.id}
-                                          className={isSelected ? 'border-white text-white' : ''}
-                                          data-testid={`radio-option-${option.id}`}
+                                          checked={isSelected}
+                                          onCheckedChange={(checked) => handleMultiSelect(group.id, option.id, checked as boolean)}
+                                          disabled={!canSelect}
+                                          className={isSelected ? 'border-white data-[state=checked]:bg-white data-[state=checked]:text-gray-900' : ''}
+                                          data-testid={`checkbox-option-${option.id}`}
                                         />
-                                        <Label htmlFor={option.id} className="flex-1 cursor-pointer">
+                                        <Label htmlFor={option.id} className={`flex-1 ${canSelect ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
                                           <div className="flex items-center justify-between gap-3">
                                             <span className={`font-semibold ${isSelected ? 'text-white' : 'text-gray-900'}`}>
                                               {option.name}
@@ -335,66 +457,52 @@ export function CustomerMenuItemOptionsDialog({
                                           </div>
                                         </Label>
                                       </motion.div>
-                                    );
-                                  })}
-                              </div>
-                            </RadioGroup>
-                          ) : (
-                            <div className="space-y-2">
-                              {[...group.options]
-                                .sort((a, b) => (b.isRecommended || 0) - (a.isRecommended || 0))
-                                .map((option) => {
-                                  const isSelected = groupSelections.some(s => s.optionId === option.id);
-                                  const canSelect = !group.maxSelections || selectionCount < group.maxSelections || isSelected;
-                                  const isRecommended = option.isRecommended === 1;
-
-                                  return (
-                                    <motion.div
-                                      key={option.id}
-                                      whileHover={{ scale: canSelect ? 1.01 : 1 }}
-                                      whileTap={{ scale: canSelect ? 0.99 : 1 }}
-                                      className={`
-                                        relative flex items-center gap-3 p-4 rounded-xl transition-all duration-200
-                                        ${isSelected 
-                                          ? 'bg-gray-900 text-white shadow-md' 
-                                          : isRecommended 
-                                            ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 hover:border-amber-400' 
-                                            : 'bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm'
-                                        }
-                                        ${!canSelect ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                                      `}
-                                    >
-                                      {isRecommended && !isSelected && (
-                                        <div className="absolute -top-2 -right-2">
-                                          <div className="bg-gradient-to-br from-amber-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md flex items-center gap-1">
-                                            <Star className="h-3 w-3 fill-current" />
-                                            Sugestão
+                                      {isSelected && (
+                                        <motion.div
+                                          initial={{ opacity: 0, height: 0 }}
+                                          animate={{ opacity: 1, height: 'auto' }}
+                                          exit={{ opacity: 0, height: 0 }}
+                                          className="flex items-center gap-3 pl-10 pr-4"
+                                        >
+                                          <span className="text-sm text-gray-600">Quantidade:</span>
+                                          <div className="flex items-center gap-2">
+                                            <Button
+                                              variant="outline"
+                                              size="icon"
+                                              className="h-7 w-7"
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                handleQuantityChange(group.id, option.id, -1);
+                                              }}
+                                              disabled={currentQuantity <= 1}
+                                              data-testid={`button-decrease-option-${option.id}`}
+                                            >
+                                              <Minus className="h-3 w-3" />
+                                            </Button>
+                                            <span className="text-sm font-bold min-w-8 text-center" data-testid={`text-option-qty-${option.id}`}>
+                                              {currentQuantity}
+                                            </span>
+                                            <Button
+                                              variant="outline"
+                                              size="icon"
+                                              className="h-7 w-7"
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                handleQuantityChange(group.id, option.id, 1);
+                                              }}
+                                              data-testid={`button-increase-option-${option.id}`}
+                                            >
+                                              <Plus className="h-3 w-3" />
+                                            </Button>
                                           </div>
-                                        </div>
-                                      )}
-                                      
-                                      <Checkbox
-                                        id={option.id}
-                                        checked={isSelected}
-                                        onCheckedChange={(checked) => handleMultiSelect(group.id, option.id, checked as boolean)}
-                                        disabled={!canSelect}
-                                        className={isSelected ? 'border-white data-[state=checked]:bg-white data-[state=checked]:text-gray-900' : ''}
-                                        data-testid={`checkbox-option-${option.id}`}
-                                      />
-                                      <Label htmlFor={option.id} className={`flex-1 ${canSelect ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
-                                        <div className="flex items-center justify-between gap-3">
-                                          <span className={`font-semibold ${isSelected ? 'text-white' : 'text-gray-900'}`}>
-                                            {option.name}
-                                          </span>
-                                          {parseFloat(option.priceAdjustment) !== 0 && (
-                                            <span className={`text-sm font-medium ${isSelected ? 'text-white/90' : 'text-gray-600'}`}>
-                                              {parseFloat(option.priceAdjustment) > 0 ? '+' : ''}
-                                              {formatKwanza(option.priceAdjustment)}
+                                          {parseFloat(option.priceAdjustment) !== 0 && currentQuantity > 1 && (
+                                            <span className="text-xs text-gray-500 ml-auto">
+                                              = {formatKwanza(parseFloat(option.priceAdjustment) * currentQuantity)}
                                             </span>
                                           )}
-                                        </div>
-                                      </Label>
-                                    </motion.div>
+                                        </motion.div>
+                                      )}
+                                    </div>
                                   );
                                 })}
                             </div>
