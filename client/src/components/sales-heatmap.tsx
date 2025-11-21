@@ -60,50 +60,48 @@ export function SalesHeatmap({
                 </div>
               ))}
 
-              {days.map((day, dayIndex) => (
-                <>
-                  <div
-                    key={`label-${day}`}
-                    className="text-xs text-muted-foreground font-medium pr-2 flex items-center justify-end h-8"
-                  >
-                    {day}
-                  </div>
-                  {hours.map((hour, hourIndex) => {
-                    const cellData = getCellData(day, hour);
-                    const value = cellData?.value || 0;
-                    const intensity = getIntensity(value);
+              {days.flatMap((day, dayIndex) => [
+                <div
+                  key={`label-${day}`}
+                  className="text-xs text-muted-foreground font-medium pr-2 flex items-center justify-end h-8"
+                >
+                  {day}
+                </div>,
+                ...hours.map((hour, hourIndex) => {
+                  const cellData = getCellData(day, hour);
+                  const value = cellData?.value || 0;
+                  const intensity = getIntensity(value);
 
-                    return (
-                      <motion.div
-                        key={`${day}-${hour}`}
-                        initial={{ opacity: 0, scale: 0 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{
-                          duration: 0.2,
-                          delay: (dayIndex * 24 + hourIndex) * 0.003,
-                        }}
-                        className="group relative"
-                      >
-                        <div
-                          className={cn(
-                            "h-8 rounded-sm cursor-pointer transition-all duration-200",
-                            "hover:ring-2 hover:ring-primary hover:scale-110 hover:z-10",
-                            getColor(intensity)
-                          )}
-                          title={`${day} ${hour}:00 - ${value} vendas`}
-                        />
-                        
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-20">
-                          <div className="bg-popover border border-popover-border rounded-lg shadow-lg p-2 text-xs whitespace-nowrap">
-                            <div className="font-semibold">{day} {hour}:00</div>
-                            <div className="text-muted-foreground">{value} vendas</div>
-                          </div>
+                  return (
+                    <motion.div
+                      key={`${day}-${hour}`}
+                      initial={{ opacity: 0, scale: 0 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{
+                        duration: 0.2,
+                        delay: (dayIndex * 24 + hourIndex) * 0.003,
+                      }}
+                      className="group relative"
+                    >
+                      <div
+                        className={cn(
+                          "h-8 rounded-sm cursor-pointer transition-all duration-200",
+                          "hover:ring-2 hover:ring-primary hover:scale-110 hover:z-10",
+                          getColor(intensity)
+                        )}
+                        title={`${day} ${hour}:00 - ${value} vendas`}
+                      />
+                      
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-20">
+                        <div className="bg-popover border border-popover-border rounded-lg shadow-lg p-2 text-xs whitespace-nowrap">
+                          <div className="font-semibold">{day} {hour}:00</div>
+                          <div className="text-muted-foreground">{value} vendas</div>
                         </div>
-                      </motion.div>
-                    );
-                  })}
-                </>
-              ))}
+                      </div>
+                    </motion.div>
+                  );
+                })
+              ])}
             </div>
 
             <div className="flex items-center justify-end gap-2 mt-4">

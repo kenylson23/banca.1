@@ -263,8 +263,8 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
                       >
                         <SidebarMenuItem>
                           <Tooltip>
-                            <TooltipTrigger asChild>
-                              <CollapsibleTrigger asChild>
+                            <CollapsibleTrigger asChild>
+                              <TooltipTrigger asChild>
                                 <SidebarMenuButton
                                   isActive={isActive}
                                   data-testid={`button-${item.title.toLowerCase()}`}
@@ -277,8 +277,8 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
                                     aria-hidden="true"
                                   />
                                 </SidebarMenuButton>
-                              </CollapsibleTrigger>
-                            </TooltipTrigger>
+                              </TooltipTrigger>
+                            </CollapsibleTrigger>
                             {!open && (
                               <TooltipContent side="right" className="font-semibold">
                                 <div className="flex flex-col gap-1">
