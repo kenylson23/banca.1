@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, ShoppingBag, TrendingUp, Users, UtensilsCrossed, Tag, Gift, UserPlus } from "lucide-react";
+import { DollarSign, ShoppingBag, TrendingUp, Users, UtensilsCrossed, Tag, Gift, UserPlus, XCircle } from "lucide-react";
 import { formatKwanza } from "@/lib/formatters";
 import type { Order, MenuItem, Customer, Coupon } from "@shared/schema";
 import { DateRange } from "react-day-picker";
@@ -28,6 +28,9 @@ interface DashboardStats {
   yesterdayOrders: number;
   salesChange: number;
   ordersChange: number;
+  cancelledOrders: number;
+  cancelledRevenue: string;
+  cancellationRate: number;
   topDishes: Array<{
     menuItem: MenuItem;
     count: number;
@@ -39,6 +42,9 @@ interface CustomRangeStats {
   totalSales: string;
   totalOrders: number;
   averageOrderValue: string;
+  cancelledOrders: number;
+  cancelledRevenue: string;
+  cancellationRate: number;
   topDishes: Array<{
     menuItem: MenuItem;
     count: number;
@@ -309,10 +315,10 @@ export default function Dashboard() {
         </motion.div>
 
         {/* KPI Cards with Sparklines */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 lg:gap-4">
           {isLoading ? (
             <>
-              {[...Array(4)].map((_, i) => (
+              {[...Array(5)].map((_, i) => (
                 <Skeleton key={i} className="h-[140px] w-full rounded-lg" />
               ))}
             </>
@@ -362,6 +368,16 @@ export default function Dashboard() {
                 gradient="from-info/10 via-info/5 to-transparent"
                 delay={0.3}
                 data-testid="card-kpi-active-tables"
+              />
+
+              <AdvancedKpiCard
+                title="Cancelamentos"
+                value={'cancelledOrders' in (stats || {}) ? stats?.cancelledOrders || 0 : 0}
+                icon={XCircle}
+                subtitle={`${('cancellationRate' in (stats || {}) ? stats?.cancellationRate || 0 : 0).toFixed(1)}% taxa • ${formatKwanza('cancelledRevenue' in (stats || {}) ? stats?.cancelledRevenue || "0" : "0")} perdidos`}
+                gradient="from-destructive/10 via-destructive/5 to-transparent"
+                delay={0.4}
+                data-testid="card-kpi-cancelled"
               />
             </>
           )}
