@@ -743,6 +743,7 @@ export const recordPaymentSchema = z.object({
   amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
   paymentMethod: z.enum(['dinheiro', 'multicaixa', 'transferencia', 'cartao']),
   receivedAmount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor recebido inválido").optional(),
+  installments: z.number().int().min(1).max(12).optional(),
 });
 
 export const updateOrderItemQuantitySchema = z.object({

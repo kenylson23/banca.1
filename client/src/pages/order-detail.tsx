@@ -1156,7 +1156,7 @@ function PaymentForm({
   paidAmount,
   isPending,
 }: {
-  onSubmit: (data: { amount: string; paymentMethod: string; receivedAmount?: string }) => void;
+  onSubmit: (data: { amount: string; paymentMethod: string; receivedAmount?: string; installments?: number }) => void;
   totalAmount: number;
   paidAmount: number;
   isPending?: boolean;
@@ -1165,6 +1165,12 @@ function PaymentForm({
   const [amount, setAmount] = useState(remaining.toString());
   const [paymentMethod, setPaymentMethod] = useState("dinheiro");
   const [receivedAmount, setReceivedAmount] = useState("");
+  const [enableInstallments, setEnableInstallments] = useState(false);
+  const [installments, setInstallments] = useState("1");
+
+  const installmentValue = enableInstallments && Number(installments) > 1 
+    ? Number(amount) / Number(installments) 
+    : 0;
 
   return (
     <div className="space-y-4">
@@ -1227,8 +1233,67 @@ function PaymentForm({
         </div>
       )}
 
+      {(paymentMethod === "multicaixa" || paymentMethod === "cartao") && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="enable-installments"
+              checked={enableInstallments}
+              onChange={(e) => {
+                setEnableInstallments(e.target.checked);
+                if (!e.target.checked) setInstallments("1");
+              }}
+              className="rounded"
+              data-testid="checkbox-enable-installments"
+            />
+            <Label htmlFor="enable-installments" className="cursor-pointer">
+              Dividir pagamento
+            </Label>
+          </div>
+
+          {enableInstallments && (
+            <>
+              <div className="space-y-2">
+                <Label>Número de Parcelas</Label>
+                <Select value={installments} onValueChange={setInstallments}>
+                  <SelectTrigger data-testid="select-installments">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((num) => (
+                      <SelectItem key={num} value={num.toString()}>
+                        {num}x {formatKwanza(Number(amount) / num)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {Number(installments) > 1 && (
+                <div className="p-3 rounded-md bg-muted text-sm">
+                  <div className="flex justify-between mb-1">
+                    <span>Parcelas:</span>
+                    <span className="font-semibold">{installments}x</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Valor por parcela:</span>
+                    <span className="font-semibold">{formatKwanza(installmentValue)}</span>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       <Button
-        onClick={() => onSubmit({ amount, paymentMethod, receivedAmount: receivedAmount || undefined })}
+        onClick={() => onSubmit({ 
+          amount, 
+          paymentMethod, 
+          receivedAmount: receivedAmount || undefined,
+          installments: enableInstallments ? Number(installments) : undefined
+        })}
         className="w-full"
         disabled={isPending || Number(amount) <= 0}
         data-testid="button-confirm-payment"
