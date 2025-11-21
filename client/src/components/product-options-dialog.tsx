@@ -34,8 +34,10 @@ export interface Option {
 export interface SelectedOption {
   optionId: string;
   optionGroupId: string;
-  name: string;
-  priceAdjustment: number;
+  optionName: string;
+  optionGroupName: string;
+  priceAdjustment: string;
+  quantity: number;
 }
 
 interface ProductOptionsDialogProps {
@@ -135,8 +137,10 @@ export function ProductOptionsDialog({
           result.push({
             optionId: option.id,
             optionGroupId: group.id,
-            name: option.name,
-            priceAdjustment: parseFloat(option.priceAdjustment),
+            optionName: option.name,
+            optionGroupName: group.name,
+            priceAdjustment: option.priceAdjustment,
+            quantity: 1,
           });
         }
       });

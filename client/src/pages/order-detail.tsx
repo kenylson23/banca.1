@@ -133,7 +133,14 @@ export default function OrderDetail() {
       quantity: number; 
       price: string;
       notes: string;
-      selectedOptions: Array<{ optionId: string; optionGroupId: string }>;
+      selectedOptions: Array<{ 
+        optionId: string; 
+        optionGroupId: string; 
+        optionName: string;
+        optionGroupName: string;
+        priceAdjustment: string;
+        quantity: number;
+      }>;
     }) => {
       const response = await apiRequest("POST", `/api/orders/${orderId}/items`, item);
       return response.json();

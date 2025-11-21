@@ -185,6 +185,10 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
         selectedOptions: item.selectedOptions?.map(opt => ({
           optionId: opt.optionId,
           optionGroupId: opt.optionGroupId,
+          optionName: opt.optionName,
+          optionGroupName: opt.optionGroupName,
+          priceAdjustment: opt.priceAdjustment,
+          quantity: opt.quantity,
         })) || [],
       }));
       
@@ -322,7 +326,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
     if (!selectedProduct) return;
 
     // Calcular preço total com opções
-    const optionsTotal = selectedOptions.reduce((sum, opt) => sum + opt.priceAdjustment, 0);
+    const optionsTotal = selectedOptions.reduce((sum, opt) => sum + (parseFloat(opt.priceAdjustment) * opt.quantity), 0);
     const totalPrice = parseFloat(selectedProduct.price) + optionsTotal;
 
     // Adicionar ao carrinho com opções
@@ -735,8 +739,8 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                                               variant="secondary" 
                                               className="text-xs"
                                             >
-                                              {opt.name}
-                                              {opt.priceAdjustment !== 0 && ` (+${formatKwanza(opt.priceAdjustment)})`}
+                                              {opt.optionName}
+                                              {opt.priceAdjustment !== "0" && ` (+${formatKwanza(parseFloat(opt.priceAdjustment))})`}
                                             </Badge>
                                           ))}
                                         </div>
