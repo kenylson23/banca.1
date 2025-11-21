@@ -163,6 +163,17 @@ export function ProductOptionsDialog({
           </div>
         </DialogHeader>
 
+        {validation.errors.length > 0 && (
+          <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3" data-testid="validation-errors">
+            <p className="text-sm font-medium text-destructive mb-1">Atenção:</p>
+            <ul className="text-sm text-destructive space-y-1">
+              {validation.errors.map((error, idx) => (
+                <li key={idx}>• {error}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <ScrollArea className="flex-1 pr-4 max-h-[50vh]">
           <div className="space-y-6">
             {optionGroups
