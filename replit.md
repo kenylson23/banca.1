@@ -12,6 +12,31 @@ Do not make changes to the file `Y`.
 
 ## Recent Changes
 
+### Cancelled Orders Tracking System (November 2025)
+Implementado sistema completo de rastreamento e relatórios para pedidos cancelados:
+
+**Schema e Database:**
+- Adicionado status 'cancelado' ao enum order_status
+- Novos campos: `cancelledAt` (timestamp) e `cancelledBy` (referência ao usuário)
+- Script de migração criado para atualizar pedidos existentes
+
+**Backend (Storage & Routes):**
+- Função `cancelOrder()` atualizada para registrar status 'cancelado', timestamp e operador
+- Queries de relatórios refatoradas para **excluir pedidos cancelados dos KPIs de receita**
+- Novas métricas dedicadas: `cancelledOrders` (contagem) e `cancelledRevenue` (receita perdida)
+- Endpoints `/api/sales-stats`, `/api/orders/report` e `/api/products/report` retornam métricas de cancelamento
+
+**Frontend:**
+- `StatusBadge` e `Badge` component atualizados com variant 'cancelled' (estilo destructive/vermelho)
+- Relatórios incluem mapeamento de cores e labels para status cancelado
+- UI mostra pedidos cancelados com estilo apropriado e separados das métricas de sucesso
+
+**Benefícios:**
+- Pedidos cancelados não inflam receita ou estatísticas de vendas
+- Visibilidade total de cancelamentos (quantidade e impacto financeiro)
+- Rastreamento de quem cancelou e quando
+- Relatórios precisos e auditáveis
+
 ### Dashboard Modernization (November 2025)
 Implementada modernização completa do dashboard com inspiração em dashboards SaaS modernos (estilo Nexus):
 
