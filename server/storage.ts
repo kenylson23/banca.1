@@ -2233,60 +2233,76 @@ export class DatabaseStorage implements IStorage {
           });
       }
 
-      // Atribuir pontos de fidelidade e atualizar estatísticas do cliente quando pedido é pago
-      // Proteção contra duplicação: só atribui pontos se ainda não foram atribuídos
-      // Usa lockedOrder para verificar o estado antes do bloqueio
-      if (paymentStatus === 'pago' && updated.customerId && !lockedOrder.loyaltyPointsEarned) {
-        const activeLoyaltyPrograms = await tx
+      // Atualizar estatísticas básicas do cliente quando pedido é pago
+      // Estatísticas básicas (totalSpent, visitCount, lastVisit) são sempre atualizadas
+      // Pontos de fidelidade e tier só são atualizados se houver programa ativo
+      if (paymentStatus === 'pago' && updated.customerId) {
+        const orderTotal = Number(updated.totalAmount ?? 0);
+        
+        // Buscar cliente
+        const [customer] = await tx
           .select()
-          .from(loyaltyPrograms)
-          .where(and(
-            eq(loyaltyPrograms.restaurantId, restaurantId),
-            eq(loyaltyPrograms.isActive, 1)
-          ))
-          .limit(1);
+          .from(customers)
+          .where(eq(customers.id, updated.customerId));
 
-        if (activeLoyaltyPrograms.length > 0) {
-          const program = activeLoyaltyPrograms[0];
-          const orderTotal = Number(updated.totalAmount ?? 0);
+        if (customer) {
+          const currentTotalSpent = Number(customer.totalSpent ?? 0);
+          const currentVisitCount = Number(customer.visitCount ?? 0);
           
-          // Calcular pontos ganhos
-          const pointsPerCurrency = Number(program.pointsPerCurrency ?? 1);
-          let pointsEarned = Math.floor(orderTotal * pointsPerCurrency);
-          
-          // Verificar se há limite máximo de pontos por pedido
-          if (program.maxPointsPerOrder && pointsEarned > program.maxPointsPerOrder) {
-            pointsEarned = program.maxPointsPerOrder;
-          }
+          const newTotalSpent = currentTotalSpent + orderTotal;
+          const newVisitCount = currentVisitCount + 1;
 
-          if (pointsEarned > 0) {
-            // Criar transação de fidelidade
-            await tx
-              .insert(loyaltyTransactions)
-              .values({
-                restaurantId,
-                customerId: updated.customerId,
-                orderId: updated.id,
-                type: 'ganho',
-                points: pointsEarned,
-                description: `Pontos ganhos em compra de ${orderTotal.toFixed(2)} Kz`,
-                createdBy: userId || null,
-              });
+          // Preparar atualização básica do cliente (sempre executada)
+          const customerUpdate: any = {
+            totalSpent: newTotalSpent.toFixed(2),
+            visitCount: newVisitCount,
+            lastVisit: new Date(),
+            updatedAt: new Date(),
+          };
 
-            // Atualizar pontos e estatísticas do cliente
-            const [customer] = await tx
-              .select()
-              .from(customers)
-              .where(eq(customers.id, updated.customerId));
+          // Buscar programa de fidelidade ativo
+          const activeLoyaltyPrograms = await tx
+            .select()
+            .from(loyaltyPrograms)
+            .where(and(
+              eq(loyaltyPrograms.restaurantId, restaurantId),
+              eq(loyaltyPrograms.isActive, 1)
+            ))
+            .limit(1);
 
-            if (customer) {
+          let pointsEarned = 0;
+
+          // Se houver programa ativo e os pontos ainda não foram atribuídos
+          if (activeLoyaltyPrograms.length > 0 && !lockedOrder.loyaltyPointsEarned) {
+            const program = activeLoyaltyPrograms[0];
+            
+            // Calcular pontos ganhos
+            const pointsPerCurrency = Number(program.pointsPerCurrency ?? 1);
+            pointsEarned = Math.floor(orderTotal * pointsPerCurrency);
+            
+            // Verificar se há limite máximo de pontos por pedido
+            if (program.maxPointsPerOrder && pointsEarned > program.maxPointsPerOrder) {
+              pointsEarned = program.maxPointsPerOrder;
+            }
+
+            if (pointsEarned > 0) {
+              // Criar transação de fidelidade
+              await tx
+                .insert(loyaltyTransactions)
+                .values({
+                  restaurantId,
+                  customerId: updated.customerId,
+                  orderId: updated.id,
+                  type: 'ganho',
+                  points: pointsEarned,
+                  description: `Pontos ganhos em compra de ${orderTotal.toFixed(2)} Kz`,
+                  createdBy: userId || null,
+                });
+
+              // Atualizar pontos do cliente
               const currentPoints = Number(customer.loyaltyPoints ?? 0);
-              const currentTotalSpent = Number(customer.totalSpent ?? 0);
-              const currentVisitCount = Number(customer.visitCount ?? 0);
-              
               const newPoints = currentPoints + pointsEarned;
-              const newTotalSpent = currentTotalSpent + orderTotal;
-              const newVisitCount = currentVisitCount + 1;
+              customerUpdate.loyaltyPoints = newPoints;
 
               // Calcular novo tier baseado no total gasto
               let newTier: 'bronze' | 'prata' | 'ouro' | 'platina' = 'bronze';
@@ -2301,29 +2317,24 @@ export class DatabaseStorage implements IStorage {
               } else if (newTotalSpent >= silverMin) {
                 newTier = 'prata';
               }
+              customerUpdate.tier = newTier;
 
+              // Atualizar o pedido com os pontos ganhos
               await tx
-                .update(customers)
+                .update(orders)
                 .set({
-                  loyaltyPoints: newPoints,
-                  totalSpent: newTotalSpent.toFixed(2),
-                  visitCount: newVisitCount,
-                  lastVisit: new Date(),
-                  tier: newTier,
+                  loyaltyPointsEarned: pointsEarned,
                   updatedAt: new Date(),
                 })
-                .where(eq(customers.id, updated.customerId));
+                .where(eq(orders.id, orderId));
             }
-
-            // Atualizar o pedido com os pontos ganhos
-            await tx
-              .update(orders)
-              .set({
-                loyaltyPointsEarned: pointsEarned,
-                updatedAt: new Date(),
-              })
-              .where(eq(orders.id, orderId));
           }
+
+          // Aplicar atualização do cliente (sempre executada, com ou sem programa de fidelidade)
+          await tx
+            .update(customers)
+            .set(customerUpdate)
+            .where(eq(customers.id, updated.customerId));
         }
       }
 
@@ -2422,8 +2433,10 @@ export class DatabaseStorage implements IStorage {
         throw new Error('Pedido já está cancelado');
       }
 
-      // 2. ESTORNAR PONTOS DE FIDELIDADE (pontos ganhos E pontos resgatados)
-      if (order.customerId && ((order.loyaltyPointsEarned ?? 0) > 0 || (order.loyaltyPointsRedeemed ?? 0) > 0)) {
+      // 2. ESTORNAR ESTATÍSTICAS DO CLIENTE
+      // Estatísticas básicas (totalSpent, visitCount) são sempre estornadas
+      // Pontos de fidelidade e tier só são estornados se houver pontos envolvidos
+      if (order.customerId && order.paymentStatus === 'pago') {
         // Buscar o cliente
         const [customer] = await tx
           .select()
@@ -2431,81 +2444,89 @@ export class DatabaseStorage implements IStorage {
           .where(eq(customers.id, order.customerId));
 
         if (customer) {
-          const currentPoints = Number(customer.loyaltyPoints ?? 0);
           const currentTotalSpent = Number(customer.totalSpent ?? 0);
           const currentVisitCount = Number(customer.visitCount ?? 0);
           const orderTotal = Number(order.totalAmount ?? 0);
           
-          // Calcular ajustes de pontos:
-          // - Remover pontos que foram ganhos neste pedido
-          // - Devolver pontos que foram resgatados neste pedido
-          const pointsEarned = order.loyaltyPointsEarned || 0;
-          const pointsRedeemed = order.loyaltyPointsRedeemed || 0;
-          const pointsAdjustment = -pointsEarned + pointsRedeemed; // negativo se ganhou mais que resgatou
-          const newPoints = Math.max(0, currentPoints + pointsAdjustment);
-          
-          // Estornar total gasto e visitas
+          // Estornar total gasto e visitas (sempre)
           const newTotalSpent = Math.max(0, currentTotalSpent - orderTotal);
           const newVisitCount = Math.max(0, currentVisitCount - 1);
 
-          // Recalcular tier baseado no novo total gasto
-          const loyaltyProgram = await this.getLoyaltyProgram(restaurantId);
-          let newTier: 'bronze' | 'prata' | 'ouro' | 'platina' = 'bronze';
-          
-          if (loyaltyProgram) {
-            const platinumMin = Number(loyaltyProgram.platinumTierMinSpent ?? 50000);
-            const goldMin = Number(loyaltyProgram.goldTierMinSpent ?? 15000);
-            const silverMin = Number(loyaltyProgram.silverTierMinSpent ?? 5000);
+          // Preparar atualização básica do cliente
+          const customerUpdate: any = {
+            totalSpent: newTotalSpent.toFixed(2),
+            visitCount: newVisitCount,
+            updatedAt: new Date(),
+          };
 
-            if (newTotalSpent >= platinumMin) {
-              newTier = 'platina';
-            } else if (newTotalSpent >= goldMin) {
-              newTier = 'ouro';
-            } else if (newTotalSpent >= silverMin) {
-              newTier = 'prata';
+          // Se houve pontos de fidelidade envolvidos, estornar também
+          const pointsEarned = order.loyaltyPointsEarned || 0;
+          const pointsRedeemed = order.loyaltyPointsRedeemed || 0;
+          
+          if (pointsEarned > 0 || pointsRedeemed > 0) {
+            const currentPoints = Number(customer.loyaltyPoints ?? 0);
+            
+            // Calcular ajustes de pontos:
+            // - Remover pontos que foram ganhos neste pedido
+            // - Devolver pontos que foram resgatados neste pedido
+            const pointsAdjustment = -pointsEarned + pointsRedeemed;
+            const newPoints = Math.max(0, currentPoints + pointsAdjustment);
+            customerUpdate.loyaltyPoints = newPoints;
+
+            // Recalcular tier baseado no novo total gasto
+            const loyaltyProgram = await this.getLoyaltyProgram(restaurantId);
+            let newTier: 'bronze' | 'prata' | 'ouro' | 'platina' = 'bronze';
+            
+            if (loyaltyProgram) {
+              const platinumMin = Number(loyaltyProgram.platinumTierMinSpent ?? 50000);
+              const goldMin = Number(loyaltyProgram.goldTierMinSpent ?? 15000);
+              const silverMin = Number(loyaltyProgram.silverTierMinSpent ?? 5000);
+
+              if (newTotalSpent >= platinumMin) {
+                newTier = 'platina';
+              } else if (newTotalSpent >= goldMin) {
+                newTier = 'ouro';
+              } else if (newTotalSpent >= silverMin) {
+                newTier = 'prata';
+              }
+            }
+            customerUpdate.tier = newTier;
+
+            // Criar transações de fidelidade de estorno
+            if (pointsEarned > 0) {
+              await tx
+                .insert(loyaltyTransactions)
+                .values({
+                  restaurantId,
+                  customerId: order.customerId,
+                  orderId: order.id,
+                  type: 'ajuste',
+                  points: -pointsEarned,
+                  description: `Estorno de pontos ganhos - Pedido #${order.id.substring(0, 8)} cancelado: ${cancellationReason}`,
+                  createdBy: userId || null,
+                });
+            }
+
+            if (pointsRedeemed > 0) {
+              await tx
+                .insert(loyaltyTransactions)
+                .values({
+                  restaurantId,
+                  customerId: order.customerId,
+                  orderId: order.id,
+                  type: 'ajuste',
+                  points: pointsRedeemed,
+                  description: `Devolução de pontos resgatados - Pedido #${order.id.substring(0, 8)} cancelado: ${cancellationReason}`,
+                  createdBy: userId || null,
+                });
             }
           }
 
-          // Atualizar cliente com valores estornados
+          // Aplicar atualização do cliente (sempre executada)
           await tx
             .update(customers)
-            .set({
-              loyaltyPoints: newPoints,
-              totalSpent: newTotalSpent.toFixed(2),
-              visitCount: newVisitCount,
-              tier: newTier,
-              updatedAt: new Date(),
-            })
+            .set(customerUpdate)
             .where(eq(customers.id, order.customerId));
-
-          // Criar transações de fidelidade de estorno
-          if (pointsEarned > 0) {
-            await tx
-              .insert(loyaltyTransactions)
-              .values({
-                restaurantId,
-                customerId: order.customerId,
-                orderId: order.id,
-                type: 'ajuste',
-                points: -pointsEarned,
-                description: `Estorno de pontos ganhos - Pedido #${order.id.substring(0, 8)} cancelado: ${cancellationReason}`,
-                createdBy: userId || null,
-              });
-          }
-
-          if (pointsRedeemed > 0) {
-            await tx
-              .insert(loyaltyTransactions)
-              .values({
-                restaurantId,
-                customerId: order.customerId,
-                orderId: order.id,
-                type: 'ajuste',
-                points: pointsRedeemed,
-                description: `Devolução de pontos resgatados - Pedido #${order.id.substring(0, 8)} cancelado: ${cancellationReason}`,
-                createdBy: userId || null,
-              });
-          }
         }
       }
 
