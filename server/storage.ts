@@ -237,6 +237,9 @@ export interface IStorage {
     yesterdayOrders: number;
     salesChange: number;
     ordersChange: number;
+    cancelledOrders: number;
+    cancelledRevenue: string;
+    cancellationRate: number;
     topDishes: Array<{
       menuItem: MenuItem;
       count: number;
@@ -248,6 +251,9 @@ export interface IStorage {
     totalSales: string;
     totalOrders: number;
     averageOrderValue: string;
+    cancelledOrders: number;
+    cancelledRevenue: string;
+    cancellationRate: number;
     topDishes: Array<{
       menuItem: MenuItem;
       count: number;
@@ -2759,6 +2765,46 @@ export class DatabaseStorage implements IStorage {
         ));
     }
 
+    // Get cancelled orders from today
+    let cancelledOrdersData;
+    if (branchId) {
+      cancelledOrdersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+          eq(orders.status, 'cancelado'),
+          gte(orders.createdAt, today)
+        ));
+    } else {
+      cancelledOrdersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          eq(orders.status, 'cancelado'),
+          gte(orders.createdAt, today)
+        ));
+    }
+
+    const cancelledOrders = cancelledOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
+    const cancelledRevenue = cancelledOrders.reduce(
+      (sum: number, order: Order) => {
+        const amount = parseFloat(order.totalAmount);
+        return sum + (isNaN(amount) ? 0 : amount);
+      },
+      0
+    );
+
+    // Calculate cancellation rate
+    const totalOrdersIncludingCancelled = todayOrders.length + cancelledOrders.length;
+    const cancellationRate = totalOrdersIncludingCancelled > 0
+      ? (cancelledOrders.length / totalOrdersIncludingCancelled) * 100
+      : 0;
+
     // Get top dishes from today
     const todayOrderIds = todayOrders.map((o: Order) => o.id);
     
@@ -2801,6 +2847,9 @@ export class DatabaseStorage implements IStorage {
       yesterdayOrders: yesterdayOrders.length,
       salesChange: isNaN(salesChange) ? 0 : Math.round(salesChange * 10) / 10,
       ordersChange: isNaN(ordersChange) ? 0 : Math.round(ordersChange * 10) / 10,
+      cancelledOrders: cancelledOrders.length,
+      cancelledRevenue: cancelledRevenue.toFixed(2),
+      cancellationRate: isNaN(cancellationRate) ? 0 : Math.round(cancellationRate * 10) / 10,
       topDishes,
     };
   }
@@ -2857,6 +2906,48 @@ export class DatabaseStorage implements IStorage {
 
     const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
 
+    // Get cancelled orders for the date range
+    let cancelledOrdersData;
+    if (branchId) {
+      cancelledOrdersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+          eq(orders.status, 'cancelado'),
+          gte(orders.createdAt, periodStart),
+          sql`${orders.createdAt} <= ${periodEnd}`
+        ));
+    } else {
+      cancelledOrdersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          eq(orders.status, 'cancelado'),
+          gte(orders.createdAt, periodStart),
+          sql`${orders.createdAt} <= ${periodEnd}`
+        ));
+    }
+
+    const cancelledOrders = cancelledOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
+    const cancelledRevenue = cancelledOrders.reduce(
+      (sum: number, order: Order) => {
+        const amount = parseFloat(order.totalAmount);
+        return sum + (isNaN(amount) ? 0 : amount);
+      },
+      0
+    );
+
+    // Calculate cancellation rate
+    const totalOrdersIncludingCancelled = periodOrders.length + cancelledOrders.length;
+    const cancellationRate = totalOrdersIncludingCancelled > 0
+      ? (cancelledOrders.length / totalOrdersIncludingCancelled) * 100
+      : 0;
+
     // Get top dishes for the period
     const orderIds = periodOrders.map((o: Order) => o.id);
     
@@ -2895,6 +2986,9 @@ export class DatabaseStorage implements IStorage {
       totalSales: totalSales.toFixed(2),
       totalOrders,
       averageOrderValue: averageOrderValue.toFixed(2),
+      cancelledOrders: cancelledOrders.length,
+      cancelledRevenue: cancelledRevenue.toFixed(2),
+      cancellationRate: isNaN(cancellationRate) ? 0 : Math.round(cancellationRate * 10) / 10,
       topDishes,
       periodStart,
       periodEnd,
