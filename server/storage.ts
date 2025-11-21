@@ -2660,77 +2660,77 @@ export class DatabaseStorage implements IStorage {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    // Get today's orders for this restaurant (excluding cancelled orders)
-    let todayOrdersData;
+    // Get today's stats (all orders including cancelled) in a single efficient query
+    let todayStatsQuery;
     if (branchId) {
-      todayOrdersData = await db
-        .select()
+      todayStatsQuery = await db
+        .select({
+          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+          cancelledOrders: sql<number>`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
+          cancelledRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} = 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+        })
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
           or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-          ne(orders.status, 'cancelado'),
           gte(orders.createdAt, today)
         ));
     } else {
-      todayOrdersData = await db
-        .select()
+      todayStatsQuery = await db
+        .select({
+          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+          cancelledOrders: sql<number>`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
+          cancelledRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} = 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+        })
         .from(orders)
-        .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          ne(orders.status, 'cancelado'),
           gte(orders.createdAt, today)
         ));
     }
 
-    const todayOrders = todayOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
+    const todayStats = todayStatsQuery[0] || { completedOrders: 0, completedRevenue: '0', cancelledOrders: 0, cancelledRevenue: '0' };
+    const todayOrders = todayStats.completedOrders;
+    const todaySales = parseFloat(todayStats.completedRevenue) || 0;
+    const todayCancelledOrders = todayStats.cancelledOrders;
+    const todayCancelledRevenue = parseFloat(todayStats.cancelledRevenue) || 0;
 
-    const todaySales = todayOrders.reduce(
-      (sum: number, order: Order) => {
-        const amount = parseFloat(order.totalAmount);
-        return sum + (isNaN(amount) ? 0 : amount);
-      },
-      0
-    );
-
-    // Get yesterday's orders for comparison (excluding cancelled orders)
-    let yesterdayOrdersData;
+    // Get yesterday's stats for comparison (excluding cancelled orders)
+    let yesterdayStatsQuery;
     if (branchId) {
-      yesterdayOrdersData = await db
-        .select()
+      yesterdayStatsQuery = await db
+        .select({
+          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+        })
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
           or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-          ne(orders.status, 'cancelado'),
           gte(orders.createdAt, yesterday),
           sql`${orders.createdAt} < ${today}`
         ));
     } else {
-      yesterdayOrdersData = await db
-        .select()
+      yesterdayStatsQuery = await db
+        .select({
+          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+        })
         .from(orders)
-        .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          ne(orders.status, 'cancelado'),
           gte(orders.createdAt, yesterday),
           sql`${orders.createdAt} < ${today}`
         ));
     }
 
-    const yesterdayOrders = yesterdayOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
-
-    const yesterdaySales = yesterdayOrders.reduce(
-      (sum: number, order: Order) => {
-        const amount = parseFloat(order.totalAmount);
-        return sum + (isNaN(amount) ? 0 : amount);
-      },
-      0
-    );
+    const yesterdayStats = yesterdayStatsQuery[0] || { completedOrders: 0, completedRevenue: '0' };
+    const yesterdayOrders = yesterdayStats.completedOrders;
+    const yesterdaySales = parseFloat(yesterdayStats.completedRevenue) || 0;
 
     // Calculate percentage changes (ensure numeric values)
     const todaySalesNum = Number(todaySales) || 0;
@@ -2740,9 +2740,9 @@ export class DatabaseStorage implements IStorage {
       ? ((todaySalesNum - yesterdaySalesNum) / yesterdaySalesNum) * 100 
       : todaySalesNum > 0 ? 100 : 0;
     
-    const ordersChange = yesterdayOrders.length > 0
-      ? ((todayOrders.length - yesterdayOrders.length) / yesterdayOrders.length) * 100
-      : todayOrders.length > 0 ? 100 : 0;
+    const ordersChange = yesterdayOrders > 0
+      ? ((todayOrders - yesterdayOrders) / yesterdayOrders) * 100
+      : todayOrders > 0 ? 100 : 0;
 
     // Get active tables for this restaurant
     let activeTables;
@@ -2765,48 +2765,37 @@ export class DatabaseStorage implements IStorage {
         ));
     }
 
-    // Get cancelled orders from today
-    let cancelledOrdersData;
+    // Calculate cancellation rate
+    const totalOrdersIncludingCancelled = todayOrders + todayCancelledOrders;
+    const cancellationRate = totalOrdersIncludingCancelled > 0
+      ? (todayCancelledOrders / totalOrdersIncludingCancelled) * 100
+      : 0;
+
+    // Get today's order IDs for top dishes (only non-cancelled orders)
+    let todayOrderIdsQuery;
     if (branchId) {
-      cancelledOrdersData = await db
-        .select()
+      todayOrderIdsQuery = await db
+        .select({ id: orders.id })
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
           or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-          eq(orders.status, 'cancelado'),
+          sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, today)
         ));
     } else {
-      cancelledOrdersData = await db
-        .select()
+      todayOrderIdsQuery = await db
+        .select({ id: orders.id })
         .from(orders)
-        .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          eq(orders.status, 'cancelado'),
+          sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, today)
         ));
     }
-
-    const cancelledOrders = cancelledOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
-    const cancelledRevenue = cancelledOrders.reduce(
-      (sum: number, order: Order) => {
-        const amount = parseFloat(order.totalAmount);
-        return sum + (isNaN(amount) ? 0 : amount);
-      },
-      0
-    );
-
-    // Calculate cancellation rate
-    const totalOrdersIncludingCancelled = todayOrders.length + cancelledOrders.length;
-    const cancellationRate = totalOrdersIncludingCancelled > 0
-      ? (cancelledOrders.length / totalOrdersIncludingCancelled) * 100
-      : 0;
-
-    // Get top dishes from today
-    const todayOrderIds = todayOrders.map((o: Order) => o.id);
+    
+    const todayOrderIds = todayOrderIdsQuery.map((row: { id: string }) => row.id);
     
     let topDishes: Array<{
       menuItem: MenuItem;
@@ -2841,14 +2830,14 @@ export class DatabaseStorage implements IStorage {
 
     return {
       todaySales: todaySales.toFixed(2),
-      todayOrders: todayOrders.length,
+      todayOrders: todayOrders,
       activeTables: activeTables.length,
       yesterdaySales: yesterdaySales.toFixed(2),
-      yesterdayOrders: yesterdayOrders.length,
+      yesterdayOrders: yesterdayOrders,
       salesChange: isNaN(salesChange) ? 0 : Math.round(salesChange * 10) / 10,
       ordersChange: isNaN(ordersChange) ? 0 : Math.round(ordersChange * 10) / 10,
-      cancelledOrders: cancelledOrders.length,
-      cancelledRevenue: cancelledRevenue.toFixed(2),
+      cancelledOrders: todayCancelledOrders,
+      cancelledRevenue: todayCancelledRevenue.toFixed(2),
       cancellationRate: isNaN(cancellationRate) ? 0 : Math.round(cancellationRate * 10) / 10,
       topDishes,
     };
@@ -2869,87 +2858,81 @@ export class DatabaseStorage implements IStorage {
     const periodStart = startDate;
     const periodEnd = endDate;
 
-    // Get orders for the date range (excluding cancelled orders)
-    let periodOrdersData;
+    // Get stats for the date range (all orders including cancelled) in a single efficient query
+    let periodStatsQuery;
     if (branchId) {
-      periodOrdersData = await db
-        .select()
+      periodStatsQuery = await db
+        .select({
+          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+          cancelledOrders: sql<number>`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
+          cancelledRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} = 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+        })
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
           or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-          ne(orders.status, 'cancelado'),
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
     } else {
-      periodOrdersData = await db
-        .select()
+      periodStatsQuery = await db
+        .select({
+          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+          cancelledOrders: sql<number>`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
+          cancelledRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} = 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+        })
         .from(orders)
-        .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          ne(orders.status, 'cancelado'),
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
     }
 
-    const periodOrders = periodOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
-
-    const totalOrders = periodOrders.length;
-    const totalSales = periodOrders.reduce(
-      (sum: number, order: Order) => sum + parseFloat(order.totalAmount),
-      0
-    );
+    const periodStats = periodStatsQuery[0] || { completedOrders: 0, completedRevenue: '0', cancelledOrders: 0, cancelledRevenue: '0' };
+    const totalOrders = periodStats.completedOrders;
+    const totalSales = parseFloat(periodStats.completedRevenue) || 0;
+    const periodCancelledOrders = periodStats.cancelledOrders;
+    const periodCancelledRevenue = parseFloat(periodStats.cancelledRevenue) || 0;
 
     const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
 
-    // Get cancelled orders for the date range
-    let cancelledOrdersData;
+    // Calculate cancellation rate
+    const totalOrdersIncludingCancelled = totalOrders + periodCancelledOrders;
+    const cancellationRate = totalOrdersIncludingCancelled > 0
+      ? (periodCancelledOrders / totalOrdersIncludingCancelled) * 100
+      : 0;
+
+    // Get order IDs for top dishes (only non-cancelled orders)
+    let orderIdsQuery;
     if (branchId) {
-      cancelledOrdersData = await db
-        .select()
+      orderIdsQuery = await db
+        .select({ id: orders.id })
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
           or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-          eq(orders.status, 'cancelado'),
+          sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
     } else {
-      cancelledOrdersData = await db
-        .select()
+      orderIdsQuery = await db
+        .select({ id: orders.id })
         .from(orders)
-        .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          eq(orders.status, 'cancelado'),
+          sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
     }
 
-    const cancelledOrders = cancelledOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
-    const cancelledRevenue = cancelledOrders.reduce(
-      (sum: number, order: Order) => {
-        const amount = parseFloat(order.totalAmount);
-        return sum + (isNaN(amount) ? 0 : amount);
-      },
-      0
-    );
-
-    // Calculate cancellation rate
-    const totalOrdersIncludingCancelled = periodOrders.length + cancelledOrders.length;
-    const cancellationRate = totalOrdersIncludingCancelled > 0
-      ? (cancelledOrders.length / totalOrdersIncludingCancelled) * 100
-      : 0;
-
-    // Get top dishes for the period
-    const orderIds = periodOrders.map((o: Order) => o.id);
+    const orderIds = orderIdsQuery.map((row: { id: string }) => row.id);
     
     let topDishes: Array<{
       menuItem: MenuItem;
@@ -2986,8 +2969,8 @@ export class DatabaseStorage implements IStorage {
       totalSales: totalSales.toFixed(2),
       totalOrders,
       averageOrderValue: averageOrderValue.toFixed(2),
-      cancelledOrders: cancelledOrders.length,
-      cancelledRevenue: cancelledRevenue.toFixed(2),
+      cancelledOrders: periodCancelledOrders,
+      cancelledRevenue: periodCancelledRevenue.toFixed(2),
       cancellationRate: isNaN(cancellationRate) ? 0 : Math.round(cancellationRate * 10) / 10,
       topDishes,
       periodStart,
@@ -3022,7 +3005,7 @@ export class DatabaseStorage implements IStorage {
           .where(and(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-            ne(orders.status, 'cancelado'),
+            sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte(orders.createdAt, dayStart),
             sql`${orders.createdAt} <= ${dayEnd}`
           ));
@@ -3033,7 +3016,7 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(tables, eq(orders.tableId, tables.id))
           .where(and(
             eq(orders.restaurantId, restaurantId),
-            ne(orders.status, 'cancelado'),
+            sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte(orders.createdAt, dayStart),
             sql`${orders.createdAt} <= ${dayEnd}`
           ));
@@ -3103,7 +3086,7 @@ export class DatabaseStorage implements IStorage {
         .where(and(
           eq(orders.restaurantId, restaurantId),
           or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-          ne(orders.status, 'cancelado'),
+          sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
@@ -3114,7 +3097,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          ne(orders.status, 'cancelado'),
+          sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
@@ -3230,7 +3213,7 @@ export class DatabaseStorage implements IStorage {
         .where(and(
           eq(orders.restaurantId, restaurantId),
           or(eq(tables.branchId, branchId), sql`${orders.tableId} IS NULL`),
-          ne(orders.status, 'cancelado'),
+          sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${endDate}`
         ));
@@ -3240,7 +3223,7 @@ export class DatabaseStorage implements IStorage {
         .from(orders)
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          ne(orders.status, 'cancelado'),
+          sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${endDate}`
         ));

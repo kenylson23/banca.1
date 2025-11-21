@@ -374,7 +374,7 @@ export default function Dashboard() {
                 title="Cancelamentos"
                 value={'cancelledOrders' in (stats || {}) ? stats?.cancelledOrders || 0 : 0}
                 icon={XCircle}
-                subtitle={`${('cancellationRate' in (stats || {}) ? stats?.cancellationRate || 0 : 0).toFixed(1)}% taxa • ${formatKwanza('cancelledRevenue' in (stats || {}) ? stats?.cancelledRevenue || "0" : "0")} perdidos`}
+                changeLabel={`${('cancellationRate' in (stats || {}) ? stats?.cancellationRate || 0 : 0).toFixed(1)}% taxa • ${formatKwanza('cancelledRevenue' in (stats || {}) ? stats?.cancelledRevenue || "0" : "0")} perdidos`}
                 gradient="from-destructive/10 via-destructive/5 to-transparent"
                 delay={0.4}
                 data-testid="card-kpi-cancelled"
