@@ -784,6 +784,17 @@ export async function ensureTablesExist() {
         ALTER TABLE financial_transactions ALTER COLUMN cash_register_id DROP NOT NULL; 
       EXCEPTION WHEN others THEN null; END $$;`);
       
+      // Add installment-related columns to financial_transactions
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE financial_transactions ADD COLUMN total_installments INTEGER DEFAULT 1; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE financial_transactions ADD COLUMN installment_number INTEGER DEFAULT 1; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE financial_transactions ADD COLUMN parent_transaction_id VARCHAR REFERENCES financial_transactions(id) ON DELETE CASCADE; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
       // Create expenses table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS expenses (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
