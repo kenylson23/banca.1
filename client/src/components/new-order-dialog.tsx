@@ -480,16 +480,18 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
             <Card className="flex-1 flex flex-col overflow-hidden">
               <CardContent className="p-4 flex flex-col gap-4 flex-1 overflow-hidden">
                 {/* Receipt Header */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-shrink-0">
                   <h3 className="font-bold text-lg">Recibo</h3>
                   <Badge variant="outline">#{receiptNumber}</Badge>
                 </div>
 
-                <Separator />
+                <Separator className="flex-shrink-0" />
 
                 {/* Order Type Selection */}
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 flex-1 overflow-hidden">
+                    <ScrollArea className="flex-1 pr-4">
+                      <div className="space-y-4">
                     <FormField
                       control={form.control}
                       name="orderType"
@@ -804,13 +806,15 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                         </FormItem>
                       )}
                     />
+                      </div>
+                    </ScrollArea>
 
                     {/* Submit Button */}
                     <Button 
                       type="submit" 
                       disabled={createOrderMutation.isPending || cart.length === 0}
                       data-testid="button-submit-order"
-                      className="w-full"
+                      className="w-full flex-shrink-0"
                       size="lg"
                     >
                       <ShoppingCart className="h-4 w-4 mr-2" />
