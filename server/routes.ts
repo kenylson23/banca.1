@@ -4011,9 +4011,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let parentTransactionId: string | null = null;
 
         for (let i = 1; i <= installments; i++) {
-          const installmentDate = new Date(occurredAt);
-          installmentDate.setMonth(installmentDate.getMonth() + (i - 1));
-
           const transaction = await storage.createFinancialTransaction(
             currentUser.restaurantId,
             currentUser.id,
@@ -4022,10 +4019,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               categoryId: validatedData.categoryId,
               type: validatedData.type,
               origin: validatedData.origin || 'manual',
-              description: `${validatedData.description || ''} (Parcela ${i}/${installments})`.trim(),
+              description: `${validatedData.description || ''} (Parte ${i}/${installments})`.trim(),
               paymentMethod: validatedData.paymentMethod,
               amount: installmentAmount.toFixed(2),
-              occurredAt: installmentDate.toISOString(),
+              occurredAt: occurredAt.toISOString(),
               note: validatedData.note,
               branchId: validatedData.branchId || currentUser.activeBranchId || null,
               totalInstallments: installments,
@@ -4044,7 +4041,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({ 
           success: true, 
           transactions, 
-          message: `${installments} parcelas criadas com sucesso` 
+          message: `Pagamento dividido em ${installments} partes` 
         });
       } else {
         const newTransaction = await storage.createFinancialTransaction(
