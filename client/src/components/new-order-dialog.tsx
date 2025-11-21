@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Plus, Minus, X, ShoppingCart, Search, User, Phone, MapPin } from "lucide-react";
+import { Plus, Minus, X, ShoppingCart, Search, User, Phone, MapPin, UtensilsCrossed, Coffee } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -72,6 +72,8 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [productSearchQuery, setProductSearchQuery] = useState("");
   const { toast } = useToast();
 
   const { data: rawMenuItems = [] } = useQuery<MenuItem[]>({
@@ -106,6 +108,49 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
   });
 
   const orderType = form.watch("orderType");
+
+  // Get categories with item counts
+  const categories = useMemo(() => {
+    const categoryMap = new Map<string, { id: string; name: string; count: number; availableCount: number }>();
+    
+    menuItems.forEach(item => {
+      if (item.category) {
+        const existing = categoryMap.get(item.category.id);
+        if (existing) {
+          existing.count++;
+          if (item.isAvailable) existing.availableCount++;
+        } else {
+          categoryMap.set(item.category.id, {
+            id: item.category.id,
+            name: item.category.name,
+            count: 1,
+            availableCount: item.isAvailable ? 1 : 0,
+          });
+        }
+      }
+    });
+    
+    return Array.from(categoryMap.values());
+  }, [menuItems]);
+
+  // Filter products by category and search
+  const filteredProducts = useMemo(() => {
+    let filtered = menuItems;
+    
+    if (selectedCategory) {
+      filtered = filtered.filter(item => item.category?.id === selectedCategory);
+    }
+    
+    if (productSearchQuery) {
+      const query = productSearchQuery.toLowerCase();
+      filtered = filtered.filter(item => 
+        item.name.toLowerCase().includes(query) ||
+        item.category?.name.toLowerCase().includes(query)
+      );
+    }
+    
+    return filtered;
+  }, [menuItems, selectedCategory, productSearchQuery]);
 
   const createOrderMutation = useMutation({
     mutationFn: async (data: InsertOrder) => {
@@ -182,8 +227,6 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
     onSuccess: (data) => {
       const isOnline = typeof navigator !== 'undefined' && navigator.onLine;
       
-      console.log('Order created successfully:', { orderId: data?.id, isOnline, hasCallback: !!onOrderCreated });
-      
       if (!isOnline && data?.id) {
         queryClient.setQueryData(["/api/orders", data.id], data);
         
@@ -206,15 +249,14 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
       }
       
       if (onOrderCreated && data?.id) {
-        console.log('Calling onOrderCreated callback with orderId:', data.id);
         onOrderCreated(data.id, isOnline);
-      } else {
-        console.warn('onOrderCreated not called:', { hasCallback: !!onOrderCreated, hasOrderId: !!data?.id });
       }
       
       setOpen(false);
       setCart([]);
       form.reset();
+      setSelectedCategory(null);
+      setProductSearchQuery("");
     },
     onError: () => {
       toast({
@@ -257,7 +299,9 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
     }).filter(Boolean) as OrderItem[]);
   };
 
-  const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const tax = subtotal * 0.1; // 10% tax
+  const totalAmount = subtotal + tax;
 
   const filteredCustomers = customers.filter(customer => {
     const searchLower = customerSearchQuery.toLowerCase();
@@ -307,339 +351,434 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Novo Pedido</DialogTitle>
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4">
+          <DialogTitle className="text-2xl">Novo Pedido</DialogTitle>
         </DialogHeader>
         
-        <div className="flex gap-4 flex-1 overflow-hidden">
+        <div className="flex gap-6 flex-1 overflow-hidden px-6 pb-6">
+          {/* Left Side - Products */}
           <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 flex-1 overflow-hidden">
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                    control={form.control}
-                    name="orderType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tipo de Pedido</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-order-type">
-                              <SelectValue placeholder="Selecione o tipo" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="balcao">Balcão</SelectItem>
-                            <SelectItem value="pdv">PDV</SelectItem>
-                            <SelectItem value="mesa">Mesa</SelectItem>
-                            <SelectItem value="delivery">Delivery</SelectItem>
-                            <SelectItem value="takeout">Takeout</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Pesquisar produtos..."
+                value={productSearchQuery}
+                onChange={(e) => setProductSearchQuery(e.target.value)}
+                className="pl-10"
+                data-testid="input-product-search"
+              />
+            </div>
 
-                  {orderType === "mesa" && (
+            {/* Categories */}
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant={selectedCategory === null ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedCategory(null)}
+                data-testid="category-all"
+                className="gap-2"
+              >
+                <UtensilsCrossed className="h-4 w-4" />
+                Todos
+                <Badge variant="secondary" className="ml-1">
+                  {menuItems.length}
+                </Badge>
+              </Button>
+              {categories.map((category) => (
+                <Button
+                  key={category.id}
+                  variant={selectedCategory === category.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategory(category.id)}
+                  data-testid={`category-${category.id}`}
+                  className="gap-2"
+                >
+                  <Coffee className="h-4 w-4" />
+                  {category.name}
+                  <Badge variant="secondary" className="ml-1">
+                    {category.count}
+                  </Badge>
+                </Button>
+              ))}
+            </div>
+
+            {/* Products Grid */}
+            <ScrollArea className="flex-1">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pr-4">
+                {filteredProducts.map((item) => (
+                  <Card 
+                    key={item.id} 
+                    className={`hover-elevate cursor-pointer ${!item.isAvailable ? 'opacity-50' : ''}`}
+                    onClick={() => item.isAvailable && addToCart(item)}
+                    data-testid={`card-menu-item-${item.id}`}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex flex-col gap-3">
+                        {/* Product Image Placeholder */}
+                        <div className="aspect-square bg-muted rounded-md flex items-center justify-center">
+                          <Coffee className="h-12 w-12 text-muted-foreground" />
+                        </div>
+                        
+                        {/* Product Info */}
+                        <div className="space-y-2">
+                          <div>
+                            <p className="font-semibold text-sm line-clamp-2">{item.name}</p>
+                            <p className="text-xs text-muted-foreground">{item.category?.name}</p>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-lg">{formatKwanza(item.price)}</span>
+                            <Button
+                              size="icon"
+                              variant="default"
+                              className="h-8 w-8 rounded-full"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (item.isAvailable) addToCart(item);
+                              }}
+                              disabled={!item.isAvailable}
+                              data-testid={`button-add-${item.id}`}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          
+                          {!item.isAvailable && (
+                            <Badge variant="destructive" className="w-full justify-center">
+                              Indisponível
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+
+          {/* Right Side - Checkout */}
+          <div className="w-96 flex flex-col gap-4 overflow-hidden">
+            <Card className="flex-1 flex flex-col overflow-hidden">
+              <CardContent className="p-4 flex flex-col gap-4 flex-1 overflow-hidden">
+                {/* Receipt Header */}
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-lg">Recibo</h3>
+                  <Badge variant="outline">#{Math.floor(Math.random() * 90000) + 10000}</Badge>
+                </div>
+
+                <Separator />
+
+                {/* Order Type Selection */}
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 flex-1 overflow-hidden">
                     <FormField
                       control={form.control}
-                      name="tableId"
+                      name="orderType"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Mesa</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <FormLabel>Tipo de Pedido</FormLabel>
+                          <div className="grid grid-cols-3 gap-2">
+                            <Button
+                              type="button"
+                              variant={field.value === "balcao" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => field.onChange("balcao")}
+                              data-testid="order-type-balcao"
+                              className="h-auto py-2 px-2 text-xs"
+                            >
+                              Balcão
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={field.value === "delivery" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => field.onChange("delivery")}
+                              data-testid="order-type-delivery"
+                              className="h-auto py-2 px-2 text-xs"
+                            >
+                              Delivery
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={field.value === "mesa" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => field.onChange("mesa")}
+                              data-testid="order-type-mesa"
+                              className="h-auto py-2 px-2 text-xs"
+                            >
+                              Mesa
+                            </Button>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Customer Name and Table */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <FormField
+                        control={form.control}
+                        name="customerName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Nome</FormLabel>
+                            <div className="flex gap-1">
+                              <FormControl>
+                                <Input 
+                                  data-testid="input-customer-name" 
+                                  {...field} 
+                                  value={field.value || ""} 
+                                  placeholder="Cliente"
+                                  className="h-9 text-sm"
+                                />
+                              </FormControl>
+                              <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
+                                <PopoverTrigger asChild>
+                                  <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    size="icon"
+                                    className="h-9 w-9 flex-shrink-0"
+                                    data-testid="button-search-customer"
+                                  >
+                                    <Search className="h-3 w-3" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80 p-0" align="start">
+                                  <Command>
+                                    <CommandInput 
+                                      placeholder="Buscar cliente..." 
+                                      value={customerSearchQuery}
+                                      onValueChange={setCustomerSearchQuery}
+                                    />
+                                    <CommandList>
+                                      <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                                      <CommandGroup>
+                                        <ScrollArea className="h-64">
+                                          {filteredCustomers.map((customer) => (
+                                            <CommandItem
+                                              key={customer.id}
+                                              onSelect={() => selectCustomer(customer)}
+                                              className="flex flex-col items-start gap-1 p-3 cursor-pointer"
+                                              data-testid={`customer-item-${customer.id}`}
+                                            >
+                                              <div className="flex items-center gap-2 w-full">
+                                                <User className="h-4 w-4 text-primary flex-shrink-0" />
+                                                <span className="font-medium">{customer.name}</span>
+                                              </div>
+                                              {customer.phone && (
+                                                <div className="flex items-center gap-2 w-full text-sm text-muted-foreground ml-6">
+                                                  <Phone className="h-3 w-3" />
+                                                  <span>{customer.phone}</span>
+                                                </div>
+                                              )}
+                                            </CommandItem>
+                                          ))}
+                                        </ScrollArea>
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      {orderType === "mesa" ? (
+                        <FormField
+                          control={form.control}
+                          name="tableId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Mesa</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-table" className="h-9 text-sm">
+                                    <SelectValue placeholder="Mesa" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {tables.filter(t => t.status === "livre").map((table) => (
+                                    <SelectItem key={table.id} value={table.id}>
+                                      Mesa {table.number}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
+                      ) : (
+                        <FormField
+                          control={form.control}
+                          name="customerPhone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Telefone</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  data-testid="input-customer-phone" 
+                                  {...field} 
+                                  value={field.value || ""} 
+                                  placeholder="Telefone"
+                                  className="h-9 text-sm"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+
+                    {orderType === "delivery" && (
+                      <FormField
+                        control={form.control}
+                        name="deliveryAddress"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Endereço</FormLabel>
                             <FormControl>
-                              <SelectTrigger data-testid="select-table">
-                                <SelectValue placeholder="Selecione a mesa" />
+                              <Textarea 
+                                data-testid="input-delivery-address" 
+                                {...field} 
+                                value={field.value || ""}
+                                placeholder="Endereço de entrega"
+                                className="text-sm resize-none"
+                                rows={2}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    <Separator />
+
+                    {/* Order List */}
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold">Lista de Itens</h4>
+                      <ScrollArea className="flex-1 max-h-48">
+                        <div className="space-y-2 pr-4">
+                          {cart.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-8">
+                              Nenhum item adicionado
+                            </p>
+                          ) : (
+                            cart.map((item) => (
+                              <Card key={item.menuItemId} data-testid={`cart-item-${item.menuItemId}`}>
+                                <CardContent className="p-3">
+                                  <div className="flex items-start justify-between gap-2 mb-2">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-sm truncate">{item.name}</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {formatKwanza(item.price)} × {item.quantity}
+                                      </p>
+                                    </div>
+                                    <span className="font-bold text-sm whitespace-nowrap">
+                                      {formatKwanza(item.price * item.quantity)}
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      type="button"
+                                      size="icon"
+                                      variant="outline"
+                                      className="h-7 w-7"
+                                      onClick={() => updateQuantity(item.menuItemId, -1)}
+                                      data-testid={`button-decrease-${item.menuItemId}`}
+                                    >
+                                      <Minus className="h-3 w-3" />
+                                    </Button>
+                                    <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
+                                    <Button
+                                      type="button"
+                                      size="icon"
+                                      variant="outline"
+                                      className="h-7 w-7"
+                                      onClick={() => updateQuantity(item.menuItemId, 1)}
+                                      data-testid={`button-increase-${item.menuItemId}`}
+                                    >
+                                      <Plus className="h-3 w-3" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-7 w-7 ml-auto"
+                                      onClick={() => removeFromCart(item.menuItemId)}
+                                      data-testid={`button-remove-${item.menuItemId}`}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+
+                    <Separator />
+
+                    {/* Payment Details */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span className="font-medium" data-testid="text-subtotal">{formatKwanza(subtotal)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Taxa (10%)</span>
+                        <span className="font-medium" data-testid="text-tax">{formatKwanza(tax)}</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between text-lg font-bold">
+                        <span>Total</span>
+                        <span data-testid="text-total">{formatKwanza(totalAmount)}</span>
+                      </div>
+                    </div>
+
+                    {/* Payment Method */}
+                    <FormField
+                      control={form.control}
+                      name="paymentMethod"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Método de Pagamento</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || undefined}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-payment-method" className="h-9">
+                                <SelectValue placeholder="Selecionar" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {tables.filter(t => t.status === "livre").map((table) => (
-                                <SelectItem key={table.id} value={table.id}>
-                                  Mesa {table.number}
-                                </SelectItem>
-                              ))}
+                              <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                              <SelectItem value="multicaixa">Multicaixa</SelectItem>
+                              <SelectItem value="transferencia">Transferência</SelectItem>
+                              <SelectItem value="cartao">Cartão</SelectItem>
                             </SelectContent>
                           </Select>
-                          <FormMessage />
                         </FormItem>
                       )}
                     />
-                  )}
 
-                  <FormField
-                    control={form.control}
-                    name="paymentMethod"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Método de Pagamento</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || undefined}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-payment-method">
-                              <SelectValue placeholder="Selecione o método" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                            <SelectItem value="multicaixa">Multicaixa</SelectItem>
-                            <SelectItem value="transferencia">Transferência</SelectItem>
-                            <SelectItem value="cartao">Cartão</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-end gap-2">
-                    <FormField
-                      control={form.control}
-                      name="customerName"
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
-                          <FormLabel>Nome do Cliente {orderType !== "mesa" && "(Opcional)"}</FormLabel>
-                          <FormControl>
-                            <Input data-testid="input-customer-name" {...field} value={field.value || ""} placeholder="Digite o nome" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
-                      <PopoverTrigger asChild>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="icon"
-                          data-testid="button-search-customer"
-                        >
-                          <Search className="h-4 w-4" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-96 p-0" align="start">
-                        <Command>
-                          <CommandInput 
-                            placeholder="Buscar cliente..." 
-                            value={customerSearchQuery}
-                            onValueChange={setCustomerSearchQuery}
-                          />
-                          <CommandList>
-                            <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                            <CommandGroup>
-                              <ScrollArea className="h-64">
-                                {filteredCustomers.map((customer) => (
-                                  <CommandItem
-                                    key={customer.id}
-                                    onSelect={() => selectCustomer(customer)}
-                                    className="flex flex-col items-start gap-1 p-3 cursor-pointer"
-                                    data-testid={`customer-item-${customer.id}`}
-                                  >
-                                    <div className="flex items-center gap-2 w-full">
-                                      <User className="h-4 w-4 text-primary flex-shrink-0" />
-                                      <span className="font-medium">{customer.name}</span>
-                                    </div>
-                                    {customer.phone && (
-                                      <div className="flex items-center gap-2 w-full text-sm text-muted-foreground ml-6">
-                                        <Phone className="h-3 w-3" />
-                                        <span>{customer.phone}</span>
-                                      </div>
-                                    )}
-                                    {customer.address && (
-                                      <div className="flex items-center gap-2 w-full text-sm text-muted-foreground ml-6">
-                                        <MapPin className="h-3 w-3" />
-                                        <span className="truncate">{customer.address}</span>
-                                      </div>
-                                    )}
-                                  </CommandItem>
-                                ))}
-                              </ScrollArea>
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="customerPhone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Telefone {orderType !== "mesa" && "(Opcional)"}</FormLabel>
-                        <FormControl>
-                          <Input data-testid="input-customer-phone" {...field} value={field.value || ""} placeholder="+244 900 000 000" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {orderType === "delivery" && (
-                  <FormField
-                    control={form.control}
-                    name="deliveryAddress"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Endereço de Entrega</FormLabel>
-                        <FormControl>
-                          <Textarea data-testid="input-delivery-address" {...field} value={field.value || ""} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                <FormField
-                  control={form.control}
-                  name="orderNotes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Observações</FormLabel>
-                      <FormControl>
-                        <Textarea data-testid="input-order-notes" {...field} value={field.value || ""} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <ScrollArea className="flex-1">
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium">Produtos Disponíveis</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      {menuItems.filter(item => item.isAvailable).map((item) => (
-                        <Card 
-                          key={item.id} 
-                          className="hover-elevate cursor-pointer" 
-                          onClick={() => addToCart(item)}
-                          data-testid={`card-menu-item-${item.id}`}
-                        >
-                          <CardContent className="p-3">
-                            <div className="flex justify-between items-start gap-2">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm truncate">{item.name}</p>
-                                <p className="text-xs text-muted-foreground">{item.category?.name ?? "Sem categoria"}</p>
-                              </div>
-                              <Badge variant="secondary">
-                                {formatKwanza(item.price)}
-                              </Badge>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                </ScrollArea>
-
-                <div className="flex gap-2">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => setOpen(false)}
-                    data-testid="button-cancel"
-                  >
-                    Cancelar
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    disabled={createOrderMutation.isPending || cart.length === 0}
-                    data-testid="button-submit-order"
-                    className="flex-1"
-                  >
-                    {createOrderMutation.isPending ? "Criando..." : "Finalizar Pedido"}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </div>
-
-          <div className="w-80 flex flex-col gap-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <ShoppingCart className="h-5 w-5" />
-                  <h3 className="font-semibold">Carrinho</h3>
-                  <Badge variant="secondary" className="ml-auto">
-                    {cart.length} {cart.length === 1 ? 'item' : 'itens'}
-                  </Badge>
-                </div>
-
-                <ScrollArea className="h-64">
-                  <div className="space-y-2">
-                    {cart.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-8">
-                        Carrinho vazio
-                      </p>
-                    ) : (
-                      cart.map((item) => (
-                        <div key={item.menuItemId} className="flex flex-col gap-2 p-2 rounded-md bg-muted/50">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{item.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatKwanza(item.price)}
-                              </p>
-                            </div>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => removeFromCart(item.menuItemId)}
-                              data-testid={`button-remove-${item.menuItemId}`}
-                              className="h-6 w-6"
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              onClick={() => updateQuantity(item.menuItemId, -1)}
-                              data-testid={`button-decrease-${item.menuItemId}`}
-                              className="h-7 w-7"
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <span className="text-sm font-medium w-8 text-center" data-testid={`quantity-${item.menuItemId}`}>
-                              {item.quantity}
-                            </span>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              onClick={() => updateQuantity(item.menuItemId, 1)}
-                              data-testid={`button-increase-${item.menuItemId}`}
-                              className="h-7 w-7"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                            <span className="text-sm ml-auto font-medium" data-testid={`subtotal-${item.menuItemId}`}>
-                              {formatKwanza(item.price * item.quantity)}
-                            </span>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-
-                <Separator className="my-4" />
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Subtotal</span>
-                    <span data-testid="text-subtotal">{formatKwanza(totalAmount)}</span>
-                  </div>
-                  <div className="flex justify-between font-semibold text-lg">
-                    <span>Total</span>
-                    <span data-testid="text-total">{formatKwanza(totalAmount)}</span>
-                  </div>
-                </div>
+                    {/* Submit Button */}
+                    <Button 
+                      type="submit" 
+                      disabled={createOrderMutation.isPending || cart.length === 0}
+                      data-testid="button-submit-order"
+                      className="w-full"
+                      size="lg"
+                    >
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      {createOrderMutation.isPending ? "Processando..." : `Finalizar ${formatKwanza(totalAmount)}`}
+                    </Button>
+                  </form>
+                </Form>
               </CardContent>
             </Card>
           </div>
