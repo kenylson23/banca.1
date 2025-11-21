@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { ShoppingCart, Package, Clock, Download, Eye, LayoutDashboard, DollarSign, TrendingUp, CheckCircle2 } from "lucide-react";
+import { ShoppingCart, Package, Clock, Download, Eye, LayoutDashboard, DollarSign, TrendingUp, CheckCircle2, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { queryClient } from "@/lib/queryClient";
@@ -17,7 +17,7 @@ import { motion } from "framer-motion";
 import { TubelightNavBar } from "@/components/ui/tubelight-navbar";
 import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
 import { AdvancedSalesChart } from "@/components/advanced-sales-chart";
-import { AdvancedFilters } from "@/components/advanced-filters";
+import { AdvancedFilters, type FilterOption } from "@/components/advanced-filters";
 import { SalesHeatmap } from "@/components/sales-heatmap";
 import { ActivityFeed } from "@/components/activity-feed";
 import { GoalsWidget } from "@/components/goals-widget";
@@ -81,7 +81,6 @@ const typeLabels = {
   takeout: "Retirada",
 };
 
-type FilterOption = "today" | "week" | "month" | "year";
 type TabValue = "dashboard" | "orders" | "products" | "performance";
 
 export default function Reports() {
@@ -145,6 +144,15 @@ export default function Reports() {
     enabled: !!startDate && !!endDate,
   });
 
+  const { data: cancelledStats, isLoading: loadingCancelled } = useQuery<{
+    totalCancelled: number;
+    totalLostRevenue: string;
+    cancelledOrders: OrderReport[];
+  }>({
+    queryKey: ['/api/reports/cancelled', { startDate, endDate }],
+    enabled: !!startDate && !!endDate,
+  });
+
   // Historical data for charts (limited to 30 days max per backend)
   const historicalDays = useMemo(() => {
     if (effectiveDateRange?.from && effectiveDateRange?.to) {
@@ -171,6 +179,7 @@ export default function Reports() {
       queryClient.invalidateQueries({ queryKey: ["/api/reports/orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reports/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reports/performance"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/cancelled"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/historical"] });
     }
   }, []);
@@ -492,6 +501,39 @@ export default function Reports() {
               )}
             </div>
 
+            {/* Cancelled Orders Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-4">
+              {loadingCancelled ? (
+                <>
+                  {[...Array(2)].map((_, i) => (
+                    <Skeleton key={i} className="h-[140px] w-full rounded-lg" />
+                  ))}
+                </>
+              ) : (
+                <>
+                  <AdvancedKpiCard
+                    title="Pedidos Cancelados"
+                    value={cancelledStats?.totalCancelled || 0}
+                    icon={XCircle}
+                    gradient="from-destructive/10 via-destructive/5 to-transparent"
+                    delay={0}
+                    data-testid="card-kpi-cancelled"
+                  />
+
+                  <AdvancedKpiCard
+                    title="Valor Perdido"
+                    value={parseFloat(cancelledStats?.totalLostRevenue || "0")}
+                    prefix="Kz "
+                    decimals={2}
+                    icon={DollarSign}
+                    gradient="from-destructive/10 via-destructive/5 to-transparent"
+                    delay={0.1}
+                    data-testid="card-kpi-lost-revenue"
+                  />
+                </>
+              )}
+            </div>
+
             {/* Main Charts Section */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
               <div className="xl:col-span-2 space-y-4">
@@ -533,6 +575,7 @@ export default function Reports() {
                           <SelectItem value="em_preparo">Em Preparo</SelectItem>
                           <SelectItem value="pronto">Pronto</SelectItem>
                           <SelectItem value="servido">Servido</SelectItem>
+                          <SelectItem value="cancelado">Cancelado</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

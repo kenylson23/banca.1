@@ -3170,6 +3170,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/reports/cancelled", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      let restaurantId: string;
+      if (currentUser.role === 'superadmin') {
+        const queryRestaurantId = req.query.restaurantId as string;
+        if (!queryRestaurantId) {
+          return res.status(400).json({ message: "Super admin deve fornecer restaurantId como query parameter" });
+        }
+        restaurantId = queryRestaurantId;
+      } else {
+        if (!currentUser.restaurantId) {
+          return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+        }
+        restaurantId = currentUser.restaurantId;
+      }
+
+      const { startDate, endDate } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate e endDate são obrigatórios" });
+      }
+
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(startDate as string) || !dateRegex.test(endDate as string)) {
+        return res.status(400).json({ message: "Formato de data inválido. Use YYYY-MM-DD" });
+      }
+
+      const start = new Date(startDate as string + 'T00:00:00.000Z');
+      const end = new Date(endDate as string + 'T23:59:59.999Z');
+
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return res.status(400).json({ message: "Datas inválidas" });
+      }
+
+      if (start > end) {
+        return res.status(400).json({ message: "A data inicial deve ser anterior à data final" });
+      }
+
+      const branchId = currentUser.role === 'superadmin' ? null : (currentUser.activeBranchId || null);
+      const stats = await storage.getCancelledOrdersStats(restaurantId, branchId, start, end);
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao gerar estatísticas de cancelamentos" });
+    }
+  });
+
   // ===== SALES/VENDAS API ROUTES =====
   
   // Get sales list with filters

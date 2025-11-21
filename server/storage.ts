@@ -2654,7 +2654,7 @@ export class DatabaseStorage implements IStorage {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    // Get today's orders for this restaurant
+    // Get today's orders for this restaurant (excluding cancelled orders)
     let todayOrdersData;
     if (branchId) {
       todayOrdersData = await db
@@ -2664,6 +2664,7 @@ export class DatabaseStorage implements IStorage {
         .where(and(
           eq(orders.restaurantId, restaurantId),
           or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+          ne(orders.status, 'cancelado'),
           gte(orders.createdAt, today)
         ));
     } else {
@@ -2673,6 +2674,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
+          ne(orders.status, 'cancelado'),
           gte(orders.createdAt, today)
         ));
     }
@@ -2687,7 +2689,7 @@ export class DatabaseStorage implements IStorage {
       0
     );
 
-    // Get yesterday's orders for comparison
+    // Get yesterday's orders for comparison (excluding cancelled orders)
     let yesterdayOrdersData;
     if (branchId) {
       yesterdayOrdersData = await db
@@ -2697,6 +2699,7 @@ export class DatabaseStorage implements IStorage {
         .where(and(
           eq(orders.restaurantId, restaurantId),
           or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+          ne(orders.status, 'cancelado'),
           gte(orders.createdAt, yesterday),
           sql`${orders.createdAt} < ${today}`
         ));
@@ -2707,6 +2710,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
+          ne(orders.status, 'cancelado'),
           gte(orders.createdAt, yesterday),
           sql`${orders.createdAt} < ${today}`
         ));
@@ -2816,7 +2820,7 @@ export class DatabaseStorage implements IStorage {
     const periodStart = startDate;
     const periodEnd = endDate;
 
-    // Get orders for the date range
+    // Get orders for the date range (excluding cancelled orders)
     let periodOrdersData;
     if (branchId) {
       periodOrdersData = await db
@@ -2826,6 +2830,7 @@ export class DatabaseStorage implements IStorage {
         .where(and(
           eq(orders.restaurantId, restaurantId),
           or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+          ne(orders.status, 'cancelado'),
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
@@ -2836,6 +2841,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
+          ne(orders.status, 'cancelado'),
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
@@ -2922,6 +2928,7 @@ export class DatabaseStorage implements IStorage {
           .where(and(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+            ne(orders.status, 'cancelado'),
             gte(orders.createdAt, dayStart),
             sql`${orders.createdAt} <= ${dayEnd}`
           ));
@@ -2932,6 +2939,7 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(tables, eq(orders.tableId, tables.id))
           .where(and(
             eq(orders.restaurantId, restaurantId),
+            ne(orders.status, 'cancelado'),
             gte(orders.createdAt, dayStart),
             sql`${orders.createdAt} <= ${dayEnd}`
           ));
@@ -2991,7 +2999,7 @@ export class DatabaseStorage implements IStorage {
         break;
     }
 
-    // Get orders for the period for this restaurant
+    // Get orders for the period for this restaurant (excluding cancelled orders)
     let periodOrdersData;
     if (branchId) {
       periodOrdersData = await db
@@ -3001,6 +3009,7 @@ export class DatabaseStorage implements IStorage {
         .where(and(
           eq(orders.restaurantId, restaurantId),
           or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+          ne(orders.status, 'cancelado'),
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
@@ -3011,6 +3020,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
+          ne(orders.status, 'cancelado'),
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
@@ -3089,8 +3099,11 @@ export class DatabaseStorage implements IStorage {
     const pendingRestaurants = allRestaurants.filter(r => r.status === 'pendente').length;
     const suspendedRestaurants = allRestaurants.filter(r => r.status === 'suspenso').length;
 
-    // Calculate total revenue across all restaurants
-    const allOrders = await db.select().from(orders);
+    // Calculate total revenue across all restaurants (excluding cancelled orders)
+    const allOrders = await db
+      .select()
+      .from(orders)
+      .where(ne(orders.status, 'cancelado'));
     const totalRevenue = allOrders.reduce(
       (sum: number, order: Order) => sum + parseFloat(order.totalAmount),
       0
@@ -3123,6 +3136,7 @@ export class DatabaseStorage implements IStorage {
         .where(and(
           eq(orders.restaurantId, restaurantId),
           or(eq(tables.branchId, branchId), sql`${orders.tableId} IS NULL`),
+          ne(orders.status, 'cancelado'),
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${endDate}`
         ));
@@ -3132,6 +3146,7 @@ export class DatabaseStorage implements IStorage {
         .from(orders)
         .where(and(
           eq(orders.restaurantId, restaurantId),
+          ne(orders.status, 'cancelado'),
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${endDate}`
         ));
@@ -3189,6 +3204,75 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  async getCancelledOrdersStats(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date): Promise<{
+    totalCancelled: number;
+    totalLostRevenue: string;
+    cancelledOrders: Array<Order & {
+      table: { number: number } | null;
+      orderItems: Array<OrderItem & { menuItem: MenuItem }>;
+    }>;
+  }> {
+    let cancelledOrdersData;
+    if (branchId) {
+      cancelledOrdersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          or(eq(tables.branchId, branchId), sql`${orders.tableId} IS NULL`),
+          eq(orders.status, 'cancelado'),
+          gte(orders.createdAt, startDate),
+          sql`${orders.createdAt} <= ${endDate}`
+        ))
+        .orderBy(desc(orders.createdAt));
+    } else {
+      cancelledOrdersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          eq(orders.status, 'cancelado'),
+          gte(orders.createdAt, startDate),
+          sql`${orders.createdAt} <= ${endDate}`
+        ))
+        .orderBy(desc(orders.createdAt));
+    }
+
+    const cancelledOrdersRaw = cancelledOrdersData.map((row: any) => row.orders || row);
+    const totalCancelled = cancelledOrdersRaw.length;
+    const totalLostRevenue = cancelledOrdersRaw.reduce(
+      (sum: number, order: Order) => sum + parseFloat(order.totalAmount),
+      0
+    );
+
+    const cancelledOrders = await Promise.all(
+      cancelledOrdersData.map(async (orderRow: { orders: Order; tables: Table | null }) => {
+        const items = await db
+          .select()
+          .from(orderItems)
+          .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+          .where(eq(orderItems.orderId, orderRow.orders.id));
+
+        return {
+          ...orderRow.orders,
+          table: orderRow.tables ? { number: orderRow.tables.number } : null,
+          orderItems: items.map((item: { order_items: OrderItem; menu_items: MenuItem | null }) => ({
+            ...item.order_items,
+            menuItem: item.menu_items!,
+          })),
+        };
+      })
+    );
+
+    return {
+      totalCancelled,
+      totalLostRevenue: totalLostRevenue.toFixed(2),
+      cancelledOrders,
+    };
+  }
+
   async getOrdersReport(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date, status?: string, orderType?: string): Promise<Array<Order & { 
     table: { number: number } | null;
     orderItems: Array<OrderItem & { menuItem: MenuItem }>;
@@ -3199,8 +3283,16 @@ export class DatabaseStorage implements IStorage {
       sql`${orders.createdAt} <= ${endDate}`
     ];
 
-    if (status && status !== 'todos') {
+    // Handle status filtering
+    if (status === 'cancelado') {
+      // Only show cancelled orders when explicitly requested
+      baseConditions.push(eq(orders.status, 'cancelado'));
+    } else if (status && status !== 'todos') {
+      // Show only orders with specific status
       baseConditions.push(eq(orders.status, status as any));
+    } else {
+      // Default: exclude cancelled orders (when status is 'todos', undefined, or null)
+      baseConditions.push(ne(orders.status, 'cancelado'));
     }
 
     if (orderType && orderType !== 'todos') {
