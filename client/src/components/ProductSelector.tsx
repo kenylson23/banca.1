@@ -93,28 +93,9 @@ export function ProductSelector({ onAddToOrder, onClose }: ProductSelectorProps)
   };
 
   const handleQuickAdd = (item: MenuItemWithDetails) => {
-    // Quick add without options - only if product has no required option groups
-    const hasRequiredOptions = item.optionGroups?.some(group => group.isRequired === 1);
-    
-    if (hasRequiredOptions) {
-      // Open preview if has required options
-      setSelectedProduct(item);
-      setPreviewOpen(true);
-    } else {
-      // Quick add
-      onAddToOrder({
-        menuItemId: item.id,
-        quantity: 1,
-        price: item.price,
-        notes: "",
-        selectedOptions: [],
-      });
-      
-      toast({
-        title: "Produto adicionado",
-        description: `${item.name} foi adicionado ao pedido`,
-      });
-    }
+    // Always open preview panel to allow customization
+    setSelectedProduct(item);
+    setPreviewOpen(true);
   };
 
   const handleProductClick = (item: MenuItemWithDetails) => {
