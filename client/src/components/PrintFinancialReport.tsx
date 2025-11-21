@@ -1,10 +1,20 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Printer } from 'lucide-react';
+import { Printer, ChevronDown } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { FinancialTransaction, CashRegister, FinancialCategory, User } from '@shared/schema';
+import { printerService } from '@/lib/printer-service';
+import { usePrinter } from '@/hooks/usePrinter';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { useToast } from '@/hooks/use-toast';
 
 type TransactionWithDetails = FinancialTransaction & {
   cashRegister: CashRegister | null;
@@ -42,8 +52,68 @@ export function PrintFinancialReport({
 }: PrintFinancialReportProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const isIconOnly = size === 'icon';
+  const { getPrinterByType } = usePrinter();
+  const { toast } = useToast();
+  const [printing, setPrinting] = useState(false);
 
-  const handlePrint = () => {
+  const thermalPrinter = getPrinterByType('receipt');
+
+  const handlePrintThermal = async () => {
+    if (!dateRange?.from || !dateRange?.to) {
+      toast({
+        title: 'Erro ao imprimir',
+        description: 'Período de datas não definido',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setPrinting(true);
+    try {
+      const paymentMethodLabels: Record<string, string> = {
+        dinheiro: 'Dinheiro',
+        multicaixa: 'Multicaixa',
+        transferencia: 'Transferência',
+        cartao: 'Cartão',
+      };
+
+      const summaryItems = [
+        { label: 'Total de Receitas:', value: '+ ' + formatKwanza(summary?.totalIncome || '0'), highlight: false },
+        { label: 'Total de Despesas:', value: '- ' + formatKwanza(summary?.totalExpense || '0'), highlight: false },
+        { label: 'Resultado Líquido:', value: formatKwanza(summary?.netResult || '0'), highlight: true },
+      ];
+
+      const txList = transactions.map(tx => ({
+        date: format(new Date(tx.occurredAt || new Date()), "dd/MM/yy HH:mm", { locale: ptBR }),
+        type: tx.type === 'receita' ? 'Receita' : 'Despesa',
+        description: tx.category?.name || 'Sem categoria',
+        amount: `${tx.type === 'receita' ? '+' : '-'} ${formatKwanza(tx.amount)}`,
+      }));
+
+      await printerService.printFinancialReport('receipt', {
+        title: `${restaurantName}\nRELATÓRIO FINANCEIRO`,
+        period: `${format(dateRange.from, "dd/MM/yyyy", { locale: ptBR })} a ${format(dateRange.to, "dd/MM/yyyy", { locale: ptBR })}`,
+        summary: summaryItems,
+        transactions: txList,
+        footer: 'Documento interno - Sem valor fiscal',
+      });
+
+      toast({
+        title: 'Relatório impresso',
+        description: 'Relatório enviado para impressora térmica',
+      });
+    } catch (error) {
+      toast({
+        title: 'Erro ao imprimir',
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+        variant: 'destructive',
+      });
+    } finally {
+      setPrinting(false);
+    }
+  };
+
+  const handlePrintBrowser = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -264,13 +334,50 @@ export function PrintFinancialReport({
     printWindow.document.close();
   };
 
+  if (thermalPrinter?.status === 'connected' && transactions && transactions.length > 0) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant={variant}
+            size={size}
+            disabled={printing}
+            data-testid="button-print-financial-report"
+            className="gap-1"
+          >
+            <Printer className="h-4 w-4" />
+            {!isIconOnly && "Imprimir"}
+            <ChevronDown className="h-3 w-3" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            onClick={handlePrintThermal}
+            data-testid="menu-item-print-thermal-report"
+          >
+            <Printer className="h-4 w-4 mr-2" />
+            Impressora Térmica
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={handlePrintBrowser}
+            data-testid="menu-item-print-browser-report"
+          >
+            <Printer className="h-4 w-4 mr-2" />
+            Impressão do Navegador
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
   return (
     <Button
       variant={variant}
       size={size}
-      onClick={handlePrint}
+      onClick={handlePrintBrowser}
       data-testid="button-print-financial-report"
-      disabled={!transactions || transactions.length === 0}
+      disabled={!transactions || transactions.length === 0 || printing}
     >
       <Printer className={isIconOnly ? "h-4 w-4" : "h-4 w-4 mr-2"} />
       {!isIconOnly && "Imprimir Relatório"}

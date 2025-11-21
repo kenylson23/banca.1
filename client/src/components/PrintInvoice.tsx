@@ -1,10 +1,20 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Printer } from 'lucide-react';
+import { Printer, ChevronDown } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { Order, OrderItem, MenuItem, Table, Customer, PaymentEvent } from '@shared/schema';
+import { printerService } from '@/lib/printer-service';
+import { usePrinter } from '@/hooks/usePrinter';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { useToast } from '@/hooks/use-toast';
 
 type OrderWithDetails = Order & {
   orderItems?: Array<OrderItem & { 
@@ -36,8 +46,62 @@ export function PrintInvoice({
 }: PrintInvoiceProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const isIconOnly = size === 'icon';
+  const { getPrinterByType } = usePrinter();
+  const { toast } = useToast();
+  const [printing, setPrinting] = useState(false);
 
-  const handlePrint = () => {
+  const thermalPrinter = getPrinterByType('invoice');
+
+  const handlePrintThermal = async () => {
+    setPrinting(true);
+    try {
+      const paymentMethodLabels: Record<string, string> = {
+        dinheiro: 'Dinheiro',
+        multicaixa: 'Multicaixa',
+        transferencia: 'Transferência Bancária',
+        cartao: 'Cartão',
+      };
+
+      const items = order.orderItems?.map(item => ({
+        name: item.menuItem?.name || 'Item',
+        quantity: item.quantity,
+        price: formatKwanza(item.price),
+        total: formatKwanza(parseFloat(item.price) * item.quantity),
+      })) || [];
+
+      const paymentInfo = order.payments && order.payments.length > 0
+        ? order.payments.map(p => paymentMethodLabels[p.paymentMethod as keyof typeof paymentMethodLabels] || p.paymentMethod).join(', ')
+        : undefined;
+
+      await printerService.printInvoice('invoice', {
+        invoiceNumber: order.id.substring(0, 8).toUpperCase(),
+        date: order.createdAt ? format(new Date(order.createdAt), "dd/MM/yyyy", { locale: ptBR }) : format(new Date(), "dd/MM/yyyy", { locale: ptBR }),
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        items,
+        subtotal: formatKwanza(order.subtotal || order.totalAmount),
+        discount: order.discount && parseFloat(order.discount) > 0 ? formatKwanza(order.discount) : undefined,
+        total: formatKwanza(order.totalAmount),
+        paymentInfo,
+        notes: order.orderNotes,
+      });
+
+      toast({
+        title: 'Fatura impressa',
+        description: 'Fatura enviada para impressora térmica',
+      });
+    } catch (error) {
+      toast({
+        title: 'Erro ao imprimir',
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+        variant: 'destructive',
+      });
+    } finally {
+      setPrinting(false);
+    }
+  };
+
+  const handlePrintBrowser = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -379,11 +443,49 @@ export function PrintInvoice({
     printWindow.document.close();
   };
 
+  if (thermalPrinter?.status === 'connected') {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant={variant}
+            size={size}
+            disabled={printing}
+            data-testid={`button-print-invoice-${order.id}`}
+            className="gap-1"
+          >
+            <Printer className="h-4 w-4" />
+            {!isIconOnly && "Imprimir"}
+            <ChevronDown className="h-3 w-3" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            onClick={handlePrintThermal}
+            data-testid={`menu-item-print-thermal-invoice-${order.id}`}
+          >
+            <Printer className="h-4 w-4 mr-2" />
+            Impressora Térmica
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={handlePrintBrowser}
+            data-testid={`menu-item-print-browser-invoice-${order.id}`}
+          >
+            <Printer className="h-4 w-4 mr-2" />
+            Impressão do Navegador
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
   return (
     <Button
       variant={variant}
       size={size}
-      onClick={handlePrint}
+      onClick={handlePrintBrowser}
+      disabled={printing}
       data-testid={`button-print-invoice-${order.id}`}
     >
       <Printer className={isIconOnly ? "h-4 w-4" : "h-4 w-4 mr-2"} />
