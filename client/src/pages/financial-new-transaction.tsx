@@ -290,11 +290,11 @@ export default function FinancialNewTransaction() {
                   <div className="flex items-center gap-2">
                     <CreditCard className="h-4 w-4 text-muted-foreground" />
                     <Label htmlFor="enable-installments" className="text-base font-semibold">
-                      Parcelar Pagamento
+                      Dividir Pagamento
                     </Label>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Dividir o pagamento em várias parcelas
+                    Dividir a conta entre várias pessoas
                   </p>
                 </div>
                 <Switch
@@ -313,7 +313,7 @@ export default function FinancialNewTransaction() {
               {enableInstallments && (
                 <div className="space-y-4 bg-muted/50 p-4 rounded-md">
                   <div className="space-y-2">
-                    <Label htmlFor="installments">Número de Parcelas</Label>
+                    <Label htmlFor="installments">Número de Pessoas</Label>
                     <Input
                       id="installments"
                       type="number"
@@ -328,24 +328,24 @@ export default function FinancialNewTransaction() {
                       placeholder="2"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Entre 2 e 36 parcelas
+                      Entre 2 e 36 pessoas
                     </p>
                   </div>
 
                   {transactionForm.amount && transactionForm.installments && transactionForm.installments > 1 && (
                     <div className="bg-background p-3 rounded-md border">
-                      <div className="text-sm font-medium mb-2">Resumo do Parcelamento</div>
+                      <div className="text-sm font-medium mb-2">Resumo da Divisão</div>
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Valor Total:</span>
                           <span className="font-semibold">{parseFloat(transactionForm.amount).toFixed(2)} AOA</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Número de Parcelas:</span>
+                          <span className="text-muted-foreground">Número de Pessoas:</span>
                           <span className="font-semibold">{transactionForm.installments}x</span>
                         </div>
                         <div className="flex justify-between pt-2 border-t">
-                          <span className="text-muted-foreground">Valor de Cada Parcela:</span>
+                          <span className="text-muted-foreground">Valor por Pessoa:</span>
                           <span className="font-bold text-primary">
                             {(parseFloat(transactionForm.amount) / transactionForm.installments).toFixed(2)} AOA
                           </span>
