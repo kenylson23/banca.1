@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-type OrderStatus = 'pendente' | 'em_preparo' | 'pronto' | 'servido';
+type OrderStatus = 'pendente' | 'em_preparo' | 'pronto' | 'servido' | 'cancelado';
 
 interface StatusBadgeProps {
   status: OrderStatus;
@@ -29,6 +29,11 @@ const statusConfig = {
     variant: 'served' as const,
     label: 'Servido',
     ariaLabel: 'Status: Pedido já foi servido ao cliente',
+  },
+  cancelado: {
+    variant: 'cancelled' as const,
+    label: 'Cancelado',
+    ariaLabel: 'Status: Pedido foi cancelado',
   },
 };
 

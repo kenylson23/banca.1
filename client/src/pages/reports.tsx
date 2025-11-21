@@ -64,6 +64,7 @@ const statusColors = {
   em_preparo: "bg-blue-500",
   pronto: "bg-green-500",
   servido: "bg-gray-500",
+  cancelado: "bg-red-500",
 };
 
 const statusLabels = {
@@ -71,6 +72,7 @@ const statusLabels = {
   em_preparo: "Em Preparo",
   pronto: "Pronto",
   servido: "Servido",
+  cancelado: "Cancelado",
 };
 
 const typeLabels = {
