@@ -21,6 +21,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { indexedDB } from "@/lib/indexeddb";
 import { formatKwanza } from "@/lib/formatters";
+import { ProductOptionsDialog, type OptionGroup, type SelectedOption } from "@/components/product-options-dialog";
 
 const newOrderFormSchema = insertOrderSchema.extend({
   orderType: z.enum(["mesa", "delivery", "takeout", "balcao", "pdv"]),
@@ -41,6 +42,7 @@ interface MenuItem {
     id: string;
     name: string;
   } | null;
+  optionGroups?: OptionGroup[];
 }
 
 interface OrderItem {
@@ -48,6 +50,7 @@ interface OrderItem {
   name: string;
   price: number;
   quantity: number;
+  selectedOptions?: SelectedOption[];
 }
 
 interface NormalizedMenuItem extends Omit<MenuItem, 'isAvailable'> {
@@ -75,6 +78,8 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [productSearchQuery, setProductSearchQuery] = useState("");
   const [receiptNumber, setReceiptNumber] = useState(Math.floor(Math.random() * 90000) + 10000);
+  const [optionsDialogOpen, setOptionsDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<NormalizedMenuItem | null>(null);
   const { toast } = useToast();
 
   // Generate new receipt number when dialog opens
@@ -177,7 +182,10 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
         quantity: item.quantity,
         price: item.price.toString(),
         notes: "",
-        selectedOptions: [],
+        selectedOptions: item.selectedOptions?.map(opt => ({
+          optionId: opt.optionId,
+          optionGroupId: opt.optionGroupId,
+        })) || [],
       }));
       
       if (isOnline) {
@@ -283,11 +291,20 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
     },
   });
 
-  const addToCart = (item: MenuItem) => {
-    const existing = cart.find((i) => i.menuItemId === item.id);
+  const addToCart = (item: NormalizedMenuItem) => {
+    // Verificar se o produto tem grupos de opções
+    if (item.optionGroups && item.optionGroups.length > 0) {
+      // Abrir diálogo de seleção de opções
+      setSelectedProduct(item);
+      setOptionsDialogOpen(true);
+      return;
+    }
+
+    // Produto sem opções: adicionar direto ao carrinho
+    const existing = cart.find((i) => i.menuItemId === item.id && !i.selectedOptions);
     if (existing) {
       setCart(cart.map((i) => 
-        i.menuItemId === item.id 
+        i.menuItemId === item.id && !i.selectedOptions
           ? { ...i, quantity: i.quantity + 1 } 
           : i
       ));
@@ -301,17 +318,36 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
     }
   };
 
-  const removeFromCart = (menuItemId: string) => {
-    setCart(cart.filter((i) => i.menuItemId !== menuItemId));
+  const handleOptionsConfirm = (selectedOptions: SelectedOption[]) => {
+    if (!selectedProduct) return;
+
+    // Calcular preço total com opções
+    const optionsTotal = selectedOptions.reduce((sum, opt) => sum + opt.priceAdjustment, 0);
+    const totalPrice = parseFloat(selectedProduct.price) + optionsTotal;
+
+    // Adicionar ao carrinho com opções
+    setCart([...cart, {
+      menuItemId: selectedProduct.id,
+      name: selectedProduct.name,
+      price: totalPrice,
+      quantity: 1,
+      selectedOptions,
+    }]);
+
+    setSelectedProduct(null);
   };
 
-  const updateQuantity = (menuItemId: string, delta: number) => {
-    setCart(cart.map((i) => {
-      if (i.menuItemId === menuItemId) {
-        const newQuantity = Math.max(0, i.quantity + delta);
-        return newQuantity === 0 ? null : { ...i, quantity: newQuantity };
+  const removeFromCart = (index: number) => {
+    setCart(cart.filter((_, i) => i !== index));
+  };
+
+  const updateQuantity = (index: number, delta: number) => {
+    setCart(cart.map((item, i) => {
+      if (i === index) {
+        const newQuantity = Math.max(0, item.quantity + delta);
+        return newQuantity === 0 ? null : { ...item, quantity: newQuantity };
       }
-      return i;
+      return item;
     }).filter(Boolean) as OrderItem[]);
   };
 
@@ -685,13 +721,27 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                               Nenhum item adicionado
                             </p>
                           ) : (
-                            cart.map((item) => (
-                              <Card key={item.menuItemId} data-testid={`cart-item-${item.menuItemId}`}>
+                            cart.map((item, index) => (
+                              <Card key={`${item.menuItemId}-${index}`} data-testid={`cart-item-${item.menuItemId}`}>
                                 <CardContent className="p-3">
                                   <div className="flex items-start justify-between gap-2 mb-2">
                                     <div className="flex-1 min-w-0">
                                       <p className="font-medium text-sm truncate">{item.name}</p>
-                                      <p className="text-xs text-muted-foreground">
+                                      {item.selectedOptions && item.selectedOptions.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                          {item.selectedOptions.map((opt) => (
+                                            <Badge 
+                                              key={opt.optionId} 
+                                              variant="secondary" 
+                                              className="text-xs"
+                                            >
+                                              {opt.name}
+                                              {opt.priceAdjustment !== 0 && ` (+${formatKwanza(opt.priceAdjustment)})`}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      )}
+                                      <p className="text-xs text-muted-foreground mt-1">
                                         {formatKwanza(item.price)} × {item.quantity}
                                       </p>
                                     </div>
@@ -706,7 +756,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                                       size="icon"
                                       variant="outline"
                                       className="h-7 w-7"
-                                      onClick={() => updateQuantity(item.menuItemId, -1)}
+                                      onClick={() => updateQuantity(index, -1)}
                                       data-testid={`button-decrease-${item.menuItemId}`}
                                     >
                                       <Minus className="h-3 w-3" />
@@ -717,7 +767,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                                       size="icon"
                                       variant="outline"
                                       className="h-7 w-7"
-                                      onClick={() => updateQuantity(item.menuItemId, 1)}
+                                      onClick={() => updateQuantity(index, 1)}
                                       data-testid={`button-increase-${item.menuItemId}`}
                                     >
                                       <Plus className="h-3 w-3" />
@@ -727,7 +777,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                                       size="icon"
                                       variant="ghost"
                                       className="h-7 w-7 ml-auto"
-                                      onClick={() => removeFromCart(item.menuItemId)}
+                                      onClick={() => removeFromCart(index)}
                                       data-testid={`button-remove-${item.menuItemId}`}
                                     >
                                       <X className="h-3 w-3" />
@@ -827,6 +877,18 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
           </div>
         </div>
       </DialogContent>
+
+      {/* Product Options Dialog */}
+      {selectedProduct && (
+        <ProductOptionsDialog
+          open={optionsDialogOpen}
+          onOpenChange={setOptionsDialogOpen}
+          productName={selectedProduct.name}
+          basePrice={parseFloat(selectedProduct.price)}
+          optionGroups={selectedProduct.optionGroups || []}
+          onConfirm={handleOptionsConfirm}
+        />
+      )}
     </Dialog>
   );
 }

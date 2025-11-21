@@ -187,7 +187,7 @@ export interface IStorage {
   deleteCategory(restaurantId: string, id: string): Promise<void>;
 
   // Menu item operations
-  getMenuItems(restaurantId: string, branchId?: string | null): Promise<Array<MenuItem & { category: Category }>>;
+  getMenuItems(restaurantId: string, branchId?: string | null): Promise<Array<MenuItem & { category: Category; optionGroups?: Array<OptionGroup & { options: Option[] }> }>>;
   getMenuItemById(id: string): Promise<MenuItem | undefined>;
   createMenuItem(restaurantId: string, branchId: string | null, item: Omit<InsertMenuItem, 'restaurantId'>): Promise<MenuItem>;
   updateMenuItem(restaurantId: string, id: string, item: Partial<InsertMenuItem>): Promise<MenuItem>;
@@ -1274,7 +1274,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Menu item operations
-  async getMenuItems(restaurantId: string, branchId?: string | null): Promise<Array<MenuItem & { category: Category }>> {
+  async getMenuItems(restaurantId: string, branchId?: string | null): Promise<Array<MenuItem & { category: Category; optionGroups?: Array<OptionGroup & { options: Option[] }> }>> {
     let results;
     if (branchId) {
       // Retorna itens compartilhados (branchId = null) + itens específicos da filial
@@ -1301,10 +1301,23 @@ export class DatabaseStorage implements IStorage {
         .orderBy(categories.displayOrder, categories.name, menuItems.displayOrder, menuItems.name);
     }
 
-    return results.map((row: { menu_items: MenuItem; categories: Category | null }) => ({
+    const items = results.map((row: { menu_items: MenuItem; categories: Category | null }) => ({
       ...row.menu_items,
       category: row.categories!,
     }));
+
+    // Buscar option groups para cada item do menu
+    const itemsWithOptions = await Promise.all(
+      items.map(async (item: MenuItem & { category: Category }) => {
+        const optionGroups = await this.getOptionGroupsByMenuItem(item.id);
+        return {
+          ...item,
+          optionGroups: optionGroups.length > 0 ? optionGroups : undefined,
+        };
+      })
+    );
+
+    return itemsWithOptions;
   }
 
   async getMenuItemById(id: string): Promise<MenuItem | undefined> {
