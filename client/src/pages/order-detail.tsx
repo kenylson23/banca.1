@@ -1156,7 +1156,7 @@ function PaymentForm({
   paidAmount,
   isPending,
 }: {
-  onSubmit: (data: { amount: string; paymentMethod: string; receivedAmount?: string; installments?: number }) => void;
+  onSubmit: (data: { amount: string; paymentMethod: string; receivedAmount?: string }) => void;
   totalAmount: number;
   paidAmount: number;
   isPending?: boolean;
@@ -1165,11 +1165,11 @@ function PaymentForm({
   const [amount, setAmount] = useState(remaining.toString());
   const [paymentMethod, setPaymentMethod] = useState("dinheiro");
   const [receivedAmount, setReceivedAmount] = useState("");
-  const [enableInstallments, setEnableInstallments] = useState(false);
-  const [installments, setInstallments] = useState("1");
+  const [enableSplit, setEnableSplit] = useState(false);
+  const [numberOfPeople, setNumberOfPeople] = useState("2");
 
-  const installmentValue = enableInstallments && Number(installments) > 1 
-    ? Number(amount) / Number(installments) 
+  const splitAmount = enableSplit && Number(numberOfPeople) > 1 
+    ? remaining / Number(numberOfPeople) 
     : 0;
 
   return (
@@ -1190,6 +1190,71 @@ function PaymentForm({
       </div>
 
       <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="enable-split"
+            checked={enableSplit}
+            onChange={(e) => {
+              setEnableSplit(e.target.checked);
+              if (e.target.checked) {
+                setAmount(splitAmount.toFixed(2));
+              } else {
+                setAmount(remaining.toString());
+              }
+            }}
+            className="rounded"
+            data-testid="checkbox-enable-split"
+          />
+          <Label htmlFor="enable-split" className="cursor-pointer">
+            Dividir conta entre pessoas
+          </Label>
+        </div>
+
+        {enableSplit && (
+          <>
+            <div className="space-y-2">
+              <Label>Número de Pessoas</Label>
+              <Select 
+                value={numberOfPeople} 
+                onValueChange={(value) => {
+                  setNumberOfPeople(value);
+                  setAmount((remaining / Number(value)).toFixed(2));
+                }}
+              >
+                <SelectTrigger data-testid="select-people">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 10 }, (_, i) => i + 2).map((num) => (
+                    <SelectItem key={num} value={num.toString()}>
+                      {num} pessoas ({formatKwanza(remaining / num)} cada)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {Number(numberOfPeople) > 1 && (
+              <div className="p-3 rounded-md bg-muted text-sm">
+                <div className="flex justify-between mb-1">
+                  <span>Total de pessoas:</span>
+                  <span className="font-semibold">{numberOfPeople}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Valor por pessoa:</span>
+                  <span className="font-semibold">{formatKwanza(splitAmount)}</span>
+                </div>
+                <div className="mt-2 pt-2 border-t border-border text-xs text-muted-foreground">
+                  💡 Registre o pagamento de cada pessoa individualmente
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="space-y-2">
         <Label>Método de Pagamento</Label>
         <Select value={paymentMethod} onValueChange={setPaymentMethod}>
           <SelectTrigger data-testid="select-payment-method">
@@ -1205,7 +1270,7 @@ function PaymentForm({
       </div>
 
       <div className="space-y-2">
-        <Label>Valor a Pagar</Label>
+        <Label>Valor a Pagar {enableSplit && "(Desta Pessoa)"}</Label>
         <Input
           type="number"
           value={amount}
@@ -1233,66 +1298,11 @@ function PaymentForm({
         </div>
       )}
 
-      {(paymentMethod === "multicaixa" || paymentMethod === "cartao") && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="enable-installments"
-              checked={enableInstallments}
-              onChange={(e) => {
-                setEnableInstallments(e.target.checked);
-                if (!e.target.checked) setInstallments("1");
-              }}
-              className="rounded"
-              data-testid="checkbox-enable-installments"
-            />
-            <Label htmlFor="enable-installments" className="cursor-pointer">
-              Dividir pagamento
-            </Label>
-          </div>
-
-          {enableInstallments && (
-            <>
-              <div className="space-y-2">
-                <Label>Número de Parcelas</Label>
-                <Select value={installments} onValueChange={setInstallments}>
-                  <SelectTrigger data-testid="select-installments">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((num) => (
-                      <SelectItem key={num} value={num.toString()}>
-                        {num}x {formatKwanza(Number(amount) / num)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {Number(installments) > 1 && (
-                <div className="p-3 rounded-md bg-muted text-sm">
-                  <div className="flex justify-between mb-1">
-                    <span>Parcelas:</span>
-                    <span className="font-semibold">{installments}x</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Valor por parcela:</span>
-                    <span className="font-semibold">{formatKwanza(installmentValue)}</span>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
       <Button
         onClick={() => onSubmit({ 
           amount, 
           paymentMethod, 
-          receivedAmount: receivedAmount || undefined,
-          installments: enableInstallments ? Number(installments) : undefined
+          receivedAmount: receivedAmount || undefined
         })}
         className="w-full"
         disabled={isPending || Number(amount) <= 0}

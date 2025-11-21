@@ -224,7 +224,6 @@ export interface IStorage {
     amount: string;
     paymentMethod: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
     receivedAmount?: string;
-    installments?: number;
   }, userId?: string): Promise<Order>;
   calculateOrderTotal(orderId: string): Promise<Order>;
   cancelOrder(restaurantId: string, orderId: string, cancellationReason: string, userId?: string): Promise<Order>;
@@ -2098,7 +2097,6 @@ export class DatabaseStorage implements IStorage {
     amount: string;
     paymentMethod: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
     receivedAmount?: string;
-    installments?: number;
   }, userId?: string): Promise<Order> {
     const order = await this.getOrderById(restaurantId, orderId);
     if (!order) {
@@ -2215,85 +2213,24 @@ export class DatabaseStorage implements IStorage {
           }
         }
 
-        // Criar transações financeiras (com suporte a parcelamento)
-        const installmentsCount = data.installments && data.installments > 1 ? data.installments : 1;
-        
-        if (installmentsCount > 1) {
-          // Criar transação pai para o parcelamento
-          const [parentTransaction] = await tx
-            .insert(financialTransactions)
-            .values({
-              restaurantId,
-              recordedByUserId: userId,
-              branchId: order.branchId || null,
-              cashRegisterId: cashRegisterId,
-              shiftId: shiftId,
-              categoryId,
-              type: 'receita',
-              origin: order.orderType === 'pdv' || order.orderType === 'balcao' ? 'pdv' : 'web',
-              description: `Venda Parcelada - Pedido #${orderId.substring(0, 8)} (${installmentsCount}x)`,
-              paymentMethod: data.paymentMethod,
-              amount: data.amount,
-              referenceOrderId: orderId,
-              occurredAt: new Date(),
-              note: order.orderNotes || null,
-              totalInstallments: installmentsCount,
-              installmentNumber: 0, // Transação pai
-            })
-            .returning();
-          
-          // Criar transações filhas para cada parcela
-          const installmentAmount = parseFloat(data.amount) / installmentsCount;
-          const installmentTransactions = [];
-          
-          for (let i = 1; i <= installmentsCount; i++) {
-            installmentTransactions.push({
-              restaurantId,
-              recordedByUserId: userId,
-              branchId: order.branchId || null,
-              cashRegisterId: i === 1 ? cashRegisterId : null, // Apenas primeira parcela vincula ao caixa
-              shiftId: i === 1 ? shiftId : null,
-              categoryId,
-              type: 'receita' as const,
-              origin: (order.orderType === 'pdv' || order.orderType === 'balcao' ? 'pdv' : 'web') as const,
-              description: `Parcela ${i}/${installmentsCount} - Pedido #${orderId.substring(0, 8)}`,
-              paymentMethod: data.paymentMethod,
-              amount: installmentAmount.toFixed(2),
-              referenceOrderId: orderId,
-              occurredAt: new Date(),
-              note: order.orderNotes || null,
-              totalInstallments: installmentsCount,
-              installmentNumber: i,
-              parentTransactionId: parentTransaction.id,
-            });
-          }
-          
-          await tx
-            .insert(financialTransactions)
-            .values(installmentTransactions);
-        } else {
-          // Pagamento à vista (sem parcelamento)
-          await tx
-            .insert(financialTransactions)
-            .values({
-              restaurantId,
-              recordedByUserId: userId,
-              branchId: order.branchId || null,
-              cashRegisterId: cashRegisterId,
-              shiftId: shiftId,
-              categoryId,
-              type: 'receita',
-              origin: order.orderType === 'pdv' || order.orderType === 'balcao' ? 'pdv' : 'web',
-              description: `Venda - Pedido #${orderId.substring(0, 8)}`,
-              paymentMethod: data.paymentMethod,
-              amount: data.amount,
-              referenceOrderId: orderId,
-              occurredAt: new Date(),
-              note: order.orderNotes || null,
-              totalInstallments: 1,
-              installmentNumber: 1,
-            });
-        }
+        await tx
+          .insert(financialTransactions)
+          .values({
+            restaurantId,
+            recordedByUserId: userId,
+            branchId: order.branchId || null,
+            cashRegisterId: cashRegisterId,
+            shiftId: shiftId,
+            categoryId,
+            type: 'receita',
+            origin: order.orderType === 'pdv' || order.orderType === 'balcao' ? 'pdv' : 'web',
+            description: `Venda - Pedido #${orderId.substring(0, 8)}`,
+            paymentMethod: data.paymentMethod,
+            amount: data.amount,
+            referenceOrderId: orderId,
+            occurredAt: new Date(),
+            note: order.orderNotes || null,
+          });
       }
 
       // Atualizar estatísticas básicas do cliente quando pedido é pago
