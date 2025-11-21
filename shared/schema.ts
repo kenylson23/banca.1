@@ -1637,6 +1637,9 @@ export const financialTransactions = pgTable("financial_transactions", {
   referenceOrderId: varchar("reference_order_id").references(() => orders.id, { onDelete: 'set null' }),
   occurredAt: timestamp("occurred_at").notNull(),
   note: text("note"),
+  totalInstallments: integer("total_installments").default(1),
+  installmentNumber: integer("installment_number").default(1),
+  parentTransactionId: varchar("parent_transaction_id").references((): any => financialTransactions.id, { onDelete: 'cascade' }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1644,6 +1647,9 @@ export const insertFinancialTransactionSchema = createInsertSchema(financialTran
   id: true,
   restaurantId: true,
   recordedByUserId: true,
+  totalInstallments: true,
+  installmentNumber: true,
+  parentTransactionId: true,
   createdAt: true,
 }).extend({
   branchId: z.string().optional().nullable(),
@@ -1658,6 +1664,7 @@ export const insertFinancialTransactionSchema = createInsertSchema(financialTran
   referenceOrderId: z.string().optional().nullable(),
   occurredAt: z.string().min(1, "Data e hora são obrigatórias"),
   note: z.string().optional(),
+  installments: z.number().int().min(1).max(36).optional(),
 });
 
 export type InsertFinancialTransaction = z.infer<typeof insertFinancialTransactionSchema>;
