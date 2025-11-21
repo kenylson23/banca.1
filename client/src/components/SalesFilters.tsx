@@ -142,6 +142,7 @@ export function SalesFilters({
                 <SelectItem value="em_preparo">Em preparação</SelectItem>
                 <SelectItem value="pronto">Pronto</SelectItem>
                 <SelectItem value="servido">Servido</SelectItem>
+                <SelectItem value="cancelado">Cancelado</SelectItem>
               </SelectContent>
             </Select>
           </div>

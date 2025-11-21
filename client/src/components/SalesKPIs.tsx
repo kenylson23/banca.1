@@ -21,6 +21,7 @@ interface SalesStats {
   paidOrders: number;
   pendingOrders: number;
   cancelledOrders: number;
+  cancelledRevenue: number;
 }
 
 export function SalesKPIs({
@@ -146,7 +147,7 @@ export function SalesKPIs({
       <Card data-testid="card-cancelled-orders" className="shadow-sm hover:shadow-md transition-shadow">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            Anulações
+            Cancelamentos
           </CardTitle>
           <div className="p-2.5 rounded-lg bg-destructive/10">
             <BarChart3 className="h-5 w-5 text-destructive" />
@@ -157,7 +158,7 @@ export function SalesKPIs({
             {stats?.cancelledOrders || 0}
           </div>
           <p className="text-sm text-muted-foreground mt-2">
-            Pedidos cancelados
+            Receita perdida: {formatKwanza(stats?.cancelledRevenue || 0)}
           </p>
         </CardContent>
       </Card>

@@ -42,6 +42,7 @@ const getOrderStatusLabel = (status: string) => {
     em_preparo: 'Em preparação',
     pronto: 'Pronto',
     servido: 'Servido',
+    cancelado: 'Cancelado',
   };
   return labels[status] || status;
 };
@@ -55,12 +56,13 @@ const getPaymentStatusLabel = (status: string) => {
   return labels[status] || status;
 };
 
-const getOrderStatusVariant = (status: string): 'pending' | 'in-progress' | 'ready' | 'served' | 'default' => {
-  const variants: Record<string, 'pending' | 'in-progress' | 'ready' | 'served' | 'default'> = {
+const getOrderStatusVariant = (status: string): 'pending' | 'in-progress' | 'ready' | 'served' | 'cancelled' | 'default' => {
+  const variants: Record<string, 'pending' | 'in-progress' | 'ready' | 'served' | 'cancelled' | 'default'> = {
     pendente: 'pending',
     em_preparo: 'in-progress',
     pronto: 'ready',
     servido: 'served',
+    cancelado: 'cancelled',
   };
   return variants[status] || 'default';
 };
