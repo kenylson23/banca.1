@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Check, Plus, AlertCircle } from "lucide-react";
+import { Check, Plus, Minus, AlertCircle } from "lucide-react";
 import { formatKwanza } from "@/lib/formatters";
 
 export interface OptionGroup {
@@ -58,23 +58,53 @@ export function ProductOptionsDialog({
   onConfirm,
 }: ProductOptionsDialogProps) {
   const [selectedOptions, setSelectedOptions] = useState<Map<string, Set<string>>>(new Map());
+  const [optionQuantities, setOptionQuantities] = useState<Map<string, number>>(new Map());
 
   const toggleOption = (groupId: string, optionId: string, groupType: "single" | "multiple") => {
     const newSelected = new Map(selectedOptions);
     const currentGroup = newSelected.get(groupId) || new Set<string>();
 
     if (groupType === "single") {
+      // Para single, desmarcar a opção anterior e marcar a nova
+      const oldSelection = newSelected.get(groupId);
+      if (oldSelection) {
+        oldSelection.forEach(oldId => {
+          const newQty = new Map(optionQuantities);
+          newQty.delete(oldId);
+          setOptionQuantities(newQty);
+        });
+      }
       newSelected.set(groupId, new Set([optionId]));
+      // Inicializar quantidade como 1
+      const newQty = new Map(optionQuantities);
+      newQty.set(optionId, 1);
+      setOptionQuantities(newQty);
     } else {
       if (currentGroup.has(optionId)) {
         currentGroup.delete(optionId);
+        // Remover quantidade ao desmarcar
+        const newQty = new Map(optionQuantities);
+        newQty.delete(optionId);
+        setOptionQuantities(newQty);
       } else {
         currentGroup.add(optionId);
+        // Inicializar quantidade como 1
+        const newQty = new Map(optionQuantities);
+        newQty.set(optionId, 1);
+        setOptionQuantities(newQty);
       }
       newSelected.set(groupId, currentGroup);
     }
 
     setSelectedOptions(newSelected);
+  };
+
+  const updateOptionQuantity = (optionId: string, delta: number) => {
+    const newQty = new Map(optionQuantities);
+    const current = newQty.get(optionId) || 1;
+    const updated = Math.max(1, current + delta);
+    newQty.set(optionId, updated);
+    setOptionQuantities(newQty);
   };
 
   const validation = useMemo(() => {
@@ -114,13 +144,14 @@ export function ProductOptionsDialog({
       optionIds.forEach((optionId) => {
         const option = group.options.find((o) => o.id === optionId);
         if (option) {
-          total += parseFloat(option.priceAdjustment);
+          const quantity = optionQuantities.get(optionId) || 1;
+          total += parseFloat(option.priceAdjustment) * quantity;
         }
       });
     });
 
     return total;
-  }, [basePrice, selectedOptions, optionGroups]);
+  }, [basePrice, selectedOptions, optionGroups, optionQuantities]);
 
   const handleConfirm = () => {
     if (!validation.isValid) return;
@@ -140,7 +171,7 @@ export function ProductOptionsDialog({
             optionName: option.name,
             optionGroupName: group.name,
             priceAdjustment: option.priceAdjustment,
-            quantity: 1,
+            quantity: optionQuantities.get(optionId) || 1,
           });
         }
       });
@@ -148,11 +179,13 @@ export function ProductOptionsDialog({
 
     onConfirm(result);
     setSelectedOptions(new Map());
+    setOptionQuantities(new Map());
     onOpenChange(false);
   };
 
   const handleCancel = () => {
     setSelectedOptions(new Map());
+    setOptionQuantities(new Map());
     onOpenChange(false);
   };
 
@@ -221,13 +254,15 @@ export function ProductOptionsDialog({
                             .map((option) => (
                               <Card
                                 key={option.id}
-                                className={`p-3 cursor-pointer hover-elevate transition-all ${
+                                className={`p-3 ${
                                   selected.has(option.id) ? "border-primary" : ""
                                 }`}
-                                onClick={() => toggleOption(group.id, option.id, "single")}
                                 data-testid={`option-${option.id}`}
                               >
-                                <div className="flex items-center gap-3">
+                                <div 
+                                  className="flex items-center gap-3 cursor-pointer"
+                                  onClick={() => toggleOption(group.id, option.id, "single")}
+                                >
                                   <RadioGroupItem value={option.id} id={option.id} />
                                   <Label
                                     htmlFor={option.id}
@@ -249,6 +284,42 @@ export function ProductOptionsDialog({
                                     )}
                                   </Label>
                                 </div>
+                                {selected.has(option.id) && (
+                                  <div className="flex items-center gap-2 mt-2 pt-2 border-t">
+                                    <span className="text-sm text-muted-foreground">Porções:</span>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="outline"
+                                        className="h-7 w-7"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          updateOptionQuantity(option.id, -1);
+                                        }}
+                                        data-testid={`button-decrease-${option.id}`}
+                                      >
+                                        <Minus className="h-3 w-3" />
+                                      </Button>
+                                      <span className="text-sm font-medium w-8 text-center">
+                                        {optionQuantities.get(option.id) || 1}
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="outline"
+                                        className="h-7 w-7"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          updateOptionQuantity(option.id, 1);
+                                        }}
+                                        data-testid={`button-increase-${option.id}`}
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
                               </Card>
                             ))}
                         </RadioGroup>
@@ -259,13 +330,15 @@ export function ProductOptionsDialog({
                             .map((option) => (
                               <Card
                                 key={option.id}
-                                className={`p-3 cursor-pointer hover-elevate transition-all ${
+                                className={`p-3 ${
                                   selected.has(option.id) ? "border-primary" : ""
                                 }`}
-                                onClick={() => toggleOption(group.id, option.id, "multiple")}
                                 data-testid={`option-${option.id}`}
                               >
-                                <div className="flex items-center gap-3">
+                                <div 
+                                  className="flex items-center gap-3 cursor-pointer"
+                                  onClick={() => toggleOption(group.id, option.id, "multiple")}
+                                >
                                   <Checkbox
                                     id={option.id}
                                     checked={selected.has(option.id)}
@@ -293,6 +366,42 @@ export function ProductOptionsDialog({
                                     )}
                                   </Label>
                                 </div>
+                                {selected.has(option.id) && (
+                                  <div className="flex items-center gap-2 mt-2 pt-2 border-t">
+                                    <span className="text-sm text-muted-foreground">Porções:</span>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="outline"
+                                        className="h-7 w-7"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          updateOptionQuantity(option.id, -1);
+                                        }}
+                                        data-testid={`button-decrease-${option.id}`}
+                                      >
+                                        <Minus className="h-3 w-3" />
+                                      </Button>
+                                      <span className="text-sm font-medium w-8 text-center">
+                                        {optionQuantities.get(option.id) || 1}
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="outline"
+                                        className="h-7 w-7"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          updateOptionQuantity(option.id, 1);
+                                        }}
+                                        data-testid={`button-increase-${option.id}`}
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
                               </Card>
                             ))}
                         </div>
