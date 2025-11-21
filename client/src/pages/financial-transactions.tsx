@@ -36,6 +36,8 @@ import { AdvancedFilters, type FilterOption } from "@/components/advanced-filter
 import { ShimmerSkeleton } from "@/components/shimmer-skeleton";
 import { DateRange } from "react-day-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { PrintPayment } from "@/components/PrintPayment";
+import { PrintFinancialReport } from "@/components/PrintFinancialReport";
 
 type TransactionWithDetails = FinancialTransaction & {
   cashRegister: CashRegister | null;
@@ -59,66 +61,63 @@ export default function FinancialTransactions() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all');
   const [deleteTransactionId, setDeleteTransactionId] = useState<string | null>(null);
 
-  const transactionParams = useMemo(() => {
+  const { transactionParams, actualDateRange } = useMemo(() => {
     const params: any = {};
+    const now = new Date();
+    let actualStart: Date = new Date(now);
+    actualStart.setHours(0, 0, 0, 0);
+    let actualEnd: Date = new Date(now);
+    actualEnd.setHours(23, 59, 59, 999);
 
     if (dateRange?.from) {
-      const startDate = new Date(dateRange.from);
-      startDate.setHours(0, 0, 0, 0);
-      params.startDate = startDate.toISOString();
+      actualStart = new Date(dateRange.from);
+      actualStart.setHours(0, 0, 0, 0);
+      params.startDate = actualStart.toISOString();
       
       if (dateRange.to) {
-        const endDate = new Date(dateRange.to);
-        endDate.setHours(23, 59, 59, 999);
-        params.endDate = endDate.toISOString();
+        actualEnd = new Date(dateRange.to);
+        actualEnd.setHours(23, 59, 59, 999);
+        params.endDate = actualEnd.toISOString();
       } else {
-        const endDate = new Date(dateRange.from);
-        endDate.setHours(23, 59, 59, 999);
-        params.endDate = endDate.toISOString();
+        actualEnd = new Date(dateRange.from);
+        actualEnd.setHours(23, 59, 59, 999);
+        params.endDate = actualEnd.toISOString();
       }
     } else {
-      let startDate: Date;
-      let endDate: Date;
-
       switch (quickFilter) {
-        case 'today':
-          startDate = new Date();
-          startDate.setHours(0, 0, 0, 0);
-          endDate = new Date();
-          endDate.setHours(23, 59, 59, 999);
-          break;
         case 'week':
-          startDate = startOfWeek(new Date(), { weekStartsOn: 1 });
-          endDate = endOfWeek(new Date(), { weekStartsOn: 1 });
-          endDate.setHours(23, 59, 59, 999);
+          actualStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+          actualEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+          actualEnd.setHours(23, 59, 59, 999);
           break;
         case 'month':
-          startDate = startOfMonth(new Date());
-          endDate = endOfMonth(new Date());
-          endDate.setHours(23, 59, 59, 999);
+          actualStart = startOfMonth(new Date());
+          actualEnd = endOfMonth(new Date());
+          actualEnd.setHours(23, 59, 59, 999);
           break;
         case '3months':
-          startDate = new Date();
-          startDate.setMonth(startDate.getMonth() - 3);
-          startDate.setHours(0, 0, 0, 0);
-          endDate = new Date();
-          endDate.setHours(23, 59, 59, 999);
+          actualStart = new Date();
+          actualStart.setMonth(actualStart.getMonth() - 3);
+          actualStart.setHours(0, 0, 0, 0);
+          actualEnd = new Date();
+          actualEnd.setHours(23, 59, 59, 999);
           break;
         case 'year':
-          startDate = startOfYear(new Date());
-          endDate = endOfYear(new Date());
-          endDate.setHours(23, 59, 59, 999);
+          actualStart = startOfYear(new Date());
+          actualEnd = endOfYear(new Date());
+          actualEnd.setHours(23, 59, 59, 999);
           break;
+        case 'today':
         default:
-          startDate = new Date();
-          startDate.setHours(0, 0, 0, 0);
-          endDate = new Date();
-          endDate.setHours(23, 59, 59, 999);
+          actualStart = new Date();
+          actualStart.setHours(0, 0, 0, 0);
+          actualEnd = new Date();
+          actualEnd.setHours(23, 59, 59, 999);
           break;
       }
       
-      params.startDate = startDate.toISOString();
-      params.endDate = endDate.toISOString();
+      params.startDate = actualStart.toISOString();
+      params.endDate = actualEnd.toISOString();
     }
 
     if (selectedCashRegister !== 'all') {
@@ -129,7 +128,10 @@ export default function FinancialTransactions() {
       params.paymentMethod = selectedPaymentMethod;
     }
 
-    return params;
+    return {
+      transactionParams: params,
+      actualDateRange: { from: actualStart, to: actualEnd }
+    };
   }, [dateRange, quickFilter, selectedCashRegister, selectedPaymentMethod]);
 
   const handleQuickFilterChange = (filter: FilterOption) => {
@@ -228,6 +230,15 @@ export default function FinancialTransactions() {
                   Categorias
                 </Button>
               </Link>
+              {transactions && transactions.length > 0 && summary && (
+                <PrintFinancialReport
+                  transactions={transactions}
+                  summary={summary}
+                  dateRange={actualDateRange}
+                  variant="outline"
+                  size="default"
+                />
+              )}
               <Link href="/financial/new">
                 <Button data-testid="button-new-transaction">
                   <Plus className="h-4 w-4 mr-2" />
@@ -450,7 +461,12 @@ export default function FinancialTransactions() {
                             )}
                           </div>
 
-                          <div className="flex-shrink-0">
+                          <div className="flex-shrink-0 flex gap-1">
+                            <PrintPayment
+                              transaction={transaction}
+                              variant="ghost"
+                              size="icon"
+                            />
                             <Button
                               variant="ghost"
                               size="icon"

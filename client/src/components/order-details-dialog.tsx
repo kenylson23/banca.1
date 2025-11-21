@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PrintOrder } from "@/components/PrintOrder";
+import { PrintInvoice } from "@/components/PrintInvoice";
 import { formatKwanza } from "@/lib/formatters";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -75,7 +76,10 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
               <span className="text-orange-500">Pedido #{order.id.slice(-8).toUpperCase()}</span>
               <OrderTypeIcon className="h-5 w-5 text-orange-500" />
             </div>
-            <PrintOrder order={order} variant="default" size="sm" />
+            <div className="flex gap-2">
+              <PrintInvoice order={order} variant="outline" size="sm" />
+              <PrintOrder order={order} variant="default" size="sm" />
+            </div>
           </DialogTitle>
         </DialogHeader>
 

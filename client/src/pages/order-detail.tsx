@@ -20,6 +20,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatKwanza } from "@/lib/formatters";
 import { format } from "date-fns";
 import { PrintOrder } from "@/components/PrintOrder";
+import { PrintInvoice } from "@/components/PrintInvoice";
 import { ProductSelector } from "@/components/ProductSelector";
 import type { Order, OrderItem, MenuItem, Customer, Coupon, LoyaltyProgram } from "@shared/schema";
 
@@ -397,6 +398,11 @@ export default function OrderDetail() {
             <Clock className="h-3 w-3" />
             {formatTime(elapsedTime)}
           </Badge>
+          <PrintInvoice 
+            order={order} 
+            variant="ghost"
+            size="icon"
+          />
           <PrintOrder 
             order={order} 
             variant="ghost"
