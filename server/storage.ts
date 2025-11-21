@@ -2648,6 +2648,9 @@ export class DatabaseStorage implements IStorage {
     yesterdayOrders: number;
     salesChange: number;
     ordersChange: number;
+    cancelledOrders: number;
+    cancelledRevenue: string;
+    cancellationRate: number;
     topDishes: Array<{
       menuItem: MenuItem;
       count: number;
@@ -2666,9 +2669,9 @@ export class DatabaseStorage implements IStorage {
       todayStatsQuery = await db
         .select({
           completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
           cancelledOrders: sql<number>`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
-          cancelledRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} = 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+          cancelledRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
         })
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
@@ -2681,9 +2684,9 @@ export class DatabaseStorage implements IStorage {
       todayStatsQuery = await db
         .select({
           completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
           cancelledOrders: sql<number>`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
-          cancelledRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} = 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+          cancelledRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
         })
         .from(orders)
         .where(and(
@@ -2704,7 +2707,7 @@ export class DatabaseStorage implements IStorage {
       yesterdayStatsQuery = await db
         .select({
           completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
         })
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
@@ -2718,7 +2721,7 @@ export class DatabaseStorage implements IStorage {
       yesterdayStatsQuery = await db
         .select({
           completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
         })
         .from(orders)
         .where(and(
@@ -2847,6 +2850,9 @@ export class DatabaseStorage implements IStorage {
     totalSales: string;
     totalOrders: number;
     averageOrderValue: string;
+    cancelledOrders: number;
+    cancelledRevenue: string;
+    cancellationRate: number;
     topDishes: Array<{
       menuItem: MenuItem;
       count: number;
@@ -2864,9 +2870,9 @@ export class DatabaseStorage implements IStorage {
       periodStatsQuery = await db
         .select({
           completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
           cancelledOrders: sql<number>`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
-          cancelledRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} = 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+          cancelledRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
         })
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
@@ -2880,9 +2886,9 @@ export class DatabaseStorage implements IStorage {
       periodStatsQuery = await db
         .select({
           completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
           cancelledOrders: sql<number>`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
-          cancelledRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} = 'cancelado') and (${orders.totalAmount} IS NOT NULL) and (${orders.totalAmount} != '') then cast(${orders.totalAmount} as numeric) else 0 end), 0) as text)`,
+          cancelledRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
         })
         .from(orders)
         .where(and(

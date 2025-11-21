@@ -22,11 +22,16 @@ export async function ensureTablesExist() {
       // Create enums
       await db.execute(sql`DO $$ BEGIN CREATE TYPE restaurant_status AS ENUM ('pendente', 'ativo', 'suspenso'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN CREATE TYPE user_role AS ENUM ('superadmin', 'admin', 'kitchen'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql`DO $$ BEGIN CREATE TYPE order_status AS ENUM ('pendente', 'em_preparo', 'pronto', 'servido'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN CREATE TYPE order_status AS ENUM ('pendente', 'em_preparo', 'pronto', 'servido', 'cancelado'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN CREATE TYPE order_type AS ENUM ('mesa', 'delivery', 'takeout', 'balcao', 'pdv'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN CREATE TYPE payment_status AS ENUM ('nao_pago', 'parcial', 'pago'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN CREATE TYPE payment_method AS ENUM ('dinheiro', 'multicaixa', 'transferencia', 'cartao'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN CREATE TYPE discount_type AS ENUM ('valor', 'percentual'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Add 'cancelado' to existing order_status enum if it doesn't exist
+      await db.execute(sql`DO $$ BEGIN
+        ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'cancelado';
+      EXCEPTION WHEN others THEN null; END $$;`);
       
       // Create restaurants table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS restaurants (
@@ -473,6 +478,12 @@ export async function ensureTablesExist() {
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN cancellation_reason TEXT; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN cancelled_at TIMESTAMP; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN cancelled_by VARCHAR REFERENCES users(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN closed_by VARCHAR REFERENCES users(id); 
