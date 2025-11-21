@@ -1,4 +1,4 @@
-import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield, Building2, Settings, BarChart3, CreditCard, TrendingUp, DollarSign, Receipt, FileText, Wallet, Package, PanelLeftClose, PanelLeft, ChevronRight, Briefcase, DollarSignIcon, Building, UserCircle, Gift, Tag } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield, Building2, Settings, BarChart3, CreditCard, TrendingUp, DollarSign, Receipt, FileText, Wallet, Package, PanelLeftClose, PanelLeft, ChevronRight, Briefcase, DollarSignIcon, Building, UserCircle, Gift, Tag, Printer } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -166,9 +166,21 @@ const adminMenuItems: MenuItem[] = [
   },
   {
     title: "Configurações",
-    section: "settings" as Section,
-    path: "/settings",
     icon: Settings,
+    items: [
+      {
+        title: "Geral",
+        section: "settings" as Section,
+        path: "/settings",
+        icon: Settings,
+      },
+      {
+        title: "Impressoras",
+        section: "printers" as Section,
+        path: "/printers",
+        icon: Printer,
+      },
+    ],
   },
 ];
 

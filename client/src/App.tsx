@@ -214,6 +214,13 @@ function Router() {
             return <Redirect to="/" />;
           }} />
           
+          <Route path="/printers" component={() => {
+            if (user?.role === 'admin') {
+              return <MainDashboard section="printers" />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
           <Route path="/login">
             {() => <Redirect to="/" />}
           </Route>

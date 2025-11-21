@@ -26,6 +26,7 @@ import Inventory from "./inventory";
 import Customers from "./customers";
 import Loyalty from "./loyalty";
 import Coupons from "./coupons";
+import PrinterSetup from "./printer-setup";
 
 export type Section = 
   | "dashboard" 
@@ -50,7 +51,8 @@ export type Section =
   | "inventory"
   | "customers"
   | "loyalty"
-  | "coupons";
+  | "coupons"
+  | "printers";
 
 interface MainDashboardProps {
   section: Section;
@@ -112,6 +114,8 @@ export default function MainDashboard({ section }: MainDashboardProps) {
         return <Loyalty />;
       case "coupons":
         return <Coupons />;
+      case "printers":
+        return <PrinterSetup />;
       default:
         return <Dashboard />;
     }
