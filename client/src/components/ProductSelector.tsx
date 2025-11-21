@@ -19,7 +19,14 @@ interface ProductSelectorProps {
     quantity: number;
     price: string;
     notes: string;
-    selectedOptions: Array<{ optionId: string; optionGroupId: string; quantity?: number }>;
+    selectedOptions: Array<{ 
+      optionId: string; 
+      optionGroupId: string; 
+      optionName: string;
+      optionGroupName: string;
+      priceAdjustment: string;
+      quantity: number;
+    }>;
   }) => void;
   onClose?: () => void;
 }

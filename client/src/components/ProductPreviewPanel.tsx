@@ -23,7 +23,14 @@ interface ProductPreviewPanelProps {
     quantity: number;
     price: string;
     notes: string;
-    selectedOptions: Array<{ optionId: string; optionGroupId: string; quantity?: number }>;
+    selectedOptions: Array<{ 
+      optionId: string; 
+      optionGroupId: string; 
+      optionName: string;
+      optionGroupName: string;
+      priceAdjustment: string;
+      quantity: number;
+    }>;
   }) => void;
   isFavorite?: boolean;
   onToggleFavorite?: (menuItemId: string) => void;
@@ -111,7 +118,14 @@ export function ProductPreviewPanel({
   };
 
   const handleAddToOrder = () => {
-    const optionsArray: Array<{ optionId: string; optionGroupId: string; quantity?: number }> = [];
+    const optionsArray: Array<{ 
+      optionId: string; 
+      optionGroupId: string; 
+      optionName: string;
+      optionGroupName: string;
+      priceAdjustment: string;
+      quantity: number;
+    }> = [];
     
     // Calculate base price with option adjustments
     let basePrice = Number(product.price);
@@ -120,19 +134,24 @@ export function ProductPreviewPanel({
       const optionIds = Array.isArray(value) ? value : [value];
       const group = product.optionGroups?.find(g => g.id === groupId);
       
+      if (!group) return;
+      
       optionIds.forEach(optionId => {
+        const option = group.options.find(opt => opt.id === optionId);
+        if (!option) return;
+        
         const optionQty = optionQuantities[optionId] || 1;
         optionsArray.push({ 
           optionId, 
           optionGroupId: groupId,
+          optionName: option.name,
+          optionGroupName: group.name,
+          priceAdjustment: option.priceAdjustment || "0",
           quantity: optionQty 
         });
         
         // Add option price adjustment to base price (multiplied by quantity)
-        const option = group?.options.find(opt => opt.id === optionId);
-        if (option) {
-          basePrice += Number(option.priceAdjustment || 0) * optionQty;
-        }
+        basePrice += Number(option.priceAdjustment || 0) * optionQty;
       });
     });
 
