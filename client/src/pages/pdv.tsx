@@ -87,15 +87,25 @@ export default function PDV() {
 
   const cancelOrderMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      const response = await apiRequest("DELETE", `/api/orders/${orderId}`);
+      const response = await apiRequest("POST", `/api/orders/${orderId}/cancel`, { 
+        cancellationReason: "Cancelado pelo operador" 
+      });
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      toast({ title: "Pedido cancelado" });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({ 
+        title: "Pedido cancelado", 
+        description: "Todos os estornos foram processados" 
+      });
     },
-    onError: () => {
-      toast({ title: "Erro ao cancelar pedido", variant: "destructive" });
+    onError: (error: any) => {
+      toast({ 
+        title: "Erro ao cancelar pedido",
+        description: error.message || "Não foi possível cancelar o pedido",
+        variant: "destructive" 
+      });
     },
   });
 
