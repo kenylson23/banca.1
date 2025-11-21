@@ -515,22 +515,23 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
           </div>
 
           {/* Right Side - Checkout */}
-          <div className="w-96 flex flex-col gap-4 overflow-hidden">
+          <div className="w-96 flex flex-col overflow-hidden">
             <Card className="flex-1 flex flex-col overflow-hidden">
-              <CardContent className="p-4 flex flex-col gap-4 flex-1 overflow-hidden">
-                {/* Receipt Header */}
-                <div className="flex items-center justify-between flex-shrink-0">
-                  <h3 className="font-bold text-lg">Recibo</h3>
-                  <Badge variant="outline">#{receiptNumber}</Badge>
-                </div>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
+                  {/* Receipt Header - Fixed */}
+                  <div className="p-4 flex-shrink-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-lg">Recibo</h3>
+                      <Badge variant="outline">#{receiptNumber}</Badge>
+                    </div>
+                  </div>
 
-                <Separator className="flex-shrink-0" />
+                  <Separator className="flex-shrink-0" />
 
-                {/* Order Type Selection */}
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 flex-1 overflow-hidden">
-                    <ScrollArea className="flex-1 pr-4">
-                      <div className="space-y-4">
+                  {/* Scrollable Content */}
+                  <ScrollArea className="flex-1">
+                    <div className="p-4 space-y-4">
                     <FormField
                       control={form.control}
                       name="orderType"
@@ -714,84 +715,86 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
 
                     <Separator />
 
-                    {/* Order List */}
+                    {/* Cart Items List */}
                     <div className="space-y-2">
-                      <h4 className="text-sm font-semibold">Lista de Itens</h4>
-                      <ScrollArea className="flex-1 max-h-80">
-                        <div className="space-y-2 pr-4">
-                          {cart.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-8">
-                              Nenhum item adicionado
-                            </p>
-                          ) : (
-                            cart.map((item, index) => (
-                              <Card key={`${item.menuItemId}-${index}`} data-testid={`cart-item-${item.menuItemId}`}>
-                                <CardContent className="p-3">
-                                  <div className="flex items-start justify-between gap-2 mb-2">
-                                    <div className="flex-1 min-w-0">
-                                      <p className="font-medium text-sm truncate">{item.name}</p>
-                                      {item.selectedOptions && item.selectedOptions.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mt-1">
-                                          {item.selectedOptions.map((opt) => (
-                                            <Badge 
-                                              key={opt.optionId} 
-                                              variant="secondary" 
-                                              className="text-xs"
-                                            >
-                                              {opt.optionName}
-                                              {opt.priceAdjustment !== "0" && ` (+${formatKwanza(parseFloat(opt.priceAdjustment))})`}
-                                            </Badge>
-                                          ))}
-                                        </div>
-                                      )}
-                                      <p className="text-xs text-muted-foreground mt-1">
-                                        {formatKwanza(item.price)} × {item.quantity}
-                                      </p>
-                                    </div>
-                                    <span className="font-bold text-sm whitespace-nowrap">
-                                      {formatKwanza(item.price * item.quantity)}
-                                    </span>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-semibold">Itens do Pedido</h4>
+                        <Badge variant="secondary">{cart.length} {cart.length === 1 ? 'item' : 'itens'}</Badge>
+                      </div>
+                      <div className="space-y-2">
+                        {cart.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <ShoppingCart className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                            <p className="text-sm">Nenhum item adicionado</p>
+                          </div>
+                        ) : (
+                          cart.map((item, index) => (
+                            <Card key={`${item.menuItemId}-${index}`} data-testid={`cart-item-${item.menuItemId}`}>
+                              <CardContent className="p-3">
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-sm truncate">{item.name}</p>
+                                    {item.selectedOptions && item.selectedOptions.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {item.selectedOptions.map((opt) => (
+                                          <Badge 
+                                            key={opt.optionId} 
+                                            variant="secondary" 
+                                            className="text-xs"
+                                          >
+                                            {opt.optionName}
+                                            {opt.priceAdjustment !== "0" && ` (+${formatKwanza(parseFloat(opt.priceAdjustment))})`}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    )}
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {formatKwanza(item.price)} × {item.quantity}
+                                    </p>
                                   </div>
-                                  
-                                  <div className="flex items-center gap-2">
-                                    <Button
-                                      type="button"
-                                      size="icon"
-                                      variant="outline"
-                                      className="h-7 w-7"
-                                      onClick={() => updateQuantity(index, -1)}
-                                      data-testid={`button-decrease-${item.menuItemId}`}
-                                    >
-                                      <Minus className="h-3 w-3" />
-                                    </Button>
-                                    <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
-                                    <Button
-                                      type="button"
-                                      size="icon"
-                                      variant="outline"
-                                      className="h-7 w-7"
-                                      onClick={() => updateQuantity(index, 1)}
-                                      data-testid={`button-increase-${item.menuItemId}`}
-                                    >
-                                      <Plus className="h-3 w-3" />
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-7 w-7 ml-auto"
-                                      onClick={() => removeFromCart(index)}
-                                      data-testid={`button-remove-${item.menuItemId}`}
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ))
-                          )}
-                        </div>
-                      </ScrollArea>
+                                  <span className="font-bold text-sm whitespace-nowrap">
+                                    {formatKwanza(item.price * item.quantity)}
+                                  </span>
+                                </div>
+                                
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="outline"
+                                    className="h-7 w-7"
+                                    onClick={() => updateQuantity(index, -1)}
+                                    data-testid={`button-decrease-${item.menuItemId}`}
+                                  >
+                                    <Minus className="h-3 w-3" />
+                                  </Button>
+                                  <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="outline"
+                                    className="h-7 w-7"
+                                    onClick={() => updateQuantity(index, 1)}
+                                    data-testid={`button-increase-${item.menuItemId}`}
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 ml-auto"
+                                    onClick={() => removeFromCart(index)}
+                                    data-testid={`button-remove-${item.menuItemId}`}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))
+                        )}
+                      </div>
                     </div>
 
                     <Separator />
@@ -817,17 +820,6 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                       )}
                     />
 
-                    <Separator />
-
-                    {/* Payment Details */}
-                    <div className="space-y-2">
-                      <Separator />
-                      <div className="flex justify-between text-lg font-bold">
-                        <span>Total</span>
-                        <span data-testid="text-total">{formatKwanza(totalAmount)}</span>
-                      </div>
-                    </div>
-
                     {/* Payment Method */}
                     <FormField
                       control={form.control}
@@ -851,23 +843,33 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
                         </FormItem>
                       )}
                     />
-                      </div>
-                    </ScrollArea>
+                    </div>
+                  </ScrollArea>
 
-                    {/* Submit Button */}
-                    <Button 
-                      type="submit" 
-                      disabled={createOrderMutation.isPending || cart.length === 0}
-                      data-testid="button-submit-order"
-                      className="w-full flex-shrink-0"
-                      size="lg"
-                    >
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      {createOrderMutation.isPending ? "Processando..." : `Finalizar ${formatKwanza(totalAmount)}`}
-                    </Button>
-                  </form>
-                </Form>
-              </CardContent>
+                  {/* Fixed Footer - Total and Submit */}
+                  <div className="border-t flex-shrink-0">
+                    <div className="p-4 space-y-4">
+                      {/* Total */}
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-bold">Total</span>
+                        <span className="text-2xl font-bold" data-testid="text-total">{formatKwanza(totalAmount)}</span>
+                      </div>
+
+                      {/* Submit Button */}
+                      <Button 
+                        type="submit" 
+                        disabled={createOrderMutation.isPending || cart.length === 0}
+                        data-testid="button-submit-order"
+                        className="w-full"
+                        size="lg"
+                      >
+                        <ShoppingCart className="h-4 w-4 mr-2" />
+                        {createOrderMutation.isPending ? "Processando..." : `Finalizar Pedido`}
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              </Form>
             </Card>
           </div>
         </div>
