@@ -99,8 +99,44 @@ const uploadRestaurantImage = multer({
   }
 });
 
+// Configure multer for menu item (product) images
+const menuItemStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'client/public/uploads/menu-items');
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const filename = `${nanoid()}-${Date.now()}${ext}`;
+    cb(null, filename);
+  }
+});
+
+const uploadMenuItemImage = multer({
+  storage: menuItemStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Reject SVG explicitly due to XSS risks (can contain embedded scripts)
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    // Additional check to reject SVG and other dangerous types
+    if (file.mimetype === 'image/svg+xml' || path.extname(file.originalname).toLowerCase() === '.svg') {
+      return cb(new Error('Arquivos SVG não são permitidos por motivos de segurança'));
+    }
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Apenas imagens são permitidas (jpeg, jpg, png, gif, webp)'));
+    }
+  }
+});
+
 // Helper function to delete old image files
-async function deleteOldImage(imageUrl: string | null | undefined) {
+async function deleteOldImage(imageUrl: string | null | undefined, type: 'restaurants' | 'menu-items' = 'restaurants') {
   if (!imageUrl) return;
   
   try {
@@ -108,7 +144,7 @@ async function deleteOldImage(imageUrl: string | null | undefined) {
     const filename = imageUrl.split('/').pop();
     if (!filename) return;
     
-    const filePath = path.join('client/public/uploads/restaurants', filename);
+    const filePath = path.join(`client/public/uploads/${type}`, filename);
     await fs.unlink(filePath);
   } catch (error) {
     // Ignore errors (file might not exist)
@@ -1650,6 +1686,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete menu item" });
+    }
+  });
+
+  // Upload menu item image
+  app.post("/api/menu-items/:id/image", isAdmin, uploadMenuItemImage.single('image'), async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhuma imagem foi enviada" });
+      }
+
+      const restaurantId = currentUser.restaurantId!;
+      const menuItemId = req.params.id;
+
+      // Get current menu item to delete old image
+      const menuItem = await storage.getMenuItemById(menuItemId);
+      if (!menuItem) {
+        return res.status(404).json({ message: "Item do menu não encontrado" });
+      }
+
+      // Verify menu item belongs to user's restaurant
+      if (menuItem.restaurantId !== restaurantId) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+
+      // Delete old image if exists
+      if (menuItem.imageUrl) {
+        await deleteOldImage(menuItem.imageUrl, 'menu-items');
+      }
+
+      // Update menu item with new image URL
+      const imageUrl = `/uploads/menu-items/${req.file.filename}`;
+      const updated = await storage.updateMenuItem(restaurantId, menuItemId, { imageUrl });
+
+      res.json({ imageUrl: updated.imageUrl });
+    } catch (error) {
+      console.error('Error uploading menu item image:', error);
+      res.status(500).json({ message: "Erro ao fazer upload da imagem" });
     }
   });
 

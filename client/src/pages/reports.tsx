@@ -25,6 +25,7 @@ import { TopDishesCard } from "@/components/top-dishes-card";
 import { formatKwanza } from "@/lib/formatters";
 import { DateRange } from "react-day-picker";
 import type { Order, MenuItem } from "@shared/schema";
+import { exportToCSV, formatDateForCSV } from "@/lib/csv-export";
 
 type OrderReport = {
   id: string;
@@ -212,35 +213,22 @@ export default function Reports() {
     return null;
   };
 
-  const exportToCSV = (data: any[], filename: string) => {
-    if (!data || data.length === 0) return;
-
-    const headers = Object.keys(data[0]).join(',');
-    const rows = data.map(row => 
-      Object.values(row).map(val => 
-        typeof val === 'string' && val.includes(',') ? `"${val}"` : val
-      ).join(',')
-    ).join('\n');
-
-    const csv = `${headers}\n${rows}`;
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${filename}_${startDate}_${endDate}.csv`;
-    link.click();
-  };
-
   const exportOrdersCSV = () => {
     if (!ordersReport) return;
     const formatted = ordersReport.map((order: any) => ({
-      'Data': format(new Date(order.createdAt), 'dd/MM/yyyy HH:mm'),
+      'Data': formatDateForCSV(order.createdAt),
       'Mesa': order.table?.number || 'N/A',
       'Tipo': typeLabels[order.orderType as keyof typeof typeLabels],
       'Status': statusLabels[order.status as keyof typeof statusLabels],
-      'Total': `Kz ${parseFloat(order.totalAmount).toFixed(2)}`,
+      'Total': `Kz ${parseFloat(order.totalAmount).toFixed(2).replace('.', ',')}`,
       'Itens': order.orderItems.length,
     }));
-    exportToCSV(formatted, 'relatorio_pedidos');
+    
+    exportToCSV({
+      filename: 'relatorio_pedidos',
+      data: formatted,
+      filenameSuffix: `${startDate}_${endDate}`,
+    });
   };
 
   const exportProductsCSV = () => {
@@ -248,10 +236,15 @@ export default function Reports() {
     const formatted = productsReport.topProducts.map((item: any) => ({
       'Produto': item.menuItem.name,
       'Quantidade': item.quantity,
-      'Receita': `Kz ${item.revenue}`,
+      'Receita': `Kz ${parseFloat(item.revenue).toFixed(2).replace('.', ',')}`,
       'Pedidos': item.ordersCount,
     }));
-    exportToCSV(formatted, 'relatorio_produtos');
+    
+    exportToCSV({
+      filename: 'relatorio_produtos',
+      data: formatted,
+      filenameSuffix: `${startDate}_${endDate}`,
+    });
   };
 
   // Aggregate stats from reports
