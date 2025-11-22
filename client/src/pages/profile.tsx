@@ -10,10 +10,15 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Camera, Upload } from "lucide-react";
+import { useState, useRef } from "react";
 
 export default function Profile() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const profileForm = useForm<UpdateProfile>({
     resolver: zodResolver(updateProfileSchema),
@@ -83,6 +88,76 @@ export default function Profile() {
     updatePasswordMutation.mutate(data);
   };
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "Erro",
+        description: "A imagem deve ter no máximo 2MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Erro",
+        description: "Apenas imagens JPG, PNG, GIF ou WEBP são permitidas",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploadingImage(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const res = await fetch('/api/auth/profile-image', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Erro ao fazer upload da imagem');
+      }
+
+      toast({
+        title: "Sucesso",
+        description: "Foto de perfil atualizada com sucesso",
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao fazer upload da imagem",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingImage(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const getUserInitials = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    }
+    if (user?.firstName) {
+      return user.firstName[0].toUpperCase();
+    }
+    return user?.email?.[0].toUpperCase() || '?';
+  };
+
   return (
     <div className="space-y-4 max-w-4xl">
       <div>
@@ -91,6 +166,58 @@ export default function Profile() {
           Gerencie suas informações pessoais e segurança da conta
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Foto de Perfil</CardTitle>
+          <CardDescription>
+            Personalize seu perfil com uma foto
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <div className="relative">
+              <Avatar className="h-32 w-32 border-2 border-border">
+                <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || 'Usuário'} />
+                <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+                  {getUserInitials()}
+                </AvatarFallback>
+              </Avatar>
+              <Button
+                size="icon"
+                variant="secondary"
+                className="absolute bottom-0 right-0 rounded-full h-10 w-10 shadow-lg"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingImage}
+                data-testid="button-upload-profile-image"
+              >
+                <Camera className="h-5 w-5" />
+              </Button>
+            </div>
+            
+            <div className="flex-1 space-y-2 text-center sm:text-left">
+              <p className="text-sm text-muted-foreground">
+                Clique no ícone de câmera para fazer upload de uma nova foto
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Formatos aceitos: JPG, PNG, GIF, WEBP (máx. 2MB)
+              </p>
+              {isUploadingImage && (
+                <p className="text-sm text-primary">Fazendo upload...</p>
+              )}
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+              onChange={handleImageUpload}
+              className="hidden"
+              data-testid="input-profile-image"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

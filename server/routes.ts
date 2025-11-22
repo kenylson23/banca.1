@@ -135,8 +135,42 @@ const uploadMenuItemImage = multer({
   }
 });
 
+// Configure multer for profile images
+const profileImageStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'client/public/uploads/profile-images');
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const filename = `${nanoid()}-${Date.now()}${ext}`;
+    cb(null, filename);
+  }
+});
+
+const uploadProfileImage = multer({
+  storage: profileImageStorage,
+  limits: {
+    fileSize: 2 * 1024 * 1024, // 2MB limit for profile pictures
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (file.mimetype === 'image/svg+xml' || path.extname(file.originalname).toLowerCase() === '.svg') {
+      return cb(new Error('Arquivos SVG não são permitidos por motivos de segurança'));
+    }
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Apenas imagens são permitidas (jpeg, jpg, png, gif, webp)'));
+    }
+  }
+});
+
 // Helper function to delete old image files
-async function deleteOldImage(imageUrl: string | null | undefined, type: 'restaurants' | 'menu-items' = 'restaurants') {
+async function deleteOldImage(imageUrl: string | null | undefined, type: 'restaurants' | 'menu-items' | 'profile-images' = 'restaurants') {
   if (!imageUrl) return;
   
   try {
@@ -294,6 +328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        profileImageUrl: user.profileImageUrl,
         role: user.role,
         restaurantId: user.restaurantId,
         activeBranchId: user.activeBranchId,
@@ -369,6 +404,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: error.errors[0].message });
       }
       res.status(500).json({ message: "Erro ao atualizar senha" });
+    }
+  });
+
+  app.post('/api/auth/profile-image', isAuthenticated, uploadProfileImage.single('image'), async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhuma imagem foi enviada" });
+      }
+
+      const imageUrl = `/uploads/profile-images/${req.file.filename}`;
+      
+      const user = await storage.getUser(currentUser.id);
+      if (user?.profileImageUrl) {
+        await deleteOldImage(user.profileImageUrl, 'profile-images');
+      }
+
+      const restaurantId = currentUser.role === 'superadmin' ? null : currentUser.restaurantId || null;
+      await storage.updateUser(restaurantId, currentUser.id, { profileImageUrl: imageUrl });
+
+      res.json({ imageUrl });
+    } catch (error: any) {
+      if (req.file) {
+        await fs.unlink(req.file.path).catch(() => {});
+      }
+      res.status(500).json({ message: error.message || "Erro ao fazer upload da imagem" });
     }
   });
 

@@ -167,7 +167,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   getAllUsers(restaurantId: string | null): Promise<User[]>;
   deleteUser(restaurantId: string | null, id: string): Promise<void>;
-  updateUser(restaurantId: string | null, id: string, data: { email?: string; firstName?: string; lastName?: string; role?: 'superadmin' | 'admin' | 'kitchen' }): Promise<User>;
+  updateUser(restaurantId: string | null, id: string, data: { email?: string; firstName?: string; lastName?: string; profileImageUrl?: string; role?: 'superadmin' | 'admin' | 'kitchen' }): Promise<User>;
   updateUserPassword(userId: string, hashedPassword: string): Promise<User>;
   updateUserActiveBranch(userId: string, branchId: string | null): Promise<User>;
 
@@ -840,7 +840,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(users).where(eq(users.id, id));
   }
 
-  async updateUser(restaurantId: string | null, id: string, data: { email?: string; firstName?: string; lastName?: string; role?: 'superadmin' | 'admin' | 'kitchen' }): Promise<User> {
+  async updateUser(restaurantId: string | null, id: string, data: { email?: string; firstName?: string; lastName?: string; profileImageUrl?: string; role?: 'superadmin' | 'admin' | 'kitchen' }): Promise<User> {
     // Verify the user belongs to the restaurant before updating
     const existing = await this.getUser(id);
     if (!existing) {

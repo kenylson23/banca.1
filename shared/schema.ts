@@ -148,6 +148,7 @@ export const users = pgTable("users", {
   password: varchar("password", { length: 255 }).notNull(),
   firstName: varchar("first_name", { length: 100 }),
   lastName: varchar("last_name", { length: 100 }),
+  profileImageUrl: varchar("profile_image_url", { length: 500 }),
   role: userRoleEnum("role").notNull().default('admin'),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -174,6 +175,7 @@ export const updateUserSchema = z.object({
   email: z.string().email("Email inválido").optional(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  profileImageUrl: z.string().optional(),
   role: z.enum(['superadmin', 'admin', 'kitchen']).optional(),
 });
 
