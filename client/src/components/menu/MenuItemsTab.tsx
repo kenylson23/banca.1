@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Settings2, Filter, Upload, X, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Settings2, Filter, Upload, X, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -175,11 +175,21 @@ export function MenuItemsTab() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/menu-items"] });
+      setIsDialogOpen(false);
+      setMenuItemForm({
+        name: "",
+        description: "",
+        price: "",
+        categoryId: "",
+        imageUrl: "",
+        isAvailable: 1,
+      });
+      setImageFile(null);
+      setImagePreview("");
       toast({
         title: variables.id ? "Prato atualizado" : "Prato criado",
         description: variables.id ? "O prato foi atualizado com sucesso." : "O prato foi criado com sucesso.",
       });
-      handleCloseDialog();
     },
     onError: (error: any) => {
       if (isUnauthorizedError(error)) {
@@ -357,15 +367,6 @@ export function MenuItemsTab() {
   };
 
   const handleCloseDialog = () => {
-    if (saveMenuItemMutation.isPending) {
-      toast({
-        title: "Operação em andamento",
-        description: "Aguarde a conclusão do salvamento antes de fechar.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     setIsDialogOpen(false);
     setMenuItemForm({
       name: "",
@@ -381,9 +382,6 @@ export function MenuItemsTab() {
 
   const handleDialogOpenChange = (open: boolean) => {
     if (!open) {
-      if (saveMenuItemMutation.isPending) {
-        return;
-      }
       handleCloseDialog();
     } else {
       setIsDialogOpen(true);
@@ -735,11 +733,14 @@ export function MenuItemsTab() {
                 disabled={saveMenuItemMutation.isPending}
                 data-testid="button-submit-menu-item"
               >
-                {saveMenuItemMutation.isPending
-                  ? "Salvando..."
-                  : menuItemForm.id
-                  ? "Atualizar"
-                  : "Criar"}
+                {saveMenuItemMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {imageFile ? "Enviando imagem..." : "Salvando..."}
+                  </>
+                ) : (
+                  menuItemForm.id ? "Atualizar" : "Criar"
+                )}
               </Button>
             </DialogFooter>
           </form>
