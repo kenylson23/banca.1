@@ -205,9 +205,32 @@ export function MenuItemsTab() {
     }
 
     setImageFile(file);
+    
+    // Create optimized preview
     const reader = new FileReader();
     reader.onloadend = () => {
-      setImagePreview(reader.result as string);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxWidth = 800;
+        const maxHeight = 600;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width *= ratio;
+          height *= ratio;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        setImagePreview(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = reader.result as string;
     };
     reader.readAsDataURL(file);
   };
@@ -501,7 +524,7 @@ export function MenuItemsTab() {
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
               <DialogTitle>
@@ -564,21 +587,21 @@ export function MenuItemsTab() {
                 <Label>Imagem do Prato</Label>
                 
                 {(imagePreview || menuItemForm.imageUrl) && (
-                  <div className="mt-2 relative">
+                  <div className="mt-2 relative inline-block w-full">
                     <img 
                       src={imagePreview || menuItemForm.imageUrl} 
                       alt="Preview" 
-                      className="w-full h-48 object-cover rounded-md border"
+                      className="w-full h-32 object-cover rounded-md border"
                     />
                     <Button
                       type="button"
                       variant="destructive"
                       size="icon"
-                      className="absolute top-2 right-2"
+                      className="absolute top-1 right-1 h-7 w-7 shadow-md"
                       onClick={handleRemoveImage}
                       data-testid="button-remove-image"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3 w-3" />
                     </Button>
                   </div>
                 )}
