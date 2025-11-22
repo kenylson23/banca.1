@@ -1,20 +1,18 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { ExternalLink, UtensilsCrossed, Folder, Settings, Eye, Palette, ChefHat } from "lucide-react";
+import { ExternalLink, UtensilsCrossed, Folder, Palette, ChefHat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { Restaurant } from "@shared/schema";
 import { MenuItemsTab } from "@/components/menu/MenuItemsTab";
 import { CategoriesTab } from "@/components/menu/CategoriesTab";
-import { CustomizationsTab } from "@/components/menu/CustomizationsTab";
-import { PreviewTab } from "@/components/menu/PreviewTab";
 import { CustomizeMenuTab } from "@/components/menu/CustomizeMenuTab";
 import { RecipesTab } from "@/components/menu/RecipesTab";
 import { motion } from "framer-motion";
 import { TubelightNavBar } from "@/components/ui/tubelight-navbar";
 
-type TabValue = "items" | "categories" | "recipes" | "customize" | "options" | "preview";
+type TabValue = "items" | "categories" | "recipes" | "customize";
 
 export default function Menu() {
   const { toast } = useToast();
@@ -35,8 +33,6 @@ export default function Menu() {
     { name: "Categorias", url: "#", icon: Folder },
     { name: "Receitas", url: "#", icon: ChefHat },
     { name: "Personalizar", url: "#", icon: Palette },
-    { name: "Opções", url: "#", icon: Settings },
-    { name: "Preview", url: "#", icon: Eye },
   ];
 
   const tabMapping: Record<string, TabValue> = {
@@ -44,8 +40,6 @@ export default function Menu() {
     "Categorias": "categories",
     "Receitas": "recipes",
     "Personalizar": "customize",
-    "Opções": "options",
-    "Preview": "preview",
   };
 
   const handleNavClick = (item: typeof navItems[0]) => {
@@ -65,10 +59,6 @@ export default function Menu() {
         return <RecipesTab />;
       case "customize":
         return <CustomizeMenuTab />;
-      case "options":
-        return <CustomizationsTab />;
-      case "preview":
-        return <PreviewTab />;
       default:
         return <MenuItemsTab />;
     }
