@@ -462,17 +462,17 @@ export function MenuItemsTab() {
       </div>
 
       {menuItemsLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {[...Array(8)].map((_, i) => (
-            <Skeleton key={i} className="h-48" />
+            <Skeleton key={i} className="h-40" />
           ))}
         </div>
       ) : filteredMenuItems.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {filteredMenuItems.map((item) => (
             <Card key={item.id} data-testid={`card-menu-item-${item.id}`} className="overflow-hidden flex flex-col">
               {item.imageUrl && (
-                <div className="h-32 w-full overflow-hidden bg-muted">
+                <div className="h-20 w-full overflow-hidden bg-muted">
                   <img
                     src={item.imageUrl}
                     alt={item.name}
@@ -480,71 +480,75 @@ export function MenuItemsTab() {
                   />
                 </div>
               )}
-              <CardHeader className="pb-2 space-y-0">
-                <CardTitle className="text-base line-clamp-1">{item.name}</CardTitle>
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  <Badge variant="secondary" className="text-xs">
+              <CardHeader className="pb-1 pt-2 px-3 space-y-0">
+                <CardTitle className="text-sm line-clamp-1">{item.name}</CardTitle>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  <Badge variant="secondary" className="text-[10px] px-1 py-0">
                     {item.category.name}
                   </Badge>
                   {item.isAvailable === 0 && (
-                    <Badge variant="destructive" className="text-xs">
+                    <Badge variant="destructive" className="text-[10px] px-1 py-0">
                       Indisponível
                     </Badge>
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="flex-1 flex flex-col gap-2 pt-0">
+              <CardContent className="flex-1 flex flex-col gap-1 pt-0 pb-2 px-3">
                 {item.description && (
-                  <p className="text-xs text-muted-foreground line-clamp-2">
+                  <p className="text-[10px] text-muted-foreground line-clamp-1">
                     {item.description}
                   </p>
                 )}
-                <p className="text-lg font-bold font-mono">
+                <p className="text-base font-bold font-mono">
                   {formatKwanza(item.price)}
                 </p>
-                <div className="mt-auto flex flex-col gap-1.5">
-                  <Button
-                    variant={item.isAvailable === 1 ? "default" : "outline"}
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        await apiRequest("PATCH", `/api/menu-items/${item.id}`, {
-                          isAvailable: item.isAvailable === 1 ? 0 : 1,
-                        });
-                        queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
-                        toast({
-                          title: item.isAvailable === 1 ? "Item marcado como indisponível" : "Item marcado como disponível",
-                        });
-                      } catch (error) {
-                        toast({
-                          title: "Erro ao atualizar disponibilidade",
-                          variant: "destructive",
-                        });
-                      }
-                    }}
-                    data-testid={`button-toggle-availability-${item.id}`}
-                  >
-                    {item.isAvailable === 1 ? "✓ Disponível" : "✗ Indisponível"}
-                  </Button>
-                  <MenuItemOptionsDialog menuItemId={item.id} menuItemName={item.name} />
-                  <div className="flex gap-1.5">
+                <div className="mt-auto flex flex-col gap-1">
+                  <div className="flex gap-1">
+                    <Button
+                      variant={item.isAvailable === 1 ? "default" : "outline"}
+                      size="sm"
+                      className="flex-1 h-7 text-xs"
+                      onClick={async () => {
+                        try {
+                          await apiRequest("PATCH", `/api/menu-items/${item.id}`, {
+                            isAvailable: item.isAvailable === 1 ? 0 : 1,
+                          });
+                          queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
+                          toast({
+                            title: item.isAvailable === 1 ? "Item marcado como indisponível" : "Item marcado como disponível",
+                          });
+                        } catch (error) {
+                          toast({
+                            title: "Erro ao atualizar disponibilidade",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      data-testid={`button-toggle-availability-${item.id}`}
+                    >
+                      {item.isAvailable === 1 ? "✓" : "✗"}
+                    </Button>
+                    <MenuItemOptionsDialog menuItemId={item.id} menuItemName={item.name} />
+                  </div>
+                  <div className="flex gap-1">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1"
+                      className="flex-1 h-7 text-xs"
                       onClick={() => handleEditMenuItem(item)}
                       data-testid={`button-edit-menu-item-${item.id}`}
                     >
-                      <Pencil className="h-4 w-4 mr-1.5" />
+                      <Pencil className="h-3 w-3 mr-1" />
                       Editar
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
+                      className="h-7"
                       onClick={() => setDeleteMenuItemId(item.id)}
                       data-testid={`button-delete-menu-item-${item.id}`}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
