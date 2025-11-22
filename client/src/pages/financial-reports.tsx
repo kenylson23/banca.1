@@ -17,7 +17,6 @@ import { formatKwanza } from "@/lib/formatters";
 import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
 import { AdvancedFilters, FilterOption } from "@/components/advanced-filters";
 import { AdvancedSalesChart } from "@/components/advanced-sales-chart";
-import { SalesHeatmap } from "@/components/sales-heatmap";
 import { ShimmerSkeleton } from "@/components/shimmer-skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
@@ -136,11 +135,7 @@ export default function FinancialReports() {
 
   const chartData = useMemo(() => {
     if (!report || !report.transactionsByDay || report.transactionsByDay.length === 0) {
-      return Array.from({ length: 7 }, (_, i) => ({
-        date: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toISOString(),
-        sales: 50000 + Math.random() * 30000,
-        orders: 0,
-      }));
+      return [];
     }
 
     return report.transactionsByDay.map(item => ({
@@ -149,28 +144,6 @@ export default function FinancialReports() {
       orders: parseFloat(item.expenses),
     }));
   }, [report]);
-
-  const heatmapData = useMemo(() => {
-    const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-    const hours = Array.from({ length: 24 }, (_, i) => i);
-    const data = [];
-
-    for (const day of days) {
-      for (const hour of hours) {
-        let value = 0;
-        if (hour >= 6 && hour <= 23) {
-          if (day === "Sex" || day === "Sáb" || day === "Dom") {
-            value = Math.floor(Math.random() * 150) + 50;
-          } else {
-            value = Math.floor(Math.random() * 100) + 30;
-          }
-        }
-        data.push({ day, hour, value });
-      }
-    }
-
-    return data;
-  }, []);
 
   const topExpenseCategories = useMemo(() => {
     if (!report || !report.expensesByCategory) return [];
@@ -309,18 +282,6 @@ export default function FinancialReports() {
                 secondaryLabel="Despesas"
                 primaryColor="hsl(var(--success))"
                 secondaryColor="hsl(var(--destructive))"
-                className="mt-4"
-              />
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.5 }}
-            >
-              <SalesHeatmap
-                data={heatmapData}
-                title="Padrões de Movimentação Financeira"
                 className="mt-4"
               />
             </motion.div>
