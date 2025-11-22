@@ -305,6 +305,10 @@ export default function FinancialReports() {
               <AdvancedSalesChart
                 data={chartData}
                 title="Receitas vs Despesas"
+                primaryLabel="Receitas"
+                secondaryLabel="Despesas"
+                primaryColor="hsl(var(--success))"
+                secondaryColor="hsl(var(--destructive))"
                 className="mt-4"
               />
             </motion.div>

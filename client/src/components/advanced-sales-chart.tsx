@@ -9,6 +9,10 @@ interface AdvancedSalesChartProps {
   comparisonData?: Array<{ date: string; sales: number; orders: number }>;
   title?: string;
   className?: string;
+  primaryLabel?: string;
+  secondaryLabel?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
 }
 
 export function AdvancedSalesChart({
@@ -17,6 +21,10 @@ export function AdvancedSalesChart({
   comparisonData,
   title = "Evolução de Vendas",
   className = "",
+  primaryLabel = "Vendas",
+  secondaryLabel = "Pedidos",
+  primaryColor = "hsl(var(--primary))",
+  secondaryColor = "hsl(var(--success))",
 }: AdvancedSalesChartProps) {
   const chartData = data.map((item, index) => {
     const base = {
@@ -56,9 +64,7 @@ export function AdvancedSalesChart({
               />
               <span className="text-muted-foreground">{entry.name}:</span>
               <span className="font-medium">
-                {entry.name.toLowerCase().includes("venda")
-                  ? formatKwanza(entry.value)
-                  : entry.value}
+                {formatKwanza(entry.value)}
               </span>
             </div>
           ))}
@@ -78,12 +84,12 @@ export function AdvancedSalesChart({
           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="colorVendas" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                <stop offset="5%" stopColor={primaryColor} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={primaryColor} stopOpacity={0} />
               </linearGradient>
               <linearGradient id="colorPedidos" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
+                <stop offset="5%" stopColor={secondaryColor} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={secondaryColor} stopOpacity={0} />
               </linearGradient>
               {showComparison && (
                 <>
@@ -131,8 +137,8 @@ export function AdvancedSalesChart({
             <Area
               type="monotone"
               dataKey="vendas"
-              name="Vendas"
-              stroke="hsl(var(--primary))"
+              name={primaryLabel}
+              stroke={primaryColor}
               strokeWidth={2.5}
               fill="url(#colorVendas)"
               animationDuration={1500}
@@ -141,8 +147,8 @@ export function AdvancedSalesChart({
             <Area
               type="monotone"
               dataKey="pedidos"
-              name="Pedidos"
-              stroke="hsl(var(--success))"
+              name={secondaryLabel}
+              stroke={secondaryColor}
               strokeWidth={2}
               fill="url(#colorPedidos)"
               animationDuration={1500}
