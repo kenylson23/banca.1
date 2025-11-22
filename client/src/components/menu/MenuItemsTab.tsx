@@ -566,7 +566,7 @@ export function MenuItemsTab() {
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[450px]">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
               <DialogTitle>
@@ -578,68 +578,70 @@ export function MenuItemsTab() {
                   : "Adicione um novo prato ao menu"}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-3 py-3">
               <div>
-                <Label htmlFor="name">Nome do Prato *</Label>
+                <Label htmlFor="name" className="text-sm">Nome do Prato *</Label>
                 <Input
                   id="name"
                   placeholder="Ex: Feijoada"
                   value={menuItemForm.name}
                   onChange={(e) => setMenuItemForm({ ...menuItemForm, name: e.target.value })}
                   data-testid="input-menu-item-name"
-                  className="mt-2"
+                  className="mt-1"
                 />
               </div>
 
-              <div>
-                <Label htmlFor="category">Categoria *</Label>
-                <Select
-                  value={menuItemForm.categoryId}
-                  onValueChange={(value) => setMenuItemForm({ ...menuItemForm, categoryId: value })}
-                >
-                  <SelectTrigger className="mt-2" data-testid="select-category">
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories?.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="category" className="text-sm">Categoria *</Label>
+                  <Select
+                    value={menuItemForm.categoryId}
+                    onValueChange={(value) => setMenuItemForm({ ...menuItemForm, categoryId: value })}
+                  >
+                    <SelectTrigger className="mt-1" data-testid="select-category">
+                      <SelectValue placeholder="Categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories?.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="price" className="text-sm">Preço *</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={menuItemForm.price}
+                    onChange={(e) => setMenuItemForm({ ...menuItemForm, price: e.target.value })}
+                    data-testid="input-menu-item-price"
+                    className="mt-1"
+                  />
+                </div>
               </div>
 
               <div>
-                <Label htmlFor="price">Preço *</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={menuItemForm.price}
-                  onChange={(e) => setMenuItemForm({ ...menuItemForm, price: e.target.value })}
-                  data-testid="input-menu-item-price"
-                  className="mt-2"
-                />
-              </div>
-
-              <div>
-                <Label>Imagem do Prato</Label>
+                <Label className="text-sm">Imagem do Prato</Label>
                 
                 {(imagePreview || menuItemForm.imageUrl) && (
-                  <div className="mt-2 relative inline-block w-full">
+                  <div className="mt-1 relative inline-block w-full">
                     <img 
                       src={imagePreview || menuItemForm.imageUrl} 
                       alt="Preview" 
-                      className="w-full h-32 object-cover rounded-md border"
+                      className="w-full h-24 object-cover rounded-md border"
                     />
                     <Button
                       type="button"
                       variant="destructive"
                       size="icon"
-                      className="absolute top-1 right-1 h-7 w-7 shadow-md"
+                      className="absolute top-1 right-1 h-6 w-6 shadow-md"
                       onClick={handleRemoveImage}
                       data-testid="button-remove-image"
                     >
@@ -648,38 +650,31 @@ export function MenuItemsTab() {
                   </div>
                 )}
 
-                <div className="mt-2 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="image-file"
-                      type="file"
-                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                      onChange={handleImageFileChange}
-                      className="hidden"
-                      data-testid="input-image-file"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => document.getElementById('image-file')?.click()}
-                      className="flex-1"
-                      data-testid="button-upload-image"
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      {imageFile ? imageFile.name : "Escolher arquivo"}
-                    </Button>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 border-t border-muted"></div>
-                    <span className="text-xs text-muted-foreground">ou</span>
-                    <div className="flex-1 border-t border-muted"></div>
-                  </div>
+                <div className="mt-1 space-y-1.5">
+                  <Input
+                    id="image-file"
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                    onChange={handleImageFileChange}
+                    className="hidden"
+                    data-testid="input-image-file"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('image-file')?.click()}
+                    className="w-full"
+                    data-testid="button-upload-image"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {imageFile ? imageFile.name : "Escolher arquivo"}
+                  </Button>
 
                   <Input
                     id="imageUrl"
                     type="url"
-                    placeholder="https://exemplo.com/imagem.jpg"
+                    placeholder="ou cole URL da imagem"
                     value={menuItemForm.imageUrl}
                     onChange={(e) => {
                       setMenuItemForm({ ...menuItemForm, imageUrl: e.target.value });
@@ -691,34 +686,26 @@ export function MenuItemsTab() {
                     data-testid="input-menu-item-image-url"
                   />
                 </div>
-                
-                <p className="text-xs text-muted-foreground mt-2">
-                  Faça upload de uma imagem (máx 5MB) ou cole uma URL
-                </p>
               </div>
 
               <div>
-                <Label htmlFor="description">Descrição</Label>
+                <Label htmlFor="description" className="text-sm">Descrição</Label>
                 <Textarea
                   id="description"
                   placeholder="Descreva o prato..."
                   value={menuItemForm.description}
                   onChange={(e) => setMenuItemForm({ ...menuItemForm, description: e.target.value })}
                   data-testid="input-menu-item-description"
-                  className="mt-2 resize-none"
-                  rows={3}
+                  className="mt-1 resize-none"
+                  rows={2}
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label htmlFor="isAvailable">Disponibilidade</Label>
-                  <p className="text-xs text-muted-foreground">
-                    O prato está disponível para pedidos?
-                  </p>
-                </div>
+              <div className="flex items-center justify-between pt-1">
+                <Label htmlFor="isAvailable" className="text-sm">Disponibilidade</Label>
                 <Button
                   type="button"
+                  size="sm"
                   variant={menuItemForm.isAvailable === 1 ? "default" : "outline"}
                   onClick={() => setMenuItemForm({ ...menuItemForm, isAvailable: menuItemForm.isAvailable === 1 ? 0 : 1 })}
                   data-testid="button-toggle-availability"
