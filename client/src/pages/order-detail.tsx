@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   ArrowLeft, Plus, Trash2, DollarSign, Percent, 
   UtensilsCrossed, Clock, Edit2, Check, X, Printer, Package,
-  Users, Tag, Gift, XCircle 
+  Users, Tag, Gift, XCircle, Minus 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import { PrintOrder } from "@/components/PrintOrder";
 import { PrintInvoice } from "@/components/PrintInvoice";
 import { ProductSelector } from "@/components/ProductSelector";
 import type { Order, OrderItem, MenuItem, Customer, Coupon, LoyaltyProgram } from "@shared/schema";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface OrderDetail extends Order {
   orderItems: Array<OrderItem & { menuItem: MenuItem }>;
@@ -110,6 +111,30 @@ export default function OrderDetail() {
     return () => clearInterval(interval);
   }, [order?.createdAt]);
 
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
+      if (e.key === "Escape") {
+        setLocation("/pdv");
+      } else if (e.key === "F2") {
+        e.preventDefault();
+        if (order && order.orderItems.length > 0 && order.paymentStatus !== "pago") {
+          setPaymentDialogOpen(true);
+        }
+      } else if (e.key === "F3") {
+        e.preventDefault();
+        const discountButton = document.querySelector('[data-testid="button-discount"]') as HTMLButtonElement;
+        discountButton?.click();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, [order, setLocation]);
+
   const updateMetadataMutation = useMutation({
     mutationFn: async (data: { orderTitle?: string; customerName?: string; customerPhone?: string }) => {
       const response = await apiRequest("PUT", `/api/orders/${orderId}/metadata`, data);
@@ -145,10 +170,14 @@ export default function OrderDetail() {
       const response = await apiRequest("POST", `/api/orders/${orderId}/items`, item);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders", orderId] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      toast({ title: "Item adicionado" });
+      const menuItem = menuItems.find(m => m.id === variables.menuItemId);
+      toast({ 
+        title: "✓ Item adicionado", 
+        description: `${variables.quantity}x ${menuItem?.name || 'Produto'}`,
+      });
       setProductSelectorOpen(false);
     },
     onError: () => {
@@ -164,7 +193,10 @@ export default function OrderDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders", orderId] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      toast({ title: "Item removido" });
+      toast({ 
+        title: "Item removido",
+        description: "O produto foi removido do pedido"
+      });
     },
     onError: () => {
       toast({ title: "Erro ao remover item", variant: "destructive" });
@@ -176,9 +208,14 @@ export default function OrderDetail() {
       const response = await apiRequest("PUT", `/api/orders/${orderId}/items/${itemId}`, { quantity });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders", orderId] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({ 
+        title: "Quantidade atualizada",
+        description: `Nova quantidade: ${variables.quantity}`,
+        duration: 1500,
+      });
     },
     onError: () => {
       toast({ title: "Erro ao atualizar quantidade", variant: "destructive" });
@@ -378,7 +415,12 @@ export default function OrderDetail() {
 
   return (
     <div className="flex flex-col h-screen">
-      <div className="border-b p-4 flex items-center gap-4">
+      <motion.div 
+        className="border-b p-4 flex items-center gap-4"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
         <Button
           variant="ghost"
           size="icon"
@@ -391,12 +433,23 @@ export default function OrderDetail() {
           <Badge className={statusColors[order.orderType as keyof typeof statusColors] || "bg-muted"}>
             {orderTypeLabels[order.orderType as keyof typeof orderTypeLabels] || order.orderType}
           </Badge>
-          <span className="text-sm text-muted-foreground">1</span>
+          <span className="text-sm text-muted-foreground">#{order.id.slice(0, 8).toUpperCase()}</span>
         </div>
         <Separator orientation="vertical" className="h-6" />
-        <Badge className={statusColors[order.status as keyof typeof statusColors]}>
-          {statusLabels[order.status as keyof typeof statusLabels]}
-        </Badge>
+        <motion.div
+          animate={{ 
+            scale: [1, 1.05, 1],
+          }}
+          transition={{ 
+            duration: 2,
+            repeat: Infinity,
+            repeatDelay: 3
+          }}
+        >
+          <Badge className={statusColors[order.status as keyof typeof statusColors]}>
+            {statusLabels[order.status as keyof typeof statusLabels]}
+          </Badge>
+        </motion.div>
         <div className="ml-auto flex items-center gap-4">
           <div className="text-sm text-muted-foreground">
             {order.createdAt && format(new Date(order.createdAt), "dd/MM/yy HH:mm")}
@@ -415,6 +468,21 @@ export default function OrderDetail() {
             variant="ghost"
             size="icon"
           />
+        </div>
+      </motion.div>
+      
+      <div className="border-b bg-muted/30 px-4 py-2 flex items-center gap-4 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1">
+          <kbd className="px-2 py-1 bg-background border rounded">ESC</kbd>
+          <span>Voltar</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <kbd className="px-2 py-1 bg-background border rounded">F2</kbd>
+          <span>Pagar</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <kbd className="px-2 py-1 bg-background border rounded">F3</kbd>
+          <span>Desconto</span>
         </div>
       </div>
 
@@ -562,50 +630,66 @@ export default function OrderDetail() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {order.orderItems.map((item) => (
-                    <div key={item.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
-                      <div className="flex items-center gap-2 flex-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-6 w-6"
-                          onClick={() => {
-                            if (item.quantity > 1) {
-                              updateItemQuantityMutation.mutate({ itemId: item.id, quantity: item.quantity - 1 });
-                            } else {
-                              removeItemMutation.mutate(item.id);
-                            }
-                          }}
-                          data-testid={`decrease-item-${item.id}`}
-                        >
-                          -
-                        </Button>
-                        <span className="w-8 text-center" data-testid={`item-quantity-${item.id}`}>
-                          {item.quantity}x
-                        </span>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-6 w-6"
-                          onClick={() => updateItemQuantityMutation.mutate({ itemId: item.id, quantity: item.quantity + 1 })}
-                          data-testid={`increase-item-${item.id}`}
-                        >
-                          +
-                        </Button>
-                        <span className="flex-1">{item.menuItem.name}</span>
-                      </div>
-                      <span className="font-medium">{formatKwanza(Number(item.price) * item.quantity)}</span>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6"
-                        onClick={() => removeItemMutation.mutate(item.id)}
-                        data-testid={`remove-item-${item.id}`}
+                  <AnimatePresence mode="popLayout">
+                    {order.orderItems.map((item, index) => (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: -100 }}
+                        transition={{ duration: 0.2, delay: index * 0.03 }}
+                        className="flex items-center gap-2 p-3 rounded-md bg-muted/50 hover-elevate"
                       >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
+                        <div className="flex items-center gap-2 flex-1">
+                          <div className="flex items-center gap-1 bg-background rounded-md p-1 border">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive active-elevate-2"
+                              onClick={() => {
+                                if (item.quantity > 1) {
+                                  updateItemQuantityMutation.mutate({ itemId: item.id, quantity: item.quantity - 1 });
+                                } else {
+                                  removeItemMutation.mutate(item.id);
+                                }
+                              }}
+                              data-testid={`decrease-item-${item.id}`}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="min-w-[2rem] text-center font-semibold" data-testid={`item-quantity-${item.id}`}>
+                              {item.quantity}
+                            </span>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 hover:bg-primary/10 hover:text-primary active-elevate-2"
+                              onClick={() => updateItemQuantityMutation.mutate({ itemId: item.id, quantity: item.quantity + 1 })}
+                              data-testid={`increase-item-${item.id}`}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium">{item.menuItem.name}</p>
+                            {item.notes && (
+                              <p className="text-xs text-muted-foreground">{item.notes}</p>
+                            )}
+                          </div>
+                        </div>
+                        <span className="font-semibold text-lg">{formatKwanza(Number(item.price) * item.quantity)}</span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive active-elevate-2"
+                          onClick={() => removeItemMutation.mutate(item.id)}
+                          data-testid={`remove-item-${item.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                 </div>
               )}
             </CardContent>
@@ -620,54 +704,74 @@ export default function OrderDetail() {
             </CardHeader>
             <CardContent>
               {order.customerId || selectedCustomerId ? (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-2 rounded-md bg-muted/50">
-                    <div className="flex-1">
-                      <p className="font-medium">{selectedCustomer?.name}</p>
-                      <p className="text-xs text-muted-foreground">{selectedCustomer?.phone}</p>
+                <motion.div 
+                  className="space-y-3"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                >
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20">
+                    <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                      <Users className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold truncate">{selectedCustomer?.name}</p>
+                      <p className="text-sm text-muted-foreground">{selectedCustomer?.phone || "Sem telefone"}</p>
                     </div>
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-6 w-6"
+                      className="h-8 w-8 flex-shrink-0 hover:bg-destructive/10 hover:text-destructive"
                       onClick={() => {
                         setSelectedCustomerId("");
                         linkCustomerMutation.mutate("");
                       }}
                       data-testid="button-remove-customer"
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-4 w-4" />
                     </Button>
                   </div>
                   {selectedCustomer && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Gift className="h-3 w-3" />
-                      <span>{selectedCustomer.loyaltyPoints || 0} pontos disponíveis</span>
-                      <Badge variant="secondary" className="ml-auto">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                      <div className="flex items-center gap-2">
+                        <Gift className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium">{selectedCustomer.loyaltyPoints || 0} pontos</span>
+                      </div>
+                      <Badge variant="secondary" className="capitalize">
                         {selectedCustomer.tier || "bronze"}
                       </Badge>
                     </div>
                   )}
-                </div>
+                </motion.div>
               ) : (
-                <Select
-                  value={selectedCustomerId}
-                  onValueChange={(id) => {
-                    setSelectedCustomerId(id);
-                    linkCustomerMutation.mutate(id);
-                  }}
-                >
-                  <SelectTrigger data-testid="select-customer">
-                    <SelectValue placeholder="Selecionar cliente..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name} - {customer.phone || "Sem telefone"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Select
+                    value={selectedCustomerId}
+                    onValueChange={(id) => {
+                      setSelectedCustomerId(id);
+                      linkCustomerMutation.mutate(id);
+                    }}
+                  >
+                    <SelectTrigger data-testid="select-customer" className="h-12">
+                      <SelectValue placeholder="🔍 Pesquisar ou selecionar cliente..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.map((customer) => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium">{customer.name}</p>
+                              <p className="text-xs text-muted-foreground">{customer.phone || "Sem telefone"}</p>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Vincule um cliente para usar cupons e pontos de fidelidade
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -708,8 +812,8 @@ export default function OrderDetail() {
             </CardContent>
           </Card>
 
-          {loyaltyProgram?.isActive === 1 && selectedCustomer && (
-            <Card>
+            {loyaltyProgram?.isActive === 1 && selectedCustomer && (
+              <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <Gift className="h-4 w-4" />
@@ -768,22 +872,25 @@ export default function OrderDetail() {
             </Card>
           )}
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm">Subtotal Produtos ({order.orderItems.length})</span>
-                  <span className="text-sm" data-testid="text-subtotal">{formatKwanza(order.subtotal)}</span>
+          <Card className="border-primary/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Resumo do Pedido</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Subtotal ({order.orderItems.length} {order.orderItems.length === 1 ? 'item' : 'itens'})</span>
+                  <span className="font-medium" data-testid="text-subtotal">{formatKwanza(order.subtotal)}</span>
                 </div>
 
                 <Separator />
 
-                <div className="flex gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="flex-1" data-testid="button-discount">
-                        <Percent className="h-4 w-4 mr-2" />
-                        Desconto
+                      <Button variant="outline" size="sm" className="flex-col h-auto py-3 gap-1" data-testid="button-discount">
+                        <Percent className="h-4 w-4" />
+                        <span className="text-xs">Desconto</span>
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
@@ -800,14 +907,14 @@ export default function OrderDetail() {
 
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="flex-1" data-testid="button-service">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Serviço
+                      <Button variant="outline" size="sm" className="flex-col h-auto py-3 gap-1" data-testid="button-service">
+                        <UtensilsCrossed className="h-4 w-4" />
+                        <span className="text-xs">Serviço</span>
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Serviço</DialogTitle>
+                        <DialogTitle>Taxa de Serviço</DialogTitle>
                       </DialogHeader>
                       <ServiceChargeForm
                         onSubmit={(data) => applyServiceChargeMutation.mutate(data)}
@@ -819,14 +926,14 @@ export default function OrderDetail() {
 
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="flex-1" data-testid="button-packaging">
-                        <Package className="h-4 w-4 mr-2" />
-                        Embalagem
+                      <Button variant="outline" size="sm" className="flex-col h-auto py-3 gap-1" data-testid="button-packaging">
+                        <Package className="h-4 w-4" />
+                        <span className="text-xs">Embalagem</span>
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Embalagem:</DialogTitle>
+                        <DialogTitle>Taxa de Embalagem</DialogTitle>
                       </DialogHeader>
                       <PackagingFeeForm
                         onSubmit={(value) => applyPackagingFeeMutation.mutate(value)}
@@ -837,48 +944,141 @@ export default function OrderDetail() {
                 </div>
 
                 {Number(order.discount || 0) > 0 && (
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Desconto ({order.discountType === "percentual" ? `${order.discount}%` : "Valor"})</span>
-                    <span>-{formatKwanza(order.discount || 0)}</span>
-                  </div>
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="flex justify-between text-sm bg-destructive/10 p-2 rounded-md"
+                  >
+                    <span className="text-destructive font-medium">
+                      Desconto {order.discountType === "percentual" ? `(${order.discount}%)` : ""}
+                    </span>
+                    <span className="text-destructive font-semibold">-{formatKwanza(order.discount || 0)}</span>
+                  </motion.div>
                 )}
 
                 {Number(order.serviceCharge || 0) > 0 && (
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Taxa de Serviço{order.serviceName ? ` (${order.serviceName})` : ""}</span>
-                    <span>+{formatKwanza(order.serviceCharge || 0)}</span>
-                  </div>
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="flex justify-between text-sm bg-primary/10 p-2 rounded-md"
+                  >
+                    <span className="text-primary font-medium">
+                      Taxa de Serviço{order.serviceName ? ` (${order.serviceName})` : ""}
+                    </span>
+                    <span className="text-primary font-semibold">+{formatKwanza(order.serviceCharge || 0)}</span>
+                  </motion.div>
                 )}
 
                 {Number(order.packagingFee || 0) > 0 && (
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Embalagem</span>
-                    <span>+{formatKwanza(order.packagingFee || 0)}</span>
-                  </div>
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="flex justify-between text-sm bg-primary/10 p-2 rounded-md"
+                  >
+                    <span className="text-primary font-medium">Embalagem</span>
+                    <span className="text-primary font-semibold">+{formatKwanza(order.packagingFee || 0)}</span>
+                  </motion.div>
                 )}
 
-                <Separator />
+                {(order.couponDiscount && Number(order.couponDiscount) > 0) && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="flex justify-between text-sm bg-success/10 p-2 rounded-md"
+                  >
+                    <span className="text-success font-medium">Cupom de Desconto</span>
+                    <span className="text-success font-semibold">-{formatKwanza(order.couponDiscount || 0)}</span>
+                  </motion.div>
+                )}
 
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      className={
-                        order.paymentStatus === "pago"
-                          ? "bg-chart-3 text-chart-3-foreground"
-                          : order.paymentStatus === "parcial"
-                          ? "bg-chart-4 text-chart-4-foreground"
-                          : "bg-chart-1 text-chart-1-foreground"
-                      }
-                    >
-                      {order.paymentStatus === "pago" ? "Pago" : order.paymentStatus === "parcial" ? "Parcial" : "Não pago"}
-                    </Badge>
-                    <span className="font-semibold">Total</span>
-                  </div>
-                  <span className="text-2xl font-bold" data-testid="text-total">
+                {(order.loyaltyDiscountAmount && Number(order.loyaltyDiscountAmount) > 0) && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="flex justify-between text-sm bg-success/10 p-2 rounded-md"
+                  >
+                    <span className="text-success font-medium">Pontos Resgatados</span>
+                    <span className="text-success font-semibold">-{formatKwanza(order.loyaltyDiscountAmount || 0)}</span>
+                  </motion.div>
+                )}
+              </div>
+
+              <Separator className="my-4" />
+
+              <motion.div 
+                className="bg-primary/5 border-2 border-primary/20 rounded-lg p-4"
+                animate={{ 
+                  borderColor: order.paymentStatus === "pago" 
+                    ? ["hsl(var(--primary) / 0.2)", "hsl(var(--primary) / 0.4)", "hsl(var(--primary) / 0.2)"]
+                    : "hsl(var(--primary) / 0.2)"
+                }}
+                transition={{ 
+                  duration: 2,
+                  repeat: order.paymentStatus === "pago" ? Infinity : 0,
+                }}
+              >
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-muted-foreground">TOTAL A PAGAR</span>
+                  <Badge
+                    className={
+                      order.paymentStatus === "pago"
+                        ? "bg-chart-3 text-chart-3-foreground"
+                        : order.paymentStatus === "parcial"
+                        ? "bg-chart-4 text-chart-4-foreground"
+                        : "bg-chart-1 text-chart-1-foreground"
+                    }
+                  >
+                    {order.paymentStatus === "pago" ? "✓ Pago" : order.paymentStatus === "parcial" ? "Parcial" : "Pendente"}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-3xl font-bold text-primary" data-testid="text-total">
                     {formatKwanza(order.totalAmount)}
                   </span>
                 </div>
-              </div>
+                
+                {order.paymentStatus === "parcial" && (
+                  <div className="mb-3 pb-3 border-b border-primary/20">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Pago:</span>
+                      <span className="font-medium">{formatKwanza(order.paidAmount || 0)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-semibold mt-1">
+                      <span>Restante:</span>
+                      <span className="text-destructive">{formatKwanza(Number(order.totalAmount) - Number(order.paidAmount || 0))}</span>
+                    </div>
+                  </div>
+                )}
+
+                {order.paymentStatus !== "pago" && order.orderItems.length > 0 && (
+                  <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        className="w-full h-12 text-lg font-semibold"
+                        size="lg"
+                        data-testid="button-pay-summary"
+                      >
+                        <DollarSign className="h-5 w-5 mr-2" />
+                        {order.paymentStatus === "parcial" 
+                          ? `Pagar ${formatKwanza(Number(order.totalAmount) - Number(order.paidAmount || 0))}`
+                          : `Pagar ${formatKwanza(order.totalAmount)}`
+                        }
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Registrar Pagamento</DialogTitle>
+                      </DialogHeader>
+                      <PaymentForm
+                        onSubmit={(data) => recordPaymentMutation.mutate(data)}
+                        totalAmount={Number(order.totalAmount)}
+                        paidAmount={Number(order.paidAmount || 0)}
+                        isPending={recordPaymentMutation.isPending}
+                      />
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </motion.div>
             </CardContent>
           </Card>
         </div>
