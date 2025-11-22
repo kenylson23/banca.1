@@ -78,6 +78,53 @@ export function MenuItemsTab() {
     queryKey: ["/api/menu-items"],
   });
 
+  const compressImage = async (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxWidth = 1200;
+          const maxHeight = 1200;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width *= ratio;
+            height *= ratio;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                });
+                resolve(compressedFile);
+              } else {
+                reject(new Error('Falha ao comprimir imagem'));
+              }
+            },
+            'image/jpeg',
+            0.85
+          );
+        };
+        img.onerror = () => reject(new Error('Falha ao carregar imagem'));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Falha ao ler arquivo'));
+      reader.readAsDataURL(file);
+    });
+  };
+
   const saveMenuItemMutation = useMutation({
     mutationFn: async (data: MenuItemFormData) => {
       const response = data.id
@@ -102,8 +149,9 @@ export function MenuItemsTab() {
         const menuItemId = data.id || (response as any)?.id;
         if (menuItemId) {
           try {
+            const compressedImage = await compressImage(data.imageFile);
             const formData = new FormData();
-            formData.append('image', data.imageFile);
+            formData.append('image', compressedImage);
 
             const uploadResponse = await fetch(`/api/menu-items/${menuItemId}/image`, {
               method: 'POST',
