@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Settings2, Filter } from "lucide-react";
+import { Plus, Pencil, Trash2, Settings2, Filter, Upload, X, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -39,6 +39,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { formatKwanza } from "@/lib/formatters";
 import type { Category, MenuItem } from "@shared/schema";
 import { MenuItemOptionsDialog } from "@/components/MenuItemOptionsDialog";
+import { exportToCSV } from "@/lib/csv-export";
 
 interface MenuItemFormData {
   id?: string;
@@ -48,6 +49,7 @@ interface MenuItemFormData {
   categoryId: string;
   imageUrl: string;
   isAvailable: number;
+  imageFile?: File | null;
 }
 
 export function MenuItemsTab() {
@@ -56,6 +58,8 @@ export function MenuItemsTab() {
   const [deleteMenuItemId, setDeleteMenuItemId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
 
   const [menuItemForm, setMenuItemForm] = useState<MenuItemFormData>({
     name: "",
@@ -76,25 +80,50 @@ export function MenuItemsTab() {
 
   const saveMenuItemMutation = useMutation({
     mutationFn: async (data: MenuItemFormData) => {
-      if (data.id) {
-        await apiRequest("PATCH", `/api/menu-items/${data.id}`, {
-          name: data.name,
-          description: data.description,
-          price: data.price,
-          categoryId: data.categoryId,
-          imageUrl: data.imageUrl || null,
-          isAvailable: data.isAvailable,
-        });
-      } else {
-        await apiRequest("POST", "/api/menu-items", {
-          name: data.name,
-          description: data.description,
-          price: data.price,
-          categoryId: data.categoryId,
-          imageUrl: data.imageUrl || null,
-          isAvailable: data.isAvailable,
-        });
+      const response = data.id
+        ? await apiRequest("PATCH", `/api/menu-items/${data.id}`, {
+            name: data.name,
+            description: data.description,
+            price: data.price,
+            categoryId: data.categoryId,
+            imageUrl: data.imageUrl || null,
+            isAvailable: data.isAvailable,
+          })
+        : await apiRequest("POST", "/api/menu-items", {
+            name: data.name,
+            description: data.description,
+            price: data.price,
+            categoryId: data.categoryId,
+            imageUrl: data.imageUrl || null,
+            isAvailable: data.isAvailable,
+          });
+
+      if (data.imageFile) {
+        const menuItemId = data.id || (response as any)?.id;
+        if (menuItemId) {
+          try {
+            const formData = new FormData();
+            formData.append('image', data.imageFile);
+
+            const uploadResponse = await fetch(`/api/menu-items/${menuItemId}/image`, {
+              method: 'POST',
+              body: formData,
+              credentials: 'include',
+            });
+
+            if (!uploadResponse.ok) {
+              const error = await uploadResponse.json();
+              throw new Error(error.message || 'Erro ao fazer upload da imagem');
+            }
+
+            await uploadResponse.json();
+          } catch (error: any) {
+            throw new Error(`Erro ao fazer upload da imagem: ${error.message}`);
+          }
+        }
       }
+
+      return response;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/menu-items"] });
@@ -104,7 +133,7 @@ export function MenuItemsTab() {
       });
       handleCloseDialog();
     },
-    onError: (error) => {
+    onError: (error: any) => {
       if (isUnauthorizedError(error)) {
         toast({
           title: "Não autorizado",
@@ -152,6 +181,79 @@ export function MenuItemsTab() {
     },
   });
 
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Arquivo muito grande",
+        description: "A imagem deve ter no máximo 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Tipo de arquivo inválido",
+        description: "Apenas imagens JPEG, PNG, GIF ou WEBP são permitidas.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview("");
+    setMenuItemForm({ ...menuItemForm, imageUrl: "" });
+  };
+
+  const handleExportCSV = () => {
+    if (!filteredMenuItems || filteredMenuItems.length === 0) {
+      toast({
+        title: "Nenhum dado para exportar",
+        description: "Não há produtos para exportar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const csvData = filteredMenuItems.map(item => ({
+      'Nome': item.name,
+      'Categoria': item.category.name,
+      'Preço': `Kz ${parseFloat(item.price).toFixed(2).replace('.', ',')}`,
+      'Preço Original': item.originalPrice ? `Kz ${parseFloat(item.originalPrice).toFixed(2).replace('.', ',')}` : '-',
+      'Descrição': item.description || '-',
+      'Disponível': item.isAvailable === 1 ? 'Sim' : 'Não',
+      'Tempo de Preparo': item.preparationTime ? `${item.preparationTime} min` : '-',
+      'Tags': item.tags?.join(', ') || '-',
+    }));
+
+    const today = new Date();
+    const dateStr = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
+
+    exportToCSV({
+      filename: 'produtos',
+      data: csvData,
+      filenameSuffix: dateStr,
+    });
+
+    toast({
+      title: "Exportação concluída",
+      description: `${csvData.length} produto(s) exportado(s) com sucesso.`,
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!menuItemForm.name.trim() || !menuItemForm.price || !menuItemForm.categoryId) {
@@ -162,7 +264,10 @@ export function MenuItemsTab() {
       });
       return;
     }
-    saveMenuItemMutation.mutate(menuItemForm);
+    saveMenuItemMutation.mutate({
+      ...menuItemForm,
+      imageFile: imageFile,
+    });
   };
 
   const handleEditMenuItem = (item: MenuItem & { category: Category }) => {
@@ -175,10 +280,21 @@ export function MenuItemsTab() {
       imageUrl: item.imageUrl || "",
       isAvailable: item.isAvailable,
     });
+    setImageFile(null);
+    setImagePreview(item.imageUrl || "");
     setIsDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
+    if (saveMenuItemMutation.isPending) {
+      toast({
+        title: "Operação em andamento",
+        description: "Aguarde a conclusão do salvamento antes de fechar.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsDialogOpen(false);
     setMenuItemForm({
       name: "",
@@ -188,6 +304,19 @@ export function MenuItemsTab() {
       imageUrl: "",
       isAvailable: 1,
     });
+    setImageFile(null);
+    setImagePreview("");
+  };
+
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      if (saveMenuItemMutation.isPending) {
+        return;
+      }
+      handleCloseDialog();
+    } else {
+      setIsDialogOpen(true);
+    }
   };
 
   const handleOpenNewDialog = () => {
@@ -199,6 +328,8 @@ export function MenuItemsTab() {
       imageUrl: "",
       isAvailable: 1,
     });
+    setImageFile(null);
+    setImagePreview("");
     setIsDialogOpen(true);
   };
 
@@ -219,10 +350,21 @@ export function MenuItemsTab() {
             Gerencie todos os pratos do restaurante
           </p>
         </div>
-        <Button onClick={handleOpenNewDialog} data-testid="button-create-menu-item">
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Prato
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleExportCSV} 
+            data-testid="button-export-csv"
+            disabled={!filteredMenuItems || filteredMenuItems.length === 0 || saveMenuItemMutation.isPending}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Exportar CSV
+          </Button>
+          <Button onClick={handleOpenNewDialog} data-testid="button-create-menu-item">
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Prato
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4">
@@ -358,7 +500,7 @@ export function MenuItemsTab() {
         </Card>
       )}
 
-      <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
+      <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="sm:max-w-[500px]">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
@@ -419,18 +561,74 @@ export function MenuItemsTab() {
               </div>
 
               <div>
-                <Label htmlFor="imageUrl">URL da Imagem</Label>
-                <Input
-                  id="imageUrl"
-                  type="url"
-                  placeholder="https://exemplo.com/imagem.jpg"
-                  value={menuItemForm.imageUrl}
-                  onChange={(e) => setMenuItemForm({ ...menuItemForm, imageUrl: e.target.value })}
-                  data-testid="input-menu-item-image"
-                  className="mt-2"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Cole o link de uma imagem do prato
+                <Label>Imagem do Prato</Label>
+                
+                {(imagePreview || menuItemForm.imageUrl) && (
+                  <div className="mt-2 relative">
+                    <img 
+                      src={imagePreview || menuItemForm.imageUrl} 
+                      alt="Preview" 
+                      className="w-full h-48 object-cover rounded-md border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2"
+                      onClick={handleRemoveImage}
+                      data-testid="button-remove-image"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="image-file"
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                      onChange={handleImageFileChange}
+                      className="hidden"
+                      data-testid="input-image-file"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => document.getElementById('image-file')?.click()}
+                      className="flex-1"
+                      data-testid="button-upload-image"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      {imageFile ? imageFile.name : "Escolher arquivo"}
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 border-t border-muted"></div>
+                    <span className="text-xs text-muted-foreground">ou</span>
+                    <div className="flex-1 border-t border-muted"></div>
+                  </div>
+
+                  <Input
+                    id="imageUrl"
+                    type="url"
+                    placeholder="https://exemplo.com/imagem.jpg"
+                    value={menuItemForm.imageUrl}
+                    onChange={(e) => {
+                      setMenuItemForm({ ...menuItemForm, imageUrl: e.target.value });
+                      if (e.target.value) {
+                        setImagePreview(e.target.value);
+                        setImageFile(null);
+                      }
+                    }}
+                    data-testid="input-menu-item-image-url"
+                  />
+                </div>
+                
+                <p className="text-xs text-muted-foreground mt-2">
+                  Faça upload de uma imagem (máx 5MB) ou cole uma URL
                 </p>
               </div>
 
