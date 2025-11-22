@@ -416,17 +416,17 @@ export function MenuItemsTab() {
       </div>
 
       {menuItemsLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
-            <Skeleton key={i} className="h-64" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[...Array(8)].map((_, i) => (
+            <Skeleton key={i} className="h-48" />
           ))}
         </div>
       ) : filteredMenuItems.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredMenuItems.map((item) => (
-            <Card key={item.id} data-testid={`card-menu-item-${item.id}`} className="overflow-hidden">
+            <Card key={item.id} data-testid={`card-menu-item-${item.id}`} className="overflow-hidden flex flex-col">
               {item.imageUrl && (
-                <div className="aspect-video w-full overflow-hidden bg-muted">
+                <div className="h-32 w-full overflow-hidden bg-muted">
                   <img
                     src={item.imageUrl}
                     alt={item.name}
@@ -434,33 +434,29 @@ export function MenuItemsTab() {
                   />
                 </div>
               )}
-              <CardHeader className="flex flex-row items-start justify-between gap-2 pb-3">
-                <div className="flex-1">
-                  <CardTitle className="text-lg line-clamp-1">{item.name}</CardTitle>
-                  <div className="flex gap-2 mt-2">
-                    <Badge variant="secondary">
-                      {item.category.name}
+              <CardHeader className="pb-2 space-y-0">
+                <CardTitle className="text-base line-clamp-1">{item.name}</CardTitle>
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  <Badge variant="secondary" className="text-xs">
+                    {item.category.name}
+                  </Badge>
+                  {item.isAvailable === 0 && (
+                    <Badge variant="destructive" className="text-xs">
+                      Indisponível
                     </Badge>
-                    {item.isAvailable === 0 && (
-                      <Badge variant="destructive">
-                        Indisponível
-                      </Badge>
-                    )}
-                  </div>
+                  )}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="flex-1 flex flex-col gap-2 pt-0">
                 {item.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-3">
+                  <p className="text-xs text-muted-foreground line-clamp-2">
                     {item.description}
                   </p>
                 )}
-                <div className="flex items-center justify-between">
-                  <p className="text-2xl font-bold font-mono">
-                    {formatKwanza(item.price)}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2">
+                <p className="text-lg font-bold font-mono">
+                  {formatKwanza(item.price)}
+                </p>
+                <div className="mt-auto flex flex-col gap-1.5">
                   <Button
                     variant={item.isAvailable === 1 ? "default" : "outline"}
                     size="sm"
@@ -485,7 +481,7 @@ export function MenuItemsTab() {
                     {item.isAvailable === 1 ? "✓ Disponível" : "✗ Indisponível"}
                   </Button>
                   <MenuItemOptionsDialog menuItemId={item.id} menuItemName={item.name} />
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5">
                     <Button
                       variant="outline"
                       size="sm"
@@ -493,7 +489,7 @@ export function MenuItemsTab() {
                       onClick={() => handleEditMenuItem(item)}
                       data-testid={`button-edit-menu-item-${item.id}`}
                     >
-                      <Pencil className="h-4 w-4 mr-2" />
+                      <Pencil className="h-4 w-4 mr-1.5" />
                       Editar
                     </Button>
                     <Button
