@@ -178,6 +178,10 @@ export default function Dashboard() {
     return historicalData.slice(-7).map(d => d.sales);
   }, [historicalData]);
 
+  const { data: heatmapData, isLoading: heatmapLoading } = useQuery<Array<{ day: string; hour: number; value: number }>>({
+    queryKey: ["/api/stats/heatmap?days=30"],
+  });
+
   // Mock activity feed data (in production, this would come from WebSocket or API)
   const mockActivities = useMemo(() => {
     if (!recentOrders || recentOrders.length === 0) return [];
@@ -192,29 +196,6 @@ export default function Dashboard() {
       value: formatKwanza(order.totalAmount?.toString() || "0"),
     }));
   }, [recentOrders]);
-
-  // Mock heatmap data (in production, this would come from API)
-  const mockHeatmapData = useMemo(() => {
-    const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-    const data = [];
-    
-    for (const day of days) {
-      for (let hour = 10; hour < 23; hour++) {
-        const isLunchRush = hour >= 12 && hour <= 14;
-        const isDinnerRush = hour >= 19 && hour <= 21;
-        const baseValue = Math.random() * 5;
-        const rushBonus = isLunchRush || isDinnerRush ? Math.random() * 15 : 0;
-        
-        data.push({
-          day,
-          hour,
-          value: Math.floor(baseValue + rushBonus),
-        });
-      }
-    }
-    
-    return data;
-  }, []);
 
   // Mock goals data
   const mockGoals = useMemo(() => {
@@ -483,7 +464,11 @@ export default function Dashboard() {
             )}
 
             {/* Heatmap */}
-            <SalesHeatmap data={mockHeatmapData} />
+            {heatmapLoading ? (
+              <Skeleton className="h-[400px] w-full rounded-lg" />
+            ) : (
+              <SalesHeatmap data={heatmapData || []} />
+            )}
           </div>
 
           {/* Sidebar Widgets */}

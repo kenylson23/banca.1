@@ -2951,6 +2951,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/stats/heatmap", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const days = parseInt(req.query.days as string) || 30;
+      if (days < 1 || days > 365) {
+        return res.status(400).json({ message: "Days must be between 1 and 365" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const branchId = currentUser.activeBranchId || null;
+      const heatmapData = await storage.getSalesHeatmapData(restaurantId, branchId, days);
+      res.json(heatmapData);
+    } catch (error) {
+      console.error('Heatmap data error:', error);
+      res.status(500).json({ message: "Failed to fetch heatmap data" });
+    }
+  });
+
   app.get("/api/stats/kitchen", isAuthenticated, async (req, res) => {
     try {
       const currentUser = req.user as User;
