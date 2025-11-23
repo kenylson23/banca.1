@@ -142,6 +142,17 @@ export async function checkCanUseExpenseTracking(storage: IStorage, restaurantId
   }
 }
 
+export async function checkCanUseInventoryModule(storage: IStorage, restaurantId: string): Promise<void> {
+  const limits = await storage.checkSubscriptionLimits(restaurantId);
+  
+  if (!limits.plan.hasInventoryModule) {
+    throw new PlanFeatureError(
+      `O módulo de inventário não está disponível no plano ${limits.plan.name}. Faça upgrade para o plano Empresarial ou superior.`,
+      'inventory'
+    );
+  }
+}
+
 export async function checkCanAddInventoryItem(storage: IStorage, restaurantId: string): Promise<void> {
   const limits = await storage.checkSubscriptionLimits(restaurantId);
   

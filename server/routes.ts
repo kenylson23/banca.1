@@ -5,6 +5,14 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
+import {
+  checkCanAddCustomer,
+  checkCanCreateCoupon,
+  checkCanAddInventoryItem,
+  checkCanUseExpenseTracking,
+  checkCanUseLoyaltyProgram,
+  checkCanUseInventoryModule,
+} from "./planLimits";
 import passport from "passport";
 import QRCode from "qrcode";
 import PDFDocument from "pdfkit";
@@ -4777,6 +4785,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+      await checkCanUseExpenseTracking(storage, currentUser.restaurantId);
+
       const branchId = currentUser.activeBranchId || null;
       const filters: any = {};
 
@@ -4794,7 +4804,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const expenses = await storage.getExpenses(currentUser.restaurantId, branchId, filters);
       res.json(expenses);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
+        return res.status(403).json({ message: error.message });
+      }
       console.error('Expenses fetch error:', error);
       res.status(500).json({ message: "Erro ao buscar despesas" });
     }
@@ -4806,6 +4819,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!currentUser.restaurantId) {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
+
+      await checkCanUseExpenseTracking(storage, currentUser.restaurantId);
 
       const expenseSchema = z.object({
         categoryId: z.string().min(1, "Categoria é obrigatória"),
@@ -4827,7 +4842,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       res.json(newExpense);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
+        return res.status(403).json({ message: error.message });
+      }
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
@@ -5065,13 +5083,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+      await checkCanUseInventoryModule(storage, currentUser.restaurantId);
+
       const filters: any = {};
       if (req.query.categoryId) filters.categoryId = req.query.categoryId as string;
       if (req.query.isActive) filters.isActive = parseInt(req.query.isActive as string);
 
       const items = await storage.getInventoryItems(currentUser.restaurantId, filters);
       res.json(items);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
+        return res.status(403).json({ message: error.message });
+      }
       console.error('Inventory items fetch error:', error);
       res.status(500).json({ message: "Erro ao buscar itens de inventário" });
     }
@@ -5097,10 +5120,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+      await checkCanAddInventoryItem(storage, currentUser.restaurantId);
+
       const data = insertInventoryItemSchema.parse(req.body);
       const item = await storage.createInventoryItem(currentUser.restaurantId, data);
       res.json(item);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
+        return res.status(403).json({ message: error.message });
+      }
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
@@ -5297,6 +5325,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+      await checkCanAddCustomer(storage, currentUser.restaurantId);
+
       const validatedData = insertCustomerSchema.parse(req.body);
 
       if (validatedData.phone) {
@@ -5321,6 +5351,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(customer);
     } catch (error: any) {
       console.error('Customer creation error:', error);
+      if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
+        return res.status(403).json({ message: error.message });
+      }
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
       }
@@ -5371,9 +5404,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+      await checkCanUseLoyaltyProgram(storage, currentUser.restaurantId);
+
       const program = await storage.getLoyaltyProgram(currentUser.restaurantId);
       res.json(program || null);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
+        return res.status(403).json({ message: error.message });
+      }
       console.error('Loyalty program fetch error:', error);
       res.status(500).json({ message: "Erro ao buscar programa de fidelidade" });
     }
@@ -5386,10 +5424,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+      await checkCanUseLoyaltyProgram(storage, currentUser.restaurantId);
+
       const validatedData = insertLoyaltyProgramSchema.parse(req.body);
       const program = await storage.createOrUpdateLoyaltyProgram(currentUser.restaurantId, validatedData);
       res.json(program);
     } catch (error: any) {
+      if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
+        return res.status(403).json({ message: error.message });
+      }
       console.error('Loyalty program creation error:', error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
@@ -5530,6 +5573,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+      await checkCanCreateCoupon(storage, currentUser.restaurantId);
+
       const validatedData = insertCouponSchema.parse(req.body);
 
       const existing = await storage.getCouponByCode(currentUser.restaurantId, validatedData.code);
@@ -5546,6 +5591,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(coupon);
     } catch (error: any) {
       console.error('Coupon creation error:', error);
+      if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
+        return res.status(403).json({ message: error.message });
+      }
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
       }
