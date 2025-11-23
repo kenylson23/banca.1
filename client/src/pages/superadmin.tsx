@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Store, CheckCircle2, Clock, Ban, DollarSign, Send, Eye, Key,
-  BarChart3, Users, Building2, MessageSquare, CreditCard, Plus, Edit, XCircle
+  BarChart3, Users, Building2, MessageSquare, CreditCard, Plus, Edit, XCircle, Settings
 } from "lucide-react";
 import { formatKwanza } from "@/lib/formatters";
 import { apiRequest, queryClient } from "@/lib/queryClient";
