@@ -12,6 +12,54 @@ Do not make changes to the file `Y`.
 
 ## Recent Changes
 
+### Subscription & Billing System (November 2025)
+Implementado sistema completo de subscrições e faturamento para o mercado angolano:
+
+**Planos de Subscrição:**
+- **Básico** (15.000 Kz/mês ou 37$ USD): 1 filial, 10 mesas, 50 itens, 500 pedidos/mês, 2 usuários, 14 dias trial
+- **Profissional** (35.000 Kz/mês ou 87$ USD): 3 filiais, 30 mesas, 200 itens, 2.000 pedidos/mês, 5 usuários, 14 dias trial
+- **Empresarial** (70.000 Kz/mês ou 175$ USD): 10 filiais, 100 mesas, 500 itens, 10.000 pedidos/mês, 20 usuários, 14 dias trial
+- **Enterprise** (sob consulta): ilimitado em todos os recursos, 30 dias trial
+
+**Schema e Database:**
+- Enums: `subscription_status`, `subscription_payment_status`, `billing_interval`
+- Tabelas: `subscription_plans`, `subscriptions`, `subscription_payments`, `subscription_usage`
+- Coluna `currency` para suporte a AOA (Kwanza) e USD
+- Subscrição única por restaurante (constraint unique em `restaurant_id`)
+
+**Backend (Routes & Storage):**
+- `GET /api/subscription-plans`: Lista todos os planos disponíveis
+- `GET /api/subscription`: Retorna subscrição atual do restaurante com plano associado
+- `POST /api/subscription`: Cria nova subscrição (valida duplicatas, calcula períodos e trial)
+- `PATCH /api/subscription`: Atualiza plano/intervalo (recalcula períodos, limpa trial, ativa subscrição)
+- `DELETE /api/subscription`: Cancela subscrição (marca para cancelar ao fim do período)
+- `GET /api/subscription/limits`: Verifica limites e uso atual (branches, tables, menuItems, users, ordersThisMonth)
+- `GET /api/subscription/payments`: Histórico de pagamentos da subscrição
+
+**Frontend:**
+- Página completa de gerenciamento (`/subscription`) com overview, limites, pagamentos
+- Componente `SubscriptionPlanSelector` para criar/mudar plano
+- Visualização de uso com progress bars e badges de status
+- Alertas de limite atingido
+- Diálogo de confirmação para cancelamento
+- Suporte a modo de comparação de planos
+- Integração total com React Query para cache e invalidação
+
+**Validações e Segurança:**
+- Validação de subscrição duplicada (retorna 409 Conflict)
+- Recálculo automático de períodos ao mudar plano/intervalo
+- Limites ilimitados representados como 999999 no banco, exibidos como ∞ na UI
+- Verificação de limites antes de criar recursos (branches, tables, etc)
+- Apenas admin/superadmin podem criar/modificar subscrições
+
+**Benefícios:**
+- Monetização clara e transparente para o mercado angolano
+- Gestão de limites automática por plano
+- Trial period para novos clientes
+- Flexibilidade de moeda (Kwanza e Dólar)
+- Histórico completo de pagamentos
+- Interface intuitiva para upgrade/downgrade
+
 ### Cancelled Orders Tracking System (November 2025)
 Implementado sistema completo de rastreamento e relatórios para pedidos cancelados:
 
@@ -78,6 +126,7 @@ The backend is built with **Express** and **TypeScript**, leveraging **Replit Au
 
 ### Feature Specifications
 -   **Multi-Tenancy:** Supports multiple restaurants with data isolation.
+-   **Subscription & Billing:** Tiered subscription plans (Básico, Profissional, Empresarial, Enterprise) with usage limits, trial periods, multi-currency support (AOA/USD), and automatic limit enforcement.
 -   **Super Admin:** Centralized dashboard for restaurant approval and management.
 -   **Table Management:** CRUD operations for tables, automatic QR code generation, and occupancy control.
 -   **Menu Management:** Categorized menu items with prices, descriptions, and a configurable options system (size, add-ons, customizations) with min/max selection rules and price adjustments.
@@ -89,7 +138,7 @@ The backend is built with **Express** and **TypeScript**, leveraging **Replit Au
 -   **Automatic Cache Busting:** Comprehensive system using Service Workers for seamless updates and prevention of stale assets after deployments.
 
 ### System Design Choices
--   **Database Schema:** Includes `restaurants`, `users`, `sessions`, `tables`, `categories`, `menu_items`, `orders`, `order_items`, `option_groups`, `options`, `order_item_options`, `table_sessions`, `table_payments`, and financial system tables (`financial_shifts`, `financial_events`, `order_adjustments`, `payment_events`, `report_aggregations`), with all restaurant-specific data scoped by `restaurantId` and `branchId` where applicable.
+-   **Database Schema:** Includes `restaurants`, `users`, `sessions`, `tables`, `categories`, `menu_items`, `orders`, `order_items`, `option_groups`, `options`, `order_item_options`, `table_sessions`, `table_payments`, financial system tables (`financial_shifts`, `financial_events`, `order_adjustments`, `payment_events`, `report_aggregations`), and subscription system tables (`subscription_plans`, `subscriptions`, `subscription_payments`, `subscription_usage`), with all restaurant-specific data scoped by `restaurantId` and `branchId` where applicable.
 -   **Multi-Filial (Branch) Strategy:**
     -   **Categorias e Itens do Menu:** Modelo compartilhado + específico. Itens com `branchId = null` são compartilhados entre todas as filiais. Itens com `branchId` específico são exclusivos daquela filial. Queries retornam compartilhados + específicos da filial ativa.
     -   **Mesas (Tables):** Modelo de override. Mesas específicas da filial sobrescrevem mesas compartilhadas com o mesmo número. Evita duplicação de números de mesa na mesma filial.
