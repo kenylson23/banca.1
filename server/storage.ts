@@ -702,6 +702,9 @@ export interface IStorage {
       menuItems: number;
       users: number;
       ordersThisMonth: number;
+      customers: number;
+      activeCoupons: number;
+      inventoryItems: number;
     };
     withinLimits: {
       branches: boolean;
@@ -709,12 +712,18 @@ export interface IStorage {
       menuItems: boolean;
       users: boolean;
       orders: boolean;
+      customers: boolean;
+      coupons: boolean;
+      inventoryItems: boolean;
     };
     canAddBranch: boolean;
     canAddTable: boolean;
     canAddMenuItem: boolean;
     canAddUser: boolean;
     canCreateOrder: boolean;
+    canAddCustomer: boolean;
+    canAddCoupon: boolean;
+    canAddInventoryItem: boolean;
   }>;
   
   // Subscription Payment operations
@@ -7633,6 +7642,9 @@ export class DatabaseStorage implements IStorage {
       menuItems: number;
       users: number;
       ordersThisMonth: number;
+      customers: number;
+      activeCoupons: number;
+      inventoryItems: number;
     };
     withinLimits: {
       branches: boolean;
@@ -7640,12 +7652,18 @@ export class DatabaseStorage implements IStorage {
       menuItems: boolean;
       users: boolean;
       orders: boolean;
+      customers: boolean;
+      coupons: boolean;
+      inventoryItems: boolean;
     };
     canAddBranch: boolean;
     canAddTable: boolean;
     canAddMenuItem: boolean;
     canAddUser: boolean;
     canCreateOrder: boolean;
+    canAddCustomer: boolean;
+    canAddCoupon: boolean;
+    canAddInventoryItem: boolean;
   }> {
     const subscriptionData = await this.getSubscriptionByRestaurantId(restaurantId);
     
@@ -7695,12 +7713,38 @@ export class DatabaseStorage implements IStorage {
       )
       .then(result => Number(result[0]?.count || 0));
 
+    const customersCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(customers)
+      .where(eq(customers.restaurantId, restaurantId))
+      .then(result => Number(result[0]?.count || 0));
+
+    const activeCouponsCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(coupons)
+      .where(
+        and(
+          eq(coupons.restaurantId, restaurantId),
+          eq(coupons.isActive, 1)
+        )
+      )
+      .then(result => Number(result[0]?.count || 0));
+
+    const inventoryItemsCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(inventoryItems)
+      .where(eq(inventoryItems.restaurantId, restaurantId))
+      .then(result => Number(result[0]?.count || 0));
+
     const usage = {
       branches: branchesCount,
       tables: tablesCount,
       menuItems: menuItemsCount,
       users: usersCount,
       ordersThisMonth,
+      customers: customersCount,
+      activeCoupons: activeCouponsCount,
+      inventoryItems: inventoryItemsCount,
     };
 
     // Helper to check if limit is unlimited (999999 means unlimited)
@@ -7712,6 +7756,9 @@ export class DatabaseStorage implements IStorage {
       menuItems: isUnlimited(plan.maxMenuItems) || menuItemsCount < plan.maxMenuItems,
       users: isUnlimited(plan.maxUsers) || usersCount < plan.maxUsers,
       orders: isUnlimited(plan.maxOrdersPerMonth) || ordersThisMonth < plan.maxOrdersPerMonth,
+      customers: isUnlimited(plan.maxCustomers) || customersCount < plan.maxCustomers,
+      coupons: isUnlimited(plan.maxActiveCoupons) || activeCouponsCount < plan.maxActiveCoupons,
+      inventoryItems: isUnlimited(plan.maxInventoryItems) || inventoryItemsCount < plan.maxInventoryItems,
     };
 
     return {
@@ -7724,6 +7771,9 @@ export class DatabaseStorage implements IStorage {
       canAddMenuItem: withinLimits.menuItems,
       canAddUser: withinLimits.users,
       canCreateOrder: withinLimits.orders,
+      canAddCustomer: withinLimits.customers,
+      canAddCoupon: withinLimits.coupons,
+      canAddInventoryItem: withinLimits.inventoryItems,
     };
   }
 
