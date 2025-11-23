@@ -2,17 +2,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, EyeOff, ArrowLeft, Mail, Lock, Building2, Phone, MapPin, Sparkles, Check } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { Eye, EyeOff, ArrowLeft, Mail, Lock, Building2, Phone, MapPin, Sparkles, Check, CreditCard } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { loginSchema, insertRestaurantSchema, type LoginUser, type InsertRestaurant } from "@shared/schema";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { loginSchema, insertRestaurantSchema, type LoginUser, type InsertRestaurant, type SubscriptionPlan } from "@shared/schema";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatKwanza } from "@/lib/formatters";
+import { Badge } from "@/components/ui/badge";
 
 export default function Login() {
   const { toast } = useToast();
@@ -36,7 +39,12 @@ export default function Login() {
       phone: "",
       address: "",
       password: "",
+      planId: "",
     },
+  });
+
+  const { data: plans, isLoading: plansLoading } = useQuery<SubscriptionPlan[]>({
+    queryKey: ["/api/subscription-plans"],
   });
 
   const loginMutation = useMutation({
@@ -349,6 +357,55 @@ export default function Login() {
                                   </div>
                                 </div>
                               </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={registerForm.control}
+                          name="planId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">Plano de Subscrição</FormLabel>
+                              <FormControl>
+                                <div className="relative group">
+                                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-primary/20 rounded-lg opacity-0 group-focus-within:opacity-100 blur transition-opacity"></div>
+                                  <div className="relative">
+                                    <Select
+                                      onValueChange={field.onChange}
+                                      value={field.value}
+                                      disabled={plansLoading}
+                                    >
+                                      <SelectTrigger className="h-12 w-full bg-background border-border/50 focus:border-primary/50 transition-all" data-testid="select-plan">
+                                        <div className="flex items-center gap-2">
+                                          <CreditCard className="h-5 w-5 text-muted-foreground" />
+                                          <SelectValue placeholder={plansLoading ? "Carregando planos..." : "Selecione um plano"} />
+                                        </div>
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {plans?.filter(p => p.isActive).map((plan) => (
+                                          <SelectItem key={plan.id} value={plan.id} data-testid={`option-plan-${plan.id}`}>
+                                            <div className="flex flex-col gap-1 py-1">
+                                              <div className="flex items-center gap-2">
+                                                <span className="font-medium">{plan.name}</span>
+                                                {plan.name === "Profissional" && (
+                                                  <Badge variant="default" className="text-xs">Popular</Badge>
+                                                )}
+                                              </div>
+                                              <div className="text-xs text-muted-foreground">
+                                                A partir de {formatKwanza(plan.monthlyPriceAOA)}/mês
+                                              </div>
+                                            </div>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+                              </FormControl>
+                              <FormDescription className="text-xs">
+                                Escolha o plano que melhor atende seu restaurante
+                              </FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}

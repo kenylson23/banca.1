@@ -71,6 +71,7 @@ export const insertRestaurantSchema = createInsertSchema(restaurants).omit({
   businessHours: z.string().optional(),
   description: z.string().optional(),
   password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
+  planId: z.string().min(1, "Plano de subscrição é obrigatório"),
 });
 
 export type InsertRestaurant = z.infer<typeof insertRestaurantSchema>;
