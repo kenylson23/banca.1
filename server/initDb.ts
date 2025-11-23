@@ -117,6 +117,11 @@ export async function ensureTablesExist() {
         ALTER TABLE users ADD COLUMN active_branch_id VARCHAR REFERENCES branches(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
+      // Add profile_image_url to users
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE users ADD COLUMN profile_image_url VARCHAR(500); 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
       // Create sessions table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS sessions (
         sid VARCHAR PRIMARY KEY, 
