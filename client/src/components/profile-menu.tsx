@@ -7,7 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
@@ -43,6 +43,9 @@ export function ProfileMenu() {
         aria-label="Menu do usuário"
       >
         <Avatar className="h-8 w-8 border-2 border-primary/20">
+          {user?.profileImageUrl && (
+            <AvatarImage src={user.profileImageUrl} alt={user.firstName || user.email || "User"} />
+          )}
           <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
             {user?.firstName?.[0] || user?.email?.[0] || "U"}
           </AvatarFallback>
