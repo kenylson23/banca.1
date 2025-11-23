@@ -207,10 +207,10 @@ export function SuperAdminSubscriptionDialog({
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <Form {...form}>
+          <Form {...(form as any)}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="planId"
                 render={({ field }) => (
                   <FormItem>
@@ -239,7 +239,7 @@ export function SuperAdminSubscriptionDialog({
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="billingInterval"
                 render={({ field }) => (
                   <FormItem>
@@ -265,7 +265,7 @@ export function SuperAdminSubscriptionDialog({
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="currency"
                 render={({ field }) => (
                   <FormItem>
@@ -292,7 +292,7 @@ export function SuperAdminSubscriptionDialog({
 
               {mode === 'edit' && (
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="status"
                   render={({ field }) => (
                     <FormItem>

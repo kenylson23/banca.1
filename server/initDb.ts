@@ -1156,6 +1156,141 @@ export async function ensureTablesExist() {
         console.log('IMPORTANT: Please change this password after first login!');
       }
       
+      // Seed subscription plans if they don't exist
+      const checkPlans = await db.execute(sql`SELECT COUNT(*) as count FROM subscription_plans`);
+      const planCount = parseInt((checkPlans.rows[0] as any).count);
+      
+      if (planCount === 0) {
+        console.log('Seeding subscription plans...');
+        
+        const plans = [
+          {
+            name: 'Básico',
+            slug: 'basico',
+            description: 'Ideal para pequenos restaurantes, lanchonetes e food trucks. Inclui funcionalidades essenciais para começar.',
+            priceMonthlyKz: '15000.00',
+            priceAnnualKz: '144000.00',
+            priceMonthlyUsd: '18.00',
+            priceAnnualUsd: '172.80',
+            trialDays: 14,
+            maxBranches: 1,
+            maxTables: 10,
+            maxMenuItems: 50,
+            maxOrdersPerMonth: 500,
+            maxUsers: 2,
+            historyRetentionDays: 30,
+            features: JSON.stringify([
+              'pdv', 'gestao_mesas', 'menu_digital', 'qr_code',
+              'cozinha_tempo_real', 'relatorios_basicos',
+              'impressao_recibos', 'suporte_email'
+            ]),
+            isActive: 1,
+            displayOrder: 1,
+          },
+          {
+            name: 'Profissional',
+            slug: 'profissional',
+            description: 'Ideal para restaurantes médios e cafeterias estabelecidas. Inclui sistema de fidelidade e cupons.',
+            priceMonthlyKz: '35000.00',
+            priceAnnualKz: '336000.00',
+            priceMonthlyUsd: '42.00',
+            priceAnnualUsd: '403.20',
+            trialDays: 14,
+            maxBranches: 3,
+            maxTables: 30,
+            maxMenuItems: 150,
+            maxOrdersPerMonth: 2000,
+            maxUsers: 5,
+            historyRetentionDays: 90,
+            features: JSON.stringify([
+              'pdv', 'gestao_mesas', 'menu_digital', 'qr_code',
+              'cozinha_tempo_real', 'relatorios_basicos', 'impressao_recibos',
+              'fidelidade', 'cupons', 'gestao_clientes', 'delivery_takeout',
+              'relatorios_avancados', 'dashboard_analytics', 'gestao_despesas',
+              'multi_filial', 'suporte_prioritario'
+            ]),
+            isActive: 1,
+            displayOrder: 2,
+          },
+          {
+            name: 'Empresarial',
+            slug: 'empresarial',
+            description: 'Ideal para redes de restaurantes e franquias. Funcionalidades completas e multi-filial.',
+            priceMonthlyKz: '70000.00',
+            priceAnnualKz: '672000.00',
+            priceMonthlyUsd: '84.00',
+            priceAnnualUsd: '806.40',
+            trialDays: 14,
+            maxBranches: 10,
+            maxTables: 100,
+            maxMenuItems: 999999,
+            maxOrdersPerMonth: 10000,
+            maxUsers: 15,
+            historyRetentionDays: 365,
+            features: JSON.stringify([
+              'pdv', 'gestao_mesas', 'menu_digital', 'qr_code',
+              'cozinha_tempo_real', 'relatorios_basicos', 'impressao_recibos',
+              'fidelidade', 'cupons', 'gestao_clientes', 'delivery_takeout',
+              'relatorios_avancados', 'dashboard_analytics', 'gestao_despesas',
+              'multi_filial', 'inventario', 'relatorios_financeiros',
+              'api_integracoes', 'exportacao_dados', 'customizacao_visual',
+              'multiplos_turnos', 'suporte_whatsapp'
+            ]),
+            isActive: 1,
+            displayOrder: 3,
+          },
+          {
+            name: 'Enterprise',
+            slug: 'enterprise',
+            description: 'Solução personalizada para grandes cadeias e grupos de restaurantes. Tudo ilimitado com suporte dedicado.',
+            priceMonthlyKz: '150000.00',
+            priceAnnualKz: '1440000.00',
+            priceMonthlyUsd: '180.00',
+            priceAnnualUsd: '1728.00',
+            trialDays: 30,
+            maxBranches: 999999,
+            maxTables: 999999,
+            maxMenuItems: 999999,
+            maxOrdersPerMonth: 999999,
+            maxUsers: 999999,
+            historyRetentionDays: 999999,
+            features: JSON.stringify([
+              'tudo_ilimitado', 'servidor_dedicado', 'white_label',
+              'integracao_personalizada', 'treinamento_presencial',
+              'sla_garantido', 'suporte_24_7', 'gerente_conta_dedicado'
+            ]),
+            isActive: 1,
+            displayOrder: 4,
+          },
+        ];
+        
+        for (const plan of plans) {
+          await db.execute(sql`
+            INSERT INTO subscription_plans (
+              name, slug, description,
+              price_monthly_kz, price_annual_kz,
+              price_monthly_usd, price_annual_usd,
+              trial_days, max_branches, max_tables, max_menu_items,
+              max_orders_per_month, max_users, history_retention_days,
+              features, is_active, display_order
+            ) VALUES (
+              ${plan.name}, ${plan.slug}, ${plan.description},
+              ${plan.priceMonthlyKz}, ${plan.priceAnnualKz},
+              ${plan.priceMonthlyUsd}, ${plan.priceAnnualUsd},
+              ${plan.trialDays}, ${plan.maxBranches}, ${plan.maxTables}, ${plan.maxMenuItems},
+              ${plan.maxOrdersPerMonth}, ${plan.maxUsers}, ${plan.historyRetentionDays},
+              ${plan.features}::jsonb, ${plan.isActive}, ${plan.displayOrder}
+            )
+          `);
+        }
+        
+        console.log('✅ Subscription plans seeded successfully!');
+        console.log('  🥉 Básico: 15.000 Kz/mês');
+        console.log('  🥈 Profissional: 35.000 Kz/mês');
+        console.log('  🥇 Empresarial: 70.000 Kz/mês');
+        console.log('  💎 Enterprise: 150.000 Kz/mês');
+      }
+      
       isInitialized = true;
       console.log('Database tables ensured successfully!');
     } catch (error) {

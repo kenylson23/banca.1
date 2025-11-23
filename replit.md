@@ -16,10 +16,15 @@ Do not make changes to the file `Y`.
 Implementado sistema completo de subscrições e faturamento para o mercado angolano:
 
 **Planos de Subscrição:**
-- **Básico** (15.000 Kz/mês ou 37$ USD): 1 filial, 10 mesas, 50 itens, 500 pedidos/mês, 2 usuários, 14 dias trial
-- **Profissional** (35.000 Kz/mês ou 87$ USD): 3 filiais, 30 mesas, 200 itens, 2.000 pedidos/mês, 5 usuários, 14 dias trial
-- **Empresarial** (70.000 Kz/mês ou 175$ USD): 10 filiais, 100 mesas, 500 itens, 10.000 pedidos/mês, 20 usuários, 14 dias trial
-- **Enterprise** (sob consulta): ilimitado em todos os recursos, 30 dias trial
+- **Básico** (15.000 Kz/mês ou 18$ USD): 1 filial, 10 mesas, 50 itens, 500 pedidos/mês, 2 usuários, 14 dias trial
+- **Profissional** (35.000 Kz/mês ou 42$ USD): 3 filiais, 30 mesas, 150 itens, 2.000 pedidos/mês, 5 usuários, 14 dias trial
+- **Empresarial** (70.000 Kz/mês ou 84$ USD): 10 filiais, 100 mesas, ilimitado itens, 10.000 pedidos/mês, 15 usuários, 14 dias trial
+- **Enterprise** (150.000 Kz/mês ou 180$ USD): ilimitado em todos os recursos, 30 dias trial
+
+**Inicialização Automática:**
+- Planos são automaticamente populados no banco de dados quando o servidor iniciar pela primeira vez
+- Seed implementado em `server/initDb.ts` para garantir que planos estejam sempre disponíveis
+- SuperAdmin pode visualizar e gerenciar subscrições, mas não pode criar/editar os planos pré-definidos
 
 **Schema e Database:**
 - Enums: `subscription_status`, `subscription_payment_status`, `billing_interval`
