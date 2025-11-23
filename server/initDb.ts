@@ -1049,6 +1049,93 @@ export async function ensureTablesExist() {
       await db.execute(sql`CREATE INDEX IF NOT EXISTS coupon_usages_coupon_idx ON coupon_usages (coupon_id);`);
       await db.execute(sql`CREATE INDEX IF NOT EXISTS coupon_usages_customer_idx ON coupon_usages (customer_id);`);
       
+      // Create subscription enums
+      await db.execute(sql`DO $$ BEGIN CREATE TYPE subscription_status AS ENUM ('trial', 'ativa', 'cancelada', 'suspensa', 'expirada'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN CREATE TYPE subscription_payment_status AS ENUM ('pendente', 'pago', 'falhado', 'cancelado'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN CREATE TYPE billing_interval AS ENUM ('mensal', 'anual'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Create subscription_plans table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS subscription_plans (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(100) NOT NULL,
+        slug VARCHAR(100) NOT NULL UNIQUE,
+        description TEXT,
+        price_monthly_kz DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        price_annual_kz DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        price_monthly_usd DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        price_annual_usd DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        trial_days INTEGER NOT NULL DEFAULT 0,
+        max_branches INTEGER NOT NULL DEFAULT 1,
+        max_tables INTEGER NOT NULL DEFAULT 10,
+        max_menu_items INTEGER NOT NULL DEFAULT 50,
+        max_orders_per_month INTEGER NOT NULL DEFAULT 1000,
+        max_users INTEGER NOT NULL DEFAULT 2,
+        history_retention_days INTEGER NOT NULL DEFAULT 30,
+        features JSONB,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create subscriptions table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS subscriptions (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL UNIQUE REFERENCES restaurants(id) ON DELETE CASCADE,
+        plan_id VARCHAR NOT NULL REFERENCES subscription_plans(id) ON DELETE RESTRICT,
+        status subscription_status NOT NULL DEFAULT 'trial',
+        billing_interval billing_interval NOT NULL DEFAULT 'mensal',
+        currency VARCHAR(3) NOT NULL DEFAULT 'AOA',
+        stripe_customer_id VARCHAR(255),
+        stripe_subscription_id VARCHAR(255),
+        current_period_start TIMESTAMP NOT NULL,
+        current_period_end TIMESTAMP NOT NULL,
+        trial_start TIMESTAMP,
+        trial_end TIMESTAMP,
+        canceled_at TIMESTAMP,
+        cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+        auto_renew INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Add currency column if it doesn't exist (migration for existing databases)
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE subscriptions ADD COLUMN currency VARCHAR(3) NOT NULL DEFAULT 'AOA'; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      // Create subscription_payments table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS subscription_payments (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        subscription_id VARCHAR NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        amount DECIMAL(10, 2) NOT NULL,
+        currency VARCHAR(3) NOT NULL DEFAULT 'KZ',
+        status subscription_payment_status NOT NULL DEFAULT 'pendente',
+        payment_method VARCHAR(100),
+        stripe_payment_intent_id VARCHAR(255),
+        stripe_invoice_id VARCHAR(255),
+        reference_number VARCHAR(100),
+        notes TEXT,
+        paid_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create subscription_usage table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS subscription_usage (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL UNIQUE REFERENCES restaurants(id) ON DELETE CASCADE,
+        subscription_id VARCHAR NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
+        current_branches INTEGER NOT NULL DEFAULT 0,
+        current_tables INTEGER NOT NULL DEFAULT 0,
+        current_menu_items INTEGER NOT NULL DEFAULT 0,
+        current_users INTEGER NOT NULL DEFAULT 0,
+        orders_this_month INTEGER NOT NULL DEFAULT 0,
+        last_calculated TIMESTAMP DEFAULT NOW(),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
       // Create initial super admin user if it doesn't exist
       const superAdminEmail = 'superadmin@nabancada.com';
       const checkSuperAdmin = await db.execute(sql`SELECT id FROM users WHERE email = ${superAdminEmail} AND role = 'superadmin'`);

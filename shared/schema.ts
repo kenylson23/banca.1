@@ -2287,6 +2287,7 @@ export const subscriptions = pgTable("subscriptions", {
   planId: varchar("plan_id").notNull().references(() => subscriptionPlans.id, { onDelete: 'restrict' }),
   status: subscriptionStatusEnum("status").notNull().default('trial'),
   billingInterval: billingIntervalEnum("billing_interval").notNull().default('mensal'),
+  currency: varchar("currency", { length: 3 }).notNull().default('AOA'), // AOA ou USD
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
   stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
   currentPeriodStart: timestamp("current_period_start").notNull(),
@@ -2300,16 +2301,11 @@ export const subscriptions = pgTable("subscriptions", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
-  id: true,
-  restaurantId: true,
-  createdAt: true,
-  updatedAt: true,
-}).extend({
+// Schema simplificado para cliente criar subscrição - aceita apenas o mínimo necessário
+export const insertSubscriptionSchema = z.object({
   planId: z.string().min(1, "Plano é obrigatório"),
   billingInterval: z.enum(['mensal', 'anual']).default('mensal'),
-  currentPeriodStart: z.string(),
-  currentPeriodEnd: z.string(),
+  currency: z.enum(['AOA', 'USD']).default('AOA'),
 });
 
 export const updateSubscriptionSchema = z.object({

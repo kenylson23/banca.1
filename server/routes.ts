@@ -60,6 +60,9 @@ import {
   insertCouponSchema,
   updateCouponSchema,
   resetRestaurantAdminCredentialsSchema,
+  insertSubscriptionSchema,
+  updateSubscriptionSchema,
+  insertSubscriptionPaymentSchema,
   type User,
 } from "@shared/schema";
 import { z } from "zod";
@@ -5304,6 +5307,261 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Coupon usages fetch error:', error);
       res.status(500).json({ message: "Erro ao buscar usos de cupons" });
+    }
+  });
+
+  // Subscription Plan routes
+  app.get("/api/subscription-plans", async (req, res) => {
+    try {
+      const plans = await storage.getSubscriptionPlans();
+      res.json(plans);
+    } catch (error) {
+      console.error('Subscription plans fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar planos de subscrição" });
+    }
+  });
+
+  app.get("/api/subscription-plans/:id", async (req, res) => {
+    try {
+      const plan = await storage.getSubscriptionPlanById(req.params.id);
+      if (!plan) {
+        return res.status(404).json({ message: "Plano não encontrado" });
+      }
+      res.json(plan);
+    } catch (error) {
+      console.error('Subscription plan fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar plano de subscrição" });
+    }
+  });
+
+  // Subscription routes
+  app.get("/api/subscription", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const subscription = await storage.getSubscriptionByRestaurantId(currentUser.restaurantId);
+      if (!subscription) {
+        return res.status(404).json({ message: "Subscrição não encontrada" });
+      }
+      res.json(subscription);
+    } catch (error) {
+      console.error('Subscription fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar subscrição" });
+    }
+  });
+
+  app.post("/api/subscription", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      if (currentUser.role !== 'admin' && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Apenas administradores podem criar subscrições" });
+      }
+
+      // Check if subscription already exists
+      const existingSubscription = await storage.getSubscriptionByRestaurantId(currentUser.restaurantId);
+      if (existingSubscription) {
+        return res.status(409).json({ message: "Restaurante já possui uma subscrição ativa. Use PATCH para alterar." });
+      }
+
+      const validatedData = insertSubscriptionSchema.parse(req.body);
+      
+      // Get plan to check trial days
+      const plan = await storage.getSubscriptionPlanById(validatedData.planId);
+      if (!plan) {
+        return res.status(404).json({ message: "Plano não encontrado" });
+      }
+
+      // Calculate period dates
+      const now = new Date();
+      const trialDays = plan.trialDays || 0;
+      const trialStart = trialDays > 0 ? now : null;
+      const trialEnd = trialDays > 0 ? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000) : null;
+      
+      // Period starts after trial or immediately
+      const periodStart = trialEnd || now;
+      const periodEnd = new Date(periodStart);
+      if (validatedData.billingInterval === 'anual') {
+        periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+      } else {
+        periodEnd.setMonth(periodEnd.getMonth() + 1);
+      }
+
+      const subscriptionData: any = {
+        planId: validatedData.planId,
+        billingInterval: validatedData.billingInterval,
+        currency: validatedData.currency,
+        status: trialDays > 0 ? ('trial' as const) : ('ativa' as const),
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
+        trialStart,
+        trialEnd,
+        autoRenew: 1,
+        cancelAtPeriodEnd: 0,
+      };
+
+      const subscription = await storage.createSubscription(currentUser.restaurantId, subscriptionData);
+      res.status(201).json(subscription);
+    } catch (error: any) {
+      console.error('Subscription creation error:', error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao criar subscrição" });
+    }
+  });
+
+  app.patch("/api/subscription", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      if (currentUser.role !== 'admin' && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Apenas administradores podem atualizar subscrições" });
+      }
+
+      const validatedData = updateSubscriptionSchema.parse(req.body);
+      
+      // If changing plan or billing interval, recalculate period dates
+      let updateData: any = {};
+      
+      if (validatedData.planId || validatedData.billingInterval) {
+        const currentSubscription = await storage.getSubscriptionByRestaurantId(currentUser.restaurantId);
+        if (!currentSubscription) {
+          return res.status(404).json({ message: "Subscrição não encontrada" });
+        }
+
+        // Get new plan details if changing plan
+        let planId = validatedData.planId || currentSubscription.planId;
+        let billingInterval = validatedData.billingInterval || currentSubscription.billingInterval;
+        
+        const plan = await storage.getSubscriptionPlanById(planId);
+        if (!plan) {
+          return res.status(404).json({ message: "Plano não encontrado" });
+        }
+
+        // Recalculate period dates starting from now
+        const now = new Date();
+        const periodEnd = new Date(now);
+        if (billingInterval === 'anual') {
+          periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+        } else {
+          periodEnd.setMonth(periodEnd.getMonth() + 1);
+        }
+
+        // Explicitly set all fields for plan/interval changes
+        updateData.planId = planId;
+        updateData.billingInterval = billingInterval;
+        updateData.currentPeriodStart = now;
+        updateData.currentPeriodEnd = periodEnd;
+        // Clear trial dates when upgrading/changing plan
+        updateData.trialStart = null;
+        updateData.trialEnd = null;
+        // Set status to active when changing plan
+        updateData.status = 'ativa';
+      } else {
+        // For other updates (status, cancelAtPeriodEnd, autoRenew), pass through validated data
+        updateData = { ...validatedData };
+      }
+
+      const subscription = await storage.updateSubscription(currentUser.restaurantId, updateData);
+      res.json(subscription);
+    } catch (error: any) {
+      console.error('Subscription update error:', error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      if (error.message === 'Subscrição não encontrada') {
+        return res.status(404).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Erro ao atualizar subscrição" });
+    }
+  });
+
+  app.delete("/api/subscription", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      if (currentUser.role !== 'admin' && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Apenas administradores podem cancelar subscrições" });
+      }
+
+      const subscription = await storage.cancelSubscription(currentUser.restaurantId);
+      res.json(subscription);
+    } catch (error: any) {
+      console.error('Subscription cancellation error:', error);
+      if (error.message === 'Subscrição não encontrada') {
+        return res.status(404).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Erro ao cancelar subscrição" });
+    }
+  });
+
+  app.get("/api/subscription/limits", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const limits = await storage.checkSubscriptionLimits(currentUser.restaurantId);
+      res.json(limits);
+    } catch (error: any) {
+      console.error('Subscription limits check error:', error);
+      if (error.message === 'Restaurante não possui subscrição ativa') {
+        return res.status(404).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Erro ao verificar limites de subscrição" });
+    }
+  });
+
+  // Subscription Payment routes
+  app.get("/api/subscription/payments", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const payments = await storage.getSubscriptionPayments(currentUser.restaurantId);
+      res.json(payments);
+    } catch (error) {
+      console.error('Subscription payments fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar pagamentos de subscrição" });
+    }
+  });
+
+  app.post("/api/subscription/payments", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      if (currentUser.role !== 'admin' && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Apenas administradores podem registrar pagamentos" });
+      }
+
+      const validatedData = insertSubscriptionPaymentSchema.parse(req.body);
+      const payment = await storage.createSubscriptionPayment(currentUser.restaurantId, validatedData);
+      res.status(201).json(payment);
+    } catch (error: any) {
+      console.error('Subscription payment creation error:', error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao registrar pagamento" });
     }
   });
 

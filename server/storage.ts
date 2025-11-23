@@ -7453,7 +7453,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async createSubscription(restaurantId: string, data: InsertSubscription): Promise<Subscription> {
+  async createSubscription(restaurantId: string, data: any): Promise<Subscription> {
     const [subscription] = await db
       .insert(subscriptions)
       .values({
@@ -7578,12 +7578,15 @@ export class DatabaseStorage implements IStorage {
       ordersThisMonth,
     };
 
+    // Helper to check if limit is unlimited (999999 means unlimited)
+    const isUnlimited = (limit: number) => limit >= 999999;
+
     const withinLimits = {
-      branches: branchesCount < plan.maxBranches,
-      tables: tablesCount < plan.maxTables,
-      menuItems: menuItemsCount < plan.maxMenuItems,
-      users: usersCount < plan.maxUsers,
-      orders: ordersThisMonth < plan.maxOrdersPerMonth,
+      branches: isUnlimited(plan.maxBranches) || branchesCount < plan.maxBranches,
+      tables: isUnlimited(plan.maxTables) || tablesCount < plan.maxTables,
+      menuItems: isUnlimited(plan.maxMenuItems) || menuItemsCount < plan.maxMenuItems,
+      users: isUnlimited(plan.maxUsers) || usersCount < plan.maxUsers,
+      orders: isUnlimited(plan.maxOrdersPerMonth) || ordersThisMonth < plan.maxOrdersPerMonth,
     };
 
     return {

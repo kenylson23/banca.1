@@ -221,6 +221,13 @@ function Router() {
             return <Redirect to="/" />;
           }} />
           
+          <Route path="/subscription" component={() => {
+            if (user?.role === 'admin') {
+              return <MainDashboard section="subscription" />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
           <Route path="/login">
             {() => <Redirect to="/" />}
           </Route>
