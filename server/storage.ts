@@ -170,6 +170,8 @@ export interface IStorage {
   updateUser(restaurantId: string | null, id: string, data: { email?: string; firstName?: string; lastName?: string; profileImageUrl?: string; role?: 'superadmin' | 'admin' | 'kitchen' }): Promise<User>;
   updateUserPassword(userId: string, hashedPassword: string): Promise<User>;
   updateUserActiveBranch(userId: string, branchId: string | null): Promise<User>;
+  getRestaurantAdmins(restaurantId: string): Promise<User[]>;
+  resetRestaurantAdminCredentials(restaurantId: string, userId: string, data: { email?: string; password?: string }): Promise<User>;
 
   // Table operations
   getTables(restaurantId: string, branchId?: string | null): Promise<Table[]>;
@@ -927,6 +929,55 @@ export class DatabaseStorage implements IStorage {
       .set({ activeBranchId: branchId, updatedAt: new Date() })
       .where(eq(users.id, userId))
       .returning();
+    return updated;
+  }
+
+  async getRestaurantAdmins(restaurantId: string): Promise<User[]> {
+    await this.ensureTables();
+    return await db
+      .select()
+      .from(users)
+      .where(and(eq(users.restaurantId, restaurantId), eq(users.role, 'admin')))
+      .orderBy(users.createdAt);
+  }
+
+  async resetRestaurantAdminCredentials(
+    restaurantId: string,
+    userId: string,
+    data: { email?: string; password?: string }
+  ): Promise<User> {
+    await this.ensureTables();
+    
+    const existing = await this.getUser(userId);
+    if (!existing) {
+      throw new Error('Usuário não encontrado');
+    }
+    
+    if (existing.restaurantId !== restaurantId) {
+      throw new Error('Usuário não pertence a este restaurante');
+    }
+    
+    if (existing.role !== 'admin') {
+      throw new Error('Apenas administradores de restaurantes podem ter credenciais resetadas');
+    }
+    
+    if (data.email) {
+      const existingEmailUser = await this.getUserByEmail(data.email);
+      if (existingEmailUser && existingEmailUser.id !== userId) {
+        throw new Error('Email já está em uso por outro usuário');
+      }
+    }
+    
+    const updateData: any = { updatedAt: new Date() };
+    if (data.email) updateData.email = data.email;
+    if (data.password) updateData.password = data.password;
+    
+    const [updated] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, userId))
+      .returning();
+    
     return updated;
   }
 

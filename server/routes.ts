@@ -59,6 +59,7 @@ import {
   insertLoyaltyProgramSchema,
   insertCouponSchema,
   updateCouponSchema,
+  resetRestaurantAdminCredentialsSchema,
   type User,
 } from "@shared/schema";
 import { z } from "zod";
@@ -565,6 +566,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Erro ao deletar restaurante" });
+    }
+  });
+
+  app.get('/api/superadmin/restaurants/:id/admins', isSuperAdmin, async (req, res) => {
+    try {
+      const admins = await storage.getRestaurantAdmins(req.params.id);
+      const adminsWithoutPassword = admins.map(admin => ({
+        id: admin.id,
+        email: admin.email,
+        firstName: admin.firstName,
+        lastName: admin.lastName,
+        role: admin.role,
+        restaurantId: admin.restaurantId,
+        createdAt: admin.createdAt,
+        updatedAt: admin.updatedAt,
+      }));
+      res.json(adminsWithoutPassword);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao buscar administradores do restaurante";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  app.patch('/api/superadmin/restaurants/:restaurantId/admins/:userId/credentials', isSuperAdmin, async (req, res) => {
+    try {
+      const data = resetRestaurantAdminCredentialsSchema.parse(req.body);
+      
+      const updateData: { email?: string; password?: string } = {};
+      if (data.email) updateData.email = data.email;
+      if (data.newPassword) {
+        updateData.password = await hashPassword(data.newPassword);
+      }
+      
+      const updatedUser = await storage.resetRestaurantAdminCredentials(
+        req.params.restaurantId,
+        req.params.userId,
+        updateData
+      );
+      
+      const userWithoutPassword = {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        role: updatedUser.role,
+        restaurantId: updatedUser.restaurantId,
+        createdAt: updatedUser.createdAt,
+        updatedAt: updatedUser.updatedAt,
+      };
+      
+      res.json({ 
+        success: true, 
+        message: "Credenciais atualizadas com sucesso",
+        user: userWithoutPassword
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      const errorMessage = error instanceof Error ? error.message : "Erro ao resetar credenciais";
+      res.status(500).json({ message: errorMessage });
     }
   });
 

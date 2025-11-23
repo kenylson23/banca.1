@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  Store, CheckCircle2, Clock, Ban, DollarSign, Send, Eye,
+  Store, CheckCircle2, Clock, Ban, DollarSign, Send, Eye, Key,
   BarChart3, Users, Building2, MessageSquare
 } from "lucide-react";
 import { formatKwanza } from "@/lib/formatters";
@@ -34,6 +34,7 @@ import { SuperAdminAnalyticsCard } from "@/components/SuperAdminAnalyticsCard";
 import { RestaurantRankingCard } from "@/components/RestaurantRankingCard";
 import { FinancialOverviewCard } from "@/components/FinancialOverviewCard";
 import { RestaurantDetailsDialog } from "@/components/RestaurantDetailsDialog";
+import { RestaurantCredentialsDialog } from "@/components/RestaurantCredentialsDialog";
 
 interface SuperAdminStats {
   totalRestaurants: number;
@@ -48,6 +49,7 @@ export default function SuperAdmin() {
   const [selectedRestaurant, setSelectedRestaurant] = useState<string | null>(null);
   const [selectedRestaurantForMessage, setSelectedRestaurantForMessage] = useState<string | null>(null);
   const [selectedRestaurantForDetails, setSelectedRestaurantForDetails] = useState<string | null>(null);
+  const [selectedRestaurantForCredentials, setSelectedRestaurantForCredentials] = useState<Restaurant | null>(null);
   const [messageSubject, setMessageSubject] = useState('');
   const [messageContent, setMessageContent] = useState('');
   const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
@@ -382,6 +384,16 @@ export default function SuperAdmin() {
                           <Eye className="h-4 w-4 mr-1" />
                           Ver Detalhes
                         </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedRestaurantForCredentials(restaurant)}
+                          data-testid={`button-manage-credentials-${restaurant.id}`}
+                        >
+                          <Key className="h-4 w-4 mr-1" />
+                          Credenciais
+                        </Button>
                         
                         {restaurant.status === 'pendente' && (
                           <Button
@@ -647,6 +659,14 @@ export default function SuperAdmin() {
         restaurantId={selectedRestaurantForDetails}
         isOpen={!!selectedRestaurantForDetails}
         onClose={() => setSelectedRestaurantForDetails(null)}
+      />
+
+      {/* Restaurant Credentials Modal */}
+      <RestaurantCredentialsDialog
+        restaurantId={selectedRestaurantForCredentials?.id || null}
+        restaurantName={selectedRestaurantForCredentials?.name || ""}
+        isOpen={!!selectedRestaurantForCredentials}
+        onClose={() => setSelectedRestaurantForCredentials(null)}
       />
     </div>
   );

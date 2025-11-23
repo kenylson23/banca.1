@@ -194,11 +194,39 @@ export const updatePasswordSchema = z.object({
   path: ["confirmPassword"],
 });
 
+export const resetRestaurantAdminCredentialsSchema = z.object({
+  email: z.string().email("Email inválido").optional(),
+  newPassword: z.string().min(6, "A nova senha deve ter pelo menos 6 caracteres").optional(),
+  confirmPassword: z.string().optional(),
+}).refine((data) => {
+  if (data.newPassword && !data.confirmPassword) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Confirmação de senha é obrigatória ao definir uma nova senha",
+  path: ["confirmPassword"],
+}).refine((data) => {
+  if (data.newPassword && data.confirmPassword) {
+    return data.newPassword === data.confirmPassword;
+  }
+  return true;
+}, {
+  message: "As senhas não coincidem",
+  path: ["confirmPassword"],
+}).refine((data) => {
+  return data.email || data.newPassword;
+}, {
+  message: "Deve fornecer pelo menos email ou senha para atualizar",
+  path: ["email"],
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginUser = z.infer<typeof loginSchema>;
 export type UpdateUser = z.infer<typeof updateUserSchema>;
 export type UpdateProfile = z.infer<typeof updateProfileSchema>;
 export type UpdatePassword = z.infer<typeof updatePasswordSchema>;
+export type ResetRestaurantAdminCredentials = z.infer<typeof resetRestaurantAdminCredentialsSchema>;
 export type User = typeof users.$inferSelect;
 
 // Table Status Enum
