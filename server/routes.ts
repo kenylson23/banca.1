@@ -5458,7 +5458,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Subscription Plan routes
   app.get("/api/subscription-plans", async (req, res) => {
     try {
-      const plans = await storage.getSubscriptionPlans();
+      let plans = await storage.getSubscriptionPlans();
+      
+      // Auto-seed plans if they don't exist
+      if (plans.length === 0) {
+        console.log('⚠️  No subscription plans found. Auto-seeding...');
+        await storage.seedSubscriptionPlans();
+        plans = await storage.getSubscriptionPlans();
+        console.log(`✅ Auto-seeded ${plans.length} subscription plans`);
+      }
+      
       res.json(plans);
     } catch (error) {
       console.error('Subscription plans fetch error:', error);

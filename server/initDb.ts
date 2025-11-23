@@ -1064,6 +1064,8 @@ export async function ensureTablesExist() {
         price_annual_kz DECIMAL(10, 2) NOT NULL DEFAULT 0,
         price_monthly_usd DECIMAL(10, 2) NOT NULL DEFAULT 0,
         price_annual_usd DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        stripe_price_id_monthly VARCHAR(255),
+        stripe_price_id_annual VARCHAR(255),
         trial_days INTEGER NOT NULL DEFAULT 0,
         max_branches INTEGER NOT NULL DEFAULT 1,
         max_tables INTEGER NOT NULL DEFAULT 10,
@@ -1077,6 +1079,14 @@ export async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
+      
+      // Add stripe columns if they don't exist (migration for existing databases)
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE subscription_plans ADD COLUMN stripe_price_id_monthly VARCHAR(255); 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE subscription_plans ADD COLUMN stripe_price_id_annual VARCHAR(255); 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Create subscriptions table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS subscriptions (
