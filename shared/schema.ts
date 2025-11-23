@@ -2277,7 +2277,26 @@ export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans
   priceAnnualUsd: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço inválido"),
 });
 
+export const updateSubscriptionPlanSchema = z.object({
+  name: z.string().min(1, "Nome do plano é obrigatório").optional(),
+  description: z.string().optional(),
+  priceMonthlyKz: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço inválido").optional(),
+  priceAnnualKz: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço inválido").optional(),
+  priceMonthlyUsd: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço inválido").optional(),
+  priceAnnualUsd: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço inválido").optional(),
+  trialDays: z.number().int().min(0).optional(),
+  maxBranches: z.number().int().min(1).optional(),
+  maxTables: z.number().int().min(1).optional(),
+  maxMenuItems: z.number().int().min(1).optional(),
+  maxOrdersPerMonth: z.number().int().min(1).optional(),
+  maxUsers: z.number().int().min(1).optional(),
+  historyRetentionDays: z.number().int().min(1).optional(),
+  isActive: z.number().int().min(0).max(1).optional(),
+  displayOrder: z.number().int().optional(),
+});
+
 export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
+export type UpdateSubscriptionPlan = z.infer<typeof updateSubscriptionPlanSchema>;
 export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
 
 // Subscriptions - Subscrições Ativas

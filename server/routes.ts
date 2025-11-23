@@ -62,6 +62,7 @@ import {
   resetRestaurantAdminCredentialsSchema,
   insertSubscriptionSchema,
   updateSubscriptionSchema,
+  updateSubscriptionPlanSchema,
   superAdminCreateSubscriptionSchema,
   superAdminUpdateSubscriptionSchema,
   insertSubscriptionPaymentSchema,
@@ -5485,6 +5486,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Subscription plan fetch error:', error);
       res.status(500).json({ message: "Erro ao buscar plano de subscrição" });
+    }
+  });
+
+  app.patch("/api/superadmin/subscription-plans/:id", isSuperAdmin, async (req, res) => {
+    try {
+      const plan = await storage.getSubscriptionPlanById(req.params.id);
+      if (!plan) {
+        return res.status(404).json({ message: "Plano não encontrado" });
+      }
+
+      const validatedData = updateSubscriptionPlanSchema.parse(req.body);
+      const updatedPlan = await storage.updateSubscriptionPlan(req.params.id, validatedData);
+      res.json(updatedPlan);
+    } catch (error: any) {
+      console.error('Subscription plan update error:', error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao atualizar plano" });
     }
   });
 

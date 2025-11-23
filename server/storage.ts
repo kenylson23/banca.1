@@ -132,6 +132,7 @@ import {
   type InsertCouponUsage,
   type SubscriptionPlan,
   type InsertSubscriptionPlan,
+  type UpdateSubscriptionPlan,
   type Subscription,
   type InsertSubscription,
   type UpdateSubscription,
@@ -681,6 +682,7 @@ export interface IStorage {
   getSubscriptionPlans(): Promise<SubscriptionPlan[]>;
   getSubscriptionPlanById(id: string): Promise<SubscriptionPlan | undefined>;
   getSubscriptionPlanBySlug(slug: string): Promise<SubscriptionPlan | undefined>;
+  updateSubscriptionPlan(id: string, data: UpdateSubscriptionPlan): Promise<SubscriptionPlan>;
   
   // Subscription operations
   getSubscriptionByRestaurantId(restaurantId: string): Promise<(Subscription & { plan: SubscriptionPlan }) | undefined>;
@@ -7436,6 +7438,18 @@ export class DatabaseStorage implements IStorage {
       .from(subscriptionPlans)
       .where(eq(subscriptionPlans.slug, slug));
     return plan;
+  }
+
+  async updateSubscriptionPlan(id: string, data: UpdateSubscriptionPlan): Promise<SubscriptionPlan> {
+    const [updated] = await db
+      .update(subscriptionPlans)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptionPlans.id, id))
+      .returning();
+    return updated;
   }
 
   async seedSubscriptionPlans(): Promise<void> {
