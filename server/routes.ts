@@ -264,9 +264,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: 'trial',
           billingInterval: 'mensal', // Default to monthly
           currency: 'AOA', // Default to AOA
-          currentPeriodStart: currentDate.toISOString(),
-          currentPeriodEnd: trialEndDate.toISOString(),
-          trialEnd: trialEndDate.toISOString(),
+          currentPeriodStart: currentDate,
+          currentPeriodEnd: trialEndDate,
+          trialEnd: trialEndDate,
         });
       } catch (subscriptionError) {
         console.error('Error creating subscription for new restaurant:', subscriptionError);
@@ -4521,7 +4521,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               description: `${validatedData.description || ''} (Parte ${i}/${installments})`.trim(),
               paymentMethod: validatedData.paymentMethod,
               amount: installmentAmount.toFixed(2),
-              occurredAt: occurredAt.toISOString(),
+              occurredAt: occurredAt,
               note: validatedData.note,
               branchId: validatedData.branchId || currentUser.activeBranchId || null,
               totalInstallments: installments,
