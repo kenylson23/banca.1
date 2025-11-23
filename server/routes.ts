@@ -244,6 +244,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { restaurant, adminUser } = await storage.createRestaurant(data);
 
+      // Create subscription automatically with trial period
+      try {
+        const currentDate = new Date();
+        const trialEndDate = new Date(currentDate);
+        trialEndDate.setDate(trialEndDate.getDate() + 30); // 30 days trial
+
+        await storage.createSubscription(restaurant.id, {
+          planId: data.planId,
+          status: 'trial',
+          billingInterval: 'mensal', // Default to monthly
+          currency: 'AOA', // Default to AOA
+          currentPeriodStart: currentDate.toISOString(),
+          currentPeriodEnd: trialEndDate.toISOString(),
+          trialEnd: trialEndDate.toISOString(),
+        });
+      } catch (subscriptionError) {
+        console.error('Error creating subscription for new restaurant:', subscriptionError);
+        // Continue even if subscription creation fails - SuperAdmin can create it manually
+      }
+
       res.json({
         message: "Cadastro realizado com sucesso! Aguarde aprovação do super administrador.",
         restaurant: {
