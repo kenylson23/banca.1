@@ -11,7 +11,24 @@ import {
 import { formatKwanza } from "@/lib/formatters";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Restaurant, Message } from "@shared/schema";
+import type { Restaurant, Message, SubscriptionPlan } from "@shared/schema";
+
+type RestaurantWithPlan = Restaurant & {
+  subscription: {
+    id: string;
+    status: 'trial' | 'ativa' | 'cancelada' | 'suspensa' | 'expirada';
+    billingInterval: 'mensal' | 'anual';
+    currentPeriodEnd: Date;
+  } | null;
+  plan: {
+    id: string;
+    name: string;
+    maxUsers: number | null;
+    maxBranches: number | null;
+    maxTables: number | null;
+    maxMenuItems: number | null;
+  } | null;
+};
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -37,7 +54,6 @@ import { RestaurantDetailsDialog } from "@/components/RestaurantDetailsDialog";
 import { RestaurantCredentialsDialog } from "@/components/RestaurantCredentialsDialog";
 import { SuperAdminSubscriptionDialog } from "@/components/SuperAdminSubscriptionDialog";
 import { PlanManagementDialog } from "@/components/PlanManagementDialog";
-import type { SubscriptionPlan } from "@shared/schema";
 
 interface SuperAdminStats {
   totalRestaurants: number;
@@ -79,7 +95,7 @@ export default function SuperAdmin() {
     queryKey: ["/api/superadmin/financial-overview"],
   });
 
-  const { data: restaurants, isLoading: restaurantsLoading } = useQuery<Restaurant[]>({
+  const { data: restaurants, isLoading: restaurantsLoading } = useQuery<RestaurantWithPlan[]>({
     queryKey: ["/api/superadmin/restaurants"],
   });
 
@@ -409,11 +425,32 @@ export default function SuperAdmin() {
                       data-testid={`restaurant-${restaurant.id}`}
                     >
                       <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold text-lg" data-testid={`text-restaurant-name-${restaurant.id}`}>
                             {restaurant.name}
                           </h3>
                           {getStatusBadge(restaurant.status)}
+                          {restaurant.plan && (
+                            <Badge variant="outline" data-testid={`badge-plan-${restaurant.id}`}>
+                              {restaurant.plan.name}
+                            </Badge>
+                          )}
+                          {restaurant.subscription && (
+                            <Badge 
+                              variant={
+                                restaurant.subscription.status === 'ativa' ? 'default' :
+                                restaurant.subscription.status === 'trial' ? 'secondary' :
+                                'destructive'
+                              }
+                              data-testid={`badge-subscription-${restaurant.id}`}
+                            >
+                              {restaurant.subscription.status === 'trial' ? 'Em período de teste' :
+                               restaurant.subscription.status === 'ativa' ? 'Assinatura ativa' :
+                               restaurant.subscription.status === 'cancelada' ? 'Cancelada' :
+                               restaurant.subscription.status === 'suspensa' ? 'Suspensa' :
+                               'Expirada'}
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground" data-testid={`text-restaurant-email-${restaurant.id}`}>
                           {restaurant.email}
@@ -426,6 +463,14 @@ export default function SuperAdmin() {
                         {restaurant.address && (
                           <p className="text-sm text-muted-foreground" data-testid={`text-restaurant-address-${restaurant.id}`}>
                             {restaurant.address}
+                          </p>
+                        )}
+                        {restaurant.plan && (
+                          <p className="text-xs text-muted-foreground" data-testid={`text-plan-limits-${restaurant.id}`}>
+                            Limites: {restaurant.plan.maxUsers ? `${restaurant.plan.maxUsers} usuários` : 'Usuários ilimitados'} • 
+                            {' '}{restaurant.plan.maxBranches ? `${restaurant.plan.maxBranches} filiais` : 'Filiais ilimitadas'} • 
+                            {' '}{restaurant.plan.maxTables ? `${restaurant.plan.maxTables} mesas` : 'Mesas ilimitadas'} • 
+                            {' '}{restaurant.plan.maxMenuItems ? `${restaurant.plan.maxMenuItems} produtos` : 'Produtos ilimitados'}
                           </p>
                         )}
                         <p className="text-xs text-muted-foreground">

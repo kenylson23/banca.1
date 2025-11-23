@@ -534,6 +534,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+      // Check subscription limits (only for non-superadmin users)
+      if (currentUser.role !== 'superadmin') {
+        const subscription = await storage.getSubscriptionByRestaurantId(currentUser.restaurantId);
+        if (subscription) {
+          const plan = await storage.getSubscriptionPlanById(subscription.planId);
+          if (plan && plan.maxBranches !== null) {
+            const currentBranches = await storage.getBranches(currentUser.restaurantId);
+            if (currentBranches.length >= plan.maxBranches) {
+              return res.status(403).json({ 
+                message: `Limite de filiais atingido. Seu plano permite até ${plan.maxBranches} filiais. Faça upgrade para adicionar mais.` 
+              });
+            }
+          }
+        }
+      }
+
       const data = insertBranchSchema.parse(req.body);
       const branch = await storage.createBranch(currentUser.restaurantId, data);
       res.json(branch);
@@ -582,7 +598,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/superadmin/restaurants', isSuperAdmin, async (req, res) => {
     try {
       const restaurants = await storage.getRestaurants();
-      res.json(restaurants);
+      
+      // Enrich with subscription and plan information
+      const enrichedRestaurants = await Promise.all(
+        restaurants.map(async (restaurant) => {
+          const subscription = await storage.getSubscriptionByRestaurantId(restaurant.id);
+          if (subscription) {
+            const plan = await storage.getSubscriptionPlanById(subscription.planId);
+            return {
+              ...restaurant,
+              subscription: {
+                id: subscription.id,
+                status: subscription.status,
+                billingInterval: subscription.billingInterval,
+                currentPeriodEnd: subscription.currentPeriodEnd,
+              },
+              plan: plan ? {
+                id: plan.id,
+                name: plan.name,
+                maxUsers: plan.maxUsers,
+                maxBranches: plan.maxBranches,
+                maxTables: plan.maxTables,
+                maxMenuItems: plan.maxMenuItems,
+              } : null,
+            };
+          }
+          return {
+            ...restaurant,
+            subscription: null,
+            plan: null,
+          };
+        })
+      );
+      
+      res.json(enrichedRestaurants);
     } catch (error) {
       res.status(500).json({ message: "Erro ao buscar restaurantes" });
     }
@@ -1060,6 +1109,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data.restaurantId = currentUser.restaurantId;
       }
       
+      // Check subscription limits (only for non-superadmin users)
+      if (currentUser.role !== 'superadmin' && data.restaurantId) {
+        const subscription = await storage.getSubscriptionByRestaurantId(data.restaurantId);
+        if (subscription) {
+          const plan = await storage.getSubscriptionPlanById(subscription.planId);
+          if (plan && plan.maxUsers !== null) {
+            const currentUsers = await storage.getAllUsers(data.restaurantId);
+            if (currentUsers.length >= plan.maxUsers) {
+              return res.status(403).json({ 
+                message: `Limite de usuários atingido. Seu plano permite até ${plan.maxUsers} usuários. Faça upgrade para adicionar mais.` 
+              });
+            }
+          }
+        }
+      }
+      
       const existingUser = await storage.getUserByEmail(data.email);
       if (existingUser) {
         return res.status(400).json({ message: "Email já cadastrado" });
@@ -1403,6 +1468,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const restaurantId = currentUser.restaurantId!;
+      
+      // Check subscription limits (only for non-superadmin users)
+      if (currentUser.role !== 'superadmin') {
+        const subscription = await storage.getSubscriptionByRestaurantId(restaurantId);
+        if (subscription) {
+          const plan = await storage.getSubscriptionPlanById(subscription.planId);
+          if (plan && plan.maxTables !== null) {
+            const currentTables = await storage.getTables(restaurantId, null);
+            if (currentTables.length >= plan.maxTables) {
+              return res.status(403).json({ 
+                message: `Limite de mesas atingido. Seu plano permite até ${plan.maxTables} mesas. Faça upgrade para adicionar mais.` 
+              });
+            }
+          }
+        }
+      }
+      
       const data = insertTableSchema.parse(req.body);
       
       // Generate QR code with proper domain handling
@@ -1993,6 +2075,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const restaurantId = currentUser.restaurantId!;
+      
+      // Check subscription limits (only for non-superadmin users)
+      if (currentUser.role !== 'superadmin') {
+        const subscription = await storage.getSubscriptionByRestaurantId(restaurantId);
+        if (subscription) {
+          const plan = await storage.getSubscriptionPlanById(subscription.planId);
+          if (plan && plan.maxMenuItems !== null) {
+            const currentMenuItems = await storage.getMenuItems(restaurantId, null);
+            if (currentMenuItems.length >= plan.maxMenuItems) {
+              return res.status(403).json({ 
+                message: `Limite de produtos atingido. Seu plano permite até ${plan.maxMenuItems} produtos. Faça upgrade para adicionar mais.` 
+              });
+            }
+          }
+        }
+      }
+      
       const branchId = currentUser.activeBranchId || null;
       const data = insertMenuItemSchema.parse(req.body);
       const menuItem = await storage.createMenuItem(restaurantId, branchId, data);
