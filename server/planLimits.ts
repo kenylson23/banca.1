@@ -3,12 +3,22 @@ import type { IStorage } from "./storage";
 export class PlanLimitError extends Error {
   constructor(
     message: string,
-    public readonly limitType: 'users' | 'branches' | 'tables' | 'menuItems' | 'orders',
+    public readonly limitType: 'users' | 'branches' | 'tables' | 'menuItems' | 'orders' | 'customers' | 'coupons' | 'inventoryItems' | 'expenseCategories',
     public readonly current: number,
     public readonly max: number
   ) {
     super(message);
     this.name = 'PlanLimitError';
+  }
+}
+
+export class PlanFeatureError extends Error {
+  constructor(
+    message: string,
+    public readonly featureName: 'loyalty' | 'coupons' | 'expenses' | 'inventory' | 'stockTransfers'
+  ) {
+    super(message);
+    this.name = 'PlanFeatureError';
   }
 }
 
@@ -77,6 +87,92 @@ export async function checkCanCreateOrder(storage: IStorage, restaurantId: strin
   }
 }
 
+export async function checkCanAddCustomer(storage: IStorage, restaurantId: string): Promise<void> {
+  const limits = await storage.checkSubscriptionLimits(restaurantId);
+  
+  if (!limits.canAddCustomer) {
+    throw new PlanLimitError(
+      `Limite de clientes atingido. O plano ${limits.plan.name} permite até ${limits.plan.maxCustomers} clientes e você já possui ${limits.usage.customers}.`,
+      'customers',
+      limits.usage.customers,
+      limits.plan.maxCustomers
+    );
+  }
+}
+
+export async function checkCanUseLoyaltyProgram(storage: IStorage, restaurantId: string): Promise<void> {
+  const limits = await storage.checkSubscriptionLimits(restaurantId);
+  
+  if (!limits.plan.hasLoyaltyProgram) {
+    throw new PlanFeatureError(
+      `O programa de fidelidade não está disponível no plano ${limits.plan.name}. Faça upgrade para o plano Profissional ou superior.`,
+      'loyalty'
+    );
+  }
+}
+
+export async function checkCanCreateCoupon(storage: IStorage, restaurantId: string): Promise<void> {
+  const limits = await storage.checkSubscriptionLimits(restaurantId);
+  
+  if (!limits.plan.hasCouponSystem) {
+    throw new PlanFeatureError(
+      `O sistema de cupons não está disponível no plano ${limits.plan.name}. Faça upgrade para o plano Profissional ou superior.`,
+      'coupons'
+    );
+  }
+  
+  if (!limits.canAddCoupon) {
+    throw new PlanLimitError(
+      `Limite de cupons ativos atingido. O plano ${limits.plan.name} permite até ${limits.plan.maxActiveCoupons} cupons ativos e você já possui ${limits.usage.activeCoupons}.`,
+      'coupons',
+      limits.usage.activeCoupons,
+      limits.plan.maxActiveCoupons
+    );
+  }
+}
+
+export async function checkCanUseExpenseTracking(storage: IStorage, restaurantId: string): Promise<void> {
+  const limits = await storage.checkSubscriptionLimits(restaurantId);
+  
+  if (!limits.plan.hasExpenseTracking) {
+    throw new PlanFeatureError(
+      `A gestão de despesas não está disponível no plano ${limits.plan.name}. Faça upgrade para o plano Profissional ou superior.`,
+      'expenses'
+    );
+  }
+}
+
+export async function checkCanAddInventoryItem(storage: IStorage, restaurantId: string): Promise<void> {
+  const limits = await storage.checkSubscriptionLimits(restaurantId);
+  
+  if (!limits.plan.hasInventoryModule) {
+    throw new PlanFeatureError(
+      `O módulo de inventário não está disponível no plano ${limits.plan.name}. Faça upgrade para o plano Empresarial ou superior.`,
+      'inventory'
+    );
+  }
+  
+  if (!limits.canAddInventoryItem) {
+    throw new PlanLimitError(
+      `Limite de itens de inventário atingido. O plano ${limits.plan.name} permite até ${limits.plan.maxInventoryItems} itens e você já possui ${limits.usage.inventoryItems}.`,
+      'inventoryItems',
+      limits.usage.inventoryItems,
+      limits.plan.maxInventoryItems
+    );
+  }
+}
+
+export async function checkCanUseStockTransfers(storage: IStorage, restaurantId: string): Promise<void> {
+  const limits = await storage.checkSubscriptionLimits(restaurantId);
+  
+  if (!limits.plan.hasStockTransfers) {
+    throw new PlanFeatureError(
+      `As transferências de estoque não estão disponíveis no plano ${limits.plan.name}. Faça upgrade para o plano Empresarial ou superior.`,
+      'stockTransfers'
+    );
+  }
+}
+
 export async function getRestaurantUsage(storage: IStorage, restaurantId: string) {
   const limits = await storage.checkSubscriptionLimits(restaurantId);
   
@@ -90,5 +186,8 @@ export async function getRestaurantUsage(storage: IStorage, restaurantId: string
     canAddMenuItem: limits.canAddMenuItem,
     canAddUser: limits.canAddUser,
     canCreateOrder: limits.canCreateOrder,
+    canAddCustomer: limits.canAddCustomer,
+    canAddCoupon: limits.canAddCoupon,
+    canAddInventoryItem: limits.canAddInventoryItem,
   };
 }
