@@ -865,6 +865,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/superadmin/restaurants/:id/usage', isSuperAdmin, async (req, res) => {
+    try {
+      // Check if restaurant exists first
+      const restaurant = await storage.getRestaurantById(req.params.id);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurante não encontrado" });
+      }
+
+      const usage = await storage.checkSubscriptionLimits(req.params.id);
+      
+      // Convert 999999 (unlimited) to null for frontend
+      const normalizedPlan = {
+        ...usage.plan,
+        maxUsers: usage.plan.maxUsers >= 999999 ? null : usage.plan.maxUsers,
+        maxBranches: usage.plan.maxBranches >= 999999 ? null : usage.plan.maxBranches,
+        maxTables: usage.plan.maxTables >= 999999 ? null : usage.plan.maxTables,
+        maxMenuItems: usage.plan.maxMenuItems >= 999999 ? null : usage.plan.maxMenuItems,
+        maxOrdersPerMonth: usage.plan.maxOrdersPerMonth >= 999999 ? null : usage.plan.maxOrdersPerMonth,
+      };
+      
+      // Recompute withinLimits based on normalized plan to ensure consistency
+      const normalizedWithinLimits = {
+        users: normalizedPlan.maxUsers === null ? true : usage.usage.users < normalizedPlan.maxUsers,
+        branches: normalizedPlan.maxBranches === null ? true : usage.usage.branches < normalizedPlan.maxBranches,
+        tables: normalizedPlan.maxTables === null ? true : usage.usage.tables < normalizedPlan.maxTables,
+        menuItems: normalizedPlan.maxMenuItems === null ? true : usage.usage.menuItems < normalizedPlan.maxMenuItems,
+        orders: normalizedPlan.maxOrdersPerMonth === null ? true : usage.usage.ordersThisMonth < normalizedPlan.maxOrdersPerMonth,
+      };
+      
+      res.json({
+        ...usage,
+        plan: normalizedPlan,
+        withinLimits: normalizedWithinLimits,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao buscar uso do restaurante";
+      
+      // Handle missing subscription specifically
+      if (error instanceof Error && error.message.includes("não possui subscrição")) {
+        return res.status(404).json({ message: "Restaurante não possui subscrição ativa" });
+      }
+      
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
   app.get('/api/superadmin/financial-overview', isSuperAdmin, async (req, res) => {
     try {
       const { startDate, endDate } = req.query;

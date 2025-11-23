@@ -466,12 +466,15 @@ export default function SuperAdmin() {
                           </p>
                         )}
                         {restaurant.plan && (
-                          <p className="text-xs text-muted-foreground" data-testid={`text-plan-limits-${restaurant.id}`}>
-                            Limites: {restaurant.plan.maxUsers ? `${restaurant.plan.maxUsers} usuários` : 'Usuários ilimitados'} • 
-                            {' '}{restaurant.plan.maxBranches ? `${restaurant.plan.maxBranches} filiais` : 'Filiais ilimitadas'} • 
-                            {' '}{restaurant.plan.maxTables ? `${restaurant.plan.maxTables} mesas` : 'Mesas ilimitadas'} • 
-                            {' '}{restaurant.plan.maxMenuItems ? `${restaurant.plan.maxMenuItems} produtos` : 'Produtos ilimitados'}
-                          </p>
+                          <>
+                            <p className="text-xs text-muted-foreground" data-testid={`text-plan-limits-${restaurant.id}`}>
+                              <span className="font-semibold">Limites:</span>{' '}
+                              {restaurant.plan.maxUsers ? `${restaurant.plan.maxUsers} usuários` : 'Usuários ilimitados'} •{' '}
+                              {restaurant.plan.maxBranches ? `${restaurant.plan.maxBranches} filiais` : 'Filiais ilimitadas'} •{' '}
+                              {restaurant.plan.maxTables ? `${restaurant.plan.maxTables} mesas` : 'Mesas ilimitadas'} •{' '}
+                              {restaurant.plan.maxMenuItems ? `${restaurant.plan.maxMenuItems} produtos` : 'Produtos ilimitados'}
+                            </p>
+                          </>
                         )}
                         <p className="text-xs text-muted-foreground">
                           Cadastrado em: {new Date(restaurant.createdAt!).toLocaleDateString('pt-BR')}
