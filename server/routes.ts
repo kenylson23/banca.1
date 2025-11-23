@@ -242,6 +242,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Email já cadastrado" });
       }
 
+      // Validate selected plan exists and is active
+      const selectedPlan = await storage.getSubscriptionPlanById(data.planId);
+      if (!selectedPlan) {
+        return res.status(400).json({ message: "Plano de subscrição não encontrado" });
+      }
+      if (!selectedPlan.isActive) {
+        return res.status(400).json({ message: "Plano de subscrição não está ativo" });
+      }
+
       const { restaurant, adminUser } = await storage.createRestaurant(data);
 
       // Create subscription automatically with trial period
@@ -261,7 +270,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } catch (subscriptionError) {
         console.error('Error creating subscription for new restaurant:', subscriptionError);
-        // Continue even if subscription creation fails - SuperAdmin can create it manually
+        // Rollback: delete admin user and restaurant if subscription creation fails
+        try {
+          await storage.deleteUser(restaurant.id, adminUser.id);
+          await storage.deleteRestaurant(restaurant.id);
+        } catch (rollbackError) {
+          console.error('Error during rollback:', rollbackError);
+        }
+        return res.status(500).json({ message: "Erro ao criar subscrição. Por favor, tente novamente." });
       }
 
       res.json({

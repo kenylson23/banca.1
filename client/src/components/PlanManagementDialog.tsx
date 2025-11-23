@@ -30,7 +30,7 @@ import { updateSubscriptionPlanSchema, type UpdateSubscriptionPlan, type Subscri
 type DialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  plan: SubscriptionPlan;
+  plan: SubscriptionPlan | null;
 };
 
 export function PlanManagementDialog({
@@ -42,27 +42,10 @@ export function PlanManagementDialog({
 
   const form = useForm<UpdateSubscriptionPlan>({
     resolver: zodResolver(updateSubscriptionPlanSchema),
-    defaultValues: {
-      name: plan.name,
-      description: plan.description || '',
-      priceMonthlyKz: plan.priceMonthlyKz,
-      priceAnnualKz: plan.priceAnnualKz,
-      priceMonthlyUsd: plan.priceMonthlyUsd,
-      priceAnnualUsd: plan.priceAnnualUsd,
-      trialDays: plan.trialDays,
-      maxBranches: plan.maxBranches,
-      maxTables: plan.maxTables,
-      maxMenuItems: plan.maxMenuItems,
-      maxOrdersPerMonth: plan.maxOrdersPerMonth,
-      maxUsers: plan.maxUsers,
-      historyRetentionDays: plan.historyRetentionDays,
-      isActive: plan.isActive,
-      displayOrder: plan.displayOrder,
-    },
   });
 
   useEffect(() => {
-    if (open) {
+    if (open && plan) {
       form.reset({
         name: plan.name,
         description: plan.description || '',
@@ -85,6 +68,9 @@ export function PlanManagementDialog({
 
   const updateMutation = useMutation({
     mutationFn: async (data: UpdateSubscriptionPlan) => {
+      if (!plan) {
+        throw new Error('Plano não selecionado');
+      }
       return await apiRequest('PATCH', `/api/superadmin/subscription-plans/${plan.id}`, data);
     },
     onSuccess: () => {
@@ -109,14 +95,15 @@ export function PlanManagementDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Editar Plano: {plan.name}</DialogTitle>
-          <DialogDescription>
-            Modifique os detalhes e limites do plano de subscrição
-          </DialogDescription>
-        </DialogHeader>
+    <Dialog open={open && !!plan} onOpenChange={onOpenChange}>
+      {plan && (
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Plano: {plan.name}</DialogTitle>
+            <DialogDescription>
+              Modifique os detalhes e limites do plano de subscrição
+            </DialogDescription>
+          </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -425,7 +412,8 @@ export function PlanManagementDialog({
             </div>
           </form>
         </Form>
-      </DialogContent>
+        </DialogContent>
+      )}
     </Dialog>
   );
 }

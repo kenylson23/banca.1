@@ -393,7 +393,7 @@ export default function Login() {
                                                 )}
                                               </div>
                                               <div className="text-xs text-muted-foreground">
-                                                A partir de {formatKwanza(plan.monthlyPriceAOA)}/mês
+                                                A partir de {formatKwanza(plan.priceMonthlyKz)}/mês
                                               </div>
                                             </div>
                                           </SelectItem>

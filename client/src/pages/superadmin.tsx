@@ -598,8 +598,10 @@ export default function SuperAdmin() {
                       <Button
                         variant="outline"
                         onClick={() => {
-                          setSelectedPlan(plan);
-                          setIsPlanDialogOpen(true);
+                          if (plan) {
+                            setSelectedPlan(plan);
+                            setIsPlanDialogOpen(true);
+                          }
                         }}
                         data-testid={`button-edit-plan-${plan.id}`}
                       >
