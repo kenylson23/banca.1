@@ -111,6 +111,17 @@ export async function checkCanUseLoyaltyProgram(storage: IStorage, restaurantId:
   }
 }
 
+export async function checkCanUseCouponSystem(storage: IStorage, restaurantId: string): Promise<void> {
+  const limits = await storage.checkSubscriptionLimits(restaurantId);
+  
+  if (!limits.plan.hasCouponSystem) {
+    throw new PlanFeatureError(
+      `O sistema de cupons não está disponível no plano ${limits.plan.name}. Faça upgrade para o plano Profissional ou superior.`,
+      'coupons'
+    );
+  }
+}
+
 export async function checkCanCreateCoupon(storage: IStorage, restaurantId: string): Promise<void> {
   const limits = await storage.checkSubscriptionLimits(restaurantId);
   

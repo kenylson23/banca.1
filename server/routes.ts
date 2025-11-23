@@ -8,6 +8,7 @@ import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import {
   checkCanAddCustomer,
   checkCanCreateCoupon,
+  checkCanUseCouponSystem,
   checkCanAddInventoryItem,
   checkCanUseExpenseTracking,
   checkCanUseLoyaltyProgram,
@@ -4945,9 +4946,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+      await checkCanUseInventoryModule(storage, currentUser.restaurantId);
+
       const categories = await storage.getInventoryCategories(currentUser.restaurantId);
       res.json(categories);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
+        return res.status(403).json({ message: error.message });
+      }
       console.error('Inventory categories fetch error:', error);
       res.status(500).json({ message: "Erro ao buscar categorias de inventário" });
     }
@@ -4960,10 +4966,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+      await checkCanUseInventoryModule(storage, currentUser.restaurantId);
+
       const data = insertInventoryCategorySchema.parse(req.body);
       const category = await storage.createInventoryCategory(currentUser.restaurantId, data);
       res.json(category);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
+        return res.status(403).json({ message: error.message });
+      }
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
@@ -5448,6 +5459,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+      await checkCanUseLoyaltyProgram(storage, currentUser.restaurantId);
+
       const { customerId, startDate, endDate } = req.query;
       const filters: any = {};
       
@@ -5460,7 +5473,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filters
       );
       res.json(transactions);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
+        return res.status(403).json({ message: error.message });
+      }
       console.error('Loyalty transactions fetch error:', error);
       res.status(500).json({ message: "Erro ao buscar transações de fidelidade" });
     }
@@ -5473,9 +5489,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+      await checkCanUseLoyaltyProgram(storage, currentUser.restaurantId);
+
       const stats = await storage.getLoyaltyStats(currentUser.restaurantId);
       res.json(stats);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
+        return res.status(403).json({ message: error.message });
+      }
       console.error('Loyalty stats fetch error:', error);
       res.status(500).json({ message: "Erro ao buscar estatísticas de fidelidade" });
     }
@@ -5487,6 +5508,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!currentUser.restaurantId) {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
+
+      await checkCanUseLoyaltyProgram(storage, currentUser.restaurantId);
 
       const { customerId, points, orderId } = req.body;
 
@@ -5503,6 +5526,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       res.json(result);
     } catch (error: any) {
+      if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
+        return res.status(403).json({ message: error.message });
+      }
       console.error('Loyalty redeem error:', error);
       res.status(400).json({ message: error.message || "Erro ao resgatar pontos" });
     }
@@ -5517,6 +5543,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+      await checkCanUseCouponSystem(storage, currentUser.restaurantId);
+
       const { isActive, code } = req.query;
       const filters: any = {};
       
@@ -5529,7 +5557,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filters
       );
       res.json(coupons);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
+        return res.status(403).json({ message: error.message });
+      }
       console.error('Coupons fetch error:', error);
       res.status(500).json({ message: "Erro ao buscar cupons" });
     }
@@ -5542,12 +5573,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+      await checkCanUseCouponSystem(storage, currentUser.restaurantId);
+
       const stats = await storage.getCouponStats(
         currentUser.restaurantId,
         currentUser.activeBranchId || null
       );
       res.json(stats);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
+        return res.status(403).json({ message: error.message });
+      }
       console.error('Coupon stats fetch error:', error);
       res.status(500).json({ message: "Erro ao buscar estatísticas de cupons" });
     }
@@ -5642,6 +5678,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+      await checkCanUseCouponSystem(storage, currentUser.restaurantId);
+
       const { code, orderValue, orderType, customerId } = req.body;
 
       if (!code || orderValue === undefined) {
@@ -5656,7 +5694,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerId
       );
       res.json(result);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
+        return res.status(403).json({ message: error.message });
+      }
       console.error('Coupon validation error:', error);
       res.status(500).json({ message: "Erro ao validar cupom" });
     }
