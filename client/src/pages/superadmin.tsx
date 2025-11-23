@@ -36,6 +36,8 @@ import { FinancialOverviewCard } from "@/components/FinancialOverviewCard";
 import { RestaurantDetailsDialog } from "@/components/RestaurantDetailsDialog";
 import { RestaurantCredentialsDialog } from "@/components/RestaurantCredentialsDialog";
 import { SuperAdminSubscriptionDialog } from "@/components/SuperAdminSubscriptionDialog";
+import { PlanManagementDialog } from "@/components/PlanManagementDialog";
+import type { SubscriptionPlan } from "@shared/schema";
 
 interface SuperAdminStats {
   totalRestaurants: number;
@@ -58,6 +60,8 @@ export default function SuperAdmin() {
   const [messageSubject, setMessageSubject] = useState('');
   const [messageContent, setMessageContent] = useState('');
   const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
 
   const { data: stats, isLoading: statsLoading } = useQuery<SuperAdminStats>({
     queryKey: ["/api/superadmin/stats"],
@@ -98,6 +102,10 @@ export default function SuperAdmin() {
 
   const { data: subscriptions, isLoading: subscriptionsLoading } = useQuery<SubscriptionWithDetails[]>({
     queryKey: ["/api/superadmin/subscriptions"],
+  });
+
+  const { data: plans, isLoading: plansLoading } = useQuery<SubscriptionPlan[]>({
+    queryKey: ["/api/subscription-plans"],
   });
 
   const updateStatusMutation = useMutation({
@@ -337,7 +345,7 @@ export default function SuperAdmin() {
 
       {/* Main Tabs */}
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 mb-4">
+        <TabsList className="grid w-full grid-cols-6 mb-4">
           <TabsTrigger value="dashboard" data-testid="tab-dashboard">
             <BarChart3 className="h-4 w-4 mr-2" />
             Dashboard
@@ -346,8 +354,12 @@ export default function SuperAdmin() {
             <Building2 className="h-4 w-4 mr-2" />
             Restaurantes
           </TabsTrigger>
-          <TabsTrigger value="subscriptions" data-testid="tab-subscriptions">
+          <TabsTrigger value="plans" data-testid="tab-plans">
             <CreditCard className="h-4 w-4 mr-2" />
+            Planos
+          </TabsTrigger>
+          <TabsTrigger value="subscriptions" data-testid="tab-subscriptions">
+            <Users className="h-4 w-4 mr-2" />
             Subscrições
           </TabsTrigger>
           <TabsTrigger value="financial" data-testid="tab-financial">
@@ -520,6 +532,87 @@ export default function SuperAdmin() {
                 <p className="text-sm text-muted-foreground text-center py-8">
                   Nenhum restaurante cadastrado
                 </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* PLANS TAB */}
+        <TabsContent value="plans" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Gestão de Planos</CardTitle>
+              <CardDescription>
+                Configure preços, limites e disponibilidade dos planos de subscrição
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {plansLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="flex items-center gap-4 p-4 border rounded-md">
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-5 w-1/3" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </div>
+                      <Skeleton className="h-10 w-24" />
+                    </div>
+                  ))}
+                </div>
+              ) : plans && plans.length > 0 ? (
+                <div className="space-y-4">
+                  {plans.map((plan) => (
+                    <div
+                      key={plan.id}
+                      className="flex items-center justify-between p-4 border rounded-md hover-elevate"
+                      data-testid={`plan-item-${plan.id}`}
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold" data-testid={`text-plan-name-${plan.id}`}>
+                            {plan.name}
+                          </h3>
+                          <Badge variant={plan.isActive ? "default" : "secondary"} data-testid={`badge-plan-status-${plan.id}`}>
+                            {plan.isActive ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+                          <div>
+                            <span className="font-medium">Mensal:</span>{" "}
+                            {formatKwanza(plan.monthlyPriceAOA)} / ${plan.monthlyPriceUSD}
+                          </div>
+                          <div>
+                            <span className="font-medium">Anual:</span>{" "}
+                            {formatKwanza(plan.annualPriceAOA)} / ${plan.annualPriceUSD}
+                          </div>
+                          <div>
+                            <span className="font-medium">Filiais:</span>{" "}
+                            {plan.maxBranches === 999 ? "Ilimitado" : plan.maxBranches}
+                          </div>
+                          <div>
+                            <span className="font-medium">Usuários:</span>{" "}
+                            {plan.maxUsers === 999 ? "Ilimitado" : plan.maxUsers}
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedPlan(plan);
+                          setIsPlanDialogOpen(true);
+                        }}
+                        data-testid={`button-edit-plan-${plan.id}`}
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        Configurar
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nenhum plano encontrado.
+                </div>
               )}
             </CardContent>
           </Card>
@@ -857,6 +950,13 @@ export default function SuperAdmin() {
         restaurant={selectedRestaurantForSubscription}
         mode={subscriptionDialogMode}
         subscriptionId={selectedSubscriptionId || undefined}
+      />
+
+      {/* Plan Management Modal */}
+      <PlanManagementDialog
+        plan={selectedPlan}
+        open={isPlanDialogOpen}
+        onOpenChange={setIsPlanDialogOpen}
       />
     </div>
   );
