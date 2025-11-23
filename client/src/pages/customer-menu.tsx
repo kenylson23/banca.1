@@ -28,6 +28,28 @@ import type { SelectedOption } from '@/contexts/CartContext';
 import { CustomerMenuItemOptionsDialog } from '@/components/CustomerMenuItemOptionsDialog';
 import { ShareOrderDialog } from '@/components/ShareOrderDialog';
 
+// Helper para converter hex para rgba válido
+const hexToRgba = (hex: string, alpha: number = 1): string => {
+  // Remove # se presente
+  const cleanHex = hex.replace('#', '');
+  
+  // Valida formato hex (3 ou 6 caracteres)
+  if (!/^[0-9A-Fa-f]{3}$|^[0-9A-Fa-f]{6}$/.test(cleanHex)) {
+    return `rgba(234, 88, 12, ${alpha})`; // fallback orange-600
+  }
+  
+  // Converte hex de 3 caracteres para 6
+  const fullHex = cleanHex.length === 3 
+    ? cleanHex.split('').map(c => c + c).join('')
+    : cleanHex;
+  
+  const r = parseInt(fullHex.slice(0, 2), 16);
+  const g = parseInt(fullHex.slice(2, 4), 16);
+  const b = parseInt(fullHex.slice(4, 6), 16);
+  
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 export default function CustomerMenu() {
   const [, params] = useRoute('/mesa/:tableNumber');
   const tableNumber = params?.tableNumber;
@@ -45,6 +67,18 @@ export default function CustomerMenu() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'info' | 'review'>('cart');
   const { toast } = useToast();
+  
+  // Branding state para cores dinâmicas do restaurante
+  const [branding, setBranding] = useState<{
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+    heroImageUrl?: string;
+  }>({
+    primaryColor: '#EA580C', // orange-600 fallback
+    secondaryColor: '#DC2626', // red-600 fallback
+    accentColor: '#0891B2', // cyan-600 fallback
+  });
 
   const { data: currentTable, isLoading: tableLoading } = useQuery<any>({
     queryKey: ['/api/public/tables', tableNumber],
@@ -68,6 +102,18 @@ export default function CustomerMenu() {
     queryKey: [`/api/public/orders/table/${tableId}`],
     enabled: Boolean(tableId),
   });
+
+  // Atualizar branding quando restaurante carregar
+  useEffect(() => {
+    if (restaurant) {
+      setBranding({
+        primaryColor: restaurant.primaryColor || '#EA580C',
+        secondaryColor: restaurant.secondaryColor || '#DC2626',
+        accentColor: restaurant.accentColor || '#0891B2',
+        heroImageUrl: restaurant.heroImageUrl || undefined,
+      });
+    }
+  }, [restaurant]);
 
   useEffect(() => {
     if (!tableId || typeof window === 'undefined') return;
@@ -339,12 +385,19 @@ export default function CustomerMenu() {
     );
   }
 
+  // CSS variables dinâmicas baseadas nas cores do restaurante
+  const brandingStyles = {
+    '--brand-primary': branding.primaryColor,
+    '--brand-secondary': branding.secondaryColor,
+    '--brand-accent': branding.accentColor,
+  } as React.CSSProperties;
+
   return (
-    <div className="min-h-screen bg-white relative">
+    <div className="min-h-screen bg-gray-50 relative" style={brandingStyles}>
       {/* Fixed Header - Minimalista e Limpo */}
       <header className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md border-b border-gray-100 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between h-16 sm:h-20">
+          <div className="flex items-center justify-between h-14 sm:h-16">
             {/* Logo e Mesa */}
             <div className="flex items-center gap-3">
               {restaurant && (
@@ -457,7 +510,8 @@ export default function CustomerMenu() {
                 <SheetTrigger asChild>
                   <Button 
                     size="icon"
-                    className="relative bg-gray-900 text-white hover:bg-gray-800"
+                    className="relative text-white"
+                    style={{ backgroundColor: branding.primaryColor }}
                     data-testid="button-open-cart"
                   >
                     <ShoppingCart className="h-5 w-5" />
@@ -467,7 +521,8 @@ export default function CustomerMenu() {
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                           exit={{ scale: 0 }}
-                          className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
+                          className="absolute -top-1 -right-1 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
+                          style={{ backgroundColor: branding.secondaryColor }}
                         >
                           {getItemCount()}
                         </motion.div>
@@ -489,21 +544,30 @@ export default function CustomerMenu() {
                     {/* Progress Steps */}
                     <div className="flex items-center gap-2">
                       <div className={`flex items-center gap-2 ${checkoutStep === 'cart' ? 'text-gray-900' : 'text-gray-400'}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${checkoutStep === 'cart' ? 'bg-gray-900 text-white' : 'bg-gray-100'}`}>
+                        <div 
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium text-white"
+                          style={checkoutStep === 'cart' ? { backgroundColor: branding.primaryColor } : { backgroundColor: '#f3f4f6' }}
+                        >
                           1
                         </div>
                         <span className="text-xs font-medium hidden sm:inline">Itens</span>
                       </div>
                       <ChevronRight className="h-4 w-4 text-gray-300" />
                       <div className={`flex items-center gap-2 ${checkoutStep === 'info' ? 'text-gray-900' : 'text-gray-400'}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${checkoutStep === 'info' ? 'bg-gray-900 text-white' : 'bg-gray-100'}`}>
+                        <div 
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium text-white"
+                          style={checkoutStep === 'info' ? { backgroundColor: branding.primaryColor } : { backgroundColor: '#f3f4f6' }}
+                        >
                           2
                         </div>
                         <span className="text-xs font-medium hidden sm:inline">Dados</span>
                       </div>
                       <ChevronRight className="h-4 w-4 text-gray-300" />
                       <div className={`flex items-center gap-2 ${checkoutStep === 'review' ? 'text-gray-900' : 'text-gray-400'}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${checkoutStep === 'review' ? 'bg-gray-900 text-white' : 'bg-gray-100'}`}>
+                        <div 
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium text-white"
+                          style={checkoutStep === 'review' ? { backgroundColor: branding.primaryColor } : { backgroundColor: '#f3f4f6' }}
+                        >
                           3
                         </div>
                         <span className="text-xs font-medium hidden sm:inline">Revisar</span>
@@ -791,7 +855,8 @@ export default function CustomerMenu() {
                         )}
                         <Button
                           size="lg"
-                          className={`h-14 text-base font-semibold bg-gray-900 hover:bg-gray-800 text-white ${checkoutStep === 'cart' ? 'w-full' : 'flex-1'}`}
+                          className={`h-14 text-base font-semibold text-white ${checkoutStep === 'cart' ? 'w-full' : 'flex-1'}`}
+                          style={{ backgroundColor: branding.primaryColor }}
                           onClick={() => {
                             if (checkoutStep === 'cart') handleProceedToInfo();
                             else if (checkoutStep === 'info') handleProceedToReview();
@@ -823,35 +888,83 @@ export default function CustomerMenu() {
         </div>
       </header>
 
+      {/* Hero Banner com imagem e gradiente */}
+      <div className="pt-14 sm:pt-16 relative">
+        <div 
+          className="relative h-48 sm:h-64 overflow-hidden"
+          style={{
+            backgroundImage: branding.heroImageUrl 
+              ? `linear-gradient(135deg, ${hexToRgba(branding.primaryColor, 0.87)} 0%, ${hexToRgba(branding.primaryColor, 0.6)} 50%, ${hexToRgba(branding.secondaryColor, 0.8)} 100%), url('${branding.heroImageUrl}')`
+              : `linear-gradient(135deg, ${hexToRgba(branding.primaryColor, 1)} 0%, ${hexToRgba(branding.secondaryColor, 1)} 100%)`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          }}
+        >
+          {/* Overlay pattern */}
+          <div className="absolute inset-0 bg-black/10"></div>
+          
+          {/* Conteúdo do Hero */}
+          <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 flex flex-col justify-center">
+            <div className="text-white">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-2 drop-shadow-lg">
+                {restaurant?.name || 'Bem-vindo'}
+              </h2>
+              <p className="text-lg sm:text-xl text-white/95 font-medium drop-shadow-md">
+                {restaurant?.description || 'Confira nosso cardápio digital'}
+              </p>
+              {restaurant?.isOpen === 1 && (
+                <Badge className="mt-4 bg-white/20 backdrop-blur-sm border-white/40 text-white font-semibold">
+                  <span className="inline-block w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
+                  Estamos abertos
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* Wave divider na parte inferior */}
+          <div className="absolute bottom-0 left-0 right-0">
+            <svg viewBox="0 0 1440 48" className="w-full h-8 sm:h-12 text-gray-50">
+              <path fill="currentColor" d="M0,32L80,29.3C160,27,320,21,480,21.3C640,21,800,27,960,29.3C1120,32,1280,32,1360,32L1440,32L1440,48L1360,48C1280,48,1120,48,960,48C800,48,640,48,480,48C320,48,160,48,80,48L0,48Z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
       {/* Main Content */}
-      <main className="pt-16 sm:pt-20 pb-24">
+      <main className="pb-24 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           {/* Search Bar */}
-          <div className="py-6 sm:py-8">
+          <div className="py-4 sm:py-6">
             <div className="relative max-w-2xl mx-auto">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
               <Input
                 placeholder="Buscar no cardápio..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 h-12 sm:h-14 text-base border-gray-200 rounded-full bg-gray-50 focus:bg-white"
+                className="pl-12 h-12 sm:h-14 text-base border-white rounded-full bg-white shadow-sm focus:shadow-md transition-shadow"
                 data-testid="input-search-main"
               />
             </div>
           </div>
 
-          {/* Categories */}
+          {/* Categories - Scroll horizontal com cores dinâmicas */}
           {categories.length > 0 && (
             <div className="mb-8">
               <ScrollArea className="w-full">
-                <div className="flex gap-2 pb-2">
+                <div className="flex gap-3 pb-2">
                   <Button
-                    variant={selectedCategory === 'all' ? 'default' : 'outline'}
+                    variant="outline"
                     onClick={() => setSelectedCategory('all')}
-                    className={selectedCategory === 'all' 
-                      ? 'rounded-full bg-gray-900 text-white hover:bg-gray-800 flex-shrink-0' 
-                      : 'rounded-full border-gray-200 text-gray-600 hover:bg-gray-50 flex-shrink-0'
-                    }
+                    className="rounded-full flex-shrink-0 font-semibold shadow-sm border-2"
+                    style={selectedCategory === 'all' ? {
+                      backgroundColor: branding.primaryColor,
+                      borderColor: branding.primaryColor,
+                      color: 'white'
+                    } : {
+                      borderColor: '#d1d5db',
+                      backgroundColor: 'white',
+                      color: '#6b7280'
+                    }}
                     data-testid="button-category-all"
                   >
                     Todos
@@ -859,12 +972,18 @@ export default function CustomerMenu() {
                   {categories.map((category) => (
                     <Button
                       key={category.id}
-                      variant={selectedCategory === category.id ? 'default' : 'outline'}
+                      variant="outline"
                       onClick={() => setSelectedCategory(category.id)}
-                      className={selectedCategory === category.id 
-                        ? 'rounded-full bg-gray-900 text-white hover:bg-gray-800 flex-shrink-0' 
-                        : 'rounded-full border-gray-200 text-gray-600 hover:bg-gray-50 flex-shrink-0'
-                      }
+                      className="rounded-full flex-shrink-0 font-semibold shadow-sm border-2"
+                      style={selectedCategory === category.id ? {
+                        backgroundColor: branding.primaryColor,
+                        borderColor: branding.primaryColor,
+                        color: 'white'
+                      } : {
+                        borderColor: '#d1d5db',
+                        backgroundColor: 'white',
+                        color: '#6b7280'
+                      }}
                       data-testid={`button-category-${category.id}`}
                     >
                       {category.name}
@@ -958,7 +1077,11 @@ export default function CustomerMenu() {
 
                           <div className="flex items-center justify-between pt-2">
                             <div className="flex flex-col">
-                              <span className="text-2xl font-bold text-gray-900" data-testid={`text-item-price-${item.id}`}>
+                              <span 
+                                className="text-2xl font-bold" 
+                                style={{ color: branding.accentColor }}
+                                data-testid={`text-item-price-${item.id}`}
+                              >
                                 {formatKwanza(item.price)}
                               </span>
                             </div>
@@ -970,7 +1093,10 @@ export default function CustomerMenu() {
                             ) : (
                               <Button
                                 size="icon"
-                                className="h-11 w-11 rounded-full bg-gray-900 hover:bg-gray-800 text-white shadow-md hover:shadow-lg transition-all"
+                                className="h-11 w-11 rounded-full text-white shadow-md hover:shadow-lg transition-all"
+                                style={{ 
+                                  backgroundColor: branding.primaryColor,
+                                }}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleAddMenuItem(item);
@@ -991,6 +1117,55 @@ export default function CustomerMenu() {
           )}
         </div>
       </main>
+
+      {/* Footer com informações do restaurante */}
+      {restaurant && (
+        <footer 
+          className="mt-12 py-8 text-white"
+          style={{
+            background: `linear-gradient(135deg, ${hexToRgba(branding.primaryColor, 1)} 0%, ${hexToRgba(branding.secondaryColor, 1)} 100%)`
+          }}
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <h3 className="font-bold text-lg mb-3">{restaurant.name}</h3>
+                {restaurant.description && (
+                  <p className="text-white/90 text-sm mb-2">{restaurant.description}</p>
+                )}
+                {restaurant.address && (
+                  <p className="text-white/80 text-sm">{restaurant.address}</p>
+                )}
+              </div>
+              
+              <div>
+                <h4 className="font-semibold mb-3">Contato</h4>
+                {restaurant.phone && (
+                  <p className="text-white/90 text-sm mb-2">
+                    📞 {restaurant.phone}
+                  </p>
+                )}
+                {restaurant.whatsappNumber && (
+                  <p className="text-white/90 text-sm mb-2">
+                    💬 {restaurant.whatsappNumber}
+                  </p>
+                )}
+                {restaurant.businessHours && (
+                  <p className="text-white/90 text-sm mt-3">
+                    🕒 {restaurant.businessHours}
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            <div className="border-t border-white/20 pt-4 text-center">
+              <p className="text-white/70 text-sm">
+                © {new Date().getFullYear()} {restaurant.name}. Desenvolvido por NaBancada
+              </p>
+            </div>
+          </div>
+        </footer>
+      )}
 
       {/* Botão Flutuante WhatsApp */}
       {restaurant?.whatsappNumber && (
