@@ -37,6 +37,10 @@ import {
   loyaltyTransactions,
   coupons,
   couponUsages,
+  subscriptionPlans,
+  subscriptions,
+  subscriptionPayments,
+  subscriptionUsage,
   type User,
   type InsertUser,
   type Restaurant,
@@ -126,6 +130,15 @@ import {
   type UpdateCoupon,
   type CouponUsage,
   type InsertCouponUsage,
+  type SubscriptionPlan,
+  type InsertSubscriptionPlan,
+  type Subscription,
+  type InsertSubscription,
+  type UpdateSubscription,
+  type SubscriptionPayment,
+  type InsertSubscriptionPayment,
+  type SubscriptionUsage,
+  type InsertSubscriptionUsage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, or, isNull, inArray, ne } from "drizzle-orm";
@@ -663,6 +676,47 @@ export interface IStorage {
   // Order-Customer-Coupon-Loyalty integration
   linkCustomerToOrder(restaurantId: string, orderId: string, customerId: string): Promise<Order>;
   applyCouponToOrder(restaurantId: string, orderId: string, couponId: string, discountAmount: number): Promise<Order>;
+  
+  // Subscription Plan operations
+  getSubscriptionPlans(): Promise<SubscriptionPlan[]>;
+  getSubscriptionPlanById(id: string): Promise<SubscriptionPlan | undefined>;
+  getSubscriptionPlanBySlug(slug: string): Promise<SubscriptionPlan | undefined>;
+  
+  // Subscription operations
+  getSubscriptionByRestaurantId(restaurantId: string): Promise<(Subscription & { plan: SubscriptionPlan }) | undefined>;
+  createSubscription(restaurantId: string, data: InsertSubscription): Promise<Subscription>;
+  updateSubscription(restaurantId: string, data: UpdateSubscription): Promise<Subscription>;
+  cancelSubscription(restaurantId: string): Promise<Subscription>;
+  checkSubscriptionLimits(restaurantId: string): Promise<{
+    plan: SubscriptionPlan;
+    subscription: Subscription;
+    usage: {
+      branches: number;
+      tables: number;
+      menuItems: number;
+      users: number;
+      ordersThisMonth: number;
+    };
+    withinLimits: {
+      branches: boolean;
+      tables: boolean;
+      menuItems: boolean;
+      users: boolean;
+      orders: boolean;
+    };
+    canAddBranch: boolean;
+    canAddTable: boolean;
+    canAddMenuItem: boolean;
+    canAddUser: boolean;
+    canCreateOrder: boolean;
+  }>;
+  
+  // Subscription Payment operations
+  getSubscriptionPayments(restaurantId: string): Promise<SubscriptionPayment[]>;
+  createSubscriptionPayment(restaurantId: string, data: InsertSubscriptionPayment): Promise<SubscriptionPayment>;
+  
+  // Subscription Usage operations
+  updateSubscriptionUsage(restaurantId: string, subscriptionId: string): Promise<SubscriptionUsage>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7353,6 +7407,292 @@ export class DatabaseStorage implements IStorage {
       activeCustomers,
       tierDistribution,
     };
+  }
+
+  // Subscription Plan operations
+  async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.isActive, 1))
+      .orderBy(subscriptionPlans.displayOrder);
+  }
+
+  async getSubscriptionPlanById(id: string): Promise<SubscriptionPlan | undefined> {
+    const [plan] = await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.id, id));
+    return plan;
+  }
+
+  async getSubscriptionPlanBySlug(slug: string): Promise<SubscriptionPlan | undefined> {
+    const [plan] = await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.slug, slug));
+    return plan;
+  }
+
+  // Subscription operations
+  async getSubscriptionByRestaurantId(restaurantId: string): Promise<(Subscription & { plan: SubscriptionPlan }) | undefined> {
+    const result = await db
+      .select()
+      .from(subscriptions)
+      .leftJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
+      .where(eq(subscriptions.restaurantId, restaurantId))
+      .limit(1);
+
+    if (result.length === 0 || !result[0].subscription_plans) {
+      return undefined;
+    }
+
+    return {
+      ...result[0].subscriptions,
+      plan: result[0].subscription_plans,
+    };
+  }
+
+  async createSubscription(restaurantId: string, data: InsertSubscription): Promise<Subscription> {
+    const [subscription] = await db
+      .insert(subscriptions)
+      .values({
+        ...data,
+        restaurantId,
+      })
+      .returning();
+    return subscription;
+  }
+
+  async updateSubscription(restaurantId: string, data: UpdateSubscription): Promise<Subscription> {
+    const [updated] = await db
+      .update(subscriptions)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptions.restaurantId, restaurantId))
+      .returning();
+
+    if (!updated) {
+      throw new Error("Subscrição não encontrada");
+    }
+
+    return updated;
+  }
+
+  async cancelSubscription(restaurantId: string): Promise<Subscription> {
+    const [canceled] = await db
+      .update(subscriptions)
+      .set({
+        status: 'cancelada',
+        canceledAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptions.restaurantId, restaurantId))
+      .returning();
+
+    if (!canceled) {
+      throw new Error("Subscrição não encontrada");
+    }
+
+    return canceled;
+  }
+
+  async checkSubscriptionLimits(restaurantId: string): Promise<{
+    plan: SubscriptionPlan;
+    subscription: Subscription;
+    usage: {
+      branches: number;
+      tables: number;
+      menuItems: number;
+      users: number;
+      ordersThisMonth: number;
+    };
+    withinLimits: {
+      branches: boolean;
+      tables: boolean;
+      menuItems: boolean;
+      users: boolean;
+      orders: boolean;
+    };
+    canAddBranch: boolean;
+    canAddTable: boolean;
+    canAddMenuItem: boolean;
+    canAddUser: boolean;
+    canCreateOrder: boolean;
+  }> {
+    const subscriptionData = await this.getSubscriptionByRestaurantId(restaurantId);
+    
+    if (!subscriptionData) {
+      throw new Error("Restaurante não possui subscrição ativa");
+    }
+
+    const { plan, ...subscription } = subscriptionData;
+
+    const branchesCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(branches)
+      .where(eq(branches.restaurantId, restaurantId))
+      .then(result => Number(result[0]?.count || 0));
+
+    const tablesCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(tables)
+      .where(eq(tables.restaurantId, restaurantId))
+      .then(result => Number(result[0]?.count || 0));
+
+    const menuItemsCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(menuItems)
+      .where(eq(menuItems.restaurantId, restaurantId))
+      .then(result => Number(result[0]?.count || 0));
+
+    const usersCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(eq(users.restaurantId, restaurantId))
+      .then(result => Number(result[0]?.count || 0));
+
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const ordersThisMonth = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.restaurantId, restaurantId),
+          gte(orders.createdAt, startOfMonth),
+          ne(orders.status, 'cancelado')
+        )
+      )
+      .then(result => Number(result[0]?.count || 0));
+
+    const usage = {
+      branches: branchesCount,
+      tables: tablesCount,
+      menuItems: menuItemsCount,
+      users: usersCount,
+      ordersThisMonth,
+    };
+
+    const withinLimits = {
+      branches: branchesCount < plan.maxBranches,
+      tables: tablesCount < plan.maxTables,
+      menuItems: menuItemsCount < plan.maxMenuItems,
+      users: usersCount < plan.maxUsers,
+      orders: ordersThisMonth < plan.maxOrdersPerMonth,
+    };
+
+    return {
+      plan,
+      subscription,
+      usage,
+      withinLimits,
+      canAddBranch: withinLimits.branches,
+      canAddTable: withinLimits.tables,
+      canAddMenuItem: withinLimits.menuItems,
+      canAddUser: withinLimits.users,
+      canCreateOrder: withinLimits.orders,
+    };
+  }
+
+  // Subscription Payment operations
+  async getSubscriptionPayments(restaurantId: string): Promise<SubscriptionPayment[]> {
+    return await db
+      .select()
+      .from(subscriptionPayments)
+      .where(eq(subscriptionPayments.restaurantId, restaurantId))
+      .orderBy(desc(subscriptionPayments.createdAt));
+  }
+
+  async createSubscriptionPayment(restaurantId: string, data: InsertSubscriptionPayment): Promise<SubscriptionPayment> {
+    const [payment] = await db
+      .insert(subscriptionPayments)
+      .values({
+        ...data,
+        restaurantId,
+      })
+      .returning();
+    return payment;
+  }
+
+  // Subscription Usage operations
+  async updateSubscriptionUsage(restaurantId: string, subscriptionId: string): Promise<SubscriptionUsage> {
+    const subscriptionData = await this.getSubscriptionByRestaurantId(restaurantId);
+    
+    if (!subscriptionData) {
+      throw new Error("Subscrição não encontrada");
+    }
+
+    const { subscription } = subscriptionData;
+
+    const branchesCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(branches)
+      .where(eq(branches.restaurantId, restaurantId))
+      .then(result => Number(result[0]?.count || 0));
+
+    const tablesCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(tables)
+      .where(eq(tables.restaurantId, restaurantId))
+      .then(result => Number(result[0]?.count || 0));
+
+    const menuItemsCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(menuItems)
+      .where(eq(menuItems.restaurantId, restaurantId))
+      .then(result => Number(result[0]?.count || 0));
+
+    const usersCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(eq(users.restaurantId, restaurantId))
+      .then(result => Number(result[0]?.count || 0));
+
+    const ordersCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.restaurantId, restaurantId),
+          gte(orders.createdAt, subscription.currentPeriodStart),
+          ne(orders.status, 'cancelado')
+        )
+      )
+      .then(result => Number(result[0]?.count || 0));
+
+    const [usage] = await db
+      .insert(subscriptionUsage)
+      .values({
+        restaurantId,
+        subscriptionId,
+        periodStart: subscription.currentPeriodStart,
+        periodEnd: subscription.currentPeriodEnd,
+        branchesCount,
+        tablesCount,
+        menuItemsCount,
+        ordersCount,
+        usersCount,
+        lastCalculatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [subscriptionUsage.restaurantId, subscriptionUsage.subscriptionId],
+        set: {
+          branchesCount,
+          tablesCount,
+          menuItemsCount,
+          ordersCount,
+          usersCount,
+          lastCalculatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    return usage;
   }
 }
 
