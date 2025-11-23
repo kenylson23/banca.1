@@ -684,6 +684,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/superadmin/analytics', isSuperAdmin, async (req, res) => {
+    try {
+      const analytics = await storage.getSuperAdminAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar analytics" });
+    }
+  });
+
+  app.get('/api/superadmin/rankings', isSuperAdmin, async (req, res) => {
+    try {
+      const rankings = await storage.getRestaurantRankings();
+      res.json(rankings);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar rankings" });
+    }
+  });
+
+  app.get('/api/superadmin/restaurants/:id/details', isSuperAdmin, async (req, res) => {
+    try {
+      const details = await storage.getRestaurantDetails(req.params.id);
+      res.json(details);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao buscar detalhes do restaurante";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  app.get('/api/superadmin/financial-overview', isSuperAdmin, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const start = startDate ? new Date(startDate as string) : undefined;
+      const end = endDate ? new Date(endDate as string) : undefined;
+      
+      const overview = await storage.getSuperAdminFinancialOverview(start, end);
+      res.json(overview);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar visão financeira" });
+    }
+  });
+
   // ===== MESSAGE ROUTES (Super Admin & Restaurant Admin) =====
   app.get('/api/superadmin/messages', isSuperAdmin, async (req, res) => {
     try {

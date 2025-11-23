@@ -298,6 +298,50 @@ export interface IStorage {
     totalRevenue: string;
   }>;
   
+  // Super admin advanced analytics
+  getSuperAdminAnalytics(): Promise<{
+    totalOrders: number;
+    averageTicket: string;
+    totalCustomers: number;
+    revenueGrowth: number;
+    monthlyRevenue: Array<{ month: string; revenue: number }>;
+    revenueByRestaurant: Array<{ restaurantId: string; restaurantName: string; revenue: number; ordersCount: number }>;
+  }>;
+  
+  getRestaurantRankings(): Promise<{
+    topByRevenue: Array<{ restaurant: Restaurant; revenue: number; ordersCount: number; averageTicket: number }>;
+    topByOrders: Array<{ restaurant: Restaurant; ordersCount: number; revenue: number }>;
+    topByGrowth: Array<{ restaurant: Restaurant; growthRate: number; currentRevenue: number; previousRevenue: number }>;
+  }>;
+  
+  getRestaurantDetails(restaurantId: string): Promise<{
+    restaurant: Restaurant;
+    metrics: {
+      totalOrders: number;
+      totalRevenue: string;
+      averageTicket: string;
+      cancelledOrders: number;
+      totalCustomers: number;
+      totalMenuItems: number;
+      totalTables: number;
+      totalBranches: number;
+      totalUsers: number;
+    };
+    revenueHistory: Array<{ date: string; revenue: number; orders: number }>;
+    paymentMethods: Array<{ method: string; count: number; total: string }>;
+    topProducts: Array<{ name: string; quantity: number; revenue: string }>;
+    recentActivity: Array<{ action: string; timestamp: Date; user?: string }>;
+  }>;
+  
+  getSuperAdminFinancialOverview(startDate?: Date, endDate?: Date): Promise<{
+    totalRevenue: string;
+    totalOrders: number;
+    revenueByMethod: Array<{ method: string; total: string; percentage: number }>;
+    revenueByRestaurant: Array<{ restaurantName: string; revenue: string; orders: number }>;
+    dailyRevenue: Array<{ date: string; revenue: number; orders: number }>;
+    shifts: Array<{ restaurantName: string; totalShifts: number; totalDiscrepancies: string }>;
+  }>;
+  
   // Reports operations
   getSalesReport(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date): Promise<{
     totalSales: string;
@@ -3288,6 +3332,383 @@ export class DatabaseStorage implements IStorage {
       pendingRestaurants,
       suspendedRestaurants,
       totalRevenue: totalRevenue.toFixed(2),
+    };
+  }
+
+  async getSuperAdminAnalytics(): Promise<{
+    totalOrders: number;
+    averageTicket: string;
+    totalCustomers: number;
+    revenueGrowth: number;
+    monthlyRevenue: Array<{ month: string; revenue: number }>;
+    revenueByRestaurant: Array<{ restaurantId: string; restaurantName: string; revenue: number; ordersCount: number }>;
+  }> {
+    // Get all orders (excluding cancelled)
+    const allOrders = await db
+      .select()
+      .from(orders)
+      .where(ne(orders.status, 'cancelado'));
+
+    const totalOrders = allOrders.length;
+    const totalRevenue = allOrders.reduce((sum: number, order: Order) => sum + parseFloat(order.totalAmount), 0);
+    const averageTicket = totalOrders > 0 ? (totalRevenue / totalOrders).toFixed(2) : "0.00";
+
+    // Get all customers
+    const allCustomers = await db.select().from(customers);
+    const totalCustomers = allCustomers.length;
+
+    // Calculate revenue growth (comparing last 30 days vs previous 30 days)
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+    const recentOrders = allOrders.filter((o: Order) => new Date(o.createdAt!) >= thirtyDaysAgo);
+    const previousOrders = allOrders.filter((o: Order) => {
+      const date = new Date(o.createdAt!);
+      return date >= sixtyDaysAgo && date < thirtyDaysAgo;
+    });
+
+    const recentRevenue = recentOrders.reduce((sum: number, o: Order) => sum + parseFloat(o.totalAmount), 0);
+    const previousRevenue = previousOrders.reduce((sum: number, o: Order) => sum + parseFloat(o.totalAmount), 0);
+    const revenueGrowth = previousRevenue > 0 ? ((recentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
+
+    // Calculate monthly revenue for last 6 months
+    const monthlyRevenue: Array<{ month: string; revenue: number }> = [];
+    for (let i = 5; i >= 0; i--) {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+      
+      const monthOrders = allOrders.filter((o: Order) => {
+        const orderDate = new Date(o.createdAt!);
+        return orderDate >= monthDate && orderDate <= monthEnd;
+      });
+      
+      const revenue = monthOrders.reduce((sum: number, o: Order) => sum + parseFloat(o.totalAmount), 0);
+      monthlyRevenue.push({
+        month: monthDate.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }),
+        revenue
+      });
+    }
+
+    // Revenue by restaurant
+    const allRestaurants = await this.getRestaurants();
+    const revenueByRestaurant = allRestaurants.map(restaurant => {
+      const restaurantOrders = allOrders.filter((o: Order) => o.restaurantId === restaurant.id);
+      const revenue = restaurantOrders.reduce((sum: number, o: Order) => sum + parseFloat(o.totalAmount), 0);
+      return {
+        restaurantId: restaurant.id,
+        restaurantName: restaurant.name,
+        revenue,
+        ordersCount: restaurantOrders.length
+      };
+    }).sort((a, b) => b.revenue - a.revenue);
+
+    return {
+      totalOrders,
+      averageTicket,
+      totalCustomers,
+      revenueGrowth: parseFloat(revenueGrowth.toFixed(2)),
+      monthlyRevenue,
+      revenueByRestaurant
+    };
+  }
+
+  async getRestaurantRankings(): Promise<{
+    topByRevenue: Array<{ restaurant: Restaurant; revenue: number; ordersCount: number; averageTicket: number }>;
+    topByOrders: Array<{ restaurant: Restaurant; ordersCount: number; revenue: number }>;
+    topByGrowth: Array<{ restaurant: Restaurant; growthRate: number; currentRevenue: number; previousRevenue: number }>;
+  }> {
+    const allRestaurants = await this.getRestaurants();
+    const allOrders = await db.select().from(orders).where(ne(orders.status, 'cancelado'));
+
+    // Top by revenue
+    const topByRevenue = allRestaurants.map(restaurant => {
+      const restaurantOrders = allOrders.filter((o: Order) => o.restaurantId === restaurant.id);
+      const revenue = restaurantOrders.reduce((sum: number, o: Order) => sum + parseFloat(o.totalAmount), 0);
+      const ordersCount = restaurantOrders.length;
+      const averageTicket = ordersCount > 0 ? revenue / ordersCount : 0;
+      
+      return { restaurant, revenue, ordersCount, averageTicket };
+    }).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
+
+    // Top by orders
+    const topByOrders = allRestaurants.map(restaurant => {
+      const restaurantOrders = allOrders.filter((o: Order) => o.restaurantId === restaurant.id);
+      const ordersCount = restaurantOrders.length;
+      const revenue = restaurantOrders.reduce((sum: number, o: Order) => sum + parseFloat(o.totalAmount), 0);
+      
+      return { restaurant, ordersCount, revenue };
+    }).sort((a, b) => b.ordersCount - a.ordersCount).slice(0, 10);
+
+    // Top by growth (last 30 days vs previous 30 days)
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+    const topByGrowth = allRestaurants.map(restaurant => {
+      const recentOrders = allOrders.filter((o: Order) => 
+        o.restaurantId === restaurant.id && new Date(o.createdAt!) >= thirtyDaysAgo
+      );
+      const previousOrders = allOrders.filter((o: Order) => {
+        const date = new Date(o.createdAt!);
+        return o.restaurantId === restaurant.id && date >= sixtyDaysAgo && date < thirtyDaysAgo;
+      });
+      
+      const currentRevenue = recentOrders.reduce((sum: number, o: Order) => sum + parseFloat(o.totalAmount), 0);
+      const previousRevenue = previousOrders.reduce((sum: number, o: Order) => sum + parseFloat(o.totalAmount), 0);
+      const growthRate = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
+      
+      return { restaurant, growthRate, currentRevenue, previousRevenue };
+    }).sort((a, b) => b.growthRate - a.growthRate).slice(0, 10);
+
+    return { topByRevenue, topByOrders, topByGrowth };
+  }
+
+  async getRestaurantDetails(restaurantId: string): Promise<{
+    restaurant: Restaurant;
+    metrics: {
+      totalOrders: number;
+      totalRevenue: string;
+      averageTicket: string;
+      cancelledOrders: number;
+      totalCustomers: number;
+      totalMenuItems: number;
+      totalTables: number;
+      totalBranches: number;
+      totalUsers: number;
+    };
+    revenueHistory: Array<{ date: string; revenue: number; orders: number }>;
+    paymentMethods: Array<{ method: string; count: number; total: string }>;
+    topProducts: Array<{ name: string; quantity: number; revenue: string }>;
+    recentActivity: Array<{ action: string; timestamp: Date; user?: string }>;
+  }> {
+    const restaurant = await this.getRestaurantById(restaurantId);
+    if (!restaurant) {
+      throw new Error("Restaurante não encontrado");
+    }
+
+    // Get all restaurant orders
+    const restaurantOrders = await db.select().from(orders).where(eq(orders.restaurantId, restaurantId));
+    const activeOrders = restaurantOrders.filter((o: Order) => o.status !== 'cancelado');
+    const cancelledOrders = restaurantOrders.filter((o: Order) => o.status === 'cancelado');
+
+    const totalOrders = activeOrders.length;
+    const totalRevenue = activeOrders.reduce((sum: number, o: Order) => sum + parseFloat(o.totalAmount), 0);
+    const averageTicket = totalOrders > 0 ? (totalRevenue / totalOrders).toFixed(2) : "0.00";
+
+    // Get counts
+    const restaurantCustomers = await db.select().from(customers).where(eq(customers.restaurantId, restaurantId));
+    const restaurantMenuItems = await db.select().from(menuItems).where(eq(menuItems.restaurantId, restaurantId));
+    const restaurantTables = await db.select().from(tables).where(eq(tables.restaurantId, restaurantId));
+    const restaurantBranches = await db.select().from(branches).where(eq(branches.restaurantId, restaurantId));
+    const restaurantUsers = await db.select().from(users).where(eq(users.restaurantId, restaurantId));
+
+    // Revenue history (last 30 days)
+    const revenueHistory: Array<{ date: string; revenue: number; orders: number }> = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+      
+      const nextDate = new Date(date);
+      nextDate.setDate(nextDate.getDate() + 1);
+      
+      const dayOrders = activeOrders.filter((o: Order) => {
+        const orderDate = new Date(o.createdAt!);
+        return orderDate >= date && orderDate < nextDate;
+      });
+      
+      const revenue = dayOrders.reduce((sum: number, o: Order) => sum + parseFloat(o.totalAmount), 0);
+      revenueHistory.push({
+        date: date.toLocaleDateString('pt-BR'),
+        revenue,
+        orders: dayOrders.length
+      });
+    }
+
+    // Payment methods analysis
+    const paymentMethodsMap = new Map<string, { count: number; total: number }>();
+    activeOrders.forEach((order: Order) => {
+      const method = order.paymentMethod || 'não especificado';
+      const existing = paymentMethodsMap.get(method) || { count: 0, total: 0 };
+      paymentMethodsMap.set(method, {
+        count: existing.count + 1,
+        total: existing.total + parseFloat(order.totalAmount)
+      });
+    });
+
+    const paymentMethods = Array.from(paymentMethodsMap.entries()).map(([method, data]) => ({
+      method,
+      count: data.count,
+      total: data.total.toFixed(2)
+    }));
+
+    // Top products
+    const allOrderItems = await db
+      .select()
+      .from(orderItems)
+      .leftJoin(orders, eq(orderItems.orderId, orders.id))
+      .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+      .where(and(
+        eq(orders.restaurantId, restaurantId),
+        ne(orders.status, 'cancelado')
+      ));
+
+    const productMap = new Map<string, { name: string; quantity: number; revenue: number }>();
+    allOrderItems.forEach((item: any) => {
+      if (item.menu_items) {
+        const name = item.menu_items.name;
+        const existing = productMap.get(name) || { name, quantity: 0, revenue: 0 };
+        productMap.set(name, {
+          name,
+          quantity: existing.quantity + item.order_items.quantity,
+          revenue: existing.revenue + parseFloat(item.order_items.totalPrice)
+        });
+      }
+    });
+
+    const topProducts = Array.from(productMap.values())
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 10)
+      .map(p => ({ ...p, revenue: p.revenue.toFixed(2) }));
+
+    // Recent activity (last 20 orders)
+    const recentOrders = restaurantOrders
+      .sort((a: Order, b: Order) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
+      .slice(0, 20);
+
+    const recentActivity = recentOrders.map((order: Order) => ({
+      action: `Pedido ${order.status === 'cancelado' ? 'cancelado' : 'criado'} - ${order.orderTitle || `#${order.id.slice(0, 8)}`}`,
+      timestamp: new Date(order.createdAt!),
+      user: order.customerName || undefined
+    }));
+
+    return {
+      restaurant,
+      metrics: {
+        totalOrders,
+        totalRevenue: totalRevenue.toFixed(2),
+        averageTicket,
+        cancelledOrders: cancelledOrders.length,
+        totalCustomers: restaurantCustomers.length,
+        totalMenuItems: restaurantMenuItems.length,
+        totalTables: restaurantTables.length,
+        totalBranches: restaurantBranches.length,
+        totalUsers: restaurantUsers.length
+      },
+      revenueHistory,
+      paymentMethods,
+      topProducts,
+      recentActivity
+    };
+  }
+
+  async getSuperAdminFinancialOverview(startDate?: Date, endDate?: Date): Promise<{
+    totalRevenue: string;
+    totalOrders: number;
+    revenueByMethod: Array<{ method: string; total: string; percentage: number }>;
+    revenueByRestaurant: Array<{ restaurantName: string; revenue: string; orders: number }>;
+    dailyRevenue: Array<{ date: string; revenue: number; orders: number }>;
+    shifts: Array<{ restaurantName: string; totalShifts: number; totalDiscrepancies: string }>;
+  }> {
+    // Default to last 30 days if no dates provided
+    const end = endDate || new Date();
+    const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // Get all orders in date range (excluding cancelled)
+    const allOrders = await db
+      .select()
+      .from(orders)
+      .where(and(
+        ne(orders.status, 'cancelado'),
+        gte(orders.createdAt, start),
+        sql`${orders.createdAt} <= ${end}`
+      ));
+
+    const totalOrders = allOrders.length;
+    const totalRevenue = allOrders.reduce((sum: number, o: Order) => sum + parseFloat(o.totalAmount), 0);
+
+    // Revenue by payment method
+    const methodMap = new Map<string, number>();
+    allOrders.forEach((order: Order) => {
+      const method = order.paymentMethod || 'não especificado';
+      methodMap.set(method, (methodMap.get(method) || 0) + parseFloat(order.totalAmount));
+    });
+
+    const revenueByMethod = Array.from(methodMap.entries()).map(([method, total]) => ({
+      method,
+      total: total.toFixed(2),
+      percentage: totalRevenue > 0 ? (total / totalRevenue) * 100 : 0
+    }));
+
+    // Revenue by restaurant
+    const allRestaurants = await this.getRestaurants();
+    const revenueByRestaurant = allRestaurants.map(restaurant => {
+      const restaurantOrders = allOrders.filter((o: Order) => o.restaurantId === restaurant.id);
+      const revenue = restaurantOrders.reduce((sum: number, o: Order) => sum + parseFloat(o.totalAmount), 0);
+      return {
+        restaurantName: restaurant.name,
+        revenue: revenue.toFixed(2),
+        orders: restaurantOrders.length
+      };
+    }).filter(r => parseFloat(r.revenue) > 0).sort((a, b) => parseFloat(b.revenue) - parseFloat(a.revenue));
+
+    // Daily revenue
+    const dailyRevenue: Array<{ date: string; revenue: number; orders: number }> = [];
+    const days = Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
+    
+    for (let i = 0; i < days; i++) {
+      const date = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
+      const nextDate = new Date(date.getTime() + 24 * 60 * 60 * 1000);
+      
+      const dayOrders = allOrders.filter((o: Order) => {
+        const orderDate = new Date(o.createdAt!);
+        return orderDate >= date && orderDate < nextDate;
+      });
+      
+      const revenue = dayOrders.reduce((sum: number, o: Order) => sum + parseFloat(o.totalAmount), 0);
+      dailyRevenue.push({
+        date: date.toLocaleDateString('pt-BR'),
+        revenue,
+        orders: dayOrders.length
+      });
+    }
+
+    // Shifts analysis
+    const allShifts = await db
+      .select()
+      .from(financialShifts)
+      .leftJoin(restaurants, eq(financialShifts.restaurantId, restaurants.id))
+      .where(and(
+        gte(financialShifts.startedAt, start),
+        sql`${financialShifts.startedAt} <= ${end}`
+      ));
+
+    const shiftsMap = new Map<string, { totalShifts: number; totalDiscrepancies: number }>();
+    allShifts.forEach((shift: any) => {
+      if (shift.restaurants) {
+        const name = shift.restaurants.name;
+        const existing = shiftsMap.get(name) || { totalShifts: 0, totalDiscrepancies: 0 };
+        shiftsMap.set(name, {
+          totalShifts: existing.totalShifts + 1,
+          totalDiscrepancies: existing.totalDiscrepancies + parseFloat(shift.financial_shifts.discrepancy || "0")
+        });
+      }
+    });
+
+    const shifts = Array.from(shiftsMap.entries()).map(([restaurantName, data]) => ({
+      restaurantName,
+      totalShifts: data.totalShifts,
+      totalDiscrepancies: data.totalDiscrepancies.toFixed(2)
+    }));
+
+    return {
+      totalRevenue: totalRevenue.toFixed(2),
+      totalOrders,
+      revenueByMethod,
+      revenueByRestaurant,
+      dailyRevenue,
+      shifts
     };
   }
 

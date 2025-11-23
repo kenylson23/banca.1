@@ -1,9 +1,13 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Store, CheckCircle2, Clock, Ban, DollarSign, Send, MessageSquare } from "lucide-react";
+import { 
+  Store, CheckCircle2, Clock, Ban, DollarSign, Send, Eye,
+  BarChart3, Users, Building2, MessageSquare
+} from "lucide-react";
 import { formatKwanza } from "@/lib/formatters";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +30,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
+import { SuperAdminAnalyticsCard } from "@/components/SuperAdminAnalyticsCard";
+import { RestaurantRankingCard } from "@/components/RestaurantRankingCard";
+import { FinancialOverviewCard } from "@/components/FinancialOverviewCard";
+import { RestaurantDetailsDialog } from "@/components/RestaurantDetailsDialog";
 
 interface SuperAdminStats {
   totalRestaurants: number;
@@ -39,12 +47,25 @@ export default function SuperAdmin() {
   const { toast } = useToast();
   const [selectedRestaurant, setSelectedRestaurant] = useState<string | null>(null);
   const [selectedRestaurantForMessage, setSelectedRestaurantForMessage] = useState<string | null>(null);
+  const [selectedRestaurantForDetails, setSelectedRestaurantForDetails] = useState<string | null>(null);
   const [messageSubject, setMessageSubject] = useState('');
   const [messageContent, setMessageContent] = useState('');
   const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
 
   const { data: stats, isLoading: statsLoading } = useQuery<SuperAdminStats>({
     queryKey: ["/api/superadmin/stats"],
+  });
+
+  const { data: analytics, isLoading: analyticsLoading } = useQuery({
+    queryKey: ["/api/superadmin/analytics"],
+  });
+
+  const { data: rankings, isLoading: rankingsLoading } = useQuery({
+    queryKey: ["/api/superadmin/rankings"],
+  });
+
+  const { data: financialOverview, isLoading: financialLoading } = useQuery({
+    queryKey: ["/api/superadmin/financial-overview"],
   });
 
   const { data: restaurants, isLoading: restaurantsLoading } = useQuery<Restaurant[]>({
@@ -63,6 +84,8 @@ export default function SuperAdmin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/superadmin/restaurants"] });
       queryClient.invalidateQueries({ queryKey: ["/api/superadmin/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/superadmin/analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/superadmin/rankings"] });
       toast({
         title: "Status atualizado",
         description: "O status do restaurante foi atualizado com sucesso.",
@@ -85,6 +108,8 @@ export default function SuperAdmin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/superadmin/restaurants"] });
       queryClient.invalidateQueries({ queryKey: ["/api/superadmin/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/superadmin/analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/superadmin/rankings"] });
       setSelectedRestaurant(null);
       toast({
         title: "Restaurante excluído",
@@ -125,32 +150,6 @@ export default function SuperAdmin() {
     },
   });
 
-  const handleSendMessage = () => {
-    if (!selectedRestaurantForMessage) {
-      toast({
-        title: "Restaurante não selecionado",
-        description: "Por favor, selecione um restaurante.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!messageSubject.trim() || !messageContent.trim()) {
-      toast({
-        title: "Dados incompletos",
-        description: "Por favor, preencha o assunto e o conteúdo da mensagem.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    sendMessageMutation.mutate({
-      restaurantId: selectedRestaurantForMessage,
-      subject: messageSubject.trim(),
-      content: messageContent.trim(),
-    });
-  };
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'ativo':
@@ -169,11 +168,12 @@ export default function SuperAdmin() {
       <div>
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Super Administrador</h1>
         <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
-          Gestão e controle geral da plataforma NaBancada
+          Centro de comando e controle da plataforma NaBancada
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-4">
+      {/* Overview Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -290,283 +290,364 @@ export default function SuperAdmin() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Restaurantes Cadastrados</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {restaurantsLoading ? (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="flex items-center gap-4 p-4 border rounded-md">
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-5 w-1/3" />
-                    <Skeleton className="h-4 w-1/2" />
-                  </div>
-                  <Skeleton className="h-10 w-24" />
-                </div>
-              ))}
-            </div>
-          ) : restaurants && restaurants.length > 0 ? (
-            <div className="space-y-4">
-              {restaurants.map((restaurant) => (
-                <div
-                  key={restaurant.id}
-                  className="flex flex-col md:flex-row md:items-center gap-4 p-4 border rounded-md"
-                  data-testid={`restaurant-${restaurant.id}`}
-                >
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-lg" data-testid={`text-restaurant-name-${restaurant.id}`}>
-                        {restaurant.name}
-                      </h3>
-                      {getStatusBadge(restaurant.status)}
+      {/* Main Tabs */}
+      <Tabs defaultValue="dashboard" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 mb-4">
+          <TabsTrigger value="dashboard" data-testid="tab-dashboard">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Dashboard
+          </TabsTrigger>
+          <TabsTrigger value="restaurants" data-testid="tab-restaurants">
+            <Building2 className="h-4 w-4 mr-2" />
+            Restaurantes
+          </TabsTrigger>
+          <TabsTrigger value="financial" data-testid="tab-financial">
+            <DollarSign className="h-4 w-4 mr-2" />
+            Financeiro
+          </TabsTrigger>
+          <TabsTrigger value="messages" data-testid="tab-messages">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Mensagens
+          </TabsTrigger>
+        </TabsList>
+
+        {/* DASHBOARD TAB */}
+        <TabsContent value="dashboard" className="space-y-4">
+          <SuperAdminAnalyticsCard data={analytics} isLoading={analyticsLoading} />
+          <RestaurantRankingCard data={rankings} isLoading={rankingsLoading} />
+        </TabsContent>
+
+        {/* RESTAURANTS TAB */}
+        <TabsContent value="restaurants" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Restaurantes Cadastrados</CardTitle>
+              <CardDescription>
+                Gerencie e monitore todos os restaurantes da plataforma
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {restaurantsLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="flex items-center gap-4 p-4 border rounded-md">
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-5 w-1/3" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </div>
+                      <Skeleton className="h-10 w-24" />
                     </div>
-                    <p className="text-sm text-muted-foreground" data-testid={`text-restaurant-email-${restaurant.id}`}>
-                      {restaurant.email}
-                    </p>
-                    {restaurant.phone && (
-                      <p className="text-sm text-muted-foreground" data-testid={`text-restaurant-phone-${restaurant.id}`}>
-                        Tel: {restaurant.phone}
-                      </p>
-                    )}
-                    {restaurant.address && (
-                      <p className="text-sm text-muted-foreground" data-testid={`text-restaurant-address-${restaurant.id}`}>
-                        {restaurant.address}
-                      </p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      Cadastrado em: {new Date(restaurant.createdAt!).toLocaleDateString('pt-BR')}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {restaurant.status === 'pendente' && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => updateStatusMutation.mutate({ id: restaurant.id, status: 'ativo' })}
-                        disabled={updateStatusMutation.isPending}
-                        data-testid={`button-approve-${restaurant.id}`}
-                      >
-                        <CheckCircle2 className="h-4 w-4 mr-1" />
-                        Aprovar
-                      </Button>
-                    )}
-                    
-                    {restaurant.status === 'ativo' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => updateStatusMutation.mutate({ id: restaurant.id, status: 'suspenso' })}
-                        disabled={updateStatusMutation.isPending}
-                        data-testid={`button-suspend-${restaurant.id}`}
-                      >
-                        <Ban className="h-4 w-4 mr-1" />
-                        Suspender
-                      </Button>
-                    )}
-                    
-                    {restaurant.status === 'suspenso' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => updateStatusMutation.mutate({ id: restaurant.id, status: 'ativo' })}
-                        disabled={updateStatusMutation.isPending}
-                        data-testid={`button-activate-${restaurant.id}`}
-                      >
-                        <CheckCircle2 className="h-4 w-4 mr-1" />
-                        Reativar
-                      </Button>
-                    )}
-
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => setSelectedRestaurant(restaurant.id)}
-                          data-testid={`button-delete-${restaurant.id}`}
-                        >
-                          Excluir
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Tem certeza que deseja excluir o restaurante "{restaurant.name}"? 
-                            Esta ação não pode ser desfeita e todos os dados do restaurante serão permanentemente removidos.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel data-testid="button-cancel-delete">Cancelar</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => deleteRestaurantMutation.mutate(restaurant.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            data-testid="button-confirm-delete"
-                          >
-                            Excluir
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Nenhum restaurante cadastrado
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Contatos dos Restaurantes</CardTitle>
-          <CardDescription>Envie mensagens e acompanhe o histórico de comunicação com os restaurantes</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Enviar Nova Mensagem</h3>
-            <Dialog open={isMessageDialogOpen} onOpenChange={setIsMessageDialogOpen}>
-              <DialogTrigger asChild>
-                <Button data-testid="button-new-message">
-                  <Send className="h-4 w-4 mr-2" />
-                  Nova Mensagem
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Enviar Mensagem ao Restaurante</DialogTitle>
-                  <DialogDescription>
-                    Selecione um restaurante e escreva sua mensagem
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 mt-4">
-                  <div>
-                    <Label htmlFor="restaurant-select">Restaurante *</Label>
-                    <select
-                      id="restaurant-select"
-                      value={selectedRestaurantForMessage || ''}
-                      onChange={(e) => setSelectedRestaurantForMessage(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border rounded-md bg-background"
-                      data-testid="select-restaurant"
-                    >
-                      <option value="">Selecione um restaurante</option>
-                      {restaurants?.map((restaurant) => (
-                        <option key={restaurant.id} value={restaurant.id}>
-                          {restaurant.name} - {restaurant.email}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="message-subject">Assunto *</Label>
-                    <Input
-                      id="message-subject"
-                      placeholder="Digite o assunto da mensagem"
-                      value={messageSubject}
-                      onChange={(e) => setMessageSubject(e.target.value)}
-                      data-testid="input-message-subject"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="message-content">Mensagem *</Label>
-                    <Textarea
-                      id="message-content"
-                      placeholder="Digite sua mensagem"
-                      value={messageContent}
-                      onChange={(e) => setMessageContent(e.target.value)}
-                      rows={6}
-                      data-testid="textarea-message-content"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsMessageDialogOpen(false)}
-                      data-testid="button-cancel-message"
-                    >
-                      Cancelar
-                    </Button>
-                    <Button
-                      onClick={handleSendMessage}
-                      disabled={sendMessageMutation.isPending}
-                      data-testid="button-send-message"
-                    >
-                      <Send className="h-4 w-4 mr-2" />
-                      {sendMessageMutation.isPending ? 'Enviando...' : 'Enviar'}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          <Separator />
-
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Histórico de Mensagens</h3>
-            {messagesLoading ? (
-              <div className="space-y-3">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="p-4 border rounded-md">
-                    <Skeleton className="h-5 w-1/3 mb-2" />
-                    <Skeleton className="h-4 w-full" />
-                  </div>
-                ))}
-              </div>
-            ) : messages && messages.length > 0 ? (
-              <ScrollArea className="h-[400px] pr-4">
-                <div className="space-y-3">
-                  {messages.map((message) => (
-                    <Card key={message.id} data-testid={`message-${message.id}`}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1">
-                            <CardTitle className="text-base" data-testid={`text-message-subject-${message.id}`}>
-                              {message.subject}
-                            </CardTitle>
-                            <CardDescription className="mt-1">
-                              <div className="flex flex-col gap-1">
-                                <span data-testid={`text-message-restaurant-${message.id}`}>
-                                  Para: <strong>{message.restaurant.name}</strong> ({message.restaurant.email})
-                                </span>
-                                <span className="text-xs">
-                                  Enviado por: {message.sentBy} em {new Date(message.createdAt!).toLocaleString('pt-BR')}
-                                </span>
-                              </div>
-                            </CardDescription>
-                          </div>
-                          <Badge variant={message.isRead ? "default" : "secondary"} data-testid={`badge-message-status-${message.id}`}>
-                            {message.isRead ? 'Lida' : 'Não lida'}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap" data-testid={`text-message-content-${message.id}`}>
-                          {message.content}
-                        </p>
-                      </CardContent>
-                    </Card>
                   ))}
                 </div>
-              </ScrollArea>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <MessageSquare className="h-12 w-12 mb-3 opacity-50" />
-                <p data-testid="text-no-messages">Nenhuma mensagem enviada ainda</p>
-                <p className="text-sm">Envie sua primeira mensagem aos restaurantes!</p>
+              ) : restaurants && restaurants.length > 0 ? (
+                <div className="space-y-4">
+                  {restaurants.map((restaurant) => (
+                    <div
+                      key={restaurant.id}
+                      className="flex flex-col md:flex-row md:items-center gap-4 p-4 border rounded-md"
+                      data-testid={`restaurant-${restaurant.id}`}
+                    >
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-lg" data-testid={`text-restaurant-name-${restaurant.id}`}>
+                            {restaurant.name}
+                          </h3>
+                          {getStatusBadge(restaurant.status)}
+                        </div>
+                        <p className="text-sm text-muted-foreground" data-testid={`text-restaurant-email-${restaurant.id}`}>
+                          {restaurant.email}
+                        </p>
+                        {restaurant.phone && (
+                          <p className="text-sm text-muted-foreground" data-testid={`text-restaurant-phone-${restaurant.id}`}>
+                            Tel: {restaurant.phone}
+                          </p>
+                        )}
+                        {restaurant.address && (
+                          <p className="text-sm text-muted-foreground" data-testid={`text-restaurant-address-${restaurant.id}`}>
+                            {restaurant.address}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          Cadastrado em: {new Date(restaurant.createdAt!).toLocaleDateString('pt-BR')}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedRestaurantForDetails(restaurant.id)}
+                          data-testid={`button-view-details-${restaurant.id}`}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Ver Detalhes
+                        </Button>
+                        
+                        {restaurant.status === 'pendente' && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => updateStatusMutation.mutate({ id: restaurant.id, status: 'ativo' })}
+                            disabled={updateStatusMutation.isPending}
+                            data-testid={`button-approve-${restaurant.id}`}
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                            Aprovar
+                          </Button>
+                        )}
+                        
+                        {restaurant.status === 'ativo' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateStatusMutation.mutate({ id: restaurant.id, status: 'suspenso' })}
+                            disabled={updateStatusMutation.isPending}
+                            data-testid={`button-suspend-${restaurant.id}`}
+                          >
+                            <Ban className="h-4 w-4 mr-1" />
+                            Suspender
+                          </Button>
+                        )}
+                        
+                        {restaurant.status === 'suspenso' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateStatusMutation.mutate({ id: restaurant.id, status: 'ativo' })}
+                            disabled={updateStatusMutation.isPending}
+                            data-testid={`button-activate-${restaurant.id}`}
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                            Reativar
+                          </Button>
+                        )}
+
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setSelectedRestaurant(restaurant.id)}
+                              data-testid={`button-delete-${restaurant.id}`}
+                            >
+                              Excluir
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja excluir o restaurante "{restaurant.name}"? 
+                                Esta ação não pode ser desfeita e todos os dados do restaurante serão permanentemente removidos.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel data-testid="button-cancel-delete">Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteRestaurantMutation.mutate(restaurant.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                data-testid="button-confirm-delete"
+                              >
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  Nenhum restaurante cadastrado
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* FINANCIAL TAB */}
+        <TabsContent value="financial" className="space-y-4">
+          <FinancialOverviewCard data={financialOverview} isLoading={financialLoading} />
+        </TabsContent>
+
+        {/* MESSAGES TAB */}
+        <TabsContent value="messages" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Contatos dos Restaurantes</CardTitle>
+              <CardDescription>Envie mensagens e acompanhe o histórico de comunicação</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Dialog open={isMessageDialogOpen} onOpenChange={setIsMessageDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button data-testid="button-new-message">
+                      <Send className="h-4 w-4 mr-2" />
+                      Nova Mensagem
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Enviar Mensagem ao Restaurante</DialogTitle>
+                      <DialogDescription>
+                        Selecione um restaurante e escreva sua mensagem
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-4">
+                      <div>
+                        <Label htmlFor="restaurant-select">Restaurante *</Label>
+                        <select
+                          id="restaurant-select"
+                          value={selectedRestaurantForMessage || ''}
+                          onChange={(e) => setSelectedRestaurantForMessage(e.target.value)}
+                          className="w-full mt-1 px-3 py-2 border rounded-md bg-background"
+                          data-testid="select-restaurant"
+                        >
+                          <option value="">Selecione um restaurante</option>
+                          {restaurants?.map((restaurant) => (
+                            <option key={restaurant.id} value={restaurant.id}>
+                              {restaurant.name} - {restaurant.email}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <Label htmlFor="message-subject">Assunto *</Label>
+                        <Input
+                          id="message-subject"
+                          placeholder="Digite o assunto da mensagem"
+                          value={messageSubject}
+                          onChange={(e) => setMessageSubject(e.target.value)}
+                          data-testid="input-message-subject"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="message-content">Mensagem *</Label>
+                        <Textarea
+                          id="message-content"
+                          placeholder="Digite sua mensagem"
+                          value={messageContent}
+                          onChange={(e) => setMessageContent(e.target.value)}
+                          rows={6}
+                          data-testid="textarea-message-content"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsMessageDialogOpen(false)}
+                          data-testid="button-cancel-message"
+                        >
+                          Cancelar
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            if (!selectedRestaurantForMessage) {
+                              toast({
+                                title: "Restaurante não selecionado",
+                                description: "Por favor, selecione um restaurante.",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+
+                            if (!messageSubject.trim() || !messageContent.trim()) {
+                              toast({
+                                title: "Dados incompletos",
+                                description: "Por favor, preencha o assunto e o conteúdo da mensagem.",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+
+                            sendMessageMutation.mutate({
+                              restaurantId: selectedRestaurantForMessage,
+                              subject: messageSubject.trim(),
+                              content: messageContent.trim(),
+                            });
+                          }}
+                          disabled={sendMessageMutation.isPending}
+                          data-testid="button-send-message"
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          {sendMessageMutation.isPending ? 'Enviando...' : 'Enviar'}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+
+              <Separator />
+
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Histórico de Mensagens</h3>
+                {messagesLoading ? (
+                  <div className="space-y-3">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="p-4 border rounded-md">
+                        <Skeleton className="h-5 w-1/3 mb-2" />
+                        <Skeleton className="h-4 w-full" />
+                      </div>
+                    ))}
+                  </div>
+                ) : messages && messages.length > 0 ? (
+                  <ScrollArea className="h-[400px] pr-4">
+                    <div className="space-y-3">
+                      {messages.map((message) => (
+                        <Card key={message.id} data-testid={`message-${message.id}`}>
+                          <CardHeader className="pb-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <CardTitle className="text-base" data-testid={`text-message-subject-${message.id}`}>
+                                  {message.subject}
+                                </CardTitle>
+                                <CardDescription className="mt-1">
+                                  <div className="flex flex-col gap-1">
+                                    <span data-testid={`text-message-restaurant-${message.id}`}>
+                                      Para: <strong>{message.restaurant.name}</strong> ({message.restaurant.email})
+                                    </span>
+                                    <span className="text-xs">
+                                      Enviado por: {message.sentBy} em {new Date(message.createdAt!).toLocaleString('pt-BR')}
+                                    </span>
+                                  </div>
+                                </CardDescription>
+                              </div>
+                              <Badge variant={message.isRead ? "default" : "secondary"} data-testid={`badge-message-status-${message.id}`}>
+                                {message.isRead ? 'Lida' : 'Não lida'}
+                              </Badge>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap" data-testid={`text-message-content-${message.id}`}>
+                              {message.content}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
+                    <p className="text-sm">Nenhuma mensagem enviada ainda</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Restaurant Details Modal */}
+      <RestaurantDetailsDialog
+        restaurantId={selectedRestaurantForDetails}
+        isOpen={!!selectedRestaurantForDetails}
+        onClose={() => setSelectedRestaurantForDetails(null)}
+      />
     </div>
   );
 }
