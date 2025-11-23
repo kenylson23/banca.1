@@ -2223,3 +2223,205 @@ export const couponUsagesRelations = relations(couponUsages, ({ one }) => ({
     references: [orders.id],
   }),
 }));
+
+// ===== SUBSCRIPTION SYSTEM =====
+
+// Subscription Plan Enum
+export const subscriptionPlanEnum = pgEnum('subscription_plan', ['basico', 'profissional', 'empresarial', 'enterprise']);
+
+// Subscription Status Enum
+export const subscriptionStatusEnum = pgEnum('subscription_status', ['trial', 'ativa', 'cancelada', 'suspensa', 'expirada']);
+
+// Payment Status for Subscriptions
+export const subscriptionPaymentStatusEnum = pgEnum('subscription_payment_status', ['pendente', 'pago', 'falhou', 'reembolsado']);
+
+// Billing Interval Enum
+export const billingIntervalEnum = pgEnum('billing_interval', ['mensal', 'anual']);
+
+// Subscription Plans - Planos de Subscrição Pré-definidos
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull(), // Básico, Profissional, Empresarial, Enterprise
+  slug: varchar("slug", { length: 50 }).notNull().unique(), // basico, profissional, empresarial, enterprise
+  description: text("description"),
+  priceMonthlyKz: decimal("price_monthly_kz", { precision: 10, scale: 2 }).notNull(), // Preço mensal em Kwanzas
+  priceAnnualKz: decimal("price_annual_kz", { precision: 10, scale: 2 }).notNull(), // Preço anual em Kwanzas
+  priceMonthlyUsd: decimal("price_monthly_usd", { precision: 10, scale: 2 }).notNull(), // Preço mensal em USD
+  priceAnnualUsd: decimal("price_annual_usd", { precision: 10, scale: 2 }).notNull(), // Preço anual em USD
+  stripePriceIdMonthly: varchar("stripe_price_id_monthly", { length: 255 }), // Stripe Price ID para mensal
+  stripePriceIdAnnual: varchar("stripe_price_id_annual", { length: 255 }), // Stripe Price ID para anual
+  trialDays: integer("trial_days").notNull().default(14),
+  maxBranches: integer("max_branches").notNull().default(1),
+  maxTables: integer("max_tables").notNull().default(10),
+  maxMenuItems: integer("max_menu_items").notNull().default(50),
+  maxOrdersPerMonth: integer("max_orders_per_month").notNull().default(500),
+  maxUsers: integer("max_users").notNull().default(2),
+  historyRetentionDays: integer("history_retention_days").notNull().default(30),
+  features: jsonb("features"), // Array de features incluídas: ['pdv', 'fidelidade', 'cupons', etc]
+  isActive: integer("is_active").notNull().default(1), // 0 = inativo, 1 = ativo
+  displayOrder: integer("display_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Nome do plano é obrigatório"),
+  slug: z.string().min(1, "Slug é obrigatório"),
+  priceMonthlyKz: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço inválido"),
+  priceAnnualKz: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço inválido"),
+  priceMonthlyUsd: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço inválido"),
+  priceAnnualUsd: z.string().regex(/^\d+(\.\d{1,2})?$/, "Preço inválido"),
+});
+
+export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+
+// Subscriptions - Subscrições Ativas
+export const subscriptions = pgTable("subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }).unique(),
+  planId: varchar("plan_id").notNull().references(() => subscriptionPlans.id, { onDelete: 'restrict' }),
+  status: subscriptionStatusEnum("status").notNull().default('trial'),
+  billingInterval: billingIntervalEnum("billing_interval").notNull().default('mensal'),
+  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
+  currentPeriodStart: timestamp("current_period_start").notNull(),
+  currentPeriodEnd: timestamp("current_period_end").notNull(),
+  trialStart: timestamp("trial_start"),
+  trialEnd: timestamp("trial_end"),
+  canceledAt: timestamp("canceled_at"),
+  cancelAtPeriodEnd: integer("cancel_at_period_end").notNull().default(0), // 0 = não, 1 = sim
+  autoRenew: integer("auto_renew").notNull().default(1), // 0 = não renova, 1 = renova automaticamente
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  planId: z.string().min(1, "Plano é obrigatório"),
+  billingInterval: z.enum(['mensal', 'anual']).default('mensal'),
+  currentPeriodStart: z.string(),
+  currentPeriodEnd: z.string(),
+});
+
+export const updateSubscriptionSchema = z.object({
+  planId: z.string().optional(),
+  status: z.enum(['trial', 'ativa', 'cancelada', 'suspensa', 'expirada']).optional(),
+  billingInterval: z.enum(['mensal', 'anual']).optional(),
+  cancelAtPeriodEnd: z.number().optional(),
+  autoRenew: z.number().optional(),
+});
+
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
+export type UpdateSubscription = z.infer<typeof updateSubscriptionSchema>;
+export type Subscription = typeof subscriptions.$inferSelect;
+
+// Subscription Payments - Histórico de Pagamentos
+export const subscriptionPayments = pgTable("subscription_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subscriptionId: varchar("subscription_id").notNull().references(() => subscriptions.id, { onDelete: 'cascade' }),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).notNull().default('KZ'), // KZ ou USD
+  status: subscriptionPaymentStatusEnum("status").notNull().default('pendente'),
+  paymentMethod: varchar("payment_method", { length: 100 }), // stripe, multicaixa, transferencia
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+  stripeInvoiceId: varchar("stripe_invoice_id", { length: 255 }),
+  billingPeriodStart: timestamp("billing_period_start").notNull(),
+  billingPeriodEnd: timestamp("billing_period_end").notNull(),
+  paidAt: timestamp("paid_at"),
+  failedAt: timestamp("failed_at"),
+  failureReason: text("failure_reason"),
+  receiptUrl: text("receipt_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSubscriptionPaymentSchema = createInsertSchema(subscriptionPayments).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+}).extend({
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
+  billingPeriodStart: z.string(),
+  billingPeriodEnd: z.string(),
+});
+
+export type InsertSubscriptionPayment = z.infer<typeof insertSubscriptionPaymentSchema>;
+export type SubscriptionPayment = typeof subscriptionPayments.$inferSelect;
+
+// Subscription Usage - Métricas de Uso
+export const subscriptionUsage = pgTable("subscription_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  subscriptionId: varchar("subscription_id").notNull().references(() => subscriptions.id, { onDelete: 'cascade' }),
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  branchesCount: integer("branches_count").notNull().default(0),
+  tablesCount: integer("tables_count").notNull().default(0),
+  menuItemsCount: integer("menu_items_count").notNull().default(0),
+  ordersCount: integer("orders_count").notNull().default(0),
+  usersCount: integer("users_count").notNull().default(0),
+  lastCalculatedAt: timestamp("last_calculated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSubscriptionUsageSchema = createInsertSchema(subscriptionUsage).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+}).extend({
+  periodStart: z.string(),
+  periodEnd: z.string(),
+});
+
+export type InsertSubscriptionUsage = z.infer<typeof insertSubscriptionUsageSchema>;
+export type SubscriptionUsage = typeof subscriptionUsage.$inferSelect;
+
+// ===== SUBSCRIPTION RELATIONS =====
+
+export const subscriptionPlansRelations = relations(subscriptionPlans, ({ many }) => ({
+  subscriptions: many(subscriptions),
+}));
+
+export const subscriptionsRelations = relations(subscriptions, ({ one, many }) => ({
+  restaurant: one(restaurants, {
+    fields: [subscriptions.restaurantId],
+    references: [restaurants.id],
+  }),
+  plan: one(subscriptionPlans, {
+    fields: [subscriptions.planId],
+    references: [subscriptionPlans.id],
+  }),
+  payments: many(subscriptionPayments),
+  usageRecords: many(subscriptionUsage),
+}));
+
+export const subscriptionPaymentsRelations = relations(subscriptionPayments, ({ one }) => ({
+  subscription: one(subscriptions, {
+    fields: [subscriptionPayments.subscriptionId],
+    references: [subscriptions.id],
+  }),
+  restaurant: one(restaurants, {
+    fields: [subscriptionPayments.restaurantId],
+    references: [restaurants.id],
+  }),
+}));
+
+export const subscriptionUsageRelations = relations(subscriptionUsage, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [subscriptionUsage.restaurantId],
+    references: [restaurants.id],
+  }),
+  subscription: one(subscriptions, {
+    fields: [subscriptionUsage.subscriptionId],
+    references: [subscriptions.id],
+  }),
+}));
