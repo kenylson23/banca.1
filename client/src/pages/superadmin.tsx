@@ -83,7 +83,20 @@ export default function SuperAdmin() {
     queryKey: ["/api/superadmin/messages"],
   });
 
-  const { data: subscriptions, isLoading: subscriptionsLoading } = useQuery<any[]>({
+  type SubscriptionWithDetails = {
+    id: string;
+    planId: string;
+    restaurantId: string;
+    status: 'trial' | 'ativa' | 'cancelada' | 'suspensa' | 'expirada';
+    billingInterval: 'mensal' | 'anual';
+    currency: 'AOA' | 'USD';
+    currentPeriodStart: string;
+    currentPeriodEnd: string;
+    plan: { name: string };
+    restaurant: { id: string; name: string };
+  };
+
+  const { data: subscriptions, isLoading: subscriptionsLoading } = useQuery<SubscriptionWithDetails[]>({
     queryKey: ["/api/superadmin/subscriptions"],
   });
 

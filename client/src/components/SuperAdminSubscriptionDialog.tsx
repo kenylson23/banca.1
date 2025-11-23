@@ -1,73 +1,130 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2 } from "lucide-react";
-import type { Restaurant, SubscriptionPlan } from "@shared/schema";
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { apiRequest, queryClient } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
+import { superAdminCreateSubscriptionSchema, superAdminUpdateSubscriptionSchema, type SuperAdminCreateSubscription, type SuperAdminUpdateSubscription } from '@shared/schema';
 
-interface SuperAdminSubscriptionDialogProps {
+type Restaurant = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+type SubscriptionPlan = {
+  id: string;
+  name: string;
+  priceMonthlyKz: string;
+  priceAnnualKz: string;
+  priceMonthlyUsd: string;
+  priceAnnualUsd: string;
+};
+
+type SubscriptionWithDetails = {
+  id: string;
+  planId: string;
+  restaurantId: string;
+  status: 'trial' | 'ativa' | 'cancelada' | 'suspensa' | 'expirada';
+  billingInterval: 'mensal' | 'anual';
+  currency: 'AOA' | 'USD';
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  plan: SubscriptionPlan;
+  restaurant: Restaurant;
+};
+
+type DialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   restaurant: Restaurant | null;
   mode: 'create' | 'edit';
   subscriptionId?: string;
-}
+};
 
-interface SubscriptionFormData {
-  planId: string;
-  billingInterval: 'mensal' | 'anual';
-  currency: 'AOA' | 'USD';
-  status?: 'trial' | 'ativa' | 'cancelada' | 'suspensa' | 'expirada';
-}
-
-export function SuperAdminSubscriptionDialog({ 
-  open, 
-  onOpenChange, 
+export function SuperAdminSubscriptionDialog({
+  open,
+  onOpenChange,
   restaurant,
   mode,
-  subscriptionId 
-}: SuperAdminSubscriptionDialogProps) {
+  subscriptionId,
+}: DialogProps) {
   const { toast } = useToast();
-  const [formData, setFormData] = useState<SubscriptionFormData>({
-    planId: '',
-    billingInterval: 'mensal',
-    currency: 'AOA',
-  });
 
   const { data: plans, isLoading: plansLoading } = useQuery<SubscriptionPlan[]>({
     queryKey: ['/api/subscription-plans'],
     enabled: open,
   });
 
-  const { data: subscription, isLoading: subscriptionLoading } = useQuery<any>({
+  const { data: subscription, isLoading: subscriptionLoading } = useQuery<SubscriptionWithDetails>({
     queryKey: ['/api/superadmin/subscriptions', subscriptionId],
     enabled: open && mode === 'edit' && !!subscriptionId,
   });
 
+  const createForm = useForm<SuperAdminCreateSubscription>({
+    resolver: zodResolver(superAdminCreateSubscriptionSchema),
+    defaultValues: {
+      planId: '',
+      billingInterval: 'mensal',
+      currency: 'AOA',
+      status: 'trial',
+    },
+  });
+
+  const updateForm = useForm<SuperAdminUpdateSubscription>({
+    resolver: zodResolver(superAdminUpdateSubscriptionSchema),
+    defaultValues: {},
+  });
+
+  const form = mode === 'create' ? createForm : updateForm;
+
   useEffect(() => {
+    if (!open) return;
+
     if (mode === 'edit' && subscription) {
-      setFormData({
-        planId: subscription.planId || '',
-        billingInterval: subscription.billingInterval || 'mensal',
-        currency: subscription.currency || 'AOA',
+      updateForm.reset({
+        planId: subscription.planId,
+        billingInterval: subscription.billingInterval,
+        currency: subscription.currency,
         status: subscription.status,
       });
-    } else {
-      setFormData({
+    } else if (mode === 'create') {
+      createForm.reset({
         planId: '',
         billingInterval: 'mensal',
         currency: 'AOA',
+        status: 'trial',
       });
     }
-  }, [mode, subscription]);
+  }, [open, mode, subscription, createForm, updateForm]);
 
   const createMutation = useMutation({
-    mutationFn: async (data: SubscriptionFormData) => {
-      if (!restaurant) throw new Error("Restaurante não selecionado");
+    mutationFn: async (data: SuperAdminCreateSubscription) => {
+      if (!restaurant?.id) throw new Error("Restaurante não fornecido");
       return await apiRequest('POST', `/api/superadmin/restaurants/${restaurant.id}/subscription`, data);
     },
     onSuccess: () => {
@@ -88,7 +145,7 @@ export function SuperAdminSubscriptionDialog({
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: Partial<SubscriptionFormData>) => {
+    mutationFn: async (data: SuperAdminUpdateSubscription) => {
       if (!subscriptionId) throw new Error("ID da subscrição não fornecido");
       return await apiRequest('PATCH', `/api/superadmin/subscriptions/${subscriptionId}`, data);
     },
@@ -110,22 +167,20 @@ export function SuperAdminSubscriptionDialog({
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.planId) {
-      toast({
-        title: "Erro",
-        description: "Selecione um plano",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const onSubmit = (data: SuperAdminCreateSubscription | SuperAdminUpdateSubscription) => {
     if (mode === 'create') {
-      createMutation.mutate(formData);
+      createMutation.mutate(data as SuperAdminCreateSubscription);
     } else {
-      updateMutation.mutate(formData);
+      const cleanData = Object.fromEntries(
+        Object.entries(data).filter(([_, value]) => value !== undefined && value !== '')
+      ) as SuperAdminUpdateSubscription;
+      
+      if (Object.keys(cleanData).length === 0) {
+        onOpenChange(false);
+        return;
+      }
+      
+      updateMutation.mutate(cleanData);
     }
   };
 
@@ -152,103 +207,147 @@ export function SuperAdminSubscriptionDialog({
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="planId">Plano *</Label>
-              <Select
-                value={formData.planId}
-                onValueChange={(value) => setFormData({ ...formData, planId: value })}
-                disabled={isPending}
-              >
-                <SelectTrigger id="planId" data-testid="select-plan">
-                  <SelectValue placeholder="Selecione um plano" />
-                </SelectTrigger>
-                <SelectContent>
-                  {plans?.map((plan: any) => (
-                    <SelectItem key={plan.id} value={plan.id}>
-                      {plan.name} - {plan.priceMonthlyKz ? parseFloat(plan.priceMonthlyKz).toLocaleString('pt-AO') : '0'} Kz/mês
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="planId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Plano *</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value as string | undefined}
+                      disabled={isPending}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-plan">
+                          <SelectValue placeholder="Selecione um plano" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {plans?.map((plan) => (
+                          <SelectItem key={plan.id} value={plan.id}>
+                            {plan.name} - {plan.priceMonthlyKz ? parseFloat(plan.priceMonthlyKz).toLocaleString('pt-AO') : '0'} Kz/mês
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div className="space-y-2">
-              <Label htmlFor="billingInterval">Intervalo de Faturamento *</Label>
-              <Select
-                value={formData.billingInterval}
-                onValueChange={(value: 'mensal' | 'anual') => setFormData({ ...formData, billingInterval: value })}
-                disabled={isPending}
-              >
-                <SelectTrigger id="billingInterval" data-testid="select-billing-interval">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mensal">Mensal</SelectItem>
-                  <SelectItem value="anual">Anual</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <FormField
+                control={form.control}
+                name="billingInterval"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Intervalo de Faturamento *</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={isPending}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-billing-interval">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="mensal">Mensal</SelectItem>
+                        <SelectItem value="anual">Anual</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div className="space-y-2">
-              <Label htmlFor="currency">Moeda *</Label>
-              <Select
-                value={formData.currency}
-                onValueChange={(value: 'AOA' | 'USD') => setFormData({ ...formData, currency: value })}
-                disabled={isPending}
-              >
-                <SelectTrigger id="currency" data-testid="select-currency">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="AOA">Kwanza (AOA)</SelectItem>
-                  <SelectItem value="USD">Dólar (USD)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <FormField
+                control={form.control}
+                name="currency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Moeda *</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={isPending}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-currency">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="AOA">Kwanza (AOA)</SelectItem>
+                        <SelectItem value="USD">Dólar (USD)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {mode === 'edit' && (
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value: any) => setFormData({ ...formData, status: value })}
+              {mode === 'edit' && (
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={isPending}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-status">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="trial">Trial</SelectItem>
+                          <SelectItem value="ativa">Ativa</SelectItem>
+                          <SelectItem value="suspensa">Suspensa</SelectItem>
+                          <SelectItem value="expirada">Expirada</SelectItem>
+                          <SelectItem value="cancelada">Cancelada</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
                   disabled={isPending}
+                  data-testid="button-cancel"
                 >
-                  <SelectTrigger id="status" data-testid="select-status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="trial">Trial</SelectItem>
-                    <SelectItem value="ativa">Ativa</SelectItem>
-                    <SelectItem value="suspensa">Suspensa</SelectItem>
-                    <SelectItem value="expirada">Expirada</SelectItem>
-                    <SelectItem value="cancelada">Cancelada</SelectItem>
-                  </SelectContent>
-                </Select>
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isPending}
+                  data-testid="button-submit"
+                >
+                  {isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      {mode === 'create' ? 'Criando...' : 'Salvando...'}
+                    </>
+                  ) : (
+                    mode === 'create' ? 'Criar Subscrição' : 'Salvar Alterações'
+                  )}
+                </Button>
               </div>
-            )}
-
-            <div className="flex gap-2 justify-end pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isPending}
-                data-testid="button-cancel"
-              >
-                Cancelar
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={isPending}
-                data-testid="button-submit"
-              >
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {mode === 'create' ? 'Criar' : 'Salvar'}
-              </Button>
-            </div>
-          </form>
+            </form>
+          </Form>
         )}
       </DialogContent>
     </Dialog>

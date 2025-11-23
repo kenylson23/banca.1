@@ -62,6 +62,8 @@ import {
   resetRestaurantAdminCredentialsSchema,
   insertSubscriptionSchema,
   updateSubscriptionSchema,
+  superAdminCreateSubscriptionSchema,
+  superAdminUpdateSubscriptionSchema,
   insertSubscriptionPaymentSchema,
   type User,
 } from "@shared/schema";
@@ -885,7 +887,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ message: "Restaurante já possui uma subscrição. Use PATCH para modificar." });
       }
 
-      const validatedData = insertSubscriptionSchema.parse(req.body);
+      const validatedData = superAdminCreateSubscriptionSchema.parse(req.body);
       
       // Get plan details
       const plan = await storage.getSubscriptionPlanById(validatedData.planId);
@@ -896,8 +898,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate period dates
       const now = new Date();
       const trialDays = plan.trialDays || 0;
-      const trialStart = trialDays > 0 ? now : null;
-      const trialEnd = trialDays > 0 ? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000) : null;
+      const trialStart = trialDays > 0 && validatedData.status === 'trial' ? now : null;
+      const trialEnd = trialDays > 0 && validatedData.status === 'trial' ? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000) : null;
       
       const periodStart = trialEnd || now;
       const periodEnd = new Date(periodStart);
@@ -911,7 +913,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         planId: validatedData.planId,
         billingInterval: validatedData.billingInterval,
         currency: validatedData.currency,
-        status: trialDays > 0 ? ('trial' as const) : ('ativa' as const),
+        status: validatedData.status,
         currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd,
         trialStart,
@@ -938,7 +940,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Subscrição não encontrada" });
       }
 
-      const validatedData = updateSubscriptionSchema.parse(req.body);
+      const cleanedBody = Object.fromEntries(
+        Object.entries(req.body).filter(([_, value]) => value !== '' && value !== null && value !== undefined)
+      );
+
+      const validatedData = superAdminUpdateSubscriptionSchema.parse(cleanedBody);
       const updated = await storage.updateSubscriptionById(req.params.id, validatedData);
       res.json(updated);
     } catch (error: any) {
