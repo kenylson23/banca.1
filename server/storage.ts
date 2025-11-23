@@ -687,6 +687,10 @@ export interface IStorage {
   createSubscription(restaurantId: string, data: InsertSubscription): Promise<Subscription>;
   updateSubscription(restaurantId: string, data: UpdateSubscription): Promise<Subscription>;
   cancelSubscription(restaurantId: string): Promise<Subscription>;
+  getAllSubscriptions(): Promise<Array<Subscription & { plan: SubscriptionPlan; restaurant: Restaurant }>>;
+  getSubscriptionById(id: string): Promise<(Subscription & { plan: SubscriptionPlan; restaurant: Restaurant }) | undefined>;
+  updateSubscriptionById(id: string, data: UpdateSubscription): Promise<Subscription>;
+  cancelSubscriptionById(id: string): Promise<Subscription>;
   checkSubscriptionLimits(restaurantId: string): Promise<{
     plan: SubscriptionPlan;
     subscription: Subscription;
@@ -7696,6 +7700,79 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return usage;
+  }
+
+  // SuperAdmin Subscription operations
+  async getAllSubscriptions(): Promise<Array<Subscription & { plan: SubscriptionPlan; restaurant: Restaurant }>> {
+    const result = await db
+      .select()
+      .from(subscriptions)
+      .leftJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
+      .leftJoin(restaurants, eq(subscriptions.restaurantId, restaurants.id))
+      .orderBy(desc(subscriptions.createdAt));
+
+    return result
+      .filter(r => r.subscription_plans && r.restaurants)
+      .map(r => ({
+        ...r.subscriptions,
+        plan: r.subscription_plans!,
+        restaurant: r.restaurants!,
+      }));
+  }
+
+  async getSubscriptionById(id: string): Promise<(Subscription & { plan: SubscriptionPlan; restaurant: Restaurant }) | undefined> {
+    const result = await db
+      .select()
+      .from(subscriptions)
+      .leftJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
+      .leftJoin(restaurants, eq(subscriptions.restaurantId, restaurants.id))
+      .where(eq(subscriptions.id, id))
+      .limit(1);
+
+    if (result.length === 0 || !result[0].subscription_plans || !result[0].restaurants) {
+      return undefined;
+    }
+
+    return {
+      ...result[0].subscriptions,
+      plan: result[0].subscription_plans,
+      restaurant: result[0].restaurants,
+    };
+  }
+
+  async updateSubscriptionById(id: string, data: UpdateSubscription): Promise<Subscription> {
+    const [updated] = await db
+      .update(subscriptions)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptions.id, id))
+      .returning();
+
+    if (!updated) {
+      throw new Error("Subscrição não encontrada");
+    }
+
+    return updated;
+  }
+
+  async cancelSubscriptionById(id: string): Promise<Subscription> {
+    const [canceled] = await db
+      .update(subscriptions)
+      .set({
+        status: 'cancelada',
+        canceledAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptions.id, id))
+      .returning();
+
+    if (!canceled) {
+      throw new Error("Subscrição não encontrada");
+    }
+
+    return canceled;
   }
 }
 

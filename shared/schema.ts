@@ -2316,8 +2316,26 @@ export const updateSubscriptionSchema = z.object({
   autoRenew: z.number().optional(),
 });
 
+export const superAdminCreateSubscriptionSchema = z.object({
+  planId: z.string().min(1, "Plano é obrigatório"),
+  billingInterval: z.enum(['mensal', 'anual']),
+  currency: z.enum(['AOA', 'USD']),
+  status: z.enum(['trial', 'ativa', 'cancelada', 'suspensa', 'expirada']).default('trial'),
+});
+
+export const superAdminUpdateSubscriptionSchema = z.object({
+  planId: z.string().optional(),
+  status: z.enum(['trial', 'ativa', 'cancelada', 'suspensa', 'expirada']).optional(),
+  billingInterval: z.enum(['mensal', 'anual']).optional(),
+  currency: z.enum(['AOA', 'USD']).optional(),
+  cancelAtPeriodEnd: z.number().optional(),
+  autoRenew: z.number().optional(),
+});
+
 export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
 export type UpdateSubscription = z.infer<typeof updateSubscriptionSchema>;
+export type SuperAdminCreateSubscription = z.infer<typeof superAdminCreateSubscriptionSchema>;
+export type SuperAdminUpdateSubscription = z.infer<typeof superAdminUpdateSubscriptionSchema>;
 export type Subscription = typeof subscriptions.$inferSelect;
 
 // Subscription Payments - Histórico de Pagamentos

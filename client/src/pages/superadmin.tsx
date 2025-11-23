@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Store, CheckCircle2, Clock, Ban, DollarSign, Send, Eye, Key,
-  BarChart3, Users, Building2, MessageSquare
+  BarChart3, Users, Building2, MessageSquare, CreditCard, Plus, Edit, XCircle
 } from "lucide-react";
 import { formatKwanza } from "@/lib/formatters";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -35,6 +35,7 @@ import { RestaurantRankingCard } from "@/components/RestaurantRankingCard";
 import { FinancialOverviewCard } from "@/components/FinancialOverviewCard";
 import { RestaurantDetailsDialog } from "@/components/RestaurantDetailsDialog";
 import { RestaurantCredentialsDialog } from "@/components/RestaurantCredentialsDialog";
+import { SuperAdminSubscriptionDialog } from "@/components/SuperAdminSubscriptionDialog";
 
 interface SuperAdminStats {
   totalRestaurants: number;
@@ -50,6 +51,10 @@ export default function SuperAdmin() {
   const [selectedRestaurantForMessage, setSelectedRestaurantForMessage] = useState<string | null>(null);
   const [selectedRestaurantForDetails, setSelectedRestaurantForDetails] = useState<string | null>(null);
   const [selectedRestaurantForCredentials, setSelectedRestaurantForCredentials] = useState<Restaurant | null>(null);
+  const [selectedRestaurantForSubscription, setSelectedRestaurantForSubscription] = useState<Restaurant | null>(null);
+  const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<string | null>(null);
+  const [subscriptionDialogMode, setSubscriptionDialogMode] = useState<'create' | 'edit'>('create');
+  const [isSubscriptionDialogOpen, setIsSubscriptionDialogOpen] = useState(false);
   const [messageSubject, setMessageSubject] = useState('');
   const [messageContent, setMessageContent] = useState('');
   const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
@@ -58,15 +63,15 @@ export default function SuperAdmin() {
     queryKey: ["/api/superadmin/stats"],
   });
 
-  const { data: analytics, isLoading: analyticsLoading } = useQuery({
+  const { data: analytics, isLoading: analyticsLoading } = useQuery<any>({
     queryKey: ["/api/superadmin/analytics"],
   });
 
-  const { data: rankings, isLoading: rankingsLoading } = useQuery({
+  const { data: rankings, isLoading: rankingsLoading } = useQuery<any>({
     queryKey: ["/api/superadmin/rankings"],
   });
 
-  const { data: financialOverview, isLoading: financialLoading } = useQuery({
+  const { data: financialOverview, isLoading: financialLoading } = useQuery<any>({
     queryKey: ["/api/superadmin/financial-overview"],
   });
 
@@ -76,6 +81,10 @@ export default function SuperAdmin() {
 
   const { data: messages, isLoading: messagesLoading } = useQuery<Array<Message & { restaurant: Restaurant }>>({
     queryKey: ["/api/superadmin/messages"],
+  });
+
+  const { data: subscriptions, isLoading: subscriptionsLoading } = useQuery<any[]>({
+    queryKey: ["/api/superadmin/subscriptions"],
   });
 
   const updateStatusMutation = useMutation({
@@ -147,6 +156,27 @@ export default function SuperAdmin() {
       toast({
         title: "Erro ao enviar mensagem",
         description: error.message || "Erro ao enviar mensagem",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const cancelSubscriptionMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/superadmin/subscriptions/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/superadmin/subscriptions"] });
+      toast({
+        title: "Subscrição cancelada",
+        description: "A subscrição foi cancelada com sucesso.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao cancelar subscrição",
+        description: error.message || "Erro ao cancelar subscrição",
         variant: "destructive",
       });
     },
@@ -294,7 +324,7 @@ export default function SuperAdmin() {
 
       {/* Main Tabs */}
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-4">
+        <TabsList className="grid w-full grid-cols-5 mb-4">
           <TabsTrigger value="dashboard" data-testid="tab-dashboard">
             <BarChart3 className="h-4 w-4 mr-2" />
             Dashboard
@@ -302,6 +332,10 @@ export default function SuperAdmin() {
           <TabsTrigger value="restaurants" data-testid="tab-restaurants">
             <Building2 className="h-4 w-4 mr-2" />
             Restaurantes
+          </TabsTrigger>
+          <TabsTrigger value="subscriptions" data-testid="tab-subscriptions">
+            <CreditCard className="h-4 w-4 mr-2" />
+            Subscrições
           </TabsTrigger>
           <TabsTrigger value="financial" data-testid="tab-financial">
             <DollarSign className="h-4 w-4 mr-2" />
@@ -473,6 +507,140 @@ export default function SuperAdmin() {
                 <p className="text-sm text-muted-foreground text-center py-8">
                   Nenhum restaurante cadastrado
                 </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* SUBSCRIPTIONS TAB */}
+        <TabsContent value="subscriptions" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Subscrições Ativas</CardTitle>
+              <CardDescription>
+                Gerencie as subscrições de todos os restaurantes da plataforma
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {subscriptionsLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="flex items-center gap-4 p-4 border rounded-md">
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-5 w-1/3" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </div>
+                      <Skeleton className="h-10 w-24" />
+                    </div>
+                  ))}
+                </div>
+              ) : subscriptions && subscriptions.length > 0 ? (
+                <div className="space-y-4">
+                  {subscriptions.map((sub: any) => (
+                    <div
+                      key={sub.id}
+                      className="flex flex-col md:flex-row md:items-center gap-4 p-4 border rounded-md"
+                      data-testid={`subscription-${sub.id}`}
+                    >
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-lg" data-testid={`text-restaurant-name-${sub.id}`}>
+                            {sub.restaurant.name}
+                          </h3>
+                          <Badge 
+                            variant={
+                              sub.status === 'ativa' ? 'default' : 
+                              sub.status === 'trial' ? 'secondary' : 
+                              'destructive'
+                            }
+                            data-testid={`badge-status-${sub.id}`}
+                          >
+                            {sub.status === 'ativa' ? 'Ativa' : 
+                             sub.status === 'trial' ? 'Trial' : 
+                             sub.status === 'suspensa' ? 'Suspensa' :
+                             sub.status === 'expirada' ? 'Expirada' : 'Cancelada'}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground" data-testid={`text-plan-${sub.id}`}>
+                          Plano: <span className="font-medium">{sub.plan.name}</span>
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Faturamento: {sub.billingInterval === 'mensal' ? 'Mensal' : 'Anual'} - {sub.currency}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Período: {new Date(sub.currentPeriodStart).toLocaleDateString('pt-BR')} até {new Date(sub.currentPeriodEnd).toLocaleDateString('pt-BR')}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedRestaurantForSubscription(sub.restaurant);
+                            setSelectedSubscriptionId(sub.id);
+                            setSubscriptionDialogMode('edit');
+                            setIsSubscriptionDialogOpen(true);
+                          }}
+                          data-testid={`button-edit-subscription-${sub.id}`}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Editar
+                        </Button>
+
+                        {sub.status === 'ativa' && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                data-testid={`button-cancel-subscription-${sub.id}`}
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Cancelar
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Cancelar subscrição</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tem certeza que deseja cancelar a subscrição do restaurante "{sub.restaurant.name}"? 
+                                  A subscrição será cancelada e o acesso será removido.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel data-testid="button-cancel-cancel">Voltar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => cancelSubscriptionMutation.mutate(sub.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  data-testid="button-confirm-cancel"
+                                >
+                                  Cancelar Subscrição
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma subscrição ativa
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setSubscriptionDialogMode('create');
+                      setIsSubscriptionDialogOpen(true);
+                    }}
+                    data-testid="button-create-first-subscription"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Criar Primeira Subscrição
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -667,6 +835,15 @@ export default function SuperAdmin() {
         restaurantName={selectedRestaurantForCredentials?.name || ""}
         isOpen={!!selectedRestaurantForCredentials}
         onClose={() => setSelectedRestaurantForCredentials(null)}
+      />
+
+      {/* Subscription Management Modal */}
+      <SuperAdminSubscriptionDialog
+        open={isSubscriptionDialogOpen}
+        onOpenChange={setIsSubscriptionDialogOpen}
+        restaurant={selectedRestaurantForSubscription}
+        mode={subscriptionDialogMode}
+        subscriptionId={selectedSubscriptionId || undefined}
       />
     </div>
   );

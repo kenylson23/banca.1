@@ -845,6 +845,145 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== SUPERADMIN SUBSCRIPTION MANAGEMENT ROUTES =====
+  app.get('/api/superadmin/subscriptions', isSuperAdmin, async (req, res) => {
+    try {
+      const subscriptions = await storage.getAllSubscriptions();
+      res.json(subscriptions);
+    } catch (error) {
+      console.error('SuperAdmin subscriptions fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar subscrições" });
+    }
+  });
+
+  app.get('/api/superadmin/subscriptions/:id', isSuperAdmin, async (req, res) => {
+    try {
+      const subscription = await storage.getSubscriptionById(req.params.id);
+      if (!subscription) {
+        return res.status(404).json({ message: "Subscrição não encontrada" });
+      }
+      res.json(subscription);
+    } catch (error) {
+      console.error('SuperAdmin subscription fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar subscrição" });
+    }
+  });
+
+  app.post('/api/superadmin/restaurants/:restaurantId/subscription', isSuperAdmin, async (req, res) => {
+    try {
+      const { restaurantId } = req.params;
+      
+      // Check if restaurant exists
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurante não encontrado" });
+      }
+
+      // Check if subscription already exists
+      const existingSubscription = await storage.getSubscriptionByRestaurantId(restaurantId);
+      if (existingSubscription) {
+        return res.status(409).json({ message: "Restaurante já possui uma subscrição. Use PATCH para modificar." });
+      }
+
+      const validatedData = insertSubscriptionSchema.parse(req.body);
+      
+      // Get plan details
+      const plan = await storage.getSubscriptionPlanById(validatedData.planId);
+      if (!plan) {
+        return res.status(404).json({ message: "Plano não encontrado" });
+      }
+
+      // Calculate period dates
+      const now = new Date();
+      const trialDays = plan.trialDays || 0;
+      const trialStart = trialDays > 0 ? now : null;
+      const trialEnd = trialDays > 0 ? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000) : null;
+      
+      const periodStart = trialEnd || now;
+      const periodEnd = new Date(periodStart);
+      if (validatedData.billingInterval === 'anual') {
+        periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+      } else {
+        periodEnd.setMonth(periodEnd.getMonth() + 1);
+      }
+
+      const subscriptionData: any = {
+        planId: validatedData.planId,
+        billingInterval: validatedData.billingInterval,
+        currency: validatedData.currency,
+        status: trialDays > 0 ? ('trial' as const) : ('ativa' as const),
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
+        trialStart,
+        trialEnd,
+        autoRenew: 1,
+        cancelAtPeriodEnd: 0,
+      };
+
+      const subscription = await storage.createSubscription(restaurantId, subscriptionData);
+      res.status(201).json(subscription);
+    } catch (error: any) {
+      console.error('SuperAdmin subscription creation error:', error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao criar subscrição" });
+    }
+  });
+
+  app.patch('/api/superadmin/subscriptions/:id', isSuperAdmin, async (req, res) => {
+    try {
+      const subscription = await storage.getSubscriptionById(req.params.id);
+      if (!subscription) {
+        return res.status(404).json({ message: "Subscrição não encontrada" });
+      }
+
+      const validatedData = updateSubscriptionSchema.parse(req.body);
+      const updated = await storage.updateSubscriptionById(req.params.id, validatedData);
+      res.json(updated);
+    } catch (error: any) {
+      console.error('SuperAdmin subscription update error:', error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao atualizar subscrição" });
+    }
+  });
+
+  app.delete('/api/superadmin/subscriptions/:id', isSuperAdmin, async (req, res) => {
+    try {
+      const subscription = await storage.getSubscriptionById(req.params.id);
+      if (!subscription) {
+        return res.status(404).json({ message: "Subscrição não encontrada" });
+      }
+
+      const cancelled = await storage.cancelSubscriptionById(req.params.id);
+      res.json(cancelled);
+    } catch (error) {
+      console.error('SuperAdmin subscription cancel error:', error);
+      res.status(500).json({ message: "Erro ao cancelar subscrição" });
+    }
+  });
+
+  app.post('/api/superadmin/subscriptions/:id/payments', isSuperAdmin, async (req, res) => {
+    try {
+      const subscription = await storage.getSubscriptionById(req.params.id);
+      if (!subscription) {
+        return res.status(404).json({ message: "Subscrição não encontrada" });
+      }
+
+      const validatedData = insertSubscriptionPaymentSchema.parse(req.body);
+      const payment = await storage.createSubscriptionPayment(subscription.restaurantId, validatedData);
+      res.status(201).json(payment);
+    } catch (error: any) {
+      console.error('SuperAdmin subscription payment creation error:', error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao registrar pagamento" });
+    }
+  });
+
   // ===== USER MANAGEMENT ROUTES (Admin Only) =====
   app.get('/api/users', isAdmin, async (req, res) => {
     try {
