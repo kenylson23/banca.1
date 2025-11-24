@@ -1088,6 +1088,35 @@ export async function ensureTablesExist() {
         ALTER TABLE subscription_plans ADD COLUMN stripe_price_id_annual VARCHAR(255); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
+      // Add additional subscription plan limit columns if they don't exist
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE subscription_plans ADD COLUMN max_customers INTEGER NOT NULL DEFAULT 100; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE subscription_plans ADD COLUMN has_loyalty_program INTEGER NOT NULL DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE subscription_plans ADD COLUMN max_active_coupons INTEGER NOT NULL DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE subscription_plans ADD COLUMN has_coupon_system INTEGER NOT NULL DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE subscription_plans ADD COLUMN has_expense_tracking INTEGER NOT NULL DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE subscription_plans ADD COLUMN max_expense_categories INTEGER NOT NULL DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE subscription_plans ADD COLUMN has_inventory_module INTEGER NOT NULL DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE subscription_plans ADD COLUMN max_inventory_items INTEGER NOT NULL DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE subscription_plans ADD COLUMN has_stock_transfers INTEGER NOT NULL DEFAULT 0; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
       // Create subscriptions table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS subscriptions (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
