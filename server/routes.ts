@@ -5759,6 +5759,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/superadmin/subscription-plans", isSuperAdmin, async (req, res) => {
+    try {
+      const plans = await storage.getAllSubscriptionPlans();
+      res.json(plans);
+    } catch (error) {
+      console.error('Subscription plans fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar planos de subscrição" });
+    }
+  });
+
   app.patch("/api/superadmin/subscription-plans/:id", isSuperAdmin, async (req, res) => {
     try {
       const plan = await storage.getSubscriptionPlanById(req.params.id);

@@ -166,6 +166,7 @@ export interface IStorage {
   updateRestaurantSlug(restaurantId: string, slug: string): Promise<Restaurant>;
   updateRestaurantAppearance(restaurantId: string, data: UpdateRestaurantAppearance): Promise<Restaurant>;
   deleteRestaurant(id: string): Promise<void>;
+  generateMissingSlugs(): Promise<void>;
   
   // Branch operations
   getBranches(restaurantId: string): Promise<Branch[]>;
@@ -680,6 +681,7 @@ export interface IStorage {
   
   // Subscription Plan operations
   getSubscriptionPlans(): Promise<SubscriptionPlan[]>;
+  getAllSubscriptionPlans(): Promise<SubscriptionPlan[]>;
   getSubscriptionPlanById(id: string): Promise<SubscriptionPlan | undefined>;
   getSubscriptionPlanBySlug(slug: string): Promise<SubscriptionPlan | undefined>;
   updateSubscriptionPlan(id: string, data: UpdateSubscriptionPlan): Promise<SubscriptionPlan>;
@@ -828,6 +830,32 @@ export class DatabaseStorage implements IStorage {
 
   async deleteRestaurant(id: string): Promise<void> {
     await db.delete(restaurants).where(eq(restaurants.id, id));
+  }
+
+  async generateMissingSlugs(): Promise<void> {
+    const allRestaurants = await db.select().from(restaurants);
+    const restaurantsWithoutSlug = allRestaurants.filter(r => !r.slug);
+    
+    for (const restaurant of restaurantsWithoutSlug) {
+      let slug = generateSlug(restaurant.name);
+      let counter = 1;
+      
+      while (await this.getRestaurantBySlug(slug)) {
+        slug = `${generateSlug(restaurant.name)}-${counter}`;
+        counter++;
+      }
+      
+      await db
+        .update(restaurants)
+        .set({ slug, updatedAt: new Date() })
+        .where(eq(restaurants.id, restaurant.id));
+      
+      console.log(`✅ Generated slug "${slug}" for restaurant "${restaurant.name}"`);
+    }
+    
+    if (restaurantsWithoutSlug.length > 0) {
+      console.log(`📝 Generated ${restaurantsWithoutSlug.length} missing slug(s)`);
+    }
   }
 
   // Branch operations
@@ -7430,6 +7458,13 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(subscriptionPlans)
       .where(eq(subscriptionPlans.isActive, 1))
+      .orderBy(subscriptionPlans.displayOrder);
+  }
+
+  async getAllSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return await db
+      .select()
+      .from(subscriptionPlans)
       .orderBy(subscriptionPlans.displayOrder);
   }
 

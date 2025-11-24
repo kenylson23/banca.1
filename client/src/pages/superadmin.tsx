@@ -121,7 +121,7 @@ export default function SuperAdmin() {
   });
 
   const { data: plans, isLoading: plansLoading } = useQuery<SubscriptionPlan[]>({
-    queryKey: ["/api/subscription-plans"],
+    queryKey: ["/api/superadmin/subscription-plans"],
   });
 
   const updateStatusMutation = useMutation({

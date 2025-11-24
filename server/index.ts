@@ -62,6 +62,14 @@ app.use((req, res, next) => {
   }
 
   const server = await registerRoutes(app);
+  
+  // Generate missing slugs for restaurants (after everything is initialized)
+  try {
+    const { storage } = await import('./storage');
+    await storage.generateMissingSlugs();
+  } catch (error) {
+    console.error('Error generating missing slugs:', error);
+  }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
