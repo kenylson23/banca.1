@@ -363,13 +363,13 @@ export default function PublicMenu() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/20">
+    <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--public-menu-bg))' }}>
       {/* Fixed Header */}
-      <header className="fixed top-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-b z-50">
+      <header className="fixed top-0 left-0 right-0 backdrop-blur-sm border-b z-50" style={{ backgroundColor: 'hsl(var(--public-menu-orange-dark))' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold text-foreground">{restaurant.name}</h1>
+              <h1 className="text-xl font-bold text-white">{restaurant.name}</h1>
             </div>
 
             <div className="flex items-center gap-2">
@@ -422,7 +422,8 @@ export default function PublicMenu() {
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                           exit={{ scale: 0 }}
-                          className="absolute -top-1 -right-1 bg-primary text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
+                          className="absolute -top-1 -right-1 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
+                          style={{ backgroundColor: 'hsl(var(--public-menu-orange-dark))' }}
                         >
                           {getItemCount()}
                         </motion.div>
@@ -482,7 +483,7 @@ export default function PublicMenu() {
                                   </div>
                                 )}
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="text-primary font-bold text-base sm:text-lg">
+                                  <span className="font-bold text-base sm:text-lg" style={{ color: 'hsl(var(--public-menu-orange))' }}>
                                     {formatKwanza(
                                       (parseFloat(item.menuItem.price) + 
                                         item.selectedOptions.reduce((sum, opt) => sum + parseFloat(opt.priceAdjustment) * opt.quantity, 0)
@@ -519,10 +520,10 @@ export default function PublicMenu() {
 
                   {items.length > 0 && (
                     <div className="p-4 sm:p-6 border-t space-y-4 bg-background">
-                      <div className="bg-primary/5 border-2 border-primary/20 rounded-lg p-3 sm:p-4">
+                      <div className="rounded-lg p-3 sm:p-4" style={{ backgroundColor: 'hsl(var(--public-menu-orange) / 0.05)', border: '2px solid hsl(var(--public-menu-orange) / 0.2)' }}>
                         <div className="flex items-center justify-between">
                           <span className="text-base sm:text-lg font-semibold text-foreground">Total</span>
-                          <span className="text-xl sm:text-2xl font-bold text-primary">{formatKwanza(getTotal())}</span>
+                          <span className="text-xl sm:text-2xl font-bold" style={{ color: 'hsl(var(--public-menu-orange))' }}>{formatKwanza(getTotal())}</span>
                         </div>
                       </div>
 
@@ -580,7 +581,8 @@ export default function PublicMenu() {
                       </div>
 
                       <Button
-                        className="w-full h-12 sm:h-14 bg-primary hover:bg-primary/90 text-white font-bold text-base sm:text-lg"
+                        className="w-full h-12 sm:h-14 text-white font-bold text-base sm:text-lg"
+                        style={{ backgroundColor: 'hsl(var(--public-menu-orange-dark))' }}
                         onClick={handleConfirmOrder}
                         disabled={createOrderMutation.isPending}
                         data-testid="button-confirm-order"
@@ -604,8 +606,8 @@ export default function PublicMenu() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-16 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-background"></div>
+      <section className="relative pt-16 overflow-hidden" style={{ backgroundColor: 'hsl(var(--public-menu-red))' }}>
+        <div className="absolute inset-0 bg-gradient-to-br from-black/20 via-transparent to-transparent"></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
           <div className="text-center max-w-3xl mx-auto">
             <motion.div
@@ -615,24 +617,25 @@ export default function PublicMenu() {
             >
               {restaurant.logoUrl && (
                 <div className="flex justify-center mb-8">
-                  <Avatar className="h-32 w-32 border-4 border-primary/20 shadow-lg">
+                  <Avatar className="h-32 w-32 border-4 border-white/20 shadow-lg">
                     <AvatarImage src={restaurant.logoUrl} alt={restaurant.name} />
-                    <AvatarFallback className="text-4xl font-bold bg-primary text-primary-foreground">
+                    <AvatarFallback className="text-4xl font-bold text-white" style={{ backgroundColor: 'hsl(var(--public-menu-orange-dark))' }}>
                       {restaurant.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
                 </div>
               )}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground mb-6">
-                Bem-vindo ao <span className="text-primary">{restaurant.name}</span>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
+                Bem-vindo ao <span style={{ color: 'hsl(var(--public-menu-orange))' }}>{restaurant.name}</span>
               </h1>
-              <p className="text-lg sm:text-xl text-muted-foreground mb-8">
+              <p className="text-lg sm:text-xl text-white/90 mb-8">
                 Experimente o melhor da nossa culinária no conforto da sua casa ou mesa
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <Button
                   size="lg"
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-12 px-8"
+                  className="text-white font-semibold h-12 px-8"
+                  style={{ backgroundColor: 'hsl(var(--public-menu-orange-dark))' }}
                   onClick={() => {
                     const menuSection = document.getElementById('menu-section');
                     menuSection?.scrollIntoView({ behavior: 'smooth' });
@@ -645,7 +648,7 @@ export default function PublicMenu() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="h-12 px-8"
+                  className="h-12 px-8 text-white border-white hover:bg-white/10"
                   onClick={() => setIsRegisterDialogOpen(true)}
                   data-testid="button-register"
                 >
@@ -656,7 +659,7 @@ export default function PublicMenu() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="h-12 px-8"
+                    className="h-12 px-8 text-white border-white hover:bg-white/10"
                     asChild
                     data-testid="button-hero-whatsapp"
                   >
@@ -678,23 +681,23 @@ export default function PublicMenu() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-                className="mt-12 flex flex-wrap gap-6 justify-center text-sm text-muted-foreground"
+                className="mt-12 flex flex-wrap gap-6 justify-center text-sm text-white/80"
               >
                 {restaurant.address && (
                   <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-primary" />
+                    <MapPin className="h-4 w-4" style={{ color: 'hsl(var(--public-menu-orange))' }} />
                     <span>{restaurant.address}</span>
                   </div>
                 )}
                 {restaurant.phone && (
                   <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-primary" />
+                    <Phone className="h-4 w-4" style={{ color: 'hsl(var(--public-menu-orange))' }} />
                     <span>{restaurant.phone}</span>
                   </div>
                 )}
                 {restaurant.businessHours && (
                   <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-primary" />
+                    <Clock className="h-4 w-4" style={{ color: 'hsl(var(--public-menu-orange))' }} />
                     <span>{restaurant.businessHours}</span>
                   </div>
                 )}
@@ -705,7 +708,7 @@ export default function PublicMenu() {
       </section>
 
       {/* Search and Categories */}
-      <section className="border-t bg-muted/30">
+      <section className="border-t bg-white/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
           <div className="block sm:hidden mb-4">
             <div className="relative">
@@ -728,6 +731,8 @@ export default function PublicMenu() {
                   size="sm"
                   onClick={() => setSelectedCategory('all')}
                   data-testid="category-all"
+                  className={selectedCategory === 'all' ? 'text-white' : ''}
+                  style={selectedCategory === 'all' ? { backgroundColor: 'hsl(var(--public-menu-orange-dark))' } : {}}
                 >
                   Todos
                 </Button>
@@ -738,6 +743,8 @@ export default function PublicMenu() {
                     size="sm"
                     onClick={() => setSelectedCategory(category.id)}
                     data-testid={`category-${category.id}`}
+                    className={selectedCategory === category.id ? 'text-white' : ''}
+                    style={selectedCategory === category.id ? { backgroundColor: 'hsl(var(--public-menu-orange-dark))' } : {}}
                   >
                     {category.name}
                   </Button>
@@ -814,7 +821,7 @@ export default function PublicMenu() {
                             </h3>
                             <div className="mt-auto flex flex-col gap-1.5">
                               <div className="flex items-baseline gap-1 flex-wrap">
-                                <span className="text-primary font-bold text-sm sm:text-base" data-testid={`text-item-price-${item.id}`}>
+                                <span className="font-bold text-sm sm:text-base" style={{ color: 'hsl(var(--public-menu-orange))' }} data-testid={`text-item-price-${item.id}`}>
                                   {formatKwanza(itemPrice)}
                                 </span>
                                 {hasPromo && (
@@ -825,7 +832,8 @@ export default function PublicMenu() {
                               </div>
                               <Button
                                 size="icon"
-                                className="w-full h-7 sm:h-8 bg-primary hover:bg-primary/90 text-white"
+                                className="w-full h-7 sm:h-8 text-white"
+                                style={{ backgroundColor: 'hsl(var(--public-menu-orange-dark))' }}
                                 onClick={(e) => handleQuickAddToCart(item, e)}
                                 data-testid={`button-add-${item.id}`}
                               >
@@ -892,7 +900,7 @@ export default function PublicMenu() {
                         </h3>
                         <div className="mt-auto flex flex-col gap-1.5">
                           <div className="flex items-baseline gap-1 flex-wrap">
-                            <span className="text-primary font-bold text-sm sm:text-base" data-testid={`text-item-price-${item.id}`}>
+                            <span className="font-bold text-sm sm:text-base" style={{ color: 'hsl(var(--public-menu-orange))' }} data-testid={`text-item-price-${item.id}`}>
                               {formatKwanza(itemPrice)}
                             </span>
                             {hasPromo && (
@@ -903,7 +911,8 @@ export default function PublicMenu() {
                           </div>
                           <Button
                             size="icon"
-                            className="w-full h-7 sm:h-8 bg-primary hover:bg-primary/90 text-white"
+                            className="w-full h-7 sm:h-8 text-white"
+                            style={{ backgroundColor: 'hsl(var(--public-menu-orange-dark))' }}
                             onClick={(e) => handleQuickAddToCart(item, e)}
                             data-testid={`button-add-${item.id}`}
                           >
