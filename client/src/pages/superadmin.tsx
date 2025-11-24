@@ -627,11 +627,11 @@ export default function SuperAdmin() {
                         <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-muted-foreground">
                           <div>
                             <span className="font-medium">Mensal:</span>{" "}
-                            {formatKwanza(plan.monthlyPriceAOA)} / ${plan.monthlyPriceUSD}
+                            {formatKwanza(plan.priceMonthlyKz)} / ${plan.priceMonthlyUsd}
                           </div>
                           <div>
                             <span className="font-medium">Anual:</span>{" "}
-                            {formatKwanza(plan.annualPriceAOA)} / ${plan.annualPriceUSD}
+                            {formatKwanza(plan.priceAnnualKz)} / ${plan.priceAnnualUsd}
                           </div>
                           <div>
                             <span className="font-medium">Filiais:</span>{" "}
