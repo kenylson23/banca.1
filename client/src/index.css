@@ -87,13 +87,16 @@
   --green-cta: 122 39% 49%;
   --green-cta-hover: 122 39% 44%;
 
-  /* Public Menu Color Palette - Orange & Red Theme */
-  --public-menu-orange: 30 85% 35%;
-  --public-menu-orange-dark: 30 95% 35%;
-  --public-menu-orange-hover: 30 95% 32%;
-  --public-menu-red: 0 71% 32%;
-  --public-menu-bg: 0 0% 96%;
+  /* Public Menu Color Palette - White & Orange Theme */
+  --public-menu-orange: 24 95% 53%;
+  --public-menu-orange-dark: 21 90% 48%;
+  --public-menu-orange-hover: 21 90% 42%;
+  --public-menu-orange-light: 33 100% 96%;
+  --public-menu-bg: 0 0% 100%;
   --public-menu-card: 0 0% 100%;
+  --public-menu-header: 0 0% 100%;
+  --public-menu-hero-start: 24 95% 53%;
+  --public-menu-hero-end: 21 90% 45%;
 
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-serif: Georgia, serif;
@@ -220,13 +223,16 @@
   --info: 213 94% 58%;
   --info-foreground: 0 0% 100%;
 
-  /* Public Menu Color Palette - Orange & Red Theme (Dark Mode) */
-  --public-menu-orange: 30 85% 60%;
-  --public-menu-orange-dark: 30 95% 25%;
-  --public-menu-orange-hover: 30 95% 22%;
-  --public-menu-red: 0 71% 42%;
-  --public-menu-bg: 0 0% 12%;
-  --public-menu-card: 217 33% 15%;
+  /* Public Menu Color Palette - White & Orange Theme (Dark Mode) */
+  --public-menu-orange: 24 95% 58%;
+  --public-menu-orange-dark: 21 90% 50%;
+  --public-menu-orange-hover: 21 90% 45%;
+  --public-menu-orange-light: 24 80% 20%;
+  --public-menu-bg: 222 47% 8%;
+  --public-menu-card: 217 33% 12%;
+  --public-menu-header: 217 33% 12%;
+  --public-menu-hero-start: 24 95% 50%;
+  --public-menu-hero-end: 21 90% 42%;
 
   --shadow-2xs: 0px 1px 2px 0px hsl(222 47% 6% / 0.20);
   --shadow-xs: 0px 1px 3px 0px hsl(222 47% 6% / 0.30);

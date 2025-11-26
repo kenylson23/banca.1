@@ -365,11 +365,19 @@ export default function PublicMenu() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--public-menu-bg))' }}>
       {/* Fixed Header */}
-      <header className="fixed top-0 left-0 right-0 backdrop-blur-sm border-b z-50" style={{ backgroundColor: 'hsl(var(--public-menu-orange-dark))' }}>
+      <header className="fixed top-0 left-0 right-0 backdrop-blur-md border-b border-orange-100 z-50 bg-white/95 dark:bg-gray-900/95 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold text-white">{restaurant.name}</h1>
+              {restaurant.logoUrl && (
+                <Avatar className="h-10 w-10 border-2" style={{ borderColor: 'hsl(var(--public-menu-orange))' }}>
+                  <AvatarImage src={restaurant.logoUrl} alt={restaurant.name} />
+                  <AvatarFallback className="text-white font-bold" style={{ backgroundColor: 'hsl(var(--public-menu-orange))' }}>
+                    {restaurant.name.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+              )}
+              <h1 className="text-xl font-bold" style={{ color: 'hsl(var(--public-menu-orange-dark))' }}>{restaurant.name}</h1>
             </div>
 
             <div className="flex items-center gap-2">
@@ -378,10 +386,10 @@ export default function PublicMenu() {
                   placeholder="Buscar..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-48 h-9 pr-8"
+                  className="w-48 h-9 pr-8 border-orange-200 focus:border-orange-400 dark:border-gray-700"
                   data-testid="input-search"
                 />
-                <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-400" />
               </div>
 
               <div className="sm:hidden relative flex-1 max-w-[200px]">
@@ -389,14 +397,14 @@ export default function PublicMenu() {
                   placeholder="Buscar..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-9 pr-8"
+                  className="w-full h-9 pr-8 border-orange-200 focus:border-orange-400 dark:border-gray-700"
                   data-testid="input-search-header-mobile"
                 />
-                <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-400" />
               </div>
 
               {restaurant.whatsappNumber && (
-                <Button variant="ghost" size="icon" asChild data-testid="button-whatsapp">
+                <Button variant="ghost" size="icon" asChild data-testid="button-whatsapp" className="hover:bg-green-50 dark:hover:bg-green-900/20">
                   <a
                     href={`https://wa.me/${restaurant.whatsappNumber.replace(/\D/g, '')}`}
                     target="_blank"
@@ -412,10 +420,10 @@ export default function PublicMenu() {
                   <Button 
                     variant="ghost"
                     size="icon"
-                    className="relative"
+                    className="relative hover:bg-orange-50 dark:hover:bg-orange-900/20"
                     data-testid="button-open-cart"
                   >
-                    <ShoppingCart className="h-5 w-5" />
+                    <ShoppingCart className="h-5 w-5" style={{ color: 'hsl(var(--public-menu-orange-dark))' }} />
                     <AnimatePresence>
                       {getItemCount() > 0 && (
                         <motion.div
@@ -423,7 +431,7 @@ export default function PublicMenu() {
                           animate={{ scale: 1 }}
                           exit={{ scale: 0 }}
                           className="absolute -top-1 -right-1 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
-                          style={{ backgroundColor: 'hsl(var(--public-menu-orange-dark))' }}
+                          style={{ backgroundColor: 'hsl(var(--public-menu-orange))' }}
                         >
                           {getItemCount()}
                         </motion.div>
@@ -581,8 +589,8 @@ export default function PublicMenu() {
                       </div>
 
                       <Button
-                        className="w-full h-12 sm:h-14 text-white font-bold text-base sm:text-lg"
-                        style={{ backgroundColor: 'hsl(var(--public-menu-orange-dark))' }}
+                        className="w-full h-12 sm:h-14 text-white font-bold text-base sm:text-lg shadow-lg hover:shadow-xl transition-shadow"
+                        style={{ backgroundColor: 'hsl(var(--public-menu-orange))' }}
                         onClick={handleConfirmOrder}
                         disabled={createOrderMutation.isPending}
                         data-testid="button-confirm-order"
@@ -606,9 +614,9 @@ export default function PublicMenu() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-16 overflow-hidden" style={{ backgroundColor: 'hsl(var(--public-menu-red))' }}>
-        <div className="absolute inset-0 bg-gradient-to-br from-black/20 via-transparent to-transparent"></div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
+      <section className="relative pt-16 overflow-hidden" style={{ background: 'linear-gradient(135deg, hsl(var(--public-menu-hero-start)) 0%, hsl(var(--public-menu-hero-end)) 100%)' }}>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djZoNnYtNmgtNnptNiA2djZoNnYtNmgtNnptLTYgMHYtNmgtNnY2aDZ6bS02IDBoNnY2aC02di02eiIvPjwvZz48L2c+PC9zdmc+')] opacity-30"></div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-20">
           <div className="text-center max-w-3xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -616,26 +624,25 @@ export default function PublicMenu() {
               transition={{ duration: 0.6 }}
             >
               {restaurant.logoUrl && (
-                <div className="flex justify-center mb-8">
-                  <Avatar className="h-32 w-32 border-4 border-white/20 shadow-lg">
+                <div className="flex justify-center mb-6">
+                  <Avatar className="h-24 w-24 sm:h-28 sm:w-28 border-4 border-white/30 shadow-2xl">
                     <AvatarImage src={restaurant.logoUrl} alt={restaurant.name} />
-                    <AvatarFallback className="text-4xl font-bold text-white" style={{ backgroundColor: 'hsl(var(--public-menu-orange-dark))' }}>
+                    <AvatarFallback className="text-3xl sm:text-4xl font-bold text-orange-600 bg-white">
                       {restaurant.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
                 </div>
               )}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
-                Bem-vindo ao <span style={{ color: 'hsl(var(--public-menu-orange))' }}>{restaurant.name}</span>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 drop-shadow-lg">
+                Bem-vindo ao {restaurant.name}
               </h1>
-              <p className="text-lg sm:text-xl text-white/90 mb-8">
+              <p className="text-base sm:text-lg text-white/95 mb-6 max-w-xl mx-auto">
                 Experimente o melhor da nossa culinária no conforto da sua casa ou mesa
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
                 <Button
                   size="lg"
-                  className="text-white font-semibold h-12 px-8"
-                  style={{ backgroundColor: 'hsl(var(--public-menu-orange-dark))' }}
+                  className="bg-white text-orange-600 font-semibold h-12 px-8 hover:bg-orange-50 shadow-lg"
                   onClick={() => {
                     const menuSection = document.getElementById('menu-section');
                     menuSection?.scrollIntoView({ behavior: 'smooth' });
@@ -648,7 +655,7 @@ export default function PublicMenu() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="h-12 px-8 text-white border-white hover:bg-white/10"
+                  className="h-12 px-8 text-white border-white/50 hover:bg-white/10 backdrop-blur-sm"
                   onClick={() => setIsRegisterDialogOpen(true)}
                   data-testid="button-register"
                 >
@@ -658,8 +665,7 @@ export default function PublicMenu() {
                 {restaurant.whatsappNumber && (
                   <Button
                     size="lg"
-                    variant="outline"
-                    className="h-12 px-8 text-white border-white hover:bg-white/10"
+                    className="h-12 px-8 bg-[#25D366] hover:bg-[#20BD5A] text-white shadow-lg"
                     asChild
                     data-testid="button-hero-whatsapp"
                   >
@@ -669,7 +675,7 @@ export default function PublicMenu() {
                       rel="noopener noreferrer"
                     >
                       <SiWhatsapp className="mr-2 h-5 w-5" />
-                      Falar no WhatsApp
+                      WhatsApp
                     </a>
                   </Button>
                 )}
@@ -681,23 +687,23 @@ export default function PublicMenu() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-                className="mt-12 flex flex-wrap gap-6 justify-center text-sm text-white/80"
+                className="mt-8 flex flex-wrap gap-4 sm:gap-6 justify-center text-sm text-white/90"
               >
                 {restaurant.address && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4" style={{ color: 'hsl(var(--public-menu-orange))' }} />
+                  <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                    <MapPin className="h-4 w-4 text-white" />
                     <span>{restaurant.address}</span>
                   </div>
                 )}
                 {restaurant.phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4" style={{ color: 'hsl(var(--public-menu-orange))' }} />
+                  <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                    <Phone className="h-4 w-4 text-white" />
                     <span>{restaurant.phone}</span>
                   </div>
                 )}
                 {restaurant.businessHours && (
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" style={{ color: 'hsl(var(--public-menu-orange))' }} />
+                  <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                    <Clock className="h-4 w-4 text-white" />
                     <span>{restaurant.businessHours}</span>
                   </div>
                 )}
@@ -708,18 +714,18 @@ export default function PublicMenu() {
       </section>
 
       {/* Search and Categories */}
-      <section className="border-t bg-white/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-          <div className="block sm:hidden mb-4">
+      <section className="border-t border-orange-100 bg-white dark:bg-gray-900 dark:border-gray-800 sticky top-16 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+          <div className="block sm:hidden mb-3">
             <div className="relative">
               <Input
                 placeholder="Buscar pratos..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 pr-8"
+                className="w-full h-10 pr-8 border-orange-200 focus:border-orange-400 dark:border-gray-700"
                 data-testid="input-search-mobile"
               />
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-400" />
             </div>
           </div>
 
@@ -731,8 +737,10 @@ export default function PublicMenu() {
                   size="sm"
                   onClick={() => setSelectedCategory('all')}
                   data-testid="category-all"
-                  className={selectedCategory === 'all' ? 'text-white' : ''}
-                  style={selectedCategory === 'all' ? { backgroundColor: 'hsl(var(--public-menu-orange-dark))' } : {}}
+                  className={selectedCategory === 'all' 
+                    ? 'text-white shadow-md' 
+                    : 'border-orange-200 text-orange-700 hover:bg-orange-50 hover:text-orange-800 dark:border-gray-600 dark:text-orange-400'}
+                  style={selectedCategory === 'all' ? { backgroundColor: 'hsl(var(--public-menu-orange))' } : {}}
                 >
                   Todos
                 </Button>
@@ -743,8 +751,10 @@ export default function PublicMenu() {
                     size="sm"
                     onClick={() => setSelectedCategory(category.id)}
                     data-testid={`category-${category.id}`}
-                    className={selectedCategory === category.id ? 'text-white' : ''}
-                    style={selectedCategory === category.id ? { backgroundColor: 'hsl(var(--public-menu-orange-dark))' } : {}}
+                    className={selectedCategory === category.id 
+                      ? 'text-white shadow-md' 
+                      : 'border-orange-200 text-orange-700 hover:bg-orange-50 hover:text-orange-800 dark:border-gray-600 dark:text-orange-400'}
+                    style={selectedCategory === category.id ? { backgroundColor: 'hsl(var(--public-menu-orange))' } : {}}
                   >
                     {category.name}
                   </Button>
@@ -756,7 +766,7 @@ export default function PublicMenu() {
       </section>
 
       {/* Menu Section */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-12" id="menu-section">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 bg-gray-50/50 dark:bg-gray-900" id="menu-section">
         {selectedCategory === 'all' ? (
           itemsByCategory.map((group, groupIndex) => (
             <motion.section
@@ -764,11 +774,12 @@ export default function PublicMenu() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: groupIndex * 0.1 }}
-              className="mb-16"
+              className="mb-12"
               id={`category-${group.category.id}`}
             >
-              <div className="mb-8">
-                <h2 className="text-3xl font-bold text-foreground mb-2">{group.category.name}</h2>
+              <div className="mb-6 flex items-center gap-3">
+                <div className="h-8 w-1 rounded-full" style={{ backgroundColor: 'hsl(var(--public-menu-orange))' }}></div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">{group.category.name}</h2>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -787,57 +798,58 @@ export default function PublicMenu() {
                       transition={{ duration: 0.3, delay: itemIndex * 0.05 }}
                     >
                       <Card
-                        className="overflow-hidden hover-elevate cursor-pointer h-full flex flex-col border-2 shadow-sm"
+                        className="overflow-hidden cursor-pointer h-full flex flex-col bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg hover:border-orange-200 dark:hover:border-orange-800 transition-all duration-300"
                         onClick={() => handleAddMenuItem(item)}
                         data-testid={`menu-item-${item.id}`}
                       >
                         <CardContent className="p-0 flex flex-col h-full">
                           {item.imageUrl ? (
-                            <div className="relative aspect-square w-full bg-muted overflow-hidden">
+                            <div className="relative aspect-square w-full bg-orange-50 dark:bg-gray-700 overflow-hidden">
                               <img
                                 src={item.imageUrl}
                                 alt={item.name}
                                 className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                               />
                               {hasPromo && (
-                                <Badge className="absolute top-1 right-1 bg-red-500 text-white text-[9px] px-1 py-0.5">
+                                <Badge className="absolute top-2 right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 shadow-md">
                                   Promo
                                 </Badge>
                               )}
                             </div>
                           ) : (
-                            <div className="relative aspect-square w-full bg-muted flex items-center justify-center">
-                              <Utensils className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground/30" />
+                            <div className="relative aspect-square w-full bg-orange-50 dark:bg-gray-700 flex items-center justify-center">
+                              <Utensils className="h-8 w-8 sm:h-10 sm:w-10 text-orange-200 dark:text-gray-600" />
                               {hasPromo && (
-                                <Badge className="absolute top-1 right-1 bg-red-500 text-white text-[9px] px-1 py-0.5">
+                                <Badge className="absolute top-2 right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 shadow-md">
                                   Promo
                                 </Badge>
                               )}
                             </div>
                           )}
-                          <div className="p-2 sm:p-2.5 flex flex-col flex-1 gap-1">
-                            <h3 className="font-bold text-xs sm:text-sm leading-tight line-clamp-2" data-testid={`text-item-name-${item.id}`}>
+                          <div className="p-3 flex flex-col flex-1 gap-2">
+                            <h3 className="font-semibold text-sm sm:text-base leading-tight line-clamp-2 text-gray-800 dark:text-gray-100" data-testid={`text-item-name-${item.id}`}>
                               {item.name}
                             </h3>
-                            <div className="mt-auto flex flex-col gap-1.5">
-                              <div className="flex items-baseline gap-1 flex-wrap">
-                                <span className="font-bold text-sm sm:text-base" style={{ color: 'hsl(var(--public-menu-orange))' }} data-testid={`text-item-price-${item.id}`}>
+                            <div className="mt-auto flex flex-col gap-2">
+                              <div className="flex items-baseline gap-1.5 flex-wrap">
+                                <span className="font-bold text-base sm:text-lg" style={{ color: 'hsl(var(--public-menu-orange))' }} data-testid={`text-item-price-${item.id}`}>
                                   {formatKwanza(itemPrice)}
                                 </span>
                                 {hasPromo && (
-                                  <span className="text-[9px] sm:text-[10px] text-muted-foreground line-through">
+                                  <span className="text-[10px] sm:text-xs text-gray-400 line-through">
                                     {formatKwanza(itemOriginalPrice!)}
                                   </span>
                                 )}
                               </div>
                               <Button
-                                size="icon"
-                                className="w-full h-7 sm:h-8 text-white"
-                                style={{ backgroundColor: 'hsl(var(--public-menu-orange-dark))' }}
+                                size="sm"
+                                className="w-full h-9 text-white font-medium shadow-sm hover:shadow-md transition-shadow"
+                                style={{ backgroundColor: 'hsl(var(--public-menu-orange))' }}
                                 onClick={(e) => handleQuickAddToCart(item, e)}
                                 data-testid={`button-add-${item.id}`}
                               >
-                                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                <Plus className="h-4 w-4 mr-1" />
+                                Adicionar
                               </Button>
                             </div>
                           </div>
@@ -866,57 +878,58 @@ export default function PublicMenu() {
                   transition={{ duration: 0.3, delay: itemIndex * 0.05 }}
                 >
                   <Card
-                    className="overflow-hidden hover-elevate cursor-pointer h-full flex flex-col border-2 shadow-sm"
+                    className="overflow-hidden cursor-pointer h-full flex flex-col bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg hover:border-orange-200 dark:hover:border-orange-800 transition-all duration-300"
                     onClick={() => handleAddMenuItem(item)}
                     data-testid={`menu-item-${item.id}`}
                   >
                     <CardContent className="p-0 flex flex-col h-full">
                       {item.imageUrl ? (
-                        <div className="relative aspect-square w-full bg-muted overflow-hidden">
+                        <div className="relative aspect-square w-full bg-orange-50 dark:bg-gray-700 overflow-hidden">
                           <img
                             src={item.imageUrl}
                             alt={item.name}
                             className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                           />
                           {hasPromo && (
-                            <Badge className="absolute top-1 right-1 bg-red-500 text-white text-[9px] px-1 py-0.5">
+                            <Badge className="absolute top-2 right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 shadow-md">
                               Promo
                             </Badge>
                           )}
                         </div>
                       ) : (
-                        <div className="relative aspect-square w-full bg-muted flex items-center justify-center">
-                          <Utensils className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground/30" />
+                        <div className="relative aspect-square w-full bg-orange-50 dark:bg-gray-700 flex items-center justify-center">
+                          <Utensils className="h-8 w-8 sm:h-10 sm:w-10 text-orange-200 dark:text-gray-600" />
                           {hasPromo && (
-                            <Badge className="absolute top-1 right-1 bg-red-500 text-white text-[9px] px-1 py-0.5">
+                            <Badge className="absolute top-2 right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 shadow-md">
                               Promo
                             </Badge>
                           )}
                         </div>
                       )}
-                      <div className="p-2 sm:p-2.5 flex flex-col flex-1 gap-1">
-                        <h3 className="font-bold text-xs sm:text-sm leading-tight line-clamp-2" data-testid={`text-item-name-${item.id}`}>
+                      <div className="p-3 flex flex-col flex-1 gap-2">
+                        <h3 className="font-semibold text-sm sm:text-base leading-tight line-clamp-2 text-gray-800 dark:text-gray-100" data-testid={`text-item-name-${item.id}`}>
                           {item.name}
                         </h3>
-                        <div className="mt-auto flex flex-col gap-1.5">
-                          <div className="flex items-baseline gap-1 flex-wrap">
-                            <span className="font-bold text-sm sm:text-base" style={{ color: 'hsl(var(--public-menu-orange))' }} data-testid={`text-item-price-${item.id}`}>
+                        <div className="mt-auto flex flex-col gap-2">
+                          <div className="flex items-baseline gap-1.5 flex-wrap">
+                            <span className="font-bold text-base sm:text-lg" style={{ color: 'hsl(var(--public-menu-orange))' }} data-testid={`text-item-price-${item.id}`}>
                               {formatKwanza(itemPrice)}
                             </span>
                             {hasPromo && (
-                              <span className="text-[9px] sm:text-[10px] text-muted-foreground line-through">
+                              <span className="text-[10px] sm:text-xs text-gray-400 line-through">
                                 {formatKwanza(itemOriginalPrice!)}
                               </span>
                             )}
                           </div>
                           <Button
-                            size="icon"
-                            className="w-full h-7 sm:h-8 text-white"
-                            style={{ backgroundColor: 'hsl(var(--public-menu-orange-dark))' }}
+                            size="sm"
+                            className="w-full h-9 text-white font-medium shadow-sm hover:shadow-md transition-shadow"
+                            style={{ backgroundColor: 'hsl(var(--public-menu-orange))' }}
                             onClick={(e) => handleQuickAddToCart(item, e)}
                             data-testid={`button-add-${item.id}`}
                           >
-                            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            <Plus className="h-4 w-4 mr-1" />
+                            Adicionar
                           </Button>
                         </div>
                       </div>
