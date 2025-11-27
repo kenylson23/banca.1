@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useRoute } from 'wouter';
 import { useCart } from '@/contexts/CartContext';
@@ -13,11 +13,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { 
   ShoppingCart, Plus, Minus, Trash2, Bike, ShoppingBag, Search, 
   MapPin, Phone, Utensils, ArrowRight, UserPlus, Gift, Award, Star,
-  Bell, Heart, Map, Clock, User, Home, ChevronRight
+  Bell, Heart, Map, Clock, User, Home, ChevronRight, Package, X,
+  CheckCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest } from '@/lib/queryClient';
@@ -27,6 +29,92 @@ import { CustomerMenuItemOptionsDialog } from '@/components/CustomerMenuItemOpti
 import type { SelectedOption } from '@/contexts/CartContext';
 import { ShareOrderDialog } from '@/components/ShareOrderDialog';
 import { SiWhatsapp } from 'react-icons/si';
+
+interface StoredOrder {
+  id: string;
+  orderNumber?: string;
+  customerName: string;
+  orderType: string;
+  status: string;
+  totalAmount: string;
+  createdAt: string;
+  items: Array<{
+    name: string;
+    quantity: number;
+    price: string;
+  }>;
+}
+
+const useFavorites = (restaurantSlug: string) => {
+  const storageKey = `favorites_${restaurantSlug}`;
+  
+  const loadFavorites = useCallback(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const stored = localStorage.getItem(storageKey);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  }, [storageKey]);
+  
+  const [favorites, setFavorites] = useState<string[]>(loadFavorites);
+
+  useEffect(() => {
+    setFavorites(loadFavorites());
+  }, [storageKey, loadFavorites]);
+
+  const toggleFavorite = useCallback((itemId: string) => {
+    setFavorites(prev => {
+      const newFavorites = prev.includes(itemId)
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId];
+      localStorage.setItem(storageKey, JSON.stringify(newFavorites));
+      return newFavorites;
+    });
+  }, [storageKey]);
+
+  const isFavorite = useCallback((itemId: string) => {
+    return favorites.includes(itemId);
+  }, [favorites]);
+
+  return { favorites, toggleFavorite, isFavorite };
+};
+
+const useOrderHistory = (restaurantSlug: string) => {
+  const storageKey = `orderHistory_${restaurantSlug}`;
+  
+  const loadOrders = useCallback(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const stored = localStorage.getItem(storageKey);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  }, [storageKey]);
+  
+  const [orders, setOrders] = useState<StoredOrder[]>(loadOrders);
+
+  useEffect(() => {
+    setOrders(loadOrders());
+  }, [storageKey, loadOrders]);
+
+  const addOrder = useCallback((order: StoredOrder) => {
+    setOrders(prev => {
+      const newOrders = [order, ...prev].slice(0, 20);
+      localStorage.setItem(storageKey, JSON.stringify(newOrders));
+      return newOrders;
+    });
+  }, [storageKey]);
+
+  const clearHistory = useCallback(() => {
+    setOrders([]);
+    localStorage.removeItem(storageKey);
+  }, [storageKey]);
+
+  return { orders, addOrder, clearHistory };
+};
 
 export default function PublicMenu() {
   const [, params] = useRoute('/r/:slug');
@@ -44,6 +132,8 @@ export default function PublicMenu() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
+  const [isFavoritesDialogOpen, setIsFavoritesDialogOpen] = useState(false);
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [activeNav, setActiveNav] = useState('home');
   const [registerFormData, setRegisterFormData] = useState({
     name: '',
@@ -53,6 +143,9 @@ export default function PublicMenu() {
     address: '',
   });
   const { toast } = useToast();
+  
+  const { favorites, toggleFavorite, isFavorite } = useFavorites(slug || '');
+  const { orders: orderHistory, addOrder } = useOrderHistory(slug || '');
 
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
     queryKey: ['/api/public/restaurants/slug', slug],
@@ -120,6 +213,17 @@ export default function PublicMenu() {
       items: categoryItems
     };
   }).filter(group => group.items.length > 0);
+
+  const categoryImages = categories.reduce((acc, category) => {
+    const firstItemWithImage = menuItems
+      ?.filter(item => item.isVisible === 1 && String(item.categoryId) === category.id && item.imageUrl)
+      ?.[0];
+    acc[category.id] = firstItemWithImage?.imageUrl || null;
+    return acc;
+  }, {} as Record<string, string | null>);
+
+  const favoriteItems = menuItems
+    ?.filter(item => item.isVisible === 1 && favorites.includes(item.id)) || [];
 
   const specialOfferItems = menuItems
     ?.filter(item => item.isVisible === 1)
@@ -194,6 +298,23 @@ export default function PublicMenu() {
       if (data && data.id) {
         setCreatedOrder(data);
         setIsShareDialogOpen(true);
+        
+        const storedOrder: StoredOrder = {
+          id: data.id,
+          orderNumber: data.orderNumber,
+          customerName: customerName,
+          orderType: orderType,
+          status: data.status || 'pendente',
+          totalAmount: getTotal().toFixed(2),
+          createdAt: new Date().toISOString(),
+          items: items.map(item => ({
+            name: item.menuItem.name,
+            quantity: item.quantity,
+            price: item.menuItem.price,
+          })),
+        };
+        addOrder(storedOrder);
+        
         toast({
           title: 'Pedido enviado!',
           description: orderType === 'delivery' 
@@ -691,33 +812,36 @@ export default function PublicMenu() {
                     Todos
                   </span>
                 </button>
-                {categories.map((category) => (
-                    <button
-                      key={category.id}
-                      onClick={() => setSelectedCategory(category.id)}
-                      className={`flex flex-col items-center gap-2 min-w-[72px] transition-all ${
-                        selectedCategory === category.id ? 'opacity-100' : 'opacity-60'
-                      }`}
-                      data-testid={`category-${category.id}`}
-                    >
-                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${
-                        selectedCategory === category.id 
-                          ? 'bg-gray-900 shadow-lg' 
-                          : 'bg-white border border-gray-100 shadow-sm'
-                      }`}>
-                        {category.imageUrl ? (
-                          <img src={category.imageUrl} alt={category.name} className="w-10 h-10 object-contain" />
-                        ) : (
-                          <Utensils className={`h-6 w-6 ${selectedCategory === category.id ? 'text-white' : 'text-gray-600'}`} />
-                        )}
-                      </div>
-                      <span className={`text-xs font-medium text-center line-clamp-2 ${
-                        selectedCategory === category.id ? 'text-gray-900' : 'text-gray-600'
-                      }`}>
-                        {category.name}
-                      </span>
-                    </button>
-                ))}
+                {categories.map((category) => {
+                    const categoryImage = categoryImages[category.id] || category.imageUrl;
+                    return (
+                      <button
+                        key={category.id}
+                        onClick={() => setSelectedCategory(category.id)}
+                        className={`flex flex-col items-center gap-2 min-w-[72px] transition-all ${
+                          selectedCategory === category.id ? 'opacity-100' : 'opacity-60'
+                        }`}
+                        data-testid={`category-${category.id}`}
+                      >
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all overflow-hidden ${
+                          selectedCategory === category.id 
+                            ? 'ring-2 ring-gray-900 ring-offset-2 shadow-lg' 
+                            : 'bg-white border border-gray-100 shadow-sm'
+                        }`}>
+                          {categoryImage ? (
+                            <img src={categoryImage} alt={category.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <Utensils className={`h-6 w-6 ${selectedCategory === category.id ? 'text-gray-900' : 'text-gray-600'}`} />
+                          )}
+                        </div>
+                        <span className={`text-xs font-medium text-center line-clamp-2 max-w-[72px] ${
+                          selectedCategory === category.id ? 'text-gray-900' : 'text-gray-600'
+                        }`}>
+                          {category.name}
+                        </span>
+                      </button>
+                    );
+                })}
               </div>
             </ScrollArea>
           </section>
@@ -824,12 +948,20 @@ export default function PublicMenu() {
                           {categoryName}
                         </Badge>
                         <button 
-                          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-sm"
+                          className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-sm transition-colors ${
+                            isFavorite(item.id) ? 'bg-red-500' : 'bg-white/90'
+                          }`}
                           onClick={(e) => {
                             e.stopPropagation();
+                            toggleFavorite(item.id);
+                            toast({
+                              title: isFavorite(item.id) ? 'Removido dos favoritos' : 'Adicionado aos favoritos',
+                              description: item.name,
+                            });
                           }}
+                          data-testid={`button-favorite-offer-${item.id}`}
                         >
-                          <Heart className="h-4 w-4 text-gray-400" />
+                          <Heart className={`h-4 w-4 ${isFavorite(item.id) ? 'text-white fill-white' : 'text-gray-400'}`} />
                         </button>
                       </div>
                       <div className="p-3">
@@ -907,12 +1039,20 @@ export default function PublicMenu() {
                                 </Badge>
                               )}
                               <button 
-                                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-sm"
+                                className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-sm transition-colors ${
+                                  isFavorite(item.id) ? 'bg-red-500' : 'bg-white/90'
+                                }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  toggleFavorite(item.id);
+                                  toast({
+                                    title: isFavorite(item.id) ? 'Removido dos favoritos' : 'Adicionado aos favoritos',
+                                    description: item.name,
+                                  });
                                 }}
+                                data-testid={`button-favorite-${item.id}`}
                               >
-                                <Heart className="h-4 w-4 text-gray-400" />
+                                <Heart className={`h-4 w-4 ${isFavorite(item.id) ? 'text-white fill-white' : 'text-gray-400'}`} />
                               </button>
                             </div>
                             <div className="p-3 flex flex-col flex-1">
@@ -989,12 +1129,20 @@ export default function PublicMenu() {
                             </Badge>
                           )}
                           <button 
-                            className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-sm"
+                            className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-sm transition-colors ${
+                              isFavorite(item.id) ? 'bg-red-500' : 'bg-white/90'
+                            }`}
                             onClick={(e) => {
                               e.stopPropagation();
+                              toggleFavorite(item.id);
+                              toast({
+                                title: isFavorite(item.id) ? 'Removido dos favoritos' : 'Adicionado aos favoritos',
+                                description: item.name,
+                              });
                             }}
+                            data-testid={`button-favorite-filtered-${item.id}`}
                           >
-                            <Heart className="h-4 w-4 text-gray-400" />
+                            <Heart className={`h-4 w-4 ${isFavorite(item.id) ? 'text-white fill-white' : 'text-gray-400'}`} />
                           </button>
                         </div>
                         <div className="p-3 flex flex-col flex-1">
@@ -1059,34 +1207,63 @@ export default function PublicMenu() {
         <div className="flex items-center justify-around py-3 px-4">
           <button 
             className={`flex flex-col items-center gap-1 min-w-[56px] ${activeNav === 'home' ? 'text-gray-900' : 'text-gray-400'}`}
-            onClick={() => setActiveNav('home')}
+            onClick={() => {
+              setActiveNav('home');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
             data-testid="nav-home"
           >
             <Home className="h-6 w-6" />
             <span className="text-[10px] font-medium">Home</span>
           </button>
           <button 
-            className={`flex flex-col items-center gap-1 min-w-[56px] ${activeNav === 'favorites' ? 'text-gray-900' : 'text-gray-400'}`}
-            onClick={() => setActiveNav('favorites')}
+            className={`flex flex-col items-center gap-1 min-w-[56px] relative ${activeNav === 'favorites' ? 'text-gray-900' : 'text-gray-400'}`}
+            onClick={() => {
+              setActiveNav('favorites');
+              setIsFavoritesDialogOpen(true);
+            }}
             data-testid="nav-favorites"
           >
             <Heart className="h-6 w-6" />
+            {favorites.length > 0 && (
+              <span className="absolute -top-1 right-1/2 translate-x-4 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                {favorites.length}
+              </span>
+            )}
             <span className="text-[10px] font-medium">Favoritos</span>
           </button>
           <button 
             className={`flex flex-col items-center gap-1 min-w-[56px] ${activeNav === 'map' ? 'text-gray-900' : 'text-gray-400'}`}
-            onClick={() => setActiveNav('map')}
+            onClick={() => {
+              setActiveNav('map');
+              if (restaurant?.address) {
+                window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(restaurant.address)}`, '_blank');
+              } else {
+                toast({
+                  title: 'Endereço não disponível',
+                  description: 'O restaurante não informou seu endereço.',
+                });
+              }
+            }}
             data-testid="nav-map"
           >
             <Map className="h-6 w-6" />
             <span className="text-[10px] font-medium">Mapa</span>
           </button>
           <button 
-            className={`flex flex-col items-center gap-1 min-w-[56px] ${activeNav === 'history' ? 'text-gray-900' : 'text-gray-400'}`}
-            onClick={() => setActiveNav('history')}
+            className={`flex flex-col items-center gap-1 min-w-[56px] relative ${activeNav === 'history' ? 'text-gray-900' : 'text-gray-400'}`}
+            onClick={() => {
+              setActiveNav('history');
+              setIsHistoryDialogOpen(true);
+            }}
             data-testid="nav-history"
           >
             <Clock className="h-6 w-6" />
+            {orderHistory.length > 0 && (
+              <span className="absolute -top-1 right-1/2 translate-x-4 bg-gray-900 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                {orderHistory.length}
+              </span>
+            )}
             <span className="text-[10px] font-medium">Histórico</span>
           </button>
           <button 
@@ -1247,6 +1424,166 @@ export default function PublicMenu() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Favorites Dialog */}
+      <Dialog open={isFavoritesDialogOpen} onOpenChange={setIsFavoritesDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] bg-white rounded-3xl" data-testid="dialog-favorites">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Heart className="h-5 w-5 text-red-500" />
+              Meus Favoritos
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              {favoriteItems.length > 0 
+                ? `Você tem ${favoriteItems.length} item(s) favorito(s)`
+                : 'Salve seus pratos favoritos para acessar rapidamente'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="max-h-[55vh] pr-2">
+            {favoriteItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                <Heart className="h-16 w-16 mb-4 opacity-20" />
+                <p className="font-medium text-gray-600">Nenhum favorito ainda</p>
+                <p className="text-sm mt-1 text-center">Toque no coração nos produtos para salvar</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {favoriteItems.map((item) => {
+                  const itemPrice = typeof item.price === 'string' ? item.price : Number(item.price).toFixed(2);
+                  return (
+                    <div 
+                      key={item.id}
+                      className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50 border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => {
+                        setIsFavoritesDialogOpen(false);
+                        handleAddMenuItem(item);
+                      }}
+                      data-testid={`favorite-item-${item.id}`}
+                    >
+                      {item.imageUrl ? (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-xl bg-gray-200 flex items-center justify-center flex-shrink-0">
+                          <Utensils className="h-6 w-6 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-sm text-gray-900 line-clamp-1">{item.name}</h4>
+                        {item.description && (
+                          <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">{item.description}</p>
+                        )}
+                        <p className="font-bold text-sm text-gray-900 mt-1">{formatKwanza(itemPrice)}</p>
+                      </div>
+                      <button
+                        className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(item.id);
+                        }}
+                        data-testid={`button-remove-favorite-${item.id}`}
+                      >
+                        <Heart className="h-4 w-4 text-white fill-white" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Order History Dialog */}
+      <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] bg-white rounded-3xl" data-testid="dialog-history">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Package className="h-5 w-5 text-gray-600" />
+              Histórico de Pedidos
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              {orderHistory.length > 0 
+                ? `Seus últimos ${orderHistory.length} pedido(s)`
+                : 'Seu histórico de pedidos aparecerá aqui'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="max-h-[55vh] pr-2">
+            {orderHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                <Package className="h-16 w-16 mb-4 opacity-20" />
+                <p className="font-medium text-gray-600">Nenhum pedido ainda</p>
+                <p className="text-sm mt-1 text-center">Faça seu primeiro pedido!</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {orderHistory.map((order) => {
+                  const orderDate = new Date(order.createdAt);
+                  const isRecent = Date.now() - orderDate.getTime() < 24 * 60 * 60 * 1000;
+                  
+                  return (
+                    <div 
+                      key={order.id}
+                      className="p-4 rounded-2xl bg-gray-50 border border-gray-100"
+                      data-testid={`history-order-${order.id}`}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-sm text-gray-900">
+                              Pedido #{order.orderNumber || order.id.slice(-6).toUpperCase()}
+                            </h4>
+                            {isRecent && (
+                              <Badge className="bg-green-100 text-green-700 border-0 text-[10px]">
+                                Recente
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {orderDate.toLocaleDateString('pt-BR', { 
+                              day: '2-digit', 
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="text-xs border-gray-200 text-gray-600">
+                          {order.orderType === 'delivery' ? 'Delivery' : 'Retirada'}
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-1.5 mb-3">
+                        {order.items.slice(0, 3).map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-xs text-gray-600">
+                            <span>{item.quantity}x {item.name}</span>
+                            <span className="font-medium">{formatKwanza(parseFloat(item.price) * item.quantity)}</span>
+                          </div>
+                        ))}
+                        {order.items.length > 3 && (
+                          <p className="text-xs text-gray-400">+{order.items.length - 3} item(s)</p>
+                        )}
+                      </div>
+                      
+                      <Separator className="my-2 bg-gray-200" />
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-900">Total</span>
+                        <span className="text-sm font-bold text-gray-900">{formatKwanza(order.totalAmount)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </div>
