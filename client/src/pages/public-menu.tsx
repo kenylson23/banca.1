@@ -19,8 +19,9 @@ import {
   ShoppingCart, Plus, Minus, Trash2, Bike, ShoppingBag, Search, 
   MapPin, Phone, Utensils, ArrowRight, UserPlus, Gift, Award, Star,
   Bell, Heart, Map, Clock, User, Home, ChevronRight, Package, X,
-  CheckCircle
+  CheckCircle, Tag
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest } from '@/lib/queryClient';
 import { formatKwanza } from '@/lib/formatters';
@@ -116,6 +117,40 @@ const useOrderHistory = (restaurantSlug: string) => {
   return { orders, addOrder, clearHistory };
 };
 
+interface CustomerLookupData {
+  found: boolean;
+  customer?: {
+    id: string;
+    name: string;
+    phone: string;
+    email?: string;
+    loyaltyPoints: number;
+    tier: string;
+    totalSpent: string;
+    visitCount: number;
+  };
+  loyalty?: {
+    isActive: boolean;
+    pointsPerCurrency: string;
+    currencyPerPoint: string;
+    minPointsToRedeem: number;
+    maxRedeemablePoints: number;
+    maxDiscountAmount: number;
+  };
+}
+
+interface CouponValidation {
+  valid: boolean;
+  message?: string;
+  discountAmount?: number;
+  coupon?: {
+    id: string;
+    code: string;
+    discountType: string;
+    discountValue: string;
+  };
+}
+
 export default function PublicMenu() {
   const [, params] = useRoute('/r/:slug');
   const slug = params?.slug;
@@ -142,6 +177,16 @@ export default function PublicMenu() {
     cpf: '',
     address: '',
   });
+  
+  // Loyalty and coupon states
+  const [identifiedCustomer, setIdentifiedCustomer] = useState<CustomerLookupData | null>(null);
+  const [isLookingUpCustomer, setIsLookingUpCustomer] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponValidation, setCouponValidation] = useState<CouponValidation | null>(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [usePoints, setUsePoints] = useState(false);
+  const [pointsToRedeem, setPointsToRedeem] = useState(0);
+  
   const { toast } = useToast();
   
   const { favorites, toggleFavorite, isFavorite } = useFavorites(slug || '');
@@ -176,6 +221,113 @@ export default function PublicMenu() {
       referrer: document.referrer || '',
     }).catch(() => {});
   }, [restaurantId]);
+
+  // Lookup customer by phone when phone changes
+  useEffect(() => {
+    const lookupCustomer = async () => {
+      if (!restaurantId || !customerPhone || customerPhone.length < 9) {
+        setIdentifiedCustomer(null);
+        setUsePoints(false);
+        setPointsToRedeem(0);
+        return;
+      }
+
+      setIsLookingUpCustomer(true);
+      try {
+        const response = await fetch(
+          `/api/public/customers/lookup?restaurantId=${restaurantId}&phone=${encodeURIComponent(customerPhone)}`
+        );
+        if (response.ok) {
+          const data: CustomerLookupData = await response.json();
+          setIdentifiedCustomer(data);
+          if (data.found && data.customer) {
+            // Auto-fill name if empty
+            if (!customerName && data.customer.name) {
+              setCustomerName(data.customer.name);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error looking up customer:', error);
+      } finally {
+        setIsLookingUpCustomer(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(lookupCustomer, 500);
+    return () => clearTimeout(debounceTimer);
+  }, [customerPhone, restaurantId, customerName]);
+
+  // Validate coupon when code changes
+  const handleValidateCoupon = async () => {
+    if (!restaurantId || !couponCode.trim()) {
+      setCouponValidation(null);
+      return;
+    }
+
+    setIsValidatingCoupon(true);
+    try {
+      const orderValue = getTotal();
+      const response = await apiRequest('POST', '/api/public/coupons/validate', {
+        restaurantId,
+        code: couponCode.trim(),
+        orderValue: orderValue.toFixed(2),
+        orderType,
+        customerId: identifiedCustomer?.customer?.id,
+      });
+      const data: CouponValidation = await response.json();
+      setCouponValidation(data);
+      
+      if (data.valid) {
+        toast({
+          title: 'Cupom aplicado!',
+          description: `Desconto de ${formatKwanza(data.discountAmount || 0)}`,
+        });
+      } else {
+        toast({
+          title: 'Cupom inválido',
+          description: data.message || 'Este cupom não pode ser aplicado.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error validating coupon:', error);
+      setCouponValidation({ valid: false, message: 'Erro ao validar cupom' });
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  // Calculate final total with discounts
+  const calculateFinalTotal = () => {
+    let total = getTotal();
+    
+    // Apply coupon discount
+    if (couponValidation?.valid && couponValidation.discountAmount) {
+      total -= couponValidation.discountAmount;
+    }
+    
+    // Apply loyalty points discount
+    if (usePoints && pointsToRedeem > 0 && identifiedCustomer?.loyalty) {
+      const pointsDiscount = pointsToRedeem * parseFloat(identifiedCustomer.loyalty.currencyPerPoint);
+      total -= pointsDiscount;
+    }
+    
+    return Math.max(0, total);
+  };
+
+  // Calculate points discount
+  const getPointsDiscount = () => {
+    if (!usePoints || pointsToRedeem <= 0 || !identifiedCustomer?.loyalty) return 0;
+    return pointsToRedeem * parseFloat(identifiedCustomer.loyalty.currencyPerPoint);
+  };
+
+  // Calculate points to earn
+  const getPointsToEarn = () => {
+    if (!identifiedCustomer?.loyalty?.isActive) return 0;
+    const finalTotal = calculateFinalTotal();
+    return Math.floor(finalTotal * parseFloat(identifiedCustomer.loyalty.pointsPerCurrency));
+  };
 
   const categories = menuItems
     ?.filter(item => item.isVisible === 1)
@@ -274,6 +426,8 @@ export default function PublicMenu() {
       customerName: string;
       customerPhone: string;
       deliveryAddress?: string;
+      couponCode?: string;
+      redeemPoints?: number;
       items: Array<{ 
         menuItemId: string; 
         quantity: number; 
@@ -288,6 +442,8 @@ export default function PublicMenu() {
         customerName: orderData.customerName,
         customerPhone: orderData.customerPhone,
         deliveryAddress: orderData.deliveryAddress,
+        couponCode: orderData.couponCode,
+        redeemPoints: orderData.redeemPoints,
         status: 'pendente',
         totalAmount,
         items: orderData.items,
@@ -299,13 +455,22 @@ export default function PublicMenu() {
         setCreatedOrder(data);
         setIsShareDialogOpen(true);
         
+        // Show loyalty info in success message
+        let successMessage = orderType === 'delivery' 
+          ? 'Seu pedido será entregue em breve.'
+          : 'Seu pedido estará pronto para retirada em breve.';
+        
+        if (data.pointsRedeemed > 0) {
+          successMessage += ` ${data.pointsRedeemed} pontos foram resgatados.`;
+        }
+        
         const storedOrder: StoredOrder = {
           id: data.id,
           orderNumber: data.orderNumber,
           customerName: customerName,
           orderType: orderType,
           status: data.status || 'pendente',
-          totalAmount: getTotal().toFixed(2),
+          totalAmount: calculateFinalTotal().toFixed(2),
           createdAt: new Date().toISOString(),
           items: items.map(item => ({
             name: item.menuItem.name,
@@ -317,14 +482,19 @@ export default function PublicMenu() {
         
         toast({
           title: 'Pedido enviado!',
-          description: orderType === 'delivery' 
-            ? 'Seu pedido será entregue em breve.'
-            : 'Seu pedido estará pronto para retirada em breve.',
+          description: successMessage,
         });
+        
+        // Reset all states
         clearCart();
         setCustomerName('');
         setCustomerPhone('');
         setDeliveryAddress('');
+        setCouponCode('');
+        setCouponValidation(null);
+        setUsePoints(false);
+        setPointsToRedeem(0);
+        setIdentifiedCustomer(null);
         setIsCartOpen(false);
       } else {
         toast({
@@ -432,6 +602,8 @@ export default function PublicMenu() {
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
       deliveryAddress: orderType === 'delivery' ? deliveryAddress.trim() : undefined,
+      couponCode: couponValidation?.valid ? couponCode.trim() : undefined,
+      redeemPoints: usePoints && pointsToRedeem > 0 ? pointsToRedeem : undefined,
       items: orderItems,
     });
   };
@@ -679,6 +851,158 @@ export default function PublicMenu() {
 
                       <div className="space-y-3">
                         <div>
+                          <Label htmlFor="customer-phone" className="text-sm font-medium mb-1.5 block text-gray-700">WhatsApp</Label>
+                          <div className="relative">
+                            <Input
+                              id="customer-phone"
+                              type="tel"
+                              placeholder="+244 900 000 000"
+                              value={customerPhone}
+                              onChange={(e) => setCustomerPhone(e.target.value)}
+                              className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white pr-10"
+                              data-testid="input-customer-phone"
+                            />
+                            {isLookingUpCustomer && (
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                              </div>
+                            )}
+                            {identifiedCustomer?.found && !isLookingUpCustomer && (
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                <CheckCircle className="h-5 w-5 text-green-500" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Customer Loyalty Info */}
+                        {identifiedCustomer?.found && identifiedCustomer.customer && (
+                          <div className="rounded-xl p-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Award className="h-5 w-5 text-amber-600" />
+                              <span className="font-semibold text-amber-800">
+                                Olá, {identifiedCustomer.customer.name}!
+                              </span>
+                              <Badge className="ml-auto bg-amber-100 text-amber-700 border-0 text-xs">
+                                {identifiedCustomer.customer.tier}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-amber-700">Seus pontos:</span>
+                              <span className="font-bold text-amber-800">
+                                {identifiedCustomer.customer.loyaltyPoints} pts
+                              </span>
+                            </div>
+                            {identifiedCustomer.loyalty?.isActive && identifiedCustomer.loyalty.maxRedeemablePoints > 0 && (
+                              <div className="mt-3 pt-3 border-t border-amber-200">
+                                <div className="flex items-center justify-between mb-2">
+                                  <Label className="text-sm text-amber-700 flex items-center gap-1">
+                                    <Gift className="h-4 w-4" />
+                                    Usar pontos
+                                  </Label>
+                                  <Switch
+                                    checked={usePoints}
+                                    onCheckedChange={(checked) => {
+                                      setUsePoints(checked);
+                                      if (checked) {
+                                        setPointsToRedeem(identifiedCustomer.loyalty?.maxRedeemablePoints || 0);
+                                      } else {
+                                        setPointsToRedeem(0);
+                                      }
+                                    }}
+                                    data-testid="switch-use-points"
+                                  />
+                                </div>
+                                {usePoints && (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                      <Input
+                                        type="number"
+                                        min={identifiedCustomer.loyalty?.minPointsToRedeem || 0}
+                                        max={identifiedCustomer.loyalty?.maxRedeemablePoints || 0}
+                                        value={pointsToRedeem}
+                                        onChange={(e) => setPointsToRedeem(Math.min(
+                                          parseInt(e.target.value) || 0,
+                                          identifiedCustomer.loyalty?.maxRedeemablePoints || 0
+                                        ))}
+                                        className="h-9 rounded-lg text-sm flex-1"
+                                        data-testid="input-points-to-redeem"
+                                      />
+                                      <span className="text-xs text-amber-600">
+                                        = {formatKwanza(getPointsDiscount())}
+                                      </span>
+                                    </div>
+                                    <p className="text-xs text-amber-600">
+                                      Mín: {identifiedCustomer.loyalty?.minPointsToRedeem} pts | 
+                                      Máx: {identifiedCustomer.loyalty?.maxRedeemablePoints} pts
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {getPointsToEarn() > 0 && !usePoints && (
+                              <p className="text-xs text-amber-600 mt-2">
+                                <Star className="h-3 w-3 inline mr-1" />
+                                Você ganhará +{getPointsToEarn()} pontos com este pedido!
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Coupon Section */}
+                        <div className="rounded-xl p-3 bg-gray-50 border border-gray-200">
+                          <Label className="text-sm font-medium mb-2 block text-gray-700 flex items-center gap-1">
+                            <Tag className="h-4 w-4" />
+                            Cupom de Desconto
+                          </Label>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Digite o código"
+                              value={couponCode}
+                              onChange={(e) => {
+                                setCouponCode(e.target.value.toUpperCase());
+                                if (couponValidation) setCouponValidation(null);
+                              }}
+                              className="h-10 rounded-lg flex-1 uppercase"
+                              data-testid="input-coupon-code"
+                            />
+                            <Button
+                              variant="outline"
+                              onClick={handleValidateCoupon}
+                              disabled={isValidatingCoupon || !couponCode.trim()}
+                              className="h-10 px-4 rounded-lg"
+                              data-testid="button-apply-coupon"
+                            >
+                              {isValidatingCoupon ? (
+                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                'Aplicar'
+                              )}
+                            </Button>
+                          </div>
+                          {couponValidation?.valid && (
+                            <div className="mt-2 flex items-center gap-2 text-green-600 text-sm">
+                              <CheckCircle className="h-4 w-4" />
+                              <span>Desconto de {formatKwanza(couponValidation.discountAmount || 0)} aplicado!</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setCouponCode('');
+                                  setCouponValidation(null);
+                                }}
+                                className="ml-auto h-6 px-2 text-gray-400 hover:text-red-500"
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                          {couponValidation && !couponValidation.valid && (
+                            <p className="mt-2 text-red-500 text-xs">{couponValidation.message}</p>
+                          )}
+                        </div>
+
+                        <div>
                           <Label htmlFor="customer-name" className="text-sm font-medium mb-1.5 block text-gray-700">Seu Nome</Label>
                           <Input
                             id="customer-name"
@@ -687,18 +1011,6 @@ export default function PublicMenu() {
                             onChange={(e) => setCustomerName(e.target.value)}
                             className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
                             data-testid="input-customer-name"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="customer-phone" className="text-sm font-medium mb-1.5 block text-gray-700">WhatsApp</Label>
-                          <Input
-                            id="customer-phone"
-                            type="tel"
-                            placeholder="+244 900 000 000"
-                            value={customerPhone}
-                            onChange={(e) => setCustomerPhone(e.target.value)}
-                            className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
-                            data-testid="input-customer-phone"
                           />
                         </div>
                         {orderType === 'delivery' && (
@@ -716,6 +1028,32 @@ export default function PublicMenu() {
                           </div>
                         )}
                       </div>
+
+                      {/* Order Summary with Discounts */}
+                      {(couponValidation?.valid || (usePoints && pointsToRedeem > 0)) && (
+                        <div className="rounded-xl p-3 bg-gray-50 border border-gray-200 space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600">Subtotal</span>
+                            <span className="text-gray-900">{formatKwanza(getTotal())}</span>
+                          </div>
+                          {couponValidation?.valid && (
+                            <div className="flex items-center justify-between text-sm text-green-600">
+                              <span>Desconto cupom</span>
+                              <span>-{formatKwanza(couponValidation.discountAmount || 0)}</span>
+                            </div>
+                          )}
+                          {usePoints && pointsToRedeem > 0 && (
+                            <div className="flex items-center justify-between text-sm text-amber-600">
+                              <span>Desconto pontos ({pointsToRedeem} pts)</span>
+                              <span>-{formatKwanza(getPointsDiscount())}</span>
+                            </div>
+                          )}
+                          <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
+                            <span className="font-semibold text-gray-900">Total Final</span>
+                            <span className="font-bold text-lg text-gray-900">{formatKwanza(calculateFinalTotal())}</span>
+                          </div>
+                        </div>
+                      )}
 
                       <Button
                         className="w-full h-14 bg-gray-900 hover:bg-gray-800 text-white font-bold text-base rounded-2xl shadow-lg"

@@ -1392,7 +1392,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Customers use a simple checkout without advanced controls (discounts, service charges, payments)
   app.post("/api/public/orders", async (req, res) => {
     try {
-      const { items, ...orderData } = req.body;
+      const { items, couponCode, redeemPoints, ...orderData } = req.body;
       
       // Use publicOrderSchema which automatically blocks professional fields
       // (discount, discountType, serviceCharge, deliveryFee, paymentMethod, createdBy)
@@ -1449,11 +1449,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const order = await storage.createOrder(validatedOrder, validatedItems);
+      // Auto-link customer by phone if not already provided
+      if (!validatedOrder.customerId && validatedOrder.customerPhone) {
+        const existingCustomer = await storage.getCustomerByPhone(
+          validatedOrder.restaurantId,
+          validatedOrder.customerPhone.trim()
+        );
+        if (existingCustomer) {
+          validatedOrder = { ...validatedOrder, customerId: existingCustomer.id };
+        }
+      }
+
+      // SERVER-SIDE PRICE VERIFICATION: Fetch menu items and calculate real prices
+      // This prevents price manipulation attacks
+      const verifiedItems: typeof validatedItems = [];
+      let orderTotal = 0;
+      
+      for (const item of validatedItems) {
+        const menuItem = await storage.getMenuItemById(item.menuItemId);
+        if (!menuItem) {
+          return res.status(400).json({ message: `Item do menu não encontrado: ${item.menuItemId}` });
+        }
+        
+        // Use server-side price from database (ignore client-provided price)
+        const serverPrice = parseFloat(menuItem.price);
+        
+        // Calculate options price if there are selected options
+        let optionsPrice = 0;
+        if (item.selectedOptions && item.selectedOptions.length > 0) {
+          // Get option groups with options from database to verify option prices
+          const optionGroups = await storage.getOptionGroupsByMenuItem(item.menuItemId);
+          const allOptions = optionGroups.flatMap(group => group.options);
+          
+          for (const selectedOpt of item.selectedOptions) {
+            // Find the option in database to get verified price
+            const dbOption = allOptions.find(opt => opt.id === selectedOpt.optionId);
+            if (dbOption) {
+              const optionPrice = parseFloat(dbOption.priceAdjustment || '0');
+              optionsPrice += optionPrice * (selectedOpt.quantity || 1);
+            }
+          }
+        }
+        
+        // Calculate verified item total
+        const verifiedItemPrice = (serverPrice + optionsPrice).toFixed(2);
+        const itemTotal = parseFloat(verifiedItemPrice) * item.quantity;
+        orderTotal += itemTotal;
+        
+        // Store verified item with server-calculated price
+        verifiedItems.push({
+          ...item,
+          price: verifiedItemPrice, // Override with verified price
+        });
+      }
+
+      // Validate and apply coupon if provided (server-side verification)
+      let couponDiscount = 0;
+      let appliedCouponId: string | null = null;
+      if (couponCode && validatedOrder.restaurantId) {
+        const couponResult = await storage.validateCoupon(
+          validatedOrder.restaurantId,
+          couponCode,
+          orderTotal,
+          validatedOrder.orderType,
+          validatedOrder.customerId || undefined
+        );
+        
+        if (couponResult.valid && couponResult.discountAmount) {
+          // Limit coupon discount to order total
+          couponDiscount = Math.min(couponResult.discountAmount, orderTotal);
+          appliedCouponId = couponResult.coupon?.id || null;
+          validatedOrder = { 
+            ...validatedOrder, 
+            couponId: appliedCouponId 
+          };
+        }
+      }
+
+      // Calculate loyalty points discount if customer wants to redeem (server-side enforcement)
+      let loyaltyDiscount = 0;
+      let pointsToRedeem = 0;
+      if (redeemPoints && redeemPoints > 0 && validatedOrder.customerId && validatedOrder.restaurantId) {
+        const customer = await storage.getCustomerById(validatedOrder.customerId);
+        const loyaltyProgram = await storage.getLoyaltyProgram(validatedOrder.restaurantId);
+        
+        if (customer && loyaltyProgram && loyaltyProgram.isActive === 1) {
+          const availablePoints = customer.loyaltyPoints || 0;
+          const minPoints = loyaltyProgram.minPointsToRedeem || 100;
+          const currencyPerPoint = parseFloat(loyaltyProgram.currencyPerPoint || '0.10');
+          
+          // SERVER-SIDE ENFORCEMENT: Limit points to what customer actually has
+          const requestedPoints = Math.max(0, Math.floor(redeemPoints)); // Only positive integers
+          const cappedPoints = Math.min(requestedPoints, availablePoints);
+          
+          // Check if enough points for minimum redemption
+          if (cappedPoints >= minPoints) {
+            // Calculate max points that can be redeemed (limited by remaining order total after coupon)
+            const remainingTotal = orderTotal - couponDiscount;
+            const maxPointsForOrder = Math.floor(remainingTotal / currencyPerPoint);
+            
+            pointsToRedeem = Math.min(cappedPoints, maxPointsForOrder);
+            loyaltyDiscount = pointsToRedeem * currencyPerPoint;
+            
+            // Ensure discount doesn't exceed remaining total
+            loyaltyDiscount = Math.min(loyaltyDiscount, remainingTotal);
+          }
+        }
+      }
+
+      // Use verified items with server-calculated prices
+      const order = await storage.createOrder(validatedOrder, verifiedItems);
+
+      // Apply coupon usage if valid
+      if (appliedCouponId && couponDiscount > 0) {
+        await storage.applyCoupon(
+          validatedOrder.restaurantId,
+          appliedCouponId,
+          order.id,
+          validatedOrder.customerId || undefined,
+          couponDiscount
+        );
+      }
+
+      // Redeem loyalty points if applicable
+      if (pointsToRedeem > 0 && validatedOrder.customerId && loyaltyDiscount > 0) {
+        await storage.redeemLoyaltyPointsForOrder(
+          validatedOrder.restaurantId,
+          validatedOrder.customerId,
+          pointsToRedeem,
+          order.id,
+          '' // No user for public orders
+        );
+      }
       
       broadcastToClients({ type: 'new_order', data: order });
 
-      res.json(order);
+      // Return order with additional info about discounts applied
+      res.json({
+        ...order,
+        couponDiscountApplied: couponDiscount,
+        loyaltyDiscountApplied: loyaltyDiscount,
+        pointsRedeemed: pointsToRedeem,
+      });
     } catch (error) {
       console.error('Erro ao criar pedido:', error);
       if (error instanceof z.ZodError) {
@@ -1495,6 +1632,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: error.errors[0].message });
       }
       res.status(500).json({ message: "Erro ao cadastrar cliente" });
+    }
+  });
+
+  // Public customer lookup by phone - returns customer info and loyalty data
+  app.get("/api/public/customers/lookup", async (req, res) => {
+    try {
+      const { restaurantId, phone } = req.query;
+      
+      if (!restaurantId || !phone) {
+        return res.status(400).json({ message: "restaurantId e phone são obrigatórios" });
+      }
+
+      const customer = await storage.getCustomerByPhone(restaurantId as string, phone as string);
+      
+      if (!customer) {
+        return res.json({ found: false });
+      }
+
+      // Get loyalty program info
+      const loyaltyProgram = await storage.getLoyaltyProgram(restaurantId as string);
+      
+      // Calculate potential discount if points were redeemed
+      let maxRedeemablePoints = 0;
+      let maxDiscountAmount = 0;
+      
+      if (loyaltyProgram && loyaltyProgram.isActive === 1) {
+        const minPoints = loyaltyProgram.minPointsToRedeem || 100;
+        const currencyPerPoint = parseFloat(loyaltyProgram.currencyPerPoint || '0.10');
+        
+        if (customer.loyaltyPoints >= minPoints) {
+          maxRedeemablePoints = customer.loyaltyPoints;
+          maxDiscountAmount = maxRedeemablePoints * currencyPerPoint;
+        }
+      }
+
+      res.json({
+        found: true,
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+          email: customer.email,
+          loyaltyPoints: customer.loyaltyPoints,
+          tier: customer.tier,
+          totalSpent: customer.totalSpent,
+          visitCount: customer.visitCount,
+        },
+        loyalty: loyaltyProgram ? {
+          isActive: loyaltyProgram.isActive === 1,
+          pointsPerCurrency: loyaltyProgram.pointsPerCurrency,
+          currencyPerPoint: loyaltyProgram.currencyPerPoint,
+          minPointsToRedeem: loyaltyProgram.minPointsToRedeem,
+          maxRedeemablePoints,
+          maxDiscountAmount,
+        } : null,
+      });
+    } catch (error) {
+      console.error('Customer lookup error:', error);
+      res.status(500).json({ message: "Erro ao buscar cliente" });
+    }
+  });
+
+  // Public coupon validation
+  app.post("/api/public/coupons/validate", async (req, res) => {
+    try {
+      const { restaurantId, code, orderValue, orderType, customerId } = req.body;
+      
+      if (!restaurantId || !code || orderValue === undefined) {
+        return res.status(400).json({ message: "restaurantId, code e orderValue são obrigatórios" });
+      }
+
+      const result = await storage.validateCoupon(
+        restaurantId,
+        code,
+        parseFloat(orderValue),
+        orderType,
+        customerId
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error('Coupon validation error:', error);
+      res.status(500).json({ message: "Erro ao validar cupom" });
+    }
+  });
+
+  // Public loyalty points calculation - how many points will be earned
+  app.get("/api/public/loyalty/calculate", async (req, res) => {
+    try {
+      const { restaurantId, orderValue } = req.query;
+      
+      if (!restaurantId || !orderValue) {
+        return res.status(400).json({ message: "restaurantId e orderValue são obrigatórios" });
+      }
+
+      const loyaltyProgram = await storage.getLoyaltyProgram(restaurantId as string);
+      
+      if (!loyaltyProgram || loyaltyProgram.isActive !== 1) {
+        return res.json({ 
+          active: false, 
+          pointsToEarn: 0,
+          message: "Programa de fidelidade não está ativo" 
+        });
+      }
+
+      const pointsPerCurrency = parseFloat(loyaltyProgram.pointsPerCurrency || '1');
+      const orderValueNum = parseFloat(orderValue as string);
+      const pointsToEarn = Math.floor(orderValueNum * pointsPerCurrency);
+
+      res.json({
+        active: true,
+        pointsToEarn,
+        pointsPerCurrency,
+        currencyPerPoint: loyaltyProgram.currencyPerPoint,
+        minPointsToRedeem: loyaltyProgram.minPointsToRedeem,
+      });
+    } catch (error) {
+      console.error('Loyalty calculation error:', error);
+      res.status(500).json({ message: "Erro ao calcular pontos" });
     }
   });
 
