@@ -642,7 +642,9 @@ export default function PublicMenu() {
               <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
                 <Button
                   size="lg"
-                  className="bg-white text-orange-600 font-semibold h-12 px-8 hover:bg-orange-50 shadow-lg"
+                  variant="ghost"
+                  className="font-semibold h-12 px-8 shadow-lg"
+                  style={{ backgroundColor: 'white', color: 'hsl(24 95% 53%)' }}
                   onClick={() => {
                     const menuSection = document.getElementById('menu-section');
                     menuSection?.scrollIntoView({ behavior: 'smooth' });
@@ -650,7 +652,7 @@ export default function PublicMenu() {
                   data-testid="button-see-menu"
                 >
                   Ver Cardápio
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  <ArrowRight className="ml-2 h-5 w-5" style={{ color: 'hsl(24 95% 53%)' }} />
                 </Button>
                 <Button
                   size="lg"
@@ -733,28 +735,28 @@ export default function PublicMenu() {
             <ScrollArea className="w-full">
               <div className="flex gap-2 pb-2">
                 <Button
-                  variant={selectedCategory === 'all' ? 'default' : 'outline'}
+                  variant="outline"
                   size="sm"
                   onClick={() => setSelectedCategory('all')}
                   data-testid="category-all"
                   className={selectedCategory === 'all' 
-                    ? 'text-white shadow-md' 
+                    ? 'text-white shadow-md border-transparent' 
                     : 'border-orange-200 text-orange-700 hover:bg-orange-50 hover:text-orange-800 dark:border-gray-600 dark:text-orange-400'}
-                  style={selectedCategory === 'all' ? { backgroundColor: 'hsl(var(--public-menu-orange))' } : {}}
+                  style={selectedCategory === 'all' ? { backgroundColor: 'hsl(24 95% 53%)' } : {}}
                 >
                   Todos
                 </Button>
                 {categories.map((category) => (
                   <Button
                     key={category.id}
-                    variant={selectedCategory === category.id ? 'default' : 'outline'}
+                    variant="outline"
                     size="sm"
                     onClick={() => setSelectedCategory(category.id)}
                     data-testid={`category-${category.id}`}
                     className={selectedCategory === category.id 
-                      ? 'text-white shadow-md' 
+                      ? 'text-white shadow-md border-transparent' 
                       : 'border-orange-200 text-orange-700 hover:bg-orange-50 hover:text-orange-800 dark:border-gray-600 dark:text-orange-400'}
-                    style={selectedCategory === category.id ? { backgroundColor: 'hsl(var(--public-menu-orange))' } : {}}
+                    style={selectedCategory === category.id ? { backgroundColor: 'hsl(24 95% 53%)' } : {}}
                   >
                     {category.name}
                   </Button>
