@@ -97,51 +97,23 @@
   --public-menu-header: 0 0% 100%;
   --public-menu-hero-start: 24 95% 53%;
   --public-menu-hero-end: 21 90% 45%;
+}
 
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-serif: Georgia, serif;
-  --font-mono: 'JetBrains Mono', Menlo, monospace;
-  --radius: .75rem; /* 12px */
-  --shadow-2xs: 0px 1px 2px 0px hsl(222 47% 11% / 0.05);
-  --shadow-xs: 0px 1px 3px 0px hsl(222 47% 11% / 0.08);
-  --shadow-sm: 0px 2px 4px 0px hsl(222 47% 11% / 0.05), 0px 1px 2px -1px hsl(222 47% 11% / 0.05);
-  --shadow: 0px 4px 6px -1px hsl(222 47% 11% / 0.08), 0px 2px 4px -2px hsl(222 47% 11% / 0.06);
-  --shadow-md: 0px 6px 12px -2px hsl(222 47% 11% / 0.10), 0px 3px 7px -3px hsl(222 47% 11% / 0.08);
-  --shadow-lg: 0px 10px 20px -4px hsl(222 47% 11% / 0.12), 0px 6px 12px -6px hsl(222 47% 11% / 0.10);
-  --shadow-xl: 0px 20px 25px -5px hsl(222 47% 11% / 0.14), 0px 10px 15px -7px hsl(222 47% 11% / 0.10);
-  --shadow-2xl: 0px 25px 50px -12px hsl(222 47% 11% / 0.25);
-  --tracking-normal: 0em;
-  --spacing: 0.25rem;
-
-  /* Automatically computed borders - intensity can be controlled by the user by the --opaque-button-border-intensity setting */
-
-  /* Fallback for older browsers */
-  --sidebar-primary-border: hsl(var(--sidebar-primary));
-  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
-  --sidebar-accent-border: hsl(var(--sidebar-accent));
-  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
-  --primary-border: hsl(var(--primary));
-  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
-  --secondary-border: hsl(var(--secondary));
-  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
-  --muted-border: hsl(var(--muted));
-  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
-  --accent-border: hsl(var(--accent));
-  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
-  --destructive-border: hsl(var(--destructive));
-  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+/* Public Menu Theme - Override blue primary with white/neutral */
+.public-menu-theme {
+  --primary: 0 0% 15%;
+  --primary-foreground: 0 0% 100%;
+  --primary-border: 0 0% 20%;
+  
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 15%;
+  --secondary-border: 0 0% 90%;
+  
+  --accent: 0 0% 96%;
+  --accent-foreground: 0 0% 15%;
+  --accent-border: 0 0% 90%;
+  
+  --ring: 0 0% 15%;
 }
 
 .dark {

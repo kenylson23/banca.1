@@ -363,7 +363,7 @@ export default function PublicMenu() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'hsl(var(--public-menu-bg))' }}>
+    <div className="min-h-screen public-menu-theme" style={{ backgroundColor: 'hsl(var(--public-menu-bg))' }}>
       {/* Fixed Header */}
       <header className="fixed top-0 left-0 right-0 backdrop-blur-md border-b border-orange-100 z-50 bg-white/95 dark:bg-gray-900/95 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
