@@ -19,7 +19,7 @@ import {
   ShoppingCart, Plus, Minus, Trash2, Bike, ShoppingBag, Search, 
   MapPin, Phone, Utensils, ArrowRight, UserPlus, Gift, Award, Star,
   Bell, Heart, Map, Clock, User, Home, ChevronRight, Package, X,
-  CheckCircle, Tag
+  CheckCircle, Tag, Receipt
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -709,10 +709,18 @@ export default function PublicMenu() {
                     </AnimatePresence>
                   </button>
                 </SheetTrigger>
-                <SheetContent className="w-full sm:max-w-md flex flex-col p-0 bg-white">
-                  <div className="p-6 pb-4 border-b border-gray-100">
+                <SheetContent className="w-full sm:max-w-md flex flex-col p-0 bg-gradient-to-b from-gray-50 to-white">
+                  <div className="p-6 pb-4 bg-white border-b border-gray-100">
                     <SheetHeader>
-                      <SheetTitle className="text-xl font-bold text-gray-900" data-testid="text-cart-title">Seu Pedido</SheetTitle>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center">
+                          <ShoppingBag className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <SheetTitle className="text-xl font-bold text-gray-900" data-testid="text-cart-title">Seu Pedido</SheetTitle>
+                          <p className="text-xs text-gray-500">Revise seus itens</p>
+                        </div>
+                      </div>
                     </SheetHeader>
                   </div>
 
@@ -820,11 +828,16 @@ export default function PublicMenu() {
                   </ScrollArea>
 
                   {items.length > 0 && (
-                    <div className="p-6 border-t border-gray-100 space-y-4 bg-white">
-                      <div className="rounded-2xl p-4 bg-gray-50 border border-gray-100">
+                    <div className="p-6 border-t border-gray-100 space-y-4 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+                      <div className="rounded-2xl p-4 bg-gradient-to-r from-gray-900 to-gray-800 text-white">
                         <div className="flex items-center justify-between">
-                          <span className="text-base font-semibold text-gray-600">Total</span>
-                          <span className="text-xl font-bold text-gray-900">{formatKwanza(getTotal())}</span>
+                          <div>
+                            <span className="text-sm text-gray-300">Total do pedido</span>
+                            <p className="text-2xl font-bold">{formatKwanza(getTotal())}</p>
+                          </div>
+                          <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
+                            <Receipt className="h-6 w-6 text-white" />
+                          </div>
                         </div>
                       </div>
 
@@ -916,7 +929,7 @@ export default function PublicMenu() {
                                 {usePoints && (
                                   <div className="space-y-2">
                                     <div className="flex items-center gap-2">
-                                      <Input
+                                      <input
                                         type="number"
                                         min={identifiedCustomer.loyalty?.minPointsToRedeem || 0}
                                         max={identifiedCustomer.loyalty?.maxRedeemablePoints || 0}
@@ -925,7 +938,8 @@ export default function PublicMenu() {
                                           parseInt(e.target.value) || 0,
                                           identifiedCustomer.loyalty?.maxRedeemablePoints || 0
                                         ))}
-                                        className="h-9 rounded-lg text-sm flex-1"
+                                        className="flex-1 h-9 px-3 rounded-lg border border-amber-300 bg-white text-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
+                                        style={{ color: '#1a1a1a', caretColor: '#1a1a1a' }}
                                         data-testid="input-points-to-redeem"
                                       />
                                       <span className="text-xs text-amber-600">
@@ -1004,26 +1018,29 @@ export default function PublicMenu() {
 
                         <div>
                           <Label htmlFor="customer-name" className="text-sm font-medium mb-1.5 block text-gray-700">Seu Nome</Label>
-                          <Input
+                          <input
                             id="customer-name"
+                            type="text"
                             placeholder="Digite seu nome"
                             value={customerName}
                             onChange={(e) => setCustomerName(e.target.value)}
-                            className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
+                            className="w-full h-11 px-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400/20"
+                            style={{ color: '#1a1a1a', caretColor: '#1a1a1a' }}
                             data-testid="input-customer-name"
                           />
                         </div>
                         {orderType === 'delivery' && (
                           <div>
                             <Label htmlFor="delivery-address" className="text-sm font-medium mb-1.5 block text-gray-700">Endereço de Entrega</Label>
-                            <Textarea
+                            <textarea
                               id="delivery-address"
                               placeholder="Rua, número, bairro..."
                               value={deliveryAddress}
                               onChange={(e) => setDeliveryAddress(e.target.value)}
                               rows={3}
                               data-testid="input-delivery-address"
-                              className="text-base resize-none rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
+                              className="w-full px-3 py-2 text-base resize-none rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400/20"
+                              style={{ color: '#1a1a1a', caretColor: '#1a1a1a' }}
                             />
                           </div>
                         )}
@@ -1056,7 +1073,7 @@ export default function PublicMenu() {
                       )}
 
                       <Button
-                        className="w-full h-14 bg-gray-900 hover:bg-gray-800 text-white font-bold text-base rounded-2xl shadow-lg"
+                        className="w-full h-14 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white font-bold text-base rounded-2xl shadow-lg shadow-green-500/25 transition-all duration-200"
                         onClick={handleConfirmOrder}
                         disabled={createOrderMutation.isPending}
                         data-testid="button-confirm-order"
@@ -1064,10 +1081,13 @@ export default function PublicMenu() {
                         {createOrderMutation.isPending ? (
                           <div className="flex items-center gap-2">
                             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            Enviando...
+                            Enviando pedido...
                           </div>
                         ) : (
-                          'Finalizar Pedido'
+                          <div className="flex items-center gap-2">
+                            <SiWhatsapp className="h-5 w-5" />
+                            Finalizar Pedido
+                          </div>
                         )}
                       </Button>
                     </div>
@@ -1080,11 +1100,13 @@ export default function PublicMenu() {
           {/* Search Bar */}
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <Input
+            <input
+              type="text"
               placeholder="Pesquisar no cardápio..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-12 pl-12 pr-4 rounded-2xl bg-gray-50 border-gray-100 text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-gray-300"
+              className="w-full h-12 pl-12 pr-4 rounded-2xl bg-gray-50 border border-gray-100 placeholder:text-gray-400 focus:bg-white focus:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400/20"
+              style={{ color: '#1a1a1a', caretColor: '#1a1a1a' }}
               data-testid="input-search"
             />
           </div>
@@ -1696,7 +1718,7 @@ export default function PublicMenu() {
                   value={registerFormData.name}
                   onChange={(e) => setRegisterFormData({ ...registerFormData, name: e.target.value })}
                   required
-                  className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 text-gray-900"
+                  className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
                   data-testid="input-register-name"
                 />
               </div>
@@ -1711,7 +1733,7 @@ export default function PublicMenu() {
                     placeholder="+244 900 000"
                     value={registerFormData.phone}
                     onChange={(e) => setRegisterFormData({ ...registerFormData, phone: e.target.value })}
-                    className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 text-gray-900"
+                    className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
                     data-testid="input-register-phone"
                   />
                 </div>
@@ -1724,7 +1746,7 @@ export default function PublicMenu() {
                     placeholder="Documento"
                     value={registerFormData.cpf}
                     onChange={(e) => setRegisterFormData({ ...registerFormData, cpf: e.target.value })}
-                    className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 text-gray-900"
+                    className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
                     data-testid="input-register-cpf"
                   />
                 </div>
@@ -1739,7 +1761,7 @@ export default function PublicMenu() {
                   placeholder="seuemail@exemplo.com"
                   value={registerFormData.email}
                   onChange={(e) => setRegisterFormData({ ...registerFormData, email: e.target.value })}
-                  className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 text-gray-900"
+                  className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
                   data-testid="input-register-email"
                 />
               </div>
@@ -1753,7 +1775,7 @@ export default function PublicMenu() {
                   value={registerFormData.address}
                   onChange={(e) => setRegisterFormData({ ...registerFormData, address: e.target.value })}
                   rows={2}
-                  className="resize-none rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 text-base text-gray-900"
+                  className="resize-none rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
                   data-testid="input-register-address"
                 />
               </div>
