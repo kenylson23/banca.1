@@ -980,15 +980,15 @@ export default function PublicMenu() {
               <p>Ao se cadastrar você terá acesso a:</p>
               <ul className="list-none space-y-1 ml-1">
                 <li className="flex items-center gap-2">
-                  <Gift className="h-4 w-4 text-primary flex-shrink-0" />
+                  <Gift className="h-4 w-4 flex-shrink-0" style={{ color: 'hsl(var(--public-menu-orange))' }} />
                   <span>Programa de fidelidade com pontos em cada compra</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Star className="h-4 w-4 text-primary flex-shrink-0" />
+                  <Star className="h-4 w-4 flex-shrink-0" style={{ color: 'hsl(var(--public-menu-orange))' }} />
                   <span>Descontos e promoções exclusivas</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Award className="h-4 w-4 text-primary flex-shrink-0" />
+                  <Award className="h-4 w-4 flex-shrink-0" style={{ color: 'hsl(var(--public-menu-orange))' }} />
                   <span>Bônus especial de aniversário</span>
                 </li>
               </ul>
