@@ -163,11 +163,11 @@ export function CustomerMenuItemOptionsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[95vh] p-0 gap-0 overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-50 border-gray-200">
+      <DialogContent className="max-w-md max-h-[80vh] p-0 gap-0 overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-50 border-gray-200">
         {/* Header with Image */}
         <div className="relative">
           {/* Image Section */}
-          <div className="relative h-56 sm:h-72 bg-gradient-to-br from-gray-100 via-gray-50 to-white overflow-hidden">
+          <div className="relative h-32 sm:h-40 bg-gradient-to-br from-gray-100 via-gray-50 to-white overflow-hidden">
             {menuItem.imageUrl ? (
               <>
                 <img 
@@ -185,28 +185,26 @@ export function CustomerMenuItemOptionsDialog({
             )}
             
             {/* Close Button */}
-            <Button
-              variant="ghost"
-              size="icon"
+            <button
               onClick={() => onOpenChange(false)}
-              className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white text-gray-900 shadow-lg"
+              className="absolute top-3 right-3 h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white flex items-center justify-center text-gray-900 shadow-md transition-colors"
               data-testid="button-close-dialog"
             >
-              <X className="h-5 w-5" />
-            </Button>
+              <X className="h-4 w-4" />
+            </button>
 
             {/* Title Overlay */}
-            <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
+            <div className="absolute bottom-0 left-0 right-0 p-4">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
               >
-                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 drop-shadow-lg" data-testid="text-options-dialog-title">
+                <h2 className="text-lg sm:text-xl font-bold text-white mb-1 drop-shadow-lg" data-testid="text-options-dialog-title">
                   {menuItem.name}
                 </h2>
                 {menuItem.description && (
-                  <p className="text-sm sm:text-base text-white/90 drop-shadow-md max-w-2xl" data-testid="text-options-dialog-description">
+                  <p className="text-xs text-white/90 drop-shadow-md line-clamp-2" data-testid="text-options-dialog-description">
                     {menuItem.description}
                   </p>
                 )}
@@ -216,30 +214,30 @@ export function CustomerMenuItemOptionsDialog({
         </div>
 
         {/* Content */}
-        <div className="flex flex-col max-h-[calc(95vh-14rem)] sm:max-h-[calc(95vh-18rem)]">
-          <ScrollArea className="flex-1 px-6 sm:px-8 py-6">
+        <div className="flex flex-col max-h-[calc(80vh-8rem)] sm:max-h-[calc(80vh-10rem)]">
+          <ScrollArea className="flex-1 px-4 sm:px-6 py-4">
             {isLoading ? (
-              <div className="flex justify-center py-12">
-                <div className="animate-spin rounded-full h-10 w-10 border-3 border-gray-200 border-t-gray-900"></div>
+              <div className="flex justify-center py-6">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-gray-900"></div>
               </div>
             ) : !hasOptions ? (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="py-8"
+                className="py-4"
               >
-                <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-100 rounded-2xl p-6 text-center">
-                  <Sparkles className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-600 font-medium">
+                <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-100 rounded-xl p-4 text-center">
+                  <Sparkles className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600 font-medium">
                     Este item não possui opções de personalização.
                   </p>
-                  <p className="text-sm text-gray-400 mt-1">
+                  <p className="text-xs text-gray-400 mt-1">
                     Ajuste apenas a quantidade desejada
                   </p>
                 </div>
               </motion.div>
             ) : (
-              <div className="space-y-6 pb-2">
+              <div className="space-y-4 pb-2">
                 <AnimatePresence>
                   {optionGroups.map((group, groupIndex) => {
                     const groupSelections = selections[group.id] || [];
@@ -253,44 +251,27 @@ export function CustomerMenuItemOptionsDialog({
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: groupIndex * 0.05 }}
-                        className="relative rounded-2xl border border-gray-200 bg-white/50 backdrop-blur-sm p-5 sm:p-6 shadow-sm"
+                        className="relative rounded-xl border border-gray-200 bg-white/50 backdrop-blur-sm p-3 sm:p-4 shadow-sm"
                       >
-                        {/* Subtle gradient border effect */}
-                        <div className="absolute inset-0 rounded-2xl border border-gray-100/50 pointer-events-none" 
-                          style={{ 
-                            maskImage: 'linear-gradient(135deg, white, transparent 60%)',
-                            WebkitMaskImage: 'linear-gradient(135deg, white, transparent 60%)'
-                          }} 
-                        />
-                        
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                           {/* Group Header */}
-                          <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center justify-between gap-2">
                             <div className="flex-1">
-                              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2" data-testid={`text-group-name-${group.id}`}>
+                              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-1" data-testid={`text-group-name-${group.id}`}>
                                 {group.name}
                                 {isRequired && (
-                                  <span className="text-red-500 text-sm">*</span>
+                                  <span className="text-red-500 text-xs">*</span>
                                 )}
                               </h3>
-                              <div className="flex flex-wrap gap-2 mt-2">
-                                {isRequired && (
-                                  <Badge className="bg-red-50 text-red-700 border border-red-200 text-xs font-medium">
-                                    Obrigatório
-                                  </Badge>
-                                )}
-                                <Badge variant="outline" className="border-gray-200 text-gray-600 text-xs font-medium">
-                                  {isSingleSelect
-                                    ? 'Escolha 1 opção'
-                                    : group.maxSelections
-                                    ? `Escolha até ${group.maxSelections}`
-                                    : 'Múltipla escolha'}
-                                </Badge>
-                              </div>
                             </div>
+                            <Badge variant="outline" className="border-gray-200 text-gray-500 text-[10px] font-medium px-2 py-0.5">
+                              {isSingleSelect
+                                ? 'Escolha 1'
+                                : group.maxSelections
+                                ? `Até ${group.maxSelections}`
+                                : 'Múltipla'}
+                            </Badge>
                           </div>
-
-                          <Separator className="bg-gray-100" />
 
                           {/* Options */}
                           {isSingleSelect ? (
@@ -312,37 +293,35 @@ export function CustomerMenuItemOptionsDialog({
                                           whileHover={{ scale: 1.01 }}
                                           whileTap={{ scale: 0.99 }}
                                           className={`
-                                            relative flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all duration-200
+                                            relative flex items-center gap-2 p-2.5 rounded-lg cursor-pointer transition-all duration-200
                                             ${isSelected 
-                                              ? 'bg-gray-900 text-white shadow-md' 
+                                              ? 'bg-gray-900 text-white shadow-sm' 
                                               : isRecommended 
-                                                ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 hover:border-amber-400' 
-                                                : 'bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                                                ? 'bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-300 hover:border-amber-400' 
+                                                : 'bg-white border border-gray-200 hover:border-gray-300'
                                             }
                                           `}
                                         >
                                           {isRecommended && !isSelected && (
-                                            <div className="absolute -top-2 -right-2">
-                                              <div className="bg-gradient-to-br from-amber-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md flex items-center gap-1">
-                                                <Star className="h-3 w-3 fill-current" />
-                                                Sugestão
-                                              </div>
-                                            </div>
+                                            <Badge className="absolute -top-1.5 -right-1 bg-gradient-to-br from-amber-400 to-orange-500 text-white text-[9px] font-bold px-1.5 py-0 rounded-full border-0 flex items-center gap-0.5">
+                                              <Star className="h-2 w-2 fill-current" />
+                                              Sugestão
+                                            </Badge>
                                           )}
                                           
                                           <RadioGroupItem
                                             value={option.id}
                                             id={option.id}
-                                            className={isSelected ? 'border-white text-white' : ''}
+                                            className={`h-4 w-4 ${isSelected ? 'border-white text-white' : ''}`}
                                             data-testid={`radio-option-${option.id}`}
                                           />
                                           <Label htmlFor={option.id} className="flex-1 cursor-pointer">
-                                            <div className="flex items-center justify-between gap-3">
-                                              <span className={`font-semibold ${isSelected ? 'text-white' : 'text-gray-900'}`}>
+                                            <div className="flex items-center justify-between gap-2">
+                                              <span className={`text-sm font-medium ${isSelected ? 'text-white' : 'text-gray-900'}`}>
                                                 {option.name}
                                               </span>
                                               {parseFloat(option.priceAdjustment) !== 0 && (
-                                                <span className={`text-sm font-medium ${isSelected ? 'text-white/90' : 'text-gray-600'}`}>
+                                                <span className={`text-xs font-medium ${isSelected ? 'text-white/90' : 'text-gray-500'}`}>
                                                   {parseFloat(option.priceAdjustment) > 0 ? '+' : ''}
                                                   {formatKwanza(option.priceAdjustment)}
                                                 </span>
@@ -355,14 +334,12 @@ export function CustomerMenuItemOptionsDialog({
                                             initial={{ opacity: 0, height: 0 }}
                                             animate={{ opacity: 1, height: 'auto' }}
                                             exit={{ opacity: 0, height: 0 }}
-                                            className="flex items-center gap-3 pl-10 pr-4"
+                                            className="flex items-center gap-2 pl-6 pr-2"
                                           >
-                                            <span className="text-sm text-gray-600">Quantidade:</span>
-                                            <div className="flex items-center gap-2">
-                                              <Button
-                                                variant="outline"
-                                                size="icon"
-                                                className="h-7 w-7"
+                                            <span className="text-xs text-gray-600">Qtd:</span>
+                                            <div className="flex items-center gap-1">
+                                              <button
+                                                className="h-6 w-6 rounded-full border border-gray-300 hover:bg-gray-100 flex items-center justify-center transition-colors disabled:opacity-50"
                                                 onClick={(e) => {
                                                   e.preventDefault();
                                                   handleQuantityChange(group.id, option.id, -1);
@@ -370,26 +347,24 @@ export function CustomerMenuItemOptionsDialog({
                                                 disabled={currentQuantity <= 1}
                                                 data-testid={`button-decrease-option-${option.id}`}
                                               >
-                                                <Minus className="h-3 w-3" />
-                                              </Button>
-                                              <span className="text-sm font-bold min-w-8 text-center" data-testid={`text-option-qty-${option.id}`}>
+                                                <Minus className="h-2.5 w-2.5" />
+                                              </button>
+                                              <span className="text-xs font-bold min-w-6 text-center" data-testid={`text-option-qty-${option.id}`}>
                                                 {currentQuantity}
                                               </span>
-                                              <Button
-                                                variant="outline"
-                                                size="icon"
-                                                className="h-7 w-7"
+                                              <button
+                                                className="h-6 w-6 rounded-full border border-gray-300 hover:bg-gray-100 flex items-center justify-center transition-colors"
                                                 onClick={(e) => {
                                                   e.preventDefault();
                                                   handleQuantityChange(group.id, option.id, 1);
                                                 }}
                                                 data-testid={`button-increase-option-${option.id}`}
                                               >
-                                                <Plus className="h-3 w-3" />
-                                              </Button>
+                                                <Plus className="h-2.5 w-2.5" />
+                                              </button>
                                             </div>
                                             {parseFloat(option.priceAdjustment) !== 0 && currentQuantity > 1 && (
-                                              <span className="text-xs text-gray-500 ml-auto">
+                                              <span className="text-[10px] text-gray-500 ml-auto">
                                                 = {formatKwanza(parseFloat(option.priceAdjustment) * currentQuantity)}
                                               </span>
                                             )}
@@ -416,23 +391,21 @@ export function CustomerMenuItemOptionsDialog({
                                         whileHover={{ scale: canSelect ? 1.01 : 1 }}
                                         whileTap={{ scale: canSelect ? 0.99 : 1 }}
                                         className={`
-                                          relative flex items-center gap-3 p-4 rounded-xl transition-all duration-200
+                                          relative flex items-center gap-2 p-2.5 rounded-lg transition-all duration-200
                                           ${isSelected 
-                                            ? 'bg-gray-900 text-white shadow-md' 
+                                            ? 'bg-gray-900 text-white shadow-sm' 
                                             : isRecommended 
-                                              ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 hover:border-amber-400' 
-                                              : 'bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                                              ? 'bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-300 hover:border-amber-400' 
+                                              : 'bg-white border border-gray-200 hover:border-gray-300'
                                           }
                                           ${!canSelect ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                                         `}
                                       >
                                         {isRecommended && !isSelected && (
-                                          <div className="absolute -top-2 -right-2">
-                                            <div className="bg-gradient-to-br from-amber-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md flex items-center gap-1">
-                                              <Star className="h-3 w-3 fill-current" />
-                                              Sugestão
-                                            </div>
-                                          </div>
+                                          <Badge className="absolute -top-1.5 -right-1 bg-gradient-to-br from-amber-400 to-orange-500 text-white text-[9px] font-bold px-1.5 py-0 rounded-full border-0 flex items-center gap-0.5">
+                                            <Star className="h-2 w-2 fill-current" />
+                                            Sugestão
+                                          </Badge>
                                         )}
                                         
                                         <Checkbox
@@ -440,16 +413,16 @@ export function CustomerMenuItemOptionsDialog({
                                           checked={isSelected}
                                           onCheckedChange={(checked) => handleMultiSelect(group.id, option.id, checked as boolean)}
                                           disabled={!canSelect}
-                                          className={isSelected ? 'border-white data-[state=checked]:bg-white data-[state=checked]:text-gray-900' : ''}
+                                          className={`h-4 w-4 ${isSelected ? 'border-white data-[state=checked]:bg-white data-[state=checked]:text-gray-900' : ''}`}
                                           data-testid={`checkbox-option-${option.id}`}
                                         />
                                         <Label htmlFor={option.id} className={`flex-1 ${canSelect ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
-                                          <div className="flex items-center justify-between gap-3">
-                                            <span className={`font-semibold ${isSelected ? 'text-white' : 'text-gray-900'}`}>
+                                          <div className="flex items-center justify-between gap-2">
+                                            <span className={`text-sm font-medium ${isSelected ? 'text-white' : 'text-gray-900'}`}>
                                               {option.name}
                                             </span>
                                             {parseFloat(option.priceAdjustment) !== 0 && (
-                                              <span className={`text-sm font-medium ${isSelected ? 'text-white/90' : 'text-gray-600'}`}>
+                                              <span className={`text-xs font-medium ${isSelected ? 'text-white/90' : 'text-gray-500'}`}>
                                                 {parseFloat(option.priceAdjustment) > 0 ? '+' : ''}
                                                 {formatKwanza(option.priceAdjustment)}
                                               </span>
@@ -462,14 +435,12 @@ export function CustomerMenuItemOptionsDialog({
                                           initial={{ opacity: 0, height: 0 }}
                                           animate={{ opacity: 1, height: 'auto' }}
                                           exit={{ opacity: 0, height: 0 }}
-                                          className="flex items-center gap-3 pl-10 pr-4"
+                                          className="flex items-center gap-2 pl-6 pr-2"
                                         >
-                                          <span className="text-sm text-gray-600">Quantidade:</span>
-                                          <div className="flex items-center gap-2">
-                                            <Button
-                                              variant="outline"
-                                              size="icon"
-                                              className="h-7 w-7"
+                                          <span className="text-xs text-gray-600">Qtd:</span>
+                                          <div className="flex items-center gap-1">
+                                            <button
+                                              className="h-6 w-6 rounded-full border border-gray-300 hover:bg-gray-100 flex items-center justify-center transition-colors disabled:opacity-50"
                                               onClick={(e) => {
                                                 e.preventDefault();
                                                 handleQuantityChange(group.id, option.id, -1);
@@ -477,26 +448,24 @@ export function CustomerMenuItemOptionsDialog({
                                               disabled={currentQuantity <= 1}
                                               data-testid={`button-decrease-option-${option.id}`}
                                             >
-                                              <Minus className="h-3 w-3" />
-                                            </Button>
-                                            <span className="text-sm font-bold min-w-8 text-center" data-testid={`text-option-qty-${option.id}`}>
+                                              <Minus className="h-2.5 w-2.5" />
+                                            </button>
+                                            <span className="text-xs font-bold min-w-6 text-center" data-testid={`text-option-qty-${option.id}`}>
                                               {currentQuantity}
                                             </span>
-                                            <Button
-                                              variant="outline"
-                                              size="icon"
-                                              className="h-7 w-7"
+                                            <button
+                                              className="h-6 w-6 rounded-full border border-gray-300 hover:bg-gray-100 flex items-center justify-center transition-colors"
                                               onClick={(e) => {
                                                 e.preventDefault();
                                                 handleQuantityChange(group.id, option.id, 1);
                                               }}
                                               data-testid={`button-increase-option-${option.id}`}
                                             >
-                                              <Plus className="h-3 w-3" />
-                                            </Button>
+                                              <Plus className="h-2.5 w-2.5" />
+                                            </button>
                                           </div>
                                           {parseFloat(option.priceAdjustment) !== 0 && currentQuantity > 1 && (
-                                            <span className="text-xs text-gray-500 ml-auto">
+                                            <span className="text-[10px] text-gray-500 ml-auto">
                                               = {formatKwanza(parseFloat(option.priceAdjustment) * currentQuantity)}
                                             </span>
                                           )}
@@ -517,15 +486,15 @@ export function CustomerMenuItemOptionsDialog({
           </ScrollArea>
 
           {/* Footer */}
-          <div className="border-t border-gray-200 bg-white/80 backdrop-blur-sm px-6 sm:px-8 py-5 space-y-4">
+          <div className="border-t border-gray-200 bg-white/80 backdrop-blur-sm px-4 sm:px-6 py-3 space-y-3">
             {!validation.valid && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-xl"
+                className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-lg"
               >
                 {validation.errors.map((error, idx) => (
-                  <div key={idx} className="flex items-start gap-2">
+                  <div key={idx} className="flex items-start gap-1">
                     <span className="text-red-500 font-bold">•</span>
                     <span>{error}</span>
                   </div>
@@ -534,25 +503,25 @@ export function CustomerMenuItemOptionsDialog({
             )}
 
             {/* Quantity Selector */}
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
-              <Label className="text-base font-semibold text-gray-900">Quantidade</Label>
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <Label className="text-sm font-semibold text-gray-900">Quantidade</Label>
+              <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-10 w-10 rounded-full border-gray-300 hover:bg-gray-100"
+                  className="rounded-full"
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   data-testid="button-decrease-quantity"
                 >
                   <Minus className="h-4 w-4" />
                 </Button>
-                <span className="w-12 text-center text-lg font-bold text-gray-900" data-testid="text-quantity">
+                <span className="w-8 text-center text-base font-bold text-gray-900" data-testid="text-quantity">
                   {quantity}
                 </span>
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-10 w-10 rounded-full border-gray-300 hover:bg-gray-100"
+                  className="rounded-full"
                   onClick={() => setQuantity(quantity + 1)}
                   data-testid="button-increase-quantity"
                 >
@@ -562,21 +531,21 @@ export function CustomerMenuItemOptionsDialog({
             </div>
 
             {/* Total and Add Button */}
-            <div className="flex items-center gap-3">
-              <div className="flex-1 bg-gradient-to-br from-gray-900 to-gray-800 text-white p-4 rounded-xl shadow-md">
-                <div className="text-xs font-medium text-white/70 mb-1">Total</div>
-                <div className="text-2xl font-bold" data-testid="text-total-price">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 bg-gradient-to-br from-gray-900 to-gray-800 text-white p-3 rounded-lg shadow-sm">
+                <div className="text-[10px] font-medium text-white/70">Total</div>
+                <div className="text-lg font-bold" data-testid="text-total-price">
                   {formatKwanza(calculateTotal())}
                 </div>
               </div>
               <Button
-                size="lg"
-                className="flex-1 h-auto py-4 bg-gray-900 hover:bg-gray-800 text-white rounded-xl shadow-lg hover:shadow-xl transition-all text-base font-bold"
+                size="default"
+                className="flex-1 h-auto py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-lg shadow-md transition-all text-sm font-bold"
                 onClick={handleAddToCart}
                 disabled={!validation.valid}
                 data-testid="button-add-to-cart"
               >
-                <ShoppingCart className="h-5 w-5 mr-2" />
+                <ShoppingCart className="h-4 w-4 mr-1.5" />
                 Adicionar ({quantity})
               </Button>
             </div>

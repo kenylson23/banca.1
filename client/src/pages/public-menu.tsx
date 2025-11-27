@@ -714,12 +714,12 @@ export default function PublicMenu() {
                     </AnimatePresence>
                   </button>
                 </SheetTrigger>
-                <SheetContent side="rightCompact" className="flex flex-col p-0 bg-white max-h-[85vh]">
+                <SheetContent side="rightCompact" className="flex flex-col p-0 bg-white max-h-[85vh] [&>button]:hidden">
                   {/* Header com indicador de etapas */}
                   <div className="p-3 bg-white border-b border-gray-100 flex-shrink-0">
                     <SheetHeader>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1">
                           <div className="w-7 h-7 rounded-full bg-gray-900 flex items-center justify-center">
                             <ShoppingBag className="h-3.5 w-3.5 text-white" />
                           </div>
@@ -732,11 +732,14 @@ export default function PublicMenu() {
                             </p>
                           </div>
                         </div>
-                        {/* Indicador de etapas */}
-                        <div className="flex gap-1">
-                          <div className={`w-2 h-2 rounded-full ${checkoutStep === 1 ? 'bg-gray-900' : 'bg-gray-300'}`} />
-                          <div className={`w-2 h-2 rounded-full ${checkoutStep === 2 ? 'bg-gray-900' : 'bg-gray-300'}`} />
-                        </div>
+                        {/* Close Button */}
+                        <button
+                          onClick={() => setIsCartOpen(false)}
+                          className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                          data-testid="button-close-cart"
+                        >
+                          <X className="h-4 w-4 text-gray-600" />
+                        </button>
                       </div>
                     </SheetHeader>
                   </div>
