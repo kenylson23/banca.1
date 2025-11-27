@@ -39,6 +39,7 @@ interface MenuItemOptionsDialogProps {
 interface OptionGroupFormData {
   id?: string;
   name: string;
+  unit?: string | null;
   type: "single" | "multiple";
   isRequired: number;
   minSelections: number;
@@ -68,6 +69,7 @@ export function MenuItemOptionsDialog({ menuItemId, menuItemName }: MenuItemOpti
 
   const [groupForm, setGroupForm] = useState<OptionGroupFormData>({
     name: "",
+    unit: "",
     type: "single",
     isRequired: 0,
     minSelections: 0,
@@ -183,6 +185,7 @@ export function MenuItemOptionsDialog({ menuItemId, menuItemName }: MenuItemOpti
   const resetGroupForm = () => {
     setGroupForm({
       name: "",
+      unit: "",
       type: "single",
       isRequired: 0,
       minSelections: 0,
@@ -206,6 +209,7 @@ export function MenuItemOptionsDialog({ menuItemId, menuItemName }: MenuItemOpti
     setGroupForm({
       id: group.id,
       name: group.name,
+      unit: group.unit || "",
       type: group.type,
       isRequired: group.isRequired,
       minSelections: group.minSelections,
@@ -299,10 +303,15 @@ export function MenuItemOptionsDialog({ menuItemId, menuItemName }: MenuItemOpti
               <div className="space-y-4">
                 {optionGroups.map((group) => (
                   <Card key={group.id}>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <div className="flex items-center gap-2">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 gap-2 pb-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <GripVertical className="h-4 w-4 text-muted-foreground" />
                         <CardTitle className="text-base">{group.name}</CardTitle>
+                        {group.unit && (
+                          <Badge variant="outline" className="text-xs">
+                            {group.unit}
+                          </Badge>
+                        )}
                         <Badge variant={group.type === "single" ? "default" : "secondary"}>
                           {group.type === "single" ? "Escolha Única" : "Múltipla Escolha"}
                         </Badge>
@@ -436,6 +445,20 @@ export function MenuItemOptionsDialog({ menuItemId, menuItemName }: MenuItemOpti
                 onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
                 data-testid="input-group-name"
               />
+            </div>
+
+            <div>
+              <Label htmlFor="group-unit">Unidade de Medida (opcional)</Label>
+              <Input
+                id="group-unit"
+                placeholder="Ex: g, ml, un, kg, porção"
+                value={groupForm.unit || ""}
+                onChange={(e) => setGroupForm({ ...groupForm, unit: e.target.value || null })}
+                data-testid="input-group-unit"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Define a unidade para as opções deste grupo (ex: "g" para gramas)
+              </p>
             </div>
 
             <div>

@@ -1079,6 +1079,7 @@ export const optionGroups = pgTable("option_groups", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   menuItemId: varchar("menu_item_id").notNull().references(() => menuItems.id, { onDelete: 'cascade' }),
   name: varchar("name", { length: 200 }).notNull(), // Ex: "Tamanho", "Acompanhamentos"
+  unit: varchar("unit", { length: 50 }), // Ex: "g", "ml", "un", "kg" - Unidade de medida das opções
   type: optionGroupTypeEnum("type").notNull().default('single'), // single = escolha única, multiple = múltipla escolha
   isRequired: integer("is_required").notNull().default(0), // 0 = opcional, 1 = obrigatório
   minSelections: integer("min_selections").notNull().default(0), // Mínimo de opções a escolher
@@ -1093,6 +1094,7 @@ export const insertOptionGroupSchema = createInsertSchema(optionGroups).omit({
   createdAt: true,
 }).extend({
   name: z.string().min(1, "Nome do grupo é obrigatório"),
+  unit: z.string().max(50, "Unidade muito longa").nullable().optional(),
   type: z.enum(['single', 'multiple']).default('single'),
   isRequired: z.number().min(0).max(1).default(0),
   minSelections: z.number().min(0).default(0),
@@ -1104,6 +1106,8 @@ export const updateOptionGroupSchema = createInsertSchema(optionGroups).omit({
   id: true,
   menuItemId: true,
   createdAt: true,
+}).extend({
+  unit: z.string().max(50, "Unidade muito longa").nullable().optional(),
 }).partial();
 
 export type InsertOptionGroup = z.infer<typeof insertOptionGroupSchema>;

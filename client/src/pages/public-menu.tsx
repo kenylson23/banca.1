@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { useRoute } from 'wouter';
+import { useRoute, Link } from 'wouter';
 import { useCart } from '@/contexts/CartContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ import {
   ShoppingCart, Plus, Minus, Trash2, Bike, ShoppingBag, Search, 
   MapPin, Phone, Utensils, ArrowRight, UserPlus, Gift, Award, Star,
   Bell, Heart, Map, Clock, User, Home, ChevronRight, ChevronLeft, ChevronDown, Package, X,
-  CheckCircle, Tag, Receipt
+  CheckCircle, Tag, Receipt, ClipboardList, MessageCircle
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1221,30 +1221,62 @@ export default function PublicMenu() {
 
       {/* Main Content */}
       <main className="pt-44 px-4">
-        {/* Restaurant Info */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-xl font-bold text-gray-900">{restaurant.name}</h1>
-            {restaurant.isOpen === 1 ? (
-              <Badge className="bg-green-100 text-green-700 border-0 text-xs">Aberto</Badge>
-            ) : (
-              <Badge className="bg-gray-100 text-gray-600 border-0 text-xs">Fechado</Badge>
+        {/* Restaurant Info Card */}
+        <div className="mb-6 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+          <div className="flex items-start gap-4">
+            {restaurant.logoUrl && (
+              <img 
+                src={restaurant.logoUrl} 
+                alt={restaurant.name}
+                className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-100"
+              />
             )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <h1 className="text-lg font-bold text-gray-900">{restaurant.name}</h1>
+                {restaurant.isOpen === 1 ? (
+                  <Badge className="bg-green-100 text-green-700 border-0 text-[10px] font-medium">Aberto</Badge>
+                ) : (
+                  <Badge className="bg-red-100 text-red-600 border-0 text-[10px] font-medium">Fechado</Badge>
+                )}
+              </div>
+              {restaurant.description && (
+                <p className="text-xs text-gray-500 line-clamp-2 mb-2">{restaurant.description}</p>
+              )}
+              <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                {restaurant.businessHours && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5 text-gray-400" />
+                    {restaurant.businessHours}
+                  </span>
+                )}
+                {restaurant.phone && (
+                  <span className="flex items-center gap-1">
+                    <Phone className="h-3.5 w-3.5 text-gray-400" />
+                    {restaurant.phone}
+                  </span>
+                )}
+                {restaurant.address && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5 text-gray-400" />
+                    <span className="line-clamp-1">{restaurant.address}</span>
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-          {(restaurant.businessHours || restaurant.phone) && (
-            <div className="flex items-center gap-4 text-sm text-gray-500">
-              {restaurant.businessHours && (
-                <span className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
-                  {restaurant.businessHours}
-                </span>
-              )}
-              {restaurant.phone && (
-                <span className="flex items-center gap-1">
-                  <Phone className="h-4 w-4" />
-                  {restaurant.phone}
-                </span>
-              )}
+          {(restaurant.whatsappNumber || restaurant.phone) && (
+            <div className="mt-3 pt-3 border-t border-gray-100 flex gap-2">
+              <a
+                href={`https://wa.me/${(restaurant.whatsappNumber || restaurant.phone || '').replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 h-9 bg-[#25D366] hover:bg-[#20BD5A] text-white text-xs font-medium rounded-lg transition-colors"
+                data-testid="button-whatsapp-contact"
+              >
+                <SiWhatsapp className="h-4 w-4" />
+                Falar com Atendimento
+              </a>
             </div>
           )}
         </div>
@@ -1252,59 +1284,62 @@ export default function PublicMenu() {
         {/* Categories Section */}
         {categories.length > 0 && (
           <section className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900">Cardápio</h2>
-              <button className="text-sm text-gray-500 font-medium" data-testid="button-see-all-categories">
-                Ver tudo
-              </button>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-bold text-gray-900">Categorias</h2>
+              <span className="text-xs text-gray-400">{categories.length} categorias</span>
             </div>
             <ScrollArea className="w-full">
-              <div className="flex gap-4 pb-2">
+              <div className="flex gap-3 pb-2">
                 <button
                   onClick={() => setSelectedCategory('all')}
-                  className={`flex flex-col items-center gap-2 min-w-[72px] transition-all ${
-                    selectedCategory === 'all' ? 'opacity-100' : 'opacity-60'
-                  }`}
+                  className="flex flex-col items-center gap-1.5 min-w-[70px] transition-all"
                   data-testid="category-all"
                 >
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
                     selectedCategory === 'all' 
-                      ? 'bg-gray-900 shadow-lg' 
-                      : 'bg-white border border-gray-100 shadow-sm'
+                      ? 'bg-gray-900 shadow-lg scale-105' 
+                      : 'bg-white border border-gray-200 shadow-sm hover:shadow-md'
                   }`}>
-                    <Utensils className={`h-6 w-6 ${selectedCategory === 'all' ? 'text-white' : 'text-gray-600'}`} />
+                    <Utensils className={`h-5 w-5 ${selectedCategory === 'all' ? 'text-white' : 'text-gray-600'}`} />
                   </div>
-                  <span className={`text-xs font-medium ${selectedCategory === 'all' ? 'text-gray-900' : 'text-gray-600'}`}>
+                  <span className={`text-[10px] font-medium ${selectedCategory === 'all' ? 'text-gray-900' : 'text-gray-500'}`}>
                     Todos
                   </span>
+                  {selectedCategory === 'all' && (
+                    <div className="w-1.5 h-1.5 rounded-full bg-gray-900" />
+                  )}
                 </button>
                 {categories.map((category) => {
                     const categoryImage = categoryImages[category.id] || category.imageUrl;
+                    const itemCount = menuItems?.filter(item => item.isVisible === 1 && String(item.categoryId) === category.id).length || 0;
                     return (
                       <button
                         key={category.id}
                         onClick={() => setSelectedCategory(category.id)}
-                        className={`flex flex-col items-center gap-2 min-w-[72px] transition-all ${
-                          selectedCategory === category.id ? 'opacity-100' : 'opacity-60'
-                        }`}
+                        className="flex flex-col items-center gap-1.5 min-w-[70px] transition-all"
                         data-testid={`category-${category.id}`}
                       >
-                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all overflow-hidden ${
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all overflow-hidden ${
                           selectedCategory === category.id 
-                            ? 'ring-2 ring-gray-900 ring-offset-2 shadow-lg' 
-                            : 'bg-white border border-gray-100 shadow-sm'
+                            ? 'ring-2 ring-gray-900 ring-offset-2 shadow-lg scale-105' 
+                            : 'bg-white border border-gray-200 shadow-sm hover:shadow-md'
                         }`}>
                           {categoryImage ? (
                             <img src={categoryImage} alt={category.name} className="w-full h-full object-cover" />
                           ) : (
-                            <Utensils className={`h-6 w-6 ${selectedCategory === category.id ? 'text-gray-900' : 'text-gray-600'}`} />
+                            <Utensils className={`h-5 w-5 ${selectedCategory === category.id ? 'text-gray-900' : 'text-gray-500'}`} />
                           )}
                         </div>
-                        <span className={`text-xs font-medium text-center line-clamp-2 max-w-[72px] ${
-                          selectedCategory === category.id ? 'text-gray-900' : 'text-gray-600'
+                        <span className={`text-[10px] font-medium text-center line-clamp-1 max-w-[70px] ${
+                          selectedCategory === category.id ? 'text-gray-900' : 'text-gray-500'
                         }`}>
                           {category.name}
                         </span>
+                        {selectedCategory === category.id ? (
+                          <div className="w-1.5 h-1.5 rounded-full bg-gray-900" />
+                        ) : (
+                          <span className="text-[8px] text-gray-400">{itemCount} itens</span>
+                        )}
                       </button>
                     );
                 })}
@@ -1667,9 +1702,9 @@ export default function PublicMenu() {
         </section>
 
         {/* WhatsApp Floating Button */}
-        {restaurant.whatsappNumber && (
+        {(restaurant.whatsappNumber || restaurant.phone) && (
           <a
-            href={`https://wa.me/${restaurant.whatsappNumber.replace(/\D/g, '')}`}
+            href={`https://wa.me/${(restaurant.whatsappNumber || restaurant.phone || '').replace(/\D/g, '')}`}
             target="_blank"
             rel="noopener noreferrer"
             className="fixed bottom-28 right-4 w-14 h-14 bg-[#25D366] rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow z-40"
@@ -1684,58 +1719,67 @@ export default function PublicMenu() {
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50 safe-area-inset-bottom">
         <div className="flex items-center justify-around py-3 px-4">
           <button 
-            className={`flex flex-col items-center gap-1 min-w-[56px] ${activeNav === 'home' ? 'text-gray-900' : 'text-gray-400'}`}
+            className={`flex flex-col items-center gap-1 min-w-[48px] ${activeNav === 'home' ? 'text-gray-900' : 'text-gray-400'}`}
             onClick={() => {
               setActiveNav('home');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             data-testid="nav-home"
           >
-            <Home className="h-6 w-6" />
-            <span className="text-[10px] font-medium">Home</span>
+            <Home className="h-5 w-5" />
+            <span className="text-[9px] font-medium">Home</span>
           </button>
           <button 
-            className={`flex flex-col items-center gap-1 min-w-[56px] relative ${activeNav === 'favorites' ? 'text-gray-900' : 'text-gray-400'}`}
+            className={`flex flex-col items-center gap-1 min-w-[48px] relative ${activeNav === 'favorites' ? 'text-gray-900' : 'text-gray-400'}`}
             onClick={() => {
               setActiveNav('favorites');
               setIsFavoritesDialogOpen(true);
             }}
             data-testid="nav-favorites"
           >
-            <Heart className="h-6 w-6" />
+            <Heart className="h-5 w-5" />
             {favorites.length > 0 && (
-              <span className="absolute -top-1 right-1/2 translate-x-4 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+              <span className="absolute -top-1 right-1/2 translate-x-3 bg-red-500 text-white text-[8px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
                 {favorites.length}
               </span>
             )}
-            <span className="text-[10px] font-medium">Favoritos</span>
+            <span className="text-[9px] font-medium">Favoritos</span>
           </button>
+          <Link 
+            href={`/r/${slug}/rastrear`}
+            className={`flex flex-col items-center gap-1 min-w-[48px] ${activeNav === 'track' ? 'text-gray-900' : 'text-gray-400'}`}
+            onClick={() => setActiveNav('track')}
+            data-testid="nav-track-order"
+          >
+            <ClipboardList className="h-5 w-5" />
+            <span className="text-[9px] font-medium">Rastrear</span>
+          </Link>
           <button 
-            className={`flex flex-col items-center gap-1 min-w-[56px] relative ${activeNav === 'history' ? 'text-gray-900' : 'text-gray-400'}`}
+            className={`flex flex-col items-center gap-1 min-w-[48px] relative ${activeNav === 'history' ? 'text-gray-900' : 'text-gray-400'}`}
             onClick={() => {
               setActiveNav('history');
               setIsHistoryDialogOpen(true);
             }}
             data-testid="nav-history"
           >
-            <Clock className="h-6 w-6" />
+            <Clock className="h-5 w-5" />
             {orderHistory.length > 0 && (
-              <span className="absolute -top-1 right-1/2 translate-x-4 bg-gray-900 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+              <span className="absolute -top-1 right-1/2 translate-x-3 bg-gray-900 text-white text-[8px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
                 {orderHistory.length}
               </span>
             )}
-            <span className="text-[10px] font-medium">Histórico</span>
+            <span className="text-[9px] font-medium">Histórico</span>
           </button>
           <button 
-            className={`flex flex-col items-center gap-1 min-w-[56px] ${activeNav === 'profile' ? 'text-gray-900' : 'text-gray-400'}`}
+            className={`flex flex-col items-center gap-1 min-w-[48px] ${activeNav === 'profile' ? 'text-gray-900' : 'text-gray-400'}`}
             onClick={() => {
               setActiveNav('profile');
               setIsRegisterDialogOpen(true);
             }}
             data-testid="nav-profile"
           >
-            <User className="h-6 w-6" />
-            <span className="text-[10px] font-medium">Perfil</span>
+            <User className="h-5 w-5" />
+            <span className="text-[9px] font-medium">Perfil</span>
           </button>
         </div>
       </nav>
