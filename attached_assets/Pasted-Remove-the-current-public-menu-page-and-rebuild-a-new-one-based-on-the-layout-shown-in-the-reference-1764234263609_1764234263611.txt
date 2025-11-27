@@ -1,0 +1,99 @@
+Remove the current public menu page and rebuild a new one based on the layout shown in the reference image I uploaded.
+Do not use the system’s primary colors. Create a clean, modern, white-based UI with neutral accents (light gray, dark gray, soft black). Avoid blue or any existing system brand colors.
+
+Tasks to Execute
+1. Remove the current public menu page
+
+Delete or fully replace the existing UI structure.
+
+Remove all old components, styles, and layout logic that belonged to the previous menu.
+
+2. Rebuild the page following this layout structure (based on the image)
+A) Header (top section)
+
+Clean white background
+
+Left side: location icon + delivery address
+
+Center: search bar with rounded corners
+
+Right side: notification + cart + profile icons
+
+Light patterned strip at the top (optional — use a neutral pattern only)
+
+B) Horizontal category menu
+
+Scrollable horizontal list with rounded category buttons
+
+Each button has an icon/image on top and a label below
+
+White background / light gray separators
+
+Very minimal shadows
+
+C) Promo section
+
+3 promotional cards displayed horizontally (scrollable on small screens)
+
+Rounded corners (20–24px)
+
+Vertical gradient from light gray → dark gray (NO red tones, NO blue)
+
+Title + discount info + action button (“Shop Now”)
+
+Cards must be responsive
+
+D) Special offers / product cards
+
+Grid or horizontal scroll list
+
+Each product must be inside a rounded white card with a thin light gray border
+
+Product image on top, label below, small icon (wishlist) on the right
+
+Background must remain neutral (white/light gray)
+
+E) Bottom navigation bar
+
+White background
+
+5 icons: Home, Favorites, Map, History, Profile
+
+Soft gray active indication (no primary system colors)
+
+3. Color palette requirements
+
+Use only:
+
+White (#FFFFFF)
+
+Light Gray (#F5F5F5)
+
+Medium Gray (#D9D9D9)
+
+Dark Gray (#555555)
+
+Black (#000000)
+(No colors from the system’s design tokens; no blue, red, or brand colors)
+
+4. Behavior & Functionality
+
+Fully responsive layout
+
+Smooth spacing, large padding
+
+Rounded corners everywhere (16–24px)
+
+Minimal shadows for depth
+
+Keep all text modern and clean
+
+Reuse existing backend data; only replace the interface
+
+5. Final result
+
+Produce a new public menu page visually similar to the reference image but using:
+✔ cores neutras
+✔ estilo clean premium
+✔ layout mais moderno
+✔ experiência mais profissional
