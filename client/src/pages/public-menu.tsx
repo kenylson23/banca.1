@@ -1540,7 +1540,10 @@ export default function PublicMenu() {
                               <Button
                                 size="sm"
                                 className="h-7 px-3 text-xs bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg"
-                                onClick={(e) => handleQuickAddToCart(item, e)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAddMenuItem(item);
+                                }}
                                 data-testid={`button-add-${item.id}`}
                               >
                                 <Plus className="h-3 w-3 mr-1" />
@@ -1633,7 +1636,10 @@ export default function PublicMenu() {
                           <Button
                             size="sm"
                             className="h-7 px-3 text-xs bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg"
-                            onClick={(e) => handleQuickAddToCart(item, e)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAddMenuItem(item);
+                            }}
                             data-testid={`button-add-${item.id}`}
                           >
                             <Plus className="h-3 w-3 mr-1" />
