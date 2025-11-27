@@ -1233,24 +1233,6 @@ export default function PublicMenu() {
             <span className="text-[10px] font-medium">Favoritos</span>
           </button>
           <button 
-            className={`flex flex-col items-center gap-1 min-w-[56px] ${activeNav === 'map' ? 'text-gray-900' : 'text-gray-400'}`}
-            onClick={() => {
-              setActiveNav('map');
-              if (restaurant?.address) {
-                window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(restaurant.address)}`, '_blank');
-              } else {
-                toast({
-                  title: 'Endereço não disponível',
-                  description: 'O restaurante não informou seu endereço.',
-                });
-              }
-            }}
-            data-testid="nav-map"
-          >
-            <Map className="h-6 w-6" />
-            <span className="text-[10px] font-medium">Mapa</span>
-          </button>
-          <button 
             className={`flex flex-col items-center gap-1 min-w-[56px] relative ${activeNav === 'history' ? 'text-gray-900' : 'text-gray-400'}`}
             onClick={() => {
               setActiveNav('history');
