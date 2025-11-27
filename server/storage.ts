@@ -1501,7 +1501,15 @@ export class DatabaseStorage implements IStorage {
 
     const items = results.map((row: { menu_items: MenuItem; categories: Category | null }) => ({
       ...row.menu_items,
-      category: row.categories!,
+      category: row.categories || {
+        id: '',
+        restaurantId: row.menu_items.restaurantId,
+        branchId: null,
+        name: 'Sem Categoria',
+        description: null,
+        displayOrder: 0,
+        isActive: true,
+      },
     }));
 
     // Buscar option groups para cada item do menu
