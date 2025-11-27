@@ -1696,7 +1696,7 @@ export default function PublicMenu() {
                   value={registerFormData.name}
                   onChange={(e) => setRegisterFormData({ ...registerFormData, name: e.target.value })}
                   required
-                  className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400"
+                  className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 text-gray-900"
                   data-testid="input-register-name"
                 />
               </div>
@@ -1711,7 +1711,7 @@ export default function PublicMenu() {
                     placeholder="+244 900 000"
                     value={registerFormData.phone}
                     onChange={(e) => setRegisterFormData({ ...registerFormData, phone: e.target.value })}
-                    className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400"
+                    className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 text-gray-900"
                     data-testid="input-register-phone"
                   />
                 </div>
@@ -1724,7 +1724,7 @@ export default function PublicMenu() {
                     placeholder="Documento"
                     value={registerFormData.cpf}
                     onChange={(e) => setRegisterFormData({ ...registerFormData, cpf: e.target.value })}
-                    className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400"
+                    className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 text-gray-900"
                     data-testid="input-register-cpf"
                   />
                 </div>
@@ -1739,7 +1739,7 @@ export default function PublicMenu() {
                   placeholder="seuemail@exemplo.com"
                   value={registerFormData.email}
                   onChange={(e) => setRegisterFormData({ ...registerFormData, email: e.target.value })}
-                  className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400"
+                  className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 text-gray-900"
                   data-testid="input-register-email"
                 />
               </div>
@@ -1753,7 +1753,7 @@ export default function PublicMenu() {
                   value={registerFormData.address}
                   onChange={(e) => setRegisterFormData({ ...registerFormData, address: e.target.value })}
                   rows={2}
-                  className="resize-none rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 text-base"
+                  className="resize-none rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 text-base text-gray-900"
                   data-testid="input-register-address"
                 />
               </div>
