@@ -23,10 +23,16 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { formatKwanza } from '@/lib/formatters';
-import type { MenuItem, Category, Order, OrderItem, Restaurant } from '@shared/schema';
+import type { MenuItem, Category, Order, OrderItem, Restaurant, OptionGroup, Option } from '@shared/schema';
 import type { SelectedOption } from '@/contexts/CartContext';
 import { CustomerMenuItemOptionsDialog } from '@/components/CustomerMenuItemOptionsDialog';
 import { ShareOrderDialog } from '@/components/ShareOrderDialog';
+import { Heart } from 'lucide-react';
+
+type MenuItemWithOptions = MenuItem & { 
+  category: Category; 
+  optionGroups?: Array<OptionGroup & { options: Option[] }>;
+};
 
 // Helper para converter hex para rgba válido
 const hexToRgba = (hex: string, alpha: number = 1): string => {
@@ -59,7 +65,7 @@ export default function CustomerMenu() {
   const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItem | null>(null);
+  const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItemWithOptions | null>(null);
   const [isOptionsDialogOpen, setIsOptionsDialogOpen] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
@@ -88,7 +94,7 @@ export default function CustomerMenu() {
   const tableId = currentTable?.id;
   const restaurantId = currentTable?.restaurantId;
 
-  const { data: menuItems, isLoading: menuLoading } = useQuery<Array<MenuItem & { category: Category }>>({
+  const { data: menuItems, isLoading: menuLoading } = useQuery<Array<MenuItemWithOptions>>({
     queryKey: ['/api/public/menu-items', restaurantId],
     enabled: !!restaurantId,
   });
@@ -242,13 +248,18 @@ export default function CustomerMenu() {
     }
   };
 
-  const handleAddMenuItem = (item: MenuItem) => {
+  const handleAddMenuItem = (item: MenuItemWithOptions) => {
     setSelectedMenuItem(item);
     setIsOptionsDialogOpen(true);
   };
 
-  const handleQuickAddToCart = (menuItem: MenuItem, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleQuickAddToCart = (menuItem: MenuItemWithOptions) => {
+    if (menuItem.optionGroups && menuItem.optionGroups.length > 0) {
+      setSelectedMenuItem(menuItem);
+      setIsOptionsDialogOpen(true);
+      return;
+    }
+    
     addItem(menuItem, []);
     toast({
       title: 'Adicionado',
@@ -994,7 +1005,7 @@ export default function CustomerMenu() {
             </div>
           )}
 
-          {/* Menu Items Grid - Cards Modernos */}
+          {/* Menu Items - Grouped by Category */}
           {filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-gray-400">
               <Search className="h-16 w-16 mb-4 opacity-20" />
@@ -1002,117 +1013,119 @@ export default function CustomerMenu() {
               <p className="text-sm mt-1">Tente buscar por outro termo</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 pb-8">
-              <AnimatePresence>
-                {filteredItems.map((item, index) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ delay: index * 0.03 }}
-                  >
-                    <Card 
-                      className="group overflow-hidden hover:shadow-2xl transition-all duration-300 cursor-pointer border-gray-100 bg-white h-full relative"
-                      onClick={() => handleAddMenuItem(item)}
-                      data-testid={`menu-item-card-${item.id}`}
-                    >
-                      {/* Image Container with Overlay */}
-                      <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
-                        {item.imageUrl ? (
-                          <>
-                            <img 
-                              src={item.imageUrl} 
-                              alt={item.name}
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                            />
-                            {/* Gradient Overlay */}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                          </>
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Utensils className="h-16 w-16 text-gray-300" />
-                          </div>
-                        )}
-                        
-                        {/* Category Badge */}
-                        {item.category && (
-                          <Badge 
-                            variant="secondary" 
-                            className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm text-gray-700 border-0 shadow-sm"
-                          >
-                            {item.category.name}
-                          </Badge>
-                        )}
-                        
-                        {/* Quick Add Button */}
-                        <motion.div
-                          initial={{ scale: 0, opacity: 0 }}
-                          whileHover={{ scale: 1, opacity: 1 }}
-                          className="absolute top-3 right-3"
-                        >
-                          <Button
-                            size="icon"
-                            className="h-10 w-10 rounded-full bg-white text-gray-900 hover:bg-gray-50 shadow-lg group-hover:scale-100 scale-0 transition-transform duration-300"
-                            onClick={(e) => handleQuickAddToCart(item, e)}
-                            data-testid={`button-quick-add-${item.id}`}
-                          >
-                            <Plus className="h-5 w-5" />
-                          </Button>
-                        </motion.div>
+            <div className="space-y-8 pb-8">
+              {categories
+                .filter(cat => selectedCategory === 'all' || cat.id === selectedCategory)
+                .map((category) => {
+                  const categoryItems = filteredItems.filter(item => item.categoryId === category.id);
+                  if (categoryItems.length === 0) return null;
+                  
+                  return (
+                    <div key={category.id} className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-bold text-gray-900">{category.name}</h2>
+                        <span className="text-sm text-gray-500">Ver tudo</span>
                       </div>
-
-                      <CardContent className="p-4 sm:p-5">
-                        <div className="space-y-3">
-                          <div>
-                            <h3 className="font-bold text-base sm:text-lg text-gray-900 line-clamp-1 group-hover:text-gray-700 transition-colors" data-testid={`text-item-name-${item.id}`}>
-                              {item.name}
-                            </h3>
-                            {item.description && (
-                              <p className="text-sm text-gray-500 mt-1 line-clamp-2" data-testid={`text-item-description-${item.id}`}>
-                                {item.description}
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="flex items-center justify-between pt-2">
-                            <div className="flex flex-col">
-                              <span 
-                                className="text-2xl font-bold" 
-                                style={{ color: branding.accentColor }}
-                                data-testid={`text-item-price-${item.id}`}
+                      
+                      <div className="space-y-3">
+                        <AnimatePresence>
+                          {categoryItems.map((item, index) => (
+                            <motion.div
+                              key={item.id}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              transition={{ delay: index * 0.02 }}
+                            >
+                              <Card 
+                                className="group overflow-hidden hover:shadow-lg transition-all duration-300 border-gray-100 bg-white"
+                                data-testid={`menu-item-card-${item.id}`}
                               >
-                                {formatKwanza(item.price)}
-                              </span>
-                            </div>
-                            
-                            {item.isAvailable === 0 ? (
-                              <Badge variant="outline" className="border-red-200 text-red-600 text-xs">
-                                Indisponível
-                              </Badge>
-                            ) : (
-                              <Button
-                                size="icon"
-                                className="h-11 w-11 rounded-full text-white shadow-md hover:shadow-lg transition-all"
-                                style={{ 
-                                  backgroundColor: branding.primaryColor,
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAddMenuItem(item);
-                                }}
-                                data-testid={`button-add-${item.id}`}
-                              >
-                                <Plus className="h-5 w-5" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+                                <div className="flex items-center p-3 sm:p-4 gap-4">
+                                  <div 
+                                    className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 cursor-pointer"
+                                    onClick={() => handleAddMenuItem(item)}
+                                  >
+                                    {item.imageUrl ? (
+                                      <img 
+                                        src={item.imageUrl} 
+                                        alt={item.name}
+                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center">
+                                        <Utensils className="h-8 w-8 text-gray-300" />
+                                      </div>
+                                    )}
+                                    {item.optionGroups && item.optionGroups.length > 0 && (
+                                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent py-1">
+                                        <span className="text-[10px] text-white font-medium px-1.5">Personalizável</span>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div 
+                                        className="min-w-0 flex-1 cursor-pointer"
+                                        onClick={() => handleAddMenuItem(item)}
+                                      >
+                                        <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate" data-testid={`text-item-name-${item.id}`}>
+                                          {item.name}
+                                        </h3>
+                                        {item.description && (
+                                          <p className="text-xs sm:text-sm text-gray-500 mt-0.5 line-clamp-1" data-testid={`text-item-description-${item.id}`}>
+                                            {item.description}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-gray-400 hover:text-red-500 flex-shrink-0"
+                                        data-testid={`button-favorite-${item.id}`}
+                                      >
+                                        <Heart className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                    
+                                    <div className="flex items-center justify-between mt-2 gap-2">
+                                      <span 
+                                        className="text-base sm:text-lg font-bold cursor-pointer"
+                                        style={{ color: branding.primaryColor }}
+                                        onClick={() => handleAddMenuItem(item)}
+                                        data-testid={`text-item-price-${item.id}`}
+                                      >
+                                        {formatKwanza(item.price)}
+                                      </span>
+                                      
+                                      {item.isAvailable === 0 ? (
+                                        <Badge variant="outline" className="border-red-200 text-red-600 text-xs">
+                                          Indisponível
+                                        </Badge>
+                                      ) : (
+                                        <Button
+                                          size="sm"
+                                          className="h-8 px-4 text-white text-xs font-semibold rounded-full shadow-sm"
+                                          style={{ backgroundColor: branding.primaryColor }}
+                                          onClick={() => handleQuickAddToCart(item)}
+                                          data-testid={`button-add-${item.id}`}
+                                        >
+                                          <Plus className="h-3.5 w-3.5 mr-1" />
+                                          Adicionar
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </Card>
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           )}
         </div>
