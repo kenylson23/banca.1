@@ -187,6 +187,11 @@ export default function PublicMenu() {
   const [usePoints, setUsePoints] = useState(false);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
   
+  // Checkout wizard states
+  const [checkoutStep, setCheckoutStep] = useState(1);
+  const [isCouponExpanded, setIsCouponExpanded] = useState(false);
+  const [isPointsExpanded, setIsPointsExpanded] = useState(false);
+  
   const { toast } = useToast();
   
   const { favorites, toggleFavorite, isFavorite } = useFavorites(slug || '');
