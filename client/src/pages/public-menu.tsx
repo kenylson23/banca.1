@@ -5,20 +5,19 @@ import { useCart } from '@/contexts/CartContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { 
-  ShoppingCart, Plus, Minus, Trash2, Clock, Bike, ShoppingBag, Search, 
-  MapPin, Phone, X, ChevronLeft, ChevronRight, Utensils, Star, ArrowRight, UserPlus, Gift, Award
+  ShoppingCart, Plus, Trash2, Bike, ShoppingBag, Search, 
+  MapPin, Phone, Utensils, ArrowRight, UserPlus, Gift, Award, Star,
+  Bell, Heart, Map, Clock, User, Home, ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest } from '@/lib/queryClient';
@@ -32,7 +31,7 @@ import { SiWhatsapp } from 'react-icons/si';
 export default function PublicMenu() {
   const [, params] = useRoute('/r/:slug');
   const slug = params?.slug;
-  const { items, addItem, updateQuantity, removeItem, clearCart, getTotal, getItemCount } = useCart();
+  const { items, addItem, removeItem, clearCart, getTotal, getItemCount } = useCart();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [orderType, setOrderType] = useState<'delivery' | 'takeout'>('delivery');
   const [customerName, setCustomerName] = useState('');
@@ -45,6 +44,7 @@ export default function PublicMenu() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
+  const [activeNav, setActiveNav] = useState('home');
   const [registerFormData, setRegisterFormData] = useState({
     name: '',
     phone: '',
@@ -120,6 +120,17 @@ export default function PublicMenu() {
       items: categoryItems
     };
   }).filter(group => group.items.length > 0);
+
+  const specialOfferItems = menuItems
+    ?.filter(item => item.isVisible === 1)
+    ?.filter(item => {
+      const itemPrice = typeof item.price === 'string' ? parseFloat(item.price) : item.price;
+      const itemOriginalPrice = item.originalPrice 
+        ? (typeof item.originalPrice === 'string' ? parseFloat(item.originalPrice) : item.originalPrice) 
+        : null;
+      return itemOriginalPrice && itemOriginalPrice > itemPrice;
+    })
+    .slice(0, 6) || [];
 
   const registerCustomerMutation = useMutation({
     mutationFn: async (customerData: typeof registerFormData) => {
@@ -306,46 +317,32 @@ export default function PublicMenu() {
 
   if (!slug) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-background">
-        <p className="text-foreground text-lg font-medium">Link inválido</p>
-        <p className="text-sm text-muted-foreground">Verifique o link e tente novamente</p>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-white">
+        <p className="text-gray-900 text-lg font-medium">Link inválido</p>
+        <p className="text-sm text-gray-500">Verifique o link e tente novamente</p>
       </div>
     );
   }
 
   if (menuLoading || restaurantLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-            <div className="flex items-center justify-between">
-              <Skeleton className="h-8 w-32" />
-              <Skeleton className="h-10 w-10 rounded-full" />
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-          <Skeleton className="h-96 w-full rounded-2xl" />
-          <div className="space-y-4">
-            <Skeleton className="h-10 w-full max-w-md" />
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Skeleton key={i} className="h-9 w-24 rounded-full flex-shrink-0" />
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="min-h-screen bg-white">
+        <div className="p-4 space-y-4">
+          <Skeleton className="h-12 w-full rounded-2xl" />
+          <Skeleton className="h-12 w-full rounded-2xl" />
+          <div className="flex gap-3 overflow-x-auto pb-2">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Card key={i} className="overflow-hidden">
-                <Skeleton className="h-48 w-full" />
-                <div className="p-4 space-y-2">
-                  <Skeleton className="h-5 w-full" />
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-6 w-20" />
-                </div>
-              </Card>
+              <Skeleton key={i} className="h-20 w-16 rounded-2xl flex-shrink-0" />
+            ))}
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-40 w-72 rounded-3xl flex-shrink-0" />
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-56 w-full rounded-2xl" />
             ))}
           </div>
         </div>
@@ -355,102 +352,87 @@ export default function PublicMenu() {
 
   if (!restaurant) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-background">
-        <p className="text-foreground text-lg font-medium">Restaurante não encontrado</p>
-        <p className="text-sm text-muted-foreground">Verifique o link e tente novamente</p>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-white">
+        <p className="text-gray-900 text-lg font-medium">Restaurante não encontrado</p>
+        <p className="text-sm text-gray-500">Verifique o link e tente novamente</p>
       </div>
     );
   }
 
+  const promoCards = [
+    { discount: '35%', subtitle: 'para primeira compra', period: '10-20 Jun 2025', bgFrom: '#555555', bgTo: '#333333' },
+    { discount: '25%', subtitle: 'compra mínima 10.000Kz', period: '25-29 Jun 2025', bgFrom: '#666666', bgTo: '#444444' },
+    { discount: '15%', subtitle: 'em itens selecionados', period: '1-5 Jul 2025', bgFrom: '#777777', bgTo: '#555555' },
+  ];
+
   return (
-    <div className="min-h-screen public-menu-theme" style={{ backgroundColor: 'hsl(var(--public-menu-bg))' }}>
-      {/* Fixed Header */}
-      <header className="fixed top-0 left-0 right-0 backdrop-blur-md border-b border-orange-100 z-50 bg-white/95 dark:bg-gray-900/95 dark:border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              {restaurant.logoUrl && (
-                <Avatar className="h-10 w-10 border-2" style={{ borderColor: 'hsl(var(--public-menu-orange))' }}>
-                  <AvatarImage src={restaurant.logoUrl} alt={restaurant.name} />
-                  <AvatarFallback className="text-white font-bold" style={{ backgroundColor: 'hsl(var(--public-menu-orange))' }}>
-                    {restaurant.name.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
-              )}
-              <h1 className="text-xl font-bold" style={{ color: 'hsl(var(--public-menu-orange-dark))' }}>{restaurant.name}</h1>
-            </div>
+    <div className="min-h-screen bg-[#F5F5F5] pb-24">
+      {/* Decorative Pattern Header */}
+      <div 
+        className="fixed top-0 left-0 right-0 h-8 z-50"
+        style={{
+          background: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23D9D9D9' fill-opacity='0.3'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          backgroundColor: '#FAFAFA'
+        }}
+      />
 
+      {/* Main Header */}
+      <header className="fixed top-8 left-0 right-0 bg-white z-40 shadow-sm">
+        <div className="px-4 py-3">
+          {/* Location Row */}
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="relative hidden sm:block">
-                <Input
-                  placeholder="Buscar..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-48 h-9 pr-8 border-orange-200 focus:border-orange-400 dark:border-gray-700"
-                  data-testid="input-search"
-                />
-                <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-400" />
+              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                <MapPin className="h-4 w-4 text-gray-600" />
               </div>
-
-              <div className="sm:hidden relative flex-1 max-w-[200px]">
-                <Input
-                  placeholder="Buscar..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-9 pr-8 border-orange-200 focus:border-orange-400 dark:border-gray-700"
-                  data-testid="input-search-header-mobile"
-                />
-                <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-400" />
+              <div>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide">Delivery para</p>
+                <p className="text-sm font-semibold text-gray-900 flex items-center gap-1">
+                  {restaurant.address || 'Seu endereço'}
+                  <ChevronRight className="h-3 w-3 text-gray-400" />
+                </p>
               </div>
-
-              {restaurant.whatsappNumber && (
-                <Button variant="ghost" size="icon" asChild data-testid="button-whatsapp" className="hover:bg-green-50 dark:hover:bg-green-900/20">
-                  <a
-                    href={`https://wa.me/${restaurant.whatsappNumber.replace(/\D/g, '')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <SiWhatsapp className="h-5 w-5 text-[#25D366]" />
-                  </a>
-                </Button>
-              )}
-              
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center hover:bg-gray-100 transition-colors"
+                data-testid="button-notifications"
+              >
+                <Bell className="h-5 w-5 text-gray-600" />
+              </button>
               <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
                 <SheetTrigger asChild>
-                  <Button 
-                    variant="ghost"
-                    size="icon"
-                    className="relative hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                  <button 
+                    className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center hover:bg-gray-100 transition-colors relative"
                     data-testid="button-open-cart"
                   >
-                    <ShoppingCart className="h-5 w-5" style={{ color: 'hsl(var(--public-menu-orange-dark))' }} />
+                    <ShoppingCart className="h-5 w-5 text-gray-600" />
                     <AnimatePresence>
                       {getItemCount() > 0 && (
                         <motion.div
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                           exit={{ scale: 0 }}
-                          className="absolute -top-1 -right-1 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
-                          style={{ backgroundColor: 'hsl(var(--public-menu-orange))' }}
+                          className="absolute -top-1 -right-1 bg-gray-900 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center"
                         >
                           {getItemCount()}
                         </motion.div>
                       )}
                     </AnimatePresence>
-                  </Button>
+                  </button>
                 </SheetTrigger>
-                <SheetContent className="w-full sm:max-w-md flex flex-col p-0">
-                  <div className="p-4 sm:p-6 pb-3 sm:pb-4 border-b bg-background">
+                <SheetContent className="w-full sm:max-w-md flex flex-col p-0 bg-white">
+                  <div className="p-6 pb-4 border-b border-gray-100">
                     <SheetHeader>
-                      <SheetTitle className="text-xl sm:text-2xl font-bold" data-testid="text-cart-title">Seu Pedido</SheetTitle>
+                      <SheetTitle className="text-xl font-bold text-gray-900" data-testid="text-cart-title">Seu Pedido</SheetTitle>
                     </SheetHeader>
                   </div>
 
-                  <ScrollArea className="flex-1 px-4 sm:px-6 py-3 sm:py-4">
+                  <ScrollArea className="flex-1 px-6 py-4">
                     {items.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
                         <ShoppingCart className="h-16 w-16 mb-4 opacity-20" />
-                        <p className="font-medium text-lg" data-testid="text-empty-cart">Seu carrinho está vazio</p>
+                        <p className="font-medium text-lg text-gray-600" data-testid="text-empty-cart">Seu carrinho está vazio</p>
                         <p className="text-sm mt-1">Adicione itens do cardápio</p>
                       </div>
                     ) : (
@@ -463,22 +445,22 @@ export default function PublicMenu() {
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -20 }}
                               transition={{ delay: index * 0.05 }}
-                              className="flex gap-3 items-start p-3 rounded-lg bg-muted/30 border"
+                              className="flex gap-3 items-start p-3 rounded-2xl bg-gray-50 border border-gray-100"
                               data-testid={`cart-item-${item.id}`}
                             >
                               {item.menuItem.imageUrl && (
                                 <img
                                   src={item.menuItem.imageUrl}
                                   alt={item.menuItem.name}
-                                  className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+                                  className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
                                 />
                               )}
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-bold text-base sm:text-lg mb-1 leading-tight">{item.menuItem.name}</h4>
+                                <h4 className="font-bold text-base text-gray-900 mb-1 leading-tight">{item.menuItem.name}</h4>
                                 {item.selectedOptions.length > 0 && (
                                   <div className="mb-2 space-y-0.5">
                                     {item.selectedOptions.map((opt, idx) => (
-                                      <p key={idx} className="text-xs sm:text-sm text-muted-foreground">
+                                      <p key={idx} className="text-xs text-gray-500">
                                         + {opt.optionName}
                                         {parseFloat(opt.priceAdjustment) !== 0 && (
                                           <span className="ml-1">
@@ -491,7 +473,7 @@ export default function PublicMenu() {
                                   </div>
                                 )}
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="font-bold text-base sm:text-lg" style={{ color: 'hsl(var(--public-menu-orange))' }}>
+                                  <span className="font-bold text-base text-gray-900">
                                     {formatKwanza(
                                       (parseFloat(item.menuItem.price) + 
                                         item.selectedOptions.reduce((sum, opt) => sum + parseFloat(opt.priceAdjustment) * opt.quantity, 0)
@@ -503,9 +485,9 @@ export default function PublicMenu() {
                                     size="sm"
                                     onClick={() => removeItem(item.id)}
                                     data-testid={`button-remove-${item.id}`}
-                                    className="text-destructive hover:text-destructive/90 hover:bg-destructive/10 h-8 px-2 text-xs"
+                                    className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 h-8 px-2 text-xs rounded-xl"
                                   >
-                                    Remover
+                                    <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </div>
                               </div>
@@ -515,7 +497,7 @@ export default function PublicMenu() {
                         
                         <Button 
                           variant="outline"
-                          className="w-full mt-4 h-11"
+                          className="w-full mt-4 h-11 rounded-2xl border-gray-200 text-gray-700"
                           onClick={() => setIsCartOpen(false)}
                           data-testid="button-order-more"
                         >
@@ -527,21 +509,29 @@ export default function PublicMenu() {
                   </ScrollArea>
 
                   {items.length > 0 && (
-                    <div className="p-4 sm:p-6 border-t space-y-4 bg-background">
-                      <div className="rounded-lg p-3 sm:p-4" style={{ backgroundColor: 'hsl(var(--public-menu-orange) / 0.05)', border: '2px solid hsl(var(--public-menu-orange) / 0.2)' }}>
+                    <div className="p-6 border-t border-gray-100 space-y-4 bg-white">
+                      <div className="rounded-2xl p-4 bg-gray-50 border border-gray-100">
                         <div className="flex items-center justify-between">
-                          <span className="text-base sm:text-lg font-semibold text-foreground">Total</span>
-                          <span className="text-xl sm:text-2xl font-bold" style={{ color: 'hsl(var(--public-menu-orange))' }}>{formatKwanza(getTotal())}</span>
+                          <span className="text-base font-semibold text-gray-600">Total</span>
+                          <span className="text-xl font-bold text-gray-900">{formatKwanza(getTotal())}</span>
                         </div>
                       </div>
 
                       <Tabs value={orderType} onValueChange={(v) => setOrderType(v as 'delivery' | 'takeout')}>
-                        <TabsList className="grid w-full grid-cols-2 h-11">
-                          <TabsTrigger value="delivery" data-testid="tab-delivery" className="gap-2 text-sm sm:text-base">
+                        <TabsList className="grid w-full grid-cols-2 h-11 bg-gray-100 rounded-2xl p-1">
+                          <TabsTrigger 
+                            value="delivery" 
+                            data-testid="tab-delivery" 
+                            className="gap-2 text-sm rounded-xl data-[state=active]:bg-white data-[state=active]:text-gray-900"
+                          >
                             <Bike className="h-4 w-4" />
                             Delivery
                           </TabsTrigger>
-                          <TabsTrigger value="takeout" data-testid="tab-takeout" className="gap-2 text-sm sm:text-base">
+                          <TabsTrigger 
+                            value="takeout" 
+                            data-testid="tab-takeout" 
+                            className="gap-2 text-sm rounded-xl data-[state=active]:bg-white data-[state=active]:text-gray-900"
+                          >
                             <ShoppingBag className="h-4 w-4" />
                             Retirada
                           </TabsTrigger>
@@ -550,31 +540,31 @@ export default function PublicMenu() {
 
                       <div className="space-y-3">
                         <div>
-                          <Label htmlFor="customer-name" className="text-sm font-medium mb-1.5 block">Nome Completo</Label>
+                          <Label htmlFor="customer-name" className="text-sm font-medium mb-1.5 block text-gray-700">Seu Nome</Label>
                           <Input
                             id="customer-name"
                             placeholder="Digite seu nome"
                             value={customerName}
                             onChange={(e) => setCustomerName(e.target.value)}
+                            className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
                             data-testid="input-customer-name"
-                            className="h-11 text-base"
                           />
                         </div>
                         <div>
-                          <Label htmlFor="customer-phone" className="text-sm font-medium mb-1.5 block">Telefone/WhatsApp</Label>
+                          <Label htmlFor="customer-phone" className="text-sm font-medium mb-1.5 block text-gray-700">WhatsApp</Label>
                           <Input
                             id="customer-phone"
-                            placeholder="Digite seu telefone"
+                            type="tel"
+                            placeholder="+244 900 000 000"
                             value={customerPhone}
                             onChange={(e) => setCustomerPhone(e.target.value)}
+                            className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
                             data-testid="input-customer-phone"
-                            className="h-11 text-base"
-                            type="tel"
                           />
                         </div>
                         {orderType === 'delivery' && (
                           <div>
-                            <Label htmlFor="delivery-address" className="text-sm font-medium mb-1.5 block">Endereço de Entrega</Label>
+                            <Label htmlFor="delivery-address" className="text-sm font-medium mb-1.5 block text-gray-700">Endereço de Entrega</Label>
                             <Textarea
                               id="delivery-address"
                               placeholder="Rua, número, bairro..."
@@ -582,15 +572,14 @@ export default function PublicMenu() {
                               onChange={(e) => setDeliveryAddress(e.target.value)}
                               rows={3}
                               data-testid="input-delivery-address"
-                              className="text-base resize-none"
+                              className="text-base resize-none rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
                             />
                           </div>
                         )}
                       </div>
 
                       <Button
-                        className="w-full h-12 sm:h-14 text-white font-bold text-base sm:text-lg shadow-lg hover:shadow-xl transition-shadow"
-                        style={{ backgroundColor: 'hsl(var(--public-menu-orange))' }}
+                        className="w-full h-14 bg-gray-900 hover:bg-gray-800 text-white font-bold text-base rounded-2xl shadow-lg"
                         onClick={handleConfirmOrder}
                         disabled={createOrderMutation.isPending}
                         data-testid="button-confirm-order"
@@ -610,347 +599,474 @@ export default function PublicMenu() {
               </Sheet>
             </div>
           </div>
+
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Input
+              placeholder="Pesquisar no cardápio..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-12 pl-12 pr-4 rounded-2xl bg-gray-50 border-gray-100 text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-gray-300"
+              data-testid="input-search"
+            />
+          </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="relative pt-16 overflow-hidden" style={{ background: 'linear-gradient(135deg, hsl(var(--public-menu-hero-start)) 0%, hsl(var(--public-menu-hero-end)) 100%)' }}>
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djZoNnYtNmgtNnptNiA2djZoNnYtNmgtNnptLTYgMHYtNmgtNnY2aDZ6bS02IDBoNnY2aC02di02eiIvPjwvZz48L2c+PC9zdmc+')] opacity-30"></div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-20">
-          <div className="text-center max-w-3xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              {restaurant.logoUrl && (
-                <div className="flex justify-center mb-6">
-                  <Avatar className="h-24 w-24 sm:h-28 sm:w-28 border-4 border-white/30 shadow-2xl">
-                    <AvatarImage src={restaurant.logoUrl} alt={restaurant.name} />
-                    <AvatarFallback className="text-3xl sm:text-4xl font-bold text-orange-600 bg-white">
-                      {restaurant.name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
-              )}
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 drop-shadow-lg">
-                Bem-vindo ao {restaurant.name}
-              </h1>
-              <p className="text-base sm:text-lg text-white/95 mb-6 max-w-xl mx-auto">
-                Experimente o melhor da nossa culinária no conforto da sua casa ou mesa
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-                <Button
-                  size="lg"
-                  variant="ghost"
-                  className="font-semibold h-12 px-8 shadow-lg"
-                  style={{ backgroundColor: 'white', color: 'hsl(24 95% 53%)' }}
-                  onClick={() => {
-                    const menuSection = document.getElementById('menu-section');
-                    menuSection?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  data-testid="button-see-menu"
-                >
-                  Ver Cardápio
-                  <ArrowRight className="ml-2 h-5 w-5" style={{ color: 'hsl(24 95% 53%)' }} />
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-12 px-8 text-white border-white/50 hover:bg-white/10 backdrop-blur-sm"
-                  onClick={() => setIsRegisterDialogOpen(true)}
-                  data-testid="button-register"
-                >
-                  <UserPlus className="mr-2 h-5 w-5" />
-                  Cadastrar
-                </Button>
-                {restaurant.whatsappNumber && (
-                  <Button
-                    size="lg"
-                    className="h-12 px-8 bg-[#25D366] hover:bg-[#20BD5A] text-white shadow-lg"
-                    asChild
-                    data-testid="button-hero-whatsapp"
-                  >
-                    <a
-                      href={`https://wa.me/${restaurant.whatsappNumber.replace(/\D/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <SiWhatsapp className="mr-2 h-5 w-5" />
-                      WhatsApp
-                    </a>
-                  </Button>
-                )}
-              </div>
-            </motion.div>
-
-            {(restaurant.address || restaurant.phone || restaurant.businessHours) && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="mt-8 flex flex-wrap gap-4 sm:gap-6 justify-center text-sm text-white/90"
-              >
-                {restaurant.address && (
-                  <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                    <MapPin className="h-4 w-4 text-white" />
-                    <span>{restaurant.address}</span>
-                  </div>
-                )}
-                {restaurant.phone && (
-                  <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                    <Phone className="h-4 w-4 text-white" />
-                    <span>{restaurant.phone}</span>
-                  </div>
-                )}
-                {restaurant.businessHours && (
-                  <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                    <Clock className="h-4 w-4 text-white" />
-                    <span>{restaurant.businessHours}</span>
-                  </div>
-                )}
-              </motion.div>
+      {/* Main Content */}
+      <main className="pt-44 px-4">
+        {/* Restaurant Info */}
+        <div className="mb-6">
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-xl font-bold text-gray-900">{restaurant.name}</h1>
+            {restaurant.isOpen === 1 ? (
+              <Badge className="bg-green-100 text-green-700 border-0 text-xs">Aberto</Badge>
+            ) : (
+              <Badge className="bg-gray-100 text-gray-600 border-0 text-xs">Fechado</Badge>
             )}
           </div>
-        </div>
-      </section>
-
-      {/* Search and Categories */}
-      <section className="border-t border-orange-100 bg-white dark:bg-gray-900 dark:border-gray-800 sticky top-16 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-          <div className="block sm:hidden mb-3">
-            <div className="relative">
-              <Input
-                placeholder="Buscar pratos..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 pr-8 border-orange-200 focus:border-orange-400 dark:border-gray-700"
-                data-testid="input-search-mobile"
-              />
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-400" />
+          {(restaurant.businessHours || restaurant.phone) && (
+            <div className="flex items-center gap-4 text-sm text-gray-500">
+              {restaurant.businessHours && (
+                <span className="flex items-center gap-1">
+                  <Clock className="h-4 w-4" />
+                  {restaurant.businessHours}
+                </span>
+              )}
+              {restaurant.phone && (
+                <span className="flex items-center gap-1">
+                  <Phone className="h-4 w-4" />
+                  {restaurant.phone}
+                </span>
+              )}
             </div>
-          </div>
+          )}
+        </div>
 
-          {categories.length > 0 && (
+        {/* Categories Section */}
+        {categories.length > 0 && (
+          <section className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">Cardápio</h2>
+              <button className="text-sm text-gray-500 font-medium" data-testid="button-see-all-categories">
+                Ver tudo
+              </button>
+            </div>
             <ScrollArea className="w-full">
-              <div className="flex gap-2 pb-2">
-                <Button
-                  variant="outline"
-                  size="sm"
+              <div className="flex gap-4 pb-2">
+                <button
                   onClick={() => setSelectedCategory('all')}
+                  className={`flex flex-col items-center gap-2 min-w-[72px] transition-all ${
+                    selectedCategory === 'all' ? 'opacity-100' : 'opacity-60'
+                  }`}
                   data-testid="category-all"
-                  className={selectedCategory === 'all' 
-                    ? 'text-white shadow-md border-transparent' 
-                    : 'border-orange-200 text-orange-700 hover:bg-orange-50 hover:text-orange-800 dark:border-gray-600 dark:text-orange-400'}
-                  style={selectedCategory === 'all' ? { backgroundColor: 'hsl(24 95% 53%)' } : {}}
                 >
-                  Todos
-                </Button>
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${
+                    selectedCategory === 'all' 
+                      ? 'bg-gray-900 shadow-lg' 
+                      : 'bg-white border border-gray-100 shadow-sm'
+                  }`}>
+                    <Utensils className={`h-6 w-6 ${selectedCategory === 'all' ? 'text-white' : 'text-gray-600'}`} />
+                  </div>
+                  <span className={`text-xs font-medium ${selectedCategory === 'all' ? 'text-gray-900' : 'text-gray-600'}`}>
+                    Todos
+                  </span>
+                </button>
                 {categories.map((category) => (
-                  <Button
-                    key={category.id}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedCategory(category.id)}
-                    data-testid={`category-${category.id}`}
-                    className={selectedCategory === category.id 
-                      ? 'text-white shadow-md border-transparent' 
-                      : 'border-orange-200 text-orange-700 hover:bg-orange-50 hover:text-orange-800 dark:border-gray-600 dark:text-orange-400'}
-                    style={selectedCategory === category.id ? { backgroundColor: 'hsl(24 95% 53%)' } : {}}
-                  >
-                    {category.name}
-                  </Button>
+                    <button
+                      key={category.id}
+                      onClick={() => setSelectedCategory(category.id)}
+                      className={`flex flex-col items-center gap-2 min-w-[72px] transition-all ${
+                        selectedCategory === category.id ? 'opacity-100' : 'opacity-60'
+                      }`}
+                      data-testid={`category-${category.id}`}
+                    >
+                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${
+                        selectedCategory === category.id 
+                          ? 'bg-gray-900 shadow-lg' 
+                          : 'bg-white border border-gray-100 shadow-sm'
+                      }`}>
+                        {category.imageUrl ? (
+                          <img src={category.imageUrl} alt={category.name} className="w-10 h-10 object-contain" />
+                        ) : (
+                          <Utensils className={`h-6 w-6 ${selectedCategory === category.id ? 'text-white' : 'text-gray-600'}`} />
+                        )}
+                      </div>
+                      <span className={`text-xs font-medium text-center line-clamp-2 ${
+                        selectedCategory === category.id ? 'text-gray-900' : 'text-gray-600'
+                      }`}>
+                        {category.name}
+                      </span>
+                    </button>
                 ))}
               </div>
             </ScrollArea>
-          )}
-        </div>
-      </section>
+          </section>
+        )}
 
-      {/* Menu Section */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 bg-gray-50/50 dark:bg-gray-900" id="menu-section">
-        {selectedCategory === 'all' ? (
-          itemsByCategory.map((group, groupIndex) => (
-            <motion.section
-              key={group.category.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: groupIndex * 0.1 }}
-              className="mb-12"
-              id={`category-${group.category.id}`}
-            >
-              <div className="mb-6 flex items-center gap-3">
-                <div className="h-8 w-1 rounded-full" style={{ backgroundColor: 'hsl(var(--public-menu-orange))' }}></div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">{group.category.name}</h2>
-              </div>
+        {/* Promo Section */}
+        <section className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-gray-900">Promoções</h2>
+            <button className="text-sm text-gray-500 font-medium" data-testid="button-see-all-promos">
+              Ver tudo
+            </button>
+          </div>
+          <ScrollArea className="w-full">
+            <div className="flex gap-4 pb-2">
+              {promoCards.map((promo, index) => (
+                <div
+                  key={index}
+                  className="min-w-[280px] h-36 rounded-3xl p-5 flex flex-col justify-between relative overflow-hidden"
+                  style={{
+                    background: `linear-gradient(135deg, ${promo.bgFrom} 0%, ${promo.bgTo} 100%)`
+                  }}
+                  data-testid={`promo-card-${index}`}
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white/5 -mr-10 -mt-10" />
+                  <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full bg-white/5 -ml-8 -mb-8" />
+                  
+                  <div>
+                    <p className="text-white/80 text-xs mb-1">Desconto de até</p>
+                    <p className="text-white text-4xl font-bold">{promo.discount}</p>
+                    <p className="text-white/80 text-sm">{promo.subtitle}</p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-white/60 text-xs">{promo.period}</p>
+                    <Button 
+                      size="sm" 
+                      className="bg-white hover:bg-gray-100 text-gray-900 rounded-xl h-8 px-4 text-xs font-semibold"
+                      data-testid={`button-shop-promo-${index}`}
+                    >
+                      Comprar
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </section>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-                {group.items.map((item, itemIndex) => {
+        {/* Special Offers Section */}
+        {specialOfferItems.length > 0 && (
+          <section className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">Ofertas Especiais</h2>
+              <button className="text-sm text-gray-500 font-medium" data-testid="button-see-all-offers">
+                Ver tudo
+              </button>
+            </div>
+            <ScrollArea className="w-full">
+              <div className="flex gap-4 pb-2">
+                {specialOfferItems.map((item) => {
                   const itemPrice = typeof item.price === 'string' ? item.price : Number(item.price).toFixed(2);
                   const itemOriginalPrice = item.originalPrice 
                     ? (typeof item.originalPrice === 'string' ? item.originalPrice : Number(item.originalPrice).toFixed(2)) 
                     : null;
-                  const hasPromo = itemOriginalPrice && parseFloat(itemOriginalPrice) > parseFloat(itemPrice);
+                  const categoryName = (item as any).category?.name || 'Oferta';
 
                   return (
-                    <motion.div
+                    <div
                       key={item.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.3, delay: itemIndex * 0.05 }}
+                      className="min-w-[180px] bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => handleAddMenuItem(item)}
+                      data-testid={`special-offer-${item.id}`}
                     >
-                      <Card
-                        className="overflow-hidden cursor-pointer h-full flex flex-col bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg hover:border-orange-200 dark:hover:border-orange-800 transition-all duration-300"
-                        onClick={() => handleAddMenuItem(item)}
-                        data-testid={`menu-item-${item.id}`}
-                      >
-                        <CardContent className="p-0 flex flex-col h-full">
-                          {item.imageUrl ? (
-                            <div className="relative aspect-square w-full bg-orange-50 dark:bg-gray-700 overflow-hidden">
-                              <img
-                                src={item.imageUrl}
-                                alt={item.name}
-                                className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                              />
-                              {hasPromo && (
-                                <Badge className="absolute top-2 right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 shadow-md">
-                                  Promo
-                                </Badge>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="relative aspect-square w-full bg-orange-50 dark:bg-gray-700 flex items-center justify-center">
-                              <Utensils className="h-8 w-8 sm:h-10 sm:w-10 text-orange-200 dark:text-gray-600" />
-                              {hasPromo && (
-                                <Badge className="absolute top-2 right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 shadow-md">
-                                  Promo
-                                </Badge>
-                              )}
-                            </div>
-                          )}
-                          <div className="p-3 flex flex-col flex-1 gap-2">
-                            <h3 className="font-semibold text-sm sm:text-base leading-tight line-clamp-2 text-gray-800 dark:text-gray-100" data-testid={`text-item-name-${item.id}`}>
-                              {item.name}
-                            </h3>
-                            <div className="mt-auto flex flex-col gap-2">
-                              <div className="flex items-baseline gap-1.5 flex-wrap">
-                                <span className="font-bold text-base sm:text-lg" style={{ color: 'hsl(var(--public-menu-orange))' }} data-testid={`text-item-price-${item.id}`}>
-                                  {formatKwanza(itemPrice)}
-                                </span>
-                                {hasPromo && (
-                                  <span className="text-[10px] sm:text-xs text-gray-400 line-through">
-                                    {formatKwanza(itemOriginalPrice!)}
-                                  </span>
-                                )}
-                              </div>
-                              <Button
-                                size="sm"
-                                className="w-full h-9 text-white font-medium shadow-sm hover:shadow-md transition-shadow"
-                                style={{ backgroundColor: 'hsl(var(--public-menu-orange))' }}
-                                onClick={(e) => handleQuickAddToCart(item, e)}
-                                data-testid={`button-add-${item.id}`}
-                              >
-                                <Plus className="h-4 w-4 mr-1" />
-                                Adicionar
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </motion.section>
-          ))
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-            {filteredItems.map((item, itemIndex) => {
-              const itemPrice = typeof item.price === 'string' ? item.price : Number(item.price).toFixed(2);
-              const itemOriginalPrice = item.originalPrice 
-                ? (typeof item.originalPrice === 'string' ? item.originalPrice : Number(item.originalPrice).toFixed(2)) 
-                : null;
-              const hasPromo = itemOriginalPrice && parseFloat(itemOriginalPrice) > parseFloat(itemPrice);
-
-              return (
-                <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3, delay: itemIndex * 0.05 }}
-                >
-                  <Card
-                    className="overflow-hidden cursor-pointer h-full flex flex-col bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg hover:border-orange-200 dark:hover:border-orange-800 transition-all duration-300"
-                    onClick={() => handleAddMenuItem(item)}
-                    data-testid={`menu-item-${item.id}`}
-                  >
-                    <CardContent className="p-0 flex flex-col h-full">
-                      {item.imageUrl ? (
-                        <div className="relative aspect-square w-full bg-orange-50 dark:bg-gray-700 overflow-hidden">
+                      <div className="relative aspect-square bg-gray-50">
+                        {item.imageUrl ? (
                           <img
                             src={item.imageUrl}
                             alt={item.name}
-                            className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                            className="w-full h-full object-cover"
                           />
-                          {hasPromo && (
-                            <Badge className="absolute top-2 right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 shadow-md">
-                              Promo
-                            </Badge>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="relative aspect-square w-full bg-orange-50 dark:bg-gray-700 flex items-center justify-center">
-                          <Utensils className="h-8 w-8 sm:h-10 sm:w-10 text-orange-200 dark:text-gray-600" />
-                          {hasPromo && (
-                            <Badge className="absolute top-2 right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 shadow-md">
-                              Promo
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-                      <div className="p-3 flex flex-col flex-1 gap-2">
-                        <h3 className="font-semibold text-sm sm:text-base leading-tight line-clamp-2 text-gray-800 dark:text-gray-100" data-testid={`text-item-name-${item.id}`}>
-                          {item.name}
-                        </h3>
-                        <div className="mt-auto flex flex-col gap-2">
-                          <div className="flex items-baseline gap-1.5 flex-wrap">
-                            <span className="font-bold text-base sm:text-lg" style={{ color: 'hsl(var(--public-menu-orange))' }} data-testid={`text-item-price-${item.id}`}>
-                              {formatKwanza(itemPrice)}
-                            </span>
-                            {hasPromo && (
-                              <span className="text-[10px] sm:text-xs text-gray-400 line-through">
-                                {formatKwanza(itemOriginalPrice!)}
-                              </span>
-                            )}
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Utensils className="h-10 w-10 text-gray-300" />
                           </div>
-                          <Button
-                            size="sm"
-                            className="w-full h-9 text-white font-medium shadow-sm hover:shadow-md transition-shadow"
-                            style={{ backgroundColor: 'hsl(var(--public-menu-orange))' }}
-                            onClick={(e) => handleQuickAddToCart(item, e)}
-                            data-testid={`button-add-${item.id}`}
-                          >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Adicionar
-                          </Button>
+                        )}
+                        <Badge className="absolute top-2 left-2 bg-gray-900 text-white text-[10px] px-2 py-1 rounded-lg border-0">
+                          {categoryName}
+                        </Badge>
+                        <button 
+                          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                        >
+                          <Heart className="h-4 w-4 text-gray-400" />
+                        </button>
+                      </div>
+                      <div className="p-3">
+                        <h3 className="font-semibold text-sm text-gray-900 line-clamp-2 mb-1">{item.name}</h3>
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-bold text-sm text-gray-900">{formatKwanza(itemPrice)}</span>
+                          {itemOriginalPrice && (
+                            <span className="text-xs text-gray-400 line-through">{formatKwanza(itemOriginalPrice)}</span>
+                          )}
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })}
-          </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </section>
         )}
 
-        {filteredItems.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <Search className="h-16 w-16 mb-4 opacity-20" />
-            <p className="text-lg font-medium">Nenhum produto encontrado</p>
-            <p className="text-sm mt-1">Tente ajustar sua busca ou filtro</p>
-          </div>
+        {/* Menu Products Grid */}
+        <section id="menu-section">
+          {selectedCategory === 'all' ? (
+            itemsByCategory.map((group, groupIndex) => (
+              <motion.div
+                key={group.category.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: groupIndex * 0.1 }}
+                className="mb-8"
+                id={`category-${group.category.id}`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold text-gray-900">{group.category.name}</h2>
+                  <button className="text-sm text-gray-500 font-medium">
+                    Ver tudo
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {group.items.map((item, itemIndex) => {
+                    const itemPrice = typeof item.price === 'string' ? item.price : Number(item.price).toFixed(2);
+                    const itemOriginalPrice = item.originalPrice 
+                      ? (typeof item.originalPrice === 'string' ? item.originalPrice : Number(item.originalPrice).toFixed(2)) 
+                      : null;
+                    const hasPromo = itemOriginalPrice && parseFloat(itemOriginalPrice) > parseFloat(itemPrice);
+
+                    return (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3, delay: itemIndex * 0.05 }}
+                      >
+                        <Card
+                          className="overflow-hidden cursor-pointer h-full flex flex-col bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl"
+                          onClick={() => handleAddMenuItem(item)}
+                          data-testid={`menu-item-${item.id}`}
+                        >
+                          <CardContent className="p-0 flex flex-col h-full">
+                            <div className="relative aspect-square w-full bg-gray-50 overflow-hidden">
+                              {item.imageUrl ? (
+                                <img
+                                  src={item.imageUrl}
+                                  alt={item.name}
+                                  className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Utensils className="h-10 w-10 text-gray-300" />
+                                </div>
+                              )}
+                              {hasPromo && (
+                                <Badge className="absolute top-2 left-2 bg-gray-900 text-white text-[10px] px-2 py-1 rounded-lg border-0">
+                                  Promo
+                                </Badge>
+                              )}
+                              <button 
+                                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                }}
+                              >
+                                <Heart className="h-4 w-4 text-gray-400" />
+                              </button>
+                            </div>
+                            <div className="p-3 flex flex-col flex-1">
+                              <h3 className="font-semibold text-sm leading-tight line-clamp-2 text-gray-900 mb-2" data-testid={`text-item-name-${item.id}`}>
+                                {item.name}
+                              </h3>
+                              <div className="mt-auto space-y-2">
+                                <div className="flex items-baseline gap-2">
+                                  <span className="font-bold text-base text-gray-900" data-testid={`text-item-price-${item.id}`}>
+                                    {formatKwanza(itemPrice)}
+                                  </span>
+                                  {hasPromo && (
+                                    <span className="text-xs text-gray-400 line-through">
+                                      {formatKwanza(itemOriginalPrice!)}
+                                    </span>
+                                  )}
+                                </div>
+                                <Button
+                                  size="sm"
+                                  className="w-full h-9 bg-gray-900 hover:bg-gray-800 text-white font-medium shadow-sm rounded-xl"
+                                  onClick={(e) => handleQuickAddToCart(item, e)}
+                                  data-testid={`button-add-${item.id}`}
+                                >
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Adicionar
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            ))
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {filteredItems.map((item, itemIndex) => {
+                const itemPrice = typeof item.price === 'string' ? item.price : Number(item.price).toFixed(2);
+                const itemOriginalPrice = item.originalPrice 
+                  ? (typeof item.originalPrice === 'string' ? item.originalPrice : Number(item.originalPrice).toFixed(2)) 
+                  : null;
+                const hasPromo = itemOriginalPrice && parseFloat(itemOriginalPrice) > parseFloat(itemPrice);
+
+                return (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3, delay: itemIndex * 0.05 }}
+                  >
+                    <Card
+                      className="overflow-hidden cursor-pointer h-full flex flex-col bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl"
+                      onClick={() => handleAddMenuItem(item)}
+                      data-testid={`menu-item-${item.id}`}
+                    >
+                      <CardContent className="p-0 flex flex-col h-full">
+                        <div className="relative aspect-square w-full bg-gray-50 overflow-hidden">
+                          {item.imageUrl ? (
+                            <img
+                              src={item.imageUrl}
+                              alt={item.name}
+                              className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Utensils className="h-10 w-10 text-gray-300" />
+                            </div>
+                          )}
+                          {hasPromo && (
+                            <Badge className="absolute top-2 left-2 bg-gray-900 text-white text-[10px] px-2 py-1 rounded-lg border-0">
+                              Promo
+                            </Badge>
+                          )}
+                          <button 
+                            className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                          >
+                            <Heart className="h-4 w-4 text-gray-400" />
+                          </button>
+                        </div>
+                        <div className="p-3 flex flex-col flex-1">
+                          <h3 className="font-semibold text-sm leading-tight line-clamp-2 text-gray-900 mb-2" data-testid={`text-item-name-${item.id}`}>
+                            {item.name}
+                          </h3>
+                          <div className="mt-auto space-y-2">
+                            <div className="flex items-baseline gap-2">
+                              <span className="font-bold text-base text-gray-900" data-testid={`text-item-price-${item.id}`}>
+                                {formatKwanza(itemPrice)}
+                              </span>
+                              {hasPromo && (
+                                <span className="text-xs text-gray-400 line-through">
+                                  {formatKwanza(itemOriginalPrice!)}
+                                </span>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              className="w-full h-9 bg-gray-900 hover:bg-gray-800 text-white font-medium shadow-sm rounded-xl"
+                              onClick={(e) => handleQuickAddToCart(item, e)}
+                              data-testid={`button-add-${item.id}`}
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Adicionar
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+
+          {filteredItems.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+              <Search className="h-16 w-16 mb-4 opacity-20" />
+              <p className="text-lg font-medium text-gray-600">Nenhum produto encontrado</p>
+              <p className="text-sm mt-1">Tente ajustar sua busca ou filtro</p>
+            </div>
+          )}
+        </section>
+
+        {/* WhatsApp Floating Button */}
+        {restaurant.whatsappNumber && (
+          <a
+            href={`https://wa.me/${restaurant.whatsappNumber.replace(/\D/g, '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="fixed bottom-28 right-4 w-14 h-14 bg-[#25D366] rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow z-40"
+            data-testid="button-whatsapp-float"
+          >
+            <SiWhatsapp className="h-7 w-7 text-white" />
+          </a>
         )}
       </main>
+
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50 safe-area-inset-bottom">
+        <div className="flex items-center justify-around py-3 px-4">
+          <button 
+            className={`flex flex-col items-center gap-1 min-w-[56px] ${activeNav === 'home' ? 'text-gray-900' : 'text-gray-400'}`}
+            onClick={() => setActiveNav('home')}
+            data-testid="nav-home"
+          >
+            <Home className="h-6 w-6" />
+            <span className="text-[10px] font-medium">Home</span>
+          </button>
+          <button 
+            className={`flex flex-col items-center gap-1 min-w-[56px] ${activeNav === 'favorites' ? 'text-gray-900' : 'text-gray-400'}`}
+            onClick={() => setActiveNav('favorites')}
+            data-testid="nav-favorites"
+          >
+            <Heart className="h-6 w-6" />
+            <span className="text-[10px] font-medium">Favoritos</span>
+          </button>
+          <button 
+            className={`flex flex-col items-center gap-1 min-w-[56px] ${activeNav === 'map' ? 'text-gray-900' : 'text-gray-400'}`}
+            onClick={() => setActiveNav('map')}
+            data-testid="nav-map"
+          >
+            <Map className="h-6 w-6" />
+            <span className="text-[10px] font-medium">Mapa</span>
+          </button>
+          <button 
+            className={`flex flex-col items-center gap-1 min-w-[56px] ${activeNav === 'history' ? 'text-gray-900' : 'text-gray-400'}`}
+            onClick={() => setActiveNav('history')}
+            data-testid="nav-history"
+          >
+            <Clock className="h-6 w-6" />
+            <span className="text-[10px] font-medium">Histórico</span>
+          </button>
+          <button 
+            className={`flex flex-col items-center gap-1 min-w-[56px] ${activeNav === 'profile' ? 'text-gray-900' : 'text-gray-400'}`}
+            onClick={() => {
+              setActiveNav('profile');
+              setIsRegisterDialogOpen(true);
+            }}
+            data-testid="nav-profile"
+          >
+            <User className="h-6 w-6" />
+            <span className="text-[10px] font-medium">Perfil</span>
+          </button>
+        </div>
+      </nav>
 
       {/* Options Dialog */}
       {selectedMenuItem && (
@@ -975,23 +1091,29 @@ export default function PublicMenu() {
 
       {/* Customer Registration Dialog */}
       <Dialog open={isRegisterDialogOpen} onOpenChange={setIsRegisterDialogOpen}>
-        <DialogContent className="sm:max-w-md" data-testid="dialog-register-customer">
+        <DialogContent className="sm:max-w-md bg-white rounded-3xl" data-testid="dialog-register-customer">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Cadastre-se e ganhe benefícios!</DialogTitle>
-            <DialogDescription className="space-y-2 text-sm">
+            <DialogTitle className="text-xl font-bold text-gray-900">Cadastre-se e ganhe benefícios!</DialogTitle>
+            <DialogDescription className="space-y-2 text-sm text-gray-500">
               <p>Ao se cadastrar você terá acesso a:</p>
-              <ul className="list-none space-y-1 ml-1">
-                <li className="flex items-center gap-2">
-                  <Gift className="h-4 w-4 flex-shrink-0" style={{ color: 'hsl(var(--public-menu-orange))' }} />
-                  <span>Programa de fidelidade com pontos em cada compra</span>
+              <ul className="list-none space-y-2 mt-3">
+                <li className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl">
+                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <Gift className="h-5 w-5 text-gray-600" />
+                  </div>
+                  <span className="text-gray-700">Programa de fidelidade com pontos em cada compra</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Star className="h-4 w-4 flex-shrink-0" style={{ color: 'hsl(var(--public-menu-orange))' }} />
-                  <span>Descontos e promoções exclusivas</span>
+                <li className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl">
+                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <Star className="h-5 w-5 text-gray-600" />
+                  </div>
+                  <span className="text-gray-700">Descontos e promoções exclusivas</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Award className="h-4 w-4 flex-shrink-0" style={{ color: 'hsl(var(--public-menu-orange))' }} />
-                  <span>Bônus especial de aniversário</span>
+                <li className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl">
+                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <Award className="h-5 w-5 text-gray-600" />
+                  </div>
+                  <span className="text-gray-700">Bônus especial de aniversário</span>
                 </li>
               </ul>
             </DialogDescription>
@@ -1000,83 +1122,80 @@ export default function PublicMenu() {
             e.preventDefault();
             registerCustomerMutation.mutate(registerFormData);
           }}>
-            <div className="space-y-4">
+            <div className="space-y-4 mt-4">
               <div className="space-y-2">
-                <Label htmlFor="register-name">Nome Completo *</Label>
+                <Label htmlFor="register-name" className="text-gray-700">Nome Completo *</Label>
                 <Input
                   id="register-name"
                   placeholder="Digite seu nome completo"
                   value={registerFormData.name}
                   onChange={(e) => setRegisterFormData({ ...registerFormData, name: e.target.value })}
                   required
+                  className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
                   data-testid="input-register-name"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="register-phone">Telefone</Label>
+                <Label htmlFor="register-phone" className="text-gray-700">Telefone</Label>
                 <Input
                   id="register-phone"
                   type="tel"
                   placeholder="+244 900 000 000"
                   value={registerFormData.phone}
                   onChange={(e) => setRegisterFormData({ ...registerFormData, phone: e.target.value })}
+                  className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
                   data-testid="input-register-phone"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="register-email">Email</Label>
+                <Label htmlFor="register-email" className="text-gray-700">Email</Label>
                 <Input
                   id="register-email"
                   type="email"
                   placeholder="seuemail@exemplo.com"
                   value={registerFormData.email}
                   onChange={(e) => setRegisterFormData({ ...registerFormData, email: e.target.value })}
+                  className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
                   data-testid="input-register-email"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="register-cpf">CPF/BI</Label>
+                <Label htmlFor="register-cpf" className="text-gray-700">CPF/BI</Label>
                 <Input
                   id="register-cpf"
                   placeholder="Documento de identificação"
                   value={registerFormData.cpf}
                   onChange={(e) => setRegisterFormData({ ...registerFormData, cpf: e.target.value })}
+                  className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
                   data-testid="input-register-cpf"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="register-address">Endereço</Label>
+                <Label htmlFor="register-address" className="text-gray-700">Endereço</Label>
                 <Textarea
                   id="register-address"
-                  placeholder="Endereço completo"
+                  placeholder="Seu endereço completo"
                   value={registerFormData.address}
                   onChange={(e) => setRegisterFormData({ ...registerFormData, address: e.target.value })}
-                  rows={3}
+                  rows={2}
+                  className="resize-none rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
                   data-testid="input-register-address"
                 />
               </div>
             </div>
-            <DialogFooter className="mt-6 gap-2">
+            <div className="flex gap-3 mt-6">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  setIsRegisterDialogOpen(false);
-                  setRegisterFormData({
-                    name: '',
-                    phone: '',
-                    email: '',
-                    cpf: '',
-                    address: '',
-                  });
-                }}
-                data-testid="button-cancel-register"
+                className="flex-1 h-11 rounded-xl border-gray-200 text-gray-700"
+                onClick={() => setIsRegisterDialogOpen(false)}
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
-                disabled={registerCustomerMutation.isPending}
+                className="flex-1 h-11 rounded-xl bg-gray-900 hover:bg-gray-800 text-white"
+                disabled={registerCustomerMutation.isPending || !registerFormData.name}
                 data-testid="button-submit-register"
               >
                 {registerCustomerMutation.isPending ? (
@@ -1085,10 +1204,13 @@ export default function PublicMenu() {
                     Cadastrando...
                   </div>
                 ) : (
-                  'Cadastrar'
+                  <>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Cadastrar
+                  </>
                 )}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </DialogContent>
       </Dialog>
