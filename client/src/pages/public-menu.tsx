@@ -709,84 +709,74 @@ export default function PublicMenu() {
                     </AnimatePresence>
                   </button>
                 </SheetTrigger>
-                <SheetContent side="bottom" className="flex flex-col p-0 bg-gradient-to-b from-gray-50 to-white max-h-[80vh] rounded-t-2xl">
-                  <div className="p-4 pb-3 bg-white border-b border-gray-100">
+                <SheetContent side="rightCompact" className="flex flex-col p-0 bg-white max-h-[85vh]">
+                  <div className="p-3 bg-white border-b border-gray-100 flex-shrink-0">
                     <SheetHeader>
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-gray-900 flex items-center justify-center">
-                          <ShoppingBag className="h-4 w-4 text-white" />
+                        <div className="w-7 h-7 rounded-full bg-gray-900 flex items-center justify-center">
+                          <ShoppingBag className="h-3.5 w-3.5 text-white" />
                         </div>
                         <div>
-                          <SheetTitle className="text-lg font-bold text-gray-900" data-testid="text-cart-title">Seu Pedido</SheetTitle>
-                          <p className="text-xs text-gray-500">Revise seus itens</p>
+                          <SheetTitle className="text-base font-bold text-gray-900" data-testid="text-cart-title">Seu Pedido</SheetTitle>
+                          <p className="text-[11px] text-gray-500">Revise seus itens</p>
                         </div>
                       </div>
                     </SheetHeader>
                   </div>
 
-                  <ScrollArea className="flex-1 px-4 py-3">
+                  <ScrollArea className="flex-1 min-h-0 px-3 py-2">
                     {items.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                        <ShoppingCart className="h-16 w-16 mb-4 opacity-20" />
-                        <p className="font-medium text-lg text-gray-600" data-testid="text-empty-cart">Seu carrinho está vazio</p>
-                        <p className="text-sm mt-1">Adicione itens do cardápio</p>
+                      <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+                        <ShoppingCart className="h-12 w-12 mb-3 opacity-20" />
+                        <p className="font-medium text-base text-gray-600" data-testid="text-empty-cart">Carrinho vazio</p>
+                        <p className="text-xs mt-1">Adicione itens do cardápio</p>
                       </div>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         <AnimatePresence>
                           {items.map((item, index) => (
                             <motion.div
                               key={item.id}
-                              initial={{ opacity: 0, y: 20 }}
+                              initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -20 }}
-                              transition={{ delay: index * 0.05 }}
-                              className="flex gap-3 items-start p-3 rounded-2xl bg-gray-50 border border-gray-100"
+                              exit={{ opacity: 0, y: -10 }}
+                              transition={{ delay: index * 0.03 }}
+                              className="flex gap-2 items-start p-2 rounded-lg bg-gray-50 border border-gray-100"
                               data-testid={`cart-item-${item.id}`}
                             >
                               {item.menuItem.imageUrl && (
                                 <img
                                   src={item.menuItem.imageUrl}
                                   alt={item.menuItem.name}
-                                  className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
+                                  className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
                                 />
                               )}
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-bold text-base text-gray-900 mb-1 leading-tight">{item.menuItem.name}</h4>
+                                <h4 className="font-semibold text-sm text-gray-900 leading-tight truncate">{item.menuItem.name}</h4>
                                 {item.selectedOptions.length > 0 && (
-                                  <div className="mb-2 space-y-0.5">
-                                    {item.selectedOptions.map((opt, idx) => (
-                                      <p key={idx} className="text-xs text-gray-500">
-                                        + {opt.optionName}
-                                        {parseFloat(opt.priceAdjustment) !== 0 && (
-                                          <span className="ml-1">
-                                            ({parseFloat(opt.priceAdjustment) > 0 ? '+' : ''}
-                                            {formatKwanza(opt.priceAdjustment)})
-                                          </span>
-                                        )}
-                                      </p>
-                                    ))}
-                                  </div>
+                                  <p className="text-[10px] text-gray-500 truncate">
+                                    {item.selectedOptions.map(opt => opt.optionName).join(', ')}
+                                  </p>
                                 )}
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="font-bold text-base text-gray-900">
+                                <div className="flex items-center justify-between gap-1 mt-1">
+                                  <span className="font-bold text-sm text-gray-900">
                                     {formatKwanza(
                                       (parseFloat(item.menuItem.price) + 
                                         item.selectedOptions.reduce((sum, opt) => sum + parseFloat(opt.priceAdjustment) * opt.quantity, 0)
                                       ) * item.quantity
                                     )}
                                   </span>
-                                  <div className="flex items-center gap-1">
+                                  <div className="flex items-center gap-0.5">
                                     <Button
                                       variant="ghost"
                                       size="icon"
                                       onClick={() => updateQuantity(item.id, item.quantity - 1)}
                                       data-testid={`button-decrease-${item.id}`}
-                                      className="h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
+                                      className="h-6 w-6 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
                                     >
-                                      <Minus className="h-3.5 w-3.5" />
+                                      <Minus className="h-3 w-3" />
                                     </Button>
-                                    <span className="w-8 text-center font-semibold text-gray-900" data-testid={`text-quantity-${item.id}`}>
+                                    <span className="w-5 text-center font-semibold text-xs text-gray-900" data-testid={`text-quantity-${item.id}`}>
                                       {item.quantity}
                                     </span>
                                     <Button
@@ -794,18 +784,18 @@ export default function PublicMenu() {
                                       size="icon"
                                       onClick={() => updateQuantity(item.id, item.quantity + 1)}
                                       data-testid={`button-increase-${item.id}`}
-                                      className="h-8 w-8 rounded-full bg-gray-900 hover:bg-gray-800 text-white"
+                                      className="h-6 w-6 rounded-full bg-gray-900 hover:bg-gray-800 text-white"
                                     >
-                                      <Plus className="h-3.5 w-3.5" />
+                                      <Plus className="h-3 w-3" />
                                     </Button>
                                     <Button
                                       variant="ghost"
                                       size="icon"
                                       onClick={() => removeItem(item.id)}
                                       data-testid={`button-remove-${item.id}`}
-                                      className="h-8 w-8 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 ml-1"
+                                      className="h-6 w-6 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50"
                                     >
-                                      <Trash2 className="h-3.5 w-3.5" />
+                                      <Trash2 className="h-3 w-3" />
                                     </Button>
                                   </div>
                                 </div>
@@ -813,285 +803,217 @@ export default function PublicMenu() {
                             </motion.div>
                           ))}
                         </AnimatePresence>
-                        
-                        <Button 
-                          variant="outline"
-                          className="w-full mt-4 h-11 rounded-2xl border-gray-200 text-gray-700"
-                          onClick={() => setIsCartOpen(false)}
-                          data-testid="button-order-more"
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Adicionar Mais Itens
-                        </Button>
                       </div>
                     )}
                   </ScrollArea>
 
                   {items.length > 0 && (
-                    <div className="p-4 border-t border-gray-100 space-y-3 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-                      <div className="rounded-xl p-3 bg-gradient-to-r from-gray-900 to-gray-800 text-white">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="text-xs text-gray-300">Total do pedido</span>
-                            <p className="text-xl font-bold">{formatKwanza(getTotal())}</p>
-                          </div>
-                          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                            <Receipt className="h-5 w-5 text-white" />
-                          </div>
-                        </div>
-                      </div>
-
-                      <Tabs value={orderType} onValueChange={(v) => setOrderType(v as 'delivery' | 'takeout')}>
-                        <TabsList className="grid w-full grid-cols-2 h-10 bg-gray-100 rounded-xl p-1">
-                          <TabsTrigger 
-                            value="delivery" 
-                            data-testid="tab-delivery" 
-                            className="gap-1.5 text-sm rounded-lg data-[state=active]:bg-white data-[state=active]:text-gray-900"
-                          >
-                            <Bike className="h-4 w-4" />
-                            Delivery
-                          </TabsTrigger>
-                          <TabsTrigger 
-                            value="takeout" 
-                            data-testid="tab-takeout" 
-                            className="gap-1.5 text-sm rounded-lg data-[state=active]:bg-white data-[state=active]:text-gray-900"
-                          >
-                            <ShoppingBag className="h-4 w-4" />
-                            Retirada
-                          </TabsTrigger>
-                        </TabsList>
-                      </Tabs>
-
-                      <div className="space-y-2">
-                        <div>
-                          <Label htmlFor="customer-phone" className="text-xs font-medium mb-1 block text-gray-700">WhatsApp</Label>
-                          <div className="relative">
-                            <input
-                              id="customer-phone"
-                              type="tel"
-                              placeholder="+244 900 000 000"
-                              value={customerPhone}
-                              onChange={(e) => setCustomerPhone(e.target.value)}
-                              className="w-full h-10 px-3 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400/20 pr-10 text-sm"
-                              style={{ color: '#1a1a1a', caretColor: '#1a1a1a' }}
-                              data-testid="input-customer-phone"
-                            />
-                            {isLookingUpCustomer && (
-                              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                    <div className="flex-shrink-0 border-t border-gray-100 bg-white">
+                      <ScrollArea className="max-h-[40vh]">
+                        <div className="p-3 space-y-2">
+                          <div className="rounded-lg p-2.5 bg-gradient-to-r from-gray-900 to-gray-800 text-white">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <span className="text-[10px] text-gray-300">Total</span>
+                                <p className="text-lg font-bold">{formatKwanza(getTotal())}</p>
                               </div>
-                            )}
-                            {identifiedCustomer?.found && !isLookingUpCustomer && (
-                              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                <CheckCircle className="h-5 w-5 text-green-500" />
-                              </div>
-                            )}
+                              <Receipt className="h-4 w-4 text-white/60" />
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Customer Loyalty Info */}
-                        {identifiedCustomer?.found && identifiedCustomer.customer && (
-                          <div className="rounded-xl p-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Award className="h-5 w-5 text-amber-600" />
-                              <span className="font-semibold text-amber-800">
-                                Olá, {identifiedCustomer.customer.name}!
-                              </span>
-                              <Badge className="ml-auto bg-amber-100 text-amber-700 border-0 text-xs">
-                                {identifiedCustomer.customer.tier}
-                              </Badge>
+                          <Tabs value={orderType} onValueChange={(v) => setOrderType(v as 'delivery' | 'takeout')}>
+                            <TabsList className="grid w-full grid-cols-2 h-8 bg-gray-100 rounded-lg p-0.5">
+                              <TabsTrigger 
+                                value="delivery" 
+                                data-testid="tab-delivery" 
+                                className="gap-1 text-xs rounded-md data-[state=active]:bg-white data-[state=active]:text-gray-900"
+                              >
+                                <Bike className="h-3 w-3" />
+                                Delivery
+                              </TabsTrigger>
+                              <TabsTrigger 
+                                value="takeout" 
+                                data-testid="tab-takeout" 
+                                className="gap-1 text-xs rounded-md data-[state=active]:bg-white data-[state=active]:text-gray-900"
+                              >
+                                <ShoppingBag className="h-3 w-3" />
+                                Retirada
+                              </TabsTrigger>
+                            </TabsList>
+                          </Tabs>
+
+                          <div className="space-y-1.5">
+                            <div>
+                              <Label htmlFor="customer-phone" className="text-[10px] font-medium mb-0.5 block text-gray-600">WhatsApp</Label>
+                              <div className="relative">
+                                <input
+                                  id="customer-phone"
+                                  type="tel"
+                                  placeholder="+244 900 000 000"
+                                  value={customerPhone}
+                                  onChange={(e) => setCustomerPhone(e.target.value)}
+                                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none text-xs pr-8"
+                                  style={{ color: '#1a1a1a', caretColor: '#1a1a1a' }}
+                                  data-testid="input-customer-phone"
+                                />
+                                {isLookingUpCustomer && (
+                                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                    <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                                  </div>
+                                )}
+                                {identifiedCustomer?.found && !isLookingUpCustomer && (
+                                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                    <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-amber-700">Seus pontos:</span>
-                              <span className="font-bold text-amber-800">
-                                {identifiedCustomer.customer.loyaltyPoints} pts
-                              </span>
-                            </div>
-                            {identifiedCustomer.loyalty?.isActive && identifiedCustomer.loyalty.maxRedeemablePoints > 0 && (
-                              <div className="mt-3 pt-3 border-t border-amber-200">
-                                <div className="flex items-center justify-between mb-2">
-                                  <Label className="text-sm text-amber-700 flex items-center gap-1">
-                                    <Gift className="h-4 w-4" />
-                                    Usar pontos
-                                  </Label>
-                                  <Switch
-                                    checked={usePoints}
-                                    onCheckedChange={(checked) => {
-                                      setUsePoints(checked);
-                                      if (checked) {
-                                        setPointsToRedeem(identifiedCustomer.loyalty?.maxRedeemablePoints || 0);
-                                      } else {
-                                        setPointsToRedeem(0);
-                                      }
-                                    }}
-                                    data-testid="switch-use-points"
-                                  />
+
+                            {identifiedCustomer?.found && identifiedCustomer.customer && (
+                              <div className="rounded-md p-2 bg-amber-50 border border-amber-200">
+                                <div className="flex items-center gap-1.5 text-xs">
+                                  <Award className="h-3.5 w-3.5 text-amber-600" />
+                                  <span className="font-medium text-amber-800">
+                                    {identifiedCustomer.customer.name}
+                                  </span>
+                                  <Badge className="ml-auto bg-amber-100 text-amber-700 border-0 text-[10px] py-0">
+                                    {identifiedCustomer.customer.loyaltyPoints} pts
+                                  </Badge>
                                 </div>
-                                {usePoints && (
-                                  <div className="space-y-2">
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="number"
-                                        min={identifiedCustomer.loyalty?.minPointsToRedeem || 0}
-                                        max={identifiedCustomer.loyalty?.maxRedeemablePoints || 0}
-                                        value={pointsToRedeem}
-                                        onChange={(e) => setPointsToRedeem(Math.min(
-                                          parseInt(e.target.value) || 0,
-                                          identifiedCustomer.loyalty?.maxRedeemablePoints || 0
-                                        ))}
-                                        className="flex-1 h-9 px-3 rounded-lg border border-amber-300 bg-white text-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/20"
-                                        style={{ color: '#1a1a1a', caretColor: '#1a1a1a' }}
-                                        data-testid="input-points-to-redeem"
-                                      />
-                                      <span className="text-xs text-amber-600">
-                                        = {formatKwanza(getPointsDiscount())}
-                                      </span>
-                                    </div>
-                                    <p className="text-xs text-amber-600">
-                                      Mín: {identifiedCustomer.loyalty?.minPointsToRedeem} pts | 
-                                      Máx: {identifiedCustomer.loyalty?.maxRedeemablePoints} pts
-                                    </p>
+                                {identifiedCustomer.loyalty?.isActive && identifiedCustomer.loyalty.maxRedeemablePoints > 0 && (
+                                  <div className="mt-1.5 pt-1.5 border-t border-amber-200 flex items-center justify-between">
+                                    <Label className="text-[10px] text-amber-700 flex items-center gap-1">
+                                      <Gift className="h-3 w-3" />
+                                      Usar pontos
+                                    </Label>
+                                    <Switch
+                                      checked={usePoints}
+                                      onCheckedChange={(checked) => {
+                                        setUsePoints(checked);
+                                        if (checked) {
+                                          setPointsToRedeem(identifiedCustomer.loyalty?.maxRedeemablePoints || 0);
+                                        } else {
+                                          setPointsToRedeem(0);
+                                        }
+                                      }}
+                                      data-testid="switch-use-points"
+                                      className="h-4 w-7"
+                                    />
                                   </div>
                                 )}
                               </div>
                             )}
-                            {getPointsToEarn() > 0 && !usePoints && (
-                              <p className="text-xs text-amber-600 mt-2">
-                                <Star className="h-3 w-3 inline mr-1" />
-                                Você ganhará +{getPointsToEarn()} pontos com este pedido!
-                              </p>
-                            )}
-                          </div>
-                        )}
 
-                        {/* Coupon Section */}
-                        <div className="rounded-lg p-2.5 bg-gray-50 border border-gray-200">
-                          <Label className="text-xs font-medium mb-1.5 block text-gray-700 flex items-center gap-1">
-                            <Tag className="h-3.5 w-3.5" />
-                            Cupom de Desconto
-                          </Label>
-                          <div className="flex gap-2">
-                            <input
-                              placeholder="DIGITE O CÓDIGO"
-                              value={couponCode}
-                              onChange={(e) => {
-                                setCouponCode(e.target.value.toUpperCase());
-                                if (couponValidation) setCouponValidation(null);
-                              }}
-                              className="h-9 px-3 rounded-lg flex-1 uppercase text-sm border border-gray-200 bg-white focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400/20"
-                              style={{ color: '#1a1a1a', caretColor: '#1a1a1a' }}
-                              data-testid="input-coupon-code"
-                            />
-                            <Button
-                              variant="outline"
-                              onClick={handleValidateCoupon}
-                              disabled={isValidatingCoupon || !couponCode.trim()}
-                              className="h-9 px-3 rounded-lg text-sm"
-                              data-testid="button-apply-coupon"
-                            >
-                              {isValidatingCoupon ? (
-                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                              ) : (
-                                'Aplicar'
-                              )}
-                            </Button>
-                          </div>
-                          {couponValidation?.valid && (
-                            <div className="mt-2 flex items-center gap-2 text-green-600 text-sm">
-                              <CheckCircle className="h-4 w-4" />
-                              <span>Desconto de {formatKwanza(couponValidation.discountAmount || 0)} aplicado!</span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setCouponCode('');
-                                  setCouponValidation(null);
+                            <div className="flex gap-1.5">
+                              <input
+                                placeholder="CUPOM"
+                                value={couponCode}
+                                onChange={(e) => {
+                                  setCouponCode(e.target.value.toUpperCase());
+                                  if (couponValidation) setCouponValidation(null);
                                 }}
-                                className="ml-auto h-6 px-2 text-gray-400 hover:text-red-500"
+                                className="h-8 px-2.5 rounded-md flex-1 uppercase text-xs border border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none"
+                                style={{ color: '#1a1a1a', caretColor: '#1a1a1a' }}
+                                data-testid="input-coupon-code"
+                              />
+                              <Button
+                                variant="outline"
+                                onClick={handleValidateCoupon}
+                                disabled={isValidatingCoupon || !couponCode.trim()}
+                                className="h-8 px-2.5 rounded-md text-xs"
+                                data-testid="button-apply-coupon"
                               >
-                                <X className="h-3 w-3" />
+                                {isValidatingCoupon ? (
+                                  <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  'OK'
+                                )}
                               </Button>
                             </div>
-                          )}
-                          {couponValidation && !couponValidation.valid && (
-                            <p className="mt-2 text-red-500 text-xs">{couponValidation.message}</p>
-                          )}
-                        </div>
+                            {couponValidation?.valid && (
+                              <p className="text-[10px] text-green-600 flex items-center gap-1">
+                                <CheckCircle className="h-3 w-3" />
+                                -{formatKwanza(couponValidation.discountAmount || 0)}
+                              </p>
+                            )}
 
-                        <div>
-                          <Label htmlFor="customer-name" className="text-xs font-medium mb-1 block text-gray-700">Seu Nome</Label>
-                          <input
-                            id="customer-name"
-                            type="text"
-                            placeholder="Digite seu nome"
-                            value={customerName}
-                            onChange={(e) => setCustomerName(e.target.value)}
-                            className="w-full h-10 px-3 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400/20 text-sm"
-                            style={{ color: '#1a1a1a', caretColor: '#1a1a1a' }}
-                            data-testid="input-customer-name"
-                          />
-                        </div>
-                        {orderType === 'delivery' && (
-                          <div>
-                            <Label htmlFor="delivery-address" className="text-xs font-medium mb-1 block text-gray-700">Endereço de Entrega</Label>
-                            <textarea
-                              id="delivery-address"
-                              placeholder="Rua, número, bairro..."
-                              value={deliveryAddress}
-                              onChange={(e) => setDeliveryAddress(e.target.value)}
-                              rows={2}
-                              data-testid="input-delivery-address"
-                              className="w-full px-3 py-2 text-sm resize-none rounded-lg border border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400/20"
-                              style={{ color: '#1a1a1a', caretColor: '#1a1a1a' }}
-                            />
+                            <div>
+                              <Label htmlFor="customer-name" className="text-[10px] font-medium mb-0.5 block text-gray-600">Nome</Label>
+                              <input
+                                id="customer-name"
+                                type="text"
+                                placeholder="Seu nome"
+                                value={customerName}
+                                onChange={(e) => setCustomerName(e.target.value)}
+                                className="w-full h-8 px-2.5 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none text-xs"
+                                style={{ color: '#1a1a1a', caretColor: '#1a1a1a' }}
+                                data-testid="input-customer-name"
+                              />
+                            </div>
+                            {orderType === 'delivery' && (
+                              <div>
+                                <Label htmlFor="delivery-address" className="text-[10px] font-medium mb-0.5 block text-gray-600">Endereço</Label>
+                                <input
+                                  id="delivery-address"
+                                  type="text"
+                                  placeholder="Rua, número, bairro..."
+                                  value={deliveryAddress}
+                                  onChange={(e) => setDeliveryAddress(e.target.value)}
+                                  data-testid="input-delivery-address"
+                                  className="w-full h-8 px-2.5 rounded-md border border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 focus:outline-none text-xs"
+                                  style={{ color: '#1a1a1a', caretColor: '#1a1a1a' }}
+                                />
+                              </div>
+                            )}
                           </div>
-                        )}
+
+                          {(couponValidation?.valid || (usePoints && pointsToRedeem > 0)) && (
+                            <div className="rounded-md p-2 bg-gray-50 border border-gray-200 space-y-1">
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="text-gray-600">Subtotal</span>
+                                <span className="text-gray-900">{formatKwanza(getTotal())}</span>
+                              </div>
+                              {couponValidation?.valid && (
+                                <div className="flex items-center justify-between text-[10px] text-green-600">
+                                  <span>Cupom</span>
+                                  <span>-{formatKwanza(couponValidation.discountAmount || 0)}</span>
+                                </div>
+                              )}
+                              {usePoints && pointsToRedeem > 0 && (
+                                <div className="flex items-center justify-between text-[10px] text-amber-600">
+                                  <span>Pontos</span>
+                                  <span>-{formatKwanza(getPointsDiscount())}</span>
+                                </div>
+                              )}
+                              <div className="pt-1 border-t border-gray-200 flex items-center justify-between">
+                                <span className="font-semibold text-xs text-gray-900">Total</span>
+                                <span className="font-bold text-sm text-gray-900">{formatKwanza(calculateFinalTotal())}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                      
+                      <div className="p-3 pt-2 border-t border-gray-100">
+                        <Button
+                          className="w-full h-10 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white font-bold text-sm rounded-lg shadow-md transition-all duration-200"
+                          onClick={handleConfirmOrder}
+                          disabled={createOrderMutation.isPending}
+                          data-testid="button-confirm-order"
+                        >
+                          {createOrderMutation.isPending ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              Enviando...
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <SiWhatsapp className="h-4 w-4" />
+                              Finalizar Pedido
+                            </div>
+                          )}
+                        </Button>
                       </div>
-
-                      {/* Order Summary with Discounts */}
-                      {(couponValidation?.valid || (usePoints && pointsToRedeem > 0)) && (
-                        <div className="rounded-lg p-2.5 bg-gray-50 border border-gray-200 space-y-1.5">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-gray-600">Subtotal</span>
-                            <span className="text-gray-900">{formatKwanza(getTotal())}</span>
-                          </div>
-                          {couponValidation?.valid && (
-                            <div className="flex items-center justify-between text-xs text-green-600">
-                              <span>Desconto cupom</span>
-                              <span>-{formatKwanza(couponValidation.discountAmount || 0)}</span>
-                            </div>
-                          )}
-                          {usePoints && pointsToRedeem > 0 && (
-                            <div className="flex items-center justify-between text-xs text-amber-600">
-                              <span>Desconto pontos ({pointsToRedeem} pts)</span>
-                              <span>-{formatKwanza(getPointsDiscount())}</span>
-                            </div>
-                          )}
-                          <div className="pt-1.5 border-t border-gray-200 flex items-center justify-between">
-                            <span className="font-semibold text-sm text-gray-900">Total Final</span>
-                            <span className="font-bold text-base text-gray-900">{formatKwanza(calculateFinalTotal())}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      <Button
-                        className="w-full h-11 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-green-500/25 transition-all duration-200"
-                        onClick={handleConfirmOrder}
-                        disabled={createOrderMutation.isPending}
-                        data-testid="button-confirm-order"
-                      >
-                        {createOrderMutation.isPending ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            Enviando pedido...
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <SiWhatsapp className="h-4 w-4" />
-                            Finalizar Pedido
-                          </div>
-                        )}
-                      </Button>
                     </div>
                   )}
                 </SheetContent>
