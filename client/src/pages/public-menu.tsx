@@ -769,63 +769,83 @@ export default function PublicMenu() {
                               {items.map((item) => (
                                 <div
                                   key={item.id}
-                                  className="flex gap-2 items-start p-2 rounded-lg bg-gray-50 border border-gray-100"
+                                  className="p-2.5 rounded-xl bg-white border border-gray-200 shadow-sm"
                                   data-testid={`cart-item-${item.id}`}
                                 >
-                                  {item.menuItem.imageUrl && (
-                                    <img
-                                      src={item.menuItem.imageUrl}
-                                      alt={item.menuItem.name}
-                                      className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
-                                    />
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <h4 className="font-semibold text-sm text-gray-900 leading-tight truncate">{item.menuItem.name}</h4>
-                                    {item.selectedOptions.length > 0 && (
-                                      <p className="text-[10px] text-gray-500 truncate">
-                                        {item.selectedOptions.map(opt => opt.optionName).join(', ')}
-                                      </p>
-                                    )}
-                                    <div className="flex items-center justify-between gap-1 mt-1">
-                                      <span className="font-bold text-sm text-gray-900">
-                                        {formatKwanza(
-                                          (parseFloat(item.menuItem.price) + 
-                                            item.selectedOptions.reduce((sum, opt) => sum + parseFloat(opt.priceAdjustment) * opt.quantity, 0)
-                                          ) * item.quantity
-                                        )}
-                                      </span>
-                                      <div className="flex items-center gap-0.5">
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                          data-testid={`button-decrease-${item.id}`}
-                                          className="h-6 w-6 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
-                                        >
-                                          <Minus className="h-3 w-3" />
-                                        </Button>
-                                        <span className="w-5 text-center font-semibold text-xs text-gray-900" data-testid={`text-quantity-${item.id}`}>
-                                          {item.quantity}
-                                        </span>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                          data-testid={`button-increase-${item.id}`}
-                                          className="h-6 w-6 rounded-full bg-gray-900 hover:bg-gray-800 text-white"
-                                        >
-                                          <Plus className="h-3 w-3" />
-                                        </Button>
+                                  <div className="flex gap-3">
+                                    <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
+                                      {item.menuItem.imageUrl ? (
+                                        <img
+                                          src={item.menuItem.imageUrl}
+                                          alt={item.menuItem.name}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                          <Utensils className="h-6 w-6 text-gray-300" />
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <h4 className="font-semibold text-sm text-gray-900 leading-tight line-clamp-2">{item.menuItem.name}</h4>
                                         <Button
                                           variant="ghost"
                                           size="icon"
                                           onClick={() => removeItem(item.id)}
                                           data-testid={`button-remove-${item.id}`}
-                                          className="h-6 w-6 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50"
+                                          className="h-6 w-6 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 flex-shrink-0"
                                         >
-                                          <Trash2 className="h-3 w-3" />
+                                          <Trash2 className="h-3.5 w-3.5" />
                                         </Button>
                                       </div>
+                                      {item.menuItem.description && (
+                                        <p className="text-[10px] text-gray-500 line-clamp-1 mt-0.5">{item.menuItem.description}</p>
+                                      )}
+                                      {item.selectedOptions.length > 0 && (
+                                        <div className="mt-1 flex flex-wrap gap-1">
+                                          {item.selectedOptions.map((opt, idx) => (
+                                            <span key={idx} className="inline-flex items-center text-[9px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-md">
+                                              {opt.optionName}
+                                              {parseFloat(opt.priceAdjustment) > 0 && (
+                                                <span className="ml-0.5 text-gray-400">+{formatKwanza(opt.priceAdjustment)}</span>
+                                              )}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+                                    <span className="font-bold text-sm text-gray-900">
+                                      {formatKwanza(
+                                        (parseFloat(item.menuItem.price) + 
+                                          item.selectedOptions.reduce((sum, opt) => sum + parseFloat(opt.priceAdjustment) * opt.quantity, 0)
+                                        ) * item.quantity
+                                      )}
+                                    </span>
+                                    <div className="flex items-center gap-1 bg-gray-100 rounded-full p-0.5">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                        data-testid={`button-decrease-${item.id}`}
+                                        className="h-7 w-7 rounded-full bg-white hover:bg-gray-50 text-gray-600 shadow-sm"
+                                      >
+                                        <Minus className="h-3.5 w-3.5" />
+                                      </Button>
+                                      <span className="w-6 text-center font-bold text-sm text-gray-900" data-testid={`text-quantity-${item.id}`}>
+                                        {item.quantity}
+                                      </span>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                        data-testid={`button-increase-${item.id}`}
+                                        className="h-7 w-7 rounded-full bg-gray-900 hover:bg-gray-800 text-white shadow-sm"
+                                      >
+                                        <Plus className="h-3.5 w-3.5" />
+                                      </Button>
                                     </div>
                                   </div>
                                 </div>
@@ -1443,7 +1463,7 @@ export default function PublicMenu() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
                   {group.items.map((item, itemIndex) => {
                     const itemPrice = typeof item.price === 'string' ? item.price : Number(item.price).toFixed(2);
                     const itemOriginalPrice = item.originalPrice 
@@ -1454,36 +1474,41 @@ export default function PublicMenu() {
                     return (
                       <motion.div
                         key={item.id}
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3, delay: itemIndex * 0.05 }}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.2, delay: itemIndex * 0.03 }}
                       >
-                        <Card
-                          className="overflow-hidden cursor-pointer h-full flex flex-col bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-xl"
+                        <div
+                          className="flex items-center gap-3 p-2 bg-white border border-gray-100 rounded-xl cursor-pointer hover:shadow-sm transition-all"
                           onClick={() => handleAddMenuItem(item)}
                           data-testid={`menu-item-${item.id}`}
                         >
-                          <CardContent className="p-0 flex flex-col h-full">
-                            <div className="relative aspect-[4/3] w-full bg-gray-50 overflow-hidden">
-                              {item.imageUrl ? (
-                                <img
-                                  src={item.imageUrl}
-                                  alt={item.name}
-                                  className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <Utensils className="h-8 w-8 text-gray-300" />
-                                </div>
-                              )}
-                              {hasPromo && (
-                                <Badge className="absolute top-1.5 left-1.5 bg-gray-900 text-white text-[9px] px-1.5 py-0.5 rounded-md border-0">
-                                  Promo
-                                </Badge>
-                              )}
+                          <div className="relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-50">
+                            {item.imageUrl ? (
+                              <img
+                                src={item.imageUrl}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Utensils className="h-6 w-6 text-gray-300" />
+                              </div>
+                            )}
+                            {hasPromo && (
+                              <Badge className="absolute -top-1 -left-1 bg-red-500 text-white text-[8px] px-1 py-0 rounded border-0">
+                                %
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-semibold text-sm text-gray-900 line-clamp-1" data-testid={`text-item-name-${item.id}`}>
+                                {item.name}
+                              </h3>
                               <button 
-                                className={`absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center shadow-sm transition-colors ${
-                                  isFavorite(item.id) ? 'bg-red-500' : 'bg-white/90'
+                                className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+                                  isFavorite(item.id) ? 'bg-red-500' : 'bg-gray-100'
                                 }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1498,34 +1523,32 @@ export default function PublicMenu() {
                                 <Heart className={`h-3 w-3 ${isFavorite(item.id) ? 'text-white fill-white' : 'text-gray-400'}`} />
                               </button>
                             </div>
-                            <div className="p-2 flex flex-col flex-1">
-                              <h3 className="font-medium text-xs leading-tight line-clamp-2 text-gray-900 mb-1" data-testid={`text-item-name-${item.id}`}>
-                                {item.name}
-                              </h3>
-                              <div className="mt-auto space-y-1.5">
-                                <div className="flex items-baseline gap-1.5">
-                                  <span className="font-bold text-sm text-gray-900" data-testid={`text-item-price-${item.id}`}>
-                                    {formatKwanza(itemPrice)}
+                            {item.description && (
+                              <p className="text-[11px] text-gray-500 line-clamp-1 mt-0.5">{item.description}</p>
+                            )}
+                            <div className="flex items-center justify-between mt-1.5">
+                              <div className="flex items-baseline gap-1.5">
+                                <span className="font-bold text-sm text-gray-900" data-testid={`text-item-price-${item.id}`}>
+                                  {formatKwanza(itemPrice)}
+                                </span>
+                                {hasPromo && (
+                                  <span className="text-[10px] text-gray-400 line-through">
+                                    {formatKwanza(itemOriginalPrice!)}
                                   </span>
-                                  {hasPromo && (
-                                    <span className="text-[10px] text-gray-400 line-through">
-                                      {formatKwanza(itemOriginalPrice!)}
-                                    </span>
-                                  )}
-                                </div>
-                                <Button
-                                  size="sm"
-                                  className="w-full h-7 text-xs bg-gray-900 hover:bg-gray-800 text-white font-medium shadow-sm rounded-lg"
-                                  onClick={(e) => handleQuickAddToCart(item, e)}
-                                  data-testid={`button-add-${item.id}`}
-                                >
-                                  <Plus className="h-3 w-3 mr-1" />
-                                  Adicionar
-                                </Button>
+                                )}
                               </div>
+                              <Button
+                                size="sm"
+                                className="h-7 px-3 text-xs bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg"
+                                onClick={(e) => handleQuickAddToCart(item, e)}
+                                data-testid={`button-add-${item.id}`}
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Adicionar
+                              </Button>
                             </div>
-                          </CardContent>
-                        </Card>
+                          </div>
+                        </div>
                       </motion.div>
                     );
                   })}
@@ -1533,7 +1556,7 @@ export default function PublicMenu() {
               </motion.div>
             ))
           ) : (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
               {filteredItems.map((item, itemIndex) => {
                 const itemPrice = typeof item.price === 'string' ? item.price : Number(item.price).toFixed(2);
                 const itemOriginalPrice = item.originalPrice 
@@ -1544,36 +1567,41 @@ export default function PublicMenu() {
                 return (
                   <motion.div
                     key={item.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.3, delay: itemIndex * 0.05 }}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.2, delay: itemIndex * 0.03 }}
                   >
-                    <Card
-                      className="overflow-hidden cursor-pointer h-full flex flex-col bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-xl"
+                    <div
+                      className="flex items-center gap-3 p-2 bg-white border border-gray-100 rounded-xl cursor-pointer hover:shadow-sm transition-all"
                       onClick={() => handleAddMenuItem(item)}
                       data-testid={`menu-item-${item.id}`}
                     >
-                      <CardContent className="p-0 flex flex-col h-full">
-                        <div className="relative aspect-[4/3] w-full bg-gray-50 overflow-hidden">
-                          {item.imageUrl ? (
-                            <img
-                              src={item.imageUrl}
-                              alt={item.name}
-                              className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Utensils className="h-8 w-8 text-gray-300" />
-                            </div>
-                          )}
-                          {hasPromo && (
-                            <Badge className="absolute top-1.5 left-1.5 bg-gray-900 text-white text-[9px] px-1.5 py-0.5 rounded-md border-0">
-                              Promo
-                            </Badge>
-                          )}
+                      <div className="relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-50">
+                        {item.imageUrl ? (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Utensils className="h-6 w-6 text-gray-300" />
+                          </div>
+                        )}
+                        {hasPromo && (
+                          <Badge className="absolute -top-1 -left-1 bg-red-500 text-white text-[8px] px-1 py-0 rounded border-0">
+                            %
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-semibold text-sm text-gray-900 line-clamp-1" data-testid={`text-item-name-${item.id}`}>
+                            {item.name}
+                          </h3>
                           <button 
-                            className={`absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center shadow-sm transition-colors ${
-                              isFavorite(item.id) ? 'bg-red-500' : 'bg-white/90'
+                            className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+                              isFavorite(item.id) ? 'bg-red-500' : 'bg-gray-100'
                             }`}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1588,34 +1616,32 @@ export default function PublicMenu() {
                             <Heart className={`h-3 w-3 ${isFavorite(item.id) ? 'text-white fill-white' : 'text-gray-400'}`} />
                           </button>
                         </div>
-                        <div className="p-2 flex flex-col flex-1">
-                          <h3 className="font-medium text-xs leading-tight line-clamp-2 text-gray-900 mb-1" data-testid={`text-item-name-${item.id}`}>
-                            {item.name}
-                          </h3>
-                          <div className="mt-auto space-y-1.5">
-                            <div className="flex items-baseline gap-1.5">
-                              <span className="font-bold text-sm text-gray-900" data-testid={`text-item-price-${item.id}`}>
-                                {formatKwanza(itemPrice)}
+                        {item.description && (
+                          <p className="text-[11px] text-gray-500 line-clamp-1 mt-0.5">{item.description}</p>
+                        )}
+                        <div className="flex items-center justify-between mt-1.5">
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="font-bold text-sm text-gray-900" data-testid={`text-item-price-${item.id}`}>
+                              {formatKwanza(itemPrice)}
+                            </span>
+                            {hasPromo && (
+                              <span className="text-[10px] text-gray-400 line-through">
+                                {formatKwanza(itemOriginalPrice!)}
                               </span>
-                              {hasPromo && (
-                                <span className="text-[10px] text-gray-400 line-through">
-                                  {formatKwanza(itemOriginalPrice!)}
-                                </span>
-                              )}
-                            </div>
-                            <Button
-                              size="sm"
-                              className="w-full h-7 text-xs bg-gray-900 hover:bg-gray-800 text-white font-medium shadow-sm rounded-lg"
-                              onClick={(e) => handleQuickAddToCart(item, e)}
-                              data-testid={`button-add-${item.id}`}
-                            >
-                              <Plus className="h-3 w-3 mr-1" />
-                              Adicionar
-                            </Button>
+                            )}
                           </div>
+                          <Button
+                            size="sm"
+                            className="h-7 px-3 text-xs bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg"
+                            onClick={(e) => handleQuickAddToCart(item, e)}
+                            data-testid={`button-add-${item.id}`}
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            Adicionar
+                          </Button>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   </motion.div>
                 );
               })}
