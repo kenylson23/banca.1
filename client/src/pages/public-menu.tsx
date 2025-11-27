@@ -902,6 +902,56 @@ export default function PublicMenu() {
                     <>
                       <div className="flex-1 overflow-y-auto px-3 py-2">
                         <div className="space-y-3">
+                          {/* Resumo do Pedido */}
+                          <div className="rounded-xl bg-gradient-to-br from-gray-900 to-gray-800 p-3 text-white">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Receipt className="h-4 w-4 text-white/70" />
+                              <span className="text-xs font-medium text-white/70 uppercase tracking-wide">Resumo do Pedido</span>
+                            </div>
+                            <div className="space-y-1.5 mb-3">
+                              {items.map((item) => (
+                                <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <span className="bg-white/20 text-white text-[10px] font-medium rounded px-1.5 py-0.5">
+                                      {item.quantity}x
+                                    </span>
+                                    <span className="text-white/90 truncate">{item.menuItem.name}</span>
+                                  </div>
+                                  <span className="text-white font-medium whitespace-nowrap">
+                                    {formatKwanza(
+                                      (parseFloat(item.menuItem.price) + 
+                                        item.selectedOptions.reduce((sum, opt) => sum + parseFloat(opt.priceAdjustment) * opt.quantity, 0)
+                                      ) * item.quantity
+                                    )}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="pt-2 border-t border-white/20 flex items-center justify-between">
+                              <span className="text-sm text-white/70">Total</span>
+                              <span className="text-lg font-bold text-white">{formatKwanza(getTotal())}</span>
+                            </div>
+                          </div>
+
+                          {/* Dados do Cliente */}
+                          <div className="rounded-lg bg-gray-50 p-3 space-y-2">
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <User className="h-3.5 w-3.5" />
+                              <span className="font-medium text-gray-700">{customerName}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <Phone className="h-3.5 w-3.5" />
+                              <span className="font-medium text-gray-700">{customerPhone}</span>
+                            </div>
+                            {identifiedCustomer?.found && (
+                              <div className="flex items-center gap-1.5 text-xs">
+                                <Award className="h-3.5 w-3.5 text-amber-500" />
+                                <span className="text-amber-600 font-medium">{identifiedCustomer.customer?.loyaltyPoints} pontos</span>
+                                <Badge className="bg-amber-100 text-amber-700 text-[9px] border-0 ml-1">{identifiedCustomer.customer?.tier}</Badge>
+                              </div>
+                            )}
+                          </div>
+
                           {/* Tipo de entrega */}
                           <Tabs value={orderType} onValueChange={(v) => setOrderType(v as 'delivery' | 'takeout')}>
                             <TabsList className="grid w-full grid-cols-2 h-10 bg-gray-100 rounded-lg p-1">
@@ -1409,12 +1459,12 @@ export default function PublicMenu() {
                         transition={{ duration: 0.3, delay: itemIndex * 0.05 }}
                       >
                         <Card
-                          className="overflow-hidden cursor-pointer h-full flex flex-col bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl"
+                          className="overflow-hidden cursor-pointer h-full flex flex-col bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-xl"
                           onClick={() => handleAddMenuItem(item)}
                           data-testid={`menu-item-${item.id}`}
                         >
                           <CardContent className="p-0 flex flex-col h-full">
-                            <div className="relative aspect-square w-full bg-gray-50 overflow-hidden">
+                            <div className="relative aspect-[4/3] w-full bg-gray-50 overflow-hidden">
                               {item.imageUrl ? (
                                 <img
                                   src={item.imageUrl}
@@ -1423,16 +1473,16 @@ export default function PublicMenu() {
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center">
-                                  <Utensils className="h-10 w-10 text-gray-300" />
+                                  <Utensils className="h-8 w-8 text-gray-300" />
                                 </div>
                               )}
                               {hasPromo && (
-                                <Badge className="absolute top-2 left-2 bg-gray-900 text-white text-[10px] px-2 py-1 rounded-lg border-0">
+                                <Badge className="absolute top-1.5 left-1.5 bg-gray-900 text-white text-[9px] px-1.5 py-0.5 rounded-md border-0">
                                   Promo
                                 </Badge>
                               )}
                               <button 
-                                className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-sm transition-colors ${
+                                className={`absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center shadow-sm transition-colors ${
                                   isFavorite(item.id) ? 'bg-red-500' : 'bg-white/90'
                                 }`}
                                 onClick={(e) => {
@@ -1445,31 +1495,31 @@ export default function PublicMenu() {
                                 }}
                                 data-testid={`button-favorite-${item.id}`}
                               >
-                                <Heart className={`h-4 w-4 ${isFavorite(item.id) ? 'text-white fill-white' : 'text-gray-400'}`} />
+                                <Heart className={`h-3 w-3 ${isFavorite(item.id) ? 'text-white fill-white' : 'text-gray-400'}`} />
                               </button>
                             </div>
-                            <div className="p-3 flex flex-col flex-1">
-                              <h3 className="font-semibold text-sm leading-tight line-clamp-2 text-gray-900 mb-2" data-testid={`text-item-name-${item.id}`}>
+                            <div className="p-2 flex flex-col flex-1">
+                              <h3 className="font-medium text-xs leading-tight line-clamp-2 text-gray-900 mb-1" data-testid={`text-item-name-${item.id}`}>
                                 {item.name}
                               </h3>
-                              <div className="mt-auto space-y-2">
-                                <div className="flex items-baseline gap-2">
-                                  <span className="font-bold text-base text-gray-900" data-testid={`text-item-price-${item.id}`}>
+                              <div className="mt-auto space-y-1.5">
+                                <div className="flex items-baseline gap-1.5">
+                                  <span className="font-bold text-sm text-gray-900" data-testid={`text-item-price-${item.id}`}>
                                     {formatKwanza(itemPrice)}
                                   </span>
                                   {hasPromo && (
-                                    <span className="text-xs text-gray-400 line-through">
+                                    <span className="text-[10px] text-gray-400 line-through">
                                       {formatKwanza(itemOriginalPrice!)}
                                     </span>
                                   )}
                                 </div>
                                 <Button
                                   size="sm"
-                                  className="w-full h-9 bg-gray-900 hover:bg-gray-800 text-white font-medium shadow-sm rounded-xl"
+                                  className="w-full h-7 text-xs bg-gray-900 hover:bg-gray-800 text-white font-medium shadow-sm rounded-lg"
                                   onClick={(e) => handleQuickAddToCart(item, e)}
                                   data-testid={`button-add-${item.id}`}
                                 >
-                                  <Plus className="h-4 w-4 mr-1" />
+                                  <Plus className="h-3 w-3 mr-1" />
                                   Adicionar
                                 </Button>
                               </div>
@@ -1499,12 +1549,12 @@ export default function PublicMenu() {
                     transition={{ duration: 0.3, delay: itemIndex * 0.05 }}
                   >
                     <Card
-                      className="overflow-hidden cursor-pointer h-full flex flex-col bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl"
+                      className="overflow-hidden cursor-pointer h-full flex flex-col bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-xl"
                       onClick={() => handleAddMenuItem(item)}
                       data-testid={`menu-item-${item.id}`}
                     >
                       <CardContent className="p-0 flex flex-col h-full">
-                        <div className="relative aspect-square w-full bg-gray-50 overflow-hidden">
+                        <div className="relative aspect-[4/3] w-full bg-gray-50 overflow-hidden">
                           {item.imageUrl ? (
                             <img
                               src={item.imageUrl}
@@ -1513,16 +1563,16 @@ export default function PublicMenu() {
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <Utensils className="h-10 w-10 text-gray-300" />
+                              <Utensils className="h-8 w-8 text-gray-300" />
                             </div>
                           )}
                           {hasPromo && (
-                            <Badge className="absolute top-2 left-2 bg-gray-900 text-white text-[10px] px-2 py-1 rounded-lg border-0">
+                            <Badge className="absolute top-1.5 left-1.5 bg-gray-900 text-white text-[9px] px-1.5 py-0.5 rounded-md border-0">
                               Promo
                             </Badge>
                           )}
                           <button 
-                            className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-sm transition-colors ${
+                            className={`absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center shadow-sm transition-colors ${
                               isFavorite(item.id) ? 'bg-red-500' : 'bg-white/90'
                             }`}
                             onClick={(e) => {
@@ -1535,31 +1585,31 @@ export default function PublicMenu() {
                             }}
                             data-testid={`button-favorite-filtered-${item.id}`}
                           >
-                            <Heart className={`h-4 w-4 ${isFavorite(item.id) ? 'text-white fill-white' : 'text-gray-400'}`} />
+                            <Heart className={`h-3 w-3 ${isFavorite(item.id) ? 'text-white fill-white' : 'text-gray-400'}`} />
                           </button>
                         </div>
-                        <div className="p-3 flex flex-col flex-1">
-                          <h3 className="font-semibold text-sm leading-tight line-clamp-2 text-gray-900 mb-2" data-testid={`text-item-name-${item.id}`}>
+                        <div className="p-2 flex flex-col flex-1">
+                          <h3 className="font-medium text-xs leading-tight line-clamp-2 text-gray-900 mb-1" data-testid={`text-item-name-${item.id}`}>
                             {item.name}
                           </h3>
-                          <div className="mt-auto space-y-2">
-                            <div className="flex items-baseline gap-2">
-                              <span className="font-bold text-base text-gray-900" data-testid={`text-item-price-${item.id}`}>
+                          <div className="mt-auto space-y-1.5">
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="font-bold text-sm text-gray-900" data-testid={`text-item-price-${item.id}`}>
                                 {formatKwanza(itemPrice)}
                               </span>
                               {hasPromo && (
-                                <span className="text-xs text-gray-400 line-through">
+                                <span className="text-[10px] text-gray-400 line-through">
                                   {formatKwanza(itemOriginalPrice!)}
                                 </span>
                               )}
                             </div>
                             <Button
                               size="sm"
-                              className="w-full h-9 bg-gray-900 hover:bg-gray-800 text-white font-medium shadow-sm rounded-xl"
+                              className="w-full h-7 text-xs bg-gray-900 hover:bg-gray-800 text-white font-medium shadow-sm rounded-lg"
                               onClick={(e) => handleQuickAddToCart(item, e)}
                               data-testid={`button-add-${item.id}`}
                             >
-                              <Plus className="h-4 w-4 mr-1" />
+                              <Plus className="h-3 w-3 mr-1" />
                               Adicionar
                             </Button>
                           </div>
