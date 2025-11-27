@@ -626,6 +626,7 @@ export async function ensureTablesExist() {
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         menu_item_id VARCHAR NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
         name VARCHAR(200) NOT NULL,
+        unit VARCHAR(50),
         type option_group_type NOT NULL DEFAULT 'single',
         is_required INTEGER NOT NULL DEFAULT 0,
         min_selections INTEGER NOT NULL DEFAULT 0,
@@ -633,6 +634,11 @@ export async function ensureTablesExist() {
         display_order INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
+      
+      // Add unit column to option_groups if it doesn't exist
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE option_groups ADD COLUMN unit VARCHAR(50); 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Create options table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS options (

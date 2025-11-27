@@ -2374,6 +2374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const menuItems = await storage.getMenuItems(restaurantId, branchId);
       res.json(menuItems);
     } catch (error) {
+      console.error("Error fetching menu items:", error);
       res.status(500).json({ message: "Failed to fetch menu items" });
     }
   });
@@ -2408,6 +2409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const menuItem = await storage.createMenuItem(restaurantId, branchId, data);
       res.json(menuItem);
     } catch (error) {
+      console.error("Error creating menu item:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
