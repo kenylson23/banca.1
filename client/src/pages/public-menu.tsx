@@ -1623,110 +1623,168 @@ export default function PublicMenu() {
 
       {/* Customer Registration Dialog */}
       <Dialog open={isRegisterDialogOpen} onOpenChange={setIsRegisterDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white rounded-3xl" data-testid="dialog-register-customer">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-gray-900">Cadastre-se e ganhe benefícios!</DialogTitle>
-            <DialogDescription className="space-y-2 text-sm text-gray-500">
-              <p>Ao se cadastrar você terá acesso a:</p>
-              <ul className="list-none space-y-2 mt-3">
-                <li className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl">
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    <Gift className="h-5 w-5 text-gray-600" />
+        <DialogContent className="sm:max-w-md p-0 bg-white rounded-3xl overflow-hidden" data-testid="dialog-register-customer">
+          {/* Hero Section */}
+          <div className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 pt-8 pb-12 px-6">
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute inset-0" style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+              }} />
+            </div>
+            <div className="relative flex flex-col items-center text-center">
+              <motion.div 
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.1 }}
+                className="w-20 h-20 rounded-full bg-white/10 backdrop-blur-sm border-2 border-white/20 flex items-center justify-center mb-4"
+              >
+                <User className="h-10 w-10 text-white" />
+              </motion.div>
+              <motion.h2 
+                initial={{ y: 10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="text-xl font-bold text-white mb-1"
+              >
+                Crie sua Conta
+              </motion.h2>
+              <motion.p 
+                initial={{ y: 10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="text-sm text-gray-300"
+              >
+                Junte-se ao nosso programa de recompensas
+              </motion.p>
+            </div>
+          </div>
+
+          {/* Benefits Section */}
+          <div className="px-6 -mt-6">
+            <motion.div 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4"
+            >
+              <div className="flex items-center justify-around gap-2">
+                <div className="flex flex-col items-center text-center p-2">
+                  <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mb-2">
+                    <Gift className="h-6 w-6 text-amber-600" />
                   </div>
-                  <span className="text-gray-700">Programa de fidelidade com pontos em cada compra</span>
-                </li>
-                <li className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl">
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    <Star className="h-5 w-5 text-gray-600" />
+                  <span className="text-xs font-medium text-gray-700 leading-tight">Pontos em<br/>cada pedido</span>
+                </div>
+                <div className="w-px h-12 bg-gray-200" />
+                <div className="flex flex-col items-center text-center p-2">
+                  <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-2">
+                    <Tag className="h-6 w-6 text-green-600" />
                   </div>
-                  <span className="text-gray-700">Descontos e promoções exclusivas</span>
-                </li>
-                <li className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl">
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    <Award className="h-5 w-5 text-gray-600" />
+                  <span className="text-xs font-medium text-gray-700 leading-tight">Descontos<br/>exclusivos</span>
+                </div>
+                <div className="w-px h-12 bg-gray-200" />
+                <div className="flex flex-col items-center text-center p-2">
+                  <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center mb-2">
+                    <Award className="h-6 w-6 text-purple-600" />
                   </div>
-                  <span className="text-gray-700">Bônus especial de aniversário</span>
-                </li>
-              </ul>
-            </DialogDescription>
-          </DialogHeader>
+                  <span className="text-xs font-medium text-gray-700 leading-tight">Bônus de<br/>aniversário</span>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Form Section */}
           <form onSubmit={(e) => {
             e.preventDefault();
             registerCustomerMutation.mutate(registerFormData);
-          }}>
-            <div className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="register-name" className="text-gray-700">Nome Completo *</Label>
-                <Input
-                  id="register-name"
-                  placeholder="Digite seu nome completo"
-                  value={registerFormData.name}
-                  onChange={(e) => setRegisterFormData({ ...registerFormData, name: e.target.value })}
-                  required
-                  className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
-                  data-testid="input-register-name"
-                />
+          }} className="px-6 pt-5 pb-6">
+            <ScrollArea className="max-h-[35vh] pr-2">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="register-name" className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                    Nome Completo <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="register-name"
+                    placeholder="Digite seu nome completo"
+                    value={registerFormData.name}
+                    onChange={(e) => setRegisterFormData({ ...registerFormData, name: e.target.value })}
+                    required
+                    className="h-12 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 transition-colors"
+                    data-testid="input-register-name"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="register-phone" className="text-sm font-medium text-gray-700">
+                      Telefone
+                    </Label>
+                    <Input
+                      id="register-phone"
+                      type="tel"
+                      placeholder="+244 900 000"
+                      value={registerFormData.phone}
+                      onChange={(e) => setRegisterFormData({ ...registerFormData, phone: e.target.value })}
+                      className="h-12 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 transition-colors"
+                      data-testid="input-register-phone"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="register-cpf" className="text-sm font-medium text-gray-700">
+                      CPF/BI
+                    </Label>
+                    <Input
+                      id="register-cpf"
+                      placeholder="Documento"
+                      value={registerFormData.cpf}
+                      onChange={(e) => setRegisterFormData({ ...registerFormData, cpf: e.target.value })}
+                      className="h-12 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 transition-colors"
+                      data-testid="input-register-cpf"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="register-email" className="text-sm font-medium text-gray-700">
+                    Email
+                  </Label>
+                  <Input
+                    id="register-email"
+                    type="email"
+                    placeholder="seuemail@exemplo.com"
+                    value={registerFormData.email}
+                    onChange={(e) => setRegisterFormData({ ...registerFormData, email: e.target.value })}
+                    className="h-12 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 transition-colors"
+                    data-testid="input-register-email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="register-address" className="text-sm font-medium text-gray-700">
+                    Endereço
+                  </Label>
+                  <Textarea
+                    id="register-address"
+                    placeholder="Seu endereço completo"
+                    value={registerFormData.address}
+                    onChange={(e) => setRegisterFormData({ ...registerFormData, address: e.target.value })}
+                    rows={2}
+                    className="resize-none rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:border-gray-400 transition-colors text-base"
+                    data-testid="input-register-address"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="register-phone" className="text-gray-700">Telefone</Label>
-                <Input
-                  id="register-phone"
-                  type="tel"
-                  placeholder="+244 900 000 000"
-                  value={registerFormData.phone}
-                  onChange={(e) => setRegisterFormData({ ...registerFormData, phone: e.target.value })}
-                  className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
-                  data-testid="input-register-phone"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="register-email" className="text-gray-700">Email</Label>
-                <Input
-                  id="register-email"
-                  type="email"
-                  placeholder="seuemail@exemplo.com"
-                  value={registerFormData.email}
-                  onChange={(e) => setRegisterFormData({ ...registerFormData, email: e.target.value })}
-                  className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
-                  data-testid="input-register-email"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="register-cpf" className="text-gray-700">CPF/BI</Label>
-                <Input
-                  id="register-cpf"
-                  placeholder="Documento de identificação"
-                  value={registerFormData.cpf}
-                  onChange={(e) => setRegisterFormData({ ...registerFormData, cpf: e.target.value })}
-                  className="h-11 rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
-                  data-testid="input-register-cpf"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="register-address" className="text-gray-700">Endereço</Label>
-                <Textarea
-                  id="register-address"
-                  placeholder="Seu endereço completo"
-                  value={registerFormData.address}
-                  onChange={(e) => setRegisterFormData({ ...registerFormData, address: e.target.value })}
-                  rows={2}
-                  className="resize-none rounded-xl border-gray-200 bg-gray-50 focus:bg-white"
-                  data-testid="input-register-address"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
+            </ScrollArea>
+            
+            <div className="flex gap-3 mt-6 pt-4 border-t border-gray-100">
               <Button
                 type="button"
                 variant="outline"
-                className="flex-1 h-11 rounded-xl border-gray-200 text-gray-700"
+                className="flex-1 h-12 rounded-xl border-gray-200 text-gray-600 hover:bg-gray-50 font-medium"
                 onClick={() => setIsRegisterDialogOpen(false)}
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
-                className="flex-1 h-11 rounded-xl bg-gray-900 hover:bg-gray-800 text-white"
+                className="flex-1 h-12 rounded-xl bg-gray-900 hover:bg-gray-800 text-white font-semibold shadow-lg shadow-gray-900/20"
                 disabled={registerCustomerMutation.isPending || !registerFormData.name}
                 data-testid="button-submit-register"
               >
@@ -1737,8 +1795,8 @@ export default function PublicMenu() {
                   </div>
                 ) : (
                   <>
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Cadastrar
+                    <UserPlus className="mr-2 h-5 w-5" />
+                    Criar Conta
                   </>
                 )}
               </Button>
