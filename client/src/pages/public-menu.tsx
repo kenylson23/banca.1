@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { 
-  ShoppingCart, Plus, Trash2, Bike, ShoppingBag, Search, 
+  ShoppingCart, Plus, Minus, Trash2, Bike, ShoppingBag, Search, 
   MapPin, Phone, Utensils, ArrowRight, UserPlus, Gift, Award, Star,
   Bell, Heart, Map, Clock, User, Home, ChevronRight
 } from 'lucide-react';
@@ -31,7 +31,7 @@ import { SiWhatsapp } from 'react-icons/si';
 export default function PublicMenu() {
   const [, params] = useRoute('/r/:slug');
   const slug = params?.slug;
-  const { items, addItem, removeItem, clearCart, getTotal, getItemCount } = useCart();
+  const { items, addItem, removeItem, updateQuantity, clearCart, getTotal, getItemCount } = useCart();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [orderType, setOrderType] = useState<'delivery' | 'takeout'>('delivery');
   const [customerName, setCustomerName] = useState('');
@@ -359,11 +359,6 @@ export default function PublicMenu() {
     );
   }
 
-  const promoCards = [
-    { discount: '35%', subtitle: 'para primeira compra', period: '10-20 Jun 2025', bgFrom: '#555555', bgTo: '#333333' },
-    { discount: '25%', subtitle: 'compra mínima 10.000Kz', period: '25-29 Jun 2025', bgFrom: '#666666', bgTo: '#444444' },
-    { discount: '15%', subtitle: 'em itens selecionados', period: '1-5 Jul 2025', bgFrom: '#777777', bgTo: '#555555' },
-  ];
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] pb-24">
@@ -480,15 +475,38 @@ export default function PublicMenu() {
                                       ) * item.quantity
                                     )}
                                   </span>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => removeItem(item.id)}
-                                    data-testid={`button-remove-${item.id}`}
-                                    className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 h-8 px-2 text-xs rounded-xl"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                      data-testid={`button-decrease-${item.id}`}
+                                      className="h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
+                                    >
+                                      <Minus className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <span className="w-8 text-center font-semibold text-gray-900" data-testid={`text-quantity-${item.id}`}>
+                                      {item.quantity}
+                                    </span>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                      data-testid={`button-increase-${item.id}`}
+                                      className="h-8 w-8 rounded-full bg-gray-900 hover:bg-gray-800 text-white"
+                                    >
+                                      <Plus className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => removeItem(item.id)}
+                                      data-testid={`button-remove-${item.id}`}
+                                      className="h-8 w-8 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 ml-1"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                             </motion.div>
@@ -705,48 +723,65 @@ export default function PublicMenu() {
           </section>
         )}
 
-        {/* Promo Section */}
-        <section className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-gray-900">Promoções</h2>
-            <button className="text-sm text-gray-500 font-medium" data-testid="button-see-all-promos">
-              Ver tudo
-            </button>
-          </div>
-          <ScrollArea className="w-full">
-            <div className="flex gap-4 pb-2">
-              {promoCards.map((promo, index) => (
-                <div
-                  key={index}
-                  className="min-w-[280px] h-36 rounded-3xl p-5 flex flex-col justify-between relative overflow-hidden"
-                  style={{
-                    background: `linear-gradient(135deg, ${promo.bgFrom} 0%, ${promo.bgTo} 100%)`
-                  }}
-                  data-testid={`promo-card-${index}`}
-                >
-                  <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white/5 -mr-10 -mt-10" />
-                  <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full bg-white/5 -ml-8 -mb-8" />
-                  
-                  <div>
-                    <p className="text-white/80 text-xs mb-1">Desconto de até</p>
-                    <p className="text-white text-4xl font-bold">{promo.discount}</p>
-                    <p className="text-white/80 text-sm">{promo.subtitle}</p>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-white/60 text-xs">{promo.period}</p>
-                    <Button 
-                      size="sm" 
-                      className="bg-white hover:bg-gray-100 text-gray-900 rounded-xl h-8 px-4 text-xs font-semibold"
-                      data-testid={`button-shop-promo-${index}`}
-                    >
-                      Comprar
-                    </Button>
-                  </div>
-                </div>
-              ))}
+        {/* Promo Section - Shows real discounted items */}
+        {specialOfferItems.length > 0 && (
+          <section className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">Promoções</h2>
+              <button className="text-sm text-gray-500 font-medium" data-testid="button-see-all-promos">
+                Ver tudo
+              </button>
             </div>
-          </ScrollArea>
-        </section>
+            <ScrollArea className="w-full">
+              <div className="flex gap-4 pb-2">
+                {specialOfferItems.slice(0, 3).map((item) => {
+                  const itemPrice = typeof item.price === 'string' ? parseFloat(item.price) : item.price;
+                  const itemOriginalPrice = item.originalPrice 
+                    ? (typeof item.originalPrice === 'string' ? parseFloat(item.originalPrice) : item.originalPrice) 
+                    : itemPrice;
+                  const discountPercent = Math.round(((itemOriginalPrice - itemPrice) / itemOriginalPrice) * 100);
+                  
+                  return (
+                    <div
+                      key={item.id}
+                      className="min-w-[280px] h-36 rounded-3xl p-5 flex justify-between relative overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                      style={{
+                        background: 'linear-gradient(135deg, #555555 0%, #333333 100%)'
+                      }}
+                      onClick={() => handleAddMenuItem(item)}
+                      data-testid={`promo-card-${item.id}`}
+                    >
+                      <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-white/5 -mr-10 -mt-10" />
+                      <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full bg-white/5 -ml-8 -mb-8" />
+                      
+                      <div className="flex flex-col justify-between z-10">
+                        <div>
+                          <p className="text-white/80 text-xs mb-1">Desconto de</p>
+                          <p className="text-white text-4xl font-bold">{discountPercent}%</p>
+                          <p className="text-white/80 text-sm line-clamp-1">{item.name}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-white/50 text-xs line-through">{formatKwanza(itemOriginalPrice)}</span>
+                          <span className="text-white font-semibold text-sm">{formatKwanza(itemPrice)}</span>
+                        </div>
+                      </div>
+                      
+                      {item.imageUrl && (
+                        <div className="w-24 h-24 rounded-2xl overflow-hidden flex-shrink-0 self-center">
+                          <img 
+                            src={item.imageUrl} 
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </section>
+        )}
 
         {/* Special Offers Section */}
         {specialOfferItems.length > 0 && (
