@@ -33,6 +33,7 @@ import {
   stockMovements,
   recipeIngredients,
   customers,
+  customerSessions,
   loyaltyPrograms,
   loyaltyTransactions,
   coupons,
@@ -120,6 +121,8 @@ import {
   type Customer,
   type InsertCustomer,
   type UpdateCustomer,
+  type CustomerSession,
+  type InsertCustomerSession,
   type LoyaltyProgram,
   type InsertLoyaltyProgram,
   type UpdateLoyaltyProgram,
@@ -142,7 +145,7 @@ import {
   type InsertSubscriptionUsage,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, gte, or, isNull, inArray, ne } from "drizzle-orm";
+import { eq, desc, sql, and, gte, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import { alias } from "drizzle-orm/pg-core";
 
@@ -637,6 +640,16 @@ export interface IStorage {
     newThisMonth: number;
     topCustomers: Array<Customer & { orderCount: number }>;
   }>;
+  
+  // Customer Session operations (for multi-device authentication)
+  getOrCreateCustomerByPhone(restaurantId: string, phone: string): Promise<Customer>;
+  createCustomerSession(customerId: string, restaurantId: string, deviceInfo?: string, ipAddress?: string): Promise<CustomerSession>;
+  verifyCustomerOtp(customerId: string, restaurantId: string, otpCode: string): Promise<CustomerSession | null>;
+  getCustomerSessionByToken(token: string): Promise<(CustomerSession & { customer: Customer }) | null>;
+  refreshCustomerSession(token: string): Promise<CustomerSession | null>;
+  invalidateCustomerSession(token: string): Promise<void>;
+  invalidateAllCustomerSessions(customerId: string): Promise<void>;
+  cleanupExpiredSessions(): Promise<void>;
   
   // Loyalty Program operations
   getLoyaltyProgram(restaurantId: string): Promise<LoyaltyProgram | undefined>;
@@ -6925,6 +6938,246 @@ export class DatabaseStorage implements IStorage {
     stats.topCustomers = topCustomersData;
 
     return stats;
+  }
+
+  // ===== CUSTOMER SESSION OPERATIONS (Multi-device Authentication) =====
+
+  async getOrCreateCustomerByPhone(restaurantId: string, phone: string): Promise<Customer> {
+    // Normalize phone number (remove spaces and special chars)
+    const normalizedPhone = phone.replace(/[\s\-\(\)]/g, '');
+    
+    // Try to find existing customer
+    let customer = await this.getCustomerByPhone(restaurantId, normalizedPhone);
+    
+    if (!customer) {
+      // Create new customer with just phone number
+      [customer] = await db
+        .insert(customers)
+        .values({
+          restaurantId,
+          phone: normalizedPhone,
+          name: `Cliente ${normalizedPhone.slice(-4)}`, // Temporary name using last 4 digits
+          isActive: 1,
+        })
+        .returning();
+    }
+    
+    return customer;
+  }
+
+  async createCustomerSession(
+    customerId: string,
+    restaurantId: string,
+    deviceInfo?: string,
+    ipAddress?: string
+  ): Promise<CustomerSession> {
+    // Generate OTP code (6 digits)
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Generate unique token
+    const token = `cs_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    
+    // OTP expires in 5 minutes
+    const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    
+    // Session expires in 30 days
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    
+    // Invalidate any existing pending sessions for this customer
+    await db
+      .update(customerSessions)
+      .set({ isActive: 0 })
+      .where(
+        and(
+          eq(customerSessions.customerId, customerId),
+          eq(customerSessions.restaurantId, restaurantId),
+          eq(customerSessions.isActive, 1),
+          isNull(customerSessions.otpCode) // Keep sessions that already verified
+        )
+      );
+    
+    const [session] = await db
+      .insert(customerSessions)
+      .values({
+        customerId,
+        restaurantId,
+        token,
+        otpCode,
+        otpExpiresAt,
+        otpAttempts: 0,
+        deviceInfo,
+        ipAddress,
+        expiresAt,
+        isActive: 1,
+      })
+      .returning();
+    
+    return session;
+  }
+
+  async verifyCustomerOtp(
+    customerId: string,
+    restaurantId: string,
+    otpCode: string
+  ): Promise<CustomerSession | null> {
+    // Find pending session with matching OTP
+    const [session] = await db
+      .select()
+      .from(customerSessions)
+      .where(
+        and(
+          eq(customerSessions.customerId, customerId),
+          eq(customerSessions.restaurantId, restaurantId),
+          eq(customerSessions.isActive, 1),
+          isNotNull(customerSessions.otpCode)
+        )
+      )
+      .orderBy(desc(customerSessions.createdAt))
+      .limit(1);
+    
+    if (!session) {
+      return null;
+    }
+    
+    // Check if OTP is expired
+    if (session.otpExpiresAt && new Date(session.otpExpiresAt) < new Date()) {
+      await db
+        .update(customerSessions)
+        .set({ isActive: 0 })
+        .where(eq(customerSessions.id, session.id));
+      return null;
+    }
+    
+    // Check attempts (max 3) - invalidate session on too many attempts
+    if (session.otpAttempts >= 3) {
+      await db
+        .update(customerSessions)
+        .set({ isActive: 0 })
+        .where(eq(customerSessions.id, session.id));
+      return null;
+    }
+    
+    // Verify OTP first before incrementing attempts
+    if (session.otpCode !== otpCode) {
+      // Increment attempts on failed verification
+      const newAttempts = session.otpAttempts + 1;
+      await db
+        .update(customerSessions)
+        .set({ otpAttempts: newAttempts })
+        .where(eq(customerSessions.id, session.id));
+      
+      // Invalidate session if max attempts reached
+      if (newAttempts >= 3) {
+        await db
+          .update(customerSessions)
+          .set({ isActive: 0 })
+          .where(eq(customerSessions.id, session.id));
+      }
+      return null;
+    }
+    
+    // OTP verified - clear OTP and update session with new token
+    const newToken = `cs_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    const [verifiedSession] = await db
+      .update(customerSessions)
+      .set({
+        token: newToken,
+        otpCode: null,
+        otpExpiresAt: null,
+        otpAttempts: 0,
+        lastActiveAt: new Date(),
+      })
+      .where(eq(customerSessions.id, session.id))
+      .returning();
+    
+    return verifiedSession;
+  }
+
+  async getCustomerSessionByToken(token: string): Promise<(CustomerSession & { customer: Customer }) | null> {
+    const [result] = await db
+      .select()
+      .from(customerSessions)
+      .innerJoin(customers, eq(customerSessions.customerId, customers.id))
+      .where(
+        and(
+          eq(customerSessions.token, token),
+          eq(customerSessions.isActive, 1),
+          isNull(customerSessions.otpCode) // Only return verified sessions
+        )
+      )
+      .limit(1);
+    
+    if (!result) {
+      return null;
+    }
+    
+    // Check if session is expired
+    if (result.customer_sessions.expiresAt < new Date()) {
+      await db
+        .update(customerSessions)
+        .set({ isActive: 0 })
+        .where(eq(customerSessions.id, result.customer_sessions.id));
+      return null;
+    }
+    
+    // Update last active
+    await db
+      .update(customerSessions)
+      .set({ lastActiveAt: new Date() })
+      .where(eq(customerSessions.id, result.customer_sessions.id));
+    
+    return {
+      ...result.customer_sessions,
+      customer: result.customers,
+    };
+  }
+
+  async refreshCustomerSession(token: string): Promise<CustomerSession | null> {
+    const sessionData = await this.getCustomerSessionByToken(token);
+    
+    if (!sessionData) {
+      return null;
+    }
+    
+    // Extend session by 30 more days
+    const newExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    
+    const [refreshedSession] = await db
+      .update(customerSessions)
+      .set({
+        expiresAt: newExpiresAt,
+        lastActiveAt: new Date(),
+      })
+      .where(eq(customerSessions.token, token))
+      .returning();
+    
+    return refreshedSession;
+  }
+
+  async invalidateCustomerSession(token: string): Promise<void> {
+    await db
+      .update(customerSessions)
+      .set({ isActive: 0 })
+      .where(eq(customerSessions.token, token));
+  }
+
+  async invalidateAllCustomerSessions(customerId: string): Promise<void> {
+    await db
+      .update(customerSessions)
+      .set({ isActive: 0 })
+      .where(eq(customerSessions.customerId, customerId));
+  }
+
+  async cleanupExpiredSessions(): Promise<void> {
+    await db
+      .update(customerSessions)
+      .set({ isActive: 0 })
+      .where(
+        and(
+          eq(customerSessions.isActive, 1),
+          lt(customerSessions.expiresAt, new Date())
+        )
+      );
   }
 
   // ===== LOYALTY PROGRAM OPERATIONS =====

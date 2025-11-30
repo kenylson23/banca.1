@@ -1754,6 +1754,193 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== CUSTOMER AUTHENTICATION (Multi-device login) =====
+  
+  // Request OTP code for customer login
+  app.post("/api/public/customer-auth/request-otp", async (req, res) => {
+    try {
+      const { phone, restaurantId } = req.body;
+      
+      if (!phone || !restaurantId) {
+        return res.status(400).json({ message: "Telefone e ID do restaurante são obrigatórios" });
+      }
+      
+      // Check if restaurant exists
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurante não encontrado" });
+      }
+      
+      // Get or create customer by phone
+      const customer = await storage.getOrCreateCustomerByPhone(restaurantId, phone);
+      
+      // Create session with OTP
+      const deviceInfo = req.headers['user-agent'] || 'Unknown device';
+      const ipAddress = req.ip || req.socket.remoteAddress || 'Unknown';
+      const session = await storage.createCustomerSession(
+        customer.id,
+        restaurantId,
+        deviceInfo,
+        ipAddress
+      );
+      
+      // In production, you would send the OTP via SMS/WhatsApp here
+      // For now, we'll return it in the response for testing (remove in production!)
+      console.log(`[CUSTOMER AUTH] OTP for ${phone}: ${session.otpCode}`);
+      
+      res.json({
+        success: true,
+        message: "Código de verificação enviado",
+        customerId: customer.id,
+        // DEV ONLY: Remove otpCode from response in production
+        ...(process.env.NODE_ENV === 'development' && { otpCode: session.otpCode }),
+      });
+    } catch (error) {
+      console.error('Customer auth request error:', error);
+      res.status(500).json({ message: "Erro ao solicitar código de verificação" });
+    }
+  });
+  
+  // Verify OTP and complete login
+  app.post("/api/public/customer-auth/verify", async (req, res) => {
+    try {
+      const { phone, restaurantId, otpCode } = req.body;
+      
+      if (!phone || !restaurantId || !otpCode) {
+        return res.status(400).json({ message: "Telefone, ID do restaurante e código são obrigatórios" });
+      }
+      
+      // Find customer by phone
+      const customer = await storage.getCustomerByPhone(restaurantId, phone.replace(/[\s\-\(\)]/g, ''));
+      if (!customer) {
+        return res.status(404).json({ message: "Cliente não encontrado" });
+      }
+      
+      // Verify OTP
+      const session = await storage.verifyCustomerOtp(customer.id, restaurantId, otpCode);
+      if (!session) {
+        return res.status(401).json({ message: "Código inválido ou expirado" });
+      }
+      
+      // Get loyalty info
+      const loyaltyProgram = await storage.getLoyaltyProgram(restaurantId);
+      
+      res.json({
+        success: true,
+        token: session.token,
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+          email: customer.email,
+          loyaltyPoints: customer.loyaltyPoints,
+          tier: customer.tier,
+          totalSpent: customer.totalSpent,
+          visitCount: customer.visitCount,
+        },
+        loyalty: loyaltyProgram && loyaltyProgram.isActive === 1 ? {
+          isActive: true,
+          pointsPerCurrency: loyaltyProgram.pointsPerCurrency,
+          currencyPerPoint: loyaltyProgram.currencyPerPoint,
+          minPointsToRedeem: loyaltyProgram.minPointsToRedeem,
+        } : null,
+        expiresAt: session.expiresAt,
+      });
+    } catch (error) {
+      console.error('Customer auth verify error:', error);
+      res.status(500).json({ message: "Erro ao verificar código" });
+    }
+  });
+  
+  // Get current customer session (check if logged in)
+  app.get("/api/public/customer-auth/me", async (req, res) => {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      
+      if (!token) {
+        return res.status(401).json({ authenticated: false, message: "Token não fornecido" });
+      }
+      
+      const sessionData = await storage.getCustomerSessionByToken(token);
+      if (!sessionData) {
+        return res.status(401).json({ authenticated: false, message: "Sessão inválida ou expirada" });
+      }
+      
+      const { customer } = sessionData;
+      
+      // Get loyalty info
+      const loyaltyProgram = await storage.getLoyaltyProgram(sessionData.restaurantId);
+      
+      res.json({
+        authenticated: true,
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+          email: customer.email,
+          loyaltyPoints: customer.loyaltyPoints,
+          tier: customer.tier,
+          totalSpent: customer.totalSpent,
+          visitCount: customer.visitCount,
+        },
+        loyalty: loyaltyProgram && loyaltyProgram.isActive === 1 ? {
+          isActive: true,
+          pointsPerCurrency: loyaltyProgram.pointsPerCurrency,
+          currencyPerPoint: loyaltyProgram.currencyPerPoint,
+          minPointsToRedeem: loyaltyProgram.minPointsToRedeem,
+        } : null,
+      });
+    } catch (error) {
+      console.error('Customer auth check error:', error);
+      res.status(500).json({ message: "Erro ao verificar sessão" });
+    }
+  });
+  
+  // Refresh customer session token
+  app.post("/api/public/customer-auth/refresh", async (req, res) => {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      
+      if (!token) {
+        return res.status(401).json({ message: "Token não fornecido" });
+      }
+      
+      const refreshedSession = await storage.refreshCustomerSession(token);
+      if (!refreshedSession) {
+        return res.status(401).json({ message: "Sessão inválida ou expirada" });
+      }
+      
+      res.json({
+        success: true,
+        expiresAt: refreshedSession.expiresAt,
+      });
+    } catch (error) {
+      console.error('Customer auth refresh error:', error);
+      res.status(500).json({ message: "Erro ao renovar sessão" });
+    }
+  });
+  
+  // Logout customer (invalidate session)
+  app.post("/api/public/customer-auth/logout", async (req, res) => {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      
+      if (!token) {
+        return res.status(400).json({ message: "Token não fornecido" });
+      }
+      
+      await storage.invalidateCustomerSession(token);
+      
+      res.json({
+        success: true,
+        message: "Logout realizado com sucesso",
+      });
+    } catch (error) {
+      console.error('Customer auth logout error:', error);
+      res.status(500).json({ message: "Erro ao fazer logout" });
+    }
+  });
+
   // ===== TABLE ROUTES (Admin Only) =====
   app.get("/api/tables", isAdmin, async (req, res) => {
     try {
@@ -4933,7 +5120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               description: `${validatedData.description || ''} (Parte ${i}/${installments})`.trim(),
               paymentMethod: validatedData.paymentMethod,
               amount: installmentAmount.toFixed(2),
-              occurredAt: occurredAt,
+              occurredAt: occurredAt.toISOString(),
               note: validatedData.note,
               branchId: validatedData.branchId || currentUser.activeBranchId || null,
               totalInstallments: installments,

@@ -980,6 +980,27 @@ export async function ensureTablesExist() {
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
       
+      // Create customer_sessions table for multi-device customer authentication
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS customer_sessions (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        customer_id VARCHAR NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        token VARCHAR(255) NOT NULL UNIQUE,
+        otp_code VARCHAR(6),
+        otp_expires_at TIMESTAMP,
+        otp_attempts INTEGER NOT NULL DEFAULT 0,
+        device_info TEXT,
+        ip_address VARCHAR(50),
+        last_active_at TIMESTAMP DEFAULT NOW(),
+        expires_at TIMESTAMP NOT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create index on customer_sessions for faster lookup
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS customer_sessions_token_idx ON customer_sessions (token);`);
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS customer_sessions_customer_idx ON customer_sessions (customer_id, is_active);`);
+      
       // Create loyalty_transactions table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS loyalty_transactions (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),

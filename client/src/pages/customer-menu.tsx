@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useRoute } from 'wouter';
 import { useCart } from '@/contexts/CartContext';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,11 +15,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
+import { CustomerLoginDialog } from '@/components/CustomerLoginDialog';
 import { 
   ShoppingCart, Plus, ClipboardList, Clock, ChefHat, 
   CheckCircle, Check, Search, MessageCircle, Utensils,
   X, Minus, User, Phone as PhoneIcon, ChevronRight, ShoppingBag,
-  FileText, Sparkles
+  FileText, Sparkles, Gift
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest, queryClient } from '@/lib/queryClient';
@@ -61,8 +63,10 @@ export default function CustomerMenu() {
   const tableNumber = params?.tableNumber;
   
   const { items, orderNotes, addItem, removeItem, setOrderNotes, clearCart, getTotal, getItemCount } = useCart();
+  const { isAuthenticated, customer: authCustomer } = useCustomerAuth();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
+  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItemWithOptions | null>(null);
@@ -513,6 +517,30 @@ export default function CustomerMenu() {
                   </ScrollArea>
                 </DialogContent>
               </Dialog>
+              
+              <Button 
+                size="icon"
+                variant="outline"
+                className="relative bg-white/90 backdrop-blur-sm border-gray-200"
+                onClick={() => setIsLoginDialogOpen(true)}
+                data-testid="button-open-login"
+              >
+                {isAuthenticated ? (
+                  <>
+                    <Gift className="h-5 w-5" style={{ color: branding.primaryColor }} />
+                    {authCustomer && authCustomer.loyaltyPoints > 0 && (
+                      <span 
+                        className="absolute -top-1 -right-1 text-white text-[10px] font-bold rounded-full h-5 min-w-5 px-1 flex items-center justify-center"
+                        style={{ backgroundColor: branding.secondaryColor }}
+                      >
+                        {authCustomer.loyaltyPoints > 999 ? '999+' : authCustomer.loyaltyPoints}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <User className="h-5 w-5 text-gray-600" />
+                )}
+              </Button>
               
               <Sheet open={isCartOpen} onOpenChange={(open) => {
                 setIsCartOpen(open);
@@ -1215,6 +1243,16 @@ export default function CustomerMenu() {
           restaurantSlug={restaurant.slug || ''}
           open={isShareDialogOpen}
           onOpenChange={setIsShareDialogOpen}
+        />
+      )}
+
+      {/* Customer Login Dialog */}
+      {restaurantId && (
+        <CustomerLoginDialog
+          open={isLoginDialogOpen}
+          onOpenChange={setIsLoginDialogOpen}
+          restaurantId={restaurantId}
+          primaryColor={branding.primaryColor}
         />
       )}
     </div>

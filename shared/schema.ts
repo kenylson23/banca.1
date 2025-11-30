@@ -477,6 +477,48 @@ export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type UpdateCustomer = z.infer<typeof updateCustomerSchema>;
 export type Customer = typeof customers.$inferSelect;
 
+// Customer Sessions - Sessões de clientes para login multi-dispositivo
+export const customerSessions = pgTable("customer_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: 'cascade' }),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  otpCode: varchar("otp_code", { length: 6 }),
+  otpExpiresAt: timestamp("otp_expires_at"),
+  otpAttempts: integer("otp_attempts").notNull().default(0),
+  deviceInfo: text("device_info"),
+  ipAddress: varchar("ip_address", { length: 50 }),
+  lastActiveAt: timestamp("last_active_at").defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  isActive: integer("is_active").notNull().default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCustomerSessionSchema = createInsertSchema(customerSessions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCustomerSession = z.infer<typeof insertCustomerSessionSchema>;
+export type CustomerSession = typeof customerSessions.$inferSelect;
+
+// Customer Auth Request Schema - Para solicitar código OTP
+export const customerAuthRequestSchema = z.object({
+  phone: z.string().min(9, "Telefone é obrigatório"),
+  restaurantId: z.string().min(1, "ID do restaurante é obrigatório"),
+});
+
+export type CustomerAuthRequest = z.infer<typeof customerAuthRequestSchema>;
+
+// Customer Auth Verify Schema - Para verificar código OTP
+export const customerAuthVerifySchema = z.object({
+  phone: z.string().min(9, "Telefone é obrigatório"),
+  restaurantId: z.string().min(1, "ID do restaurante é obrigatório"),
+  otpCode: z.string().length(6, "Código deve ter 6 dígitos"),
+});
+
+export type CustomerAuthVerify = z.infer<typeof customerAuthVerifySchema>;
+
 // Loyalty Programs - Configuração do Programa de Fidelidade
 export const loyaltyPrograms = pgTable("loyalty_programs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2165,6 +2207,18 @@ export const customersRelations = relations(customers, ({ one, many }) => ({
   orders: many(orders),
   loyaltyTransactions: many(loyaltyTransactions),
   couponUsages: many(couponUsages),
+  sessions: many(customerSessions),
+}));
+
+export const customerSessionsRelations = relations(customerSessions, ({ one }) => ({
+  customer: one(customers, {
+    fields: [customerSessions.customerId],
+    references: [customers.id],
+  }),
+  restaurant: one(restaurants, {
+    fields: [customerSessions.restaurantId],
+    references: [restaurants.id],
+  }),
 }));
 
 export const loyaltyProgramsRelations = relations(loyaltyPrograms, ({ one }) => ({

@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/useAuth";
 import { CartProvider } from "@/contexts/CartContext";
+import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 import { UpdateNotification } from "@/components/UpdateNotification";
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
@@ -255,7 +256,9 @@ function App() {
       <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
           <CartProvider>
-            <AppContent />
+            <CustomerAuthProvider>
+              <AppContent />
+            </CustomerAuthProvider>
           </CartProvider>
         </TooltipProvider>
       </ThemeProvider>
