@@ -758,7 +758,8 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
 
 // Public order schema for customer checkout (omits advanced controls)
 // This schema is used for /api/public/orders to prevent customers from setting
-// professional features like discounts, service charges, payment methods, etc.
+// professional features like discounts, service charges, etc.
+// Note: paymentMethod is allowed so customers can select how they want to pay on delivery/takeout
 export const publicOrderSchema = createInsertSchema(orders).omit({
   id: true,
   createdAt: true,
@@ -773,7 +774,6 @@ export const publicOrderSchema = createInsertSchema(orders).omit({
   discountType: true,
   serviceCharge: true,
   deliveryFee: true,
-  paymentMethod: true,
   createdBy: true,
 }).extend({
   // Restrict order types to customer-accessible ones only
@@ -782,6 +782,8 @@ export const publicOrderSchema = createInsertSchema(orders).omit({
   tableId: z.string().optional().nullable(),
   tableSessionId: z.string().optional().nullable(),
   couponId: z.string().optional().nullable(),
+  // Allow customers to select payment method for delivery/takeout
+  paymentMethod: z.enum(['dinheiro', 'multicaixa', 'transferencia', 'cartao']).optional().nullable(),
 });
 
 export const updateOrderStatusSchema = z.object({

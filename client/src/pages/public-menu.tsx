@@ -21,7 +21,7 @@ import {
   ShoppingCart, Plus, Minus, Trash2, Bike, ShoppingBag, Search, 
   MapPin, Phone, Utensils, ArrowRight, UserPlus, Gift, Award, Star,
   Bell, Heart, Map, Clock, User, Home, ChevronRight, ChevronLeft, ChevronDown, Package, X,
-  CheckCircle, Tag, Receipt, ClipboardList, MessageCircle
+  CheckCircle, Tag, Receipt, ClipboardList, MessageCircle, Banknote, CreditCard, Smartphone, Building2
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -194,6 +194,7 @@ export default function PublicMenu() {
   const [checkoutStep, setCheckoutStep] = useState(1);
   const [isCouponExpanded, setIsCouponExpanded] = useState(false);
   const [isPointsExpanded, setIsPointsExpanded] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao'>('dinheiro');
   
   const { toast } = useToast();
   const { isAuthenticated, customer: authCustomer } = useCustomerAuth();
@@ -449,6 +450,7 @@ export default function PublicMenu() {
       deliveryAddress?: string;
       couponCode?: string;
       redeemPoints?: number;
+      paymentMethod: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
       items: Array<{ 
         menuItemId: string; 
         quantity: number; 
@@ -465,6 +467,7 @@ export default function PublicMenu() {
         deliveryAddress: orderData.deliveryAddress,
         couponCode: orderData.couponCode,
         redeemPoints: orderData.redeemPoints,
+        paymentMethod: orderData.paymentMethod,
         status: 'pendente',
         totalAmount,
         items: orderData.items,
@@ -625,6 +628,7 @@ export default function PublicMenu() {
       deliveryAddress: orderType === 'delivery' ? deliveryAddress.trim() : undefined,
       couponCode: couponValidation?.valid ? couponCode.trim() : undefined,
       redeemPoints: usePoints && pointsToRedeem > 0 ? pointsToRedeem : undefined,
+      paymentMethod: selectedPaymentMethod,
       items: orderItems,
     });
   };
@@ -1029,6 +1033,71 @@ export default function PublicMenu() {
                               />
                             </div>
                           )}
+
+                          {/* Método de Pagamento */}
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                              <CreditCard className="h-4 w-4" />
+                              Forma de Pagamento
+                            </Label>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPaymentMethod('dinheiro')}
+                                className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 ${
+                                  selectedPaymentMethod === 'dinheiro' 
+                                    ? 'border-green-500 bg-green-50' 
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                                data-testid="payment-dinheiro"
+                              >
+                                <Banknote className={`h-5 w-5 ${selectedPaymentMethod === 'dinheiro' ? 'text-green-600' : 'text-gray-500'}`} />
+                                <span className={`text-xs font-medium ${selectedPaymentMethod === 'dinheiro' ? 'text-green-700' : 'text-gray-600'}`}>Dinheiro</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPaymentMethod('multicaixa')}
+                                className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 ${
+                                  selectedPaymentMethod === 'multicaixa' 
+                                    ? 'border-green-500 bg-green-50' 
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                                data-testid="payment-multicaixa"
+                              >
+                                <Smartphone className={`h-5 w-5 ${selectedPaymentMethod === 'multicaixa' ? 'text-green-600' : 'text-gray-500'}`} />
+                                <span className={`text-xs font-medium ${selectedPaymentMethod === 'multicaixa' ? 'text-green-700' : 'text-gray-600'}`}>Multicaixa</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPaymentMethod('transferencia')}
+                                className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 ${
+                                  selectedPaymentMethod === 'transferencia' 
+                                    ? 'border-green-500 bg-green-50' 
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                                data-testid="payment-transferencia"
+                              >
+                                <Building2 className={`h-5 w-5 ${selectedPaymentMethod === 'transferencia' ? 'text-green-600' : 'text-gray-500'}`} />
+                                <span className={`text-xs font-medium ${selectedPaymentMethod === 'transferencia' ? 'text-green-700' : 'text-gray-600'}`}>Transferência</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPaymentMethod('cartao')}
+                                className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 ${
+                                  selectedPaymentMethod === 'cartao' 
+                                    ? 'border-green-500 bg-green-50' 
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                                data-testid="payment-cartao"
+                              >
+                                <CreditCard className={`h-5 w-5 ${selectedPaymentMethod === 'cartao' ? 'text-green-600' : 'text-gray-500'}`} />
+                                <span className={`text-xs font-medium ${selectedPaymentMethod === 'cartao' ? 'text-green-700' : 'text-gray-600'}`}>Cartão</span>
+                              </button>
+                            </div>
+                            <p className="text-xs text-gray-500 text-center">
+                              {orderType === 'delivery' ? 'Pagamento na entrega' : 'Pagamento na retirada'}
+                            </p>
+                          </div>
 
                           {/* Seção recolhível: Cupom */}
                           <div className="rounded-lg border border-gray-200 overflow-hidden">

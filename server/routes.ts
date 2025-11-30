@@ -1441,8 +1441,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { items, couponCode, redeemPoints, ...orderData } = req.body;
       
-      // Use publicOrderSchema which automatically blocks professional fields
-      // (discount, discountType, serviceCharge, deliveryFee, paymentMethod, createdBy)
+      // Use publicOrderSchema which blocks professional fields while allowing payment method
+      // (blocks: discount, discountType, serviceCharge, deliveryFee, createdBy)
+      // (allows: paymentMethod - so customers can select how they want to pay on delivery/takeout)
       let validatedOrder = publicOrderSchema.parse(orderData);
       
       const validatedItems = z.array(publicOrderItemSchema).parse(items);
