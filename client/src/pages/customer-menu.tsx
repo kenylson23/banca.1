@@ -157,6 +157,18 @@ export default function CustomerMenu() {
     }).catch(() => {});
   }, [restaurantId, currentTable?.branchId]);
 
+  // Auto-fill customer data when authenticated
+  useEffect(() => {
+    if (isAuthenticated && authCustomer) {
+      if (!customerName && authCustomer.name) {
+        setCustomerName(authCustomer.name);
+      }
+      if (!customerPhone && authCustomer.phone) {
+        setCustomerPhone(authCustomer.phone);
+      }
+    }
+  }, [isAuthenticated, authCustomer, customerName, customerPhone]);
+
   const categories = menuItems
     ?.filter(item => item.isVisible === 1)
     ?.reduce((acc, item) => {

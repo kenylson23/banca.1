@@ -231,6 +231,18 @@ export default function PublicMenu() {
     }).catch(() => {});
   }, [restaurantId]);
 
+  // Auto-fill customer data when authenticated
+  useEffect(() => {
+    if (isAuthenticated && authCustomer) {
+      if (!customerName && authCustomer.name) {
+        setCustomerName(authCustomer.name);
+      }
+      if (!customerPhone && authCustomer.phone) {
+        setCustomerPhone(authCustomer.phone);
+      }
+    }
+  }, [isAuthenticated, authCustomer, customerName, customerPhone]);
+
   // Lookup customer by phone when phone changes
   useEffect(() => {
     const lookupCustomer = async () => {
