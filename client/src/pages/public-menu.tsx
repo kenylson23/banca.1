@@ -1753,18 +1753,6 @@ export default function PublicMenu() {
           )}
         </section>
 
-        {/* WhatsApp Floating Button */}
-        {(restaurant.whatsappNumber || restaurant.phone) && (
-          <a
-            href={`https://wa.me/${(restaurant.whatsappNumber || restaurant.phone || '').replace(/\D/g, '')}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="fixed bottom-28 right-4 w-14 h-14 bg-[#25D366] rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow z-40"
-            data-testid="button-whatsapp-float"
-          >
-            <SiWhatsapp className="h-7 w-7 text-white" />
-          </a>
-        )}
       </main>
 
       {/* Bottom Navigation */}
@@ -2221,9 +2209,6 @@ export default function PublicMenu() {
               Na Bancada
             </span>
           </Link>
-          <p className="text-gray-500 text-xs mt-3" data-testid="text-footer-tagline">
-            Sistema de Gestão para Restaurantes
-          </p>
         </div>
       </footer>
     </div>
