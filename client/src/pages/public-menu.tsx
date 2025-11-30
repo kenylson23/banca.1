@@ -1223,29 +1223,77 @@ export default function PublicMenu() {
         </div>
       </header>
 
+      {/* Hero Banner Section */}
+      <div className="pt-44 mb-4">
+        <div 
+          className="relative w-full h-52 rounded-b-2xl overflow-hidden shadow-sm"
+          style={{
+            backgroundImage: restaurant.heroImageUrl ? `url(${restaurant.heroImageUrl})` : 'linear-gradient(135deg, #374151 0%, #1f2937 100%)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          }}
+          data-testid="banner-restaurant"
+        >
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+          <div className="absolute bottom-4 left-4 right-4">
+            <div className="flex items-end gap-4">
+              <div className="flex-shrink-0">
+                {restaurant.logoUrl ? (
+                  <img 
+                    src={restaurant.logoUrl} 
+                    alt={restaurant.name}
+                    className="w-20 h-20 rounded-2xl object-cover border-4 border-white shadow-lg bg-white"
+                    data-testid="img-restaurant-logo"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-2xl border-4 border-white shadow-lg bg-white flex items-center justify-center" data-testid="img-restaurant-logo-fallback">
+                    <Utensils className="h-8 w-8 text-gray-400" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 pb-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl font-bold text-white drop-shadow-lg" data-testid="text-restaurant-name-banner">{restaurant.name}</h1>
+                  {restaurant.isOpen === 1 ? (
+                    <Badge className="bg-green-500 text-white border-0 text-[10px] font-medium shadow-sm" data-testid="badge-open-status">Aberto</Badge>
+                  ) : (
+                    <Badge className="bg-red-500 text-white border-0 text-[10px] font-medium shadow-sm" data-testid="badge-closed-status">Fechado</Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Main Content */}
-      <main className="pt-44 px-4">
+      <main className="pt-6 px-4">
         {/* Restaurant Info Card */}
         <div className="mb-6 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-start gap-4">
-            {restaurant.logoUrl && (
+          <div className="flex gap-4">
+            {restaurant.logoUrl ? (
               <img 
                 src={restaurant.logoUrl} 
                 alt={restaurant.name}
-                className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-100"
+                className="w-14 h-14 rounded-xl object-cover flex-shrink-0 border border-gray-100"
+                data-testid="img-restaurant-logo-card"
               />
+            ) : (
+              <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0" data-testid="img-restaurant-logo-card-fallback">
+                <Utensils className="h-6 w-6 text-gray-400" />
+              </div>
             )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <h1 className="text-lg font-bold text-gray-900">{restaurant.name}</h1>
+                <h2 className="text-lg font-bold text-gray-900" data-testid="text-restaurant-name">{restaurant.name}</h2>
                 {restaurant.isOpen === 1 ? (
-                  <Badge className="bg-green-100 text-green-700 border-0 text-[10px] font-medium">Aberto</Badge>
+                  <Badge className="bg-green-100 text-green-700 border-0 text-[10px] font-medium" data-testid="badge-status-info">Aberto</Badge>
                 ) : (
-                  <Badge className="bg-red-100 text-red-600 border-0 text-[10px] font-medium">Fechado</Badge>
+                  <Badge className="bg-red-100 text-red-600 border-0 text-[10px] font-medium" data-testid="badge-status-info">Fechado</Badge>
                 )}
               </div>
               {restaurant.description && (
-                <p className="text-xs text-gray-500 line-clamp-2 mb-2">{restaurant.description}</p>
+                <p className="text-xs text-gray-500 line-clamp-2 mb-2" data-testid="text-restaurant-description">{restaurant.description}</p>
               )}
               <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
                 {restaurant.businessHours && (
@@ -2161,6 +2209,23 @@ export default function PublicMenu() {
           primaryColor="#16a34a"
         />
       )}
+
+      {/* Black Footer with Na Bancada branding */}
+      <footer className="bg-black py-6 px-4 mt-8 mb-20" data-testid="footer-na-bancada">
+        <div className="max-w-lg mx-auto text-center">
+          <p className="text-gray-400 text-sm mb-2" data-testid="text-footer-cta">
+            Crie o seu cardápio
+          </p>
+          <Link href="/" data-testid="link-na-bancada">
+            <span className="text-white text-xl font-bold hover:text-gray-200 transition-colors cursor-pointer" data-testid="text-na-bancada">
+              Na Bancada
+            </span>
+          </Link>
+          <p className="text-gray-500 text-xs mt-3" data-testid="text-footer-tagline">
+            Sistema de Gestão para Restaurantes
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
