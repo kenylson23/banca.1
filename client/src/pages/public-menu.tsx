@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useRoute, Link } from 'wouter';
 import { useCart } from '@/contexts/CartContext';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
+import { CustomerLoginDialog } from '@/components/CustomerLoginDialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -169,6 +171,7 @@ export default function PublicMenu() {
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
   const [isFavoritesDialogOpen, setIsFavoritesDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
   const [activeNav, setActiveNav] = useState('home');
   const [registerFormData, setRegisterFormData] = useState({
     name: '',
@@ -193,6 +196,7 @@ export default function PublicMenu() {
   const [isPointsExpanded, setIsPointsExpanded] = useState(false);
   
   const { toast } = useToast();
+  const { isAuthenticated, customer: authCustomer } = useCustomerAuth();
   
   const { favorites, toggleFavorite, isFavorite } = useFavorites(slug || '');
   const { orders: orderHistory, addOrder } = useOrderHistory(slug || '');
@@ -1771,14 +1775,27 @@ export default function PublicMenu() {
             <span className="text-[9px] font-medium">Histórico</span>
           </button>
           <button 
-            className={`flex flex-col items-center gap-1 min-w-[48px] ${activeNav === 'profile' ? 'text-gray-900' : 'text-gray-400'}`}
+            className={`flex flex-col items-center gap-1 min-w-[48px] relative ${activeNav === 'profile' ? 'text-gray-900' : 'text-gray-400'}`}
             onClick={() => {
               setActiveNav('profile');
-              setIsRegisterDialogOpen(true);
+              setIsLoginDialogOpen(true);
             }}
             data-testid="nav-profile"
           >
-            <User className="h-5 w-5" />
+            {isAuthenticated ? (
+              <>
+                <Gift className="h-5 w-5 text-green-600" />
+                {authCustomer && authCustomer.loyaltyPoints > 0 && (
+                  <span 
+                    className="absolute -top-1 right-1/2 translate-x-3 bg-green-600 text-white text-[8px] font-bold rounded-full h-4 min-w-4 px-1 flex items-center justify-center"
+                  >
+                    {authCustomer.loyaltyPoints > 999 ? '999+' : authCustomer.loyaltyPoints}
+                  </span>
+                )}
+              </>
+            ) : (
+              <User className="h-5 w-5" />
+            )}
             <span className="text-[9px] font-medium">Perfil</span>
           </button>
         </div>
@@ -2134,6 +2151,16 @@ export default function PublicMenu() {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {/* Customer Login Dialog */}
+      {restaurant && (
+        <CustomerLoginDialog
+          open={isLoginDialogOpen}
+          onOpenChange={setIsLoginDialogOpen}
+          restaurantId={restaurant.id}
+          primaryColor="#16a34a"
+        />
+      )}
     </div>
   );
 }
