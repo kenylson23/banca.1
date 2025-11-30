@@ -21,6 +21,53 @@ import multer from "multer";
 import path from "path";
 import { nanoid } from "nanoid";
 import fs from "fs/promises";
+import twilio from "twilio";
+
+// Twilio WhatsApp configuration
+const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
+  ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+  : null;
+
+const TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || '';
+
+async function sendWhatsAppOTP(phoneNumber: string, otpCode: string, restaurantName: string): Promise<boolean> {
+  if (!twilioClient) {
+    console.log('[WHATSAPP] Twilio not configured, skipping WhatsApp message');
+    return false;
+  }
+
+  try {
+    // Format phone number for WhatsApp (must include country code)
+    let formattedPhone = phoneNumber.replace(/[\s\-\(\)]/g, '');
+    
+    // Add Angola country code if not present
+    if (!formattedPhone.startsWith('+')) {
+      if (formattedPhone.startsWith('244')) {
+        formattedPhone = '+' + formattedPhone;
+      } else {
+        formattedPhone = '+244' + formattedPhone;
+      }
+    }
+
+    // Format the WhatsApp 'from' number
+    let fromNumber = TWILIO_WHATSAPP_NUMBER;
+    if (!fromNumber.startsWith('whatsapp:')) {
+      fromNumber = 'whatsapp:' + (fromNumber.startsWith('+') ? fromNumber : '+' + fromNumber);
+    }
+
+    const message = await twilioClient.messages.create({
+      body: `🔐 *${restaurantName}*\n\nSeu código de verificação é: *${otpCode}*\n\nEste código expira em 10 minutos.\n\nSe você não solicitou este código, ignore esta mensagem.`,
+      from: fromNumber,
+      to: `whatsapp:${formattedPhone}`,
+    });
+
+    console.log(`[WHATSAPP] OTP sent successfully to ${formattedPhone}, SID: ${message.sid}`);
+    return true;
+  } catch (error: any) {
+    console.error('[WHATSAPP] Error sending OTP:', error.message);
+    return false;
+  }
+}
 import {
   insertTableSchema,
   insertCategorySchema,
@@ -1784,16 +1831,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ipAddress
       );
       
-      // In production, you would send the OTP via SMS/WhatsApp here
-      // For now, we'll return it in the response for testing (remove in production!)
-      console.log(`[CUSTOMER AUTH] OTP for ${phone}: ${session.otpCode}`);
+      // Send OTP via WhatsApp
+      const otpCode = session.otpCode || '';
+      const whatsappSent = otpCode ? await sendWhatsAppOTP(phone, otpCode, restaurant.name) : false;
+      
+      console.log(`[CUSTOMER AUTH] OTP for ${phone}: ${otpCode}, WhatsApp sent: ${whatsappSent}`);
       
       res.json({
         success: true,
-        message: "Código de verificação enviado",
+        message: whatsappSent 
+          ? "Código de verificação enviado para o seu WhatsApp" 
+          : "Código de verificação enviado",
         customerId: customer.id,
-        // DEV ONLY: Remove otpCode from response in production
-        ...(process.env.NODE_ENV === 'development' && { otpCode: session.otpCode }),
+        whatsappSent,
+        // DEV ONLY: Return OTP in response if WhatsApp failed (for testing)
+        ...(!whatsappSent && process.env.NODE_ENV === 'development' && { otpCode }),
       });
     } catch (error) {
       console.error('Customer auth request error:', error);
