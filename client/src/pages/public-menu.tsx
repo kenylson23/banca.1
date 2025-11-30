@@ -1660,81 +1660,95 @@ export default function PublicMenu() {
                 return (
                   <motion.div
                     key={item.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2, delay: itemIndex * 0.03 }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: itemIndex * 0.05 }}
                   >
                     <div
-                      className="flex items-center gap-3 p-2 bg-white border border-gray-100 rounded-xl cursor-pointer hover:shadow-sm transition-all"
+                      className="group relative bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer hover:shadow-lg hover:border-gray-200 transition-all duration-300"
                       onClick={() => handleAddMenuItem(item)}
                       data-testid={`menu-item-${item.id}`}
                     >
-                      <div className="relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-50">
-                        {item.imageUrl ? (
-                          <img
-                            src={item.imageUrl}
-                            alt={item.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Utensils className="h-6 w-6 text-gray-300" />
-                          </div>
-                        )}
-                        {hasPromo && (
-                          <Badge className="absolute -top-1 -left-1 bg-red-500 text-white text-[8px] px-1 py-0 rounded border-0">
-                            %
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-semibold text-sm text-gray-900 line-clamp-1" data-testid={`text-item-name-${item.id}`}>
-                            {item.name}
-                          </h3>
-                          <button 
-                            className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
-                              isFavorite(item.id) ? 'bg-red-500' : 'bg-gray-100'
-                            }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFavorite(item.id);
-                              toast({
-                                title: isFavorite(item.id) ? 'Removido dos favoritos' : 'Adicionado aos favoritos',
-                                description: item.name,
-                              });
-                            }}
-                            data-testid={`button-favorite-filtered-${item.id}`}
-                          >
-                            <Heart className={`h-3 w-3 ${isFavorite(item.id) ? 'text-white fill-white' : 'text-gray-400'}`} />
-                          </button>
+                      <div className="flex gap-4 p-3">
+                        {/* Image Section */}
+                        <div className="relative w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50">
+                          {item.imageUrl ? (
+                            <img
+                              src={item.imageUrl}
+                              alt={item.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <div className="w-12 h-12 rounded-full bg-white/80 flex items-center justify-center">
+                                <Utensils className="h-6 w-6 text-gray-400" />
+                              </div>
+                            </div>
+                          )}
+                          {hasPromo && (
+                            <div className="absolute top-1.5 left-1.5 bg-gradient-to-r from-red-500 to-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                              PROMO
+                            </div>
+                          )}
                         </div>
-                        {item.description && (
-                          <p className="text-[11px] text-gray-500 line-clamp-1 mt-0.5">{item.description}</p>
-                        )}
-                        <div className="flex items-center justify-between mt-1.5">
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="font-bold text-sm text-gray-900" data-testid={`text-item-price-${item.id}`}>
-                              {formatKwanza(itemPrice)}
-                            </span>
-                            {hasPromo && (
-                              <span className="text-[10px] text-gray-400 line-through">
-                                {formatKwanza(itemOriginalPrice!)}
-                              </span>
+
+                        {/* Content Section */}
+                        <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                          {/* Header */}
+                          <div>
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <h3 className="font-bold text-base text-gray-900 line-clamp-1 group-hover:text-gray-700 transition-colors" data-testid={`text-item-name-${item.id}`}>
+                                {item.name}
+                              </h3>
+                              <button 
+                                className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
+                                  isFavorite(item.id) 
+                                    ? 'bg-red-500 shadow-md shadow-red-200' 
+                                    : 'bg-gray-100 hover:bg-gray-200'
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFavorite(item.id);
+                                  toast({
+                                    title: isFavorite(item.id) ? 'Removido dos favoritos' : 'Adicionado aos favoritos',
+                                    description: item.name,
+                                  });
+                                }}
+                                data-testid={`button-favorite-filtered-${item.id}`}
+                              >
+                                <Heart className={`h-4 w-4 transition-all ${isFavorite(item.id) ? 'text-white fill-white scale-110' : 'text-gray-400'}`} />
+                              </button>
+                            </div>
+                            {item.description && (
+                              <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{item.description}</p>
                             )}
                           </div>
-                          <Button
-                            size="sm"
-                            className="h-7 px-3 text-xs bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAddMenuItem(item);
-                            }}
-                            data-testid={`button-add-${item.id}`}
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Adicionar
-                          </Button>
+
+                          {/* Footer */}
+                          <div className="flex items-center justify-between mt-2">
+                            <div className="flex flex-col">
+                              <span className="font-bold text-lg text-gray-900" data-testid={`text-item-price-${item.id}`}>
+                                {formatKwanza(itemPrice)}
+                              </span>
+                              {hasPromo && (
+                                <span className="text-xs text-gray-400 line-through">
+                                  {formatKwanza(itemOriginalPrice!)}
+                                </span>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              className="h-9 px-4 bg-gradient-to-r from-gray-900 to-gray-800 hover:from-gray-800 hover:to-gray-700 text-white font-semibold rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAddMenuItem(item);
+                              }}
+                              data-testid={`button-add-${item.id}`}
+                            >
+                              <Plus className="h-4 w-4 mr-1.5" />
+                              Adicionar
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
