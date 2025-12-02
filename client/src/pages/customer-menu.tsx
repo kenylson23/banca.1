@@ -20,8 +20,10 @@ import {
   ShoppingCart, Plus, ClipboardList, Clock, ChefHat, 
   CheckCircle, Check, Search, MessageCircle, Utensils,
   X, Minus, User, Phone as PhoneIcon, ChevronRight, ShoppingBag,
-  FileText, Sparkles, Gift
+  FileText, Sparkles, Gift, Award, Tag, Percent, Loader2
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { formatKwanza } from '@/lib/formatters';
@@ -35,6 +37,36 @@ type MenuItemWithOptions = MenuItem & {
   category: Category; 
   optionGroups?: Array<OptionGroup & { options: Option[] }>;
 };
+
+interface CustomerLookupData {
+  found: boolean;
+  customer?: {
+    id: string;
+    name: string;
+    phone: string;
+    email?: string;
+    loyaltyPoints: number;
+    tier: string;
+    totalSpent: string;
+    visitCount: number;
+  };
+  loyalty?: {
+    isActive: boolean;
+    pointsPerCurrency: string;
+    currencyPerPoint: string;
+    minPointsToRedeem: number;
+    maxRedeemablePoints: number;
+  };
+}
+
+interface CouponValidation {
+  valid: boolean;
+  message: string;
+  discountAmount?: number;
+  discountType?: string;
+  discountValue?: string;
+  couponId?: string;
+}
 
 // Helper para converter hex para rgba válido
 const hexToRgba = (hex: string, alpha: number = 1): string => {
@@ -89,6 +121,15 @@ export default function CustomerMenu() {
     secondaryColor: '#DC2626', // red-600 fallback
     accentColor: '#0891B2', // cyan-600 fallback
   });
+
+  // Loyalty and coupon states
+  const [identifiedCustomer, setIdentifiedCustomer] = useState<CustomerLookupData | null>(null);
+  const [isLookingUpCustomer, setIsLookingUpCustomer] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponValidation, setCouponValidation] = useState<CouponValidation | null>(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [usePoints, setUsePoints] = useState(false);
+  const [pointsToRedeem, setPointsToRedeem] = useState(0);
 
   const { data: currentTable, isLoading: tableLoading } = useQuery<any>({
     queryKey: ['/api/public/tables', tableNumber],
@@ -169,6 +210,198 @@ export default function CustomerMenu() {
     }
   }, [isAuthenticated, authCustomer, customerName, customerPhone]);
 
+  // Lookup customer by phone when phone changes
+  useEffect(() => {
+    const lookupCustomer = async () => {
+      // Only reset if phone is completely empty (user cleared the field)
+      if (!customerPhone || customerPhone.length === 0) {
+        setIdentifiedCustomer(null);
+        setUsePoints(false);
+        setPointsToRedeem(0);
+        return;
+      }
+
+      // Don't do anything if phone is too short - keep previous data while user types
+      if (customerPhone.length < 9 || !restaurantId) {
+        return;
+      }
+
+      // Skip lookup if we already have this customer's data
+      if (identifiedCustomer?.customer?.phone === customerPhone) {
+        return;
+      }
+
+      setIsLookingUpCustomer(true);
+      try {
+        const response = await fetch(
+          `/api/public/customers/lookup?restaurantId=${restaurantId}&phone=${encodeURIComponent(customerPhone)}`
+        );
+        if (response.ok) {
+          const data: CustomerLookupData = await response.json();
+          setIdentifiedCustomer(data);
+          if (data.found && data.customer) {
+            if (!customerName && data.customer.name) {
+              setCustomerName(data.customer.name);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Customer lookup error:', error);
+      } finally {
+        setIsLookingUpCustomer(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(lookupCustomer, 500);
+    return () => clearTimeout(debounceTimer);
+  }, [customerPhone, restaurantId, customerName, identifiedCustomer?.customer?.phone]);
+
+  // Validate coupon
+  const handleValidateCoupon = async () => {
+    if (!couponCode.trim() || !restaurantId) return;
+    
+    setIsValidatingCoupon(true);
+    try {
+      const orderValue = getTotal();
+      const response = await apiRequest('POST', '/api/public/coupons/validate', {
+        restaurantId,
+        code: couponCode.trim(),
+        orderValue: orderValue.toFixed(2),
+        orderType: 'mesa',
+        customerId: identifiedCustomer?.customer?.id,
+      });
+      const data: CouponValidation = await response.json();
+      setCouponValidation(data);
+      
+      if (data.valid) {
+        toast({
+          title: 'Cupom aplicado!',
+          description: data.message,
+        });
+      } else {
+        toast({
+          title: 'Cupom inválido',
+          description: data.message,
+          variant: 'destructive',
+        });
+        // Clear invalid coupon data so it won't be sent to the backend
+        setCouponValidation(null);
+        setCouponCode('');
+      }
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível validar o cupom',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  // Track cart total for coupon validation
+  const cartTotal = getTotal();
+  const prevCartTotalRef = { current: cartTotal };
+
+  // Invalidate coupon when cart changes significantly
+  useEffect(() => {
+    // Clear coupon if cart is empty
+    if (items.length === 0) {
+      if (couponValidation) {
+        setCouponValidation(null);
+        setCouponCode('');
+      }
+      if (usePoints) {
+        setUsePoints(false);
+        setPointsToRedeem(0);
+      }
+      return;
+    }
+
+    // Only invalidate if coupon discount exceeds new total
+    if (couponValidation?.valid && couponValidation.discountAmount) {
+      const currentTotal = getTotal();
+      if (couponValidation.discountAmount > currentTotal) {
+        setCouponValidation(null);
+        setCouponCode('');
+        toast({
+          title: 'Cupom removido',
+          description: 'O cupom foi removido pois o valor do pedido mudou.',
+          variant: 'destructive',
+        });
+      }
+    }
+
+    // Adjust points if they exceed the new max
+    if (usePoints && pointsToRedeem > 0) {
+      const maxForOrder = getMaxRedeemablePointsForOrder();
+      if (pointsToRedeem > maxForOrder) {
+        setPointsToRedeem(maxForOrder);
+      }
+    }
+  }, [items.length, cartTotal]);
+
+  // Calculate max redeemable points considering order total and customer balance
+  const getMaxRedeemablePointsForOrder = () => {
+    if (!identifiedCustomer?.loyalty || !identifiedCustomer?.customer) return 0;
+    const currencyPerPoint = parseFloat(identifiedCustomer.loyalty.currencyPerPoint);
+    if (currencyPerPoint <= 0) return 0;
+    
+    // Calculate total after coupon discount
+    let payableAmount = getTotal();
+    if (couponValidation?.valid && couponValidation.discountAmount) {
+      payableAmount -= couponValidation.discountAmount;
+    }
+    
+    // Max points based on payable amount (can't discount more than the order value)
+    const maxPointsForOrder = Math.floor(payableAmount / currencyPerPoint);
+    
+    // Customer's available balance
+    const customerBalance = identifiedCustomer.customer.loyaltyPoints;
+    
+    // Return the minimum of: customer balance, backend max, and order-based max
+    return Math.min(
+      customerBalance,
+      identifiedCustomer.loyalty.maxRedeemablePoints,
+      maxPointsForOrder
+    );
+  };
+
+  // Calculate final total with discounts
+  const calculateFinalTotal = () => {
+    let total = getTotal();
+    
+    if (couponValidation?.valid && couponValidation.discountAmount) {
+      total -= couponValidation.discountAmount;
+    }
+    
+    if (usePoints && pointsToRedeem > 0 && identifiedCustomer?.loyalty) {
+      const pointsDiscount = pointsToRedeem * parseFloat(identifiedCustomer.loyalty.currencyPerPoint);
+      total -= pointsDiscount;
+    }
+    
+    return Math.max(0, total);
+  };
+
+  // Calculate points discount
+  const getPointsDiscount = () => {
+    if (!usePoints || pointsToRedeem <= 0 || !identifiedCustomer?.loyalty) return 0;
+    const discount = pointsToRedeem * parseFloat(identifiedCustomer.loyalty.currencyPerPoint);
+    // Ensure discount doesn't exceed payable amount
+    let payableAmount = getTotal();
+    if (couponValidation?.valid && couponValidation.discountAmount) {
+      payableAmount -= couponValidation.discountAmount;
+    }
+    return Math.min(discount, payableAmount);
+  };
+
+  // Calculate points to earn
+  const getPointsToEarn = () => {
+    if (!identifiedCustomer?.loyalty?.isActive) return 0;
+    const finalTotal = calculateFinalTotal();
+    return Math.floor(finalTotal * parseFloat(identifiedCustomer.loyalty.pointsPerCurrency));
+  };
+
   const categories = menuItems
     ?.filter(item => item.isVisible === 1)
     ?.reduce((acc, item) => {
@@ -195,7 +428,9 @@ export default function CustomerMenu() {
       tableId: string; 
       customerName: string; 
       customerPhone: string; 
-      orderNotes?: string; 
+      orderNotes?: string;
+      couponCode?: string;
+      redeemPoints?: number;
       items: Array<{ 
         menuItemId: string; 
         quantity: number; 
@@ -215,6 +450,8 @@ export default function CustomerMenu() {
         customerName: orderData.customerName,
         customerPhone: orderData.customerPhone,
         orderNotes: orderData.orderNotes || undefined,
+        couponCode: orderData.couponCode,
+        redeemPoints: orderData.redeemPoints,
         status: 'pendente',
         totalAmount,
         items: orderData.items,
@@ -231,8 +468,12 @@ export default function CustomerMenu() {
         description: 'Seu pedido foi enviado para a cozinha.',
       });
       clearCart();
-      setCustomerName('');
-      setCustomerPhone('');
+      // Reset coupon and points state but preserve customer info for future orders
+      setCouponCode('');
+      setCouponValidation(null);
+      setUsePoints(false);
+      setPointsToRedeem(0);
+      // Keep customerName, customerPhone, and identifiedCustomer for convenience on next order
       setIsCartOpen(false);
       setCheckoutStep('cart');
       if (tableId) {
@@ -350,12 +591,26 @@ export default function CustomerMenu() {
       };
     });
 
+    // Validate points before sending - ensure within allowed bounds and order total
+    let validatedRedeemPoints: number | undefined = undefined;
+    if (usePoints && pointsToRedeem > 0 && identifiedCustomer?.loyalty) {
+      const maxForOrder = getMaxRedeemablePointsForOrder();
+      const minAllowed = identifiedCustomer.loyalty.minPointsToRedeem;
+      // Clamp to the order-aware maximum
+      const clampedPoints = Math.min(pointsToRedeem, maxForOrder);
+      if (clampedPoints >= minAllowed && clampedPoints <= maxForOrder) {
+        validatedRedeemPoints = clampedPoints;
+      }
+    }
+
     createOrderMutation.mutate({
       restaurantId: currentTable.restaurantId,
       tableId: currentTable.id,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
       orderNotes: orderNotes.trim() || undefined,
+      couponCode: couponValidation?.valid ? couponCode.trim() : undefined,
+      redeemPoints: validatedRedeemPoints,
       items: orderItems,
     });
   };
@@ -868,6 +1123,134 @@ export default function CustomerMenu() {
                             })}
                           </div>
 
+                          {/* Cupom de Desconto */}
+                          <Collapsible>
+                            <CollapsibleTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                className="w-full justify-between border-gray-200 bg-white"
+                                data-testid="button-toggle-coupon"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Tag className="h-4 w-4 text-gray-500" />
+                                  <span className="text-sm font-medium">Cupom de Desconto</span>
+                                  {couponValidation?.valid && (
+                                    <Badge className="bg-green-100 text-green-700 border-0 text-[10px]">Aplicado</Badge>
+                                  )}
+                                </div>
+                                <ChevronRight className="h-4 w-4 text-gray-400" />
+                              </Button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="pt-3">
+                              <div className="flex gap-2">
+                                <Input
+                                  placeholder="Digite o código do cupom"
+                                  value={couponCode}
+                                  onChange={(e) => {
+                                    setCouponCode(e.target.value.toUpperCase());
+                                    if (couponValidation) setCouponValidation(null);
+                                  }}
+                                  className="flex-1 border-gray-200"
+                                  data-testid="input-coupon-code"
+                                />
+                                <Button
+                                  onClick={handleValidateCoupon}
+                                  disabled={isValidatingCoupon || !couponCode.trim()}
+                                  style={{ backgroundColor: branding.primaryColor }}
+                                  className="text-white"
+                                  data-testid="button-apply-coupon"
+                                >
+                                  {isValidatingCoupon ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    'Aplicar'
+                                  )}
+                                </Button>
+                              </div>
+                              {couponValidation && (
+                                <p className={`text-xs mt-2 ${couponValidation.valid ? 'text-green-600' : 'text-red-500'}`}>
+                                  {couponValidation.message}
+                                </p>
+                              )}
+                            </CollapsibleContent>
+                          </Collapsible>
+
+                          {/* Pontos de Fidelidade */}
+                          {identifiedCustomer?.found && identifiedCustomer.loyalty?.isActive && getMaxRedeemablePointsForOrder() > 0 && (
+                            <Card className="border-amber-200 bg-amber-50/50">
+                              <CardContent className="p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Award className="h-4 w-4 text-amber-600" />
+                                    <span className="text-sm font-medium text-amber-800">
+                                      Usar Pontos ({identifiedCustomer.customer?.loyaltyPoints} disponíveis)
+                                    </span>
+                                    {usePoints && (
+                                      <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px]">Ativo</Badge>
+                                    )}
+                                  </div>
+                                  <Switch
+                                    checked={usePoints}
+                                    onCheckedChange={(checked) => {
+                                      setUsePoints(checked);
+                                      if (checked) {
+                                        // Use order-aware max when enabling
+                                        setPointsToRedeem(getMaxRedeemablePointsForOrder());
+                                      } else {
+                                        setPointsToRedeem(0);
+                                      }
+                                    }}
+                                    data-testid="switch-use-points"
+                                  />
+                                </div>
+                                {usePoints && (() => {
+                                  const maxForOrder = getMaxRedeemablePointsForOrder();
+                                  const minPoints = identifiedCustomer.loyalty?.minPointsToRedeem || 0;
+                                  return (
+                                    <div className="space-y-2">
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="number"
+                                          min={minPoints}
+                                          max={maxForOrder}
+                                          value={pointsToRedeem}
+                                          onChange={(e) => {
+                                            const value = parseInt(e.target.value) || 0;
+                                            // Clamp value between min and order-aware max
+                                            setPointsToRedeem(Math.max(minPoints, Math.min(value, maxForOrder)));
+                                          }}
+                                          onBlur={() => {
+                                            // Ensure value is within bounds on blur
+                                            if (pointsToRedeem < minPoints) setPointsToRedeem(minPoints);
+                                            if (pointsToRedeem > maxForOrder) setPointsToRedeem(maxForOrder);
+                                          }}
+                                          className="flex-1 h-9 px-3 rounded-lg border border-amber-300 bg-white text-sm focus:border-amber-400 focus:outline-none"
+                                          data-testid="input-points-to-redeem"
+                                        />
+                                        <span className="text-sm font-medium text-amber-600">
+                                          = {formatKwanza(getPointsDiscount())}
+                                        </span>
+                                      </div>
+                                      <p className="text-xs text-amber-600">
+                                        Mín: {minPoints} | Máx para este pedido: {maxForOrder} pts
+                                      </p>
+                                    </div>
+                                  );
+                                })()}
+                              </CardContent>
+                            </Card>
+                          )}
+
+                          {/* Pontos que vai ganhar */}
+                          {identifiedCustomer?.found && identifiedCustomer.loyalty?.isActive && getPointsToEarn() > 0 && (
+                            <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                              <Sparkles className="h-4 w-4 text-green-600" />
+                              <span className="text-sm text-green-700">
+                                Você vai ganhar <strong>{getPointsToEarn()} pontos</strong> neste pedido!
+                              </span>
+                            </div>
+                          )}
+
                           <Card className="bg-gray-50 border-gray-200">
                             <CardContent className="p-4">
                               <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -883,14 +1266,34 @@ export default function CustomerMenu() {
 
                   {/* Footer with Actions */}
                   {items.length > 0 && (
-                    <div className="p-6 pt-4 border-t border-gray-100 space-y-4 bg-white">
+                    <div className="p-6 pt-4 border-t border-gray-100 space-y-3 bg-white">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Subtotal</span>
                         <span className="font-semibold text-gray-900">{formatKwanza(getTotal())}</span>
                       </div>
-                      <div className="flex items-center justify-between text-lg">
+                      {checkoutStep === 'review' && couponValidation?.valid && couponValidation.discountAmount && (
+                        <div className="flex items-center justify-between text-sm text-green-600">
+                          <span className="flex items-center gap-1">
+                            <Tag className="h-3 w-3" />
+                            Cupom
+                          </span>
+                          <span>-{formatKwanza(couponValidation.discountAmount)}</span>
+                        </div>
+                      )}
+                      {checkoutStep === 'review' && usePoints && pointsToRedeem > 0 && (
+                        <div className="flex items-center justify-between text-sm text-amber-600">
+                          <span className="flex items-center gap-1">
+                            <Award className="h-3 w-3" />
+                            Pontos ({pointsToRedeem} pts)
+                          </span>
+                          <span>-{formatKwanza(getPointsDiscount())}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between text-lg pt-1 border-t border-gray-100">
                         <span className="font-bold text-gray-900">Total</span>
-                        <span className="font-bold text-gray-900" data-testid="text-cart-total">{formatKwanza(getTotal())}</span>
+                        <span className="font-bold text-gray-900" data-testid="text-cart-total">
+                          {formatKwanza(checkoutStep === 'review' ? calculateFinalTotal() : getTotal())}
+                        </span>
                       </div>
                       
                       <div className="flex gap-2">
