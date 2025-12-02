@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eye, EyeOff, Mail, Lock, Building2, Phone, MapPin, Check, CreditCard, ChevronRight, Users, TrendingUp, BarChart3 } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Building2, Phone, MapPin, Check, CreditCard } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -486,73 +486,13 @@ export default function Login() {
             </p>
           </div>
 
-          {/* Dashboard Preview Card */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 shadow-2xl">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
-                <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
-                <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
-              </div>
-              <div className="text-[10px] text-primary-foreground/60 bg-white/10 px-2 py-0.5 rounded-full">
-                Dashboard
-              </div>
-            </div>
-
-            {/* Stats Row */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="bg-white/10 rounded-lg p-3">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <TrendingUp className="h-3 w-3 text-green-400" />
-                  <span className="text-[10px] text-primary-foreground/70">Vendas</span>
-                </div>
-                <p className="text-lg font-bold text-primary-foreground">12.4h</p>
-                <span className="text-[10px] text-green-400">+22% vs ontem</span>
-              </div>
-              <div className="bg-white/10 rounded-lg p-3">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <Users className="h-3 w-3 text-blue-400" />
-                  <span className="text-[10px] text-primary-foreground/70">Clientes</span>
-                </div>
-                <p className="text-lg font-bold text-primary-foreground">8.5h</p>
-                <span className="text-[10px] text-blue-400">+15% vs semana</span>
-              </div>
-              <div className="bg-white/10 rounded-lg p-3">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <BarChart3 className="h-3 w-3 text-purple-400" />
-                  <span className="text-[10px] text-primary-foreground/70">Pedidos</span>
-                </div>
-                <p className="text-lg font-bold text-primary-foreground">156</p>
-                <span className="text-[10px] text-purple-400">+8% hoje</span>
-              </div>
-            </div>
-
-            {/* Team Utilization */}
-            <div className="bg-white/10 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-medium text-primary-foreground">Desempenho da Equipe</span>
-                <ChevronRight className="h-3 w-3 text-primary-foreground/50" />
-              </div>
-              <div className="space-y-2">
-                {[
-                  { name: "Marketing", value: 89, color: "bg-pink-400" },
-                  { name: "Vendas", value: 76, color: "bg-blue-400" },
-                  { name: "Suporte", value: 92, color: "bg-green-400" },
-                ].map((item) => (
-                  <div key={item.name} className="flex items-center gap-2">
-                    <span className="text-[10px] text-primary-foreground/70 w-14">{item.name}</span>
-                    <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full ${item.color} rounded-full transition-all`} 
-                        style={{ width: `${item.value}%` }}
-                      />
-                    </div>
-                    <span className="text-[10px] text-primary-foreground/70 w-8 text-right">{item.value}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {/* Dashboard Preview Image */}
+          <div className="rounded-xl overflow-hidden shadow-2xl border border-white/20">
+            <img 
+              src="/attached_assets/image_1764695989804.png" 
+              alt="Dashboard Na Bancada" 
+              className="w-full h-auto object-cover"
+            />
           </div>
 
           {/* Trust Badges */}
