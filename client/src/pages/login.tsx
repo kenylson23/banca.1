@@ -266,12 +266,11 @@ export default function Login() {
                         <FormLabel className="text-xs font-medium text-foreground">Nome do Restaurante</FormLabel>
                         <FormControl>
                           <Input
-                            type="text"
                             placeholder="Restaurante ABC"
-                            autoComplete="off"
                             className="h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                             data-testid="input-restaurant-name"
                             {...field}
+                            value={field.value || ""}
                           />
                         </FormControl>
                         <FormMessage className="text-xs" />
