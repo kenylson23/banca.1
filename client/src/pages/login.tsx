@@ -1,8 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, EyeOff, ArrowLeft, Mail, Lock, Building2, Phone, MapPin, Sparkles, Check, CreditCard } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Building2, Phone, MapPin, Check, CreditCard, ChevronRight, Users, TrendingUp, BarChart3 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -12,16 +10,19 @@ import { loginSchema, insertRestaurantSchema, type LoginUser, type InsertRestaur
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatKwanza } from "@/lib/formatters";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function Login() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [showRegPassword, setShowRegPassword] = useState(false);
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const loginForm = useForm<LoginUser>({
     resolver: zodResolver(loginSchema),
@@ -58,6 +59,7 @@ export default function Login() {
         title: "Bem-vindo!",
         description: "Login realizado com sucesso.",
       });
+      setLocation("/dashboard");
     },
     onError: (error: any) => {
       toast({
@@ -75,10 +77,12 @@ export default function Login() {
     },
     onSuccess: (data) => {
       registerForm.reset();
+      setAcceptedTerms(false);
       toast({
         title: "Cadastro enviado!",
         description: "Seu cadastro foi enviado e está aguardando aprovação do administrador.",
       });
+      setIsLoginMode(true);
     },
     onError: (error: any) => {
       toast({
@@ -94,387 +98,495 @@ export default function Login() {
   };
 
   const onRegister = (data: InsertRestaurant) => {
+    if (!acceptedTerms) {
+      toast({
+        title: "Termos obrigatórios",
+        description: "Você precisa aceitar os termos e condições.",
+        variant: "destructive",
+      });
+      return;
+    }
     registerMutation.mutate(data);
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden safe-area-inset-top safe-area-inset-bottom">
-      {/* Background gradient decorative elements */}
-      <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-primary/5"></div>
-      <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl opacity-20"></div>
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl opacity-20"></div>
-      
-      <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 min-h-screen flex flex-col">
-        <div className="mb-4 sm:mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => setLocation("/")}
-            data-testid="button-back-home"
-            className="gap-2 hover-elevate min-h-10 group"
-          >
-            <ArrowLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
-            <span className="text-sm sm:text-base">Voltar</span>
-          </Button>
-        </div>
+    <div className="min-h-screen flex">
+      {/* Left Side - Form */}
+      <div className="w-full lg:w-1/2 flex flex-col min-h-screen bg-background">
+        <div className="flex-1 flex flex-col px-6 sm:px-12 lg:px-16 xl:px-24 py-8">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 mb-12" data-testid="link-home-logo">
+            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+              <svg viewBox="0 0 24 24" className="w-6 h-6 text-primary-foreground" fill="currentColor">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            <span className="font-bold text-xl text-foreground">Na Bancada</span>
+          </Link>
 
-        <div className="flex-1 flex items-center justify-center py-6">
-          <div className="w-full max-w-md">
-            {/* Logo and title section */}
-            <div className="text-center mb-8 sm:mb-10">
-              <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 mb-4 sm:mb-6 shadow-lg shadow-orange-500/20">
-                <Sparkles className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
-              </div>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent mb-3">
-                Na Bancada
+          {/* Form Content */}
+          <div className="flex-1 flex flex-col justify-center max-w-md w-full mx-auto lg:mx-0">
+            <div className="mb-8">
+              <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">
+                {isLoginMode ? "Bem-vindo de volta" : "Comece Agora"}
               </h1>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                Gestão moderna para o seu restaurante
+              <p className="text-muted-foreground">
+                {isLoginMode 
+                  ? "Entre com suas credenciais para acessar sua conta"
+                  : "Cadastre seu restaurante e comece a gerenciar"}
               </p>
             </div>
 
-            <Card className="border-border/50 shadow-2xl backdrop-blur-sm bg-card/95">
-              <CardHeader className="space-y-1 pb-6 px-6 sm:px-8 pt-8">
-                <CardTitle className="text-2xl sm:text-2xl font-bold text-center">
-                  Bem-vindo de volta
-                </CardTitle>
-                <CardDescription className="text-center text-sm">
-                  Escolha uma opção para continuar
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="px-6 sm:px-8 pb-8">
-                <Tabs defaultValue="login" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 mb-8 h-11 bg-muted/50">
-                    <TabsTrigger 
-                      value="login" 
-                      data-testid="tab-login" 
-                      className="text-sm sm:text-base font-medium data-[state=active]:shadow-sm"
+            {isLoginMode ? (
+              /* Login Form */
+              <Form {...loginForm}>
+                <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-5">
+                  <FormField
+                    control={loginForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-foreground">Email</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Input
+                              type="email"
+                              placeholder="seu@email.com"
+                              className="pl-12 h-12 bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                              data-testid="input-login-email"
+                              {...field}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={loginForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center justify-between">
+                          <FormLabel className="text-sm font-medium text-foreground">Senha</FormLabel>
+                          <button 
+                            type="button" 
+                            className="text-sm text-primary hover:underline"
+                            onClick={() => toast({ title: "Em breve", description: "Funcionalidade de recuperação de senha em desenvolvimento." })}
+                            data-testid="button-forgot-password"
+                          >
+                            Esqueceu a senha?
+                          </button>
+                        </div>
+                        <FormControl>
+                          <div className="relative">
+                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Input
+                              type={showPassword ? "text" : "password"}
+                              placeholder="min 6 caracteres"
+                              className="pl-12 pr-12 h-12 bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                              data-testid="input-login-password"
+                              {...field}
+                            />
+                            <button
+                              type="button"
+                              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                              onClick={() => setShowPassword(!showPassword)}
+                              data-testid="button-toggle-password"
+                            >
+                              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex items-center gap-2">
+                    <Checkbox 
+                      id="remember" 
+                      className="border-border/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                      data-testid="checkbox-remember-me"
+                    />
+                    <label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
+                      Lembrar de mim
+                    </label>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 transition-all"
+                    data-testid="button-login-submit"
+                    disabled={loginMutation.isPending}
+                  >
+                    {loginMutation.isPending ? (
+                      <div className="flex items-center gap-2">
+                        <div className="h-5 w-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                        Entrando...
+                      </div>
+                    ) : (
+                      "Entrar"
+                    )}
+                  </Button>
+
+                  <p className="text-center text-sm text-muted-foreground">
+                    Não tem uma conta?{" "}
+                    <button
+                      type="button"
+                      className="text-primary font-medium hover:underline"
+                      onClick={() => setIsLoginMode(false)}
+                      data-testid="link-register"
+                    >
+                      Cadastre-se
+                    </button>
+                  </p>
+                </form>
+              </Form>
+            ) : (
+              /* Register Form */
+              <Form {...registerForm}>
+                <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4">
+                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/10 mb-2">
+                    <div className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-primary" />
+                      <span className="text-sm text-foreground">
+                        Cadastro com aprovação pelo administrador
+                      </span>
+                    </div>
+                  </div>
+
+                  <FormField
+                    control={registerForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-foreground">Nome do Restaurante</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Input
+                              type="text"
+                              placeholder="Restaurante ABC"
+                              className="pl-12 h-12 bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                              data-testid="input-restaurant-name"
+                              {...field}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={registerForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-foreground">Email</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Input
+                              type="email"
+                              placeholder="contato@restaurante.com"
+                              className="pl-12 h-12 bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                              data-testid="input-restaurant-email"
+                              {...field}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={registerForm.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-foreground">Telefone</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Input
+                              type="tel"
+                              placeholder="+244 923 456 789"
+                              className="pl-12 h-12 bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                              data-testid="input-restaurant-phone"
+                              {...field}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={registerForm.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-foreground">Endereço</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <MapPin className="absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
+                            <Textarea
+                              placeholder="Rua Comandante Gika, 123 - Maianga - Luanda"
+                              className="pl-12 pt-2.5 min-h-[80px] bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all resize-none"
+                              data-testid="input-restaurant-address"
+                              {...field}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={registerForm.control}
+                    name="planId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-foreground">Plano de Subscrição</FormLabel>
+                        <FormControl>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                            disabled={plansLoading}
+                          >
+                            <SelectTrigger 
+                              className="h-12 bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all" 
+                              data-testid="select-plan"
+                            >
+                              <div className="flex items-center gap-3">
+                                <CreditCard className="h-5 w-5 text-muted-foreground" />
+                                <SelectValue placeholder={plansLoading ? "Carregando planos..." : "Selecione um plano"} />
+                              </div>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {plans?.filter(p => p.isActive).map((plan) => (
+                                <SelectItem key={plan.id} value={plan.id} data-testid={`option-plan-${plan.id}`}>
+                                  <div className="flex flex-col gap-0.5 py-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">{plan.name}</span>
+                                      {plan.name === "Profissional" && (
+                                        <Badge variant="default" className="text-xs">Popular</Badge>
+                                      )}
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">
+                                      A partir de {formatKwanza(plan.priceMonthlyKz)}/mês
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          Escolha o plano ideal para seu restaurante
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={registerForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-foreground">Senha</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Input
+                              type={showRegPassword ? "text" : "password"}
+                              placeholder="min 6 caracteres"
+                              className="pl-12 pr-12 h-12 bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                              data-testid="input-restaurant-password"
+                              {...field}
+                            />
+                            <button
+                              type="button"
+                              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                              onClick={() => setShowRegPassword(!showRegPassword)}
+                            >
+                              {showRegPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex items-start gap-2 pt-2">
+                    <Checkbox 
+                      id="terms" 
+                      checked={acceptedTerms}
+                      onCheckedChange={(checked) => setAcceptedTerms(checked as boolean)}
+                      className="mt-0.5 border-border/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                      data-testid="checkbox-terms"
+                    />
+                    <label htmlFor="terms" className="text-sm text-muted-foreground cursor-pointer leading-tight">
+                      Eu concordo com os{" "}
+                      <span className="text-primary hover:underline cursor-pointer">Termos de Uso</span>
+                      {" "}e{" "}
+                      <span className="text-primary hover:underline cursor-pointer">Política de Privacidade</span>
+                    </label>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 transition-all mt-2"
+                    data-testid="button-register-submit"
+                    disabled={registerMutation.isPending}
+                  >
+                    {registerMutation.isPending ? (
+                      <div className="flex items-center gap-2">
+                        <div className="h-5 w-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                        Cadastrando...
+                      </div>
+                    ) : (
+                      "Criar Conta"
+                    )}
+                  </Button>
+
+                  <p className="text-center text-sm text-muted-foreground">
+                    Já tem uma conta?{" "}
+                    <button
+                      type="button"
+                      className="text-primary font-medium hover:underline"
+                      onClick={() => setIsLoginMode(true)}
+                      data-testid="link-login"
                     >
                       Entrar
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="register" 
-                      data-testid="tab-register" 
-                      className="text-sm sm:text-base font-medium data-[state=active]:shadow-sm"
-                    >
-                      Cadastrar
-                    </TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="login" className="space-y-5 mt-0">
-                    <Form {...loginForm}>
-                      <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-5">
-                        <FormField
-                          control={loginForm.control}
-                          name="email"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium">Email</FormLabel>
-                              <FormControl>
-                                <div className="relative group">
-                                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-primary/20 rounded-lg opacity-0 group-focus-within:opacity-100 blur transition-opacity"></div>
-                                  <div className="relative flex items-center">
-                                    <Mail className="absolute left-3.5 h-5 w-5 text-muted-foreground pointer-events-none transition-colors group-focus-within:text-primary" />
-                                    <Input
-                                      type="email"
-                                      placeholder="seu@email.com"
-                                      className="pl-11 h-12 w-full bg-background border-border/50 focus:border-primary/50 transition-all"
-                                      data-testid="input-login-email"
-                                      {...field}
-                                    />
-                                  </div>
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={loginForm.control}
-                          name="password"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium">Senha</FormLabel>
-                              <FormControl>
-                                <div className="relative group">
-                                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-primary/20 rounded-lg opacity-0 group-focus-within:opacity-100 blur transition-opacity"></div>
-                                  <div className="relative flex items-center">
-                                    <Lock className="absolute left-3.5 h-5 w-5 text-muted-foreground pointer-events-none transition-colors group-focus-within:text-primary" />
-                                    <Input
-                                      type={showPassword ? "text" : "password"}
-                                      placeholder="••••••••"
-                                      className="pl-11 pr-12 h-12 w-full bg-background border-border/50 focus:border-primary/50 transition-all"
-                                      data-testid="input-login-password"
-                                      {...field}
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      className="absolute right-0.5 h-11 w-11 hover:bg-muted/80 rounded-md"
-                                      onClick={() => setShowPassword(!showPassword)}
-                                      data-testid="button-toggle-password"
-                                    >
-                                      {showPassword ? (
-                                        <EyeOff className="h-5 w-5 text-muted-foreground" />
-                                      ) : (
-                                        <Eye className="h-5 w-5 text-muted-foreground" />
-                                      )}
-                                    </Button>
-                                  </div>
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <Button
-                          type="submit"
-                          className="w-full h-12 text-base font-semibold bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg shadow-orange-500/25 hover:shadow-xl hover:shadow-orange-500/30 transition-all mt-8"
-                          data-testid="button-login-submit"
-                          disabled={loginMutation.isPending}
-                        >
-                          {loginMutation.isPending ? (
-                            <>
-                              <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                              Entrando...
-                            </>
-                          ) : (
-                            "Entrar no Sistema"
-                          )}
-                        </Button>
-                      </form>
-                    </Form>
-                  </TabsContent>
+                    </button>
+                  </p>
+                </form>
+              </Form>
+            )}
+          </div>
 
-                  <TabsContent value="register" className="space-y-5 mt-0">
-                    <div className="bg-gradient-to-r from-primary/5 to-orange-500/5 rounded-xl p-4 border border-primary/10 mb-6">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
-                          <Check className="h-4 w-4 text-primary" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium mb-1">Cadastro com aprovação</p>
-                          <p className="text-xs text-muted-foreground">
-                            Seu restaurante será revisado e aprovado pelo administrador
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <Form {...registerForm}>
-                      <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4">
-                        <FormField
-                          control={registerForm.control}
-                          name="name"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium">Nome do Restaurante</FormLabel>
-                              <FormControl>
-                                <div className="relative group">
-                                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-primary/20 rounded-lg opacity-0 group-focus-within:opacity-100 blur transition-opacity"></div>
-                                  <div className="relative flex items-center">
-                                    <Building2 className="absolute left-3.5 h-5 w-5 text-muted-foreground pointer-events-none transition-colors group-focus-within:text-primary" />
-                                    <Input
-                                      type="text"
-                                      placeholder="Restaurante ABC"
-                                      className="pl-11 h-12 w-full bg-background border-border/50 focus:border-primary/50 transition-all"
-                                      data-testid="input-restaurant-name"
-                                      {...field}
-                                    />
-                                  </div>
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={registerForm.control}
-                          name="email"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium">Email</FormLabel>
-                              <FormControl>
-                                <div className="relative group">
-                                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-primary/20 rounded-lg opacity-0 group-focus-within:opacity-100 blur transition-opacity"></div>
-                                  <div className="relative flex items-center">
-                                    <Mail className="absolute left-3.5 h-5 w-5 text-muted-foreground pointer-events-none transition-colors group-focus-within:text-primary" />
-                                    <Input
-                                      type="email"
-                                      placeholder="contato@restaurante.com"
-                                      className="pl-11 h-12 w-full bg-background border-border/50 focus:border-primary/50 transition-all"
-                                      data-testid="input-restaurant-email"
-                                      {...field}
-                                    />
-                                  </div>
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={registerForm.control}
-                          name="phone"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium">Telefone</FormLabel>
-                              <FormControl>
-                                <div className="relative group">
-                                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-primary/20 rounded-lg opacity-0 group-focus-within:opacity-100 blur transition-opacity"></div>
-                                  <div className="relative flex items-center">
-                                    <Phone className="absolute left-3.5 h-5 w-5 text-muted-foreground pointer-events-none transition-colors group-focus-within:text-primary" />
-                                    <Input
-                                      type="tel"
-                                      placeholder="+244 923 456 789"
-                                      className="pl-11 h-12 w-full bg-background border-border/50 focus:border-primary/50 transition-all"
-                                      data-testid="input-restaurant-phone"
-                                      {...field}
-                                    />
-                                  </div>
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={registerForm.control}
-                          name="address"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium">Endereço Completo</FormLabel>
-                              <FormControl>
-                                <div className="relative group">
-                                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-primary/20 rounded-lg opacity-0 group-focus-within:opacity-100 blur transition-opacity"></div>
-                                  <div className="relative">
-                                    <MapPin className="absolute left-3.5 top-3.5 h-5 w-5 text-muted-foreground pointer-events-none transition-colors group-focus-within:text-primary" />
-                                    <Textarea
-                                      placeholder="Rua Comandante Gika, 123 - Maianga - Luanda"
-                                      className="pl-11 pt-3.5 min-h-[90px] w-full bg-background border-border/50 focus:border-primary/50 transition-all resize-none"
-                                      data-testid="input-restaurant-address"
-                                      {...field}
-                                    />
-                                  </div>
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={registerForm.control}
-                          name="planId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium">Plano de Subscrição</FormLabel>
-                              <FormControl>
-                                <div className="relative group">
-                                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-primary/20 rounded-lg opacity-0 group-focus-within:opacity-100 blur transition-opacity"></div>
-                                  <div className="relative">
-                                    <Select
-                                      onValueChange={field.onChange}
-                                      value={field.value}
-                                      disabled={plansLoading}
-                                    >
-                                      <SelectTrigger className="h-12 w-full bg-background border-border/50 focus:border-primary/50 transition-all" data-testid="select-plan">
-                                        <div className="flex items-center gap-2">
-                                          <CreditCard className="h-5 w-5 text-muted-foreground" />
-                                          <SelectValue placeholder={plansLoading ? "Carregando planos..." : "Selecione um plano"} />
-                                        </div>
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {plans?.filter(p => p.isActive).map((plan) => (
-                                          <SelectItem key={plan.id} value={plan.id} data-testid={`option-plan-${plan.id}`}>
-                                            <div className="flex flex-col gap-1 py-1">
-                                              <div className="flex items-center gap-2">
-                                                <span className="font-medium">{plan.name}</span>
-                                                {plan.name === "Profissional" && (
-                                                  <Badge variant="default" className="text-xs">Popular</Badge>
-                                                )}
-                                              </div>
-                                              <div className="text-xs text-muted-foreground">
-                                                A partir de {formatKwanza(plan.priceMonthlyKz)}/mês
-                                              </div>
-                                            </div>
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                </div>
-                              </FormControl>
-                              <FormDescription className="text-xs">
-                                Escolha o plano que melhor atende seu restaurante
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={registerForm.control}
-                          name="password"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-medium">Senha</FormLabel>
-                              <FormControl>
-                                <div className="relative group">
-                                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-primary/20 rounded-lg opacity-0 group-focus-within:opacity-100 blur transition-opacity"></div>
-                                  <div className="relative flex items-center">
-                                    <Lock className="absolute left-3.5 h-5 w-5 text-muted-foreground pointer-events-none transition-colors group-focus-within:text-primary" />
-                                    <Input
-                                      type={showRegPassword ? "text" : "password"}
-                                      placeholder="Mínimo 6 caracteres"
-                                      className="pl-11 pr-12 h-12 w-full bg-background border-border/50 focus:border-primary/50 transition-all"
-                                      data-testid="input-restaurant-password"
-                                      {...field}
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      className="absolute right-0.5 h-11 w-11 hover:bg-muted/80 rounded-md"
-                                      onClick={() => setShowRegPassword(!showRegPassword)}
-                                      data-testid="button-toggle-register-password"
-                                    >
-                                      {showRegPassword ? (
-                                        <EyeOff className="h-5 w-5 text-muted-foreground" />
-                                      ) : (
-                                        <Eye className="h-5 w-5 text-muted-foreground" />
-                                      )}
-                                    </Button>
-                                  </div>
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <Button
-                          type="submit"
-                          className="w-full h-12 text-base font-semibold bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg shadow-orange-500/25 hover:shadow-xl hover:shadow-orange-500/30 transition-all mt-6"
-                          data-testid="button-restaurant-submit"
-                          disabled={registerMutation.isPending}
-                        >
-                          {registerMutation.isPending ? (
-                            <>
-                              <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                              Cadastrando...
-                            </>
-                          ) : (
-                            "Cadastrar Restaurante"
-                          )}
-                        </Button>
-                      </form>
-                    </Form>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-
-            {/* Footer text */}
-            <p className="text-center text-xs sm:text-sm text-muted-foreground mt-6 sm:mt-8">
-              Sistema protegido e seguro para a gestão do seu restaurante
+          {/* Footer */}
+          <div className="pt-8 text-center lg:text-left">
+            <p className="text-sm text-muted-foreground">
+              2024 Na Bancada. Todos os direitos reservados.
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Side - Hero/Preview */}
+      <div className="hidden lg:flex w-1/2 bg-primary relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl" />
+        </div>
+
+        {/* Content */}
+        <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20 py-12 w-full">
+          <div className="mb-12">
+            <h2 className="text-3xl xl:text-4xl font-bold text-primary-foreground mb-4 leading-tight">
+              A forma mais simples de<br />gerir seu restaurante
+            </h2>
+            <p className="text-primary-foreground/80 text-lg">
+              Entre com suas credenciais para acessar sua conta
+            </p>
+          </div>
+
+          {/* Dashboard Preview Card */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-red-400" />
+                <div className="w-3 h-3 rounded-full bg-yellow-400" />
+                <div className="w-3 h-3 rounded-full bg-green-400" />
+              </div>
+              <div className="text-xs text-primary-foreground/60 bg-white/10 px-3 py-1 rounded-full">
+                Dashboard
+              </div>
+            </div>
+
+            {/* Stats Row */}
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="bg-white/10 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-4 w-4 text-green-400" />
+                  <span className="text-xs text-primary-foreground/70">Vendas</span>
+                </div>
+                <p className="text-2xl font-bold text-primary-foreground">12.4h</p>
+                <span className="text-xs text-green-400">+22% vs ontem</span>
+              </div>
+              <div className="bg-white/10 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="h-4 w-4 text-blue-400" />
+                  <span className="text-xs text-primary-foreground/70">Clientes</span>
+                </div>
+                <p className="text-2xl font-bold text-primary-foreground">8.5h</p>
+                <span className="text-xs text-blue-400">+15% vs semana</span>
+              </div>
+              <div className="bg-white/10 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <BarChart3 className="h-4 w-4 text-purple-400" />
+                  <span className="text-xs text-primary-foreground/70">Pedidos</span>
+                </div>
+                <p className="text-2xl font-bold text-primary-foreground">156</p>
+                <span className="text-xs text-purple-400">+8% hoje</span>
+              </div>
+            </div>
+
+            {/* Team Utilization */}
+            <div className="bg-white/10 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-medium text-primary-foreground">Desempenho da Equipe</span>
+                <ChevronRight className="h-4 w-4 text-primary-foreground/50" />
+              </div>
+              <div className="space-y-3">
+                {[
+                  { name: "Marketing", value: 89, color: "bg-pink-400" },
+                  { name: "Vendas", value: 76, color: "bg-blue-400" },
+                  { name: "Suporte", value: 92, color: "bg-green-400" },
+                ].map((item) => (
+                  <div key={item.name} className="flex items-center gap-3">
+                    <span className="text-xs text-primary-foreground/70 w-20">{item.name}</span>
+                    <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full ${item.color} rounded-full transition-all`} 
+                        style={{ width: `${item.value}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-primary-foreground/70 w-10 text-right">{item.value}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Trust Badges */}
+          <div className="mt-12 flex items-center gap-8 opacity-60">
+            <div className="flex items-center gap-2 text-primary-foreground/70">
+              <Check className="h-4 w-4" />
+              <span className="text-sm">Dados seguros</span>
+            </div>
+            <div className="flex items-center gap-2 text-primary-foreground/70">
+              <Check className="h-4 w-4" />
+              <span className="text-sm">Suporte 24/7</span>
+            </div>
+            <div className="flex items-center gap-2 text-primary-foreground/70">
+              <Check className="h-4 w-4" />
+              <span className="text-sm">Fácil de usar</span>
+            </div>
           </div>
         </div>
       </div>
