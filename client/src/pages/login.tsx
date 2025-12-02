@@ -264,19 +264,16 @@ export default function Login() {
                     render={({ field }) => (
                       <FormItem className="space-y-1">
                         <FormLabel className="text-xs font-medium text-foreground">Nome do Restaurante</FormLabel>
-                        <div className="relative">
-                          <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
-                          <FormControl>
-                            <Input
-                              type="text"
-                              placeholder="Restaurante ABC"
-                              autoComplete="off"
-                              className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
-                              data-testid="input-restaurant-name"
-                              {...field}
-                            />
-                          </FormControl>
-                        </div>
+                        <FormControl>
+                          <Input
+                            type="text"
+                            placeholder="Restaurante ABC"
+                            autoComplete="off"
+                            className="h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                            data-testid="input-restaurant-name"
+                            {...field}
+                          />
+                        </FormControl>
                         <FormMessage className="text-xs" />
                       </FormItem>
                     )}
