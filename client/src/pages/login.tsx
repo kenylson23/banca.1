@@ -270,10 +270,10 @@ export default function Login() {
                             placeholder="Restaurante ABC"
                             className="h-9 text-sm text-foreground bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                             data-testid="input-restaurant-name"
+                            autoComplete="organization"
                             value={field.value || ""}
-                            onChange={field.onChange}
+                            onChange={(e) => field.onChange(e.target.value)}
                             onBlur={field.onBlur}
-                            name={field.name}
                             ref={field.ref}
                           />
                         </FormControl>
