@@ -15,10 +15,6 @@ import type { Restaurant } from '@shared/schema';
 export default function Settings() {
   const [slug, setSlug] = useState('');
   const [copied, setCopied] = useState(false);
-  const [primaryColor, setPrimaryColor] = useState('#EA580C');
-  const [secondaryColor, setSecondaryColor] = useState('#DC2626');
-  const [accentColor, setAccentColor] = useState('#0891B2');
-  const [heroImageUrl, setHeroImageUrl] = useState('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingHero, setUploadingHero] = useState(false);
   const { toast } = useToast();
@@ -36,18 +32,6 @@ export default function Settings() {
   useEffect(() => {
     if (restaurant?.slug) {
       setSlug(restaurant.slug);
-    }
-    if (restaurant?.primaryColor) {
-      setPrimaryColor(restaurant.primaryColor);
-    }
-    if (restaurant?.secondaryColor) {
-      setSecondaryColor(restaurant.secondaryColor);
-    }
-    if (restaurant?.accentColor) {
-      setAccentColor(restaurant.accentColor);
-    }
-    if (restaurant?.heroImageUrl) {
-      setHeroImageUrl(restaurant.heroImageUrl);
     }
   }, [restaurant]);
 
@@ -71,30 +55,6 @@ export default function Settings() {
     },
   });
 
-  const updateAppearanceMutation = useMutation({
-    mutationFn: async (data: {
-      primaryColor?: string;
-      secondaryColor?: string;
-      accentColor?: string;
-      heroImageUrl?: string;
-    }) => {
-      return apiRequest('PATCH', '/api/restaurants/appearance', data);
-    },
-    onSuccess: () => {
-      toast({
-        title: 'Aparência atualizada!',
-        description: 'As cores do seu menu público foram atualizadas com sucesso.',
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/public/restaurants'] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Erro ao atualizar aparência',
-        description: error?.message || 'Tente novamente mais tarde.',
-        variant: 'destructive',
-      });
-    },
-  });
 
   const handleSaveSlug = () => {
     if (!slug || slug.trim().length < 3) {
@@ -127,15 +87,6 @@ export default function Settings() {
       });
       setTimeout(() => setCopied(false), 2000);
     }
-  };
-
-  const handleSaveAppearance = () => {
-    updateAppearanceMutation.mutate({
-      primaryColor,
-      secondaryColor,
-      accentColor,
-      heroImageUrl: heroImageUrl || '',
-    });
   };
 
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -529,129 +480,6 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Cores do Cabeçalho</CardTitle>
-              <CardDescription>
-                Essas cores serão usadas no gradiente do cabeçalho caso você não tenha uma foto de capa. Se você adicionar uma foto de capa acima, ela terá prioridade.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="primaryColor">Cor Primária</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="primaryColor"
-                      type="color"
-                      value={primaryColor}
-                      onChange={(e) => setPrimaryColor(e.target.value)}
-                      className="h-10 w-20 cursor-pointer"
-                      data-testid="input-primary-color"
-                    />
-                    <Input
-                      value={primaryColor}
-                      onChange={(e) => setPrimaryColor(e.target.value)}
-                      placeholder="#EA580C"
-                      className="flex-1"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Cor principal do seu restaurante
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="secondaryColor">Cor Secundária</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="secondaryColor"
-                      type="color"
-                      value={secondaryColor}
-                      onChange={(e) => setSecondaryColor(e.target.value)}
-                      className="h-10 w-20 cursor-pointer"
-                      data-testid="input-secondary-color"
-                    />
-                    <Input
-                      value={secondaryColor}
-                      onChange={(e) => setSecondaryColor(e.target.value)}
-                      placeholder="#DC2626"
-                      className="flex-1"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Cor secundária para destaques
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="accentColor">Cor de Destaque</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="accentColor"
-                      type="color"
-                      value={accentColor}
-                      onChange={(e) => setAccentColor(e.target.value)}
-                      className="h-10 w-20 cursor-pointer"
-                      data-testid="input-accent-color"
-                    />
-                    <Input
-                      value={accentColor}
-                      onChange={(e) => setAccentColor(e.target.value)}
-                      placeholder="#0891B2"
-                      className="flex-1"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Cor para botões e links
-                  </p>
-                </div>
-              </div>
-
-              <Button
-                onClick={handleSaveAppearance}
-                disabled={updateAppearanceMutation.isPending}
-                data-testid="button-save-appearance"
-                className="w-full sm:w-auto"
-              >
-                {updateAppearanceMutation.isPending ? 'Salvando...' : 'Salvar Cores'}
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Preview das Cores</CardTitle>
-              <CardDescription>
-                Veja como as cores escolhidas ficam combinadas
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div 
-                  className="p-6 rounded-lg" 
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  <p className="text-white font-semibold">Cor Primária</p>
-                  <p className="text-white text-sm opacity-90">Textos e elementos principais</p>
-                </div>
-                <div 
-                  className="p-6 rounded-lg" 
-                  style={{ backgroundColor: secondaryColor }}
-                >
-                  <p className="text-white font-semibold">Cor Secundária</p>
-                  <p className="text-white text-sm opacity-90">Destaques e ênfases</p>
-                </div>
-                <div 
-                  className="p-6 rounded-lg" 
-                  style={{ backgroundColor: accentColor }}
-                >
-                  <p className="text-white font-semibold">Cor de Destaque</p>
-                  <p className="text-white text-sm opacity-90">Botões e chamadas para ação</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
       </div>
