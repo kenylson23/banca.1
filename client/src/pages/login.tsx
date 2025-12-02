@@ -23,6 +23,7 @@ export default function Login() {
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [restaurantName, setRestaurantName] = useState("");
 
   const loginForm = useForm<LoginUser>({
     resolver: zodResolver(loginSchema),
@@ -77,6 +78,7 @@ export default function Login() {
     },
     onSuccess: (data) => {
       registerForm.reset();
+      setRestaurantName("");
       setAcceptedTerms(false);
       toast({
         title: "Cadastro enviado!",
@@ -106,7 +108,15 @@ export default function Login() {
       });
       return;
     }
-    registerMutation.mutate(data);
+    if (!restaurantName.trim()) {
+      toast({
+        title: "Nome obrigatório",
+        description: "Por favor, informe o nome do restaurante.",
+        variant: "destructive",
+      });
+      return;
+    }
+    registerMutation.mutate({ ...data, name: restaurantName });
   };
 
   return (
@@ -258,28 +268,21 @@ export default function Login() {
                     </div>
                   </div>
 
-                  <FormField
-                    control={registerForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem className="space-y-1">
-                        <FormLabel className="text-xs font-medium text-foreground">Nome do Restaurante</FormLabel>
-                        <FormControl>
-                          <Input
-                            id="restaurant-name"
-                            type="text"
-                            placeholder="Restaurante ABC"
-                            className="h-9 text-sm text-foreground bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
-                            data-testid="input-restaurant-name"
-                            autoComplete="off"
-                            {...field}
-                            value={field.value ?? ""}
-                          />
-                        </FormControl>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="space-y-1">
+                    <label htmlFor="restaurant-name" className="text-xs font-medium text-foreground">
+                      Nome do Restaurante
+                    </label>
+                    <Input
+                      id="restaurant-name"
+                      type="text"
+                      placeholder="Restaurante ABC"
+                      className="h-9 text-sm text-foreground bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                      data-testid="input-restaurant-name"
+                      autoComplete="off"
+                      value={restaurantName}
+                      onChange={(e) => setRestaurantName(e.target.value)}
+                    />
+                  </div>
 
                   <FormField
                     control={registerForm.control}
