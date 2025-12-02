@@ -149,7 +149,7 @@ export default function Login() {
                         <FormLabel className="text-xs font-medium text-foreground">Email</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                             <Input
                               type="email"
                               placeholder="seu@email.com"
@@ -182,7 +182,7 @@ export default function Login() {
                         </div>
                         <FormControl>
                           <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                             <Input
                               type={showPassword ? "text" : "password"}
                               placeholder="min 6 caracteres"
@@ -266,7 +266,7 @@ export default function Login() {
                         <FormLabel className="text-xs font-medium text-foreground">Nome do Restaurante</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                             <Input
                               type="text"
                               placeholder="Restaurante ABC"
@@ -289,7 +289,7 @@ export default function Login() {
                         <FormLabel className="text-xs font-medium text-foreground">Email</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                             <Input
                               type="email"
                               placeholder="contato@restaurante.com"
@@ -312,7 +312,7 @@ export default function Login() {
                         <FormLabel className="text-xs font-medium text-foreground">Telefone</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                             <Input
                               type="tel"
                               placeholder="+244 923 456 789"
@@ -335,7 +335,7 @@ export default function Login() {
                         <FormLabel className="text-xs font-medium text-foreground">Endereço</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
                             <Textarea
                               placeholder="Rua Comandante Gika, 123 - Maianga - Luanda"
                               className="pl-9 pt-2 min-h-[60px] text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all resize-none"
@@ -366,7 +366,7 @@ export default function Login() {
                               data-testid="select-plan"
                             >
                               <div className="flex items-center gap-2">
-                                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                                <CreditCard className="h-4 w-4 text-muted-foreground pointer-events-none" />
                                 <SelectValue placeholder={plansLoading ? "Carregando planos..." : "Selecione um plano"} />
                               </div>
                             </SelectTrigger>
@@ -405,7 +405,7 @@ export default function Login() {
                         <FormLabel className="text-xs font-medium text-foreground">Senha</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                             <Input
                               type={showRegPassword ? "text" : "password"}
                               placeholder="min 6 caracteres"
