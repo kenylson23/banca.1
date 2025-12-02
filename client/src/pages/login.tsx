@@ -265,16 +265,13 @@ export default function Login() {
                       <FormItem className="space-y-1">
                         <FormLabel className="text-xs font-medium text-foreground">Nome do Restaurante</FormLabel>
                         <FormControl>
-                          <div className="relative">
-                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                            <Input
-                              type="text"
-                              placeholder="Restaurante ABC"
-                              className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
-                              data-testid="input-restaurant-name"
-                              {...field}
-                            />
-                          </div>
+                          <Input
+                            type="text"
+                            placeholder="Restaurante ABC"
+                            className="h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                            data-testid="input-restaurant-name"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage className="text-xs" />
                       </FormItem>
@@ -288,16 +285,13 @@ export default function Login() {
                       <FormItem className="space-y-1">
                         <FormLabel className="text-xs font-medium text-foreground">Email</FormLabel>
                         <FormControl>
-                          <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                            <Input
-                              type="email"
-                              placeholder="contato@restaurante.com"
-                              className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
-                              data-testid="input-restaurant-email"
-                              {...field}
-                            />
-                          </div>
+                          <Input
+                            type="email"
+                            placeholder="contato@restaurante.com"
+                            className="h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                            data-testid="input-restaurant-email"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage className="text-xs" />
                       </FormItem>
@@ -311,16 +305,13 @@ export default function Login() {
                       <FormItem className="space-y-1">
                         <FormLabel className="text-xs font-medium text-foreground">Telefone</FormLabel>
                         <FormControl>
-                          <div className="relative">
-                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                            <Input
-                              type="tel"
-                              placeholder="+244 923 456 789"
-                              className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
-                              data-testid="input-restaurant-phone"
-                              {...field}
-                            />
-                          </div>
+                          <Input
+                            type="tel"
+                            placeholder="+244 923 456 789"
+                            className="h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                            data-testid="input-restaurant-phone"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage className="text-xs" />
                       </FormItem>
@@ -334,15 +325,13 @@ export default function Login() {
                       <FormItem className="space-y-1">
                         <FormLabel className="text-xs font-medium text-foreground">Endereço</FormLabel>
                         <FormControl>
-                          <div className="relative">
-                            <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-                            <Textarea
-                              placeholder="Rua Comandante Gika, 123 - Maianga - Luanda"
-                              className="pl-9 pt-2 min-h-[60px] text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all resize-none"
-                              data-testid="input-restaurant-address"
-                              {...field}
-                            />
-                          </div>
+                          <Input
+                            type="text"
+                            placeholder="Rua Comandante Gika, 123 - Maianga - Luanda"
+                            className="h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                            data-testid="input-restaurant-address"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage className="text-xs" />
                       </FormItem>
@@ -365,10 +354,7 @@ export default function Login() {
                               className="h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all" 
                               data-testid="select-plan"
                             >
-                              <div className="flex items-center gap-2">
-                                <CreditCard className="h-4 w-4 text-muted-foreground pointer-events-none" />
-                                <SelectValue placeholder={plansLoading ? "Carregando planos..." : "Selecione um plano"} />
-                              </div>
+                              <SelectValue placeholder={plansLoading ? "Carregando planos..." : "Selecione um plano"} />
                             </SelectTrigger>
                             <SelectContent>
                               {plans?.filter(p => p.isActive).map((plan) => (
@@ -404,24 +390,13 @@ export default function Login() {
                       <FormItem className="space-y-1">
                         <FormLabel className="text-xs font-medium text-foreground">Senha</FormLabel>
                         <FormControl>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                            <Input
-                              type={showRegPassword ? "text" : "password"}
-                              placeholder="min 6 caracteres"
-                              className="pl-9 pr-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
-                              data-testid="input-restaurant-password"
-                              {...field}
-                            />
-                            <button
-                              type="button"
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                              onClick={() => setShowRegPassword(!showRegPassword)}
-                              data-testid="button-toggle-reg-password"
-                            >
-                              {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </button>
-                          </div>
+                          <Input
+                            type="password"
+                            placeholder="min 6 caracteres"
+                            className="h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                            data-testid="input-restaurant-password"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage className="text-xs" />
                       </FormItem>
