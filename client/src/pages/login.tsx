@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, Mail, Lock, Building2, Phone, MapPin, Check, CreditCard } from "lucide-react";
+import dashboardPreview from "@assets/image_1764695989804.png";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -489,7 +490,7 @@ export default function Login() {
           {/* Dashboard Preview Image */}
           <div className="rounded-xl overflow-hidden shadow-2xl border border-white/20">
             <img 
-              src="/attached_assets/image_1764695989804.png" 
+              src={dashboardPreview} 
               alt="Dashboard Na Bancada" 
               className="w-full h-auto object-cover"
             />
