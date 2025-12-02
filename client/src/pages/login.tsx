@@ -264,23 +264,19 @@ export default function Login() {
                     render={({ field }) => (
                       <FormItem className="space-y-1">
                         <FormLabel className="text-xs font-medium text-foreground">Nome do Restaurante</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                            <input
+                        <div className="relative">
+                          <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+                          <FormControl>
+                            <Input
                               type="text"
                               placeholder="Restaurante ABC"
                               autoComplete="off"
-                              className="flex h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                              className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                               data-testid="input-restaurant-name"
-                              value={field.value || ''}
-                              onChange={field.onChange}
-                              onBlur={field.onBlur}
-                              name={field.name}
-                              ref={field.ref}
+                              {...field}
                             />
-                          </div>
-                        </FormControl>
+                          </FormControl>
+                        </div>
                         <FormMessage className="text-xs" />
                       </FormItem>
                     )}
