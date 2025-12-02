@@ -266,15 +266,14 @@ export default function Login() {
                         <FormLabel className="text-xs font-medium text-foreground">Nome do Restaurante</FormLabel>
                         <FormControl>
                           <Input
+                            id="restaurant-name"
                             type="text"
                             placeholder="Restaurante ABC"
                             className="h-9 text-sm text-foreground bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                             data-testid="input-restaurant-name"
-                            autoComplete="organization"
-                            value={field.value || ""}
-                            onChange={(e) => field.onChange(e.target.value)}
-                            onBlur={field.onBlur}
-                            ref={field.ref}
+                            autoComplete="off"
+                            {...field}
+                            value={field.value ?? ""}
                           />
                         </FormControl>
                         <FormMessage className="text-xs" />
