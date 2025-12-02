@@ -28,7 +28,7 @@ export default function PrinterSetup() {
             <ul className="list-disc list-inside mt-2 space-y-1">
               <li>Navegador compatível com WebUSB (Chrome, Edge, Opera)</li>
               <li>Impressora térmica USB conectada ao dispositivo</li>
-              <li>Conexão HTTPS (automático no Replit)</li>
+              <li>Conexão HTTPS</li>
             </ul>
           </div>
           

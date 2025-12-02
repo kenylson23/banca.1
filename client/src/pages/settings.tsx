@@ -164,8 +164,6 @@ export default function Settings() {
         throw new Error(error.message || 'Erro ao fazer upload');
       }
 
-      const data = await response.json();
-      setHeroImageUrl(data.heroImageUrl);
       toast({
         title: 'Foto de capa atualizada!',
         description: 'A foto de capa foi atualizada com sucesso.',
