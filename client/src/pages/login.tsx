@@ -113,24 +113,24 @@ export default function Login() {
     <div className="min-h-screen flex">
       {/* Left Side - Form */}
       <div className="w-full lg:w-1/2 flex flex-col min-h-screen bg-background">
-        <div className="flex-1 flex flex-col px-6 sm:px-12 lg:px-16 xl:px-24 py-8">
+        <div className="flex-1 flex flex-col px-6 sm:px-8 lg:px-12 xl:px-16 py-6">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 mb-12" data-testid="link-home-logo">
-            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-              <svg viewBox="0 0 24 24" className="w-6 h-6 text-primary-foreground" fill="currentColor">
+          <Link href="/" className="flex items-center gap-2 mb-8" data-testid="link-home-logo">
+            <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
+              <svg viewBox="0 0 24 24" className="w-4 h-4 text-primary-foreground" fill="currentColor">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
               </svg>
             </div>
-            <span className="font-bold text-xl text-foreground">Na Bancada</span>
+            <span className="font-bold text-lg text-foreground">Na Bancada</span>
           </Link>
 
           {/* Form Content */}
-          <div className="flex-1 flex flex-col justify-center max-w-md w-full mx-auto lg:mx-0">
-            <div className="mb-8">
-              <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">
+          <div className="flex-1 flex flex-col justify-center max-w-sm w-full mx-auto lg:mx-0">
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-foreground mb-1">
                 {isLoginMode ? "Bem-vindo de volta" : "Comece Agora"}
               </h1>
-              <p className="text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 {isLoginMode 
                   ? "Entre com suas credenciais para acessar sua conta"
                   : "Cadastre seu restaurante e comece a gerenciar"}
@@ -140,26 +140,26 @@ export default function Login() {
             {isLoginMode ? (
               /* Login Form */
               <Form {...loginForm}>
-                <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-5">
+                <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
                   <FormField
                     control={loginForm.control}
                     name="email"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-foreground">Email</FormLabel>
+                      <FormItem className="space-y-1.5">
+                        <FormLabel className="text-xs font-medium text-foreground">Email</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                               type="email"
                               placeholder="seu@email.com"
-                              className="pl-12 h-12 bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                              className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                               data-testid="input-login-email"
                               {...field}
                             />
                           </div>
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
@@ -168,12 +168,12 @@ export default function Login() {
                     control={loginForm.control}
                     name="password"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <FormLabel className="text-sm font-medium text-foreground">Senha</FormLabel>
+                          <FormLabel className="text-xs font-medium text-foreground">Senha</FormLabel>
                           <button 
                             type="button" 
-                            className="text-sm text-primary hover:underline"
+                            className="text-xs text-primary hover:underline"
                             onClick={() => toast({ title: "Em breve", description: "Funcionalidade de recuperação de senha em desenvolvimento." })}
                             data-testid="button-forgot-password"
                           >
@@ -182,25 +182,25 @@ export default function Login() {
                         </div>
                         <FormControl>
                           <div className="relative">
-                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                               type={showPassword ? "text" : "password"}
                               placeholder="min 6 caracteres"
-                              className="pl-12 pr-12 h-12 bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                              className="pl-9 pr-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                               data-testid="input-login-password"
                               {...field}
                             />
                             <button
                               type="button"
-                              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                               onClick={() => setShowPassword(!showPassword)}
                               data-testid="button-toggle-password"
                             >
-                              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
                           </div>
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
@@ -208,23 +208,23 @@ export default function Login() {
                   <div className="flex items-center gap-2">
                     <Checkbox 
                       id="remember" 
-                      className="border-border/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                      className="h-3.5 w-3.5 border-border/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                       data-testid="checkbox-remember-me"
                     />
-                    <label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
+                    <label htmlFor="remember" className="text-xs text-muted-foreground cursor-pointer">
                       Lembrar de mim
                     </label>
                   </div>
 
                   <Button
                     type="submit"
-                    className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 transition-all"
+                    className="w-full h-9 text-sm font-medium"
                     data-testid="button-login-submit"
                     disabled={loginMutation.isPending}
                   >
                     {loginMutation.isPending ? (
                       <div className="flex items-center gap-2">
-                        <div className="h-5 w-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                        <div className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                         Entrando...
                       </div>
                     ) : (
@@ -232,7 +232,7 @@ export default function Login() {
                     )}
                   </Button>
 
-                  <p className="text-center text-sm text-muted-foreground">
+                  <p className="text-center text-xs text-muted-foreground">
                     Não tem uma conta?{" "}
                     <button
                       type="button"
@@ -248,11 +248,11 @@ export default function Login() {
             ) : (
               /* Register Form */
               <Form {...registerForm}>
-                <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4">
-                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/10 mb-2">
+                <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-3">
+                  <div className="p-2.5 rounded-md bg-primary/5 border border-primary/10">
                     <div className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-primary" />
-                      <span className="text-sm text-foreground">
+                      <Check className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-xs text-foreground">
                         Cadastro com aprovação pelo administrador
                       </span>
                     </div>
@@ -262,21 +262,21 @@ export default function Login() {
                     control={registerForm.control}
                     name="name"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-foreground">Nome do Restaurante</FormLabel>
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-xs font-medium text-foreground">Nome do Restaurante</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                               type="text"
                               placeholder="Restaurante ABC"
-                              className="pl-12 h-12 bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                              className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                               data-testid="input-restaurant-name"
                               {...field}
                             />
                           </div>
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
@@ -285,21 +285,21 @@ export default function Login() {
                     control={registerForm.control}
                     name="email"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-foreground">Email</FormLabel>
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-xs font-medium text-foreground">Email</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                               type="email"
                               placeholder="contato@restaurante.com"
-                              className="pl-12 h-12 bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                              className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                               data-testid="input-restaurant-email"
                               {...field}
                             />
                           </div>
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
@@ -308,21 +308,21 @@ export default function Login() {
                     control={registerForm.control}
                     name="phone"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-foreground">Telefone</FormLabel>
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-xs font-medium text-foreground">Telefone</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                               type="tel"
                               placeholder="+244 923 456 789"
-                              className="pl-12 h-12 bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                              className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                               data-testid="input-restaurant-phone"
                               {...field}
                             />
                           </div>
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
@@ -331,20 +331,20 @@ export default function Login() {
                     control={registerForm.control}
                     name="address"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-foreground">Endereço</FormLabel>
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-xs font-medium text-foreground">Endereço</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <MapPin className="absolute left-4 top-3 h-5 w-5 text-muted-foreground" />
+                            <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Textarea
                               placeholder="Rua Comandante Gika, 123 - Maianga - Luanda"
-                              className="pl-12 pt-2.5 min-h-[80px] bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all resize-none"
+                              className="pl-9 pt-2 min-h-[60px] text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all resize-none"
                               data-testid="input-restaurant-address"
                               {...field}
                             />
                           </div>
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
@@ -353,8 +353,8 @@ export default function Login() {
                     control={registerForm.control}
                     name="planId"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-foreground">Plano de Subscrição</FormLabel>
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-xs font-medium text-foreground">Plano de Subscrição</FormLabel>
                         <FormControl>
                           <Select
                             onValueChange={field.onChange}
@@ -362,25 +362,25 @@ export default function Login() {
                             disabled={plansLoading}
                           >
                             <SelectTrigger 
-                              className="h-12 bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all" 
+                              className="h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all" 
                               data-testid="select-plan"
                             >
-                              <div className="flex items-center gap-3">
-                                <CreditCard className="h-5 w-5 text-muted-foreground" />
+                              <div className="flex items-center gap-2">
+                                <CreditCard className="h-4 w-4 text-muted-foreground" />
                                 <SelectValue placeholder={plansLoading ? "Carregando planos..." : "Selecione um plano"} />
                               </div>
                             </SelectTrigger>
                             <SelectContent>
                               {plans?.filter(p => p.isActive).map((plan) => (
                                 <SelectItem key={plan.id} value={plan.id} data-testid={`option-plan-${plan.id}`}>
-                                  <div className="flex flex-col gap-0.5 py-1">
+                                  <div className="flex flex-col gap-0.5">
                                     <div className="flex items-center gap-2">
-                                      <span className="font-medium">{plan.name}</span>
+                                      <span className="text-sm font-medium">{plan.name}</span>
                                       {plan.name === "Profissional" && (
-                                        <Badge variant="default" className="text-xs">Popular</Badge>
+                                        <Badge variant="default" className="text-[10px] px-1.5 py-0">Popular</Badge>
                                       )}
                                     </div>
-                                    <span className="text-xs text-muted-foreground">
+                                    <span className="text-[10px] text-muted-foreground">
                                       A partir de {formatKwanza(plan.priceMonthlyKz)}/mês
                                     </span>
                                   </div>
@@ -389,10 +389,10 @@ export default function Login() {
                             </SelectContent>
                           </Select>
                         </FormControl>
-                        <FormDescription className="text-xs">
+                        <FormDescription className="text-[10px]">
                           Escolha o plano ideal para seu restaurante
                         </FormDescription>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
@@ -401,41 +401,42 @@ export default function Login() {
                     control={registerForm.control}
                     name="password"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm font-medium text-foreground">Senha</FormLabel>
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-xs font-medium text-foreground">Senha</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                               type={showRegPassword ? "text" : "password"}
                               placeholder="min 6 caracteres"
-                              className="pl-12 pr-12 h-12 bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                              className="pl-9 pr-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                               data-testid="input-restaurant-password"
                               {...field}
                             />
                             <button
                               type="button"
-                              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                               onClick={() => setShowRegPassword(!showRegPassword)}
+                              data-testid="button-toggle-reg-password"
                             >
-                              {showRegPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                              {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
                           </div>
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
 
-                  <div className="flex items-start gap-2 pt-2">
+                  <div className="flex items-start gap-2 pt-1">
                     <Checkbox 
                       id="terms" 
                       checked={acceptedTerms}
                       onCheckedChange={(checked) => setAcceptedTerms(checked as boolean)}
-                      className="mt-0.5 border-border/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                      className="mt-0.5 h-3.5 w-3.5 border-border/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                       data-testid="checkbox-terms"
                     />
-                    <label htmlFor="terms" className="text-sm text-muted-foreground cursor-pointer leading-tight">
+                    <label htmlFor="terms" className="text-xs text-muted-foreground cursor-pointer leading-tight">
                       Eu concordo com os{" "}
                       <span className="text-primary hover:underline cursor-pointer">Termos de Uso</span>
                       {" "}e{" "}
@@ -445,13 +446,13 @@ export default function Login() {
 
                   <Button
                     type="submit"
-                    className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 transition-all mt-2"
+                    className="w-full h-9 text-sm font-medium mt-1"
                     data-testid="button-register-submit"
                     disabled={registerMutation.isPending}
                   >
                     {registerMutation.isPending ? (
                       <div className="flex items-center gap-2">
-                        <div className="h-5 w-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                        <div className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                         Cadastrando...
                       </div>
                     ) : (
@@ -459,7 +460,7 @@ export default function Login() {
                     )}
                   </Button>
 
-                  <p className="text-center text-sm text-muted-foreground">
+                  <p className="text-center text-xs text-muted-foreground">
                     Já tem uma conta?{" "}
                     <button
                       type="button"
@@ -476,8 +477,8 @@ export default function Login() {
           </div>
 
           {/* Footer */}
-          <div className="pt-8 text-center lg:text-left">
-            <p className="text-sm text-muted-foreground">
+          <div className="pt-6 text-center lg:text-left">
+            <p className="text-xs text-muted-foreground">
               2024 Na Bancada. Todos os direitos reservados.
             </p>
           </div>
@@ -488,85 +489,85 @@ export default function Login() {
       <div className="hidden lg:flex w-1/2 bg-primary relative overflow-hidden">
         {/* Background Pattern */}
         <div className="absolute inset-0">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl" />
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-white/5 rounded-full blur-3xl" />
         </div>
 
         {/* Content */}
-        <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20 py-12 w-full">
-          <div className="mb-12">
-            <h2 className="text-3xl xl:text-4xl font-bold text-primary-foreground mb-4 leading-tight">
+        <div className="relative z-10 flex flex-col justify-center px-10 xl:px-14 py-8 w-full">
+          <div className="mb-8">
+            <h2 className="text-2xl xl:text-3xl font-bold text-primary-foreground mb-3 leading-tight">
               A forma mais simples de<br />gerir seu restaurante
             </h2>
-            <p className="text-primary-foreground/80 text-lg">
+            <p className="text-primary-foreground/80 text-sm">
               Entre com suas credenciais para acessar sua conta
             </p>
           </div>
 
           {/* Dashboard Preview Card */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-2xl">
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 shadow-2xl">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-red-400" />
-                <div className="w-3 h-3 rounded-full bg-yellow-400" />
-                <div className="w-3 h-3 rounded-full bg-green-400" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
+                <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
               </div>
-              <div className="text-xs text-primary-foreground/60 bg-white/10 px-3 py-1 rounded-full">
+              <div className="text-[10px] text-primary-foreground/60 bg-white/10 px-2 py-0.5 rounded-full">
                 Dashboard
               </div>
             </div>
 
             {/* Stats Row */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="bg-white/10 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="h-4 w-4 text-green-400" />
-                  <span className="text-xs text-primary-foreground/70">Vendas</span>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-white/10 rounded-lg p-3">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <TrendingUp className="h-3 w-3 text-green-400" />
+                  <span className="text-[10px] text-primary-foreground/70">Vendas</span>
                 </div>
-                <p className="text-2xl font-bold text-primary-foreground">12.4h</p>
-                <span className="text-xs text-green-400">+22% vs ontem</span>
+                <p className="text-lg font-bold text-primary-foreground">12.4h</p>
+                <span className="text-[10px] text-green-400">+22% vs ontem</span>
               </div>
-              <div className="bg-white/10 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="h-4 w-4 text-blue-400" />
-                  <span className="text-xs text-primary-foreground/70">Clientes</span>
+              <div className="bg-white/10 rounded-lg p-3">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Users className="h-3 w-3 text-blue-400" />
+                  <span className="text-[10px] text-primary-foreground/70">Clientes</span>
                 </div>
-                <p className="text-2xl font-bold text-primary-foreground">8.5h</p>
-                <span className="text-xs text-blue-400">+15% vs semana</span>
+                <p className="text-lg font-bold text-primary-foreground">8.5h</p>
+                <span className="text-[10px] text-blue-400">+15% vs semana</span>
               </div>
-              <div className="bg-white/10 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <BarChart3 className="h-4 w-4 text-purple-400" />
-                  <span className="text-xs text-primary-foreground/70">Pedidos</span>
+              <div className="bg-white/10 rounded-lg p-3">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <BarChart3 className="h-3 w-3 text-purple-400" />
+                  <span className="text-[10px] text-primary-foreground/70">Pedidos</span>
                 </div>
-                <p className="text-2xl font-bold text-primary-foreground">156</p>
-                <span className="text-xs text-purple-400">+8% hoje</span>
+                <p className="text-lg font-bold text-primary-foreground">156</p>
+                <span className="text-[10px] text-purple-400">+8% hoje</span>
               </div>
             </div>
 
             {/* Team Utilization */}
-            <div className="bg-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-sm font-medium text-primary-foreground">Desempenho da Equipe</span>
-                <ChevronRight className="h-4 w-4 text-primary-foreground/50" />
+            <div className="bg-white/10 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-medium text-primary-foreground">Desempenho da Equipe</span>
+                <ChevronRight className="h-3 w-3 text-primary-foreground/50" />
               </div>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {[
                   { name: "Marketing", value: 89, color: "bg-pink-400" },
                   { name: "Vendas", value: 76, color: "bg-blue-400" },
                   { name: "Suporte", value: 92, color: "bg-green-400" },
                 ].map((item) => (
-                  <div key={item.name} className="flex items-center gap-3">
-                    <span className="text-xs text-primary-foreground/70 w-20">{item.name}</span>
-                    <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div key={item.name} className="flex items-center gap-2">
+                    <span className="text-[10px] text-primary-foreground/70 w-14">{item.name}</span>
+                    <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
                       <div 
                         className={`h-full ${item.color} rounded-full transition-all`} 
                         style={{ width: `${item.value}%` }}
                       />
                     </div>
-                    <span className="text-xs text-primary-foreground/70 w-10 text-right">{item.value}%</span>
+                    <span className="text-[10px] text-primary-foreground/70 w-8 text-right">{item.value}%</span>
                   </div>
                 ))}
               </div>
@@ -574,18 +575,18 @@ export default function Login() {
           </div>
 
           {/* Trust Badges */}
-          <div className="mt-12 flex items-center gap-8 opacity-60">
-            <div className="flex items-center gap-2 text-primary-foreground/70">
-              <Check className="h-4 w-4" />
-              <span className="text-sm">Dados seguros</span>
+          <div className="mt-8 flex items-center gap-6 opacity-60">
+            <div className="flex items-center gap-1.5 text-primary-foreground/70">
+              <Check className="h-3 w-3" />
+              <span className="text-xs">Dados seguros</span>
             </div>
-            <div className="flex items-center gap-2 text-primary-foreground/70">
-              <Check className="h-4 w-4" />
-              <span className="text-sm">Suporte 24/7</span>
+            <div className="flex items-center gap-1.5 text-primary-foreground/70">
+              <Check className="h-3 w-3" />
+              <span className="text-xs">Suporte 24/7</span>
             </div>
-            <div className="flex items-center gap-2 text-primary-foreground/70">
-              <Check className="h-4 w-4" />
-              <span className="text-sm">Fácil de usar</span>
+            <div className="flex items-center gap-1.5 text-primary-foreground/70">
+              <Check className="h-3 w-3" />
+              <span className="text-xs">Fácil de usar</span>
             </div>
           </div>
         </div>
