@@ -68,6 +68,61 @@ async function sendWhatsAppOTP(phoneNumber: string, otpCode: string, restaurantN
     return false;
   }
 }
+
+const orderStatusMessages: Record<string, { emoji: string; message: string }> = {
+  pendente: { emoji: '📝', message: 'Seu pedido foi recebido e está aguardando confirmação.' },
+  em_preparo: { emoji: '👨‍🍳', message: 'Seu pedido está sendo preparado!' },
+  pronto: { emoji: '✅', message: 'Seu pedido está pronto! Aguardando entrega/retirada.' },
+  servido: { emoji: '🍽️', message: 'Seu pedido foi entregue. Bom apetite!' },
+};
+
+async function sendWhatsAppOrderStatus(
+  phoneNumber: string, 
+  restaurantName: string,
+  orderNumber: string,
+  status: string
+): Promise<boolean> {
+  if (!twilioClient) {
+    console.log('[WHATSAPP] Twilio not configured, skipping order status message');
+    return false;
+  }
+
+  const statusInfo = orderStatusMessages[status];
+  if (!statusInfo) {
+    console.log(`[WHATSAPP] Unknown status: ${status}, skipping message`);
+    return false;
+  }
+
+  try {
+    let formattedPhone = phoneNumber.replace(/[\s\-\(\)]/g, '');
+    
+    if (!formattedPhone.startsWith('+')) {
+      if (formattedPhone.startsWith('244')) {
+        formattedPhone = '+' + formattedPhone;
+      } else {
+        formattedPhone = '+244' + formattedPhone;
+      }
+    }
+
+    let fromNumber = TWILIO_WHATSAPP_NUMBER;
+    if (!fromNumber.startsWith('whatsapp:')) {
+      fromNumber = 'whatsapp:' + (fromNumber.startsWith('+') ? fromNumber : '+' + fromNumber);
+    }
+
+    const message = await twilioClient.messages.create({
+      body: `${statusInfo.emoji} *${restaurantName}*\n\n*Pedido #${orderNumber}*\n${statusInfo.message}\n\nObrigado pela preferência!`,
+      from: fromNumber,
+      to: `whatsapp:${formattedPhone}`,
+    });
+
+    console.log(`[WHATSAPP] Order status sent to ${formattedPhone}, SID: ${message.sid}`);
+    return true;
+  } catch (error: any) {
+    console.error('[WHATSAPP] Error sending order status:', error.message);
+    return false;
+  }
+}
+
 import {
   insertTableSchema,
   insertCategorySchema,
@@ -122,6 +177,8 @@ import {
   superAdminCreateSubscriptionSchema,
   superAdminUpdateSubscriptionSchema,
   insertSubscriptionPaymentSchema,
+  insertNotificationSchema,
+  updateNotificationPreferencesSchema,
   type User,
 } from "@shared/schema";
 import { z } from "zod";
@@ -3206,6 +3263,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: 'order_status_updated', 
         data: { id: order.id, status: order.status }
       });
+
+      // Send WhatsApp notification to customer if phone is available
+      if (order.customerPhone) {
+        const restaurant = await storage.getRestaurantById(restaurantId);
+        if (restaurant) {
+          sendWhatsAppOrderStatus(
+            order.customerPhone,
+            restaurant.name,
+            order.id.substring(0, 8).toUpperCase(),
+            status
+          ).catch(err => console.error('[WHATSAPP] Failed to send order status:', err));
+        }
+      }
 
       res.json(order);
     } catch (error) {
@@ -6517,25 +6587,239 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== NOTIFICATION ROUTES =====
+  app.get("/api/notifications", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const notifications = await storage.getNotifications(currentUser.restaurantId, currentUser.id, limit);
+      res.json(notifications);
+    } catch (error) {
+      console.error('Notifications fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar notificações" });
+    }
+  });
+
+  app.get("/api/notifications/count", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const count = await storage.getUnreadNotificationsCount(currentUser.restaurantId, currentUser.id);
+      res.json({ count });
+    } catch (error) {
+      console.error('Notifications count error:', error);
+      res.status(500).json({ message: "Erro ao contar notificações" });
+    }
+  });
+
+  app.post("/api/notifications", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const validatedData = insertNotificationSchema.parse(req.body);
+      const notification = await storage.createNotification(currentUser.restaurantId, validatedData);
+      
+      // Broadcast new notification via WebSocket to all users of this restaurant
+      const broadcastFn = (global as any).broadcastToRestaurant;
+      if (broadcastFn) {
+        broadcastFn(currentUser.restaurantId, {
+          type: 'new_notification',
+          data: notification
+        });
+      }
+      
+      res.status(201).json(notification);
+    } catch (error: any) {
+      console.error('Notification creation error:', error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao criar notificação" });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const notification = await storage.markNotificationAsRead(currentUser.restaurantId, req.params.id);
+      res.json(notification);
+    } catch (error: any) {
+      console.error('Mark notification read error:', error);
+      if (error.message === 'Notificação não encontrada') {
+        return res.status(404).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Erro ao marcar notificação como lida" });
+    }
+  });
+
+  app.patch("/api/notifications/read-all", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      await storage.markAllNotificationsAsRead(currentUser.restaurantId, currentUser.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Mark all notifications read error:', error);
+      res.status(500).json({ message: "Erro ao marcar todas notificações como lidas" });
+    }
+  });
+
+  app.delete("/api/notifications/:id", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      await storage.deleteNotification(currentUser.restaurantId, req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Delete notification error:', error);
+      if (error.message === 'Notificação não encontrada') {
+        return res.status(404).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Erro ao deletar notificação" });
+    }
+  });
+
+  app.get("/api/notification-preferences", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const preferences = await storage.getNotificationPreferences(currentUser.restaurantId, currentUser.id);
+      res.json(preferences || {
+        newOrderInApp: true,
+        newOrderWhatsapp: false,
+        newOrderEmail: false,
+        orderStatusInApp: true,
+        orderStatusWhatsapp: false,
+        orderStatusEmail: false,
+        lowStockInApp: true,
+        lowStockWhatsapp: false,
+        lowStockEmail: false,
+        newCustomerInApp: true,
+        newCustomerWhatsapp: false,
+        newCustomerEmail: false,
+        paymentInApp: true,
+        paymentWhatsapp: false,
+        paymentEmail: false,
+        subscriptionInApp: true,
+        subscriptionWhatsapp: false,
+        subscriptionEmail: false,
+        systemInApp: true,
+        systemWhatsapp: false,
+        systemEmail: false,
+      });
+    } catch (error) {
+      console.error('Notification preferences fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar preferências de notificação" });
+    }
+  });
+
+  app.patch("/api/notification-preferences", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const validatedData = updateNotificationPreferencesSchema.parse(req.body);
+      const preferences = await storage.upsertNotificationPreferences(
+        currentUser.restaurantId,
+        currentUser.id,
+        validatedData
+      );
+      res.json(preferences);
+    } catch (error: any) {
+      console.error('Notification preferences update error:', error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao atualizar preferências de notificação" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // Setup WebSocket server for real-time updates
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
+  // Map of WebSocket connections by restaurant ID for targeted broadcasts
+  const clientsByRestaurant = new Map<string, Set<WebSocket>>();
   const clients = new Set<WebSocket>();
+  const clientRestaurantMap = new WeakMap<WebSocket, string>();
 
   wss.on('connection', (ws) => {
     clients.add(ws);
 
+    ws.on('message', (data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        
+        // Handle authentication message to associate connection with restaurant
+        if (message.type === 'auth' && message.restaurantId) {
+          const restaurantId = message.restaurantId;
+          clientRestaurantMap.set(ws, restaurantId);
+          
+          if (!clientsByRestaurant.has(restaurantId)) {
+            clientsByRestaurant.set(restaurantId, new Set());
+          }
+          clientsByRestaurant.get(restaurantId)!.add(ws);
+          
+          ws.send(JSON.stringify({ type: 'auth_success', restaurantId }));
+        }
+      } catch (error) {
+        // Ignore parse errors
+      }
+    });
+
     ws.on('close', () => {
       clients.delete(ws);
+      const restaurantId = clientRestaurantMap.get(ws);
+      if (restaurantId) {
+        const restaurantClients = clientsByRestaurant.get(restaurantId);
+        if (restaurantClients) {
+          restaurantClients.delete(ws);
+          if (restaurantClients.size === 0) {
+            clientsByRestaurant.delete(restaurantId);
+          }
+        }
+      }
     });
 
     ws.on('error', (error) => {
       clients.delete(ws);
+      const restaurantId = clientRestaurantMap.get(ws);
+      if (restaurantId) {
+        const restaurantClients = clientsByRestaurant.get(restaurantId);
+        if (restaurantClients) {
+          restaurantClients.delete(ws);
+        }
+      }
     });
   });
 
+  // Broadcast to all connected clients (legacy behavior)
   function broadcastToClients(message: any) {
     const messageStr = JSON.stringify(message);
     clients.forEach((client) => {
@@ -6544,6 +6828,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
   }
+
+  // Broadcast to clients of a specific restaurant only
+  function broadcastToRestaurant(restaurantId: string, message: any) {
+    const restaurantClients = clientsByRestaurant.get(restaurantId);
+    if (!restaurantClients) return;
+    
+    const messageStr = JSON.stringify(message);
+    restaurantClients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(messageStr);
+      }
+    });
+  }
+
+  // Make broadcastToRestaurant available for notification creation
+  (global as any).broadcastToRestaurant = broadcastToRestaurant;
 
   return httpServer;
 }

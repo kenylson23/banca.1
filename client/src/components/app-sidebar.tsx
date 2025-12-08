@@ -1,4 +1,4 @@
-import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield, Building2, Settings, BarChart3, CreditCard, TrendingUp, DollarSign, Receipt, FileText, Wallet, Package, PanelLeftClose, PanelLeft, ChevronRight, Briefcase, DollarSignIcon, Building, UserCircle, Gift, Tag, Printer, Crown } from "lucide-react";
+import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield, Building2, Settings, BarChart3, CreditCard, TrendingUp, DollarSign, Receipt, FileText, Wallet, Package, PanelLeftClose, PanelLeft, ChevronRight, Briefcase, DollarSignIcon, Building, UserCircle, Gift, Tag, Printer, Crown, Bell } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,

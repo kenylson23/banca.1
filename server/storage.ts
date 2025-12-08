@@ -42,6 +42,9 @@ import {
   subscriptions,
   subscriptionPayments,
   subscriptionUsage,
+  notifications,
+  notificationPreferences,
+  customerNotificationPreferences,
   type User,
   type InsertUser,
   type Restaurant,
@@ -143,6 +146,13 @@ import {
   type InsertSubscriptionPayment,
   type SubscriptionUsage,
   type InsertSubscriptionUsage,
+  type Notification,
+  type InsertNotification,
+  type NotificationPreferences,
+  type InsertNotificationPreferences,
+  type UpdateNotificationPreferences,
+  type CustomerNotificationPreferences,
+  type UpdateCustomerNotificationPreferences,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
@@ -747,6 +757,23 @@ export interface IStorage {
   
   // Subscription Usage operations
   updateSubscriptionUsage(restaurantId: string, subscriptionId: string): Promise<SubscriptionUsage>;
+  
+  // Notification operations
+  getNotifications(restaurantId: string, userId?: string, limit?: number): Promise<Notification[]>;
+  getUnreadNotificationsCount(restaurantId: string, userId?: string): Promise<number>;
+  createNotification(restaurantId: string, data: InsertNotification): Promise<Notification>;
+  markNotificationAsRead(restaurantId: string, notificationId: string): Promise<Notification>;
+  markAllNotificationsAsRead(restaurantId: string, userId?: string): Promise<void>;
+  deleteNotification(restaurantId: string, notificationId: string): Promise<void>;
+  deleteOldNotifications(restaurantId: string, daysOld: number): Promise<number>;
+  
+  // Notification Preferences operations
+  getNotificationPreferences(restaurantId: string, userId?: string): Promise<NotificationPreferences | undefined>;
+  upsertNotificationPreferences(restaurantId: string, userId: string | null, data: UpdateNotificationPreferences): Promise<NotificationPreferences>;
+  
+  // Customer Notification Preferences operations
+  getCustomerNotificationPreferences(customerId: string): Promise<CustomerNotificationPreferences | undefined>;
+  upsertCustomerNotificationPreferences(customerId: string, data: UpdateCustomerNotificationPreferences): Promise<CustomerNotificationPreferences>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -8240,6 +8267,217 @@ export class DatabaseStorage implements IStorage {
     }
 
     return canceled;
+  }
+
+  // ===== NOTIFICATION OPERATIONS =====
+
+  async getNotifications(restaurantId: string, userId?: string, limit: number = 50): Promise<Notification[]> {
+    const conditions = [eq(notifications.restaurantId, restaurantId)];
+    
+    if (userId) {
+      conditions.push(
+        or(
+          eq(notifications.userId, userId),
+          isNull(notifications.userId)
+        )!
+      );
+    }
+
+    return await db
+      .select()
+      .from(notifications)
+      .where(and(...conditions))
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit);
+  }
+
+  async getUnreadNotificationsCount(restaurantId: string, userId?: string): Promise<number> {
+    const conditions = [
+      eq(notifications.restaurantId, restaurantId),
+      eq(notifications.isRead, 0)
+    ];
+    
+    if (userId) {
+      conditions.push(
+        or(
+          eq(notifications.userId, userId),
+          isNull(notifications.userId)
+        )!
+      );
+    }
+
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(notifications)
+      .where(and(...conditions));
+
+    return Number(result[0]?.count || 0);
+  }
+
+  async createNotification(restaurantId: string, data: InsertNotification): Promise<Notification> {
+    const [notification] = await db
+      .insert(notifications)
+      .values({
+        ...data,
+        restaurantId,
+      })
+      .returning();
+    return notification;
+  }
+
+  async markNotificationAsRead(restaurantId: string, notificationId: string): Promise<Notification> {
+    const [updated] = await db
+      .update(notifications)
+      .set({
+        isRead: 1,
+        readAt: new Date(),
+      })
+      .where(
+        and(
+          eq(notifications.id, notificationId),
+          eq(notifications.restaurantId, restaurantId)
+        )
+      )
+      .returning();
+
+    if (!updated) {
+      throw new Error("Notificação não encontrada");
+    }
+
+    return updated;
+  }
+
+  async markAllNotificationsAsRead(restaurantId: string, userId?: string): Promise<void> {
+    const conditions = [
+      eq(notifications.restaurantId, restaurantId),
+      eq(notifications.isRead, 0)
+    ];
+    
+    if (userId) {
+      conditions.push(
+        or(
+          eq(notifications.userId, userId),
+          isNull(notifications.userId)
+        )!
+      );
+    }
+
+    await db
+      .update(notifications)
+      .set({
+        isRead: 1,
+        readAt: new Date(),
+      })
+      .where(and(...conditions));
+  }
+
+  async deleteNotification(restaurantId: string, notificationId: string): Promise<void> {
+    await db
+      .delete(notifications)
+      .where(
+        and(
+          eq(notifications.id, notificationId),
+          eq(notifications.restaurantId, restaurantId)
+        )
+      );
+  }
+
+  async deleteOldNotifications(restaurantId: string, daysOld: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+    const result = await db
+      .delete(notifications)
+      .where(
+        and(
+          eq(notifications.restaurantId, restaurantId),
+          lt(notifications.createdAt, cutoffDate)
+        )
+      )
+      .returning();
+
+    return result.length;
+  }
+
+  // ===== NOTIFICATION PREFERENCES OPERATIONS =====
+
+  async getNotificationPreferences(restaurantId: string, userId?: string): Promise<NotificationPreferences | undefined> {
+    const conditions = [eq(notificationPreferences.restaurantId, restaurantId)];
+    
+    if (userId) {
+      conditions.push(eq(notificationPreferences.userId, userId));
+    } else {
+      conditions.push(isNull(notificationPreferences.userId));
+    }
+
+    const [prefs] = await db
+      .select()
+      .from(notificationPreferences)
+      .where(and(...conditions));
+
+    return prefs;
+  }
+
+  async upsertNotificationPreferences(restaurantId: string, userId: string | null, data: UpdateNotificationPreferences): Promise<NotificationPreferences> {
+    const existing = await this.getNotificationPreferences(restaurantId, userId || undefined);
+
+    if (existing) {
+      const [updated] = await db
+        .update(notificationPreferences)
+        .set({
+          ...data,
+          updatedAt: new Date(),
+        })
+        .where(eq(notificationPreferences.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(notificationPreferences)
+        .values({
+          restaurantId,
+          userId,
+          ...data,
+        })
+        .returning();
+      return created;
+    }
+  }
+
+  // ===== CUSTOMER NOTIFICATION PREFERENCES OPERATIONS =====
+
+  async getCustomerNotificationPreferences(customerId: string): Promise<CustomerNotificationPreferences | undefined> {
+    const [prefs] = await db
+      .select()
+      .from(customerNotificationPreferences)
+      .where(eq(customerNotificationPreferences.customerId, customerId));
+
+    return prefs;
+  }
+
+  async upsertCustomerNotificationPreferences(customerId: string, data: UpdateCustomerNotificationPreferences): Promise<CustomerNotificationPreferences> {
+    const existing = await this.getCustomerNotificationPreferences(customerId);
+
+    if (existing) {
+      const [updated] = await db
+        .update(customerNotificationPreferences)
+        .set({
+          ...data,
+          updatedAt: new Date(),
+        })
+        .where(eq(customerNotificationPreferences.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(customerNotificationPreferences)
+        .values({
+          customerId,
+          ...data,
+        })
+        .returning();
+      return created;
+    }
   }
 }
 

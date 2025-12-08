@@ -3,6 +3,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ProfileMenu } from "@/components/profile-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { NotificationDropdown } from "@/components/notification-dropdown";
 import Dashboard from "./dashboard";
 import PDV from "./pdv";
 import Tables from "./tables";
@@ -28,6 +29,7 @@ import Loyalty from "./loyalty";
 import Coupons from "./coupons";
 import PrinterSetup from "./printer-setup";
 import Subscription from "./subscription";
+import NotificationSettings from "./notification-settings";
 
 export type Section = 
   | "dashboard" 
@@ -54,7 +56,8 @@ export type Section =
   | "loyalty"
   | "coupons"
   | "printers"
-  | "subscription";
+  | "subscription"
+  | "notification-settings";
 
 interface MainDashboardProps {
   section: Section;
@@ -120,6 +123,8 @@ export default function MainDashboard({ section }: MainDashboardProps) {
         return <PrinterSetup />;
       case "subscription":
         return <Subscription />;
+      case "notification-settings":
+        return <NotificationSettings />;
       default:
         return <Dashboard />;
     }
@@ -141,6 +146,7 @@ export default function MainDashboard({ section }: MainDashboardProps) {
               <h1 className="text-lg font-bold text-sidebar-foreground truncate">Na Bancada</h1>
             </div>
             <div className="flex items-center gap-3">
+              <NotificationDropdown />
               <ProfileMenu />
               <ThemeToggle />
             </div>

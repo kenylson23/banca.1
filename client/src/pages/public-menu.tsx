@@ -708,10 +708,17 @@ export default function PublicMenu() {
             </div>
             <div className="flex items-center gap-2">
               <button 
-                className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center hover:bg-gray-100 transition-colors"
+                className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center hover:bg-gray-100 transition-colors relative"
+                onClick={() => setIsHistoryDialogOpen(true)}
                 data-testid="button-notifications"
               >
                 <Bell className="h-5 w-5 text-gray-600" />
+                {orderHistory.length > 0 && orderHistory.some(o => {
+                  const orderDate = new Date(o.createdAt);
+                  return Date.now() - orderDate.getTime() < 24 * 60 * 60 * 1000;
+                }) && (
+                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+                )}
               </button>
               <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
                 <SheetTrigger asChild>

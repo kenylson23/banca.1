@@ -2537,3 +2537,172 @@ export const subscriptionUsageRelations = relations(subscriptionUsage, ({ one })
     references: [subscriptions.id],
   }),
 }));
+
+// ===== NOTIFICATION SYSTEM =====
+
+// Notification Type Enum
+export const notificationTypeEnum = pgEnum('notification_type', [
+  'new_order',           // Novo pedido recebido
+  'order_status',        // Mudança de status do pedido
+  'order_cancelled',     // Pedido cancelado
+  'low_stock',           // Estoque baixo
+  'new_customer',        // Novo cliente cadastrado
+  'payment_received',    // Pagamento recebido
+  'subscription_alert',  // Alerta de subscrição (expirando, limite atingido)
+  'system',              // Notificação do sistema
+]);
+
+// Notification Channel Enum
+export const notificationChannelEnum = pgEnum('notification_channel', [
+  'in_app',    // Notificação dentro do app
+  'whatsapp',  // WhatsApp via Twilio
+  'email',     // Email (futuro)
+  'push',      // Push notification (futuro)
+]);
+
+// Notifications - Notificações
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }), // null = notificação para todos os admins
+  type: notificationTypeEnum("type").notNull(),
+  title: varchar("title", { length: 200 }).notNull(),
+  message: text("message").notNull(),
+  data: jsonb("data"), // Dados adicionais (orderId, customerId, etc.)
+  isRead: integer("is_read").notNull().default(0), // 0 = não lida, 1 = lida
+  readAt: timestamp("read_at"),
+  channel: notificationChannelEnum("channel").notNull().default('in_app'),
+  sentAt: timestamp("sent_at"), // Quando foi enviada via WhatsApp/Email
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_notifications_restaurant").on(table.restaurantId),
+  index("idx_notifications_user").on(table.userId),
+  index("idx_notifications_unread").on(table.restaurantId, table.isRead),
+]);
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  restaurantId: true,
+  isRead: true,
+  readAt: true,
+  sentAt: true,
+  createdAt: true,
+}).extend({
+  title: z.string().min(1, "Título é obrigatório"),
+  message: z.string().min(1, "Mensagem é obrigatória"),
+  type: z.enum(['new_order', 'order_status', 'order_cancelled', 'low_stock', 'new_customer', 'payment_received', 'subscription_alert', 'system']),
+  channel: z.enum(['in_app', 'whatsapp', 'email', 'push']).default('in_app'),
+  branchId: z.string().optional(),
+  userId: z.string().optional(),
+  data: z.any().optional(),
+});
+
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
+
+// Notification Preferences - Preferências de Notificação por Usuário/Restaurante
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }), // null = configuração padrão do restaurante
+  // Canais habilitados
+  inAppEnabled: integer("in_app_enabled").notNull().default(1),
+  whatsappEnabled: integer("whatsapp_enabled").notNull().default(0),
+  emailEnabled: integer("email_enabled").notNull().default(0),
+  // Tipos de notificação habilitados
+  newOrderEnabled: integer("new_order_enabled").notNull().default(1),
+  orderStatusEnabled: integer("order_status_enabled").notNull().default(1),
+  orderCancelledEnabled: integer("order_cancelled_enabled").notNull().default(1),
+  lowStockEnabled: integer("low_stock_enabled").notNull().default(1),
+  newCustomerEnabled: integer("new_customer_enabled").notNull().default(0),
+  paymentReceivedEnabled: integer("payment_received_enabled").notNull().default(1),
+  subscriptionAlertEnabled: integer("subscription_alert_enabled").notNull().default(1),
+  // WhatsApp para admin (número alternativo para receber notificações)
+  whatsappNotificationNumber: varchar("whatsapp_notification_number", { length: 50 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_notification_prefs_restaurant").on(table.restaurantId),
+  index("idx_notification_prefs_user").on(table.userId),
+]);
+
+export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const updateNotificationPreferencesSchema = z.object({
+  inAppEnabled: z.number().min(0).max(1).optional(),
+  whatsappEnabled: z.number().min(0).max(1).optional(),
+  emailEnabled: z.number().min(0).max(1).optional(),
+  newOrderEnabled: z.number().min(0).max(1).optional(),
+  orderStatusEnabled: z.number().min(0).max(1).optional(),
+  orderCancelledEnabled: z.number().min(0).max(1).optional(),
+  lowStockEnabled: z.number().min(0).max(1).optional(),
+  newCustomerEnabled: z.number().min(0).max(1).optional(),
+  paymentReceivedEnabled: z.number().min(0).max(1).optional(),
+  subscriptionAlertEnabled: z.number().min(0).max(1).optional(),
+  whatsappNotificationNumber: z.string().optional(),
+});
+
+export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
+export type UpdateNotificationPreferences = z.infer<typeof updateNotificationPreferencesSchema>;
+export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
+
+// Customer Notification Preferences - Preferências de Notificação do Cliente
+export const customerNotificationPreferences = pgTable("customer_notification_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: 'cascade' }).unique(),
+  orderStatusEnabled: integer("order_status_enabled").notNull().default(1), // Receber atualizações de status
+  promotionsEnabled: integer("promotions_enabled").notNull().default(0), // Receber promoções
+  whatsappEnabled: integer("whatsapp_enabled").notNull().default(1), // Receber via WhatsApp
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const updateCustomerNotificationPreferencesSchema = z.object({
+  orderStatusEnabled: z.number().min(0).max(1).optional(),
+  promotionsEnabled: z.number().min(0).max(1).optional(),
+  whatsappEnabled: z.number().min(0).max(1).optional(),
+});
+
+export type UpdateCustomerNotificationPreferences = z.infer<typeof updateCustomerNotificationPreferencesSchema>;
+export type CustomerNotificationPreferences = typeof customerNotificationPreferences.$inferSelect;
+
+// ===== NOTIFICATION RELATIONS =====
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [notifications.restaurantId],
+    references: [restaurants.id],
+  }),
+  branch: one(branches, {
+    fields: [notifications.branchId],
+    references: [branches.id],
+  }),
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+}));
+
+export const notificationPreferencesRelations = relations(notificationPreferences, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [notificationPreferences.restaurantId],
+    references: [restaurants.id],
+  }),
+  user: one(users, {
+    fields: [notificationPreferences.userId],
+    references: [users.id],
+  }),
+}));
+
+export const customerNotificationPreferencesRelations = relations(customerNotificationPreferences, ({ one }) => ({
+  customer: one(customers, {
+    fields: [customerNotificationPreferences.customerId],
+    references: [customers.id],
+  }),
+}));

@@ -234,6 +234,13 @@ function Router() {
             return <Redirect to="/" />;
           }} />
           
+          <Route path="/notification-settings" component={() => {
+            if (user?.role === 'admin') {
+              return <MainDashboard section="notification-settings" />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
           <Route path="/login">
             {() => <Redirect to="/" />}
           </Route>
