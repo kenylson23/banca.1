@@ -45,6 +45,7 @@ import {
   notifications,
   notificationPreferences,
   customerNotificationPreferences,
+  userAuditLogs,
   type User,
   type InsertUser,
   type Restaurant,
@@ -153,6 +154,8 @@ import {
   type UpdateNotificationPreferences,
   type CustomerNotificationPreferences,
   type UpdateCustomerNotificationPreferences,
+  type UserAuditLog,
+  type InsertUserAuditLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
@@ -194,12 +197,17 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   getAllUsers(restaurantId: string | null): Promise<User[]>;
+  getUsersPaginated(restaurantId: string | null, options: { page: number; limit: number; search?: string; role?: string }): Promise<{ users: User[]; total: number; page: number; totalPages: number }>;
   deleteUser(restaurantId: string | null, id: string): Promise<void>;
   updateUser(restaurantId: string | null, id: string, data: { email?: string; firstName?: string; lastName?: string; profileImageUrl?: string; role?: 'superadmin' | 'admin' | 'manager' | 'cashier' | 'waiter' | 'kitchen' }): Promise<User>;
   updateUserPassword(userId: string, hashedPassword: string): Promise<User>;
   updateUserActiveBranch(userId: string, branchId: string | null): Promise<User>;
   getRestaurantAdmins(restaurantId: string): Promise<User[]>;
   resetRestaurantAdminCredentials(restaurantId: string, userId: string, data: { email?: string; password?: string }): Promise<User>;
+  
+  // User audit operations
+  createUserAuditLog(log: InsertUserAuditLog): Promise<UserAuditLog>;
+  getUserAuditLogs(restaurantId: string | null, options?: { userId?: string; limit?: number }): Promise<UserAuditLog[]>;
 
   // Table operations
   getTables(restaurantId: string, branchId?: string | null): Promise<Table[]>;
@@ -1116,6 +1124,108 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return updated;
+  }
+
+  async getUsersPaginated(
+    restaurantId: string | null, 
+    options: { page: number; limit: number; search?: string; role?: string }
+  ): Promise<{ users: User[]; total: number; page: number; totalPages: number }> {
+    await this.ensureTables();
+    
+    const { page, limit, search, role } = options;
+    const offset = (page - 1) * limit;
+    
+    // Build conditions
+    const conditions = [];
+    
+    if (restaurantId !== null) {
+      conditions.push(eq(users.restaurantId, restaurantId));
+    }
+    
+    if (role && role !== 'all') {
+      conditions.push(eq(users.role, role as any));
+    }
+    
+    // For search, we need to use ilike for case-insensitive search
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim().toLowerCase()}%`;
+      conditions.push(
+        or(
+          sql`LOWER(${users.email}) LIKE ${searchTerm}`,
+          sql`LOWER(${users.firstName}) LIKE ${searchTerm}`,
+          sql`LOWER(${users.lastName}) LIKE ${searchTerm}`
+        )
+      );
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    // Get total count
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(whereClause);
+    
+    const total = countResult?.count || 0;
+    const totalPages = Math.ceil(total / limit);
+    
+    // Get paginated results
+    const result = await db
+      .select()
+      .from(users)
+      .where(whereClause)
+      .orderBy(desc(users.createdAt))
+      .limit(limit)
+      .offset(offset);
+    
+    return {
+      users: result,
+      total,
+      page,
+      totalPages,
+    };
+  }
+
+  // User audit operations
+  async createUserAuditLog(log: InsertUserAuditLog): Promise<UserAuditLog> {
+    await this.ensureTables();
+    const [auditLog] = await db
+      .insert(userAuditLogs)
+      .values(log)
+      .returning();
+    return auditLog;
+  }
+
+  async getUserAuditLogs(
+    restaurantId: string | null, 
+    options?: { userId?: string; limit?: number }
+  ): Promise<UserAuditLog[]> {
+    await this.ensureTables();
+    
+    const conditions = [];
+    
+    if (restaurantId !== null) {
+      conditions.push(eq(userAuditLogs.restaurantId, restaurantId));
+    }
+    
+    if (options?.userId) {
+      conditions.push(
+        or(
+          eq(userAuditLogs.actorId, options.userId),
+          eq(userAuditLogs.targetUserId, options.userId)
+        )
+      );
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const queryLimit = options?.limit || 100;
+    
+    return await db
+      .select()
+      .from(userAuditLogs)
+      .where(whereClause)
+      .orderBy(desc(userAuditLogs.createdAt))
+      .limit(queryLimit);
   }
 
   private async ensureTables() {

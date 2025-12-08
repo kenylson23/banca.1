@@ -1274,8 +1274,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentUser = req.user as User;
       const restaurantId = currentUser.role === 'superadmin' ? null : currentUser.restaurantId || null;
       
-      const users = await storage.getAllUsers(restaurantId);
-      const usersWithoutPassword = users.map(user => ({
+      // Parse pagination and filter parameters
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100); // Max 100 per page
+      const search = req.query.search as string | undefined;
+      const role = req.query.role as string | undefined;
+      
+      const result = await storage.getUsersPaginated(restaurantId, { page, limit, search, role });
+      
+      const usersWithoutPassword = result.users.map(user => ({
         id: user.id,
         email: user.email,
         firstName: user.firstName,
@@ -1285,8 +1292,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       }));
-      res.json(usersWithoutPassword);
+      
+      res.json({
+        users: usersWithoutPassword,
+        pagination: {
+          total: result.total,
+          page: result.page,
+          totalPages: result.totalPages,
+          limit,
+        }
+      });
     } catch (error) {
+      console.error('Error fetching users:', error);
       res.status(500).json({ message: "Erro ao buscar usuários" });
     }
   });
@@ -1328,6 +1345,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: hashedPassword,
       });
 
+      // Create audit log
+      await storage.createUserAuditLog({
+        restaurantId: user.restaurantId || null,
+        actorId: currentUser.id,
+        targetUserId: user.id,
+        action: 'user_created',
+        details: { 
+          email: user.email, 
+          role: user.role,
+          firstName: user.firstName,
+          lastName: user.lastName 
+        },
+        ipAddress: (req.ip || req.socket.remoteAddress || '').slice(0, 45),
+        userAgent: req.headers['user-agent'] || null,
+      });
+
       const userWithoutPassword = {
         id: user.id,
         email: user.email,
@@ -1357,10 +1390,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Não é possível deletar o próprio usuário" });
       }
 
+      // Get user before deletion for audit log
+      const targetUser = await storage.getUser(req.params.id);
+      if (!targetUser) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+
       const restaurantId = currentUser.role === 'superadmin' ? null : currentUser.restaurantId || null;
       await storage.deleteUser(restaurantId, req.params.id);
+
+      // Create audit log
+      await storage.createUserAuditLog({
+        restaurantId: targetUser.restaurantId || null,
+        actorId: currentUser.id,
+        targetUserId: null, // User was deleted
+        action: 'user_deleted',
+        details: { 
+          deletedUserId: req.params.id,
+          deletedEmail: targetUser.email,
+          deletedRole: targetUser.role 
+        },
+        ipAddress: (req.ip || req.socket.remoteAddress || '').slice(0, 45),
+        userAgent: req.headers['user-agent'] || null,
+      });
+
       res.json({ success: true });
     } catch (error) {
+      console.error('User deletion error:', error);
       res.status(500).json({ message: "Erro ao deletar usuário" });
     }
   });
@@ -1369,6 +1425,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const currentUser = req.user as User;
       const data = updateUserSchema.parse(req.body);
+      
+      // Get user before update for audit log
+      const beforeUser = await storage.getUser(req.params.id);
+      if (!beforeUser) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
       
       if (data.email) {
         const existingUser = await storage.getUserByEmail(data.email);
@@ -1379,6 +1441,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const restaurantId = currentUser.role === 'superadmin' ? null : currentUser.restaurantId || null;
       const updatedUser = await storage.updateUser(restaurantId, req.params.id, data);
+      
+      // Determine action type (role_changed or user_updated)
+      const action = data.role && data.role !== beforeUser.role ? 'role_changed' : 'user_updated';
+      
+      // Create audit log
+      await storage.createUserAuditLog({
+        restaurantId: updatedUser.restaurantId || null,
+        actorId: currentUser.id,
+        targetUserId: updatedUser.id,
+        action,
+        details: { 
+          before: {
+            email: beforeUser.email,
+            firstName: beforeUser.firstName,
+            lastName: beforeUser.lastName,
+            role: beforeUser.role,
+          },
+          after: {
+            email: updatedUser.email,
+            firstName: updatedUser.firstName,
+            lastName: updatedUser.lastName,
+            role: updatedUser.role,
+          },
+          changes: data 
+        },
+        ipAddress: (req.ip || req.socket.remoteAddress || '').slice(0, 45),
+        userAgent: req.headers['user-agent'] || null,
+      });
       
       const userWithoutPassword = {
         id: updatedUser.id,
@@ -1396,6 +1486,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
+      console.error('User update error:', error);
       res.status(500).json({ message: "Erro ao atualizar usuário" });
     }
   });
@@ -1426,6 +1517,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const hashedPassword = await hashPassword(data.newPassword);
       await storage.updateUserPassword(req.params.id, hashedPassword);
+
+      // Create audit log
+      await storage.createUserAuditLog({
+        restaurantId: targetUser.restaurantId || null,
+        actorId: currentUser.id,
+        targetUserId: targetUser.id,
+        action: 'password_reset',
+        details: { 
+          targetEmail: targetUser.email,
+          resetBy: currentUser.email 
+        },
+        ipAddress: (req.ip || req.socket.remoteAddress || '').slice(0, 45),
+        userAgent: req.headers['user-agent'] || null,
+      });
 
       res.json({ success: true, message: "Senha alterada com sucesso" });
     } catch (error) {

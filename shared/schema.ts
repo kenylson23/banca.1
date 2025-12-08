@@ -397,6 +397,37 @@ export type UpdatePassword = z.infer<typeof updatePasswordSchema>;
 export type ResetRestaurantAdminCredentials = z.infer<typeof resetRestaurantAdminCredentialsSchema>;
 export type User = typeof users.$inferSelect;
 
+// User Audit Log - Audit trail for user management actions
+export const userAuditActionEnum = pgEnum('user_audit_action', [
+  'user_created',
+  'user_updated', 
+  'user_deleted',
+  'password_reset',
+  'role_changed',
+  'user_login',
+  'user_logout'
+]);
+
+export const userAuditLogs = pgTable("user_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").references(() => restaurants.id, { onDelete: 'cascade' }),
+  actorId: varchar("actor_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  targetUserId: varchar("target_user_id").references(() => users.id, { onDelete: 'set null' }),
+  action: userAuditActionEnum("action").notNull(),
+  details: jsonb("details"), // Additional context (old/new values, etc)
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertUserAuditLogSchema = createInsertSchema(userAuditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertUserAuditLog = z.infer<typeof insertUserAuditLogSchema>;
+export type UserAuditLog = typeof userAuditLogs.$inferSelect;
+
 // Table Status Enum
 export const tableStatusEnum = pgEnum('table_status', ['livre', 'ocupada', 'em_andamento', 'aguardando_pagamento', 'encerrada']);
 
