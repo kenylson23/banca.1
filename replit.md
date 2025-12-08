@@ -90,6 +90,26 @@ Implementado sistema completo de rastreamento e relatórios para pedidos cancela
 - Rastreamento de quem cancelou e quando
 - Relatórios precisos e auditáveis
 
+### Enhanced Toast Notifications with Restaurant Branding (December 2025)
+Implementado sistema de notificações melhorado com nome e logo do restaurante:
+
+**Arquivos Criados/Modificados:**
+- `client/src/hooks/useRestaurantBrand.ts`: Hook para buscar e fornecer dados de branding do restaurante
+- `client/src/hooks/use-toast.ts`: Estendido para suportar `restaurantName` e `restaurantLogo`
+- `client/src/components/ui/toaster.tsx`: Atualizado para exibir Avatar com logo e nome do restaurante
+
+**Funcionalidades:**
+- Toasts agora exibem o logo do restaurante (ou fallback com iniciais) ao lado da mensagem
+- Nome do restaurante aparece acima do título do toast
+- Hook `useRestaurantBrand` centraliza busca de dados de branding com cache eficiente
+- Todas as notificações do `NotificationDropdown` agora incluem branding do restaurante
+- Cache otimizado com `staleTime` e `gcTime` para evitar refetches desnecessários
+
+**Componentes:**
+- Avatar com `AvatarImage` para logo e `AvatarFallback` com iniciais ou ícone
+- Layout flexível que se adapta à presença/ausência de branding
+- Integração com `useRestaurantBrand` hook via ref para uso em callbacks
+
 ### Dashboard Modernization (November 2025)
 Implementada modernização completa do dashboard com inspiração em dashboards SaaS modernos (estilo Nexus):
 
