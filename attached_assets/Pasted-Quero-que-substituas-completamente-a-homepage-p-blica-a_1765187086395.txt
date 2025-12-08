@@ -1,0 +1,165 @@
+Quero que substituas completamente a homepage pública atual do meu sistema por um novo layout no estilo SaaS Premium Clean, inspirado em empresas como Toast, Lightspeed, Square e GloriaFood.
+
+🎨 ESTILO VISUAL
+
+Fundo totalmente branco (#FFFFFF)
+
+Cinza claro para seções e cartões: #F5F7FA
+
+Texto principal preto suave: #1D1F22
+
+Azul premium para destaques e botões: #0054FF
+
+Verde para estados de sucesso: #18C37D
+
+Layout extremamente clean, moderno e profissional
+
+Não uses as cores primárias atuais do sistema
+
+Evita qualquer estética escura ou pesadas
+
+Usa muito espaçamento, bordas arredondadas, sombras suaves e hierarquia visual clara
+
+Tipografia estilo SaaS (forte, leve e elegante)
+
+🧼 O QUE DEVE SER REMOVIDO
+
+Remove completamente o layout público atual
+
+Remove qualquer cardapio, listagem ou estrutura atual
+
+Remove todo conteúdo visual antigo e estilos herdados
+
+📌 ESTRUTURA DO NOVO LAYOUT
+
+Criar uma homepage composta por:
+
+1. Header (limpo e profissional)
+
+Logo à esquerda
+
+Menu com:
+
+Funcionalidades
+
+Preços
+
+Sobre
+
+Contacto
+
+Botões à direita:
+
+Entrar
+
+Criar Conta (em azul #0054FF)
+
+2. Hero Section (estilo SaaS Premium)
+
+Fundo branco
+
+À esquerda:
+
+Título grande:
+“O sistema de gestão para restaurantes que acelera o seu negócio”
+
+Subtítulo suave:
+“Pedidos por QR Code, cozinha em tempo real, relatórios inteligentes e controlo total num único software.”
+
+Dois botões:
+
+Experimentar grátis (azul #0054FF)
+
+Ver demonstração (borda cinza)
+
+À direita:
+
+Inserir um mockup/ilustração limpa representando um dashboard POS moderno
+
+Estilo minimalista e de alta qualidade (SaaS enterprise)
+
+3. Secção de Features
+
+Três ou quatro cartões horizontais com ícones minimalistas:
+
+Gestão de Pedidos
+
+Pagamentos e PDV
+
+Relatórios Inteligentes
+
+QR Code Menu & Delivery
+
+Cada cartão:
+
+Fundo branco
+
+Sombra leve
+
+Muito espaçamento
+
+Ícone azul #0054FF
+
+4. Secção “Porquê Escolher” (estilo Toast / Lightspeed)
+
+Layout de duas colunas
+
+Lado esquerdo: lista com ícones
+
+Lado direito: imagem clean ilustrando restaurante / tablet / POS
+
+5. Secção de Depoimentos
+
+Dois ou três cartões minimalistas
+
+Fundo branco, bordas suaves
+
+Foto circular pequena
+
+Estrelas cinza / azul suave
+
+6. Secção de Pricing (Tabela)
+
+Três planos organizados:
+
+Starter
+
+Professional
+
+Enterprise
+
+Cada card:
+
+Fundo branco
+
+Destaque do plano selecionado com borda azul
+
+Botão azul #0054FF
+
+7. Footer
+
+Simples, claro e elegante:
+
+Logo
+
+Menus
+
+Links legais
+
+Copyright
+
+⚠️ REQUISITOS IMPORTANTES
+
+Não recriar elementos do layout antigo
+
+Não usar paleta herdada do sistema
+
+Não inserir estilos escuros
+
+O design precisa parecer de empresa grande, extremamente clean e com componentes profissionais
+
+Mantém a interface leve, espaçada e muito bem organizada
+
+Código totalmente limpo e organizado
+
+Objetivo final: Criar uma homepage pública que pareça no mesmo nível visual e de qualidade que Toast, Lightspeed e Square — moderna, corporativa, clean e confiável.
