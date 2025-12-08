@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, UserPlus, Pencil, Key, Eye, EyeOff } from "lucide-react";
+import { Trash2, UserPlus, Pencil, Key, Eye, EyeOff, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,8 +19,20 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
-import { ROLE_PERMISSIONS, UserRole } from "@shared/schema";
+import { ROLE_PERMISSIONS, UserRole, insertUserSchema, updateUserSchema, adminResetPasswordSchema } from "@shared/schema";
 
 type User = {
   id: string;
@@ -32,6 +44,46 @@ type User = {
   updatedAt: string;
 };
 
+type PaginatedUsersResponse = {
+  users: User[];
+  pagination: {
+    total: number;
+    page: number;
+    totalPages: number;
+    limit: number;
+  };
+};
+
+const createUserFormSchema = insertUserSchema
+  .pick({ email: true, password: true, firstName: true, lastName: true, role: true })
+  .extend({
+    email: z.string().email("Email inválido"),
+    password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    role: z.enum(['admin', 'manager', 'cashier', 'waiter', 'kitchen'] as const),
+  });
+
+const editUserFormSchema = updateUserSchema
+  .pick({ email: true, firstName: true, lastName: true, role: true })
+  .extend({
+    email: z.string().email("Email inválido"),
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    role: z.enum(['admin', 'manager', 'cashier', 'waiter', 'kitchen'] as const).optional(),
+  });
+
+const passwordFormSchema = adminResetPasswordSchema.extend({
+  confirmPassword: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "As senhas não coincidem",
+  path: ["confirmPassword"],
+});
+
+type CreateUserFormData = z.infer<typeof createUserFormSchema>;
+type EditUserFormData = z.infer<typeof editUserFormSchema>;
+type PasswordFormData = z.infer<typeof passwordFormSchema>;
+
 export default function Users() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -40,42 +92,90 @@ export default function Users() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    firstName: "",
-    lastName: "",
-    role: "waiter" as UserRole,
-  });
-  const [editFormData, setEditFormData] = useState({
-    email: "",
-    firstName: "",
-    lastName: "",
-    role: "waiter" as UserRole,
-  });
-  const [passwordFormData, setPasswordFormData] = useState({
-    newPassword: "",
-    confirmPassword: "",
+  
+  // Pagination and filter state
+  const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const limit = 20;
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1); // Reset to first page on search
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Reset page when role filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [roleFilter]);
+
+  // Create user form
+  const createForm = useForm<CreateUserFormData>({
+    resolver: zodResolver(createUserFormSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      firstName: "",
+      lastName: "",
+      role: "waiter",
+    },
   });
 
-  const { data: users = [], isLoading } = useQuery<User[]>({
-    queryKey: ['/api/users'],
+  // Edit user form
+  const editForm = useForm<EditUserFormData>({
+    resolver: zodResolver(editUserFormSchema),
+    defaultValues: {
+      email: "",
+      firstName: "",
+      lastName: "",
+      role: "waiter",
+    },
   });
+
+  // Password form
+  const passwordForm = useForm<PasswordFormData>({
+    resolver: zodResolver(passwordFormSchema),
+    defaultValues: {
+      newPassword: "",
+      confirmPassword: "",
+    },
+  });
+
+  // Build query params
+  const queryParams = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  if (debouncedSearch) queryParams.set("search", debouncedSearch);
+  if (roleFilter && roleFilter !== "all") queryParams.set("role", roleFilter);
+
+  const { data, isLoading } = useQuery<PaginatedUsersResponse>({
+    queryKey: ['/api/users', page, debouncedSearch, roleFilter],
+    queryFn: async () => {
+      const res = await fetch(`/api/users?${queryParams.toString()}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to fetch users');
+      return res.json();
+    },
+  });
+
+  const users = data?.users || [];
+  const pagination = data?.pagination;
 
   const createUserMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      return await apiRequest('POST', '/api/users', data);
+    mutationFn: async (formData: CreateUserFormData) => {
+      return await apiRequest('POST', '/api/users', formData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users'] });
       setIsDialogOpen(false);
-      setFormData({
-        email: "",
-        password: "",
-        firstName: "",
-        lastName: "",
-        role: "waiter",
-      });
+      createForm.reset();
       toast({
         title: "Sucesso",
         description: "Usuário criado com sucesso",
@@ -91,7 +191,7 @@ export default function Users() {
   });
 
   const updateUserMutation = useMutation({
-    mutationFn: async ({ userId, data }: { userId: string; data: typeof editFormData }) => {
+    mutationFn: async ({ userId, data }: { userId: string; data: EditUserFormData }) => {
       return await apiRequest('PATCH', `/api/users/${userId}`, data);
     },
     onSuccess: () => {
@@ -119,7 +219,7 @@ export default function Users() {
     onSuccess: () => {
       setIsPasswordDialogOpen(false);
       setSelectedUser(null);
-      setPasswordFormData({ newPassword: "", confirmPassword: "" });
+      passwordForm.reset();
       toast({
         title: "Sucesso",
         description: "Senha alterada com sucesso",
@@ -154,56 +254,42 @@ export default function Users() {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const onCreateSubmit = (formData: CreateUserFormData) => {
     createUserMutation.mutate(formData);
   };
 
-  const handleEditSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const onEditSubmit = (formData: EditUserFormData) => {
     if (selectedUser) {
-      updateUserMutation.mutate({ userId: selectedUser.id, data: editFormData });
+      updateUserMutation.mutate({ userId: selectedUser.id, data: formData });
     }
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passwordFormData.newPassword !== passwordFormData.confirmPassword) {
-      toast({
-        title: "Erro",
-        description: "As senhas não coincidem",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (passwordFormData.newPassword.length < 6) {
-      toast({
-        title: "Erro",
-        description: "A senha deve ter pelo menos 6 caracteres",
-        variant: "destructive",
-      });
-      return;
-    }
+  const onPasswordSubmit = (formData: PasswordFormData) => {
     if (selectedUser) {
-      resetPasswordMutation.mutate({ userId: selectedUser.id, newPassword: passwordFormData.newPassword });
+      resetPasswordMutation.mutate({ userId: selectedUser.id, newPassword: formData.newPassword });
     }
   };
 
   const openEditDialog = (user: User) => {
     setSelectedUser(user);
-    setEditFormData({
+    editForm.reset({
       email: user.email,
       firstName: user.firstName || "",
       lastName: user.lastName || "",
-      role: user.role,
+      role: user.role === 'superadmin' ? 'admin' : user.role,
     });
     setIsEditDialogOpen(true);
   };
 
   const openPasswordDialog = (user: User) => {
     setSelectedUser(user);
-    setPasswordFormData({ newPassword: "", confirmPassword: "" });
+    passwordForm.reset({ newPassword: "", confirmPassword: "" });
     setIsPasswordDialogOpen(true);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    setDebouncedSearch("");
   };
 
   return (
@@ -223,357 +309,526 @@ export default function Users() {
               Gerir credenciais e informações de acesso ao sistema
             </p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) createForm.reset();
+          }}>
             <DialogTrigger asChild>
               <Button data-testid="button-add-user">
                 <UserPlus className="h-4 w-4 mr-2" />
                 Novo Usuário
               </Button>
             </DialogTrigger>
-          <DialogContent data-testid="dialog-create-user">
-            <DialogHeader>
-              <DialogTitle>Criar Novo Usuário</DialogTitle>
-              <DialogDescription>
-                Preencha os dados para criar um novo utilizador no sistema
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="email@exemplo.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    required
-                    data-testid="input-user-email"
+            <DialogContent data-testid="dialog-create-user">
+              <DialogHeader>
+                <DialogTitle>Criar Novo Usuário</DialogTitle>
+                <DialogDescription>
+                  Preencha os dados para criar um novo utilizador no sistema
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...createForm}>
+                <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
+                  <FormField
+                    control={createForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="email"
+                            placeholder="email@exemplo.com"
+                            data-testid="input-user-email"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Senha</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Mínimo 6 caracteres"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      required
-                      data-testid="input-user-password"
-                    />
+                  <FormField
+                    control={createForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Senha</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              type={showPassword ? "text" : "password"}
+                              placeholder="Mínimo 6 caracteres"
+                              data-testid="input-user-password"
+                              {...field}
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                              onClick={() => setShowPassword(!showPassword)}
+                              data-testid="button-toggle-password"
+                            >
+                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createForm.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Nome"
+                            data-testid="input-user-firstname"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createForm.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Sobrenome</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Sobrenome"
+                            data-testid="input-user-lastname"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createForm.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo de Acesso</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-user-role">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {Object.entries(ROLE_PERMISSIONS)
+                              .filter(([key]) => key !== 'superadmin')
+                              .map(([key, value]) => (
+                                <SelectItem key={key} value={key}>
+                                  {value.label}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          {ROLE_PERMISSIONS[field.value]?.description}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <DialogFooter>
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                      data-testid="button-toggle-password"
+                      variant="outline"
+                      onClick={() => setIsDialogOpen(false)}
+                      data-testid="button-cancel"
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      Cancelar
                     </Button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">Nome</Label>
-                  <Input
-                    id="firstName"
-                    placeholder="Nome"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    data-testid="input-user-firstname"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Sobrenome</Label>
-                  <Input
-                    id="lastName"
-                    placeholder="Sobrenome"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    data-testid="input-user-lastname"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">Tipo de Acesso</Label>
-                  <Select
-                    value={formData.role}
-                    onValueChange={(value: UserRole) =>
-                      setFormData({ ...formData, role: value })
-                    }
-                  >
-                    <SelectTrigger data-testid="select-user-role">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(ROLE_PERMISSIONS)
-                        .filter(([key]) => key !== 'superadmin')
-                        .map(([key, value]) => (
-                          <SelectItem key={key} value={key}>
-                            {value.label}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {ROLE_PERMISSIONS[formData.role]?.description}
-                  </p>
-                </div>
-              </div>
-              <DialogFooter className="mt-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                  data-testid="button-cancel"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createUserMutation.isPending}
-                  data-testid="button-submit-user"
-                >
-                  {createUserMutation.isPending ? "Criando..." : "Criar Usuário"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                    <Button
+                      type="submit"
+                      disabled={createUserMutation.isPending}
+                      data-testid="button-submit-user"
+                    >
+                      {createUserMutation.isPending ? "Criando..." : "Criar Usuário"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
         </motion.div>
 
-        {isLoading ? (
-        <div className="text-center py-12" data-testid="text-loading">
-          A carregar usuários...
-        </div>
-      ) : users.length === 0 ? (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center text-muted-foreground" data-testid="text-no-users">
-              Nenhum usuário cadastrado
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {users.map((user) => (
-            <Card key={user.id} data-testid={`card-user-${user.id}`}>
-              <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1 min-w-0 flex-1">
-                    <CardTitle className="text-lg">
-                      {user.firstName && user.lastName
-                        ? `${user.firstName} ${user.lastName}`
-                        : user.email}
-                    </CardTitle>
-                    <CardDescription data-testid={`text-email-${user.id}`}>
-                      {user.email}
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <Badge
-                      variant={user.role === 'admin' || user.role === 'manager' ? 'default' : 'secondary'}
-                      data-testid={`badge-role-${user.id}`}
-                    >
-                      {ROLE_PERMISSIONS[user.role]?.label || user.role}
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openEditDialog(user)}
-                      title="Editar usuário"
-                      data-testid={`button-edit-${user.id}`}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openPasswordDialog(user)}
-                      title="Alterar senha"
-                      data-testid={`button-password-${user.id}`}
-                    >
-                      <Key className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        if (window.confirm('Tem certeza que deseja deletar este usuário?')) {
-                          deleteUserMutation.mutate(user.id);
-                        }
-                      }}
-                      disabled={deleteUserMutation.isPending}
-                      title="Deletar usuário"
-                      data-testid={`button-delete-${user.id}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent data-testid="dialog-edit-user">
-          <DialogHeader>
-            <DialogTitle>Editar Usuário</DialogTitle>
-            <DialogDescription>
-              Atualize as informações do usuário
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleEditSubmit}>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-email">Email</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  placeholder="email@exemplo.com"
-                  value={editFormData.email}
-                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
-                  required
-                  data-testid="input-edit-email"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-firstName">Nome</Label>
-                <Input
-                  id="edit-firstName"
-                  placeholder="Nome"
-                  value={editFormData.firstName}
-                  onChange={(e) => setEditFormData({ ...editFormData, firstName: e.target.value })}
-                  data-testid="input-edit-firstname"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-lastName">Sobrenome</Label>
-                <Input
-                  id="edit-lastName"
-                  placeholder="Sobrenome"
-                  value={editFormData.lastName}
-                  onChange={(e) => setEditFormData({ ...editFormData, lastName: e.target.value })}
-                  data-testid="input-edit-lastname"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-role">Tipo de Acesso</Label>
-                <Select
-                  value={editFormData.role}
-                  onValueChange={(value: UserRole) =>
-                    setEditFormData({ ...editFormData, role: value })
-                  }
-                >
-                  <SelectTrigger data-testid="select-edit-role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(ROLE_PERMISSIONS)
-                      .filter(([key]) => key !== 'superadmin')
-                      .map(([key, value]) => (
-                        <SelectItem key={key} value={key}>
-                          {value.label}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  {ROLE_PERMISSIONS[editFormData.role]?.description}
-                </p>
-              </div>
-            </div>
-            <DialogFooter className="mt-6">
+        {/* Search and Filter Bar */}
+        <motion.div
+          className="flex flex-col sm:flex-row gap-3"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar por email, nome ou sobrenome..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-10"
+              data-testid="input-search-users"
+            />
+            {searchQuery && (
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => setIsEditDialogOpen(false)}
-                data-testid="button-cancel-edit"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                onClick={clearSearch}
+                data-testid="button-clear-search"
               >
-                Cancelar
+                <X className="h-4 w-4" />
               </Button>
-              <Button
-                type="submit"
-                disabled={updateUserMutation.isPending}
-                data-testid="button-submit-edit"
-              >
-                {updateUserMutation.isPending ? "Salvando..." : "Salvar Alterações"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+            )}
+          </div>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-full sm:w-48" data-testid="select-role-filter">
+              <SelectValue placeholder="Filtrar por tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os tipos</SelectItem>
+              {Object.entries(ROLE_PERMISSIONS)
+                .filter(([key]) => key !== 'superadmin')
+                .map(([key, value]) => (
+                  <SelectItem key={key} value={key}>
+                    {value.label}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </motion.div>
 
-      <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
-        <DialogContent data-testid="dialog-reset-password">
-          <DialogHeader>
-            <DialogTitle>Alterar Senha</DialogTitle>
-            <DialogDescription>
-              Defina uma nova senha para {selectedUser?.firstName || selectedUser?.email}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handlePasswordSubmit}>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">Nova Senha</Label>
-                <div className="relative">
-                  <Input
-                    id="newPassword"
-                    type={showNewPassword ? "text" : "password"}
-                    placeholder="Mínimo 6 caracteres"
-                    value={passwordFormData.newPassword}
-                    onChange={(e) => setPasswordFormData({ ...passwordFormData, newPassword: e.target.value })}
-                    required
-                    data-testid="input-new-password"
-                  />
+        {/* Results count */}
+        {pagination && (
+          <div className="text-sm text-muted-foreground" data-testid="text-results-count">
+            {pagination.total === 0 
+              ? "Nenhum usuário encontrado" 
+              : `Mostrando ${users.length} de ${pagination.total} usuário${pagination.total !== 1 ? 's' : ''}`}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="text-center py-12" data-testid="text-loading">
+            A carregar usuários...
+          </div>
+        ) : users.length === 0 ? (
+          <Card>
+            <CardContent className="py-12">
+              <div className="text-center text-muted-foreground" data-testid="text-no-users">
+                {debouncedSearch || roleFilter !== "all" 
+                  ? "Nenhum usuário encontrado com os filtros aplicados"
+                  : "Nenhum usuário cadastrado"}
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4">
+            {users.map((user) => (
+              <Card key={user.id} data-testid={`card-user-${user.id}`}>
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <CardTitle className="text-lg">
+                        {user.firstName && user.lastName
+                          ? `${user.firstName} ${user.lastName}`
+                          : user.email}
+                      </CardTitle>
+                      <CardDescription data-testid={`text-email-${user.id}`}>
+                        {user.email}
+                      </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Badge
+                        variant={user.role === 'admin' || user.role === 'manager' ? 'default' : 'secondary'}
+                        data-testid={`badge-role-${user.id}`}
+                      >
+                        {ROLE_PERMISSIONS[user.role]?.label || user.role}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditDialog(user)}
+                        title="Editar usuário"
+                        data-testid={`button-edit-${user.id}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openPasswordDialog(user)}
+                        title="Alterar senha"
+                        data-testid={`button-password-${user.id}`}
+                      >
+                        <Key className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (window.confirm('Tem certeza que deseja deletar este usuário?')) {
+                            deleteUserMutation.mutate(user.id);
+                          }
+                        }}
+                        disabled={deleteUserMutation.isPending}
+                        title="Deletar usuário"
+                        data-testid={`button-delete-${user.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              data-testid="button-prev-page"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground px-4" data-testid="text-page-info">
+              Página {pagination.page} de {pagination.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+              disabled={page >= pagination.totalPages}
+              data-testid="button-next-page"
+            >
+              Próxima
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
+        {/* Edit Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+          setIsEditDialogOpen(open);
+          if (!open) {
+            editForm.reset();
+            setSelectedUser(null);
+          }
+        }}>
+          <DialogContent data-testid="dialog-edit-user">
+            <DialogHeader>
+              <DialogTitle>Editar Usuário</DialogTitle>
+              <DialogDescription>
+                Atualize as informações do usuário
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                <FormField
+                  control={editForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="email@exemplo.com"
+                          data-testid="input-edit-email"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Nome"
+                          data-testid="input-edit-firstname"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sobrenome</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Sobrenome"
+                          data-testid="input-edit-lastname"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de Acesso</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-role">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Object.entries(ROLE_PERMISSIONS)
+                            .filter(([key]) => key !== 'superadmin')
+                            .map(([key, value]) => (
+                              <SelectItem key={key} value={key}>
+                                {value.label}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        {field.value && ROLE_PERMISSIONS[field.value]?.description}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    data-testid="button-toggle-new-password"
+                    variant="outline"
+                    onClick={() => setIsEditDialogOpen(false)}
+                    data-testid="button-cancel-edit"
                   >
-                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    Cancelar
                   </Button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirmar Senha</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Confirme a nova senha"
-                  value={passwordFormData.confirmPassword}
-                  onChange={(e) => setPasswordFormData({ ...passwordFormData, confirmPassword: e.target.value })}
-                  required
-                  data-testid="input-confirm-password"
+                  <Button
+                    type="submit"
+                    disabled={updateUserMutation.isPending}
+                    data-testid="button-submit-edit"
+                  >
+                    {updateUserMutation.isPending ? "Salvando..." : "Salvar Alterações"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Password Dialog */}
+        <Dialog open={isPasswordDialogOpen} onOpenChange={(open) => {
+          setIsPasswordDialogOpen(open);
+          if (!open) {
+            passwordForm.reset();
+            setSelectedUser(null);
+          }
+        }}>
+          <DialogContent data-testid="dialog-reset-password">
+            <DialogHeader>
+              <DialogTitle>Alterar Senha</DialogTitle>
+              <DialogDescription>
+                Defina uma nova senha para {selectedUser?.firstName || selectedUser?.email}
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...passwordForm}>
+              <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
+                <FormField
+                  control={passwordForm.control}
+                  name="newPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nova Senha</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            type={showNewPassword ? "text" : "password"}
+                            placeholder="Mínimo 6 caracteres"
+                            data-testid="input-new-password"
+                            {...field}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            data-testid="button-toggle-new-password"
+                          >
+                            {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-            </div>
-            <DialogFooter className="mt-6">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsPasswordDialogOpen(false)}
-                data-testid="button-cancel-password"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={resetPasswordMutation.isPending}
-                data-testid="button-submit-password"
-              >
-                {resetPasswordMutation.isPending ? "Alterando..." : "Alterar Senha"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+                <FormField
+                  control={passwordForm.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirmar Senha</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Confirme a nova senha"
+                          data-testid="input-confirm-password"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsPasswordDialogOpen(false)}
+                    data-testid="button-cancel-password"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={resetPasswordMutation.isPending}
+                    data-testid="button-submit-password"
+                  >
+                    {resetPasswordMutation.isPending ? "Alterando..." : "Alterar Senha"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
