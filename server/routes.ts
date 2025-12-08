@@ -3395,6 +3395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(order);
     } catch (error) {
+      console.error('Order status update error:', error);
       res.status(500).json({ message: "Failed to update order status" });
     }
   });
