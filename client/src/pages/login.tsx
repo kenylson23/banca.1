@@ -7,7 +7,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { loginSchema, insertRestaurantSchema, type LoginUser, type InsertRestaurant, type SubscriptionPlan } from "@shared/schema";
+import { loginSchema, registerRestaurantSchema, type LoginUser, type RegisterRestaurant, type InsertRestaurant, type SubscriptionPlan } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
@@ -22,6 +22,7 @@ export default function Login() {
   const [, setLocation] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [showRegPassword, setShowRegPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
@@ -33,14 +34,16 @@ export default function Login() {
     },
   });
 
-  const registerForm = useForm<InsertRestaurant>({
-    resolver: zodResolver(insertRestaurantSchema),
+  const registerForm = useForm<RegisterRestaurant>({
+    resolver: zodResolver(registerRestaurantSchema),
     defaultValues: {
       name: "",
       email: "",
       phone: "",
+      whatsappNumber: "",
       address: "",
       password: "",
+      confirmPassword: "",
       planId: "",
     },
     mode: "onSubmit",
@@ -99,7 +102,7 @@ export default function Login() {
     loginMutation.mutate(data);
   };
 
-  const onRegister = (data: InsertRestaurant) => {
+  const onRegister = (data: RegisterRestaurant) => {
     if (!acceptedTerms) {
       toast({
         title: "Termos obrigatórios",
@@ -108,7 +111,11 @@ export default function Login() {
       });
       return;
     }
-    registerMutation.mutate(data);
+    const { confirmPassword, whatsappNumber, ...registerData } = data;
+    registerMutation.mutate({
+      ...registerData,
+      whatsappNumber: whatsappNumber || undefined,
+    });
   };
 
   return (
@@ -255,158 +262,259 @@ export default function Login() {
                     <div className="flex items-center gap-2">
                       <Check className="h-3.5 w-3.5 text-primary" />
                       <span className="text-xs text-foreground">
-                        Cadastro com aprovação pelo administrador
+                        30 dias grátis para testar o sistema
                       </span>
                     </div>
                   </div>
 
-                  <FormField
-                    control={registerForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem className="space-y-1">
-                        <FormLabel className="text-xs font-medium text-foreground">Nome do Restaurante</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="text"
-                            placeholder="Restaurante ABC"
-                            className="h-9 text-sm text-foreground bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
-                            data-testid="input-restaurant-name"
-                            autoComplete="off"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )}
-                  />
+                  {/* Dados do Restaurante */}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-2 pt-1">
+                      <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Dados do Restaurante
+                      </span>
+                    </div>
 
-                  <FormField
-                    control={registerForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem className="space-y-1">
-                        <FormLabel className="text-xs font-medium text-foreground">Email</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="email"
-                            placeholder="contato@restaurante.com"
-                            className="h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
-                            data-testid="input-restaurant-email"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={registerForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <FormLabel className="text-xs font-medium text-foreground">Nome do Restaurante *</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                              <Input
+                                type="text"
+                                placeholder="Restaurante ABC"
+                                className="pl-9 h-9 text-sm text-foreground bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                                data-testid="input-restaurant-name"
+                                autoComplete="off"
+                                {...field}
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={registerForm.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem className="space-y-1">
-                        <FormLabel className="text-xs font-medium text-foreground">Telefone</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="tel"
-                            placeholder="+244 923 456 789"
-                            className="h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
-                            data-testid="input-restaurant-phone"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={registerForm.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <FormLabel className="text-xs font-medium text-foreground">Email *</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                              <Input
+                                type="email"
+                                placeholder="contato@restaurante.com"
+                                className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                                data-testid="input-restaurant-email"
+                                {...field}
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={registerForm.control}
-                    name="address"
-                    render={({ field }) => (
-                      <FormItem className="space-y-1">
-                        <FormLabel className="text-xs font-medium text-foreground">Endereço</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="text"
-                            placeholder="Rua Comandante Gika, 123 - Maianga - Luanda"
-                            className="h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
-                            data-testid="input-restaurant-address"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )}
-                  />
+                    <div className="grid grid-cols-2 gap-2">
+                      <FormField
+                        control={registerForm.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-xs font-medium text-foreground">Telefone *</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                <Input
+                                  type="tel"
+                                  placeholder="+244 9XX XXX XXX"
+                                  className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                                  data-testid="input-restaurant-phone"
+                                  {...field}
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )}
+                      />
 
-                  <FormField
-                    control={registerForm.control}
-                    name="planId"
-                    render={({ field }) => (
-                      <FormItem className="space-y-1">
-                        <FormLabel className="text-xs font-medium text-foreground">Plano de Subscrição</FormLabel>
-                        <FormControl>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                            disabled={plansLoading}
-                          >
-                            <SelectTrigger 
-                              className="h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all" 
-                              data-testid="select-plan"
+                      <FormField
+                        control={registerForm.control}
+                        name="whatsappNumber"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-xs font-medium text-foreground">WhatsApp</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                <Input
+                                  type="tel"
+                                  placeholder="+244 9XX XXX XXX"
+                                  className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                                  data-testid="input-restaurant-whatsapp"
+                                  {...field}
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={registerForm.control}
+                      name="address"
+                      render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <FormLabel className="text-xs font-medium text-foreground">Endereço *</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                              <Input
+                                type="text"
+                                placeholder="Rua, Bairro - Cidade"
+                                className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                                data-testid="input-restaurant-address"
+                                {...field}
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Plano e Segurança */}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-2 pt-2">
+                      <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Plano e Acesso
+                      </span>
+                    </div>
+
+                    <FormField
+                      control={registerForm.control}
+                      name="planId"
+                      render={({ field }) => (
+                        <FormItem className="space-y-1">
+                          <FormLabel className="text-xs font-medium text-foreground">Plano de Subscrição *</FormLabel>
+                          <FormControl>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                              disabled={plansLoading}
                             >
-                              <SelectValue placeholder={plansLoading ? "Carregando planos..." : "Selecione um plano"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {plans?.filter(p => p.isActive).map((plan) => (
-                                <SelectItem key={plan.id} value={plan.id} data-testid={`option-plan-${plan.id}`}>
-                                  <div className="flex flex-col gap-0.5">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-sm font-medium">{plan.name}</span>
-                                      {plan.name === "Profissional" && (
-                                        <Badge variant="default" className="text-[10px] px-1.5 py-0">Popular</Badge>
-                                      )}
+                              <SelectTrigger 
+                                className="h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all" 
+                                data-testid="select-plan"
+                              >
+                                <SelectValue placeholder={plansLoading ? "Carregando planos..." : "Selecione um plano"} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {plans?.filter(p => p.isActive).map((plan) => (
+                                  <SelectItem key={plan.id} value={plan.id} data-testid={`option-plan-${plan.id}`}>
+                                    <div className="flex flex-col gap-0.5">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium">{plan.name}</span>
+                                        {plan.name === "Profissional" && (
+                                          <Badge variant="default" className="text-[10px] px-1.5 py-0">Popular</Badge>
+                                        )}
+                                      </div>
+                                      <span className="text-[10px] text-muted-foreground">
+                                        {formatKwanza(plan.priceMonthlyKz)}/mês
+                                      </span>
                                     </div>
-                                    <span className="text-[10px] text-muted-foreground">
-                                      A partir de {formatKwanza(plan.priceMonthlyKz)}/mês
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormDescription className="text-[10px]">
-                          Escolha o plano ideal para seu restaurante
-                        </FormDescription>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )}
-                  />
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormDescription className="text-[10px]">
+                            Comece com 30 dias grátis em qualquer plano
+                          </FormDescription>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={registerForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem className="space-y-1">
-                        <FormLabel className="text-xs font-medium text-foreground">Senha</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="password"
-                            placeholder="min 6 caracteres"
-                            className="h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
-                            data-testid="input-restaurant-password"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )}
-                  />
+                    <div className="grid grid-cols-2 gap-2">
+                      <FormField
+                        control={registerForm.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-xs font-medium text-foreground">Senha *</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                <Input
+                                  type={showRegPassword ? "text" : "password"}
+                                  placeholder="Min 6 caracteres"
+                                  className="pl-9 pr-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                                  data-testid="input-restaurant-password"
+                                  {...field}
+                                />
+                                <button
+                                  type="button"
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                  onClick={() => setShowRegPassword(!showRegPassword)}
+                                  data-testid="button-toggle-reg-password"
+                                >
+                                  {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </button>
+                              </div>
+                            </FormControl>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )}
+                      />
 
-                  <div className="flex items-start gap-2 pt-1">
+                      <FormField
+                        control={registerForm.control}
+                        name="confirmPassword"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-xs font-medium text-foreground">Confirmar *</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                <Input
+                                  type={showConfirmPassword ? "text" : "password"}
+                                  placeholder="Repita a senha"
+                                  className="pl-9 pr-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                                  data-testid="input-restaurant-confirm-password"
+                                  {...field}
+                                />
+                                <button
+                                  type="button"
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                  data-testid="button-toggle-confirm-password"
+                                >
+                                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </button>
+                              </div>
+                            </FormControl>
+                            <FormMessage className="text-xs" />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2 pt-2">
                     <Checkbox 
                       id="terms" 
                       checked={acceptedTerms}
@@ -434,7 +542,7 @@ export default function Login() {
                         Cadastrando...
                       </div>
                     ) : (
-                      "Criar Conta"
+                      "Criar Conta Grátis"
                     )}
                   </Button>
 
