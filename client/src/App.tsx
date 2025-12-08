@@ -10,6 +10,8 @@ import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 import { UpdateNotification } from "@/components/UpdateNotification";
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
+import Terms from "@/pages/terms";
+import Privacy from "@/pages/privacy";
 import CustomerMenu from "@/pages/customer-menu";
 import PublicMenu from "@/pages/public-menu";
 import TrackOrder from "@/pages/track-order";
@@ -29,6 +31,9 @@ function Router() {
       <Route path="/mesa/:tableNumber" component={CustomerMenu} />
       <Route path="/r/:slug/rastrear" component={TrackOrder} />
       <Route path="/r/:slug" component={PublicMenu} />
+      
+      <Route path="/termos" component={Terms} />
+      <Route path="/privacidade" component={Privacy} />
       
       {!isAuthenticated ? (
         <>

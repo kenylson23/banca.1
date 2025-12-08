@@ -813,20 +813,20 @@ export default function Landing() {
               &copy; {new Date().getFullYear()} Na Bancada. Todos os direitos reservados.
             </p>
             <div className="flex gap-6">
-              <a 
-                href="#" 
+              <button 
+                onClick={() => setLocation("/termos")}
                 className="text-gray-400 hover:text-white text-sm transition-colors"
                 data-testid="link-terms"
               >
                 Termos de Uso
-              </a>
-              <a 
-                href="#" 
+              </button>
+              <button 
+                onClick={() => setLocation("/privacidade")}
                 className="text-gray-400 hover:text-white text-sm transition-colors"
                 data-testid="link-privacy"
               >
                 Política de Privacidade
-              </a>
+              </button>
             </div>
           </div>
         </div>
