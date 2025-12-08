@@ -20,12 +20,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 
+import { ROLE_PERMISSIONS, UserRole } from "@shared/schema";
+
 type User = {
   id: string;
   email: string;
   firstName: string | null;
   lastName: string | null;
-  role: 'admin' | 'kitchen';
+  role: UserRole;
   createdAt: string;
   updatedAt: string;
 };
@@ -38,7 +40,7 @@ export default function Users() {
     password: "",
     firstName: "",
     lastName: "",
-    role: "kitchen" as 'admin' | 'kitchen',
+    role: "waiter" as UserRole,
   });
 
   const { data: users = [], isLoading } = useQuery<User[]>({
@@ -57,7 +59,7 @@ export default function Users() {
         password: "",
         firstName: "",
         lastName: "",
-        role: "kitchen",
+        role: "waiter",
       });
       toast({
         title: "Sucesso",
@@ -179,7 +181,7 @@ export default function Users() {
                   <Label htmlFor="role">Tipo de Acesso</Label>
                   <Select
                     value={formData.role}
-                    onValueChange={(value: 'admin' | 'kitchen') =>
+                    onValueChange={(value: UserRole) =>
                       setFormData({ ...formData, role: value })
                     }
                   >
@@ -187,12 +189,17 @@ export default function Users() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="kitchen">Cozinha</SelectItem>
-                      <SelectItem value="admin">Administrador</SelectItem>
+                      {Object.entries(ROLE_PERMISSIONS)
+                        .filter(([key]) => key !== 'superadmin')
+                        .map(([key, value]) => (
+                          <SelectItem key={key} value={key}>
+                            {value.label}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Usuários "Cozinha" terão acesso apenas ao painel da cozinha
+                    {ROLE_PERMISSIONS[formData.role]?.description}
                   </p>
                 </div>
               </div>
@@ -248,10 +255,10 @@ export default function Users() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge
-                      variant={user.role === 'admin' ? 'default' : 'secondary'}
+                      variant={user.role === 'admin' || user.role === 'manager' ? 'default' : 'secondary'}
                       data-testid={`badge-role-${user.id}`}
                     >
-                      {user.role === 'admin' ? 'Administrador' : 'Cozinha'}
+                      {ROLE_PERMISSIONS[user.role]?.label || user.role}
                     </Badge>
                     <Button
                       variant="ghost"
