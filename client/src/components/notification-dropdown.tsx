@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { useRestaurantBrand } from '@/hooks/useRestaurantBrand';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -44,7 +45,13 @@ const notificationColors: Record<NotificationType, string> = {
 export function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
+  const { brand } = useRestaurantBrand();
   const previousCountRef = useRef<number>(0);
+  const brandRef = useRef(brand);
+  
+  useEffect(() => {
+    brandRef.current = brand;
+  }, [brand]);
 
   const handleWebSocketMessage = useCallback((message: { type: string; data?: any }) => {
     if (message.type === 'new_notification') {
@@ -55,6 +62,8 @@ export function NotificationDropdown() {
         toast({
           title: message.data.title || 'Nova notificação',
           description: message.data.message || 'Você tem uma nova notificação.',
+          restaurantName: brandRef.current.name,
+          restaurantLogo: brandRef.current.logo,
         });
       }
     }
@@ -77,6 +86,8 @@ export function NotificationDropdown() {
       toast({
         title: 'Nova notificação',
         description: 'Você tem novas notificações.',
+        restaurantName: brandRef.current.name,
+        restaurantLogo: brandRef.current.logo,
       });
     }
     if (countData) {
@@ -104,6 +115,8 @@ export function NotificationDropdown() {
       toast({
         title: 'Notificações',
         description: 'Todas as notificações foram marcadas como lidas.',
+        restaurantName: brandRef.current.name,
+        restaurantLogo: brandRef.current.logo,
       });
     },
   });
