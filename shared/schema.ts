@@ -77,6 +77,28 @@ export const insertRestaurantSchema = createInsertSchema(restaurants).omit({
 export type InsertRestaurant = z.infer<typeof insertRestaurantSchema>;
 export type Restaurant = typeof restaurants.$inferSelect;
 
+// Registration schema with password confirmation (for frontend form)
+export const registerRestaurantSchema = z.object({
+  name: z.string().min(1, "Nome do restaurante é obrigatório"),
+  email: z.string().email("Email inválido"),
+  phone: z.string()
+    .min(1, "Telefone é obrigatório")
+    .regex(/^(\+244|244)?\s*[9][0-9]{2}\s*[0-9]{3}\s*[0-9]{3}$|^(\+244|244)?[9][0-9]{8}$/, "Formato inválido. Use: +244 9XX XXX XXX"),
+  whatsappNumber: z.string()
+    .regex(/^(\+244|244)?\s*[9][0-9]{2}\s*[0-9]{3}\s*[0-9]{3}$|^(\+244|244)?[9][0-9]{8}$/, "Formato inválido. Use: +244 9XX XXX XXX")
+    .optional()
+    .or(z.literal('')),
+  address: z.string().min(1, "Endereço é obrigatório"),
+  password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
+  confirmPassword: z.string().min(1, "Confirme sua senha"),
+  planId: z.string().min(1, "Selecione um plano de subscrição"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "As senhas não coincidem",
+  path: ["confirmPassword"],
+});
+
+export type RegisterRestaurant = z.infer<typeof registerRestaurantSchema>;
+
 export const updateRestaurantSlugSchema = z.object({
   slug: z.string()
     .min(3, "Slug deve ter no mínimo 3 caracteres")
