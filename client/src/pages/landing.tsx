@@ -184,7 +184,7 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white [&_.shadcn-card]:bg-white [&_.shadcn-card]:text-[#1D1F22] [&_.shadcn-card]:border-gray-100">
       {/* Header */}
       <header 
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
@@ -639,7 +639,7 @@ export default function Landing() {
             {pricingPlans.map((plan) => (
               <Card 
                 key={plan.id}
-                className={`relative border-2 transition-all ${
+                className={`relative border-2 transition-all bg-white ${
                   plan.popular 
                     ? 'border-[#0054FF] shadow-lg scale-105' 
                     : 'border-gray-100 shadow-sm hover:border-gray-200'
