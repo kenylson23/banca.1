@@ -1340,6 +1340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(userWithoutPassword);
     } catch (error) {
+      console.error('User creation error:', error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
