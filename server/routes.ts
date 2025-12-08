@@ -139,6 +139,7 @@ import {
   updateUserSchema,
   updateProfileSchema,
   updatePasswordSchema,
+  adminResetPasswordSchema,
   insertBranchSchema,
   updateBranchSchema,
   updateRestaurantSlugSchema,
@@ -1403,33 +1404,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/users/:id/reset-password', isAdmin, async (req, res) => {
     try {
       const currentUser = req.user as User;
-      const { newPassword } = req.body;
-      
-      if (!newPassword || newPassword.length < 6) {
-        return res.status(400).json({ message: "A nova senha deve ter pelo menos 6 caracteres" });
-      }
-
-      // Check if user exists and belongs to the same restaurant
-      const restaurantId = currentUser.role === 'superadmin' ? null : currentUser.restaurantId || null;
-      const users = restaurantId 
-        ? await storage.getUsersByRestaurant(restaurantId)
-        : await storage.getAllUsers();
-      
-      const targetUser = users.find(u => u.id === req.params.id);
-      if (!targetUser) {
-        return res.status(404).json({ message: "Usuário não encontrado" });
-      }
+      const data = adminResetPasswordSchema.parse(req.body);
 
       // Don't allow resetting own password through this route
       if (currentUser.id === req.params.id) {
         return res.status(400).json({ message: "Use a opção de alterar senha pessoal para mudar sua própria senha" });
       }
 
-      const hashedPassword = await hashPassword(newPassword);
+      // Get the target user directly
+      const targetUser = await storage.getUser(req.params.id);
+      if (!targetUser) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+
+      // Check if user belongs to the same restaurant (tenant isolation)
+      if (currentUser.role !== 'superadmin') {
+        if (targetUser.restaurantId !== currentUser.restaurantId) {
+          return res.status(403).json({ message: "Acesso negado. Usuário não pertence ao seu restaurante." });
+        }
+      }
+
+      const hashedPassword = await hashPassword(data.newPassword);
       await storage.updateUserPassword(req.params.id, hashedPassword);
 
       res.json({ success: true, message: "Senha alterada com sucesso" });
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
       console.error('Password reset error:', error);
       res.status(500).json({ message: "Erro ao resetar senha" });
     }

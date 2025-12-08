@@ -356,6 +356,12 @@ export const updatePasswordSchema = z.object({
   path: ["confirmPassword"],
 });
 
+export const adminResetPasswordSchema = z.object({
+  newPassword: z.string().min(6, "A nova senha deve ter pelo menos 6 caracteres"),
+});
+
+export type AdminResetPassword = z.infer<typeof adminResetPasswordSchema>;
+
 export const resetRestaurantAdminCredentialsSchema = z.object({
   email: z.string().email("Email inválido").optional(),
   newPassword: z.string().min(6, "A nova senha deve ter pelo menos 6 caracteres").optional(),
