@@ -1399,6 +1399,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin reset user password
+  app.patch('/api/users/:id/reset-password', isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const { newPassword } = req.body;
+      
+      if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ message: "A nova senha deve ter pelo menos 6 caracteres" });
+      }
+
+      // Check if user exists and belongs to the same restaurant
+      const restaurantId = currentUser.role === 'superadmin' ? null : currentUser.restaurantId || null;
+      const users = restaurantId 
+        ? await storage.getUsersByRestaurant(restaurantId)
+        : await storage.getAllUsers();
+      
+      const targetUser = users.find(u => u.id === req.params.id);
+      if (!targetUser) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+
+      // Don't allow resetting own password through this route
+      if (currentUser.id === req.params.id) {
+        return res.status(400).json({ message: "Use a opção de alterar senha pessoal para mudar sua própria senha" });
+      }
+
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUserPassword(req.params.id, hashedPassword);
+
+      res.json({ success: true, message: "Senha alterada com sucesso" });
+    } catch (error) {
+      console.error('Password reset error:', error);
+      res.status(500).json({ message: "Erro ao resetar senha" });
+    }
+  });
+
   // ===== PUBLIC ROUTES (for customers) =====
   // These routes are used by customers scanning QR codes to view menus and place orders
   
