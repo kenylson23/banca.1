@@ -21,7 +21,7 @@ export async function ensureTablesExist() {
       
       // Create enums
       await db.execute(sql`DO $$ BEGIN CREATE TYPE restaurant_status AS ENUM ('pendente', 'ativo', 'suspenso'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql`DO $$ BEGIN CREATE TYPE user_role AS ENUM ('superadmin', 'admin', 'kitchen'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN CREATE TYPE user_role AS ENUM ('superadmin', 'admin', 'manager', 'cashier', 'waiter', 'kitchen'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN CREATE TYPE order_status AS ENUM ('pendente', 'em_preparo', 'pronto', 'servido', 'cancelado'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN CREATE TYPE order_type AS ENUM ('mesa', 'delivery', 'takeout', 'balcao', 'pdv'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN CREATE TYPE payment_status AS ENUM ('nao_pago', 'parcial', 'pago'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
@@ -31,6 +31,17 @@ export async function ensureTablesExist() {
       // Add 'cancelado' to existing order_status enum if it doesn't exist
       await db.execute(sql`DO $$ BEGIN
         ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'cancelado';
+      EXCEPTION WHEN others THEN null; END $$;`);
+      
+      // Add missing roles to existing user_role enum
+      await db.execute(sql`DO $$ BEGIN
+        ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'manager';
+      EXCEPTION WHEN others THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN
+        ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'cashier';
+      EXCEPTION WHEN others THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN
+        ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'waiter';
       EXCEPTION WHEN others THEN null; END $$;`);
       
       // Create restaurants table
