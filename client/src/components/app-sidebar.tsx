@@ -61,6 +61,12 @@ const adminMenuItems: MenuItem[] = [
         icon: CreditCard,
       },
       {
+        title: "Mesas Abertas",
+        section: "open-tables" as Section,
+        path: "/open-tables",
+        icon: QrCode,
+      },
+      {
         title: "Menu",
         section: "menu" as Section,
         path: "/menu",
@@ -199,6 +205,147 @@ const kitchenMenuItems: MenuItem[] = [
   },
 ];
 
+const waiterMenuItems: MenuItem[] = [
+  {
+    title: "Mesas Abertas",
+    section: "open-tables" as Section,
+    path: "/open-tables",
+    icon: QrCode,
+  },
+];
+
+const cashierMenuItems: MenuItem[] = [
+  {
+    title: "Mesas Abertas",
+    section: "open-tables" as Section,
+    path: "/open-tables",
+    icon: QrCode,
+  },
+  {
+    title: "PDV",
+    section: "pdv" as Section,
+    path: "/pdv",
+    icon: CreditCard,
+  },
+];
+
+const managerMenuItems: MenuItem[] = [
+  {
+    title: "Dashboard",
+    section: "dashboard" as Section,
+    path: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    title: "Operações",
+    icon: Briefcase,
+    items: [
+      {
+        title: "PDV",
+        section: "pdv" as Section,
+        path: "/pdv",
+        icon: CreditCard,
+      },
+      {
+        title: "Mesas Abertas",
+        section: "open-tables" as Section,
+        path: "/open-tables",
+        icon: QrCode,
+      },
+      {
+        title: "Menu",
+        section: "menu" as Section,
+        path: "/menu",
+        icon: UtensilsCrossed,
+      },
+      {
+        title: "Cozinha",
+        section: "kitchen" as Section,
+        path: "/kitchen",
+        icon: ChefHat,
+      },
+    ],
+  },
+  {
+    title: "Financeiro",
+    icon: DollarSign,
+    items: [
+      {
+        title: "Vendas",
+        section: "sales" as Section,
+        path: "/sales",
+        icon: TrendingUp,
+      },
+      {
+        title: "Lançamentos",
+        section: "financial" as Section,
+        path: "/financial",
+        icon: DollarSign,
+      },
+      {
+        title: "Despesas",
+        section: "expenses" as Section,
+        path: "/expenses",
+        icon: Receipt,
+      },
+      {
+        title: "Caixa",
+        section: "financial-cash-registers" as Section,
+        path: "/financial/cash-registers",
+        icon: Wallet,
+      },
+      {
+        title: "Relatórios Financeiros",
+        section: "financial-reports" as Section,
+        path: "/financial/reports",
+        icon: FileText,
+      },
+    ],
+  },
+  {
+    title: "Gestão",
+    icon: Building,
+    items: [
+      {
+        title: "Inventário",
+        section: "inventory" as Section,
+        path: "/inventory",
+        icon: Package,
+      },
+    ],
+  },
+  {
+    title: "Clientes",
+    icon: UserCircle,
+    items: [
+      {
+        title: "Clientes",
+        section: "customers" as Section,
+        path: "/customers",
+        icon: Users,
+      },
+      {
+        title: "Fidelidade",
+        section: "loyalty" as Section,
+        path: "/loyalty",
+        icon: Gift,
+      },
+      {
+        title: "Cupons",
+        section: "coupons" as Section,
+        path: "/coupons",
+        icon: Tag,
+      },
+    ],
+  },
+  {
+    title: "Relatórios",
+    section: "reports" as Section,
+    path: "/reports",
+    icon: BarChart3,
+  },
+];
+
 const superAdminMenuItems: MenuItem[] = [
   {
     title: "Super Admin",
@@ -224,11 +371,23 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
   const { toggleSidebar, open } = useSidebar();
   const [openCategories, setOpenCategories] = useState<string[]>([]);
   
-  const menuItems = user?.role === 'superadmin' 
-    ? superAdminMenuItems 
-    : user?.role === 'admin' 
-    ? adminMenuItems 
-    : kitchenMenuItems;
+  const menuItems = (() => {
+    switch (user?.role) {
+      case 'superadmin':
+        return superAdminMenuItems;
+      case 'admin':
+        return adminMenuItems;
+      case 'manager':
+        return managerMenuItems;
+      case 'cashier':
+        return cashierMenuItems;
+      case 'waiter':
+        return waiterMenuItems;
+      case 'kitchen':
+      default:
+        return kitchenMenuItems;
+    }
+  })();
 
   // Helper function to check if a category contains the active section
   const isCategoryActive = (item: MenuItem) => {

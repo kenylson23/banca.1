@@ -50,41 +50,50 @@ function Router() {
               return <Redirect to="/superadmin" />;
             } else if (user?.role === 'kitchen') {
               return <Redirect to="/kitchen" />;
+            } else if (user?.role === 'waiter' || user?.role === 'cashier') {
+              return <Redirect to="/open-tables" />;
             } else {
               return <Redirect to="/dashboard" />;
             }
           }} />
           
           <Route path="/dashboard" component={() => {
-            if (user?.role === 'admin') {
+            if (user?.role === 'admin' || user?.role === 'manager' || user?.role === 'cashier') {
               return <MainDashboard section="dashboard" />;
             }
             return <Redirect to="/" />;
           }} />
           
           <Route path="/tables" component={() => {
-            if (user?.role === 'admin') {
+            if (user?.role === 'admin' || user?.role === 'manager') {
               return <MainDashboard section="tables" />;
             }
             return <Redirect to="/" />;
           }} />
           
+          <Route path="/open-tables" component={() => {
+            if (user?.role === 'admin' || user?.role === 'manager' || user?.role === 'cashier' || user?.role === 'waiter') {
+              return <MainDashboard section="open-tables" />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
           <Route path="/menu" component={() => {
-            if (user?.role === 'admin') {
+            if (user?.role === 'admin' || user?.role === 'manager') {
               return <MainDashboard section="menu" />;
             }
             return <Redirect to="/" />;
           }} />
           
           <Route path="/pdv" component={() => {
-            if (user?.role === 'admin') {
+            if (user?.role === 'admin' || user?.role === 'manager' || user?.role === 'cashier') {
               return <MainDashboard section="pdv" />;
             }
             return <Redirect to="/" />;
           }} />
           
           <Route path="/kitchen" component={() => {
-            if (user?.role === 'admin' || user?.role === 'kitchen') {
+            if (user?.role === 'admin' || user?.role === 'manager' || user?.role === 'kitchen') {
               return <MainDashboard section="kitchen" />;
             }
             return <Redirect to="/" />;

@@ -306,17 +306,49 @@ async function deleteOldImage(imageUrl: string | null | undefined, type: 'restau
   }
 }
 
-// Middleware to check if user is admin (restaurant admin)
+// Middleware to check if user is admin (restaurant admin) or manager
 function isAdmin(req: any, res: any, next: any) {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ message: "Não autenticado" });
   }
   const user = req.user as User;
-  if (user.role !== 'admin' && user.role !== 'superadmin') {
+  if (user.role !== 'admin' && user.role !== 'superadmin' && user.role !== 'manager') {
     return res.status(403).json({ message: "Acesso negado. Apenas administradores podem realizar esta ação." });
   }
-  if (user.role === 'admin' && !user.restaurantId) {
-    return res.status(403).json({ message: "Administrador não associado a um restaurante" });
+  if ((user.role === 'admin' || user.role === 'manager') && !user.restaurantId) {
+    return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+  }
+  next();
+}
+
+// Middleware to check if user can access operational features (PDV, tables, etc.)
+function isOperational(req: any, res: any, next: any) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Não autenticado" });
+  }
+  const user = req.user as User;
+  const allowedRoles = ['admin', 'superadmin', 'manager', 'cashier', 'waiter'];
+  if (!allowedRoles.includes(user.role)) {
+    return res.status(403).json({ message: "Acesso negado. Você não tem permissão para esta ação." });
+  }
+  if (user.role !== 'superadmin' && !user.restaurantId) {
+    return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+  }
+  next();
+}
+
+// Middleware to check if user can handle payments (cashier, manager, admin, superadmin)
+function isCashierOrAbove(req: any, res: any, next: any) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Não autenticado" });
+  }
+  const user = req.user as User;
+  const allowedRoles = ['admin', 'superadmin', 'manager', 'cashier'];
+  if (!allowedRoles.includes(user.role)) {
+    return res.status(403).json({ message: "Acesso negado. Você não tem permissão para esta ação." });
+  }
+  if (user.role !== 'superadmin' && !user.restaurantId) {
+    return res.status(403).json({ message: "Usuário não associado a um restaurante" });
   }
   next();
 }
@@ -2163,6 +2195,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Open tables route for operational staff (cashier, waiter, manager, admin)
+  app.get("/api/tables/open", isOperational, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const branchId = currentUser.activeBranchId || null;
+      const tables = await storage.getTablesWithOrders(restaurantId, branchId);
+      
+      // Filter to only return tables with open sessions (any status except 'livre')
+      const openTables = tables.filter(table => table.status !== 'livre');
+      res.json(openTables);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch open tables" });
+    }
+  });
+
   app.patch("/api/tables/:id/status", isAdmin, async (req, res) => {
     try {
       const currentUser = req.user as User;
@@ -2233,7 +2285,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tables/:id/payments", isAdmin, async (req, res) => {
+  // Close session route for operational staff (cashier, waiter, manager, admin)
+  app.post("/api/tables/:id/close-session", isOperational, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      
+      // Only admin, manager, and cashier can close sessions with payment
+      if (currentUser.role === 'waiter') {
+        return res.status(403).json({ message: "Garçons não podem fechar mesas. Solicite ao caixa." });
+      }
+      
+      await storage.endTableSession(restaurantId, req.params.id);
+      
+      const updatedTable = await storage.getTableById(req.params.id);
+      broadcastToClients({ type: 'table_session_ended', data: updatedTable });
+      
+      res.json({ success: true, table: updatedTable });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to close table session" });
+    }
+  });
+
+  // Payment route for operational staff (cashier, manager, admin)
+  app.post("/api/tables/:id/payment", isOperational, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      // Only admin, manager, and cashier can record payments
+      if (currentUser.role === 'waiter') {
+        return res.status(403).json({ message: "Garçons não podem registrar pagamentos. Solicite ao caixa." });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const { amount, paymentMethod, notes, receivedAmount } = req.body;
+      
+      const table = await storage.getTableById(req.params.id);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+      
+      const payment = await storage.addTablePayment(restaurantId, {
+        tableId: req.params.id,
+        sessionId: table.currentSessionId,
+        amount,
+        paymentMethod,
+        notes: receivedAmount ? `Valor recebido: ${receivedAmount}. ${notes || ''}` : notes,
+      });
+      
+      broadcastToClients({ type: 'table_payment_added', data: payment });
+      
+      res.json(payment);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to record payment" });
+    }
+  });
+
+  app.post("/api/tables/:id/payments", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
@@ -2264,7 +2379,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/tables/:id/sessions", isAdmin, async (req, res) => {
+  app.get("/api/tables/:id/sessions", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
@@ -2279,7 +2394,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/tables/:id/payments", isAdmin, async (req, res) => {
+  app.get("/api/tables/:id/payments", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {

@@ -160,7 +160,146 @@ export type UpdateBranch = z.infer<typeof updateBranchSchema>;
 export type Branch = typeof branches.$inferSelect;
 
 // User Role Enum
-export const userRoleEnum = pgEnum('user_role', ['superadmin', 'admin', 'kitchen']);
+// Roles hierarchy (from most to least privileged):
+// - superadmin: Full system access (all restaurants)
+// - admin: Full restaurant access (owner)
+// - manager: Almost full access except critical settings
+// - cashier: PDV, payments, close tables
+// - waiter: View assigned tables, take orders, update status
+// - kitchen: Kitchen display only
+export const userRoleEnum = pgEnum('user_role', ['superadmin', 'admin', 'manager', 'cashier', 'waiter', 'kitchen']);
+
+// Role permissions map for frontend use
+export const ROLE_PERMISSIONS = {
+  superadmin: {
+    label: 'Super Admin',
+    description: 'Acesso total ao sistema',
+    canAccessDashboard: true,
+    canAccessTables: true,
+    canAccessMenu: true,
+    canAccessPDV: true,
+    canAccessKitchen: true,
+    canAccessReports: true,
+    canAccessFinancial: true,
+    canAccessUsers: true,
+    canAccessSettings: true,
+    canAccessBranches: true,
+    canAccessCustomers: true,
+    canAccessInventory: true,
+    canCloseShifts: true,
+    canApplyDiscounts: true,
+    canCancelOrders: true,
+    canEditMenu: true,
+    canManageSubscription: true,
+  },
+  admin: {
+    label: 'Administrador',
+    description: 'Dono do restaurante - acesso total',
+    canAccessDashboard: true,
+    canAccessTables: true,
+    canAccessMenu: true,
+    canAccessPDV: true,
+    canAccessKitchen: true,
+    canAccessReports: true,
+    canAccessFinancial: true,
+    canAccessUsers: true,
+    canAccessSettings: true,
+    canAccessBranches: true,
+    canAccessCustomers: true,
+    canAccessInventory: true,
+    canCloseShifts: true,
+    canApplyDiscounts: true,
+    canCancelOrders: true,
+    canEditMenu: true,
+    canManageSubscription: true,
+  },
+  manager: {
+    label: 'Gerente',
+    description: 'Gestão operacional do restaurante',
+    canAccessDashboard: true,
+    canAccessTables: true,
+    canAccessMenu: true,
+    canAccessPDV: true,
+    canAccessKitchen: true,
+    canAccessReports: true,
+    canAccessFinancial: true,
+    canAccessUsers: false,
+    canAccessSettings: false,
+    canAccessBranches: false,
+    canAccessCustomers: true,
+    canAccessInventory: true,
+    canCloseShifts: true,
+    canApplyDiscounts: true,
+    canCancelOrders: true,
+    canEditMenu: true,
+    canManageSubscription: false,
+  },
+  cashier: {
+    label: 'Caixa',
+    description: 'Receber pagamentos e fechar contas',
+    canAccessDashboard: false,
+    canAccessTables: true,
+    canAccessMenu: false,
+    canAccessPDV: true,
+    canAccessKitchen: false,
+    canAccessReports: false,
+    canAccessFinancial: false,
+    canAccessUsers: false,
+    canAccessSettings: false,
+    canAccessBranches: false,
+    canAccessCustomers: true,
+    canAccessInventory: false,
+    canCloseShifts: true,
+    canApplyDiscounts: true,
+    canCancelOrders: false,
+    canEditMenu: false,
+    canManageSubscription: false,
+  },
+  waiter: {
+    label: 'Garçom',
+    description: 'Atender mesas e registrar pedidos',
+    canAccessDashboard: false,
+    canAccessTables: true,
+    canAccessMenu: false,
+    canAccessPDV: true,
+    canAccessKitchen: false,
+    canAccessReports: false,
+    canAccessFinancial: false,
+    canAccessUsers: false,
+    canAccessSettings: false,
+    canAccessBranches: false,
+    canAccessCustomers: false,
+    canAccessInventory: false,
+    canCloseShifts: false,
+    canApplyDiscounts: false,
+    canCancelOrders: false,
+    canEditMenu: false,
+    canManageSubscription: false,
+  },
+  kitchen: {
+    label: 'Cozinha',
+    description: 'Visualizar e preparar pedidos',
+    canAccessDashboard: false,
+    canAccessTables: false,
+    canAccessMenu: false,
+    canAccessPDV: false,
+    canAccessKitchen: true,
+    canAccessReports: false,
+    canAccessFinancial: false,
+    canAccessUsers: false,
+    canAccessSettings: false,
+    canAccessBranches: false,
+    canAccessCustomers: false,
+    canAccessInventory: false,
+    canCloseShifts: false,
+    canApplyDiscounts: false,
+    canCancelOrders: false,
+    canEditMenu: false,
+    canManageSubscription: false,
+  },
+} as const;
+
+export type UserRole = keyof typeof ROLE_PERMISSIONS;
 
 // User storage table
 export const users = pgTable("users", {
@@ -186,7 +325,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
   password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
-  role: z.enum(['superadmin', 'admin', 'kitchen']),
+  role: z.enum(['superadmin', 'admin', 'manager', 'cashier', 'waiter', 'kitchen']),
 });
 
 export const loginSchema = z.object({
@@ -199,7 +338,7 @@ export const updateUserSchema = z.object({
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   profileImageUrl: z.string().optional(),
-  role: z.enum(['superadmin', 'admin', 'kitchen']).optional(),
+  role: z.enum(['superadmin', 'admin', 'manager', 'cashier', 'waiter', 'kitchen']).optional(),
 });
 
 export const updateProfileSchema = z.object({

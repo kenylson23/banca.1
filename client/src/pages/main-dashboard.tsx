@@ -30,11 +30,13 @@ import Coupons from "./coupons";
 import PrinterSetup from "./printer-setup";
 import Subscription from "./subscription";
 import NotificationSettings from "./notification-settings";
+import OpenTables from "./open-tables";
 
 export type Section = 
   | "dashboard" 
   | "pdv"
   | "tables" 
+  | "open-tables"
   | "menu" 
   | "kitchen" 
   | "users" 
@@ -79,6 +81,8 @@ export default function MainDashboard({ section }: MainDashboardProps) {
         return <PDV />;
       case "tables":
         return <Tables />;
+      case "open-tables":
+        return <OpenTables />;
       case "menu":
         return <Menu />;
       case "kitchen":
