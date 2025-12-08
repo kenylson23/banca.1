@@ -1,195 +1,61 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { Card, CardContent } from "@/components/ui/card";
 import { 
   QrCode, 
   ChefHat, 
   BarChart3, 
-  Zap, 
-  Sparkles, 
   Smartphone, 
-  TrendingUp, 
-  Users, 
-  Star, 
-  Quote, 
-  X, 
-  Home, 
-  Info, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Clock, 
-  Facebook, 
-  Instagram, 
-  MessageCircle,
   Check,
-  CreditCard,
-  Building2,
-  ShieldCheck,
-  Headphones,
+  Star,
   ArrowRight,
   Play,
-  Globe,
-  Receipt,
+  Menu,
+  X,
   Utensils,
-  Timer,
-  Target,
-  TrendingDown,
-  Banknote,
-  Store,
-  LineChart,
-  ChevronRight,
-  Menu
+  Clock,
+  Shield,
+  Zap,
+  Users,
+  TrendingUp,
+  CreditCard,
+  Package,
+  Phone,
+  Mail,
+  MapPin
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
-import dashboardImage from "@assets/image_1761991208974.png";
-import kitchenImage from "@assets/image_1761991359072.png";
 
-const subscriptionPlans = [
+const features = [
   {
-    id: "basic",
-    name: "Básico",
-    description: "Ideal para restaurantes pequenos",
-    priceKz: 15000,
-    priceUsd: 18,
-    interval: "mês",
-    trial: 14,
-    features: [
-      { name: "Filiais", value: "1" },
-      { name: "Mesas", value: "10" },
-      { name: "Itens do Menu", value: "50" },
-      { name: "Pedidos/mês", value: "500" },
-      { name: "Usuários", value: "2" },
-    ],
-    highlights: [
-      "QR Code para pedidos",
-      "Painel da cozinha",
-      "Estatísticas básicas",
-      "Suporte por email",
-    ],
-    popular: false,
-    cta: "Iniciar Teste Grátis",
+    icon: QrCode,
+    title: "Gestão de Pedidos",
+    description: "Sistema completo de pedidos com QR Code. Clientes pedem diretamente pelo telemóvel, sem filas nem erros."
   },
   {
-    id: "professional",
-    name: "Profissional",
-    description: "Para restaurantes em crescimento",
-    priceKz: 35000,
-    priceUsd: 42,
-    interval: "mês",
-    trial: 14,
-    features: [
-      { name: "Filiais", value: "3" },
-      { name: "Mesas", value: "30" },
-      { name: "Itens do Menu", value: "150" },
-      { name: "Pedidos/mês", value: "2.000" },
-      { name: "Usuários", value: "5" },
-    ],
-    highlights: [
-      "Tudo do Básico +",
-      "Multi-filiais",
-      "Relatórios avançados",
-      "PDV completo",
-      "Suporte prioritário",
-    ],
-    popular: true,
-    cta: "Iniciar Teste Grátis",
+    icon: CreditCard,
+    title: "Pagamentos e PDV",
+    description: "Terminal de vendas integrado com múltiplas formas de pagamento. Controle total das transações."
   },
   {
-    id: "enterprise",
-    name: "Empresarial",
-    description: "Para redes de restaurantes",
-    priceKz: 70000,
-    priceUsd: 84,
-    interval: "mês",
-    trial: 14,
-    features: [
-      { name: "Filiais", value: "10" },
-      { name: "Mesas", value: "100" },
-      { name: "Itens do Menu", value: "Ilimitado" },
-      { name: "Pedidos/mês", value: "10.000" },
-      { name: "Usuários", value: "15" },
-    ],
-    highlights: [
-      "Tudo do Profissional +",
-      "Gestão centralizada",
-      "API de integração",
-      "Relatórios consolidados",
-      "Gerente de conta dedicado",
-    ],
-    popular: false,
-    cta: "Iniciar Teste Grátis",
+    icon: BarChart3,
+    title: "Relatórios Inteligentes",
+    description: "Análises detalhadas de vendas, produtos mais pedidos, horários de pico e muito mais."
   },
   {
-    id: "custom",
-    name: "Enterprise",
-    description: "Soluções personalizadas",
-    priceKz: 150000,
-    priceUsd: 180,
-    interval: "mês",
-    trial: 30,
-    features: [
-      { name: "Filiais", value: "Ilimitado" },
-      { name: "Mesas", value: "Ilimitado" },
-      { name: "Itens do Menu", value: "Ilimitado" },
-      { name: "Pedidos/mês", value: "Ilimitado" },
-      { name: "Usuários", value: "Ilimitado" },
-    ],
-    highlights: [
-      "Tudo ilimitado",
-      "Personalização completa",
-      "Integração sob medida",
-      "SLA garantido",
-      "Suporte 24/7",
-      "Treinamento presencial",
-    ],
-    popular: false,
-    cta: "Falar com Vendas",
-  },
+    icon: Smartphone,
+    title: "QR Code Menu & Delivery",
+    description: "Cardápio digital moderno com fotos, descrições e opções de personalização para cada item."
+  }
 ];
 
-const faqItems = [
-  {
-    question: "Preciso de cartão de crédito para começar o teste grátis?",
-    answer: "Não! O período de teste é completamente gratuito e não requer nenhum dado de pagamento. Você terá acesso completo às funcionalidades do plano escolhido durante 14 dias (ou 30 dias no plano Enterprise). Só após decidir continuar é que solicitamos os dados de pagamento.",
-  },
-  {
-    question: "Como funciona o suporte ao cliente em Angola?",
-    answer: "Oferecemos suporte em português via WhatsApp, telefone e email. Nossa equipe está disponível de segunda a sábado das 8h às 20h. Clientes dos planos Empresarial e Enterprise têm acesso a um gerente de conta dedicado e suporte prioritário.",
-  },
-  {
-    question: "Posso pagar em Kwanzas (AOA) ou Dólares (USD)?",
-    answer: "Sim! Aceitamos pagamento em ambas as moedas. Você pode escolher a moeda de sua preferência no momento da subscrição. Oferecemos transferência bancária, Multicaixa Express e outros métodos de pagamento locais.",
-  },
-  {
-    question: "O sistema funciona com impressoras de comandas?",
-    answer: "Sim! O Na Bancada é compatível com impressoras térmicas via USB e rede. Suportamos as principais marcas do mercado como Epson, Bematech e outras. A configuração é simples e nossa equipe pode ajudar remotamente.",
-  },
-  {
-    question: "Quanto tempo demora para implementar o sistema?",
-    answer: "A configuração básica leva apenas 15-30 minutos. Você cria sua conta, cadastra o cardápio e gera os QR codes das mesas. Para configurações mais avançadas como multi-filiais e integrações, nossa equipe oferece suporte de implementação em até 24 horas.",
-  },
-  {
-    question: "Posso gerenciar várias filiais com uma única conta?",
-    answer: "Sim! A partir do plano Profissional, você pode gerenciar múltiplas filiais com uma única conta. Cada filial tem seu próprio cardápio, mesas e equipe, mas os relatórios podem ser consolidados para visão geral do negócio.",
-  },
-  {
-    question: "Meus dados estão seguros?",
-    answer: "Absolutamente! Utilizamos criptografia de ponta a ponta, backups automáticos diários e servidores seguros. Seus dados nunca são compartilhados com terceiros. Cumprimos as melhores práticas de segurança da informação.",
-  },
-  {
-    question: "Posso mudar de plano depois?",
-    answer: "Sim! Você pode fazer upgrade ou downgrade a qualquer momento. O upgrade é aplicado imediatamente e você paga apenas a diferença proporcional. O downgrade entra em vigor no próximo ciclo de faturamento.",
-  },
+const benefits = [
+  { icon: Clock, text: "Implementação em menos de 30 minutos" },
+  { icon: Shield, text: "Dados seguros com criptografia de ponta" },
+  { icon: Zap, text: "Atualizações automáticas sem custo adicional" },
+  { icon: Users, text: "Suporte técnico especializado incluído" },
+  { icon: TrendingUp, text: "Aumento médio de 25% nas vendas" },
+  { icon: Package, text: "Gestão de inventário integrada" }
 ];
 
 const testimonials = [
@@ -197,41 +63,103 @@ const testimonials = [
     name: "Maria João Ferreira",
     role: "Proprietária",
     company: "Restaurante Sabor de Angola",
-    location: "Luanda",
     avatar: "MJ",
-    quote: "Transformou completamente o nosso restaurante. Os clientes adoram pedir pelo telemóvel e a cozinha nunca mais errou um pedido! Reduzimos os erros em 90% e o tempo de espera caiu pela metade.",
-    metric: { value: "90%", label: "menos erros" },
+    quote: "Transformou completamente o nosso restaurante. Os clientes adoram pedir pelo telemóvel e a cozinha nunca mais errou um pedido!",
+    rating: 5
   },
   {
     name: "Paulo Costa",
     role: "Gerente Geral",
     company: "Churrasqueira Luanda",
-    location: "Luanda",
     avatar: "PC",
-    quote: "Incrível como economizamos tempo! Antes gastávamos horas anotando pedidos. Agora tudo é automático e sem erros. O ticket médio aumentou 25% com as sugestões do sistema.",
-    metric: { value: "+25%", label: "ticket médio" },
+    quote: "Incrível como economizamos tempo! Antes gastávamos horas anotando pedidos. Agora tudo é automático e sem erros.",
+    rating: 5
   },
   {
     name: "Ana Silva",
     role: "Diretora de Operações",
     company: "Rede Café Colonial",
-    location: "Benguela",
     avatar: "AS",
-    quote: "Gerenciamos 5 filiais com uma única plataforma. As estatísticas ajudam-nos a tomar decisões inteligentes. Sabemos exatamente quais pratos investir e quais melhorar.",
-    metric: { value: "5", label: "filiais geridas" },
+    quote: "Gerenciamos 5 filiais com uma única plataforma. As estatísticas ajudam-nos a tomar decisões inteligentes.",
+    rating: 5
+  }
+];
+
+const pricingPlans = [
+  {
+    id: "starter",
+    name: "Starter",
+    description: "Ideal para restaurantes pequenos",
+    price: 15000,
+    priceUsd: 18,
+    interval: "mês",
+    features: [
+      "1 Filial",
+      "10 Mesas",
+      "50 Itens do Menu",
+      "500 Pedidos/mês",
+      "2 Usuários",
+      "QR Code para pedidos",
+      "Painel da cozinha",
+      "Suporte por email"
+    ],
+    popular: false,
+    cta: "Começar Agora"
   },
+  {
+    id: "professional",
+    name: "Professional",
+    description: "Para restaurantes em crescimento",
+    price: 35000,
+    priceUsd: 42,
+    interval: "mês",
+    features: [
+      "3 Filiais",
+      "30 Mesas",
+      "150 Itens do Menu",
+      "2.000 Pedidos/mês",
+      "5 Usuários",
+      "Tudo do Starter +",
+      "Multi-filiais",
+      "Relatórios avançados",
+      "PDV completo",
+      "Suporte prioritário"
+    ],
+    popular: true,
+    cta: "Começar Agora"
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    description: "Para redes de restaurantes",
+    price: 70000,
+    priceUsd: 84,
+    interval: "mês",
+    features: [
+      "10+ Filiais",
+      "Mesas Ilimitadas",
+      "Itens Ilimitados",
+      "Pedidos Ilimitados",
+      "15+ Usuários",
+      "Tudo do Professional +",
+      "API de integração",
+      "Gerente dedicado",
+      "SLA garantido"
+    ],
+    popular: false,
+    cta: "Falar com Vendas"
+  }
 ];
 
 export default function Landing() {
   const [, setLocation] = useLocation();
-  const [selectedImage, setSelectedImage] = useState<{ src: string; alt: string } | null>(null);
-  const [currency, setCurrency] = useState<'AOA' | 'USD'>('AOA');
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [currency, setCurrency] = useState<'AOA' | 'USD'>('AOA');
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
+      setIsScrolled(window.scrollY > 20);
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
@@ -248,143 +176,147 @@ export default function Landing() {
     setMobileMenuOpen(false);
   };
 
-  const formatPrice = (priceKz: number, priceUsd: number) => {
+  const formatPrice = (priceAoa: number, priceUsd: number) => {
     if (currency === 'AOA') {
-      return `${priceKz.toLocaleString('pt-AO')} Kz`;
+      return `${priceAoa.toLocaleString('pt-AO')} Kz`;
     }
     return `$${priceUsd}`;
   };
 
   return (
-    <div className="min-h-screen bg-background relative overflow-x-hidden">
-      {/* Background Elements */}
-      <div className="fixed inset-0 bg-gradient-to-br from-primary/5 via-background to-primary/3 pointer-events-none" />
-      <div className="fixed top-0 right-0 w-[800px] h-[800px] bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-      <div className="fixed bottom-0 left-0 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
-
-      {/* Sticky Header */}
+    <div className="min-h-screen bg-white">
+      {/* Header */}
       <header 
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled 
-            ? 'bg-background/95 backdrop-blur-md shadow-sm border-b border-border/50' 
-            : 'bg-transparent'
+            ? 'bg-white shadow-sm border-b border-gray-100' 
+            : 'bg-white'
         }`}
       >
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 lg:h-20">
             {/* Logo */}
-            <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10 sm:h-12 sm:w-12 ring-2 ring-primary/20" data-testid="avatar-logo">
-                <AvatarFallback className="bg-primary text-primary-foreground font-bold text-base sm:text-lg">NB</AvatarFallback>
-              </Avatar>
-              <div className="hidden sm:block">
-                <h1 className="text-lg font-bold text-foreground">Na Bancada</h1>
-                <p className="text-xs text-muted-foreground">Gestão de Restaurantes</p>
+            <div className="flex items-center gap-3" data-testid="logo-header">
+              <div className="w-10 h-10 rounded-lg bg-[#0054FF] flex items-center justify-center">
+                <Utensils className="w-5 h-5 text-white" />
               </div>
+              <span className="text-xl font-bold text-[#1D1F22]">Na Bancada</span>
             </div>
 
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-1">
-              <Button 
-                variant="ghost" 
-                size="sm" 
+            <nav className="hidden lg:flex items-center gap-8">
+              <button 
                 onClick={() => scrollToSection('features')}
+                className="text-[#1D1F22] hover:text-[#0054FF] font-medium transition-colors"
                 data-testid="nav-features"
               >
-                Recursos
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => scrollToSection('how-it-works')}
-                data-testid="nav-how-it-works"
-              >
-                Como Funciona
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+                Funcionalidades
+              </button>
+              <button 
                 onClick={() => scrollToSection('pricing')}
+                className="text-[#1D1F22] hover:text-[#0054FF] font-medium transition-colors"
                 data-testid="nav-pricing"
               >
-                Planos
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => scrollToSection('faq')}
-                data-testid="nav-faq"
+                Preços
+              </button>
+              <button 
+                onClick={() => scrollToSection('testimonials')}
+                className="text-[#1D1F22] hover:text-[#0054FF] font-medium transition-colors"
+                data-testid="nav-about"
               >
-                FAQ
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+                Sobre
+              </button>
+              <button 
                 onClick={() => scrollToSection('contact')}
+                className="text-[#1D1F22] hover:text-[#0054FF] font-medium transition-colors"
                 data-testid="nav-contact"
               >
                 Contacto
-              </Button>
+              </button>
             </nav>
 
             {/* CTA Buttons */}
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden lg:flex items-center gap-4">
               <Button
                 variant="ghost"
-                size="sm"
                 onClick={() => setLocation("/login")}
                 data-testid="button-login-header"
-                className="hidden sm:flex"
+                className="text-[#1D1F22] hover:text-[#0054FF] hover:bg-transparent font-medium"
               >
                 Entrar
               </Button>
               <Button
-                size="sm"
                 onClick={() => setLocation("/login")}
-                data-testid="button-cta-header"
-                className="hidden sm:flex"
+                data-testid="button-signup-header"
+                className="bg-[#0054FF] hover:bg-[#0048DD] text-white font-medium"
               >
-                Começar Grátis
-              </Button>
-              
-              {/* Mobile Menu Button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="md:hidden"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                data-testid="button-mobile-menu"
-              >
-                <Menu className="h-5 w-5" />
+                Criar Conta
               </Button>
             </div>
+
+            {/* Mobile Menu Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              data-testid="button-mobile-menu"
+            >
+              {mobileMenuOpen ? (
+                <X className="w-6 h-6 text-[#1D1F22]" />
+              ) : (
+                <Menu className="w-6 h-6 text-[#1D1F22]" />
+              )}
+            </Button>
           </div>
 
           {/* Mobile Menu */}
           {mobileMenuOpen && (
-            <div className="md:hidden py-4 border-t border-border/50 animate-slide-in-top">
-              <nav className="flex flex-col gap-1">
-                <Button variant="ghost" className="justify-start" onClick={() => scrollToSection('features')} data-testid="mobile-nav-features">
-                  Recursos
-                </Button>
-                <Button variant="ghost" className="justify-start" onClick={() => scrollToSection('how-it-works')} data-testid="mobile-nav-how-it-works">
-                  Como Funciona
-                </Button>
-                <Button variant="ghost" className="justify-start" onClick={() => scrollToSection('pricing')} data-testid="mobile-nav-pricing">
-                  Planos
-                </Button>
-                <Button variant="ghost" className="justify-start" onClick={() => scrollToSection('faq')} data-testid="mobile-nav-faq">
-                  FAQ
-                </Button>
-                <Button variant="ghost" className="justify-start" onClick={() => scrollToSection('contact')} data-testid="mobile-nav-contact">
+            <div className="lg:hidden py-4 border-t border-gray-100">
+              <nav className="flex flex-col gap-2">
+                <button 
+                  onClick={() => scrollToSection('features')}
+                  className="text-left py-3 px-4 text-[#1D1F22] hover:bg-[#F5F7FA] rounded-lg font-medium"
+                  data-testid="mobile-nav-features"
+                >
+                  Funcionalidades
+                </button>
+                <button 
+                  onClick={() => scrollToSection('pricing')}
+                  className="text-left py-3 px-4 text-[#1D1F22] hover:bg-[#F5F7FA] rounded-lg font-medium"
+                  data-testid="mobile-nav-pricing"
+                >
+                  Preços
+                </button>
+                <button 
+                  onClick={() => scrollToSection('testimonials')}
+                  className="text-left py-3 px-4 text-[#1D1F22] hover:bg-[#F5F7FA] rounded-lg font-medium"
+                  data-testid="mobile-nav-about"
+                >
+                  Sobre
+                </button>
+                <button 
+                  onClick={() => scrollToSection('contact')}
+                  className="text-left py-3 px-4 text-[#1D1F22] hover:bg-[#F5F7FA] rounded-lg font-medium"
+                  data-testid="mobile-nav-contact"
+                >
                   Contacto
-                </Button>
-                <div className="flex gap-2 mt-3 pt-3 border-t border-border/50">
-                  <Button variant="outline" className="flex-1" onClick={() => setLocation("/login")} data-testid="mobile-nav-login">
+                </button>
+                <div className="flex gap-3 mt-4 pt-4 border-t border-gray-100">
+                  <Button
+                    variant="outline"
+                    className="flex-1 border-gray-200"
+                    onClick={() => setLocation("/login")}
+                    data-testid="mobile-button-login"
+                  >
                     Entrar
                   </Button>
-                  <Button className="flex-1" onClick={() => setLocation("/login")} data-testid="mobile-nav-cta">
-                    Começar Grátis
+                  <Button
+                    className="flex-1 bg-[#0054FF] hover:bg-[#0048DD]"
+                    onClick={() => setLocation("/login")}
+                    data-testid="mobile-button-signup"
+                  >
+                    Criar Conta
                   </Button>
                 </div>
               </nav>
@@ -394,526 +326,366 @@ export default function Landing() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-24 sm:pt-32 pb-16 sm:pb-24">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-5xl mx-auto text-center space-y-6 sm:space-y-8">
-            {/* Trust Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-sm font-medium animate-fade-in">
-              <Sparkles className="w-4 h-4 text-primary" />
-              <span className="text-foreground">+120 restaurantes confiam em nós</span>
-              <span className="text-primary font-semibold">em Angola</span>
+      <section className="pt-24 lg:pt-32 pb-16 lg:pb-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Left Side - Content */}
+            <div className="space-y-8">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#1D1F22] leading-tight" data-testid="text-hero-title">
+                O sistema de gestão para restaurantes que acelera o seu negócio
+              </h1>
+              <p className="text-lg lg:text-xl text-gray-600 leading-relaxed" data-testid="text-hero-subtitle">
+                Pedidos por QR Code, cozinha em tempo real, relatórios inteligentes e controlo total num único software.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Button
+                  size="lg"
+                  onClick={() => setLocation("/login")}
+                  data-testid="button-hero-cta"
+                  className="bg-[#0054FF] hover:bg-[#0048DD] text-white font-semibold text-lg"
+                >
+                  Experimentar grátis
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => scrollToSection('features')}
+                  data-testid="button-hero-demo"
+                  className="border-gray-300 text-[#1D1F22] hover:bg-[#F5F7FA] font-semibold text-lg"
+                >
+                  <Play className="w-5 h-5 mr-2" />
+                  Ver demonstração
+                </Button>
+              </div>
             </div>
 
-            {/* Main Headline */}
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground leading-tight animate-slide-in-bottom">
-              Gestão Inteligente para{" "}
-              <span className="text-primary">Restaurantes Angolanos</span>
-            </h1>
+            {/* Right Side - Dashboard Mockup */}
+            <div className="relative" data-testid="hero-mockup">
+              <div className="bg-[#F5F7FA] rounded-2xl p-6 lg:p-8 shadow-lg">
+                <div className="bg-white rounded-xl p-4 shadow-sm">
+                  {/* Mock Dashboard Header */}
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-[#0054FF]/10 flex items-center justify-center">
+                        <BarChart3 className="w-4 h-4 text-[#0054FF]" />
+                      </div>
+                      <span className="font-semibold text-[#1D1F22]">Dashboard</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="w-3 h-3 rounded-full bg-gray-200" />
+                      <div className="w-3 h-3 rounded-full bg-gray-200" />
+                      <div className="w-3 h-3 rounded-full bg-gray-200" />
+                    </div>
+                  </div>
+                  
+                  {/* Mock Stats */}
+                  <div className="grid grid-cols-3 gap-4 mb-6">
+                    <div className="bg-[#F5F7FA] rounded-lg p-3">
+                      <p className="text-xs text-gray-500 mb-1">Vendas Hoje</p>
+                      <p className="text-lg font-bold text-[#1D1F22]">142.500 Kz</p>
+                      <p className="text-xs text-[#18C37D]">+12%</p>
+                    </div>
+                    <div className="bg-[#F5F7FA] rounded-lg p-3">
+                      <p className="text-xs text-gray-500 mb-1">Pedidos</p>
+                      <p className="text-lg font-bold text-[#1D1F22]">48</p>
+                      <p className="text-xs text-[#18C37D]">+8%</p>
+                    </div>
+                    <div className="bg-[#F5F7FA] rounded-lg p-3">
+                      <p className="text-xs text-gray-500 mb-1">Mesas Ativas</p>
+                      <p className="text-lg font-bold text-[#1D1F22]">12</p>
+                      <p className="text-xs text-gray-400">de 20</p>
+                    </div>
+                  </div>
 
-            {/* Subheadline */}
-            <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              QR Codes para pedidos, cozinha em tempo real e controlo total. 
-              Reduza erros, acelere o serviço e aumente as vendas.
-            </p>
-
-            {/* Trust Badges */}
-            <div className="flex flex-wrap justify-center gap-3 sm:gap-4 pt-2">
-              <Badge variant="secondary" className="py-2 px-4 gap-2">
-                <ShieldCheck className="w-4 h-4 text-primary" />
-                Sem cartão no teste
-              </Badge>
-              <Badge variant="secondary" className="py-2 px-4 gap-2">
-                <Building2 className="w-4 h-4 text-primary" />
-                Multi-filiais
-              </Badge>
-              <Badge variant="secondary" className="py-2 px-4 gap-2">
-                <Headphones className="w-4 h-4 text-primary" />
-                Suporte em Angola
-              </Badge>
+                  {/* Mock Chart */}
+                  <div className="bg-[#F5F7FA] rounded-lg p-4">
+                    <div className="flex items-end justify-between h-24 gap-2">
+                      {[40, 65, 45, 80, 55, 90, 70].map((height, i) => (
+                        <div 
+                          key={i}
+                          className="flex-1 bg-[#0054FF] rounded-t"
+                          style={{ height: `${height}%` }}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex justify-between mt-2">
+                      {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((day) => (
+                        <span key={day} className="text-xs text-gray-400">{day}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Floating Elements */}
+              <div className="absolute -top-4 -right-4 bg-white rounded-lg shadow-lg p-3 hidden lg:flex items-center gap-2" data-testid="floating-order-confirmed">
+                <div className="w-8 h-8 rounded-full bg-[#18C37D]/10 flex items-center justify-center">
+                  <Check className="w-4 h-4 text-[#18C37D]" />
+                </div>
+                <span className="text-sm font-medium text-[#1D1F22]">Pedido Confirmado</span>
+              </div>
+              
+              <div className="absolute -bottom-4 -left-4 bg-white rounded-lg shadow-lg p-3 hidden lg:flex items-center gap-2" data-testid="floating-new-order">
+                <div className="w-8 h-8 rounded-full bg-[#0054FF]/10 flex items-center justify-center">
+                  <QrCode className="w-4 h-4 text-[#0054FF]" />
+                </div>
+                <span className="text-sm font-medium text-[#1D1F22]">Mesa 5 - Novo Pedido</span>
+              </div>
             </div>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 pt-4">
-              <Button
-                size="lg"
-                onClick={() => setLocation("/login")}
-                data-testid="button-hero-cta-primary"
-                className="text-base sm:text-lg px-8 py-6 font-semibold shadow-lg gap-2 w-full sm:w-auto"
-              >
-                Teste Grátis 14 Dias
-                <ArrowRight className="w-5 h-5" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => scrollToSection('how-it-works')}
-                data-testid="button-hero-cta-secondary"
-                className="text-base sm:text-lg px-8 py-6 font-semibold gap-2 w-full sm:w-auto"
-              >
-                <Play className="w-5 h-5" />
-                Ver Como Funciona
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* KPIs / Results Section */}
-      <section className="relative py-16 sm:py-20 bg-muted/30">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
-              Resultados Comprovados
-            </h2>
-            <p className="text-muted-foreground">
-              Métricas reais de restaurantes que usam o Na Bancada
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
-            <Card className="text-center hover-elevate bg-card/80 backdrop-blur-sm" data-testid="kpi-card-errors">
-              <CardContent className="pt-6 pb-6">
-                <div className="w-14 h-14 rounded-full bg-destructive/10 dark:bg-destructive/20 flex items-center justify-center mx-auto mb-4">
-                  <TrendingDown className="w-7 h-7 text-destructive dark:text-destructive" />
-                </div>
-                <div className="text-4xl sm:text-5xl font-bold text-foreground mb-2">90%</div>
-                <p className="text-muted-foreground font-medium">Menos Erros</p>
-                <p className="text-xs text-muted-foreground mt-1">nos pedidos</p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center hover-elevate bg-card/80 backdrop-blur-sm" data-testid="kpi-card-time">
-              <CardContent className="pt-6 pb-6">
-                <div className="w-14 h-14 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center mx-auto mb-4">
-                  <Timer className="w-7 h-7 text-primary" />
-                </div>
-                <div className="text-4xl sm:text-5xl font-bold text-foreground mb-2">-35%</div>
-                <p className="text-muted-foreground font-medium">Tempo de Espera</p>
-                <p className="text-xs text-muted-foreground mt-1">do cliente</p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center hover-elevate bg-card/80 backdrop-blur-sm" data-testid="kpi-card-revenue">
-              <CardContent className="pt-6 pb-6">
-                <div className="w-14 h-14 rounded-full bg-success/10 dark:bg-success/20 flex items-center justify-center mx-auto mb-4">
-                  <TrendingUp className="w-7 h-7 text-success" />
-                </div>
-                <div className="text-4xl sm:text-5xl font-bold text-foreground mb-2">+20%</div>
-                <p className="text-muted-foreground font-medium">Ticket Médio</p>
-                <p className="text-xs text-muted-foreground mt-1">por mesa</p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center hover-elevate bg-card/80 backdrop-blur-sm" data-testid="kpi-card-satisfaction">
-              <CardContent className="pt-6 pb-6">
-                <div className="w-14 h-14 rounded-full bg-accent flex items-center justify-center mx-auto mb-4">
-                  <Star className="w-7 h-7 text-primary" />
-                </div>
-                <div className="text-4xl sm:text-5xl font-bold text-foreground mb-2">95%</div>
-                <p className="text-muted-foreground font-medium">Satisfação</p>
-                <p className="text-xs text-muted-foreground mt-1">dos clientes</p>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section id="features" className="relative py-16 sm:py-24">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 sm:mb-16">
-            <Badge variant="secondary" className="mb-4">Funcionalidades</Badge>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
-              Tudo o que Precisa para{" "}
-              <span className="text-primary">Gerir o Seu Restaurante</span>
+      <section id="features" className="py-16 lg:py-24 bg-[#F5F7FA]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12 lg:mb-16">
+            <h2 className="text-3xl lg:text-4xl font-bold text-[#1D1F22] mb-4" data-testid="text-features-title">
+              Funcionalidades Completas
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Do pedido à entrega, tenha controlo total sobre todas as operações
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto" data-testid="text-features-subtitle">
+              Tudo o que precisa para gerir o seu restaurante de forma eficiente e moderna
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-6xl mx-auto">
-            {/* Feature 1: QR Code */}
-            <Card className="hover-elevate overflow-hidden" data-testid="feature-card-qrcode">
-              <CardContent className="p-6 sm:p-8">
-                <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0">
-                    <QrCode className="w-7 h-7 text-primary" />
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {features.map((feature, index) => (
+              <Card 
+                key={index} 
+                className="bg-white border-0 shadow-sm hover:shadow-md transition-shadow"
+                data-testid={`feature-card-${index}`}
+              >
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 rounded-xl bg-[#0054FF]/10 flex items-center justify-center mb-4">
+                    <feature.icon className="w-6 h-6 text-[#0054FF]" />
                   </div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-foreground mb-2">
-                      QR Codes por Mesa
-                    </h3>
-                    <p className="text-muted-foreground mb-4">
-                      Cada mesa tem um código único. Clientes escaneiam e pedem direto no telemóvel.
-                    </p>
-                    <ul className="space-y-2">
-                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-4 h-4 text-primary flex-shrink-0" />
-                        Cardápio digital interativo
-                      </li>
-                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-4 h-4 text-primary flex-shrink-0" />
-                        Fotos e descrições dos pratos
-                      </li>
-                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-4 h-4 text-primary flex-shrink-0" />
-                        Personalizações e observações
-                      </li>
-                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-4 h-4 text-primary flex-shrink-0" />
-                        Sem app para o cliente baixar
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Feature 2: Kitchen */}
-            <Card className="hover-elevate overflow-hidden" data-testid="feature-card-kitchen">
-              <CardContent className="p-6 sm:p-8">
-                <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-warning/20 to-warning/5 flex items-center justify-center flex-shrink-0">
-                    <ChefHat className="w-7 h-7 text-warning dark:text-warning" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-foreground mb-2">
-                      Cozinha em Tempo Real
-                    </h3>
-                    <p className="text-muted-foreground mb-4">
-                      Pedidos aparecem instantaneamente no painel da cozinha com alertas sonoros.
-                    </p>
-                    <ul className="space-y-2">
-                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-4 h-4 text-warning flex-shrink-0" />
-                        Visualização por status
-                      </li>
-                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-4 h-4 text-warning flex-shrink-0" />
-                        Alertas de novos pedidos
-                      </li>
-                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-4 h-4 text-warning flex-shrink-0" />
-                        Tempo de preparo por prato
-                      </li>
-                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-4 h-4 text-warning flex-shrink-0" />
-                        Zero papel, zero erros
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Feature 3: POS */}
-            <Card className="hover-elevate overflow-hidden" data-testid="feature-card-pos">
-              <CardContent className="p-6 sm:p-8">
-                <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-success/20 to-success/5 flex items-center justify-center flex-shrink-0">
-                    <Receipt className="w-7 h-7 text-success" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-foreground mb-2">
-                      PDV & Pagamentos
-                    </h3>
-                    <p className="text-muted-foreground mb-4">
-                      Controle de caixa completo com múltiplas formas de pagamento.
-                    </p>
-                    <ul className="space-y-2">
-                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-4 h-4 text-success flex-shrink-0" />
-                        Abertura e fecho de caixa
-                      </li>
-                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-4 h-4 text-success flex-shrink-0" />
-                        Pagamento dividido
-                      </li>
-                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-4 h-4 text-success flex-shrink-0" />
-                        Impressão de recibos
-                      </li>
-                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-4 h-4 text-success flex-shrink-0" />
-                        Relatórios de vendas
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Feature 4: Multi-branch */}
-            <Card className="hover-elevate overflow-hidden" data-testid="feature-card-multibranch">
-              <CardContent className="p-6 sm:p-8">
-                <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-info/20 to-info/5 flex items-center justify-center flex-shrink-0">
-                    <Building2 className="w-7 h-7 text-info" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-foreground mb-2">
-                      Multi-Filiais & Relatórios
-                    </h3>
-                    <p className="text-muted-foreground mb-4">
-                      Gerencie todas as suas filiais de um só lugar com estatísticas consolidadas.
-                    </p>
-                    <ul className="space-y-2">
-                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-4 h-4 text-info flex-shrink-0" />
-                        Dashboard centralizado
-                      </li>
-                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-4 h-4 text-info flex-shrink-0" />
-                        Pratos mais vendidos
-                      </li>
-                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-4 h-4 text-info flex-shrink-0" />
-                        Comparativo entre filiais
-                      </li>
-                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="w-4 h-4 text-info flex-shrink-0" />
-                        Exportação de dados
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  <h3 className="text-lg font-semibold text-[#1D1F22] mb-2">
+                    {feature.title}
+                  </h3>
+                  <p className="text-gray-600 text-sm leading-relaxed">
+                    {feature.description}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* How It Works Section */}
-      <section id="how-it-works" className="relative py-16 sm:py-24 bg-muted/30">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 sm:mb-16">
-            <Badge variant="secondary" className="mb-4">Como Funciona</Badge>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
-              Simples, Rápido e{" "}
-              <span className="text-primary">Eficiente</span>
+      {/* Why Choose Section */}
+      <section className="py-16 lg:py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Left Side - Benefits List */}
+            <div>
+              <h2 className="text-3xl lg:text-4xl font-bold text-[#1D1F22] mb-6" data-testid="text-benefits-title">
+                Porquê escolher o Na Bancada?
+              </h2>
+              <p className="text-lg text-gray-600 mb-8" data-testid="text-benefits-subtitle">
+                Centenas de restaurantes já confiam em nós para modernizar as suas operações e aumentar as vendas.
+              </p>
+              
+              <div className="grid sm:grid-cols-2 gap-4">
+                {benefits.map((benefit, index) => (
+                  <div 
+                    key={index}
+                    className="flex items-center gap-3 p-4 bg-[#F5F7FA] rounded-lg"
+                    data-testid={`benefit-item-${index}`}
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-[#0054FF]/10 flex items-center justify-center flex-shrink-0">
+                      <benefit.icon className="w-5 h-5 text-[#0054FF]" />
+                    </div>
+                    <span className="text-sm font-medium text-[#1D1F22]">
+                      {benefit.text}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right Side - Image/Illustration */}
+            <div className="relative" data-testid="benefits-illustration">
+              <div className="bg-[#F5F7FA] rounded-2xl p-8 lg:p-12">
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Tablet Mockup */}
+                  <div className="col-span-2 bg-white rounded-xl p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-4">
+                      <ChefHat className="w-5 h-5 text-[#0054FF]" />
+                      <span className="font-semibold text-[#1D1F22]">Cozinha</span>
+                    </div>
+                    <div className="space-y-2">
+                      {[1, 2, 3].map((item) => (
+                        <div key={item} className="flex items-center justify-between p-3 bg-[#F5F7FA] rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-[#18C37D]" />
+                            <span className="text-sm text-[#1D1F22]">Mesa {item}</span>
+                          </div>
+                          <span className="text-xs text-gray-500">2 itens</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* QR Code */}
+                  <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+                    <QrCode className="w-12 h-12 text-[#0054FF] mx-auto mb-2" />
+                    <p className="text-xs text-gray-500">Mesa 5</p>
+                  </div>
+                  
+                  {/* Stats */}
+                  <div className="bg-white rounded-xl p-4 shadow-sm">
+                    <TrendingUp className="w-6 h-6 text-[#18C37D] mb-2" />
+                    <p className="text-2xl font-bold text-[#1D1F22]">+32%</p>
+                    <p className="text-xs text-gray-500">Este mês</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section id="testimonials" className="py-16 lg:py-24 bg-[#F5F7FA]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12 lg:mb-16">
+            <h2 className="text-3xl lg:text-4xl font-bold text-[#1D1F22] mb-4" data-testid="text-testimonials-title">
+              O que dizem os nossos clientes
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Em 3 passos simples, transforme a experiência do seu restaurante
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto" data-testid="text-testimonials-subtitle">
+              Histórias reais de restaurantes que transformaram as suas operações
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {/* Step 1 */}
-            <div className="relative">
-              <Card className="h-full overflow-hidden hover-elevate" data-testid="step-card-1">
-                <CardContent className="p-0">
-                  <div className="aspect-[4/3] bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center relative overflow-hidden">
-                    <div className="absolute top-4 left-4 w-10 h-10 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-lg">
-                      1
-                    </div>
-                    <Smartphone className="w-20 h-20 text-primary/80" />
+          <div className="grid md:grid-cols-3 gap-6">
+            {testimonials.map((testimonial, index) => (
+              <Card 
+                key={index}
+                className="bg-white border-0 shadow-sm"
+                data-testid={`testimonial-card-${index}`}
+              >
+                <CardContent className="p-6">
+                  {/* Stars */}
+                  <div className="flex gap-1 mb-4" data-testid={`testimonial-rating-${index}`}>
+                    {[...Array(testimonial.rating)].map((_, i) => (
+                      <Star key={i} className="w-4 h-4 fill-[#0054FF] text-[#0054FF]" />
+                    ))}
                   </div>
-                  <div className="p-6">
-                    <h3 className="text-xl font-semibold text-foreground mb-2">
-                      Cliente Escaneia o QR Code
-                    </h3>
-                    <p className="text-muted-foreground">
-                      O cliente chega à mesa, escaneia o QR Code com o telemóvel e acede ao cardápio digital. Escolhe os pratos, personaliza e envia o pedido. Tudo sem precisar de um app.
-                    </p>
+                  
+                  {/* Quote */}
+                  <p className="text-gray-600 mb-6 leading-relaxed" data-testid={`testimonial-quote-${index}`}>
+                    "{testimonial.quote}"
+                  </p>
+                  
+                  {/* Author */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#0054FF]/10 flex items-center justify-center">
+                      <span className="text-sm font-semibold text-[#0054FF]">
+                        {testimonial.avatar}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-[#1D1F22]" data-testid={`testimonial-name-${index}`}>{testimonial.name}</p>
+                      <p className="text-sm text-gray-500" data-testid={`testimonial-role-${index}`}>{testimonial.role}, {testimonial.company}</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-              <div className="hidden lg:block absolute top-1/2 -right-4 transform translate-x-1/2">
-                <ChevronRight className="w-8 h-8 text-muted-foreground/50" />
-              </div>
-            </div>
-
-            {/* Step 2 */}
-            <div className="relative">
-              <Card className="h-full overflow-hidden hover-elevate" data-testid="step-card-2">
-                <CardContent className="p-0">
-                  <div 
-                    className="aspect-[4/3] bg-card relative overflow-hidden cursor-pointer group"
-                    onClick={() => setSelectedImage({ 
-                      src: kitchenImage, 
-                      alt: "Painel da cozinha do Na Bancada" 
-                    })}
-                    data-testid="image-kitchen-demo"
-                  >
-                    <div className="absolute top-4 left-4 w-10 h-10 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-lg z-10">
-                      2
-                    </div>
-                    <img 
-                      src={kitchenImage} 
-                      alt="Painel da cozinha"
-                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-primary/90 text-primary-foreground px-4 py-2 rounded-md text-sm font-medium">
-                        Ver em tamanho maior
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-6">
-                    <h3 className="text-xl font-semibold text-foreground mb-2">
-                      Cozinha Recebe em Tempo Real
-                    </h3>
-                    <p className="text-muted-foreground">
-                      O pedido aparece instantaneamente no painel da cozinha com alerta sonoro. A equipa prepara e actualiza o status. O cliente acompanha tudo pelo telemóvel.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-              <div className="hidden lg:block absolute top-1/2 -right-4 transform translate-x-1/2">
-                <ChevronRight className="w-8 h-8 text-muted-foreground/50" />
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div className="relative">
-              <Card className="h-full overflow-hidden hover-elevate" data-testid="step-card-3">
-                <CardContent className="p-0">
-                  <div 
-                    className="aspect-[4/3] bg-card relative overflow-hidden cursor-pointer group"
-                    onClick={() => setSelectedImage({ 
-                      src: dashboardImage, 
-                      alt: "Dashboard do Na Bancada" 
-                    })}
-                    data-testid="image-dashboard-demo"
-                  >
-                    <div className="absolute top-4 left-4 w-10 h-10 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-lg z-10">
-                      3
-                    </div>
-                    <img 
-                      src={dashboardImage} 
-                      alt="Dashboard de gestão"
-                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-primary/90 text-primary-foreground px-4 py-2 rounded-md text-sm font-medium">
-                        Ver em tamanho maior
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-6">
-                    <h3 className="text-xl font-semibold text-foreground mb-2">
-                      Gerencie e Analise
-                    </h3>
-                    <p className="text-muted-foreground">
-                      Acompanhe vendas, pratos mais pedidos e desempenho em tempo real. Tome decisões inteligentes baseadas em dados. Fecho de caixa simplificado.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* CTA after How it works */}
-          <div className="text-center mt-12">
-            <Button
-              size="lg"
-              onClick={() => setLocation("/login")}
-              data-testid="button-cta-how-it-works"
-              className="gap-2"
-            >
-              Experimentar Agora
-              <ArrowRight className="w-5 h-5" />
-            </Button>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="relative py-16 sm:py-24">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 sm:mb-16">
-            <Badge variant="secondary" className="mb-4">Planos e Preços</Badge>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
-              Escolha o Plano Ideal para o{" "}
-              <span className="text-primary">Seu Negócio</span>
+      <section id="pricing" className="py-16 lg:py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12 lg:mb-16">
+            <h2 className="text-3xl lg:text-4xl font-bold text-[#1D1F22] mb-4" data-testid="text-pricing-title">
+              Planos e Preços
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6">
-              Todos os planos incluem teste grátis. Cancele a qualquer momento.
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-6" data-testid="text-pricing-subtitle">
+              Escolha o plano ideal para o seu negócio. Todos incluem período de teste grátis.
             </p>
             
             {/* Currency Toggle */}
-            <div className="inline-flex items-center gap-3 p-1 bg-muted rounded-lg">
-              <Button
-                variant={currency === 'AOA' ? 'default' : 'ghost'}
-                size="sm"
+            <div className="inline-flex items-center gap-2 p-1 bg-[#F5F7FA] rounded-lg">
+              <button
                 onClick={() => setCurrency('AOA')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  currency === 'AOA' 
+                    ? 'bg-white text-[#1D1F22] shadow-sm' 
+                    : 'text-gray-500 hover:text-[#1D1F22]'
+                }`}
                 data-testid="button-currency-aoa"
-                className="gap-2"
               >
-                <Banknote className="w-4 h-4" />
-                Kwanza (Kz)
-              </Button>
-              <Button
-                variant={currency === 'USD' ? 'default' : 'ghost'}
-                size="sm"
+                Kwanzas (AOA)
+              </button>
+              <button
                 onClick={() => setCurrency('USD')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  currency === 'USD' 
+                    ? 'bg-white text-[#1D1F22] shadow-sm' 
+                    : 'text-gray-500 hover:text-[#1D1F22]'
+                }`}
                 data-testid="button-currency-usd"
-                className="gap-2"
               >
-                <Globe className="w-4 h-4" />
-                Dólar ($)
-              </Button>
+                Dólares (USD)
+              </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
-            {subscriptionPlans.map((plan) => (
+          <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+            {pricingPlans.map((plan) => (
               <Card 
-                key={plan.id} 
-                className={`relative overflow-hidden hover-elevate ${
-                  plan.popular ? 'border-primary shadow-lg ring-2 ring-primary/20' : ''
+                key={plan.id}
+                className={`relative border-2 transition-all ${
+                  plan.popular 
+                    ? 'border-[#0054FF] shadow-lg scale-105' 
+                    : 'border-gray-100 shadow-sm hover:border-gray-200'
                 }`}
                 data-testid={`pricing-card-${plan.id}`}
               >
                 {plan.popular && (
-                  <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-bl-lg">
-                    Mais Popular
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="bg-[#0054FF] text-white text-xs font-semibold px-3 py-1 rounded-full" data-testid="badge-popular">
+                      Mais Popular
+                    </span>
                   </div>
                 )}
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-xl">{plan.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">{plan.description}</p>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div>
+                
+                <CardContent className="p-6 lg:p-8">
+                  <div className="mb-6">
+                    <h3 className="text-xl font-bold text-[#1D1F22] mb-2" data-testid={`pricing-name-${plan.id}`}>{plan.name}</h3>
+                    <p className="text-gray-500 text-sm" data-testid={`pricing-description-${plan.id}`}>{plan.description}</p>
+                  </div>
+                  
+                  <div className="mb-6">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-bold text-foreground">
-                        {formatPrice(plan.priceKz, plan.priceUsd)}
+                      <span className="text-4xl font-bold text-[#1D1F22]" data-testid={`pricing-price-${plan.id}`}>
+                        {formatPrice(plan.price, plan.priceUsd)}
                       </span>
-                      <span className="text-muted-foreground">/{plan.interval}</span>
+                      <span className="text-gray-500">/{plan.interval}</span>
                     </div>
-                    <p className="text-sm text-primary mt-1">
-                      {plan.trial} dias grátis
-                    </p>
                   </div>
-
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium text-foreground">Limites:</p>
-                    {plan.features.map((feature) => (
-                      <div key={feature.name} className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">{feature.name}</span>
-                        <span className="font-medium text-foreground">{feature.value}</span>
-                      </div>
+                  
+                  <ul className="space-y-3 mb-8">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-center gap-3">
+                        <Check className="w-5 h-5 text-[#18C37D] flex-shrink-0" />
+                        <span className="text-sm text-gray-600">{feature}</span>
+                      </li>
                     ))}
-                  </div>
-
-                  <div className="border-t border-border pt-4 space-y-2">
-                    {plan.highlights.map((highlight) => (
-                      <div key={highlight} className="flex items-center gap-2 text-sm">
-                        <Check className="w-4 h-4 text-primary flex-shrink-0" />
-                        <span className="text-muted-foreground">{highlight}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <Button 
-                    className="w-full" 
-                    variant={plan.popular ? 'default' : 'outline'}
-                    onClick={() => plan.id === 'custom' ? scrollToSection('contact') : setLocation("/login")}
-                    data-testid={`button-plan-${plan.id}`}
+                  </ul>
+                  
+                  <Button
+                    onClick={() => setLocation("/login")}
+                    className={`w-full font-semibold ${
+                      plan.popular 
+                        ? 'bg-[#0054FF] hover:bg-[#0048DD] text-white' 
+                        : 'bg-[#F5F7FA] hover:bg-gray-200 text-[#1D1F22]'
+                    }`}
+                    data-testid={`button-pricing-${plan.id}`}
                   >
                     {plan.cta}
                   </Button>
@@ -921,367 +693,144 @@ export default function Landing() {
               </Card>
             ))}
           </div>
-
-          {/* Comparison Note */}
-          <div className="text-center mt-8">
-            <p className="text-sm text-muted-foreground">
-              Precisa de ajuda para escolher? {" "}
-              <button 
-                className="text-primary hover:underline cursor-pointer" 
-                onClick={() => scrollToSection('contact')}
-              >
-                Fale connosco
-              </button>
-            </p>
-          </div>
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      <section className="relative py-16 sm:py-24 bg-muted/30">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 sm:mb-16">
-            <Badge variant="secondary" className="mb-4">Depoimentos</Badge>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
-              O Que Dizem{" "}
-              <span className="text-primary">Nossos Clientes</span>
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Histórias reais de restaurantes que transformaram suas operações
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto">
-            {testimonials.map((testimonial, index) => (
-              <Card key={index} className="h-full hover-elevate" data-testid={`testimonial-card-${index}`}>
-                <CardContent className="p-6 flex flex-col h-full">
-                  <Quote className="w-10 h-10 text-primary/20 mb-4" />
-                  
-                  <div className="flex gap-1 mb-4">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-primary text-primary" />
-                    ))}
-                  </div>
-
-                  <p className="text-muted-foreground leading-relaxed flex-1 mb-6">
-                    "{testimonial.quote}"
-                  </p>
-
-                  {/* Metric Badge */}
-                  <div className="inline-flex items-center gap-2 bg-primary/10 rounded-lg px-3 py-2 mb-6 self-start">
-                    <span className="text-2xl font-bold text-primary">{testimonial.metric.value}</span>
-                    <span className="text-sm text-muted-foreground">{testimonial.metric.label}</span>
-                  </div>
-
-                  <div className="flex items-center gap-3 pt-4 border-t border-border">
-                    <Avatar className="h-12 w-12">
-                      <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                        {testimonial.avatar}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-semibold text-foreground">{testimonial.name}</p>
-                      <p className="text-sm text-muted-foreground">{testimonial.role}</p>
-                      <p className="text-xs text-muted-foreground">{testimonial.company} - {testimonial.location}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section id="faq" className="relative py-16 sm:py-24">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 sm:mb-16">
-            <Badge variant="secondary" className="mb-4">Dúvidas Frequentes</Badge>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
-              Perguntas{" "}
-              <span className="text-primary">Frequentes</span>
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Tire suas dúvidas sobre o Na Bancada
-            </p>
-          </div>
-
-          <div className="max-w-3xl mx-auto">
-            <Accordion type="single" collapsible className="space-y-4">
-              {faqItems.map((item, index) => (
-                <AccordionItem 
-                  key={index} 
-                  value={`item-${index}`}
-                  className="border border-border rounded-lg px-6 bg-card/50 data-[state=open]:bg-card"
-                  data-testid={`faq-item-${index}`}
-                >
-                  <AccordionTrigger className="text-left hover:no-underline py-4">
-                    <span className="font-medium text-foreground pr-4">{item.question}</span>
-                  </AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground pb-4">
-                    {item.answer}
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </div>
-
-          {/* Additional help */}
-          <div className="text-center mt-12">
-            <p className="text-muted-foreground mb-4">
-              Não encontrou o que procurava?
-            </p>
-            <Button variant="outline" onClick={() => scrollToSection('contact')} className="gap-2">
-              <MessageCircle className="w-4 h-4" />
-              Fale Connosco
+      {/* CTA Section */}
+      <section className="py-16 lg:py-24 bg-[#0054FF]">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl lg:text-4xl font-bold text-white mb-4" data-testid="text-cta-title">
+            Pronto para modernizar o seu restaurante?
+          </h2>
+          <p className="text-lg text-white/80 mb-8" data-testid="text-cta-subtitle">
+            Comece hoje mesmo com 14 dias de teste grátis. Sem compromisso.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              size="lg"
+              onClick={() => setLocation("/login")}
+              className="bg-white hover:bg-gray-100 text-[#0054FF] font-semibold text-lg"
+              data-testid="button-cta-bottom"
+            >
+              Começar Agora
+              <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </div>
         </div>
       </section>
 
-      {/* Final CTA Section */}
-      <section className="relative py-16 sm:py-24 bg-primary/5">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-6">
-              Pronto para Transformar o{" "}
-              <span className="text-primary">Seu Restaurante?</span>
-            </h2>
-            <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Junte-se a mais de 120 restaurantes em Angola que já modernizaram suas operações com o Na Bancada. Comece seu teste grátis hoje.
-            </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <Button
-                size="lg"
-                onClick={() => setLocation("/login")}
-                data-testid="button-final-cta"
-                className="text-lg px-8 py-6 font-semibold shadow-lg gap-2"
-              >
-                Começar Teste Grátis
-                <ArrowRight className="w-5 h-5" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => scrollToSection('contact')}
-                data-testid="button-final-contact"
-                className="text-lg px-8 py-6 font-semibold gap-2"
-              >
-                <Phone className="w-5 h-5" />
-                Falar com Vendas
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Contact Section */}
-      <section id="contact" className="relative py-16 sm:py-24">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12 sm:mb-16">
-            <Badge variant="secondary" className="mb-4">Contacto</Badge>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
-              Entre em{" "}
-              <span className="text-primary">Contacto</span>
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Estamos prontos para ajudar. Escolha o canal de sua preferência.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {/* WhatsApp */}
-            <Card className="text-center hover-elevate" data-testid="contact-whatsapp">
-              <CardContent className="p-6">
-                <div className="w-16 h-16 rounded-full bg-success/10 dark:bg-success/20 flex items-center justify-center mx-auto mb-4">
-                  <MessageCircle className="w-8 h-8 text-success" />
-                </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">WhatsApp</h3>
-                <p className="text-muted-foreground mb-4">Resposta rápida</p>
-                <Button 
-                  variant="outline" 
-                  className="w-full gap-2"
-                  onClick={() => window.open('https://wa.me/244923456789', '_blank')}
-                  data-testid="button-contact-whatsapp"
-                >
-                  +244 923 456 789
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Telefone */}
-            <Card className="text-center hover-elevate" data-testid="contact-phone">
-              <CardContent className="p-6">
-                <div className="w-16 h-16 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center mx-auto mb-4">
-                  <Phone className="w-8 h-8 text-primary" />
-                </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">Telefone</h3>
-                <p className="text-muted-foreground mb-4">Seg-Sáb: 8h-20h</p>
-                <Button 
-                  variant="outline" 
-                  className="w-full gap-2"
-                  onClick={() => window.open('tel:+244923456789', '_blank')}
-                  data-testid="button-contact-phone"
-                >
-                  +244 923 456 789
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Email */}
-            <Card className="text-center hover-elevate" data-testid="contact-email">
-              <CardContent className="p-6">
-                <div className="w-16 h-16 rounded-full bg-info/10 dark:bg-info/20 flex items-center justify-center mx-auto mb-4">
-                  <Mail className="w-8 h-8 text-info" />
-                </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">Email</h3>
-                <p className="text-muted-foreground mb-4">Resposta em 24h</p>
-                <Button 
-                  variant="outline" 
-                  className="w-full gap-2"
-                  onClick={() => window.open('mailto:contacto@nabancada.ao', '_blank')}
-                  data-testid="button-contact-email"
-                >
-                  contacto@nabancada.ao
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
       {/* Footer */}
-      <footer className="bg-muted/50 border-t border-border/50">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-            {/* Brand */}
+      <footer id="contact" className="bg-[#1D1F22] py-12 lg:py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-4 gap-8 mb-12">
+            {/* Logo & Description */}
             <div className="md:col-span-2">
-              <div className="flex items-center gap-3 mb-4">
-                <Avatar className="h-12 w-12 ring-2 ring-primary/20" data-testid="avatar-footer">
-                  <AvatarFallback className="bg-primary text-primary-foreground font-bold text-lg">NB</AvatarFallback>
-                </Avatar>
-                <div>
-                  <h3 className="text-lg font-bold text-foreground">Na Bancada</h3>
-                  <p className="text-sm text-muted-foreground">Gestão de Restaurantes</p>
+              <div className="flex items-center gap-3 mb-4" data-testid="logo-footer">
+                <div className="w-10 h-10 rounded-lg bg-[#0054FF] flex items-center justify-center">
+                  <Utensils className="w-5 h-5 text-white" />
                 </div>
+                <span className="text-xl font-bold text-white">Na Bancada</span>
               </div>
-              <p className="text-muted-foreground mb-4 max-w-md">
-                Solução completa de gestão para restaurantes angolanos. QR codes, cozinha em tempo real, PDV e muito mais.
+              <p className="text-gray-400 mb-6 max-w-md" data-testid="text-footer-description">
+                O sistema de gestão de restaurantes mais completo de Angola. 
+                Modernize as suas operações e aumente as suas vendas.
               </p>
-              <div className="flex gap-3">
-                <Button variant="outline" size="icon" data-testid="social-facebook">
-                  <Facebook className="w-4 h-4" />
-                </Button>
-                <Button variant="outline" size="icon" data-testid="social-instagram">
-                  <Instagram className="w-4 h-4" />
-                </Button>
-                <Button variant="outline" size="icon" data-testid="social-whatsapp">
-                  <MessageCircle className="w-4 h-4" />
-                </Button>
+              <div className="flex gap-4">
+                <a 
+                  href="tel:+244923456789" 
+                  className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+                  data-testid="link-phone"
+                >
+                  <Phone className="w-5 h-5 text-white" />
+                </a>
+                <a 
+                  href="mailto:info@nabancada.ao" 
+                  className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+                  data-testid="link-email"
+                >
+                  <Mail className="w-5 h-5 text-white" />
+                </a>
               </div>
             </div>
-
-            {/* Quick Links */}
+            
+            {/* Links */}
             <div>
-              <h4 className="font-semibold text-foreground mb-4">Links Rápidos</h4>
-              <ul className="space-y-2">
+              <h4 className="text-white font-semibold mb-4">Produto</h4>
+              <ul className="space-y-3">
                 <li>
-                  <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => scrollToSection('features')}>
-                    Recursos
+                  <button 
+                    onClick={() => scrollToSection('features')} 
+                    className="text-gray-400 hover:text-white transition-colors"
+                    data-testid="footer-link-features"
+                  >
+                    Funcionalidades
                   </button>
                 </li>
                 <li>
-                  <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => scrollToSection('pricing')}>
-                    Planos
+                  <button 
+                    onClick={() => scrollToSection('pricing')} 
+                    className="text-gray-400 hover:text-white transition-colors"
+                    data-testid="footer-link-pricing"
+                  >
+                    Preços
                   </button>
                 </li>
                 <li>
-                  <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => scrollToSection('faq')}>
-                    FAQ
-                  </button>
-                </li>
-                <li>
-                  <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => scrollToSection('contact')}>
-                    Contacto
+                  <button 
+                    onClick={() => scrollToSection('testimonials')} 
+                    className="text-gray-400 hover:text-white transition-colors"
+                    data-testid="footer-link-testimonials"
+                  >
+                    Testemunhos
                   </button>
                 </li>
               </ul>
             </div>
-
-            {/* Contact Info */}
+            
+            {/* Contact */}
             <div>
-              <h4 className="font-semibold text-foreground mb-4">Contacto</h4>
+              <h4 className="text-white font-semibold mb-4">Contacto</h4>
               <ul className="space-y-3">
-                <li className="flex items-center gap-2 text-muted-foreground">
-                  <Phone className="w-4 h-4 text-primary" />
-                  +244 923 456 789
+                <li className="flex items-center gap-2 text-gray-400" data-testid="contact-phone">
+                  <Phone className="w-4 h-4" />
+                  <span>+244 923 456 789</span>
                 </li>
-                <li className="flex items-center gap-2 text-muted-foreground">
-                  <Mail className="w-4 h-4 text-primary" />
-                  contacto@nabancada.ao
+                <li className="flex items-center gap-2 text-gray-400" data-testid="contact-email">
+                  <Mail className="w-4 h-4" />
+                  <span>info@nabancada.ao</span>
                 </li>
-                <li className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="w-4 h-4 text-primary" />
-                  Luanda, Angola
+                <li className="flex items-center gap-2 text-gray-400" data-testid="contact-location">
+                  <MapPin className="w-4 h-4" />
+                  <span>Luanda, Angola</span>
                 </li>
               </ul>
             </div>
           </div>
-
-          {/* Copyright */}
-          <div className="border-t border-border/50 pt-8">
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-              <p className="text-sm text-muted-foreground">
-                © {new Date().getFullYear()} Na Bancada. Todos os direitos reservados.
-              </p>
-              <div className="flex gap-4 text-sm">
-                <button className="text-muted-foreground hover:text-foreground transition-colors">
-                  Termos de Serviço
-                </button>
-                <button className="text-muted-foreground hover:text-foreground transition-colors">
-                  Política de Privacidade
-                </button>
-              </div>
+          
+          {/* Bottom Bar */}
+          <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-gray-400 text-sm" data-testid="text-copyright">
+              &copy; {new Date().getFullYear()} Na Bancada. Todos os direitos reservados.
+            </p>
+            <div className="flex gap-6">
+              <a 
+                href="#" 
+                className="text-gray-400 hover:text-white text-sm transition-colors"
+                data-testid="link-terms"
+              >
+                Termos de Uso
+              </a>
+              <a 
+                href="#" 
+                className="text-gray-400 hover:text-white text-sm transition-colors"
+                data-testid="link-privacy"
+              >
+                Política de Privacidade
+              </a>
             </div>
           </div>
         </div>
       </footer>
-
-      {/* Mobile Sticky CTA */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border/50 sm:hidden z-40">
-        <Button 
-          className="w-full gap-2 py-6" 
-          onClick={() => setLocation("/login")}
-          data-testid="button-mobile-sticky-cta"
-        >
-          Começar Teste Grátis
-          <ArrowRight className="w-5 h-5" />
-        </Button>
-      </div>
-
-      {/* Image Lightbox */}
-      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-background">
-          {selectedImage && (
-            <div className="relative">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-2 right-2 z-10 bg-background/80 hover:bg-background"
-                onClick={() => setSelectedImage(null)}
-                data-testid="button-close-lightbox"
-              >
-                <X className="w-5 h-5" />
-              </Button>
-              <img 
-                src={selectedImage.src} 
-                alt={selectedImage.alt}
-                className="w-full h-auto"
-              />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
