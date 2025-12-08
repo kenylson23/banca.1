@@ -1213,6 +1213,56 @@ export async function ensureTablesExist() {
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
       
+      // ===== NOTIFICATIONS TABLES =====
+      
+      // Create notification_type enum
+      await db.execute(sql`DO $$ BEGIN 
+        CREATE TYPE notification_type AS ENUM ('new_order', 'order_status', 'order_cancelled', 'low_stock', 'new_customer', 'payment_received', 'subscription_alert', 'system'); 
+      EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Create notification_channel enum
+      await db.execute(sql`DO $$ BEGIN 
+        CREATE TYPE notification_channel AS ENUM ('in_app', 'whatsapp', 'email', 'push'); 
+      EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Create notifications table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS notifications (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
+        user_id VARCHAR REFERENCES users(id) ON DELETE CASCADE,
+        type notification_type NOT NULL,
+        title VARCHAR(200) NOT NULL,
+        message TEXT NOT NULL,
+        data JSONB,
+        is_read INTEGER NOT NULL DEFAULT 0,
+        read_at TIMESTAMP,
+        channel notification_channel NOT NULL DEFAULT 'in_app',
+        sent_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
+      // Create indexes for notifications
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_notifications_restaurant ON notifications (restaurant_id);`);
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications (user_id);`);
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications (restaurant_id, is_read);`);
+      
+      // Create notification_preferences table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS notification_preferences (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        user_id VARCHAR REFERENCES users(id) ON DELETE CASCADE,
+        in_app_enabled INTEGER NOT NULL DEFAULT 1,
+        whatsapp_enabled INTEGER NOT NULL DEFAULT 0,
+        email_enabled INTEGER NOT NULL DEFAULT 0,
+        new_order_enabled INTEGER NOT NULL DEFAULT 1,
+        order_status_enabled INTEGER NOT NULL DEFAULT 1,
+        low_stock_enabled INTEGER NOT NULL DEFAULT 1,
+        payment_enabled INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );`);
+      
       // Create initial super admin user if it doesn't exist
       const superAdminEmail = 'superadmin@nabancada.com';
       const checkSuperAdmin = await db.execute(sql`SELECT id FROM users WHERE email = ${superAdminEmail} AND role = 'superadmin'`);

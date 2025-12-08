@@ -1984,12 +1984,14 @@ export class DatabaseStorage implements IStorage {
     const previousStatus = orderData.orders.status;
     
     // Require userId when marking order as served (for stock deduction and audit trail)
+    // Note: Stock deduction only happens if branchId is available
     if (status === 'servido' && previousStatus !== 'servido') {
       if (!userId) {
         throw new Error('User ID is required when marking order as served');
       }
+      // Branch ID is optional - if not present, skip stock deduction
       if (!orderData.orders.branchId) {
-        throw new Error('Branch ID is required for stock deduction');
+        console.log('[STOCK] Order has no branchId, skipping stock deduction');
       }
     }
     
