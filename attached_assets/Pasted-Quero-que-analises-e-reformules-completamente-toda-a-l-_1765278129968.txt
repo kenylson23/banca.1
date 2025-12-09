@@ -1,0 +1,203 @@
+Quero que analises e reformules completamente toda a lógica e o fluxo da gestão de mesas no meu sistema, garantindo que funcione de forma profissional, eficiente e alinhada com os padrões de um restaurante real.
+O sistema deve funcionar tanto a partir do PDV quanto pelo fluxo do cliente que escaneia o QR Code.
+
+Aqui estão os problemas atuais que precisas resolver e as funcionalidades que devem ser implementadas:
+
+
+---
+
+✅ 1. Estado e Ocupação da Mesa
+
+Ao escanear o QR Code, o cliente deve ter a capacidade de ocupar automaticamente a mesa.
+
+A mesa deve mudar de estado:
+
+Livre
+
+Ocupada
+
+Aguardando conta
+
+Encerrada
+
+
+Registrar horário de ocupação, tempo de permanência e status atual.
+
+
+
+---
+
+✅ 2. Gestão de Pedidos da Mesa
+
+Ao clicar numa mesa no PDV, deve mostrar:
+
+Todos os pedidos associados à mesa.
+
+Pedidos por cliente (se houver mais de um).
+
+Opções de adicionar itens, remover itens, e editar quantidades.
+
+
+O garçom deve conseguir abrir o checkout da mesma forma que no PDV, mas vinculado à mesa.
+
+
+
+---
+
+✅ 3. Vários Clientes na Mesma Mesa
+
+Implementar a lógica para:
+
+Criar subcontas ou clientes individuais dentro da mesma mesa.
+
+Cada pessoa pode fazer pedidos separados, mas todos pertencem à mesa.
+
+O garçom deve conseguir:
+
+Ver os pedidos por cliente
+
+Somar tudo numa conta única
+
+Ou dividir a conta por cliente/por item
+
+
+
+
+---
+
+✅ 4. Divisão da Conta (Split Bill)
+
+Implementar a lógica para três tipos de divisão:
+
+1. Dividir igualmente
+
+
+2. Cada cliente paga os seus itens
+
+
+3. Divisão personalizada (o atendente define quem paga o quê)
+
+
+
+
+---
+
+✅ 5. Pedido de Conta pelo Cliente
+
+No app do cliente (via QR Code), deve existir a opção:
+
+“Pedir a conta”
+
+
+Quando acionado:
+
+A mesa muda para estado “Aguardando conta”
+
+Notifica o PDV
+
+
+
+
+---
+
+✅ 6. Impressão da Conta da Mesa
+
+O PDV deve permitir imprimir:
+
+Conta total
+
+Conta por cliente
+
+Conta com divisão personalizada
+
+Com dados: itens, quantidades, valores, taxas, total final
+
+
+Garantir formatação padrão de restaurante.
+
+
+---
+
+✅ 7. Checkout dedicado à mesa
+
+Criar uma página de checkout igual à do PDV, mas com regras específicas:
+
+Checkout ligado à mesa
+
+Permitir escolher se a conta será:
+
+Paga por um cliente
+
+Dividida
+
+Paga totalmente
+
+
+Opção de marcar como “Pago”
+
+Opção de encerrar mesa
+
+
+
+---
+
+✅ 8. Encerramento da Mesa
+
+Após o pagamento:
+
+Limpar pedidos temporários
+
+Estado da mesa → Livre
+
+Registrar histórico de vendas da mesa
+
+Registrar no caixa os valores recebidos
+
+
+
+---
+
+✅ 9. Fluxos que o agente deve corrigir e otimizar
+
+Pede para o agente analisar profundamente:
+
+Lógica de estado das mesas
+
+Associação entre mesa > cliente > pedido > conta
+
+Sincronização PDV ↔ QR Code
+
+Lógica de impressão
+
+Relacionamento no banco de dados
+
+Fluxo de checkout dedicado da mesa
+
+Problemas de sincronização entre frontend/back-end
+
+Problemas de atualização de estados (ocupada, livre, etc.)
+
+
+
+---
+
+🎯 Objetivo Final
+
+Quero que a gestão de mesas funcione como um sistema profissional de restaurante, com:
+
+Ocupação automática via QR
+
+Fluxo completo de pedidos por mesa
+
+Capacidade de adicionar múltiplos clientes
+
+Divisão de contas
+
+Impressão
+
+Checkout dedicado
+
+Encerramento de mesa com registro financeiro
+
+
+Analisa, reestrutura e implementa tudo de forma robusta, escalável e sem falhas.
