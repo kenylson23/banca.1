@@ -1646,6 +1646,180 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===== PUBLIC TABLE GUEST ROUTES (QR Code Flow) =====
+  
+  // Customer joins table via QR code (creates guest entry)
+  app.post("/api/public/tables/:number/join", async (req, res) => {
+    try {
+      const tableNumber = parseInt(req.params.number);
+      if (isNaN(tableNumber)) {
+        return res.status(400).json({ message: "Número de mesa inválido" });
+      }
+      
+      const table = await storage.getTableByNumber(tableNumber);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+      
+      // If table doesn't have an active session, create one
+      let sessionId: string = table.currentSessionId || '';
+      if (!sessionId) {
+        const session = await storage.startTableSession(table.restaurantId, table.id, {
+          customerName: req.body.name || 'Cliente',
+          customerCount: 1,
+        });
+        sessionId = session.id;
+      }
+      
+      const { name, deviceInfo } = req.body;
+      
+      // Generate unique token for this guest
+      const token = nanoid(32);
+      
+      // Create guest entry
+      const guest = await storage.createTableGuest(table.restaurantId, {
+        sessionId,
+        tableId: table.id,
+        name: name || undefined,
+        token,
+        deviceInfo: deviceInfo || req.headers['user-agent'],
+      });
+      
+      // Broadcast to PDV/admin
+      broadcastToClients({ 
+        type: 'guest_joined', 
+        data: { 
+          tableId: table.id, 
+          tableNumber: table.number,
+          guest,
+          restaurantId: table.restaurantId,
+        } 
+      });
+      
+      res.json({ 
+        guest, 
+        token,
+        table: {
+          id: table.id,
+          number: table.number,
+          restaurantId: table.restaurantId,
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Erro ao entrar na mesa" });
+    }
+  });
+
+  // Get guest info by token
+  app.get("/api/public/guest/:token", async (req, res) => {
+    try {
+      const guest = await storage.getTableGuestByToken(req.params.token);
+      if (!guest) {
+        return res.status(404).json({ message: "Sessão expirada ou inválida" });
+      }
+      
+      const table = await storage.getTableById(guest.tableId);
+      
+      res.json({ 
+        guest,
+        table: table ? {
+          id: table.id,
+          number: table.number,
+          restaurantId: table.restaurantId,
+        } : null,
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar informações" });
+    }
+  });
+
+  // Customer requests the bill (pedir conta)
+  app.post("/api/public/tables/:number/request-bill", async (req, res) => {
+    try {
+      const tableNumber = parseInt(req.params.number);
+      if (isNaN(tableNumber)) {
+        return res.status(400).json({ message: "Número de mesa inválido" });
+      }
+      
+      const table = await storage.getTableByNumber(tableNumber);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+      
+      if (!table.currentSessionId) {
+        return res.status(400).json({ message: "Mesa não possui sessão ativa" });
+      }
+      
+      const { guestToken, guestName } = req.body;
+      
+      // If guest token provided, update that specific guest status
+      if (guestToken) {
+        const guest = await storage.getTableGuestByToken(guestToken);
+        if (guest && guest.tableId === table.id) {
+          await storage.updateTableGuest(guest.id, { status: 'aguardando_conta' });
+        }
+      }
+      
+      // Broadcast bill request to PDV/admin
+      broadcastToClients({ 
+        type: 'bill_requested', 
+        data: { 
+          tableId: table.id,
+          tableNumber: table.number,
+          sessionId: table.currentSessionId,
+          restaurantId: table.restaurantId,
+          guestName: guestName || 'Cliente',
+          requestedAt: new Date().toISOString(),
+        } 
+      });
+      
+      res.json({ 
+        success: true, 
+        message: "Conta solicitada! Um atendente virá em breve.",
+        tableNumber: table.number,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Erro ao solicitar conta" });
+    }
+  });
+
+  // Get table status with guests info (for customer view)
+  app.get("/api/public/tables/:number/status", async (req, res) => {
+    try {
+      const tableNumber = parseInt(req.params.number);
+      if (isNaN(tableNumber)) {
+        return res.status(400).json({ message: "Número de mesa inválido" });
+      }
+      
+      const table = await storage.getTableByNumber(tableNumber);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+      
+      let guests: any[] = [];
+      let totalAmount = '0';
+      
+      if (table.currentSessionId) {
+        guests = await storage.getTableGuests(table.currentSessionId);
+        totalAmount = table.totalAmount || '0';
+      }
+      
+      res.json({
+        table: {
+          id: table.id,
+          number: table.number,
+          status: table.status,
+          restaurantId: table.restaurantId,
+        },
+        guests,
+        totalAmount,
+        hasActiveSession: !!table.currentSessionId,
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar status da mesa" });
+    }
+  });
+
   app.get("/api/public/restaurants/:slug/orders/search", async (req, res) => {
     try {
       const slug = req.params.slug;
@@ -2550,6 +2724,249 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(payments);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch table payments" });
+    }
+  });
+
+  // ===== TABLE GUESTS ROUTES (Admin) =====
+  
+  // Get guests for a table session
+  app.get("/api/tables/:id/guests", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const table = await storage.getTableById(req.params.id);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+      
+      if (!table.currentSessionId) {
+        return res.json([]);
+      }
+      
+      const guests = await storage.getTableGuests(table.currentSessionId);
+      res.json(guests);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar clientes da mesa" });
+    }
+  });
+
+  // Add guest to table session
+  app.post("/api/tables/:id/guests", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const table = await storage.getTableById(req.params.id);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+      
+      if (!table.currentSessionId) {
+        return res.status(400).json({ message: "Mesa não possui sessão ativa" });
+      }
+      
+      const { name, seatNumber } = req.body;
+      
+      const guest = await storage.createTableGuest(restaurantId, {
+        sessionId: table.currentSessionId,
+        tableId: table.id,
+        name,
+        seatNumber,
+      });
+      
+      broadcastToClients({ type: 'guest_joined', data: { tableId: table.id, guest } });
+      
+      res.json(guest);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Erro ao adicionar cliente" });
+    }
+  });
+
+  // Update guest
+  app.patch("/api/tables/:id/guests/:guestId", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const guest = await storage.getTableGuestById(req.params.guestId);
+      if (!guest) {
+        return res.status(404).json({ message: "Cliente não encontrado" });
+      }
+      
+      const { name, seatNumber, status } = req.body;
+      const updatedGuest = await storage.updateTableGuest(req.params.guestId, { name, seatNumber, status });
+      
+      broadcastToClients({ type: 'guest_updated', data: { tableId: req.params.id, guest: updatedGuest } });
+      
+      res.json(updatedGuest);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Erro ao atualizar cliente" });
+    }
+  });
+
+  // Remove guest from table
+  app.delete("/api/tables/:id/guests/:guestId", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      await storage.removeTableGuest(req.params.guestId);
+      
+      broadcastToClients({ type: 'guest_left', data: { tableId: req.params.id, guestId: req.params.guestId } });
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao remover cliente" });
+    }
+  });
+
+  // Get orders by guest for a table
+  app.get("/api/tables/:id/orders-by-guest", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const table = await storage.getTableById(req.params.id);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+      
+      // Get all orders for this table
+      const orders = await storage.getOrdersByTableId(table.restaurantId, table.id);
+      
+      // Get guests for current session
+      const guests = table.currentSessionId 
+        ? await storage.getTableGuests(table.currentSessionId)
+        : [];
+      
+      // Group orders by guestId
+      const ordersByGuest = guests.map(guest => ({
+        guest,
+        orders: orders.filter((order: any) => order.guestId === guest.id),
+        subtotal: orders
+          .filter((order: any) => order.guestId === guest.id && order.status !== 'cancelado')
+          .reduce((sum: number, order: any) => sum + parseFloat(order.totalAmount), 0)
+          .toFixed(2),
+      }));
+      
+      // Orders without guest (anonymous)
+      const anonymousOrders = orders.filter((order: any) => !order.guestId);
+      
+      res.json({
+        ordersByGuest,
+        anonymousOrders,
+        totalAmount: orders
+          .filter((o: any) => o.status !== 'cancelado')
+          .reduce((sum: number, o: any) => sum + parseFloat(o.totalAmount), 0)
+          .toFixed(2),
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar pedidos por cliente" });
+    }
+  });
+
+  // ===== BILL SPLIT ROUTES =====
+  
+  // Get bill splits for a table session
+  app.get("/api/tables/:id/bill-splits", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const table = await storage.getTableById(req.params.id);
+      if (!table || !table.currentSessionId) {
+        return res.json([]);
+      }
+      
+      const splits = await storage.getBillSplits(table.currentSessionId);
+      res.json(splits);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar divisões de conta" });
+    }
+  });
+
+  // Create bill split
+  app.post("/api/tables/:id/bill-splits", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const table = await storage.getTableById(req.params.id);
+      if (!table || !table.currentSessionId) {
+        return res.status(400).json({ message: "Mesa sem sessão ativa" });
+      }
+      
+      const { splitType, totalAmount, splitCount, allocations } = req.body;
+      
+      const split = await storage.createBillSplit(restaurantId, {
+        sessionId: table.currentSessionId,
+        tableId: table.id,
+        splitType,
+        totalAmount,
+        splitCount: splitCount || 1,
+        allocations,
+        createdBy: currentUser.id,
+      });
+      
+      broadcastToClients({ type: 'bill_split_created', data: { tableId: table.id, split } });
+      
+      res.json(split);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Erro ao criar divisão de conta" });
+    }
+  });
+
+  // Update bill split
+  app.patch("/api/tables/:id/bill-splits/:splitId", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const { allocations, isFinalized } = req.body;
+      const updatedSplit = await storage.updateBillSplit(req.params.splitId, { allocations, isFinalized });
+      
+      broadcastToClients({ type: 'bill_split_updated', data: { tableId: req.params.id, split: updatedSplit } });
+      
+      res.json(updatedSplit);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Erro ao atualizar divisão" });
+    }
+  });
+
+  // Finalize bill split
+  app.post("/api/tables/:id/bill-splits/:splitId/finalize", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const finalizedSplit = await storage.finalizeBillSplit(req.params.splitId);
+      
+      broadcastToClients({ type: 'bill_split_finalized', data: { tableId: req.params.id, split: finalizedSplit } });
+      
+      res.json(finalizedSplit);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Erro ao finalizar divisão" });
     }
   });
 
