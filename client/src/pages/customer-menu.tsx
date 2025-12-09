@@ -108,7 +108,24 @@ export default function CustomerMenu() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'info' | 'review'>('cart');
+  const [billRequested, setBillRequested] = useState(() => {
+    if (typeof window !== 'undefined' && tableNumber) {
+      return localStorage.getItem(`bill_requested_${tableNumber}`) === 'true';
+    }
+    return false;
+  });
   const { toast } = useToast();
+
+  // Persist billRequested to localStorage
+  useEffect(() => {
+    if (tableNumber) {
+      if (billRequested) {
+        localStorage.setItem(`bill_requested_${tableNumber}`, 'true');
+      } else {
+        localStorage.removeItem(`bill_requested_${tableNumber}`);
+      }
+    }
+  }, [billRequested, tableNumber]);
   
   // Branding state para cores dinâmicas do restaurante
   const [branding, setBranding] = useState<{
@@ -154,6 +171,29 @@ export default function CustomerMenu() {
     enabled: Boolean(tableId),
   });
 
+  const { data: tableStatus } = useQuery<{
+    table: { id: string; number: number; status: string };
+    guests: Array<{ id: string; name: string; status: string }>;
+    hasActiveSession: boolean;
+  }>({
+    queryKey: ['/api/public/tables', tableNumber, 'status'],
+    enabled: !!tableNumber,
+  });
+
+  // Sync bill request state with server (only when guests explicitly have 'aguardando_conta' status)
+  useEffect(() => {
+    if (tableStatus) {
+      if (!tableStatus.hasActiveSession) {
+        setBillRequested(false);
+      } else if (tableStatus.guests && tableStatus.guests.length > 0) {
+        const hasBillRequest = tableStatus.guests.some(g => g.status === 'aguardando_conta');
+        if (hasBillRequest) {
+          setBillRequested(true);
+        }
+      }
+    }
+  }, [tableStatus]);
+
   // Atualizar branding quando restaurante carregar
   useEffect(() => {
     if (restaurant) {
@@ -177,6 +217,11 @@ export default function CustomerMenu() {
       
       if (message.type === 'order_status_updated' || message.type === 'new_order') {
         queryClient.invalidateQueries({ queryKey: [`/api/public/orders/table/${tableId}`] });
+      }
+      
+      if (message.type === 'bill_requested' && message.data?.tableNumber === parseInt(tableNumber || '0')) {
+        setBillRequested(true);
+        queryClient.invalidateQueries({ queryKey: ['/api/public/tables', tableNumber, 'status'] });
       }
     };
 
@@ -490,6 +535,30 @@ export default function CustomerMenu() {
     },
   });
 
+  const requestBillMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', `/api/public/tables/${tableNumber}/request-bill`, {
+        guestName: customerName || undefined,
+        guestPhone: customerPhone || undefined,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      setBillRequested(true);
+      toast({
+        title: 'Conta solicitada!',
+        description: 'Um garçom virá até você em breve.',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível solicitar a conta.',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const getOrderStatusInfo = (status: string) => {
     switch (status) {
       case 'pendente':
@@ -782,6 +851,37 @@ export default function CustomerMenu() {
                       </div>
                     )}
                   </ScrollArea>
+                  
+                  {tableOrders && tableOrders.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      {billRequested ? (
+                        <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-green-50 text-green-700">
+                          <CheckCircle className="h-5 w-5" />
+                          <span className="font-medium">Conta solicitada! Um garçom virá em breve.</span>
+                        </div>
+                      ) : (
+                        <Button
+                          onClick={() => requestBillMutation.mutate()}
+                          disabled={requestBillMutation.isPending}
+                          className="w-full text-white font-semibold"
+                          style={{ backgroundColor: branding.primaryColor }}
+                          data-testid="button-request-bill"
+                        >
+                          {requestBillMutation.isPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Solicitando...
+                            </>
+                          ) : (
+                            <>
+                              <FileText className="h-4 w-4 mr-2" />
+                              Pedir Conta
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </DialogContent>
               </Dialog>
               
