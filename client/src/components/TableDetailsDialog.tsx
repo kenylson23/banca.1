@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Users, Clock, Trash2 } from 'lucide-react';
+import { Users, Clock, Trash2, Split } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -27,6 +27,7 @@ import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { FinancialDashboard } from '@/components/FinancialDashboard';
+import { BillSplitPanel } from '@/components/BillSplitPanel';
 import type { Table } from '@shared/schema';
 
 interface TableDetailsDialogProps {
@@ -156,8 +157,9 @@ export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: Tabl
           </DialogHeader>
 
           <Tabs defaultValue="overview" className="flex-1 overflow-hidden flex flex-col">
-            <TabsList className={`grid w-full ${isSuperadmin ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            <TabsList className={`grid w-full ${isSuperadmin ? 'grid-cols-1' : 'grid-cols-3'}`}>
               <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+              {!isSuperadmin && <TabsTrigger value="split" data-testid="tab-bill-split">Divisão</TabsTrigger>}
               {!isSuperadmin && <TabsTrigger value="financial">Financeiro</TabsTrigger>}
             </TabsList>
 
@@ -284,6 +286,16 @@ export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: Tabl
                       </CardContent>
                     </Card>
                   </>
+                )}
+              </TabsContent>
+
+              <TabsContent value="split" className="space-y-4 m-0">
+                {table.status !== 'livre' && (
+                  <BillSplitPanel 
+                    tableId={table.id} 
+                    sessionId={table.currentSessionId || undefined}
+                    totalAmount={totalAmount}
+                  />
                 )}
               </TabsContent>
 

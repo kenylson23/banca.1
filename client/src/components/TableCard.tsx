@@ -1,16 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Users, DollarSign, Clock, QrCode as QrCodeIcon } from 'lucide-react';
+import { Users, DollarSign, Clock, QrCode as QrCodeIcon, AlertCircle, UserCheck } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { Table } from '@shared/schema';
 
 interface TableCardProps {
-  table: Table & { orders?: any[] };
+  table: Table & { orders?: any[]; guestsAwaitingBill?: number; guestCount?: number };
   onClick: () => void;
-  onShowQrCode: (table: Table & { orders?: any[] }) => void;
+  onShowQrCode: (table: Table & { orders?: any[]; guestsAwaitingBill?: number; guestCount?: number }) => void;
 }
 
 const getStatusConfig = (status: string) => {
@@ -89,15 +89,23 @@ export function TableCard({ table, onClick, onShowQrCode }: TableCardProps) {
         </Button>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-1">
           <Badge className={statusConfig.badgeColor} data-testid={`status-${table.id}`}>
             {statusConfig.label}
           </Badge>
-          {orderCount > 0 && (
-            <Badge variant="outline" className="text-xs">
-              {orderCount} {orderCount === 1 ? 'pedido' : 'pedidos'}
-            </Badge>
-          )}
+          <div className="flex items-center gap-1">
+            {table.guestsAwaitingBill && table.guestsAwaitingBill > 0 && (
+              <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200" data-testid={`awaiting-bill-${table.id}`}>
+                <AlertCircle className="h-3 w-3 mr-1" />
+                {table.guestsAwaitingBill} {table.guestsAwaitingBill === 1 ? 'pediu' : 'pediram'} conta
+              </Badge>
+            )}
+            {orderCount > 0 && (
+              <Badge variant="outline" className="text-xs">
+                {orderCount} {orderCount === 1 ? 'pedido' : 'pedidos'}
+              </Badge>
+            )}
+          </div>
         </div>
 
         {table.status !== 'livre' && (
@@ -112,6 +120,15 @@ export function TableCard({ table, onClick, onShowQrCode }: TableCardProps) {
                       ({table.customerCount}{table.capacity ? `/${table.capacity}` : ''})
                     </span>
                   )}
+                </div>
+              )}
+
+              {table.guestCount && table.guestCount > 0 && (
+                <div className="flex items-center gap-2">
+                  <UserCheck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span className="text-muted-foreground">
+                    {table.guestCount} {table.guestCount === 1 ? 'cliente' : 'clientes'} na mesa
+                  </span>
                 </div>
               )}
 

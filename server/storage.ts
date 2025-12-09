@@ -1398,8 +1398,29 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async getTablesWithOrders(restaurantId: string, branchId?: string | null): Promise<Array<Table & { orders: any[] }>> {
+  async getTablesWithOrders(restaurantId: string, branchId?: string | null): Promise<Array<Table & { orders: any[]; guestsAwaitingBill?: number; guestCount?: number }>> {
     const allTables = await this.getTables(restaurantId, branchId);
+    
+    const sessionIds = allTables
+      .filter(t => t.currentSessionId)
+      .map(t => t.currentSessionId as string);
+    
+    let guestsByTable: Map<string, { count: number; awaitingBill: number }> = new Map();
+    
+    if (sessionIds.length > 0) {
+      const allGuests = await db.select()
+        .from(tableGuests)
+        .where(inArray(tableGuests.sessionId, sessionIds));
+      
+      for (const guest of allGuests) {
+        const tableData = guestsByTable.get(guest.tableId) || { count: 0, awaitingBill: 0 };
+        tableData.count++;
+        if (guest.status === 'aguardando_conta') {
+          tableData.awaitingBill++;
+        }
+        guestsByTable.set(guest.tableId, tableData);
+      }
+    }
     
     const tablesWithOrders = await Promise.all(
       allTables.map(async (table) => {
@@ -1440,9 +1461,13 @@ export class DatabaseStorage implements IStorage {
           return acc;
         }, []);
 
+        const guestData = guestsByTable.get(table.id) || { count: 0, awaitingBill: 0 };
+
         return {
           ...table,
           orders: groupedOrders,
+          guestsAwaitingBill: guestData.awaitingBill,
+          guestCount: guestData.count,
         };
       })
     );

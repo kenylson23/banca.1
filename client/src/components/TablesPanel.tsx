@@ -68,7 +68,7 @@ export function TablesPanel() {
     setStatusFilter(filterMap[item.name] || 'all');
   };
 
-  const { data: tables, isLoading } = useQuery<Array<Table & { orders?: any[] }>>({
+  const { data: tables, isLoading } = useQuery<Array<Table & { orders?: any[]; guestsAwaitingBill?: number; guestCount?: number }>>({
     queryKey: ["/api/tables/with-orders"],
   });
 
@@ -81,7 +81,9 @@ export function TablesPanel() {
       message.type === 'table_session_ended' ||
       message.type === 'table_payment_added' ||
       message.type === 'new_order' ||
-      message.type === 'order_status_updated'
+      message.type === 'order_status_updated' ||
+      message.type === 'guest_requested_bill' ||
+      message.type === 'guest_status_updated'
     ) {
       queryClient.invalidateQueries({ queryKey: ["/api/tables/with-orders"] });
     }
