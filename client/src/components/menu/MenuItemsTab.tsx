@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Settings2, Filter, Upload, X, Download, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Settings2, Filter, Upload, X, Download, Loader2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -28,6 +28,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -471,37 +476,70 @@ export function MenuItemsTab() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {filteredMenuItems.map((item) => (
             <Card key={item.id} data-testid={`card-menu-item-${item.id}`} className="overflow-hidden flex flex-col">
-              {item.imageUrl && (
-                <div className="h-20 w-full overflow-hidden bg-muted">
-                  <img
-                    src={item.imageUrl}
-                    alt={item.name}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              )}
-              <CardHeader className="pb-1 pt-2 px-3 space-y-0">
-                <CardTitle className="text-sm line-clamp-1">{item.name}</CardTitle>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  <Badge variant="secondary" className="text-[10px] px-1 py-0">
-                    {item.category.name}
-                  </Badge>
-                  {item.isAvailable === 0 && (
-                    <Badge variant="destructive" className="text-[10px] px-1 py-0">
-                      Indisponível
-                    </Badge>
+              <HoverCard openDelay={300} closeDelay={100}>
+                <HoverCardTrigger asChild>
+                  <div className="cursor-pointer">
+                    {item.imageUrl && (
+                      <div className="h-20 w-full overflow-hidden bg-muted">
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    )}
+                    <CardHeader className="pb-1 pt-2 px-3 space-y-0">
+                      <CardTitle className="text-sm line-clamp-1">{item.name}</CardTitle>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                          {item.category.name}
+                        </Badge>
+                        {item.isAvailable === 0 && (
+                          <Badge variant="destructive" className="text-[10px] px-1 py-0">
+                            Indisponível
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <div className="px-3 pb-1">
+                      {item.description && (
+                        <p className="text-[10px] text-muted-foreground line-clamp-1">
+                          {item.description}
+                        </p>
+                      )}
+                      <p className="text-base font-bold font-mono">
+                        {formatKwanza(item.price)}
+                      </p>
+                    </div>
+                  </div>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-80" side="right" align="start">
+                  {item.imageUrl && (
+                    <img 
+                      src={item.imageUrl} 
+                      alt={item.name} 
+                      className="w-full h-40 object-cover rounded-md mb-3" 
+                    />
                   )}
-                </div>
-              </CardHeader>
+                  <h4 className="font-semibold text-base">{item.name}</h4>
+                  <Badge variant="secondary" className="mt-1">{item.category.name}</Badge>
+                  {item.isAvailable === 0 && (
+                    <Badge variant="destructive" className="ml-2">Indisponível</Badge>
+                  )}
+                  {item.description && (
+                    <p className="text-sm text-muted-foreground mt-2">{item.description}</p>
+                  )}
+                  <div className="flex items-center justify-between mt-3 gap-2">
+                    <span className="text-lg font-bold font-mono">{formatKwanza(item.price)}</span>
+                    {item.preparationTime && (
+                      <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Clock className="w-4 h-4" /> {item.preparationTime} min
+                      </span>
+                    )}
+                  </div>
+                </HoverCardContent>
+              </HoverCard>
               <CardContent className="flex-1 flex flex-col gap-1 pt-0 pb-2 px-3">
-                {item.description && (
-                  <p className="text-[10px] text-muted-foreground line-clamp-1">
-                    {item.description}
-                  </p>
-                )}
-                <p className="text-base font-bold font-mono">
-                  {formatKwanza(item.price)}
-                </p>
                 <div className="mt-auto flex flex-col gap-1">
                   <div className="flex gap-1">
                     <Button

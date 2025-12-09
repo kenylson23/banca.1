@@ -33,8 +33,11 @@ import {
   X,
   Plus,
   Minus,
-  RefreshCw
+  RefreshCw,
+  Printer
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { formatKwanza } from '@/lib/formatters';
 import type { Table, Order, TableSession } from '@shared/schema';
 
 interface TableWithDetails extends Table {
@@ -155,6 +158,181 @@ export default function OpenTables() {
     if (selectedTable) {
       closeSessionMutation.mutate(selectedTable.id);
     }
+  };
+
+  const handlePrintBill = () => {
+    if (!selectedTable) return;
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast({ title: 'Erro', description: 'Não foi possível abrir a janela de impressão.', variant: 'destructive' });
+      return;
+    }
+
+    const tableOrders = allOrders.filter(o => o.tableId === selectedTable.id && o.status !== 'cancelado');
+    const totalAmount = parseFloat(selectedTable.totalAmount || '0');
+    const now = new Date();
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Conta - Mesa ${selectedTable.number}</title>
+        <style>
+          @media print {
+            @page {
+              size: 80mm auto;
+              margin: 5mm;
+            }
+            body {
+              margin: 0;
+              padding: 0;
+            }
+          }
+          body {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            max-width: 80mm;
+            margin: 0 auto;
+            padding: 10px;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 15px;
+            border-bottom: 2px dashed #000;
+            padding-bottom: 10px;
+          }
+          .restaurant-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+          }
+          .table-info {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 10px 0;
+          }
+          .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 3px 0;
+          }
+          .section {
+            margin: 15px 0;
+          }
+          .section-title {
+            font-weight: bold;
+            font-size: 13px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #000;
+            padding-bottom: 3px;
+          }
+          .item {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+          }
+          .item-name {
+            flex: 1;
+          }
+          .item-price {
+            text-align: right;
+            white-space: nowrap;
+            margin-left: 10px;
+          }
+          .total {
+            border-top: 2px solid #000;
+            margin-top: 10px;
+            padding-top: 8px;
+          }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 5px 0;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 2px dashed #000;
+            font-size: 11px;
+          }
+          .print-time {
+            margin-top: 8px;
+            font-size: 10px;
+            color: #666;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="restaurant-name">NaBancada</div>
+          <div class="table-info">MESA ${selectedTable.number}</div>
+        </div>
+
+        <div class="section">
+          <div class="info-row">
+            <span>Data:</span>
+            <span>${format(now, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+          </div>
+          ${selectedTable.customerName ? `
+          <div class="info-row">
+            <span>Cliente:</span>
+            <span>${selectedTable.customerName}</span>
+          </div>
+          ` : ''}
+          ${selectedTable.customerCount ? `
+          <div class="info-row">
+            <span>Pessoas:</span>
+            <span>${selectedTable.customerCount}</span>
+          </div>
+          ` : ''}
+        </div>
+
+        <div class="section">
+          <div class="section-title">RESUMO DO CONSUMO</div>
+          ${tableOrders.map(order => `
+            <div style="margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px dashed #ccc;">
+              <div class="info-row" style="font-size: 11px; color: #666;">
+                <span>Pedido ${order.id.substring(0, 6).toUpperCase()}</span>
+                <span>${formatKwanza(order.totalAmount)}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="total">
+          <div class="total-row">
+            <span>TOTAL:</span>
+            <span>${formatKwanza(totalAmount)}</span>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div>Obrigado pela preferência!</div>
+          <div class="print-time">
+            Impresso em ${format(now, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+          </div>
+        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+            setTimeout(function() {
+              window.close();
+            }, 100);
+          };
+        <\/script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
   };
 
   const totalPaymentAmount = payments.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0);
@@ -467,9 +645,17 @@ export default function OpenTables() {
             )}
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 flex-wrap">
             <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
               Cancelar
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={handlePrintBill}
+              data-testid="button-print-bill"
+            >
+              <Printer className="w-4 h-4 mr-1" />
+              Imprimir Conta
             </Button>
             <Button 
               onClick={handleRecordPayment}

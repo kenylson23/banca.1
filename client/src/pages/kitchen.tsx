@@ -1,20 +1,32 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, Filter, Volume2, VolumeX, BarChart3, TrendingUp, Package, DollarSign, Printer, UtensilsCrossed, Truck, ShoppingBag, Eye, ChefHat, Loader2, CheckCircle2, CircleCheck } from "lucide-react";
+import { Clock, Filter, Volume2, VolumeX, BarChart3, TrendingUp, Package, DollarSign, Printer, UtensilsCrossed, Truck, ShoppingBag, Eye, ChefHat, Loader2, CheckCircle2, CircleCheck, LayoutGrid, List } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatKwanza } from "@/lib/formatters";
 import { PrintOrder } from "@/components/PrintOrder";
 import type { Order, OrderItem, MenuItem, Table, OrderItemOption } from "@shared/schema";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { TubelightNavBar } from "@/components/ui/tubelight-navbar";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+} from "@dnd-kit/core";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 
 type OrderStatus = "pendente" | "em_preparo" | "pronto" | "servido" | "cancelado";
 type StatsPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
@@ -131,7 +143,17 @@ export default function Kitchen() {
   const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
   const [statsPeriod, setStatsPeriod] = useState<StatsPeriod>("daily");
   const [showStats, setShowStats] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const prevOrderCountRef = useRef<number>(0);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
 
   const { data: orders, isLoading } = useQuery<KitchenOrder[]>({
     queryKey: ["/api/orders/kitchen"],
@@ -319,6 +341,114 @@ export default function Kitchen() {
     }
   };
 
+  const kanbanStatuses: OrderStatus[] = ["pendente", "em_preparo", "pronto", "servido"];
+  
+  const getOrdersByStatus = (status: OrderStatus) => {
+    return orders?.filter(o => o.status === status) || [];
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveOrderId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveOrderId(null);
+    
+    if (!over) return;
+    
+    const orderId = active.id as string;
+    const newStatus = over.id as OrderStatus;
+    
+    const order = orders?.find(o => o.id === orderId);
+    if (!order || order.status === newStatus) return;
+    
+    await handleStatusChange(orderId, newStatus);
+  };
+
+  const activeOrder = orders?.find(o => o.id === activeOrderId);
+
+  const KanbanColumn = ({ status }: { status: OrderStatus }) => {
+    const { setNodeRef, isOver } = useDroppable({ id: status });
+    const columnOrders = getOrdersByStatus(status);
+    
+    return (
+      <div
+        ref={setNodeRef}
+        className={`flex flex-col min-w-[280px] max-w-[320px] rounded-lg border bg-muted/30 ${isOver ? 'ring-2 ring-primary' : ''}`}
+      >
+        <div className={`p-3 rounded-t-lg ${statusColors[status]}`}>
+          <div className="flex items-center justify-between">
+            <span className="font-semibold">{statusLabels[status]}</span>
+            <Badge variant="secondary" className="bg-background/20">{columnOrders.length}</Badge>
+          </div>
+        </div>
+        <ScrollArea className="flex-1 p-2" style={{ height: 'calc(100vh - 280px)' }}>
+          <div className="space-y-2">
+            {columnOrders.map(order => (
+              <KanbanCard key={order.id} order={order} />
+            ))}
+          </div>
+        </ScrollArea>
+      </div>
+    );
+  };
+
+  const KanbanCard = ({ order }: { order: KitchenOrder }) => {
+    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+      id: order.id,
+    });
+    
+    const style = transform ? {
+      transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    } : undefined;
+    
+    const isNew = newOrderIds.has(order.id);
+    
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...listeners}
+        {...attributes}
+        className={`bg-card border rounded-lg p-3 cursor-grab active:cursor-grabbing space-y-2 ${isDragging ? 'opacity-50' : ''} ${isNew ? 'ring-2 ring-primary animate-pulse' : ''}`}
+        data-testid={`kanban-card-${order.id}`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-semibold text-sm">
+            {order.orderType === 'mesa' && order.table ? `Mesa ${order.table.number}` : 
+             order.orderType === 'delivery' ? 'Delivery' : 'Balcão'}
+          </span>
+          <Badge variant="outline" className="text-[10px]">
+            {order.orderType === 'mesa' ? <UtensilsCrossed className="h-3 w-3" /> : 
+             order.orderType === 'delivery' ? <Truck className="h-3 w-3" /> : 
+             <ShoppingBag className="h-3 w-3" />}
+          </Badge>
+        </div>
+        <div className="text-xs text-muted-foreground flex items-center gap-1">
+          <Clock className="h-3 w-3" />
+          {formatOrderTime(order.createdAt)} ({getTimeElapsed(order.createdAt)})
+        </div>
+        <div className="space-y-1">
+          {order.orderItems.slice(0, 3).map(item => (
+            <div key={item.id} className="text-xs flex justify-between">
+              <span>{item.quantity}x {item.menuItem.name}</span>
+            </div>
+          ))}
+          {order.orderItems.length > 3 && (
+            <span className="text-xs text-muted-foreground">+{order.orderItems.length - 3} mais</span>
+          )}
+        </div>
+        <div className="flex items-center justify-between pt-2 border-t">
+          <span className="font-bold text-sm font-mono">{formatKwanza(order.totalAmount)}</span>
+          <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
+            <Link href={`/orders/${order.id}`}><Eye className="h-3 w-3 mr-1" />Ver</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen">
       <div className="space-y-4 p-4 sm:p-6">
@@ -337,6 +467,19 @@ export default function Kitchen() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant={viewMode === "kanban" ? "default" : "outline"}
+              size="icon"
+              onClick={() => setViewMode(viewMode === "list" ? "kanban" : "list")}
+              data-testid="button-toggle-view"
+              title={viewMode === "list" ? "Modo Kanban" : "Modo Lista"}
+            >
+              {viewMode === "list" ? (
+                <LayoutGrid className="h-5 w-5" />
+              ) : (
+                <List className="h-5 w-5" />
+              )}
+            </Button>
             <Button
               variant={showStats ? "default" : "outline"}
               onClick={() => setShowStats(!showStats)}
@@ -360,24 +503,51 @@ export default function Kitchen() {
           </div>
         </motion.div>
 
-      <div className="flex justify-center">
-        <TubelightNavBar
-          items={navItems}
-          activeItem={Object.keys(statusMapping).find(key => statusMapping[key] === selectedStatus)}
-          onItemClick={handleNavClick}
-          className="relative"
-        />
-      </div>
+      {viewMode === "kanban" ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="overflow-x-auto pb-4">
+            <div className="flex gap-4 min-w-max px-4 sm:px-6">
+              {kanbanStatuses.map(status => (
+                <KanbanColumn key={status} status={status} />
+              ))}
+            </div>
+          </div>
+          <DragOverlay>
+            {activeOrder && (
+              <div className="bg-card border rounded-lg p-3 shadow-lg opacity-90 w-[280px]">
+                <span className="font-semibold text-sm">
+                  {activeOrder.orderType === 'mesa' && activeOrder.table ? `Mesa ${activeOrder.table.number}` : 
+                   activeOrder.orderType === 'delivery' ? 'Delivery' : 'Balcão'}
+                </span>
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
+      ) : (
+        <>
+          <div className="flex justify-center">
+            <TubelightNavBar
+              items={navItems}
+              activeItem={Object.keys(statusMapping).find(key => statusMapping[key] === selectedStatus)}
+              onItemClick={handleNavClick}
+              className="relative"
+            />
+          </div>
 
-      <div className="px-4 sm:px-6">
-        {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-4">
-          {[...Array(6)].map((_, i) => (
-            <Skeleton key={i} className="h-64" />
-          ))}
-        </div>
-      ) : filteredOrders.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-4">
+          <div className="px-4 sm:px-6">
+            {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-4">
+              {[...Array(6)].map((_, i) => (
+                <Skeleton key={i} className="h-64" />
+              ))}
+            </div>
+          ) : filteredOrders.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-4">
           {filteredOrders.map((order) => {
             const isNew = newOrderIds.has(order.id);
             const nextStatus = getNextStatus(order.status);
@@ -550,7 +720,9 @@ export default function Kitchen() {
           </CardContent>
         </Card>
       )}
-      </div>
+          </div>
+        </>
+      )}
 
       {showStats && (
         <div className="space-y-6 mt-8 px-4 sm:px-6">

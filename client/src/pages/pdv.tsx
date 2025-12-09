@@ -1,9 +1,18 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, RefreshCw, Search, ShoppingBag, Truck, UtensilsCrossed, Map } from "lucide-react";
+import { Plus, RefreshCw, Search, ShoppingBag, Truck, UtensilsCrossed, Map, MapPin, Phone, Clock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { NewOrderDialog } from "@/components/new-order-dialog";
 import { OrderDetailsDialog } from "@/components/order-details-dialog";
 import type { Order, OrderItem, MenuItem, Table, Customer } from "@shared/schema";
@@ -13,6 +22,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { PDVKpiCard } from "@/components/pdv-kpi-card";
 import { PDVOrderCard } from "@/components/pdv-order-card";
 import { ShimmerSkeleton } from "@/components/shimmer-skeleton";
+import { formatKwanza } from "@/lib/formatters";
 import { motion, AnimatePresence } from "framer-motion";
 
 type OrderType = "balcao" | "delivery" | "mesas";
@@ -32,6 +42,7 @@ export default function PDV() {
   const [showSearch, setShowSearch] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<PDVOrder | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [deliveryMapOpen, setDeliveryMapOpen] = useState(false);
 
   const { data: orders = [], isLoading, refetch } = useQuery<PDVOrder[]>({
     queryKey: ["/api/orders"],
@@ -193,7 +204,38 @@ export default function PDV() {
   };
 
   const handleDeliveryMap = () => {
-    console.log('Mapa de entregas - Feature placeholder');
+    setDeliveryMapOpen(true);
+  };
+
+  const deliveryOrders = orders?.filter(o => 
+    o.orderType === "delivery" && 
+    (o.status === "pendente" || o.status === "em_preparo" || o.status === "pronto")
+  ) || [];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "pendente": return "bg-yellow-500 text-yellow-950";
+      case "em_preparo": return "bg-blue-500 text-white";
+      case "pronto": return "bg-green-500 text-white";
+      default: return "bg-muted text-muted-foreground";
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "pendente": return "Pendente";
+      case "em_preparo": return "Em Preparo";
+      case "pronto": return "Pronto p/ Entrega";
+      default: return status;
+    }
+  };
+
+  const getTimeElapsed = (createdAt: Date | null) => {
+    if (!createdAt) return "0min";
+    const minutes = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
+    if (minutes < 60) return `${minutes}min`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ${minutes % 60}min`;
   };
 
   return (
@@ -374,6 +416,111 @@ export default function PDV() {
           open={detailsDialogOpen}
           onOpenChange={setDetailsDialogOpen}
         />
+
+        <Dialog open={deliveryMapOpen} onOpenChange={setDeliveryMapOpen}>
+          <DialogContent className="sm:max-w-[600px] max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Map className="h-5 w-5" />
+                Mapa de Entregas
+              </DialogTitle>
+              <DialogDescription>
+                {deliveryOrders.length} entrega(s) pendente(s)
+              </DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="max-h-[60vh] pr-4">
+              {deliveryOrders.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Truck className="h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">Nenhuma entrega pendente</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {deliveryOrders.map((order) => (
+                    <motion.div
+                      key={order.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="border rounded-lg p-4 space-y-3"
+                      data-testid={`delivery-order-${order.id}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-sm font-medium">#{order.id.slice(-6)}</span>
+                            <Badge className={getStatusColor(order.status)}>
+                              {getStatusLabel(order.status)}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            <span>{getTimeElapsed(order.createdAt)}</span>
+                          </div>
+                        </div>
+                        <span className="font-bold font-mono text-lg">
+                          {formatKwanza(order.totalAmount)}
+                        </span>
+                      </div>
+
+                      {order.customerName && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span>{order.customerName}</span>
+                        </div>
+                      )}
+
+                      {order.customerPhone && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <a 
+                            href={`tel:${order.customerPhone}`} 
+                            className="text-primary hover:underline"
+                          >
+                            {order.customerPhone}
+                          </a>
+                        </div>
+                      )}
+
+                      {order.deliveryAddress && (
+                        <div className="flex items-start gap-2 text-sm bg-muted/50 p-2 rounded-md">
+                          <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                          <span className="break-words">{order.deliveryAddress}</span>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => {
+                            setDeliveryMapOpen(false);
+                            setSelectedOrder(order);
+                            setDetailsDialogOpen(true);
+                          }}
+                          data-testid={`button-view-delivery-${order.id}`}
+                        >
+                          Ver Detalhes
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => {
+                            setDeliveryMapOpen(false);
+                            setLocation(`/orders/${order.id}`);
+                          }}
+                          data-testid={`button-process-delivery-${order.id}`}
+                        >
+                          Processar
+                        </Button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
