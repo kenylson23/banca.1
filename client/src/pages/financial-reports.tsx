@@ -344,7 +344,7 @@ export default function FinancialReports() {
                 prefix="Kz "
                 decimals={2}
                 icon={isPositive ? TrendingUp : TrendingDown}
-                change={isPositive ? 12.5 : -8.3}
+                change={balanceChange}
                 changeLabel="vs período anterior"
                 sparklineData={sparklineBalance}
                 gradient={isPositive ? "from-success/10 to-transparent" : "from-destructive/10 to-transparent"}
@@ -358,7 +358,7 @@ export default function FinancialReports() {
                 prefix="Kz "
                 decimals={2}
                 icon={TrendingUp}
-                change={15.2}
+                change={revenueChange}
                 changeLabel="vs período anterior"
                 sparklineData={sparklineRevenue}
                 gradient="from-success/10 to-transparent"
@@ -372,7 +372,7 @@ export default function FinancialReports() {
                 prefix="Kz "
                 decimals={2}
                 icon={TrendingDown}
-                change={-5.8}
+                change={expensesChange}
                 changeLabel="vs período anterior"
                 sparklineData={sparklineExpenses}
                 gradient="from-destructive/10 to-transparent"
@@ -386,7 +386,7 @@ export default function FinancialReports() {
                 suffix="%"
                 decimals={1}
                 icon={Percent}
-                change={3.2}
+                change={marginChange}
                 changeLabel="vs período anterior"
                 sparklineData={sparklineMargin}
                 gradient="from-primary/10 to-transparent"
