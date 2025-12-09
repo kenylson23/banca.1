@@ -12,7 +12,7 @@ import { queryClient } from '@/lib/queryClient';
 import { motion } from 'framer-motion';
 import { AdvancedKpiCard } from '@/components/advanced-kpi-card';
 import { AdvancedSalesChart } from '@/components/advanced-sales-chart';
-import { AdvancedFilters } from '@/components/advanced-filters';
+import { AdvancedFilters, type FilterOption } from '@/components/advanced-filters';
 import { ActivityFeed } from '@/components/activity-feed';
 import { GoalsWidget } from '@/components/goals-widget';
 import { DateRange } from 'react-day-picker';
@@ -42,8 +42,6 @@ const statusLabels = {
 };
 
 const CHART_COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-
-type FilterOption = "today" | "week" | "month" | "year";
 
 export default function Sales() {
   const [quickFilter, setQuickFilter] = useState<FilterOption>("today");
@@ -79,6 +77,9 @@ export default function Sales() {
           break;
         case 'month':
           start = startOfMonth(now);
+          break;
+        case '3months':
+          start = startOfDay(subDays(now, 90));
           break;
         case 'year':
           start = startOfDay(subDays(now, 365));

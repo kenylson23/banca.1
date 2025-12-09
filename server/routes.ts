@@ -5764,6 +5764,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/financial/reports/comparison", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      if (!req.query.startDate || !req.query.endDate) {
+        return res.status(400).json({ message: "Data inicial e final são obrigatórias" });
+      }
+
+      const branchId = currentUser.activeBranchId || null;
+      const startDate = new Date(req.query.startDate as string);
+      const endDate = new Date(req.query.endDate as string);
+
+      const periodDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      
+      const previousEndDate = new Date(startDate);
+      previousEndDate.setDate(previousEndDate.getDate() - 1);
+      const previousStartDate = new Date(previousEndDate);
+      previousStartDate.setDate(previousStartDate.getDate() - periodDays + 1);
+
+      const [currentReport, previousReport] = await Promise.all([
+        storage.getFinancialReport(currentUser.restaurantId, branchId, startDate, endDate),
+        storage.getFinancialReport(currentUser.restaurantId, branchId, previousStartDate, previousEndDate)
+      ]);
+
+      const currentRevenue = parseFloat(currentReport.totalRevenue);
+      const previousRevenue = parseFloat(previousReport.totalRevenue);
+      const currentExpenses = parseFloat(currentReport.totalExpenses);
+      const previousExpenses = parseFloat(previousReport.totalExpenses);
+      const currentBalance = parseFloat(currentReport.netBalance);
+      const previousBalance = parseFloat(previousReport.netBalance);
+      const currentMargin = currentRevenue > 0 ? (currentBalance / currentRevenue) * 100 : 0;
+      const previousMargin = previousRevenue > 0 ? (previousBalance / previousRevenue) * 100 : 0;
+
+      const calculateChange = (current: number, previous: number) => {
+        if (previous === 0) return current > 0 ? 100 : 0;
+        return ((current - previous) / Math.abs(previous)) * 100;
+      };
+
+      res.json({
+        current: currentReport,
+        previous: previousReport,
+        changes: {
+          revenue: calculateChange(currentRevenue, previousRevenue),
+          expenses: calculateChange(currentExpenses, previousExpenses),
+          balance: calculateChange(currentBalance, previousBalance),
+          margin: currentMargin - previousMargin,
+        },
+        sparklines: {
+          revenue: currentReport.transactionsByDay.map(d => parseFloat(d.revenue)),
+          expenses: currentReport.transactionsByDay.map(d => parseFloat(d.expenses)),
+          balance: currentReport.transactionsByDay.map(d => parseFloat(d.revenue) - parseFloat(d.expenses)),
+        },
+        periodDays,
+        previousPeriod: {
+          startDate: previousStartDate.toISOString(),
+          endDate: previousEndDate.toISOString(),
+        }
+      });
+    } catch (error) {
+      console.error('Financial comparison report error:', error);
+      res.status(500).json({ message: "Erro ao buscar comparação financeira" });
+    }
+  });
+
   // ===== INVENTORY ROUTES =====
 
   // Inventory Categories
