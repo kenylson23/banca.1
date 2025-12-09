@@ -588,6 +588,135 @@ export const insertTablePaymentSchema = createInsertSchema(tablePayments).omit({
 export type InsertTablePayment = z.infer<typeof insertTablePaymentSchema>;
 export type TablePayment = typeof tablePayments.$inferSelect;
 
+// ===== TABLE GUESTS & BILL SPLITTING =====
+
+// Guest Status Enum - Status do cliente na mesa
+export const guestStatusEnum = pgEnum('guest_status', ['ativo', 'aguardando_conta', 'pago', 'saiu']);
+
+// Bill Split Type Enum - Tipos de divisão de conta
+export const billSplitTypeEnum = pgEnum('bill_split_type', ['igual', 'por_pessoa', 'personalizado']);
+
+// Table Guests - Clientes individuais em cada sessão de mesa
+export const tableGuests = pgTable("table_guests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => tableSessions.id, { onDelete: 'cascade' }),
+  tableId: varchar("table_id").notNull().references(() => tables.id, { onDelete: 'cascade' }),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  name: varchar("name", { length: 200 }),
+  seatNumber: integer("seat_number"),
+  status: guestStatusEnum("status").notNull().default('ativo'),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default('0'),
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default('0'),
+  token: varchar("token", { length: 100 }).unique(),
+  deviceInfo: text("device_info"),
+  joinedAt: timestamp("joined_at").defaultNow(),
+  leftAt: timestamp("left_at"),
+});
+
+export const insertTableGuestSchema = createInsertSchema(tableGuests).omit({
+  id: true,
+  restaurantId: true,
+  subtotal: true,
+  paidAmount: true,
+  status: true,
+  joinedAt: true,
+  leftAt: true,
+}).extend({
+  sessionId: z.string().min(1, "Sessão é obrigatória"),
+  tableId: z.string().min(1, "Mesa é obrigatória"),
+  name: z.string().optional(),
+  seatNumber: z.number().int().positive().optional(),
+});
+
+export const updateTableGuestSchema = z.object({
+  name: z.string().optional(),
+  seatNumber: z.number().int().positive().optional(),
+  status: z.enum(['ativo', 'aguardando_conta', 'pago', 'saiu']).optional(),
+});
+
+export type InsertTableGuest = z.infer<typeof insertTableGuestSchema>;
+export type UpdateTableGuest = z.infer<typeof updateTableGuestSchema>;
+export type TableGuest = typeof tableGuests.$inferSelect;
+
+// Table Bill Splits - Divisões de conta da mesa
+export const tableBillSplits = pgTable("table_bill_splits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => tableSessions.id, { onDelete: 'cascade' }),
+  tableId: varchar("table_id").notNull().references(() => tables.id, { onDelete: 'cascade' }),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  splitType: billSplitTypeEnum("split_type").notNull(),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  splitCount: integer("split_count").notNull().default(1),
+  allocations: jsonb("allocations"),
+  isFinalized: integer("is_finalized").notNull().default(0),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp("created_at").defaultNow(),
+  finalizedAt: timestamp("finalized_at"),
+});
+
+export const insertTableBillSplitSchema = createInsertSchema(tableBillSplits).omit({
+  id: true,
+  restaurantId: true,
+  isFinalized: true,
+  createdAt: true,
+  finalizedAt: true,
+}).extend({
+  sessionId: z.string().min(1, "Sessão é obrigatória"),
+  tableId: z.string().min(1, "Mesa é obrigatória"),
+  splitType: z.enum(['igual', 'por_pessoa', 'personalizado']),
+  totalAmount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
+  splitCount: z.number().int().positive().optional(),
+  allocations: z.array(z.object({
+    guestId: z.string().optional(),
+    guestName: z.string().optional(),
+    amount: z.string(),
+    items: z.array(z.string()).optional(),
+    isPaid: z.boolean().optional(),
+  })).optional(),
+});
+
+export const updateTableBillSplitSchema = z.object({
+  allocations: z.array(z.object({
+    guestId: z.string().optional(),
+    guestName: z.string().optional(),
+    amount: z.string(),
+    items: z.array(z.string()).optional(),
+    isPaid: z.boolean().optional(),
+  })).optional(),
+  isFinalized: z.number().min(0).max(1).optional(),
+});
+
+export type InsertTableBillSplit = z.infer<typeof insertTableBillSplitSchema>;
+export type UpdateTableBillSplit = z.infer<typeof updateTableBillSplitSchema>;
+export type TableBillSplit = typeof tableBillSplits.$inferSelect;
+
+// Guest Payments - Pagamentos por cliente individual
+export const guestPayments = pgTable("guest_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  guestId: varchar("guest_id").notNull().references(() => tableGuests.id, { onDelete: 'cascade' }),
+  sessionId: varchar("session_id").notNull().references(() => tableSessions.id, { onDelete: 'cascade' }),
+  tablePaymentId: varchar("table_payment_id").references(() => tablePayments.id, { onDelete: 'set null' }),
+  splitId: varchar("split_id").references(() => tableBillSplits.id, { onDelete: 'set null' }),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: varchar("payment_method", { length: 50 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertGuestPaymentSchema = createInsertSchema(guestPayments).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+}).extend({
+  guestId: z.string().min(1, "Cliente é obrigatório"),
+  sessionId: z.string().min(1, "Sessão é obrigatória"),
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
+  paymentMethod: z.string().min(1, "Método de pagamento é obrigatório"),
+});
+
+export type InsertGuestPayment = z.infer<typeof insertGuestPaymentSchema>;
+export type GuestPayment = typeof guestPayments.$inferSelect;
+
 // ===== ORDERS SECTION =====
 
 // Order Status Enum
@@ -896,6 +1025,7 @@ export const orders = pgTable("orders", {
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   tableId: varchar("table_id").references(() => tables.id, { onDelete: 'cascade' }),
   tableSessionId: varchar("table_session_id").references(() => tableSessions.id, { onDelete: 'set null' }),
+  guestId: varchar("guest_id").references(() => tableGuests.id, { onDelete: 'set null' }),
   branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
   customerId: varchar("customer_id").references(() => customers.id, { onDelete: 'set null' }),
   couponId: varchar("coupon_id").references(() => coupons.id, { onDelete: 'set null' }),
@@ -947,6 +1077,7 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   customerId: z.string().optional().nullable(),
   tableId: z.string().optional().nullable(),
   tableSessionId: z.string().optional().nullable(),
+  guestId: z.string().optional().nullable(),
   couponId: z.string().optional().nullable(),
   discount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Desconto inválido").optional(),
   discountType: z.enum(['valor', 'percentual']).optional(),
@@ -1061,6 +1192,7 @@ export const orderItems = pgTable("order_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
   menuItemId: varchar("menu_item_id").notNull().references(() => menuItems.id),
+  guestId: varchar("guest_id").references(() => tableGuests.id, { onDelete: 'set null' }),
   quantity: integer("quantity").notNull(),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   notes: text("notes"),

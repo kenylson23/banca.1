@@ -46,6 +46,9 @@ import {
   notificationPreferences,
   customerNotificationPreferences,
   userAuditLogs,
+  tableGuests,
+  tableBillSplits,
+  guestPayments,
   type User,
   type InsertUser,
   type Restaurant,
@@ -156,6 +159,14 @@ import {
   type UpdateCustomerNotificationPreferences,
   type UserAuditLog,
   type InsertUserAuditLog,
+  type TableGuest,
+  type InsertTableGuest,
+  type UpdateTableGuest,
+  type TableBillSplit,
+  type InsertTableBillSplit,
+  type UpdateTableBillSplit,
+  type GuestPayment,
+  type InsertGuestPayment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
@@ -782,6 +793,33 @@ export interface IStorage {
   // Customer Notification Preferences operations
   getCustomerNotificationPreferences(customerId: string): Promise<CustomerNotificationPreferences | undefined>;
   upsertCustomerNotificationPreferences(customerId: string, data: UpdateCustomerNotificationPreferences): Promise<CustomerNotificationPreferences>;
+  
+  // Table Guest operations
+  getTableGuests(sessionId: string): Promise<TableGuest[]>;
+  getTableGuestById(id: string): Promise<TableGuest | undefined>;
+  getTableGuestByToken(token: string): Promise<TableGuest | undefined>;
+  createTableGuest(restaurantId: string, data: InsertTableGuest): Promise<TableGuest>;
+  updateTableGuest(id: string, data: UpdateTableGuest): Promise<TableGuest>;
+  removeTableGuest(id: string): Promise<void>;
+  calculateGuestSubtotal(guestId: string): Promise<string>;
+  
+  // Bill Split operations
+  getBillSplits(sessionId: string): Promise<TableBillSplit[]>;
+  getBillSplitById(id: string): Promise<TableBillSplit | undefined>;
+  createBillSplit(restaurantId: string, data: InsertTableBillSplit): Promise<TableBillSplit>;
+  updateBillSplit(id: string, data: UpdateTableBillSplit): Promise<TableBillSplit>;
+  finalizeBillSplit(id: string): Promise<TableBillSplit>;
+  deleteBillSplit(id: string): Promise<void>;
+  
+  // Guest Payment operations
+  getGuestPayments(sessionId: string): Promise<GuestPayment[]>;
+  getGuestPaymentsByGuest(guestId: string): Promise<GuestPayment[]>;
+  createGuestPayment(restaurantId: string, data: InsertGuestPayment): Promise<GuestPayment>;
+  
+  // Order-Guest Link operations
+  linkOrderItemToGuest(orderItemId: string, guestId: string): Promise<void>;
+  unlinkOrderItemFromGuest(orderItemId: string): Promise<void>;
+  getGuestOrderItems(guestId: string): Promise<Array<OrderItem & { menuItem: MenuItem }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -882,7 +920,7 @@ export class DatabaseStorage implements IStorage {
 
   async generateMissingSlugs(): Promise<void> {
     const allRestaurants = await db.select().from(restaurants);
-    const restaurantsWithoutSlug = allRestaurants.filter(r => !r.slug);
+    const restaurantsWithoutSlug = allRestaurants.filter((r: Restaurant) => !r.slug);
     
     for (const restaurant of restaurantsWithoutSlug) {
       let slug = generateSlug(restaurant.name);
@@ -2989,7 +3027,21 @@ export class DatabaseStorage implements IStorage {
 
       // 4. DEVOLVER ESTOQUE (se foi deduzido - pedido estava servido)
       if (order.status === 'servido' && order.branchId && userId) {
-        await this.restoreStockForOrder(restaurantId, order.branchId, order, userId, tx);
+        // Fetch orderItems for stock restoration
+        const orderItemsWithMenu = await tx
+          .select()
+          .from(orderItems)
+          .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+          .where(eq(orderItems.orderId, orderId));
+
+        const orderWithItems = {
+          ...order,
+          orderItems: orderItemsWithMenu.map(item => ({
+            ...item.order_items,
+            menuItem: item.menu_items!,
+          })),
+        };
+        await this.restoreStockForOrder(restaurantId, order.branchId, orderWithItems, userId, tx);
       }
 
       // 5. MARCAR PEDIDO COMO CANCELADO
@@ -6814,26 +6866,43 @@ export class DatabaseStorage implements IStorage {
             continue;
           }
 
+          // Get current stock from branchStock
+          const [currentStock] = await tx
+            .select()
+            .from(branchStock)
+            .where(
+              and(
+                eq(branchStock.branchId, branchId),
+                eq(branchStock.inventoryItemId, ingredient.inventoryItemId)
+              )
+            );
+
+          const previousQty = currentStock ? parseFloat(currentStock.quantity) : 0;
+          const newQty = previousQty - quantityToDeduct;
+
           await tx.insert(stockMovements).values({
-            id: nanoid(),
             restaurantId,
             branchId,
             inventoryItemId: ingredient.inventoryItemId,
             movementType: 'saida',
             quantity: quantityToDeduct.toFixed(2),
+            previousQuantity: previousQty.toFixed(2),
+            newQuantity: newQty.toFixed(2),
             reason: `Venda - Pedido #${orderId.substring(0, 8)}`,
             referenceId: orderId,
-            performedBy: userId,
-            createdAt: new Date(),
+            recordedByUserId: userId,
           });
 
-          await tx
-            .update(inventoryItems)
-            .set({
-              currentStock: sql`${inventoryItems.currentStock} - ${quantityToDeduct}`,
-              updatedAt: new Date(),
-            })
-            .where(eq(inventoryItems.id, ingredient.inventoryItemId));
+          // Update branchStock instead of inventoryItems
+          if (currentStock) {
+            await tx
+              .update(branchStock)
+              .set({
+                quantity: newQty.toFixed(2),
+                updatedAt: new Date(),
+              })
+              .where(eq(branchStock.id, currentStock.id));
+          }
         }
       }
     } else {
@@ -6869,7 +6938,7 @@ export class DatabaseStorage implements IStorage {
   async restoreStockForOrder(
     restaurantId: string,
     branchId: string,
-    order: Order,
+    order: Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> },
     userId: string,
     tx: PgTransaction<any, any, any>
   ): Promise<void> {
@@ -6888,26 +6957,43 @@ export class DatabaseStorage implements IStorage {
           continue;
         }
 
+        // Get current stock from branchStock
+        const [currentStock] = await tx
+          .select()
+          .from(branchStock)
+          .where(
+            and(
+              eq(branchStock.branchId, branchId),
+              eq(branchStock.inventoryItemId, ingredient.inventoryItemId)
+            )
+          );
+
+        const previousQty = currentStock ? parseFloat(currentStock.quantity) : 0;
+        const newQty = previousQty + quantityToRestore;
+
         await tx.insert(stockMovements).values({
-          id: nanoid(),
           restaurantId,
           branchId,
           inventoryItemId: ingredient.inventoryItemId,
           movementType: 'entrada',
           quantity: quantityToRestore.toFixed(2),
+          previousQuantity: previousQty.toFixed(2),
+          newQuantity: newQty.toFixed(2),
           reason: `Devolução - Pedido #${order.id.substring(0, 8)} cancelado`,
           referenceId: order.id,
-          performedBy: userId,
-          createdAt: new Date(),
+          recordedByUserId: userId,
         });
 
-        await tx
-          .update(inventoryItems)
-          .set({
-            currentStock: sql`${inventoryItems.currentStock} + ${quantityToRestore}`,
-            updatedAt: new Date(),
-          })
-          .where(eq(inventoryItems.id, ingredient.inventoryItemId));
+        // Update branchStock instead of inventoryItems
+        if (currentStock) {
+          await tx
+            .update(branchStock)
+            .set({
+              quantity: newQty.toFixed(2),
+              updatedAt: new Date(),
+            })
+            .where(eq(branchStock.id, currentStock.id));
+        }
       }
     }
   }
@@ -7090,7 +7176,7 @@ export class DatabaseStorage implements IStorage {
     
     if (!customer) {
       // Create new customer with just phone number
-      [customer] = await db
+      const [newCustomer] = await db
         .insert(customers)
         .values({
           restaurantId,
@@ -7099,6 +7185,7 @@ export class DatabaseStorage implements IStorage {
           isActive: 1,
         })
         .returning();
+      return newCustomer;
     }
     
     return customer;
@@ -8108,29 +8195,31 @@ export class DatabaseStorage implements IStorage {
 
     const { plan, ...subscription } = subscriptionData;
 
+    type CountResult = { count: number }[];
+
     const branchesCount = await db
       .select({ count: sql<number>`count(*)` })
       .from(branches)
       .where(eq(branches.restaurantId, restaurantId))
-      .then(result => Number(result[0]?.count || 0));
+      .then((result: CountResult) => Number(result[0]?.count || 0));
 
     const tablesCount = await db
       .select({ count: sql<number>`count(*)` })
       .from(tables)
       .where(eq(tables.restaurantId, restaurantId))
-      .then(result => Number(result[0]?.count || 0));
+      .then((result: CountResult) => Number(result[0]?.count || 0));
 
     const menuItemsCount = await db
       .select({ count: sql<number>`count(*)` })
       .from(menuItems)
       .where(eq(menuItems.restaurantId, restaurantId))
-      .then(result => Number(result[0]?.count || 0));
+      .then((result: CountResult) => Number(result[0]?.count || 0));
 
     const usersCount = await db
       .select({ count: sql<number>`count(*)` })
       .from(users)
       .where(eq(users.restaurantId, restaurantId))
-      .then(result => Number(result[0]?.count || 0));
+      .then((result: CountResult) => Number(result[0]?.count || 0));
 
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
@@ -8146,13 +8235,13 @@ export class DatabaseStorage implements IStorage {
           ne(orders.status, 'cancelado')
         )
       )
-      .then(result => Number(result[0]?.count || 0));
+      .then((result: CountResult) => Number(result[0]?.count || 0));
 
     const customersCount = await db
       .select({ count: sql<number>`count(*)` })
       .from(customers)
       .where(eq(customers.restaurantId, restaurantId))
-      .then(result => Number(result[0]?.count || 0));
+      .then((result: CountResult) => Number(result[0]?.count || 0));
 
     const activeCouponsCount = await db
       .select({ count: sql<number>`count(*)` })
@@ -8163,13 +8252,13 @@ export class DatabaseStorage implements IStorage {
           eq(coupons.isActive, 1)
         )
       )
-      .then(result => Number(result[0]?.count || 0));
+      .then((result: CountResult) => Number(result[0]?.count || 0));
 
     const inventoryItemsCount = await db
       .select({ count: sql<number>`count(*)` })
       .from(inventoryItems)
       .where(eq(inventoryItems.restaurantId, restaurantId))
-      .then(result => Number(result[0]?.count || 0));
+      .then((result: CountResult) => Number(result[0]?.count || 0));
 
     const usage = {
       branches: branchesCount,
@@ -8240,31 +8329,33 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Subscrição não encontrada");
     }
 
-    const { subscription } = subscriptionData;
+    const { plan: _, ...subscription } = subscriptionData;
+
+    type CountResult = { count: number }[];
 
     const branchesCount = await db
       .select({ count: sql<number>`count(*)` })
       .from(branches)
       .where(eq(branches.restaurantId, restaurantId))
-      .then(result => Number(result[0]?.count || 0));
+      .then((result: CountResult) => Number(result[0]?.count || 0));
 
     const tablesCount = await db
       .select({ count: sql<number>`count(*)` })
       .from(tables)
       .where(eq(tables.restaurantId, restaurantId))
-      .then(result => Number(result[0]?.count || 0));
+      .then((result: CountResult) => Number(result[0]?.count || 0));
 
     const menuItemsCount = await db
       .select({ count: sql<number>`count(*)` })
       .from(menuItems)
       .where(eq(menuItems.restaurantId, restaurantId))
-      .then(result => Number(result[0]?.count || 0));
+      .then((result: CountResult) => Number(result[0]?.count || 0));
 
     const usersCount = await db
       .select({ count: sql<number>`count(*)` })
       .from(users)
       .where(eq(users.restaurantId, restaurantId))
-      .then(result => Number(result[0]?.count || 0));
+      .then((result: CountResult) => Number(result[0]?.count || 0));
 
     const ordersCount = await db
       .select({ count: sql<number>`count(*)` })
@@ -8276,7 +8367,7 @@ export class DatabaseStorage implements IStorage {
           ne(orders.status, 'cancelado')
         )
       )
-      .then(result => Number(result[0]?.count || 0));
+      .then((result: CountResult) => Number(result[0]?.count || 0));
 
     const [usage] = await db
       .insert(subscriptionUsage)
@@ -8317,9 +8408,15 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(restaurants, eq(subscriptions.restaurantId, restaurants.id))
       .orderBy(desc(subscriptions.createdAt));
 
+    type SubscriptionJoinResult = {
+      subscriptions: Subscription;
+      subscription_plans: SubscriptionPlan | null;
+      restaurants: Restaurant | null;
+    };
+
     return result
-      .filter(r => r.subscription_plans && r.restaurants)
-      .map(r => ({
+      .filter((r: SubscriptionJoinResult) => r.subscription_plans && r.restaurants)
+      .map((r: SubscriptionJoinResult) => ({
         ...r.subscriptions,
         plan: r.subscription_plans!,
         restaurant: r.restaurants!,
@@ -8590,6 +8687,222 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  // ===== TABLE GUEST OPERATIONS =====
+
+  async getTableGuests(sessionId: string): Promise<TableGuest[]> {
+    return await db
+      .select()
+      .from(tableGuests)
+      .where(eq(tableGuests.sessionId, sessionId))
+      .orderBy(tableGuests.seatNumber);
+  }
+
+  async getTableGuestById(id: string): Promise<TableGuest | undefined> {
+    const [guest] = await db
+      .select()
+      .from(tableGuests)
+      .where(eq(tableGuests.id, id));
+    return guest;
+  }
+
+  async getTableGuestByToken(token: string): Promise<TableGuest | undefined> {
+    const [guest] = await db
+      .select()
+      .from(tableGuests)
+      .where(eq(tableGuests.token, token));
+    return guest;
+  }
+
+  async createTableGuest(restaurantId: string, data: InsertTableGuest): Promise<TableGuest> {
+    const [guest] = await db
+      .insert(tableGuests)
+      .values({
+        ...data,
+        restaurantId,
+      })
+      .returning();
+    return guest;
+  }
+
+  async updateTableGuest(id: string, data: UpdateTableGuest): Promise<TableGuest> {
+    const updateData: Partial<TableGuest> = { ...data };
+    if (data.status === 'saiu') {
+      updateData.leftAt = new Date();
+    }
+    const [updated] = await db
+      .update(tableGuests)
+      .set(updateData)
+      .where(eq(tableGuests.id, id))
+      .returning();
+    return updated;
+  }
+
+  async removeTableGuest(id: string): Promise<void> {
+    await db
+      .delete(tableGuests)
+      .where(eq(tableGuests.id, id));
+  }
+
+  async calculateGuestSubtotal(guestId: string): Promise<string> {
+    const items = await this.getGuestOrderItems(guestId);
+    let subtotal = 0;
+    for (const item of items) {
+      const itemPrice = parseFloat(item.menuItem.price || '0');
+      subtotal += itemPrice * item.quantity;
+    }
+    await db
+      .update(tableGuests)
+      .set({ subtotal: subtotal.toFixed(2) })
+      .where(eq(tableGuests.id, guestId));
+    return subtotal.toFixed(2);
+  }
+
+  // ===== BILL SPLIT OPERATIONS =====
+
+  async getBillSplits(sessionId: string): Promise<TableBillSplit[]> {
+    return await db
+      .select()
+      .from(tableBillSplits)
+      .where(eq(tableBillSplits.sessionId, sessionId))
+      .orderBy(desc(tableBillSplits.createdAt));
+  }
+
+  async getBillSplitById(id: string): Promise<TableBillSplit | undefined> {
+    const [split] = await db
+      .select()
+      .from(tableBillSplits)
+      .where(eq(tableBillSplits.id, id));
+    return split;
+  }
+
+  async createBillSplit(restaurantId: string, data: InsertTableBillSplit): Promise<TableBillSplit> {
+    const [split] = await db
+      .insert(tableBillSplits)
+      .values({
+        ...data,
+        restaurantId,
+      })
+      .returning();
+    return split;
+  }
+
+  async updateBillSplit(id: string, data: UpdateTableBillSplit): Promise<TableBillSplit> {
+    const [updated] = await db
+      .update(tableBillSplits)
+      .set(data)
+      .where(eq(tableBillSplits.id, id))
+      .returning();
+    return updated;
+  }
+
+  async finalizeBillSplit(id: string): Promise<TableBillSplit> {
+    const [finalized] = await db
+      .update(tableBillSplits)
+      .set({
+        isFinalized: 1,
+        finalizedAt: new Date(),
+      })
+      .where(eq(tableBillSplits.id, id))
+      .returning();
+    return finalized;
+  }
+
+  async deleteBillSplit(id: string): Promise<void> {
+    await db
+      .delete(tableBillSplits)
+      .where(eq(tableBillSplits.id, id));
+  }
+
+  // ===== GUEST PAYMENT OPERATIONS =====
+
+  async getGuestPayments(sessionId: string): Promise<GuestPayment[]> {
+    return await db
+      .select()
+      .from(guestPayments)
+      .where(eq(guestPayments.sessionId, sessionId))
+      .orderBy(desc(guestPayments.createdAt));
+  }
+
+  async getGuestPaymentsByGuest(guestId: string): Promise<GuestPayment[]> {
+    return await db
+      .select()
+      .from(guestPayments)
+      .where(eq(guestPayments.guestId, guestId))
+      .orderBy(desc(guestPayments.createdAt));
+  }
+
+  async createGuestPayment(restaurantId: string, data: InsertGuestPayment): Promise<GuestPayment> {
+    const [payment] = await db
+      .insert(guestPayments)
+      .values({
+        ...data,
+        restaurantId,
+      })
+      .returning();
+
+    const guest = await this.getTableGuestById(data.guestId);
+    if (guest) {
+      const currentPaid = parseFloat(guest.paidAmount || '0');
+      const newPaid = currentPaid + parseFloat(data.amount);
+      await db
+        .update(tableGuests)
+        .set({ paidAmount: newPaid.toFixed(2) })
+        .where(eq(tableGuests.id, data.guestId));
+
+      const subtotal = parseFloat(guest.subtotal || '0');
+      if (newPaid >= subtotal) {
+        await db
+          .update(tableGuests)
+          .set({ status: 'pago' })
+          .where(eq(tableGuests.id, data.guestId));
+      }
+    }
+
+    return payment;
+  }
+
+  // ===== ORDER-GUEST LINK OPERATIONS =====
+
+  async linkOrderItemToGuest(orderItemId: string, guestId: string): Promise<void> {
+    await db
+      .update(orderItems)
+      .set({ guestId })
+      .where(eq(orderItems.id, orderItemId));
+    await this.calculateGuestSubtotal(guestId);
+  }
+
+  async unlinkOrderItemFromGuest(orderItemId: string): Promise<void> {
+    const [item] = await db
+      .select()
+      .from(orderItems)
+      .where(eq(orderItems.id, orderItemId));
+    
+    if (item?.guestId) {
+      const oldGuestId = item.guestId;
+      await db
+        .update(orderItems)
+        .set({ guestId: null })
+        .where(eq(orderItems.id, orderItemId));
+      await this.calculateGuestSubtotal(oldGuestId);
+    }
+  }
+
+  async getGuestOrderItems(guestId: string): Promise<Array<OrderItem & { menuItem: MenuItem }>> {
+    const items = await db
+      .select({
+        orderItem: orderItems,
+        menuItem: menuItems,
+      })
+      .from(orderItems)
+      .innerJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+      .where(eq(orderItems.guestId, guestId));
+
+    return items.map((row: { orderItem: OrderItem; menuItem: MenuItem }) => ({
+      ...row.orderItem,
+      menuItem: row.menuItem,
+    }));
   }
 }
 
