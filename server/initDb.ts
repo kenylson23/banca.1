@@ -290,6 +290,26 @@ export async function ensureTablesExist() {
         ALTER TABLE table_sessions ADD COLUMN closed_by_id VARCHAR REFERENCES users(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
+      // Create guest_status enum if it doesn't exist
+      await db.execute(sql`DO $$ BEGIN CREATE TYPE guest_status AS ENUM ('ativo', 'aguardando_conta', 'pago', 'saiu'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Create table_guests table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS table_guests (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        session_id VARCHAR NOT NULL REFERENCES table_sessions(id) ON DELETE CASCADE,
+        table_id VARCHAR NOT NULL REFERENCES tables(id) ON DELETE CASCADE,
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        name VARCHAR(200),
+        seat_number INTEGER,
+        status guest_status NOT NULL DEFAULT 'ativo',
+        subtotal DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        paid_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        token VARCHAR(100) UNIQUE,
+        device_info TEXT,
+        joined_at TIMESTAMP DEFAULT NOW(),
+        left_at TIMESTAMP
+      );`);
+      
       // Create table_payments table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS table_payments (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -488,6 +508,9 @@ export async function ensureTablesExist() {
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN table_session_id VARCHAR REFERENCES table_sessions(id) ON DELETE SET NULL; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN guest_id VARCHAR REFERENCES table_guests(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN refund_amount DECIMAL(10, 2) DEFAULT 0; 
