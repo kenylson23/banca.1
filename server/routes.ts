@@ -2508,7 +2508,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const branchId = currentUser.activeBranchId || null;
       const tables = await storage.getTablesWithOrders(restaurantId, branchId);
       res.json(tables);
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Tables with orders error:", error);
       res.status(500).json({ message: "Failed to fetch tables with orders" });
     }
   });
