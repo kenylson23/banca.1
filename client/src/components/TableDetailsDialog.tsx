@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Users, Clock, Trash2, Split, Plus } from 'lucide-react';
+import { Users, Clock, Trash2, Split, Plus, Receipt } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -29,6 +29,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { FinancialDashboard } from '@/components/FinancialDashboard';
 import { BillSplitPanel } from '@/components/BillSplitPanel';
 import { NewOrderDialog } from '@/components/new-order-dialog';
+import { CheckoutDialog } from '@/components/CheckoutDialog';
 import type { Table } from '@shared/schema';
 
 interface TableDetailsDialogProps {
@@ -56,6 +57,7 @@ export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: Tabl
   const [customerCount, setCustomerCount] = useState('');
   const [showEndSessionDialog, setShowEndSessionDialog] = useState(false);
   const [showNewOrderDialog, setShowNewOrderDialog] = useState(false);
+  const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
   
   const isSuperadmin = user?.role === 'superadmin';
 
@@ -252,14 +254,25 @@ export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: Tabl
                     </Card>
 
                     {authUser?.restaurantId && (
-                      <Button
-                        className="w-full"
-                        onClick={() => setShowNewOrderDialog(true)}
-                        data-testid="button-create-order-from-table"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Criar Pedido
-                      </Button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowNewOrderDialog(true)}
+                          data-testid="button-create-order-from-table"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Criar Pedido
+                        </Button>
+                        {totalAmount > 0 && (
+                          <Button
+                            onClick={() => setShowCheckoutDialog(true)}
+                            data-testid="button-checkout-table"
+                          >
+                            <Receipt className="h-4 w-4 mr-2" />
+                            Fechar Conta
+                          </Button>
+                        )}
+                      </div>
                     )}
 
                     <Card>
@@ -362,6 +375,16 @@ export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: Tabl
           }}
         />
       )}
+
+      <CheckoutDialog
+        open={showCheckoutDialog}
+        onOpenChange={setShowCheckoutDialog}
+        table={table}
+        onCheckoutComplete={() => {
+          setShowCheckoutDialog(false);
+          onOpenChange(false);
+        }}
+      />
     </>
   );
 }
