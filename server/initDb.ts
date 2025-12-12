@@ -652,6 +652,11 @@ export async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW()
       );`);
       
+      // Add guest_id column to order_items if it doesn't exist
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE order_items ADD COLUMN guest_id VARCHAR REFERENCES table_guests(id) ON DELETE SET NULL; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
       // Create option_group_type enum
       await db.execute(sql`DO $$ BEGIN CREATE TYPE option_group_type AS ENUM ('single', 'multiple'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       
