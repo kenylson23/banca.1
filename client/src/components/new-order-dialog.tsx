@@ -68,10 +68,23 @@ interface NewOrderDialogProps {
   trigger?: React.ReactNode;
   restaurantId: string;
   onOrderCreated?: (orderId: string, isOnline: boolean) => void;
+  initialTableId?: string;
+  initialTableNumber?: number;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrderDialogProps) {
-  const [open, setOpen] = useState(false);
+export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialTableId, initialTableNumber, open: openProp, onOpenChange }: NewOrderDialogProps) {
+  const isControlled = openProp !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isControlled ? openProp : internalOpen;
+  const setOpen = (value: boolean) => {
+    if (isControlled) {
+      onOpenChange?.(value);
+    } else {
+      setInternalOpen(value);
+    }
+  };
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
@@ -129,6 +142,14 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
   });
 
   const orderType = form.watch("orderType");
+
+  // Pre-select table when initialTableId is provided
+  useEffect(() => {
+    if (open && initialTableId) {
+      form.setValue("orderType", "mesa");
+      form.setValue("tableId", initialTableId);
+    }
+  }, [open, initialTableId, form]);
 
   // Get categories with item counts
   const categories = useMemo(() => {
@@ -398,14 +419,16 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated }: NewOrd
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button data-testid="button-new-order" size="default">
-            <Plus className="h-4 w-4" />
-            Novo Pedido
-          </Button>
-        )}
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          {trigger || (
+            <Button data-testid="button-new-order" size="default">
+              <Plus className="h-4 w-4" />
+              Novo Pedido
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle className="text-2xl">Novo Pedido</DialogTitle>

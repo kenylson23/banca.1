@@ -18,16 +18,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Users, Clock, Trash2, Split } from 'lucide-react';
+import { Users, Clock, Trash2, Split, Plus } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { FinancialDashboard } from '@/components/FinancialDashboard';
 import { BillSplitPanel } from '@/components/BillSplitPanel';
+import { NewOrderDialog } from '@/components/new-order-dialog';
 import type { Table } from '@shared/schema';
 
 interface TableDetailsDialogProps {
@@ -54,8 +55,13 @@ export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: Tabl
   const [customerName, setCustomerName] = useState('');
   const [customerCount, setCustomerCount] = useState('');
   const [showEndSessionDialog, setShowEndSessionDialog] = useState(false);
+  const [showNewOrderDialog, setShowNewOrderDialog] = useState(false);
   
   const isSuperadmin = user?.role === 'superadmin';
+
+  const { data: authUser } = useQuery<{ restaurantId: string }>({
+    queryKey: ['/api/auth/user'],
+  });
 
   const startSessionMutation = useMutation({
     mutationFn: async () => {
@@ -245,6 +251,17 @@ export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: Tabl
                       </CardContent>
                     </Card>
 
+                    {authUser?.restaurantId && (
+                      <Button
+                        className="w-full"
+                        onClick={() => setShowNewOrderDialog(true)}
+                        data-testid="button-create-order-from-table"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Criar Pedido
+                      </Button>
+                    )}
+
                     <Card>
                       <CardHeader>
                         <CardTitle className="text-base">Alterar Status</CardTitle>
@@ -330,6 +347,21 @@ export function TableDetailsDialog({ open, onOpenChange, table, onDelete }: Tabl
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {authUser?.restaurantId && (
+        <NewOrderDialog
+          restaurantId={authUser.restaurantId}
+          initialTableId={table.id}
+          initialTableNumber={table.number}
+          open={showNewOrderDialog}
+          onOpenChange={setShowNewOrderDialog}
+          onOrderCreated={() => {
+            setShowNewOrderDialog(false);
+            queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
+            toast({ title: 'Pedido criado', description: `Pedido criado para Mesa ${table.number}.` });
+          }}
+        />
+      )}
     </>
   );
 }
