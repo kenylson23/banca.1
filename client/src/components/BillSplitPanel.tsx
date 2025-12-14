@@ -117,10 +117,12 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPan
   const [selectedGuest, setSelectedGuest] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('dinheiro');
 
-  const { data: ordersByGuest = [], isLoading: loadingOrders } = useQuery<OrdersByGuest[]>({
+  const { data: ordersData, isLoading: loadingOrders } = useQuery<{ ordersByGuest: OrdersByGuest[]; anonymousOrders: any[]; totalAmount: string }>({
     queryKey: [`/api/tables/${tableId}/orders-by-guest`],
     enabled: !!tableId,
   });
+  
+  const ordersByGuest = ordersData?.ordersByGuest || [];
 
   const { data: billSplits = [], isLoading: loadingSplits } = useQuery<BillSplit[]>({
     queryKey: [`/api/tables/${tableId}/bill-splits`],

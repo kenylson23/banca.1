@@ -105,10 +105,12 @@ export function CheckoutDialog({ open, onOpenChange, table, onCheckoutComplete }
 
   const totalAmount = parseFloat(table?.totalAmount || '0');
 
-  const { data: ordersByGuest = [], isLoading: loadingOrders } = useQuery<OrdersByGuest[]>({
+  const { data: ordersData, isLoading: loadingOrders } = useQuery<{ ordersByGuest: OrdersByGuest[]; anonymousOrders: any[]; totalAmount: string }>({
     queryKey: [`/api/tables/${table?.id}/orders-by-guest`],
     enabled: !!table?.id && open,
   });
+  
+  const ordersByGuest = ordersData?.ordersByGuest || [];
 
   const { data: tableOrders = [] } = useQuery<Order[]>({
     queryKey: ['/api/orders'],
