@@ -2123,9 +2123,10 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // Update table occupancy only for table orders
+    // Update table occupancy and recalculate total for table orders
     if (order.orderType === 'mesa' && order.tableId) {
       await this.updateTableOccupancy(restaurantId, order.tableId, true);
+      await this.calculateTableTotal(restaurantId, order.tableId);
     }
 
     return newOrder;
