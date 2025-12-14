@@ -2094,6 +2094,7 @@ export class DatabaseStorage implements IStorage {
     
     const [newOrder] = await db.insert(orders).values({
       ...order,
+      tableId: order.tableId || null,
       subtotal: subtotal.toFixed(2),
       totalAmount: totalAmount.toFixed(2),
     }).returning();
