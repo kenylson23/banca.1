@@ -35,20 +35,12 @@ import { ActivityFeed } from "@/components/activity-feed";
 import { ShimmerSkeleton } from "@/components/shimmer-skeleton";
 import type { CashRegister, CashRegisterShift } from "@shared/schema";
 import { format } from "date-fns";
+import { formatKwanza } from "@/lib/formatters";
 
 interface ShiftWithDetails extends CashRegisterShift {
   cashRegister: CashRegister;
   openedBy: { id: string; firstName?: string; email: string };
   closedBy?: { id: string; firstName?: string; email: string };
-}
-
-function formatKwanza(value: string | number): string {
-  const numValue = typeof value === 'string' ? parseFloat(value) : value;
-  return new Intl.NumberFormat('pt-AO', {
-    style: 'currency',
-    currency: 'AOA',
-    minimumFractionDigits: 2,
-  }).format(numValue).replace('AOA', 'Kz');
 }
 
 export default function FinancialCashRegisters() {

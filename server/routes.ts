@@ -3,7 +3,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { storage } from "./storage";
+import { storage, db, eq, orderItems, orderItemAuditLogs, sql } from './storage';
+import { generateOrderNumber, formatOrderDisplay } from './orderNumberGenerator';
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import {
   checkCanAddCustomer,
@@ -150,6 +151,7 @@ import {
   updateOptionSchema,
   updateOrderMetadataSchema,
   updateOrderItemQuantitySchema,
+  reassignOrderItemSchema,
   applyDiscountSchema,
   applyServiceChargeSchema,
   applyDeliveryFeeSchema,
@@ -180,7 +182,11 @@ import {
   insertSubscriptionPaymentSchema,
   insertNotificationSchema,
   updateNotificationPreferencesSchema,
+  insertPrinterConfigurationSchema,
+  updatePrinterConfigurationSchema,
+  insertPrintHistorySchema,
   type User,
+  linkAnalytics,
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -910,6 +916,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update business hours
+  app.put('/api/restaurants/:id/business-hours', isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const { id } = req.params;
+      
+      if (!currentUser.restaurantId || currentUser.restaurantId !== id) {
+        return res.status(403).json({ message: "Não autorizado" });
+      }
+
+      const { businessHours, isOpen } = req.body;
+      
+      const restaurant = await storage.updateRestaurantAppearance(id, { 
+        businessHours,
+        isOpen 
+      });
+      
+      res.json(restaurant);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao atualizar horários de funcionamento" });
+    }
+  });
+
+  // Toggle restaurant open/closed status
+  app.patch('/api/restaurants/:restaurantId/toggle-open', isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const { restaurantId } = req.params;
+      
+      if (currentUser.role !== 'superadmin' && currentUser.restaurantId !== restaurantId) {
+        return res.status(403).json({ message: "Não autorizado" });
+      }
+
+      const { isOpen } = req.body;
+      
+      const restaurant = await storage.updateRestaurantAppearance(restaurantId, { isOpen });
+      
+      res.json({ 
+        message: isOpen ? "Restaurante aberto" : "Restaurante fechado",
+        restaurant 
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao atualizar status do restaurante" });
+    }
+  });
+
   // Upload restaurant logo
   app.post('/api/restaurants/upload-logo', isAdmin, uploadRestaurantImage.single('logo'), async (req, res) => {
     try {
@@ -974,6 +1026,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Business Hours - Update business hours and open/closed status
+  app.patch('/api/restaurants/:restaurantId/business-hours', isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const { restaurantId } = req.params;
+      const { businessHours, isOpen } = req.body;
+
+      // Verify user has access to this restaurant
+      if (currentUser.role !== 'superadmin' && currentUser.restaurantId !== restaurantId) {
+        return res.status(403).json({ message: "Sem permissão para atualizar este restaurante" });
+      }
+
+      const updates: any = {};
+      if (businessHours !== undefined) updates.businessHours = businessHours;
+      if (isOpen !== undefined) updates.isOpen = isOpen;
+
+      const restaurant = await storage.updateRestaurantAppearance(restaurantId, updates);
+      
+      res.json({ 
+        message: "Horários atualizados com sucesso",
+        restaurant 
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao atualizar horários';
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
   app.get('/api/superadmin/stats', isSuperAdmin, async (req, res) => {
     try {
       const stats = await storage.getSuperAdminStats();
@@ -988,6 +1068,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const analytics = await storage.getSuperAdminAnalytics();
       res.json(analytics);
     } catch (error) {
+
+  // ==================== LINK ANALYTICS ====================
+  // Tracking de acessos ao menu público
+  
+  app.get('/api/analytics/link/:restaurantId', async (req, res) => {
+    try {
+      const restaurantId = parseInt(req.params.restaurantId);
+      
+      if (!restaurantId) {
+        return res.status(400).json({ error: 'Restaurant ID inválido' });
+      }
+
+      const summaryResult = await db.execute(sql`
+        SELECT 
+          COUNT(*) as total_clicks,
+          COUNT(DISTINCT session_id) as unique_visitors,
+          COUNT(*) FILTER (WHERE timestamp >= NOW() - INTERVAL '7 days') as clicks_this_week,
+          COUNT(*) FILTER (WHERE timestamp >= NOW() - INTERVAL '30 days') as clicks_this_month,
+          COUNT(*) FILTER (WHERE converted = 1) as total_conversions,
+          CASE 
+            WHEN COUNT(*) > 0 THEN ROUND((COUNT(*) FILTER (WHERE converted = 1)::numeric / COUNT(*)) * 100, 2)
+            ELSE 0
+          END as conversion_rate,
+          MAX(timestamp) as last_accessed
+        FROM link_analytics
+        WHERE restaurant_id = ${restaurantId}
+      `);
+
+      const sourcesResult = await db.execute(sql`
+        SELECT 
+          COALESCE(source, 'Direto') as source,
+          COUNT(*) as clicks
+        FROM link_analytics
+        WHERE restaurant_id = ${restaurantId}
+        GROUP BY source
+        ORDER BY clicks DESC
+        LIMIT 3
+      `);
+
+      const summary = summaryResult.rows[0] || {
+        total_clicks: 0,
+        unique_visitors: 0,
+        clicks_this_week: 0,
+        clicks_this_month: 0,
+        total_conversions: 0,
+        conversion_rate: 0,
+        last_accessed: null
+      };
+
+      const topSources = sourcesResult.rows || [];
+
+      res.json({
+        totalClicks: parseInt(summary.total_clicks) || 0,
+        uniqueVisitors: parseInt(summary.unique_visitors) || 0,
+        clicksThisWeek: parseInt(summary.clicks_this_week) || 0,
+        clicksThisMonth: parseInt(summary.clicks_this_month) || 0,
+        conversionRate: parseFloat(summary.conversion_rate) || 0,
+        lastAccessed: summary.last_accessed,
+        topSources: topSources.map((s: any) => ({
+          source: s.source,
+          clicks: parseInt(s.clicks)
+        })),
+        recentClicks: []
+      });
+    } catch (error: any) {
+      console.error('Error fetching link analytics:', error);
+      res.status(500).json({ error: 'Erro ao buscar analytics' });
+    }
+  });
+
+  app.post('/api/analytics/link/track', async (req, res) => {
+    try {
+      const { restaurantId, source, sessionId } = req.body;
+      
+      if (!restaurantId) {
+        return res.status(400).json({ error: 'Restaurant ID obrigatório' });
+      }
+
+      const referrer = req.headers.referer || req.headers.referrer;
+      const userAgent = req.headers['user-agent'];
+      const ipAddress = req.ip || req.connection.remoteAddress;
+
+      await db.insert(linkAnalytics).values({
+        restaurantId: parseInt(restaurantId),
+        source: source || 'direct',
+        referrer: referrer as string,
+        userAgent: userAgent,
+        ipAddress: ipAddress,
+        sessionId: sessionId || `session_${Date.now()}`,
+        converted: 0,
+        timestamp: new Date(),
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error tracking link click:', error);
+      res.status(500).json({ error: 'Erro ao registrar clique' });
+    }
+  });
+
+  app.post('/api/analytics/link/convert', async (req, res) => {
+    try {
+      const { sessionId, restaurantId } = req.body;
+      
+      if (!sessionId || !restaurantId) {
+        return res.status(400).json({ error: 'Session ID e Restaurant ID obrigatórios' });
+      }
+
+      await db.execute(sql`
+        UPDATE link_analytics 
+        SET converted = 1
+        WHERE session_id = ${sessionId} 
+        AND restaurant_id = ${parseInt(restaurantId)}
+        AND converted = 0
+      `);
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error marking conversion:', error);
+      res.status(500).json({ error: 'Erro ao marcar conversão' });
+    }
+  });
       res.status(500).json({ message: "Erro ao buscar analytics" });
     }
   });
@@ -1875,6 +2077,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!table) {
           return res.status(404).json({ message: "Mesa não encontrada" });
         }
+        
+        // ✅ ABRIR MESA AUTOMATICAMENTE se estiver livre
+        if (table.status === 'livre') {
+          await storage.openTable(validatedOrder.tableId, validatedOrder.customerCount);
+          console.log(`[TABLE] Mesa ${table.number} aberta automaticamente via QR Code`);
+        }
       }
 
       if (validatedOrder.orderType === 'delivery') {
@@ -2401,6 +2609,166 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get customer orders (authenticated)
+  app.get("/api/public/customers/:customerId/orders", async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const { restaurantId } = req.query;
+      
+      if (!restaurantId) {
+        return res.status(400).json({ message: "restaurantId é obrigatório" });
+      }
+
+      // Verify customer exists and belongs to restaurant
+      const customer = await storage.getCustomerById(customerId);
+      if (!customer || customer.restaurantId !== restaurantId) {
+        return res.status(404).json({ message: "Cliente não encontrado" });
+      }
+
+      // Get all orders for this customer
+      const orders = await db.query.orders.findMany({
+        where: (orders: any, { eq, and }: any) => and(
+          eq(orders.restaurantId, restaurantId as string),
+          eq(orders.customerId, customerId)
+        ),
+        with: {
+          orderItems: {
+            with: {
+              menuItem: true,
+            },
+          },
+        },
+        orderBy: (orders: any, { desc }: any) => [desc(orders.createdAt)],
+        limit: 50, // Last 50 orders
+      });
+
+      // Format response
+      const formattedOrders = orders.map((order: any) => ({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        orderType: order.orderType,
+        totalAmount: order.totalAmount,
+        subtotal: order.subtotal,
+        createdAt: order.createdAt,
+        items: order.orderItems?.map((item: any) => ({
+          id: item.id,
+          menuItemId: item.menuItemId,
+          menuItemName: item.menuItem?.name,
+          quantity: item.quantity,
+          price: item.price,
+          notes: item.notes,
+        })) || [],
+        pointsEarned: order.loyaltyPointsEarned || 0,
+        pointsRedeemed: order.loyaltyPointsRedeemed || 0,
+      }));
+
+      res.json(formattedOrders);
+    } catch (error) {
+      console.error('Customer orders fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar pedidos do cliente" });
+    }
+  });
+
+  // Get order status by ID (public - for tracking)
+  app.get("/api/public/orders/:orderId/status", async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      
+      const order = await db.query.orders.findFirst({
+        where: (orders, { eq }) => eq(orders.id, orderId),
+        with: {
+          orderItems: {
+            with: {
+              menuItem: true,
+            },
+          },
+        },
+      });
+
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      res.json({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        orderType: order.orderType,
+        totalAmount: order.totalAmount,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        createdAt: order.createdAt,
+        items: order.orderItems?.map(item => ({
+          name: item.menuItem?.name,
+          quantity: item.quantity,
+          price: item.price,
+        })) || [],
+      });
+    } catch (error) {
+      console.error('Order status fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar status do pedido" });
+    }
+  });
+
+  // Get customer available coupons
+  app.get("/api/public/customers/:customerId/coupons", async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const { restaurantId } = req.query;
+      
+      if (!restaurantId) {
+        return res.status(400).json({ message: "restaurantId é obrigatório" });
+      }
+
+      // Verify customer exists and belongs to restaurant
+      const customer = await storage.getCustomerById(customerId);
+      if (!customer || customer.restaurantId !== restaurantId) {
+        return res.status(404).json({ message: "Cliente não encontrado" });
+      }
+
+      // Get all active coupons for this restaurant
+      const allCoupons = await storage.getCoupons(
+        restaurantId as string,
+        null,
+        { isActive: 1 }
+      );
+
+      const now = new Date();
+      
+      // Filter coupons available for this customer
+      const availableCoupons = allCoupons.filter(coupon => {
+        // Check if coupon is active
+        if (coupon.isActive !== 1) return false;
+
+        // Check usage limit
+        if (coupon.maxUses && coupon.currentUses >= coupon.maxUses) return false;
+
+        return true;
+      });
+
+      // Format response
+      const formattedCoupons = availableCoupons.map(coupon => ({
+        id: coupon.id,
+        code: coupon.code,
+        description: coupon.description,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        minOrderValue: coupon.minOrderValue,
+        applicableOrderTypes: coupon.applicableOrderTypes,
+        isActive: coupon.isActive === 1,
+        maxUses: coupon.maxUses,
+        currentUses: coupon.currentUses,
+        remainingUses: coupon.maxUses ? coupon.maxUses - coupon.currentUses : null,
+      }));
+
+      res.json(formattedCoupons);
+    } catch (error) {
+      console.error('Customer coupons fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar cupons do cliente" });
+    }
+  });
+
   // ===== TABLE ROUTES (Admin Only) =====
   app.get("/api/tables", isAdmin, async (req, res) => {
     try {
@@ -2530,7 +2898,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const openTables = tables.filter(table => table.status !== 'livre');
       res.json(openTables);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch open tables" });
+      console.error('Error fetching open tables:', error);
+      res.status(500).json({ message: "Failed to fetch open tables", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -2556,6 +2925,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedTable);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to update table status" });
+    }
+  });
+
+  // Update table position (for floor plan)
+  app.patch("/api/tables/:id/position", isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { x, y } = req.body;
+
+      if (x === undefined || y === undefined) {
+        return res.status(400).json({ message: "Coordenadas x e y são obrigatórias" });
+      }
+
+      if (typeof x !== 'number' || typeof y !== 'number') {
+        return res.status(400).json({ message: "Coordenadas devem ser números" });
+      }
+
+      if (x < 0 || x > 100 || y < 0 || y > 100) {
+        return res.status(400).json({ message: "Coordenadas devem estar entre 0 e 100" });
+      }
+
+      // Use SQL template literal to update position
+      await db.execute(
+        sql`UPDATE tables SET position_x = ${x}, position_y = ${y} WHERE id = ${id}`
+      );
+
+      // Verify the update was successful
+      const checkResult = await db.execute(
+        sql`SELECT id FROM tables WHERE id = ${id}`
+      );
+
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+
+      res.json({ message: "Posição atualizada com sucesso", x, y });
+    } catch (error: any) {
+      console.error("[TABLES] Error updating table position:", error.message);
+      res.status(500).json({ message: "Erro ao atualizar posição da mesa" });
     }
   });
 
@@ -2695,6 +3103,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(payment);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to add payment" });
+    }
+  });
+
+  // Get audit logs for a session
+  app.get("/api/tables/sessions/:sessionId/audit-logs", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const restaurantId = currentUser.restaurantId;
+      const { sessionId } = req.params;
+
+      // Get audit logs with user and guest details
+      const logs = await db.query.orderItemAuditLogs.findMany({
+        where: (logs, { eq, and }) => and(
+          eq(logs.sessionId, sessionId),
+          eq(logs.restaurantId, restaurantId)
+        ),
+        with: {
+          actor: {
+            columns: {
+              id: true,
+              name: true,
+            },
+          },
+          sourceGuest: {
+            columns: {
+              id: true,
+              guestName: true,
+              guestNumber: true,
+            },
+          },
+          targetGuest: {
+            columns: {
+              id: true,
+              guestName: true,
+              guestNumber: true,
+            },
+          },
+        },
+        orderBy: (logs, { desc }) => [desc(logs.createdAt)],
+      });
+
+      // Format response
+      const formattedLogs = logs.map(log => ({
+        id: log.id,
+        action: log.action,
+        actorName: log.actor?.name || 'Usuário desconhecido',
+        sourceGuestName: log.sourceGuest?.guestName,
+        sourceGuestNumber: log.sourceGuest?.guestNumber,
+        targetGuestName: log.targetGuest?.guestName,
+        targetGuestNumber: log.targetGuest?.guestNumber,
+        itemDetails: log.itemDetails,
+        reason: log.reason,
+        createdAt: log.createdAt,
+      }));
+
+      res.json(formattedLogs);
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+      res.status(500).json({ message: "Erro ao buscar histórico de auditoria" });
     }
   });
 
@@ -3868,7 +4339,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orders = await storage.getKitchenOrders(restaurantId, branchId);
       res.json(orders);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch orders" });
+      console.error('Error fetching orders:', error);
+      res.status(500).json({ message: "Failed to fetch orders", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -3890,10 +4362,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       const validatedItems = z.array(publicOrderItemSchema).parse(items);
 
-      const order = await storage.createOrder(validatedOrder, validatedItems);
+      // Generate order number based on type and shift
+      const orderNumber = await generateOrderNumber(
+        currentUser.restaurantId!,
+        validatedOrder.orderType as "mesa" | "delivery" | "balcao"
+      );
+
+      const order = await storage.createOrder({
+        ...validatedOrder,
+        orderNumber
+      }, validatedItems);
       
       // Broadcast new order to WebSocket clients
       broadcastToClients({ type: 'new_order', data: order });
+
+      // Check for auto-print enabled printers
+      try {
+        const kitchenPrinters = await storage.getActivePrintersByType(
+          currentUser.restaurantId!,
+          'kitchen',
+          currentUser.activeBranchId || undefined
+        );
+        
+        const autoPrintPrinters = kitchenPrinters.filter(p => p.autoPrint === 1);
+        
+        if (autoPrintPrinters.length > 0) {
+          // Broadcast auto-print event to connected clients
+          broadcastToClients({
+            type: 'auto_print_order',
+            data: {
+              order,
+              printers: autoPrintPrinters,
+            },
+          });
+          
+          console.log(`[AUTO-PRINT] Triggered for order ${orderNumber} on ${autoPrintPrinters.length} printer(s)`);
+        }
+      } catch (printError) {
+        console.error('[AUTO-PRINT] Error checking printers:', printError);
+        // Don't fail the order creation if auto-print fails
+      }
 
       res.json(order);
     } catch (error) {
@@ -4125,6 +4633,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error removing order item:', error);
       res.status(500).json({ message: "Erro ao remover item do pedido" });
+    }
+  });
+
+  // Reassign order item to different guest
+  app.patch("/api/order-items/:itemId/reassign", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId;
+      const { newGuestId, reason } = reassignOrderItemSchema.parse(req.body);
+      
+      // Get the order item to verify it exists and get its order
+      const orderItem = await db.query.orderItems.findFirst({
+        where: (items, { eq }) => eq(items.id, req.params.itemId),
+        with: {
+          order: true,
+        },
+      });
+      
+      if (!orderItem) {
+        return res.status(404).json({ message: "Item do pedido não encontrado" });
+      }
+      
+      // Verify order belongs to restaurant
+      if (orderItem.order.restaurantId !== restaurantId) {
+        return res.status(403).json({ message: "Item não pertence a este restaurante" });
+      }
+      
+      // Verify order is not already served or paid
+      if (orderItem.order.status === 'servido') {
+        return res.status(400).json({ message: "Não é possível mover itens de pedido já servido" });
+      }
+      
+      if (orderItem.order.paymentStatus === 'pago') {
+        return res.status(400).json({ message: "Não é possível mover itens de pedido já pago" });
+      }
+      
+      // Verify new guest exists and belongs to same session
+      const newGuest = await db.query.tableGuests.findFirst({
+        where: (guests, { eq, and }) => and(
+          eq(guests.id, newGuestId),
+          eq(guests.restaurantId, restaurantId)
+        ),
+      });
+      
+      if (!newGuest) {
+        return res.status(404).json({ message: "Cliente destino não encontrado" });
+      }
+      
+      // Verify guests are in same session
+      if (orderItem.order.tableSessionId !== newGuest.sessionId) {
+        return res.status(400).json({ message: "Cliente destino está em outra sessão/mesa" });
+      }
+      
+      // Verify new guest is not already paid and left
+      if (newGuest.status === 'pago' || newGuest.status === 'saiu') {
+        return res.status(400).json({ message: "Cliente destino já pagou ou saiu" });
+      }
+      
+      const oldGuestId = orderItem.guestId;
+      
+      // Update order item guest
+      await db.update(orderItems)
+        .set({ guestId: newGuestId })
+        .where(eq(orderItems.id, req.params.itemId));
+      
+      // Get menu item details for audit log
+      const menuItem = await db.query.menuItems.findFirst({
+        where: (items, { eq }) => eq(items.id, orderItem.menuItemId),
+      });
+      
+      // Recalculate guest totals
+      if (oldGuestId) {
+        await storage.recalculateGuestTotal(restaurantId, oldGuestId);
+      }
+      await storage.recalculateGuestTotal(restaurantId, newGuestId);
+      
+      // Create audit log
+      await db.insert(orderItemAuditLogs).values({
+        restaurantId,
+        orderItemId: orderItem.id,
+        orderId: orderItem.orderId,
+        sessionId: orderItem.order.tableSessionId,
+        action: 'item_reassigned',
+        actorUserId: currentUser.id,
+        sourceGuestId: oldGuestId,
+        targetGuestId: newGuestId,
+        itemDetails: {
+          menuItemName: menuItem?.name || 'Item desconhecido',
+          quantity: orderItem.quantity,
+          price: orderItem.price,
+        },
+        oldValue: {
+          guestId: oldGuestId,
+          guestNumber: oldGuestId ? (await db.query.tableGuests.findFirst({
+            where: (guests, { eq }) => eq(guests.id, oldGuestId),
+          }))?.guestNumber : null,
+        },
+        newValue: {
+          guestId: newGuestId,
+          guestNumber: newGuest.guestNumber,
+        },
+        reason: reason || 'Movido via interface',
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      // Broadcast changes
+      broadcastToClients({ 
+        type: 'order_items_changed', 
+        data: { 
+          orderId: orderItem.orderId,
+          sessionId: orderItem.order.tableSessionId,
+          oldGuestId,
+          newGuestId,
+        }
+      });
+      
+      res.json({ 
+        success: true,
+        message: "Item movido com sucesso",
+        oldGuestId,
+        newGuestId,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Error reassigning order item:', error);
+      res.status(500).json({ message: "Erro ao mover item do pedido" });
     }
   });
 
@@ -7501,6 +8142,169 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
       }
       res.status(500).json({ message: "Erro ao atualizar preferências de notificação" });
+    }
+  });
+
+  // ===== PRINTER CONFIGURATION ROUTES =====
+  
+  // Get all printer configurations for restaurant
+  app.get('/api/printer-configurations', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const restaurantId = currentUser.restaurantId;
+      
+      if (!restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const configs = await storage.getPrinterConfigurations(restaurantId, currentUser.activeBranchId || undefined);
+      res.json(configs);
+    } catch (error) {
+      console.error('Error fetching printer configurations:', error);
+      res.status(500).json({ message: "Erro ao buscar configurações de impressoras" });
+    }
+  });
+
+  // Create printer configuration
+  app.post('/api/printer-configurations', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const restaurantId = currentUser.restaurantId;
+      
+      if (!restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const data = insertPrinterConfigurationSchema.parse(req.body);
+      const config = await storage.createPrinterConfiguration(restaurantId, {
+        ...data,
+        branchId: data.branchId || currentUser.activeBranchId || null,
+        userId: data.userId || null,
+      });
+
+      // Broadcast to all clients for real-time sync
+      broadcastToClients({ type: 'printer_config_created', data: config });
+      
+      res.json(config);
+    } catch (error) {
+      console.error('Error creating printer configuration:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Erro ao criar configuração de impressora" });
+    }
+  });
+
+  // Update printer configuration
+  app.patch('/api/printer-configurations/:id', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const restaurantId = currentUser.restaurantId;
+      
+      if (!restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const data = updatePrinterConfigurationSchema.parse(req.body);
+      const config = await storage.updatePrinterConfiguration(restaurantId, req.params.id, data);
+
+      // Broadcast to all clients for real-time sync
+      broadcastToClients({ type: 'printer_config_updated', data: config });
+      
+      res.json(config);
+    } catch (error) {
+      console.error('Error updating printer configuration:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Erro ao atualizar configuração de impressora" });
+    }
+  });
+
+  // Delete printer configuration
+  app.delete('/api/printer-configurations/:id', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const restaurantId = currentUser.restaurantId;
+      
+      if (!restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      await storage.deletePrinterConfiguration(restaurantId, req.params.id);
+
+      // Broadcast to all clients for real-time sync
+      broadcastToClients({ type: 'printer_config_deleted', data: { id: req.params.id } });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting printer configuration:', error);
+      res.status(500).json({ message: "Erro ao deletar configuração de impressora" });
+    }
+  });
+
+  // Get print history
+  app.get('/api/print-history', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const restaurantId = currentUser.restaurantId;
+      
+      if (!restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const { limit = '50' } = req.query;
+      const history = await storage.getPrintHistory(restaurantId, parseInt(limit as string));
+      res.json(history);
+    } catch (error) {
+      console.error('Error fetching print history:', error);
+      res.status(500).json({ message: "Erro ao buscar histórico de impressões" });
+    }
+  });
+
+  // Record print job
+  app.post('/api/print-history', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const restaurantId = currentUser.restaurantId;
+      
+      if (!restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const data = insertPrintHistorySchema.parse(req.body);
+      const history = await storage.createPrintHistory(restaurantId, {
+        ...data,
+        branchId: data.branchId || currentUser.activeBranchId || null,
+        userId: data.userId || currentUser.id,
+      });
+      
+      res.json(history);
+    } catch (error) {
+      console.error('Error recording print history:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Erro ao registrar impressão" });
+    }
+  });
+
+  // Get print statistics
+  app.get('/api/print-statistics', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const restaurantId = currentUser.restaurantId;
+      
+      if (!restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const { days = '7' } = req.query;
+      const stats = await storage.getPrintStatistics(restaurantId, parseInt(days as string));
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching print statistics:', error);
+      res.status(500).json({ message: "Erro ao buscar estatísticas de impressão" });
     }
   });
 

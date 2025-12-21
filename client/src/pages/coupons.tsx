@@ -232,19 +232,19 @@ export default function Coupons() {
   }, []);
 
   return (
-    <div className="min-h-screen">
-      <div className="space-y-4 p-4 sm:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 pb-safe">
+      <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 lg:p-8 pb-20 sm:pb-8">
         <motion.div
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 sticky top-0 z-10 bg-gradient-to-br from-background via-background to-muted/20 py-2 sm:py-0 -mx-3 px-3 sm:mx-0 sm:px-0 backdrop-blur-sm sm:backdrop-blur-none"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent" data-testid="text-page-title">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight bg-gradient-to-r from-primary via-orange-600 to-amber-600 bg-clip-text text-transparent truncate" data-testid="text-page-title">
               Cupons de Desconto
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1 sm:mt-2 line-clamp-1">
               Gestão e análise de cupons promocionais
             </p>
           </div>
@@ -253,9 +253,13 @@ export default function Coupons() {
             if (!open) resetForm();
           }}>
             <DialogTrigger asChild>
-              <Button data-testid="button-add-coupon">
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Cupom
+              <Button 
+                size="default" 
+                className="gap-2 shadow-lg hover:shadow-xl transition-all w-full sm:w-auto shrink-0 touch-manipulation" 
+                data-testid="button-add-coupon"
+              >
+                <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="sm:inline">Novo</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[90vh] overflow-y-auto" data-testid="dialog-create-coupon">
@@ -439,7 +443,7 @@ export default function Coupons() {
         </motion.div>
 
         {/* Advanced KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
           {isLoading ? (
             <>
               {[...Array(4)].map((_, i) => (

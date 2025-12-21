@@ -161,6 +161,7 @@ export function ProductPreviewPanel({
       price: basePrice.toFixed(2),
       notes,
       selectedOptions: optionsArray,
+      menuItem: product as MenuItem, // Pass the full MenuItem
     });
 
     onClose();

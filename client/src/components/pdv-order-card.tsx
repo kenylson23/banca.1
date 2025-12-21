@@ -3,19 +3,23 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Eye,
-  X,
-  DollarSign,
-  Check,
-  Clock,
-  User,
-  ShoppingBag,
-  Truck,
-  UtensilsCrossed,
-} from "lucide-react";
+  Eye as EyeIcon,
+  X as XIcon,
+  CurrencyCircleDollar,
+  Check as CheckIcon,
+  Clock as ClockIcon,
+  User as UserIcon,
+  ShoppingBag as ShoppingBagIcon,
+  Truck as TruckIcon,
+  ForkKnife,
+} from "@phosphor-icons/react";
+import { Printer } from "lucide-react";
 import { formatKwanza } from "@/lib/formatters";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { printerService } from "@/lib/printer-service";
+import { useToast } from "@/hooks/use-toast";
+import { usePrinter } from "@/hooks/usePrinter";
 
 interface PDVOrderCardProps {
   order: any;
@@ -27,9 +31,9 @@ interface PDVOrderCardProps {
 }
 
 const orderTypeIcons = {
-  mesa: UtensilsCrossed,
-  delivery: Truck,
-  balcao: ShoppingBag,
+  mesa: ForkKnife,
+  delivery: TruckIcon,
+  balcao: ShoppingBagIcon,
 };
 
 const statusColors = {
@@ -68,6 +72,48 @@ export function PDVOrderCard({
 }: PDVOrderCardProps) {
   const OrderTypeIcon =
     orderTypeIcons[order.orderType as keyof typeof orderTypeIcons] || ShoppingBag;
+  const { toast } = useToast();
+  const { getPrinterByType } = usePrinter();
+
+  const handlePrint = async () => {
+    const kitchenPrinter = getPrinterByType('kitchen');
+    
+    if (!kitchenPrinter) {
+      toast({
+        title: "Impressora não encontrada",
+        description: "Configure uma impressora de cozinha nas configurações",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await printerService.printKitchenOrder('kitchen', {
+        orderNumber: order.orderNumber || order.id.slice(-6),
+        orderType: order.orderType || 'balcao',
+        customerName: order.customerName,
+        tableNumber: order.table?.number,
+        items: order.orderItems?.map((item: any) => ({
+          name: item.menuItem?.name || item.name || 'Item',
+          quantity: item.quantity,
+          selectedOptions: item.selectedOptions || [],
+        })) || [],
+        notes: order.orderNotes || order.notes || '',
+        createdAt: order.createdAt || new Date().toISOString(),
+      });
+
+      toast({
+        title: "Pedido impresso",
+        description: "Pedido enviado para impressora da cozinha",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao imprimir",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+    }
+  };
 
   const getElapsedTime = (createdAt: Date | string) => {
     const now = new Date();
@@ -114,7 +160,7 @@ export function PDVOrderCard({
 
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-1 text-sm">
-                <Clock className="h-3 w-3 text-muted-foreground" />
+                <ClockIcon className="h-3 w-3 text-muted-foreground" weight="duotone" />
                 <span
                   className="font-medium text-orange-500"
                   data-testid={`text-elapsed-${order.id}`}
@@ -131,7 +177,7 @@ export function PDVOrderCard({
 
               {(order.customer || order.customerName) && (
                 <div className="flex items-center gap-2 text-sm">
-                  <User className="h-3 w-3 text-muted-foreground" />
+                  <UserIcon className="h-3 w-3 text-muted-foreground" weight="duotone" />
                   <span data-testid={`text-customer-${order.id}`}>
                     {order.customer?.name || order.customerName}
                   </span>
@@ -189,10 +235,20 @@ export function PDVOrderCard({
             <Button
               variant="outline"
               size="sm"
+              onClick={handlePrint}
+              data-testid={`button-print-${order.id}`}
+              title="Imprimir pedido"
+            >
+              <Printer className="h-4 w-4" />
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
               onClick={onViewDetails}
               data-testid={`button-view-details-${order.id}`}
             >
-              <Eye className="h-4 w-4" />
+              <EyeIcon className="h-4 w-4" weight="duotone" />
             </Button>
 
             <Button
@@ -201,7 +257,7 @@ export function PDVOrderCard({
               onClick={onCancel}
               data-testid={`button-cancel-${order.id}`}
             >
-              <X className="h-4 w-4" />
+              <XIcon className="h-4 w-4" weight="bold" />
             </Button>
 
             <Button
@@ -211,7 +267,7 @@ export function PDVOrderCard({
               disabled={order.paymentStatus === "pago"}
               data-testid={`button-pay-${order.id}`}
             >
-              <DollarSign className="h-4 w-4 mr-1" />
+              <CurrencyCircleDollar className="h-4 w-4 mr-1" weight="duotone" />
               Pagar
             </Button>
 
@@ -222,7 +278,7 @@ export function PDVOrderCard({
               disabled={order.status !== "pendente"}
               data-testid={`button-accept-${order.id}`}
             >
-              <Check className="h-4 w-4 mr-1" />
+              <CheckIcon className="h-4 w-4 mr-1" weight="bold" />
               Aceitar
             </Button>
           </div>

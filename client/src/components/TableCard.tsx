@@ -1,9 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Users, DollarSign, Clock, QrCode as QrCodeIcon, AlertCircle, UserCheck } from 'lucide-react';
+import { 
+  UsersThree, 
+  CurrencyCircleDollar, 
+  Clock as ClockIcon, 
+  QrCode, 
+  WarningCircle, 
+  UserCheck as UserCheckIcon,
+  Warning
+} from '@phosphor-icons/react';
 import { formatKwanza } from '@/lib/formatters';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { Table } from '@shared/schema';
 
@@ -63,6 +71,13 @@ const getStatusConfig = (status: string) => {
 export function TableCard({ table, onClick, onShowQrCode }: TableCardProps) {
   const statusConfig = getStatusConfig(table.status || 'livre');
   const orderCount = table.orders?.length || 0;
+  
+  // Alerta de tempo longo (mais de 2 horas)
+  const sessionDuration = table.lastActivity 
+    ? Date.now() - new Date(table.lastActivity).getTime()
+    : 0;
+  const isLongSession = sessionDuration > 2 * 60 * 60 * 1000; // 2 horas em ms
+  const showLongSessionAlert = table.status !== 'livre' && isLongSession;
 
   return (
     <Card
@@ -85,7 +100,7 @@ export function TableCard({ table, onClick, onShowQrCode }: TableCardProps) {
           data-testid={`button-show-qr-${table.id}`}
           className="h-8 w-8"
         >
-          <QrCodeIcon className="h-4 w-4" />
+          <QrCode className="h-4 w-4" weight="duotone" />
         </Button>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -93,10 +108,16 @@ export function TableCard({ table, onClick, onShowQrCode }: TableCardProps) {
           <Badge className={statusConfig.badgeColor} data-testid={`status-${table.id}`}>
             {statusConfig.label}
           </Badge>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap">
+            {showLongSessionAlert && (
+              <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 animate-pulse" data-testid={`long-session-${table.id}`}>
+                <Warning className="h-3 w-3 mr-1" weight="fill" />
+                Aberta há muito tempo
+              </Badge>
+            )}
             {table.guestsAwaitingBill && table.guestsAwaitingBill > 0 && (
               <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200" data-testid={`awaiting-bill-${table.id}`}>
-                <AlertCircle className="h-3 w-3 mr-1" />
+                <WarningCircle className="h-3 w-3 mr-1" weight="fill" />
                 {table.guestsAwaitingBill} {table.guestsAwaitingBill === 1 ? 'pediu' : 'pediram'} conta
               </Badge>
             )}
@@ -113,7 +134,7 @@ export function TableCard({ table, onClick, onShowQrCode }: TableCardProps) {
             <div className="space-y-2 text-sm">
               {table.customerName && (
                 <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <UsersThree className="h-4 w-4 text-muted-foreground flex-shrink-0" weight="duotone" />
                   <span className="truncate">{table.customerName}</span>
                   {table.customerCount && table.customerCount > 0 && (
                     <span className="text-muted-foreground">
@@ -125,7 +146,7 @@ export function TableCard({ table, onClick, onShowQrCode }: TableCardProps) {
 
               {table.guestCount && table.guestCount > 0 && (
                 <div className="flex items-center gap-2">
-                  <UserCheck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <UserCheckIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" weight="duotone" />
                   <span className="text-muted-foreground">
                     {table.guestCount} {table.guestCount === 1 ? 'cliente' : 'clientes'} na mesa
                   </span>
@@ -134,7 +155,7 @@ export function TableCard({ table, onClick, onShowQrCode }: TableCardProps) {
 
               {table.totalAmount && parseFloat(table.totalAmount) > 0 && (
                 <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <CurrencyCircleDollar className="h-4 w-4 text-muted-foreground flex-shrink-0" weight="duotone" />
                   <span className="font-semibold text-primary">
                     {formatKwanza(table.totalAmount)}
                   </span>
@@ -143,10 +164,15 @@ export function TableCard({ table, onClick, onShowQrCode }: TableCardProps) {
 
               {table.lastActivity && (
                 <div className="flex items-center gap-2 text-muted-foreground">
-                  <Clock className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-xs truncate">
-                    {format(new Date(table.lastActivity), "HH:mm", { locale: ptBR })}
-                  </span>
+                  <ClockIcon className="h-4 w-4 flex-shrink-0" weight="duotone" />
+                  <div className="flex flex-col text-xs">
+                    <span className="truncate">
+                      Início: {format(new Date(table.lastActivity), "HH:mm", { locale: ptBR })}
+                    </span>
+                    <span className="text-muted-foreground/70 truncate">
+                      {formatDistanceToNow(new Date(table.lastActivity), { locale: ptBR, addSuffix: false })}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
@@ -158,7 +184,7 @@ export function TableCard({ table, onClick, onShowQrCode }: TableCardProps) {
             <div>Mesa disponível</div>
             {table.capacity && (
               <div className="flex items-center justify-center gap-1 mt-1">
-                <Users className="h-3 w-3" />
+                <UsersThree className="h-3 w-3" weight="duotone" />
                 <span className="text-xs">Capacidade: {table.capacity} pessoas</span>
               </div>
             )}

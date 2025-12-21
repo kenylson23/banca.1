@@ -27,6 +27,7 @@ interface ProductSelectorProps {
       priceAdjustment: string;
       quantity: number;
     }>;
+    menuItem?: MenuItem; // Pass the full MenuItem for convenience
   }) => void;
   onClose?: () => void;
 }

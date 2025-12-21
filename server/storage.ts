@@ -49,6 +49,9 @@ import {
   tableGuests,
   tableBillSplits,
   guestPayments,
+  orderItemAuditLogs,
+  printerConfigurations,
+  printHistory,
   type User,
   type InsertUser,
   type Restaurant,
@@ -8743,14 +8746,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTableGuest(restaurantId: string, data: InsertTableGuest): Promise<TableGuest> {
-    const [guest] = await db
-      .insert(tableGuests)
-      .values({
-        ...data,
+    try {
+      // Get the next guest number for this session
+      const existingGuests = await db
+        .select()
+        .from(tableGuests)
+        .where(eq(tableGuests.sessionId, data.sessionId));
+      
+      const guestNumber = existingGuests.length + 1;
+      
+      console.log('Creating guest:', {
         restaurantId,
-      })
-      .returning();
-    return guest;
+        sessionId: data.sessionId,
+        tableId: data.tableId,
+        name: data.name,
+        guestNumber,
+        existingGuestsCount: existingGuests.length,
+      });
+      
+      const [guest] = await db
+        .insert(tableGuests)
+        .values({
+          ...data,
+          restaurantId,
+          guestNumber,
+        })
+        .returning();
+      
+      console.log('Guest created successfully:', guest.id);
+      return guest;
+    } catch (error: any) {
+      console.error('Error creating guest:', error);
+      throw new Error(`Failed to create guest: ${error.message}`);
+    }
   }
 
   async updateTableGuest(id: string, data: UpdateTableGuest): Promise<TableGuest> {
@@ -8784,6 +8812,17 @@ export class DatabaseStorage implements IStorage {
       .set({ subtotal: subtotal.toFixed(2) })
       .where(eq(tableGuests.id, guestId));
     return subtotal.toFixed(2);
+  }
+
+  async recalculateGuestTotal(restaurantId: string, guestId: string): Promise<void> {
+    // Verify guest belongs to restaurant
+    const guest = await this.getTableGuestById(guestId);
+    if (!guest || guest.restaurantId !== restaurantId) {
+      throw new Error("Cliente não encontrado ou não pertence a este restaurante");
+    }
+    
+    // Recalculate subtotal
+    await this.calculateGuestSubtotal(guestId);
   }
 
   // ===== BILL SPLIT OPERATIONS =====
@@ -8931,6 +8970,223 @@ export class DatabaseStorage implements IStorage {
       menuItem: row.menuItem,
     }));
   }
+
+  // ===== PRINTER CONFIGURATION METHODS =====
+
+  async getPrinterConfigurations(restaurantId: string, branchId?: string) {
+    let query = db
+      .select()
+      .from(printerConfigurations)
+      .where(eq(printerConfigurations.restaurantId, restaurantId));
+    
+    if (branchId) {
+      query = query.where(
+        or(
+          eq(printerConfigurations.branchId, branchId),
+          isNull(printerConfigurations.branchId)
+        )
+      ) as any;
+    }
+    
+    return await query.orderBy(desc(printerConfigurations.createdAt));
+  }
+
+  async getPrinterConfigurationById(restaurantId: string, id: string) {
+    const [config] = await db
+      .select()
+      .from(printerConfigurations)
+      .where(
+        and(
+          eq(printerConfigurations.id, id),
+          eq(printerConfigurations.restaurantId, restaurantId)
+        )
+      );
+    
+    return config;
+  }
+
+  async createPrinterConfiguration(restaurantId: string, data: any) {
+    const [config] = await db
+      .insert(printerConfigurations)
+      .values({
+        ...data,
+        restaurantId,
+      })
+      .returning();
+    
+    return config;
+  }
+
+  async updatePrinterConfiguration(restaurantId: string, id: string, data: any) {
+    const [config] = await db
+      .update(printerConfigurations)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(printerConfigurations.id, id),
+          eq(printerConfigurations.restaurantId, restaurantId)
+        )
+      )
+      .returning();
+    
+    if (!config) {
+      throw new Error('Configuração de impressora não encontrada');
+    }
+    
+    return config;
+  }
+
+  async deletePrinterConfiguration(restaurantId: string, id: string) {
+    await db
+      .delete(printerConfigurations)
+      .where(
+        and(
+          eq(printerConfigurations.id, id),
+          eq(printerConfigurations.restaurantId, restaurantId)
+        )
+      );
+  }
+
+  async getActivePrintersByType(restaurantId: string, printerType: string, branchId?: string) {
+    let query = db
+      .select()
+      .from(printerConfigurations)
+      .where(
+        and(
+          eq(printerConfigurations.restaurantId, restaurantId),
+          eq(printerConfigurations.printerType, printerType as any),
+          eq(printerConfigurations.isActive, 1)
+        )
+      );
+    
+    if (branchId) {
+      query = query.where(
+        or(
+          eq(printerConfigurations.branchId, branchId),
+          isNull(printerConfigurations.branchId)
+        )
+      ) as any;
+    }
+    
+    return await query;
+  }
+
+  // ===== PRINT HISTORY METHODS =====
+
+  async getPrintHistory(restaurantId: string, limit: number = 50) {
+    return await db
+      .select()
+      .from(printHistory)
+      .where(eq(printHistory.restaurantId, restaurantId))
+      .orderBy(desc(printHistory.printedAt))
+      .limit(limit);
+  }
+
+  async createPrintHistory(restaurantId: string, data: any) {
+    const [history] = await db
+      .insert(printHistory)
+      .values({
+        ...data,
+        restaurantId,
+      })
+      .returning();
+    
+    return history;
+  }
+
+  async getPrintHistoryByOrder(restaurantId: string, orderId: string) {
+    return await db
+      .select()
+      .from(printHistory)
+      .where(
+        and(
+          eq(printHistory.restaurantId, restaurantId),
+          eq(printHistory.orderId, orderId)
+        )
+      )
+      .orderBy(desc(printHistory.printedAt));
+  }
+
+  async getPrintStatistics(restaurantId: string, days: number = 7) {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    
+    const stats = await db
+      .select({
+        printerType: printHistory.printerType,
+        totalPrints: sql<number>`count(*)`,
+        successfulPrints: sql<number>`count(*) filter (where ${printHistory.success} = 1)`,
+        failedPrints: sql<number>`count(*) filter (where ${printHistory.success} = 0)`,
+      })
+      .from(printHistory)
+      .where(
+        and(
+          eq(printHistory.restaurantId, restaurantId),
+          gte(printHistory.printedAt, startDate)
+        )
+      )
+      .groupBy(printHistory.printerType);
+    
+    return stats;
+  }
+
+  // ===== TABLE MANAGEMENT METHODS =====
+
+  async getTableById(tableId: string) {
+    const [table] = await db
+      .select()
+      .from(tables)
+      .where(eq(tables.id, tableId));
+    
+    return table;
+  }
+
+  async openTable(tableId: string, customerCount?: number) {
+    const [table] = await db
+      .update(tables)
+      .set({
+        status: 'ocupada',
+        isOccupied: 1,
+        customerCount: customerCount || 1,
+        lastActivity: new Date(),
+      })
+      .where(eq(tables.id, tableId))
+      .returning();
+    
+    return table;
+  }
+
+  async validateTableForOrder(tableId: string, restaurantId: string) {
+    const [table] = await db
+      .select()
+      .from(tables)
+      .where(
+        and(
+          eq(tables.id, tableId),
+          eq(tables.restaurantId, restaurantId)
+        )
+      );
+    
+    return table;
+  }
 }
 
 export const storage = new DatabaseStorage();
+
+// Export db and commonly used operators for use in routes
+export { db } from './db';
+export { eq, and, or, desc, sql } from 'drizzle-orm';
+
+// Export table references for direct database operations
+export {
+  orderItems,
+  orderItemAuditLogs,
+  tableGuests,
+  orders,
+  menuItems,
+  printerConfigurations,
+  printHistory,
+};

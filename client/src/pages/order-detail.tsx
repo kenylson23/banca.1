@@ -21,7 +21,11 @@ import { formatKwanza } from "@/lib/formatters";
 import { format } from "date-fns";
 import { PrintOrder } from "@/components/PrintOrder";
 import { PrintInvoice } from "@/components/PrintInvoice";
+import { PrintGuestBill } from "@/components/PrintGuestBill";
 import { ProductSelector } from "@/components/ProductSelector";
+import { PaymentDialog } from "@/components/PaymentDialog";
+import { printerService } from "@/lib/printer-service";
+import { usePrinter } from "@/hooks/usePrinter";
 import type { Order, OrderItem, MenuItem, Customer, Coupon, LoyaltyProgram } from "@shared/schema";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -56,6 +60,10 @@ export default function OrderDetail() {
   const [, setLocation] = useLocation();
   const orderId = params?.id;
   const { toast } = useToast();
+  const { getPrinterByType } = usePrinter();
+  
+  // Detect checkout mode from URL
+  const isCheckoutMode = typeof window !== 'undefined' && window.location.search.includes('mode=checkout');
   
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(false);
@@ -88,15 +96,33 @@ export default function OrderDetail() {
     queryKey: ["/api/loyalty", "program"],
   });
 
+  // Fetch table guests if this is a table order
+  const { data: tableGuests } = useQuery<any>({
+    queryKey: [`/api/tables/${order?.tableId}/orders-by-guest`],
+    enabled: !!order?.tableId && (order?.orderType === 'mesa' || order?.tableId !== null),
+  });
+
+  // Fetch restaurant info for printing
+  const { data: restaurant } = useQuery<any>({
+    queryKey: [`/api/public/restaurants/${order?.restaurantId}`],
+    enabled: !!order?.restaurantId,
+  });
+
   const selectedCustomer = customers.find(c => c.id === (selectedCustomerId || order?.customerId));
+  const hasTableGuests = tableGuests?.ordersByGuest && tableGuests.ordersByGuest.length > 0;
 
   useEffect(() => {
     if (order) {
       setTitle(order.orderTitle || "");
       setCustomerName(order.customerName || "");
       setCustomerPhone(order.customerPhone || "");
+      
+      // Auto-open payment dialog in checkout mode
+      if (isCheckoutMode && order.paymentStatus !== "pago" && order.orderItems.length > 0) {
+        setTimeout(() => setPaymentDialogOpen(true), 500);
+      }
     }
-  }, [order]);
+  }, [order, isCheckoutMode]);
 
   useEffect(() => {
     if (!order?.createdAt) return;
@@ -335,11 +361,41 @@ export default function OrderDetail() {
       const response = await apiRequest("POST", `/api/orders/${orderId}/payments`, data);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async (paymentData) => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders", orderId] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${order?.tableId}/orders-by-guest`] });
       toast({ title: "Pagamento registrado" });
       setPaymentDialogOpen(false);
+
+      // Impressão automática de recibo se habilitada
+      const autoPrintReceipt = localStorage.getItem('auto-print-receipt') === 'true';
+      const receiptPrinter = getPrinterByType('receipt');
+      
+      if (autoPrintReceipt && receiptPrinter && order) {
+        try {
+          await printerService.printReceipt('receipt', {
+            title: 'RECIBO DE PAGAMENTO',
+            items: order.orderItems?.map((item) => ({
+              name: item.menuItem?.name || 'Item',
+              quantity: item.quantity,
+              price: formatKwanza(item.price),
+            })) || [],
+            subtotal: formatKwanza(order.totalAmount),
+            discount: order.discount ? formatKwanza(order.discount) : undefined,
+            total: formatKwanza(order.totalAmount),
+            footer: `Obrigado pela preferência!\n${new Date().toLocaleString('pt-AO')}`,
+          });
+
+          toast({
+            title: "Recibo impresso",
+            description: "Recibo enviado para impressora",
+          });
+        } catch (error) {
+          console.error('Erro ao imprimir recibo:', error);
+          // Não mostrar erro para não interromper o fluxo
+        }
+      }
     },
     onError: (error: any) => {
       toast({ 
@@ -349,6 +405,44 @@ export default function OrderDetail() {
       });
     },
   });
+
+  // Handler for guest payment (table orders)
+  const handleGuestPayment = async (guestId: string, paymentMethod: string) => {
+    if (!order?.tableId) return;
+
+    try {
+      const guest = tableGuests?.ordersByGuest?.find((og: any) => og.guest.id === guestId);
+      if (!guest) return;
+
+      const amountToPay = (guest.totalAmount || 0).toFixed(2);
+
+      // Record payment for table
+      await apiRequest('POST', `/api/tables/${order.tableId}/payment`, {
+        amount: amountToPay,
+        paymentMethod,
+      });
+
+      // Update guest status
+      await apiRequest('PATCH', `/api/tables/${order.tableId}/guests/${guestId}`, { 
+        status: 'pago' 
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", orderId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${order.tableId}/orders-by-guest`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tables"] });
+      
+      toast({ 
+        title: "Pagamento registrado", 
+        description: `Pagamento de ${formatKwanza(amountToPay)} registrado.`
+      });
+    } catch (error: any) {
+      toast({ 
+        title: "Erro ao registrar pagamento", 
+        description: error.message || "Não foi possível registrar o pagamento.",
+        variant: "destructive" 
+      });
+    }
+  };
 
   const updateStatusMutation = useMutation({
     mutationFn: async (status: string) => {
@@ -872,6 +966,132 @@ export default function OrderDetail() {
             </Card>
           )}
 
+          {/* Table-specific options */}
+          {order.orderType === 'mesa' && order.tableId && (
+            <Card className="border-purple-500/20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Users className="h-5 w-5 text-purple-500" />
+                  Opções de Mesa
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Guest payment section */}
+                {hasTableGuests && tableGuests?.ordersByGuest?.length > 0 && (
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold">Pagamento por Cliente</Label>
+                    <div className="space-y-2">
+                      {tableGuests.ordersByGuest.map((guestData: any) => (
+                        <Card key={guestData.guest.id} className="border-purple-500/20 bg-purple-50/50 dark:bg-purple-950/20">
+                          <CardContent className="p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-semibold">
+                                  {guestData.guest.name || `Cliente #${guestData.guest.guestNumber}`}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {guestData.orders?.length || 0} {guestData.orders?.length === 1 ? 'item' : 'itens'}
+                                </p>
+                              </div>
+                              <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                                {formatKwanza(guestData.totalAmount || 0)}
+                              </p>
+                            </div>
+                            
+                            <Separator />
+                            
+                            {/* Print Guest Bill Button */}
+                            <PrintGuestBill
+                              guest={guestData.guest}
+                              orders={guestData.orders}
+                              totalAmount={guestData.totalAmount}
+                              table={{
+                                id: order.tableId!,
+                                number: order.tableNumber || 0,
+                                capacity: 0,
+                                status: 'occupied' as const,
+                                restaurantId: order.restaurantId,
+                                branchId: order.branchId || null,
+                                qrCode: null,
+                                createdAt: new Date().toISOString(),
+                                updatedAt: new Date().toISOString(),
+                              }}
+                              restaurantName={restaurant?.name || ''}
+                            >
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                              >
+                                <Printer className="w-4 h-4 mr-2" />
+                                Imprimir Fatura do Cliente
+                              </Button>
+                            </PrintGuestBill>
+                            
+                            <Separator />
+                            
+                            <div className="grid grid-cols-2 gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleGuestPayment(guestData.guest.id, 'dinheiro')}
+                                disabled={recordPaymentMutation.isPending}
+                                className="h-auto py-2 flex-col gap-1"
+                              >
+                                <span className="text-lg">💵</span>
+                                <span className="text-xs">Dinheiro</span>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleGuestPayment(guestData.guest.id, 'cartao')}
+                                disabled={recordPaymentMutation.isPending}
+                                className="h-auto py-2 flex-col gap-1"
+                              >
+                                <span className="text-lg">💳</span>
+                                <span className="text-xs">Cartão</span>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleGuestPayment(guestData.guest.id, 'mbway')}
+                                disabled={recordPaymentMutation.isPending}
+                                className="h-auto py-2 flex-col gap-1"
+                              >
+                                <span className="text-lg">📱</span>
+                                <span className="text-xs">MBWay</span>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleGuestPayment(guestData.guest.id, 'transferencia')}
+                                disabled={recordPaymentMutation.isPending}
+                                className="h-auto py-2 flex-col gap-1"
+                              >
+                                <span className="text-lg">🏦</span>
+                                <span className="text-xs">Transferência</span>
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                    <Separator />
+                  </div>
+                )}
+
+                {/* Info if no guests */}
+                {!hasTableGuests && (
+                  <div className="text-center py-4 text-sm text-muted-foreground">
+                    <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>Nenhum cliente registrado nesta mesa</p>
+                    <p className="text-xs mt-1">Use o pagamento padrão abaixo para fechar a conta</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="border-primary/20">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">Resumo do Pedido</CardTitle>
@@ -1051,32 +1271,30 @@ export default function OrderDetail() {
                 )}
 
                 {order.paymentStatus !== "pago" && order.orderItems.length > 0 && (
-                  <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button
-                        className="w-full h-12 text-lg font-semibold"
-                        size="lg"
-                        data-testid="button-pay-summary"
-                      >
-                        <DollarSign className="h-5 w-5 mr-2" />
-                        {order.paymentStatus === "parcial" 
-                          ? `Pagar ${formatKwanza(Number(order.totalAmount) - Number(order.paidAmount || 0))}`
-                          : `Pagar ${formatKwanza(order.totalAmount)}`
-                        }
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Registrar Pagamento</DialogTitle>
-                      </DialogHeader>
-                      <PaymentForm
-                        onSubmit={(data) => recordPaymentMutation.mutate(data)}
-                        totalAmount={Number(order.totalAmount)}
-                        paidAmount={Number(order.paidAmount || 0)}
-                        isPending={recordPaymentMutation.isPending}
-                      />
-                    </DialogContent>
-                  </Dialog>
+                  <>
+                    <Button
+                      className="w-full h-12 text-lg font-semibold"
+                      size="lg"
+                      data-testid="button-pay-summary"
+                      onClick={() => setPaymentDialogOpen(true)}
+                    >
+                      <DollarSign className="h-5 w-5 mr-2" />
+                      {order.paymentStatus === "parcial" 
+                        ? `Pagar ${formatKwanza(Number(order.totalAmount) - Number(order.paidAmount || 0))}`
+                        : `Pagar ${formatKwanza(order.totalAmount)}`
+                      }
+                    </Button>
+                    
+                    <PaymentDialog
+                      open={paymentDialogOpen}
+                      onOpenChange={setPaymentDialogOpen}
+                      totalAmount={Number(order.totalAmount)}
+                      paidAmount={Number(order.paidAmount || 0)}
+                      isSubmitting={recordPaymentMutation.isPending}
+                      onSubmit={(data) => recordPaymentMutation.mutate(data)}
+                      title="Registrar Pagamento"
+                    />
+                  </>
                 )}
               </motion.div>
             </CardContent>
@@ -1176,30 +1394,16 @@ export default function OrderDetail() {
               </DialogContent>
             </Dialog>
             
-            <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="default"
-                  className="flex-1"
-                  disabled={order.orderItems.length === 0 || order.paymentStatus === "pago"}
-                  data-testid="button-pay"
-                >
-                  <DollarSign className="h-4 w-4 mr-2" />
-                  Pagar
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Registrar Pagamento</DialogTitle>
-                </DialogHeader>
-                <PaymentForm
-                  onSubmit={(data) => recordPaymentMutation.mutate(data)}
-                  totalAmount={Number(order.totalAmount)}
-                  paidAmount={Number(order.paidAmount || 0)}
-                  isPending={recordPaymentMutation.isPending}
-                />
-              </DialogContent>
-            </Dialog>
+            <Button
+              variant="default"
+              className="flex-1"
+              disabled={order.orderItems.length === 0 || order.paymentStatus === "pago"}
+              data-testid="button-pay"
+              onClick={() => setPaymentDialogOpen(true)}
+            >
+              <DollarSign className="h-4 w-4 mr-2" />
+              Pagar
+            </Button>
             <Button
               variant="default"
               className="flex-1"
@@ -1363,7 +1567,10 @@ function PackagingFeeForm({
   );
 }
 
-function PaymentForm({
+import { PaymentForm } from "@/components/PaymentForm";
+
+/* Legacy PaymentForm wrapper removed after extraction to components/PaymentForm
+
   onSubmit,
   totalAmount,
   paidAmount,
@@ -1526,3 +1733,4 @@ function PaymentForm({
     </div>
   );
 }
+*/

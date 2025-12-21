@@ -27,6 +27,7 @@ export async function ensureTablesExist() {
       await db.execute(sql`DO $$ BEGIN CREATE TYPE payment_status AS ENUM ('nao_pago', 'parcial', 'pago'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN CREATE TYPE payment_method AS ENUM ('dinheiro', 'multicaixa', 'transferencia', 'cartao'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN CREATE TYPE discount_type AS ENUM ('valor', 'percentual'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN CREATE TYPE bill_split_type AS ENUM ('igual', 'por_pessoa', 'personalizado'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       
       // Add 'cancelado' to existing order_status enum if it doesn't exist
       await db.execute(sql`DO $$ BEGIN
@@ -194,6 +195,15 @@ export async function ensureTablesExist() {
         ALTER TABLE tables ADD COLUMN current_session_id VARCHAR; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
+      // Add position columns for floor plan layout
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE tables ADD COLUMN position_x REAL; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE tables ADD COLUMN position_y REAL; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
       // Add total_amount to tables
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN total_amount DECIMAL(10, 2) DEFAULT 0; 
@@ -342,6 +352,28 @@ export async function ensureTablesExist() {
         ALTER TABLE table_payments ADD COLUMN reconciliation_batch_id VARCHAR(100); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
+      // Create table_bill_splits table
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS table_bill_splits (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        session_id VARCHAR NOT NULL REFERENCES table_sessions(id) ON DELETE CASCADE,
+        table_id VARCHAR NOT NULL REFERENCES tables(id) ON DELETE CASCADE,
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        split_type bill_split_type NOT NULL,
+        total_amount DECIMAL(10, 2) NOT NULL,
+        split_count INTEGER NOT NULL DEFAULT 1,
+        allocations JSONB,
+        is_finalized INTEGER NOT NULL DEFAULT 0,
+        created_by VARCHAR REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        finalized_at TIMESTAMP
+      );`);
+      
+      // Create indexes for table_bill_splits
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_table_bill_splits_session ON table_bill_splits(session_id);`);
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_table_bill_splits_table ON table_bill_splits(table_id);`);
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_table_bill_splits_restaurant ON table_bill_splits(restaurant_id);`);
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_table_bill_splits_created_at ON table_bill_splits(created_at);`);
+      
       // Create categories with restaurantId
       await db.execute(sql`CREATE TABLE IF NOT EXISTS categories (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
@@ -452,6 +484,9 @@ export async function ensureTablesExist() {
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN delivery_address TEXT; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE orders ADD COLUMN delivery_notes TEXT; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN order_notes TEXT; 
@@ -1448,6 +1483,22 @@ export async function ensureTablesExist() {
       
       isInitialized = true;
       console.log('Database tables ensured successfully!');
+      
+      // Executar migração para adicionar order_number
+      try {
+        await db.execute(sql`
+          ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_number VARCHAR(20);
+        `);
+        await db.execute(sql`
+          CREATE INDEX IF NOT EXISTS idx_orders_order_number ON orders(order_number);
+        `);
+        await db.execute(sql`
+          CREATE INDEX IF NOT EXISTS idx_orders_created_restaurant ON orders(restaurant_id, created_at DESC);
+        `);
+        console.log('✅ Migration: order_number column added successfully!');
+      } catch (migrationError) {
+        console.log('⚠️ Migration note:', migrationError instanceof Error ? migrationError.message : String(migrationError));
+      }
     } catch (error) {
       console.error('Error ensuring tables exist:', error);
       initPromise = null;

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { DndContext, DragEndEvent, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,18 +28,26 @@ import {
   UserCircle,
   ShoppingBag,
   AlertCircle,
-  Loader2
+  Loader2,
+  ArrowRightLeft,
+  History
 } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { PrintGuestBill } from '@/components/PrintGuestBill';
+import { MoveItemDialog } from '@/components/MoveItemDialog';
+import { DraggableOrderItem } from '@/components/DraggableOrderItem';
+import { DroppableGuestZone } from '@/components/DroppableGuestZone';
+import { AuditHistoryDialog } from '@/components/AuditHistoryDialog';
+import { MoveItemReasonDialog } from '@/components/MoveItemReasonDialog';
 
 interface TableGuest {
   id: string;
   sessionId: string;
-  guestName: string | null;
+  name: string | null;
   guestNumber: number;
   status: string;
   totalSpent: string;
@@ -116,6 +125,26 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPan
   const [splitCount, setSplitCount] = useState(2);
   const [selectedGuest, setSelectedGuest] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('dinheiro');
+  const [moveItemDialog, setMoveItemDialog] = useState<{
+    open: boolean;
+    item: GuestOrderItem | null;
+    currentGuest: TableGuest | null;
+  }>({
+    open: false,
+    item: null,
+    currentGuest: null,
+  });
+  const [draggedItem, setDraggedItem] = useState<GuestOrderItem | null>(null);
+  const [auditHistoryOpen, setAuditHistoryOpen] = useState(false);
+  const [reasonDialog, setReasonDialog] = useState<{
+    open: boolean;
+    itemId: string;
+    itemName: string;
+    sourceGuestId: string;
+    sourceGuestName: string;
+    targetGuestId: string;
+    targetGuestName: string;
+  } | null>(null);
 
   const { data: ordersData, isLoading: loadingOrders } = useQuery<{ ordersByGuest: OrdersByGuest[]; anonymousOrders: any[]; totalAmount: string }>({
     queryKey: [`/api/tables/${tableId}/orders-by-guest`],
@@ -174,6 +203,75 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPan
     },
   });
 
+  const moveItemMutation = useMutation({
+    mutationFn: async (data: { itemId: string; newGuestId: string; reason?: string }) => {
+      const response = await apiRequest(
+        `/api/order-items/${data.itemId}/reassign`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ 
+            newGuestId: data.newGuestId,
+            reason: data.reason,
+          }),
+        }
+      );
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tables/sessions', sessionId, 'guests'] });
+      toast({
+        title: 'Item movido',
+        description: 'O item foi movido com sucesso',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro ao mover item',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setDraggedItem(null);
+
+    if (!over) return;
+
+    const itemId = active.id as string;
+    const sourceGuestId = active.data.current?.sourceGuestId;
+    const targetGuestId = over.id as string;
+    const menuItemName = active.data.current?.menuItemName;
+
+    // Don't move if dropped on same guest
+    if (sourceGuestId === targetGuestId) return;
+
+    // Check if target guest is eligible
+    const targetGuest = ordersByGuest.find(g => g.guest.id === targetGuestId)?.guest;
+    if (!targetGuest || targetGuest.status === 'pago' || targetGuest.status === 'saiu') {
+      toast({
+        title: 'Cliente inválido',
+        description: 'O cliente de destino já pagou ou saiu',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const sourceGuest = ordersByGuest.find(g => g.guest.id === sourceGuestId)?.guest;
+    
+    // Open reason dialog
+    setReasonDialog({
+      open: true,
+      itemId,
+      itemName: menuItemName,
+      sourceGuestId,
+      sourceGuestName: sourceGuest?.name || `Cliente ${sourceGuest?.guestNumber}`,
+      targetGuestId,
+      targetGuestName: targetGuest.name || `Cliente ${targetGuest.guestNumber}`,
+    });
+  };
+
   const updateGuestStatusMutation = useMutation({
     mutationFn: async ({ guestId, status }: { guestId: string; status: string }) => {
       const res = await apiRequest('PATCH', `/api/tables/${tableId}/guests/${guestId}`, {
@@ -200,7 +298,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPan
     } else if (splitType === 'por_pessoa') {
       const allocations = ordersByGuest.map(og => ({
         guestId: og.guest.id,
-        guestName: og.guest.guestName || `Cliente ${og.guest.guestNumber}`,
+        guestName: og.guest.name || `Cliente ${og.guest.guestNumber}`,
         amount: Number(og.totalAmount).toFixed(2),
         isPaid: og.guest.status === 'pago',
       }));
@@ -232,8 +330,29 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPan
   const remainingAmount = totalAmount - totalPaid;
 
   return (
-    <div className="space-y-4">
-      {guestsAwaitingBill.length > 0 && (
+    <DndContext
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+      onDragStart={(event) => {
+        const item = event.active.data.current as GuestOrderItem;
+        setDraggedItem(item);
+      }}
+    >
+      <div className="space-y-4">
+        {/* History Button */}
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAuditHistoryOpen(true)}
+            className="gap-2"
+          >
+            <History className="h-4 w-4" />
+            Ver Histórico de Alterações
+          </Button>
+        </div>
+
+        {guestsAwaitingBill.length > 0 && (
         <Card className="border-orange-500/50 bg-orange-500/10">
           <CardContent className="py-3">
             <div className="flex items-center gap-2">
@@ -302,7 +421,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPan
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <span className="font-medium">
-                                {guestData.guest.guestName || `Cliente ${guestData.guest.guestNumber}`}
+                                {guestData.guest.name || `Cliente ${guestData.guest.guestNumber}`}
                               </span>
                               <Badge className={getGuestStatusColor(guestData.guest.status)}>
                                 {getGuestStatusLabel(guestData.guest.status)}
@@ -323,42 +442,66 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPan
                           <div className="text-lg font-bold">
                             {formatKwanza(Number(guestData.totalAmount).toFixed(2))}
                           </div>
-                          {guestData.guest.status !== 'pago' && (
-                            <Button
-                              size="sm"
+                          <div className="flex gap-2 mt-2">
+                            <PrintGuestBill
+                              guest={guestData.guest}
+                              orders={guestData.orders}
+                              totalAmount={Number(guestData.totalAmount)}
+                              tableName={`Mesa ${tableId}`}
                               variant="outline"
-                              className="mt-2"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMarkAsPaid(guestData.guest.id);
-                              }}
-                              disabled={updateGuestStatusMutation.isPending}
-                              data-testid={`button-mark-paid-${guestData.guest.id}`}
-                            >
-                              <Check className="h-3 w-3 mr-1" />
-                              Marcar Pago
-                            </Button>
-                          )}
+                              size="sm"
+                            />
+                            {guestData.guest.status !== 'pago' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleMarkAsPaid(guestData.guest.id);
+                                }}
+                                disabled={updateGuestStatusMutation.isPending}
+                                data-testid={`button-mark-paid-${guestData.guest.id}`}
+                              >
+                                <Check className="h-3 w-3 mr-1" />
+                                Marcar Pago
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
 
                       {selectedGuest === guestData.guest.id && guestData.orders.length > 0 && (
                         <div className="mt-4 pt-4 border-t">
-                          <div className="text-sm font-medium mb-2">Itens Consumidos:</div>
-                          <div className="space-y-2">
-                            {guestData.orders.map((order) => (
-                              <div key={order.orderId} className="space-y-1">
-                                {order.items.map((item) => (
-                                  <div key={item.id} className="flex items-center justify-between text-sm">
-                                    <span className="text-muted-foreground">
-                                      {item.quantity}x {item.menuItemName}
-                                    </span>
-                                    <span>{formatKwanza(item.totalPrice)}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            ))}
+                          <div className="text-sm font-medium mb-3 flex items-center gap-2">
+                            <span>Itens Consumidos:</span>
+                            {ordersByGuest.length > 1 && (
+                              <span className="text-xs text-muted-foreground font-normal">
+                                (Arraste para mover)
+                              </span>
+                            )}
                           </div>
+                          <DroppableGuestZone
+                            guestId={guestData.guest.id}
+                            disabled={guestData.guest.status === 'pago'}
+                          >
+                            <div className="space-y-1">
+                              {guestData.orders.map((order) => (
+                                <div key={order.orderId}>
+                                  {order.items.map((item) => (
+                                    <DraggableOrderItem
+                                      key={item.id}
+                                      id={item.id}
+                                      menuItemName={item.menuItemName}
+                                      quantity={item.quantity}
+                                      totalPrice={item.totalPrice}
+                                      guestId={guestData.guest.id}
+                                      disabled={guestData.guest.status === 'pago' || ordersByGuest.length === 1}
+                                    />
+                                  ))}
+                                </div>
+                              ))}
+                            </div>
+                          </DroppableGuestZone>
                         </div>
                       )}
                     </CardContent>
@@ -413,7 +556,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPan
                 <div className="text-sm space-y-1">
                   {ordersByGuest.map((og) => (
                     <div key={og.guest.id} className="flex justify-between">
-                      <span>{og.guest.guestName || `Cliente ${og.guest.guestNumber}`}</span>
+                      <span>{og.guest.name || `Cliente ${og.guest.guestNumber}`}</span>
                       <span className="font-medium">{formatKwanza(Number(og.totalAmount).toFixed(2))}</span>
                     </div>
                   ))}
@@ -507,6 +650,72 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPan
           </CardContent>
         </Card>
       )}
-    </div>
+
+      {/* Move Item Dialog */}
+      {moveItemDialog.item && moveItemDialog.currentGuest && (
+        <MoveItemDialog
+          open={moveItemDialog.open}
+          onOpenChange={(open) => {
+            if (!open) {
+              setMoveItemDialog({ open: false, item: null, currentGuest: null });
+            }
+          }}
+          item={moveItemDialog.item}
+          currentGuest={moveItemDialog.currentGuest}
+          availableGuests={ordersByGuest.map((og) => og.guest)}
+          sessionId={sessionId || ''}
+        />
+      )}
+
+      {/* Audit History Dialog */}
+      <AuditHistoryDialog
+        open={auditHistoryOpen}
+        onOpenChange={setAuditHistoryOpen}
+        sessionId={sessionId || ''}
+      />
+
+      {/* Move Item Reason Dialog (for drag & drop) */}
+      {reasonDialog && (
+        <MoveItemReasonDialog
+          open={reasonDialog.open}
+          onOpenChange={(open) => {
+            if (!open) {
+              setReasonDialog(null);
+            }
+          }}
+          itemName={reasonDialog.itemName}
+          sourceGuestName={reasonDialog.sourceGuestName}
+          targetGuestName={reasonDialog.targetGuestName}
+          onConfirm={(reason) => {
+            moveItemMutation.mutate({
+              itemId: reasonDialog.itemId,
+              newGuestId: reasonDialog.targetGuestId,
+              reason,
+            });
+            setReasonDialog(null);
+          }}
+          onCancel={() => {
+            setReasonDialog(null);
+          }}
+        />
+      )}
+      </div>
+
+      {/* Drag Overlay */}
+      <DragOverlay>
+        {draggedItem ? (
+          <div className="bg-background border rounded-lg p-3 shadow-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">
+                {draggedItem.quantity}x {draggedItem.menuItemName}
+              </span>
+              <span className="text-sm font-medium ml-4">
+                {formatKwanza(draggedItem.totalPrice)}
+              </span>
+            </div>
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }

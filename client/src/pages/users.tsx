@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, useEffect, useCallback } from "react";
+import { useQuery, useMutation, useInfiniteQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useInView } from "react-intersection-observer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, UserPlus, Pencil, Key, Eye, EyeOff, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Trash2, UserPlus, Pencil, Key, Eye, EyeOff, Search, ChevronLeft, ChevronRight, X, Users as UsersIcon, UserCheck, UserX, TrendingUp, Activity, Calendar, Filter, Download, Mail, Phone, Shield, Crown, Briefcase, ChefHat } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +19,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -31,6 +32,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
+import { AdvancedFilters, FilterOption } from "@/components/advanced-filters";
+import { ShimmerSkeleton } from "@/components/shimmer-skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { ROLE_PERMISSIONS, UserRole, insertUserSchema, updateUserSchema, adminResetPasswordSchema } from "@shared/schema";
 
@@ -292,21 +300,78 @@ export default function Users() {
     setDebouncedSearch("");
   };
 
+  // Calculate KPIs
+  const totalUsers = pagination?.total || 0;
+  const usersByRole = users.reduce((acc, user) => {
+    acc[user.role] = (acc[user.role] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const getRoleIcon = (role: UserRole) => {
+    switch (role) {
+      case 'admin': return Shield;
+      case 'manager': return Crown;
+      case 'cashier': return Briefcase;
+      case 'waiter': return Users;
+      case 'kitchen': return ChefHat;
+      default: return Users;
+    }
+  };
+
+  const getRoleColor = (role: UserRole) => {
+    switch (role) {
+      case 'admin': return 'bg-red-500/10 text-red-500 border-red-500/20';
+      case 'manager': return 'bg-purple-500/10 text-purple-500 border-purple-500/20';
+      case 'cashier': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+      case 'waiter': return 'bg-green-500/10 text-green-500 border-green-500/20';
+      case 'kitchen': return 'bg-orange-500/10 text-orange-500 border-orange-500/20';
+      default: return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
+    }
+  };
+
+  const getRoleName = (role: UserRole) => {
+    const names: Record<UserRole, string> = {
+      admin: 'Administrador',
+      manager: 'Gerente',
+      cashier: 'Caixa',
+      waiter: 'Garçom',
+      kitchen: 'Cozinha',
+      superadmin: 'Super Admin'
+    };
+    return names[role] || role;
+  };
+
+  const getUserInitials = (user: User) => {
+    if (user.firstName && user.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    }
+    if (user.firstName) return user.firstName.substring(0, 2).toUpperCase();
+    return user.email.substring(0, 2).toUpperCase();
+  };
+
+  const getUserFullName = (user: User) => {
+    if (user.firstName || user.lastName) {
+      return `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    }
+    return user.email;
+  };
+
   return (
-    <div className="min-h-screen">
-      <div className="space-y-4 p-4 sm:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 pb-safe">
+      <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 lg:p-8 pb-20 sm:pb-8">
+        {/* Header */}
         <motion.div
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 sticky top-0 z-10 bg-gradient-to-br from-background via-background to-muted/20 py-2 sm:py-0 -mx-3 px-3 sm:mx-0 sm:px-0 backdrop-blur-sm sm:backdrop-blur-none"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent" data-testid="text-page-title">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-600 to-pink-600 bg-clip-text text-transparent truncate" data-testid="text-page-title">
               Gestão de Usuários
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Gerir credenciais e informações de acesso ao sistema
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1 sm:mt-2 line-clamp-1">
+              Gerencie a equipe e controle acessos ao sistema
             </p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -314,14 +379,18 @@ export default function Users() {
             if (!open) createForm.reset();
           }}>
             <DialogTrigger asChild>
-              <Button data-testid="button-add-user">
-                <UserPlus className="h-4 w-4 mr-2" />
-                Novo Usuário
+              <Button 
+                size="default" 
+                className="gap-2 shadow-lg hover:shadow-xl transition-all w-full sm:w-auto shrink-0" 
+                data-testid="button-add-user"
+              >
+                <UserPlus className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="sm:inline">Novo</span>
               </Button>
             </DialogTrigger>
-            <DialogContent data-testid="dialog-create-user">
+            <DialogContent className="sm:max-w-[500px]" data-testid="dialog-create-user">
               <DialogHeader>
-                <DialogTitle>Criar Novo Usuário</DialogTitle>
+                <DialogTitle className="text-2xl">Criar Novo Usuário</DialogTitle>
                 <DialogDescription>
                   Preencha os dados para criar um novo utilizador no sistema
                 </DialogDescription>
@@ -462,28 +531,67 @@ export default function Users() {
           </Dialog>
         </motion.div>
 
+        {/* KPIs Dashboard */}
+        <motion.div
+          className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+        >
+          <AdvancedKpiCard
+            title="Total"
+            value={totalUsers}
+            icon={Users}
+            trend={0}
+            iconColor="bg-blue-500/10 text-blue-600"
+            className="touch-manipulation"
+          />
+          <AdvancedKpiCard
+            title="Admins"
+            value={usersByRole['admin'] || 0}
+            icon={Shield}
+            iconColor="bg-red-500/10 text-red-600"
+            className="touch-manipulation"
+          />
+          <AdvancedKpiCard
+            title="Gerentes"
+            value={usersByRole['manager'] || 0}
+            icon={Crown}
+            iconColor="bg-purple-500/10 text-purple-600"
+            className="touch-manipulation"
+          />
+          <AdvancedKpiCard
+            title="Equipe"
+            value={(usersByRole['waiter'] || 0) + (usersByRole['cashier'] || 0) + (usersByRole['kitchen'] || 0)}
+            icon={Briefcase}
+            iconColor="bg-green-500/10 text-green-600"
+            className="touch-manipulation"
+          />
+        </motion.div>
+
         {/* Search and Filter Bar */}
         <motion.div
-          className="flex flex-col sm:flex-row gap-3"
+          className="flex flex-col sm:flex-row gap-2 sm:gap-3"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
         >
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
-              placeholder="Pesquisar por email, nome ou sobrenome..."
+              placeholder="Pesquisar usuários..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-10"
+              className="pl-10 pr-10 h-10 sm:h-11 touch-manipulation"
               data-testid="input-search-users"
+              inputMode="search"
             />
             {searchQuery && (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent touch-manipulation active:scale-95"
                 onClick={clearSearch}
                 data-testid="button-clear-search"
               >
@@ -492,11 +600,11 @@ export default function Users() {
             )}
           </div>
           <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-full sm:w-48" data-testid="select-role-filter">
-              <SelectValue placeholder="Filtrar por tipo" />
+            <SelectTrigger className="w-full sm:w-48 h-10 sm:h-11 touch-manipulation" data-testid="select-role-filter">
+              <SelectValue placeholder="Filtrar" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os tipos</SelectItem>
+              <SelectItem value="all">Todos</SelectItem>
               {Object.entries(ROLE_PERMISSIONS)
                 .filter(([key]) => key !== 'superadmin')
                 .map(([key, value]) => (
@@ -510,88 +618,161 @@ export default function Users() {
 
         {/* Results count */}
         {pagination && (
-          <div className="text-sm text-muted-foreground" data-testid="text-results-count">
+          <motion.div 
+            className="text-sm text-muted-foreground flex items-center gap-2" 
+            data-testid="text-results-count"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+          >
+            <Activity className="h-4 w-4" />
             {pagination.total === 0 
               ? "Nenhum usuário encontrado" 
               : `Mostrando ${users.length} de ${pagination.total} usuário${pagination.total !== 1 ? 's' : ''}`}
-          </div>
+          </motion.div>
         )}
 
         {isLoading ? (
-          <div className="text-center py-12" data-testid="text-loading">
-            A carregar usuários...
-          </div>
-        ) : users.length === 0 ? (
-          <Card>
-            <CardContent className="py-12">
-              <div className="text-center text-muted-foreground" data-testid="text-no-users">
-                {debouncedSearch || roleFilter !== "all" 
-                  ? "Nenhum usuário encontrado com os filtros aplicados"
-                  : "Nenhum usuário cadastrado"}
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4">
-            {users.map((user) => (
-              <Card key={user.id} data-testid={`card-user-${user.id}`}>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-1 min-w-0 flex-1">
-                      <CardTitle className="text-lg">
-                        {user.firstName && user.lastName
-                          ? `${user.firstName} ${user.lastName}`
-                          : user.email}
-                      </CardTitle>
-                      <CardDescription data-testid={`text-email-${user.id}`}>
-                        {user.email}
-                      </CardDescription>
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <Badge
-                        variant={user.role === 'admin' || user.role === 'manager' ? 'default' : 'secondary'}
-                        data-testid={`badge-role-${user.id}`}
-                      >
-                        {ROLE_PERMISSIONS[user.role]?.label || user.role}
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(user)}
-                        title="Editar usuário"
-                        data-testid={`button-edit-${user.id}`}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openPasswordDialog(user)}
-                        title="Alterar senha"
-                        data-testid={`button-password-${user.id}`}
-                      >
-                        <Key className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          if (window.confirm('Tem certeza que deseja deletar este usuário?')) {
-                            deleteUserMutation.mutate(user.id);
-                          }
-                        }}
-                        disabled={deleteUserMutation.isPending}
-                        title="Deletar usuário"
-                        data-testid={`button-delete-${user.id}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-              </Card>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <ShimmerSkeleton key={i} className="h-48" />
             ))}
           </div>
+        ) : users.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Card className="border-dashed">
+              <CardContent className="py-16">
+                <div className="text-center space-y-3" data-testid="text-no-users">
+                  <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                    <UsersIcon className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="font-semibold text-lg">
+                    {debouncedSearch || roleFilter !== "all" 
+                      ? "Nenhum usuário encontrado"
+                      : "Nenhum usuário cadastrado"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {debouncedSearch || roleFilter !== "all" 
+                      ? "Tente ajustar os filtros de busca"
+                      : "Comece adicionando o primeiro usuário ao sistema"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ) : (
+          <AnimatePresence mode="wait">
+            <motion.div 
+              className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              {users.map((user, index) => {
+                const RoleIcon = getRoleIcon(user.role);
+                return (
+                  <motion.div
+                    key={user.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <Card 
+                      className="group active:scale-[0.98] sm:hover:shadow-lg transition-all duration-300 sm:hover:scale-[1.02] overflow-hidden border-l-4 touch-manipulation"
+                      style={{ borderLeftColor: `hsl(var(--${user.role === 'admin' ? 'destructive' : user.role === 'manager' ? 'purple-500' : user.role === 'cashier' ? 'blue-500' : 'green-500'}))` }}
+                      data-testid={`card-user-${user.id}`}
+                    >
+                      <CardContent className="p-4 sm:p-6">
+                        <div className="flex items-start gap-3 sm:gap-4">
+                          {/* Avatar */}
+                          <Avatar className="h-12 w-12 sm:h-16 sm:w-16 border-2 border-border shrink-0">
+                            <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${getUserInitials(user)}`} />
+                            <AvatarFallback className="text-base sm:text-lg font-semibold">
+                              {getUserInitials(user)}
+                            </AvatarFallback>
+                          </Avatar>
+
+                          {/* User Info */}
+                          <div className="flex-1 min-w-0 space-y-2 sm:space-y-3">
+                            <div>
+                              <h3 className="font-semibold text-base sm:text-lg truncate">
+                                {getUserFullName(user)}
+                              </h3>
+                              <p className="text-xs sm:text-sm text-muted-foreground truncate flex items-center gap-1 mt-0.5" data-testid={`text-email-${user.id}`}>
+                                <Mail className="h-3 w-3 shrink-0" />
+                                {user.email}
+                              </p>
+                            </div>
+
+                            {/* Role Badge */}
+                            <Badge 
+                              className={`${getRoleColor(user.role)} border flex items-center gap-1 w-fit text-xs`}
+                              data-testid={`badge-role-${user.id}`}
+                            >
+                              <RoleIcon className="h-3 w-3" />
+                              {getRoleName(user.role)}
+                            </Badge>
+
+                            {/* Metadata - Hidden on mobile */}
+                            <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
+                              <Calendar className="h-3 w-3" />
+                              Criado em {new Date(user.createdAt).toLocaleDateString('pt-AO')}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <Separator className="my-3 sm:my-4" />
+                        <div className="flex items-center justify-end gap-1 sm:gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditDialog(user)}
+                            className="gap-1 sm:gap-2 h-8 sm:h-9 text-xs sm:text-sm touch-manipulation active:scale-95"
+                            title="Editar usuário"
+                            data-testid={`button-edit-${user.id}`}
+                          >
+                            <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <span className="hidden xs:inline">Editar</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openPasswordDialog(user)}
+                            className="gap-1 sm:gap-2 h-8 sm:h-9 text-xs sm:text-sm touch-manipulation active:scale-95"
+                            title="Alterar senha"
+                            data-testid={`button-password-${user.id}`}
+                          >
+                            <Key className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <span className="hidden xs:inline">Senha</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (window.confirm('Tem certeza que deseja deletar este usuário?')) {
+                                deleteUserMutation.mutate(user.id);
+                              }
+                            }}
+                            disabled={deleteUserMutation.isPending}
+                            className="gap-1 sm:gap-2 h-8 sm:h-9 text-xs sm:text-sm text-destructive hover:text-destructive touch-manipulation active:scale-95"
+                            title="Deletar usuário"
+                            data-testid={`button-delete-${user.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          </AnimatePresence>
         )}
 
         {/* Pagination */}

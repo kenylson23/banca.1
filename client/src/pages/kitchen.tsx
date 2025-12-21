@@ -13,6 +13,7 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatKwanza } from "@/lib/formatters";
 import { PrintOrder } from "@/components/PrintOrder";
+import { KitchenOrderDialog } from "@/components/KitchenOrderDialog";
 import type { Order, OrderItem, MenuItem, Table, OrderItemOption } from "@shared/schema";
 import { motion, AnimatePresence } from "framer-motion";
 import { TubelightNavBar } from "@/components/ui/tubelight-navbar";
@@ -145,6 +146,7 @@ export default function Kitchen() {
   const [showStats, setShowStats] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<KitchenOrder | null>(null);
   const prevOrderCountRef = useRef<number>(0);
 
   const sensors = useSensors(
@@ -441,8 +443,13 @@ export default function Kitchen() {
         </div>
         <div className="flex items-center justify-between pt-2 border-t">
           <span className="font-bold text-sm font-mono">{formatKwanza(order.totalAmount)}</span>
-          <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
-            <Link href={`/orders/${order.id}`}><Eye className="h-3 w-3 mr-1" />Ver</Link>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-7 text-xs"
+            onClick={() => setSelectedOrder(order)}
+          >
+            <Eye className="h-3 w-3 mr-1" />Ver
           </Button>
         </div>
       </div>
@@ -683,16 +690,14 @@ export default function Kitchen() {
                       )}
                       <div className="flex gap-2">
                         <Button 
-                          asChild
                           variant="outline" 
                           size="default"
                           className="flex-1 text-sm sm:text-base"
+                          onClick={() => setSelectedOrder(order)}
                           data-testid={`button-view-details-${order.id}`}
                         >
-                          <Link href={`/orders/${order.id}`}>
-                            <Eye className="h-4 w-4 mr-2" />
-                            Ver Detalhes
-                          </Link>
+                          <Eye className="h-4 w-4 mr-2" />
+                          Ver Detalhes
                         </Button>
                         <PrintOrder order={order} variant="outline" size="icon" />
                       </div>
@@ -881,6 +886,15 @@ export default function Kitchen() {
         </div>
       )}
       </div>
+
+      {/* Kitchen Order Details Modal */}
+      {selectedOrder && (
+        <KitchenOrderDialog
+          order={selectedOrder}
+          open={!!selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+        />
+      )}
     </div>
   );
 }

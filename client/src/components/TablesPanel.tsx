@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Download, QrCode as QrCodeIcon, LayoutGrid, Check, Clock, DollarSign, Users } from "lucide-react";
+import { Plus, Download, QrCode as QrCodeIcon, LayoutGrid, Check, Clock, DollarSign, Users, Search, List, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +48,9 @@ export function TablesPanel() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [areaFilter, setAreaFilter] = useState<string>('all');
   const [selectedTable, setSelectedTable] = useState<(Table & { orders?: any[] }) | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFreeTables, setShowFreeTables] = useState(true);
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid');
 
   const navItems = [
     { name: 'Todas', url: '#', icon: LayoutGrid },
@@ -201,7 +204,17 @@ export function TablesPanel() {
   const filteredTables = tables?.filter((table) => {
     const matchesStatus = statusFilter === 'all' || table.status === statusFilter;
     const matchesArea = areaFilter === 'all' || (areaFilter === 'sem_area' ? !table.area : table.area === areaFilter);
-    return matchesStatus && matchesArea;
+    
+    // Filtro para ocultar mesas livres
+    const matchesFreeTables = showFreeTables || table.status !== 'livre';
+    
+    // Busca por número da mesa, nome do cliente ou área
+    const matchesSearch = !searchQuery || 
+      table.number.toString().includes(searchQuery) ||
+      table.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      table.area?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    return matchesStatus && matchesArea && matchesSearch && matchesFreeTables;
   }) || [];
 
   const areas = Array.from(new Set(tables?.map(t => t.area).filter((a): a is string => Boolean(a)) || [])).sort();
@@ -215,6 +228,40 @@ export function TablesPanel() {
     return acc;
   }, {} as Record<string, typeof filteredTables>);
 
+  // KPIs
+  const occupiedTables = tables?.filter(t => t.status !== 'livre') || [];
+  const tablesWithDigitalOrders = occupiedTables.filter(t => t.orders && t.orders.length > 0);
+  const tablesAwaitingPayment = occupiedTables.filter(t => t.status === 'aguardando_pagamento');
+  const totalRevenue = occupiedTables.reduce((sum, t) => sum + parseFloat(t.totalAmount || '0'), 0);
+
+  // Analytics Avançados
+  const averageTableValue = occupiedTables.length > 0 
+    ? totalRevenue / occupiedTables.length 
+    : 0;
+  
+  const occupancyRate = tables && tables.length > 0 
+    ? (occupiedTables.length / tables.length) * 100 
+    : 0;
+
+  const averageSessionDuration = occupiedTables.length > 0
+    ? occupiedTables.reduce((sum, t) => {
+        if (!t.lastActivity) return sum;
+        const duration = Date.now() - new Date(t.lastActivity).getTime();
+        return sum + duration;
+      }, 0) / occupiedTables.length
+    : 0;
+
+  const formatDuration = (ms: number) => {
+    const minutes = Math.floor(ms / (1000 * 60));
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${remainingMinutes}min`;
+    }
+    return `${minutes}min`;
+  };
+
   const statusCounts = {
     all: tables?.length || 0,
     livre: tables?.filter(t => t.status === 'livre').length || 0,
@@ -225,14 +272,21 @@ export function TablesPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-create-table" className="w-full sm:w-auto">
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Mesa
-            </Button>
-          </DialogTrigger>
+      {/* Botão de criar mesa - sempre visível */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-background">
+        <div className="flex flex-col sm:flex-row gap-4 flex-1">
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                data-testid="button-create-table" 
+                className="w-full sm:w-auto shadow-md" 
+                variant="default" 
+                size="lg"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Mesa
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <form onSubmit={handleCreate}>
               <DialogHeader>
@@ -293,6 +347,138 @@ export function TablesPanel() {
             </form>
           </DialogContent>
         </Dialog>
+        
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por mesa, cliente ou área..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+            data-testid="input-search-tables"
+          />
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="showFreeTables"
+              checked={showFreeTables}
+              onChange={(e) => setShowFreeTables(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+              data-testid="checkbox-show-free-tables"
+            />
+            <Label htmlFor="showFreeTables" className="cursor-pointer text-sm font-normal">
+              Mostrar livres
+            </Label>
+          </div>
+          
+          <div className="flex items-center border rounded-md">
+            <Button
+              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('grid')}
+              data-testid="button-view-grid"
+              className="rounded-r-none border-r"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+              data-testid="button-view-list"
+              className="rounded-none border-r"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'map' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('map')}
+              data-testid="button-view-map"
+              className="rounded-l-none"
+            >
+              <Map className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+      </div>
+
+      {/* KPIs Dashboard */}
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Mesas Ocupadas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="kpi-occupied-count">{occupiedTables.length}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Com Pedidos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-500" data-testid="kpi-with-orders">{tablesWithDigitalOrders.length}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Aguardando Pagamento</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-500" data-testid="kpi-awaiting-payment">{tablesAwaitingPayment.length}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total em Aberto</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-500" data-testid="kpi-total-revenue">
+                {totalRevenue.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Analytics Avançados */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Ticket Médio</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl font-bold text-purple-600" data-testid="kpi-average-value">
+                {averageTableValue.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Taxa de Ocupação</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl font-bold text-indigo-600" data-testid="kpi-occupancy-rate">
+                {occupancyRate.toFixed(1)}%
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Tempo Médio</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl font-bold text-cyan-600" data-testid="kpi-average-duration">
+                {formatDuration(averageSessionDuration)}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <div className="flex justify-center mb-6">
@@ -354,16 +540,136 @@ export function TablesPanel() {
                   {areaTables.length} {areaTables.length === 1 ? 'mesa' : 'mesas'}
                 </Badge>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-                {areaTables.map((table) => (
-                  <TableCard
-                    key={table.id}
-                    table={table}
-                    onClick={() => setSelectedTable(table)}
-                    onShowQrCode={setQrDialogTable}
-                  />
-                ))}
-              </div>
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                  {areaTables.map((table) => (
+                    <TableCard
+                      key={table.id}
+                      table={table}
+                      onClick={() => setSelectedTable(table)}
+                      onShowQrCode={setQrDialogTable}
+                    />
+                  ))}
+                </div>
+              ) : viewMode === 'list' ? (
+                <div className="space-y-2">
+                  {areaTables.map((table) => (
+                    <Card 
+                      key={table.id} 
+                      className="cursor-pointer hover:bg-accent transition-colors"
+                      onClick={() => setSelectedTable(table)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4 flex-1">
+                            <div className="font-semibold text-lg">Mesa {table.number}</div>
+                            <Badge variant={
+                              table.status === 'livre' ? 'secondary' :
+                              table.status === 'ocupada' ? 'default' :
+                              table.status === 'em_andamento' ? 'default' :
+                              'destructive'
+                            }>
+                              {table.status === 'livre' ? 'Livre' :
+                               table.status === 'ocupada' ? 'Ocupada' :
+                               table.status === 'em_andamento' ? 'Em Andamento' :
+                               'Aguardando Pagamento'}
+                            </Badge>
+                            {table.customerName && (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Users className="h-4 w-4" />
+                                <span>{table.customerName}</span>
+                              </div>
+                            )}
+                            {table.customerCount && (
+                              <span className="text-sm text-muted-foreground">
+                                {table.customerCount} {table.customerCount === 1 ? 'pessoa' : 'pessoas'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4">
+                            {table.totalAmount && parseFloat(table.totalAmount) > 0 && (
+                              <div className="text-lg font-bold text-green-600">
+                                {parseFloat(table.totalAmount).toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
+                              </div>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setQrDialogTable(table);
+                              }}
+                            >
+                              <QrCodeIcon className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                // Map View
+                <div className="relative bg-muted/30 rounded-lg p-8 min-h-[600px] border-2 border-dashed">
+                  <div className="absolute top-4 left-4 text-sm text-muted-foreground bg-background px-3 py-1 rounded-md shadow">
+                    Vista do Layout
+                  </div>
+                  <div className="grid grid-cols-8 gap-4 h-full">
+                    {areaTables.map((table) => {
+                      const getStatusColor = () => {
+                        if (table.status === 'livre') return 'bg-green-100 border-green-400 hover:bg-green-200';
+                        if (table.status === 'ocupada') return 'bg-orange-100 border-orange-400 hover:bg-orange-200';
+                        if (table.status === 'em_andamento') return 'bg-blue-100 border-blue-400 hover:bg-blue-200';
+                        return 'bg-red-100 border-red-400 hover:bg-red-200';
+                      };
+                      
+                      return (
+                        <div
+                          key={table.id}
+                          className={`relative cursor-pointer border-2 rounded-lg p-4 transition-all hover:shadow-lg ${getStatusColor()}`}
+                          onClick={() => setSelectedTable(table)}
+                          style={{
+                            gridColumn: `span ${Math.min(2, Math.max(1, Math.ceil((table.capacity || 4) / 2)))}`,
+                          }}
+                          data-testid={`map-table-${table.number}`}
+                        >
+                          <div className="flex flex-col items-center justify-center h-full">
+                            <div className="text-2xl font-bold mb-1">
+                              {table.number}
+                            </div>
+                            {table.customerName && (
+                              <div className="text-xs text-center truncate max-w-full">
+                                {table.customerName}
+                              </div>
+                            )}
+                            {table.customerCount && (
+                              <div className="flex items-center gap-1 text-xs mt-1">
+                                <Users className="h-3 w-3" />
+                                <span>{table.customerCount}</span>
+                              </div>
+                            )}
+                            {table.totalAmount && parseFloat(table.totalAmount) > 0 && (
+                              <div className="text-xs font-semibold mt-1 text-green-700">
+                                {parseFloat(table.totalAmount).toLocaleString('pt-AO', { 
+                                  style: 'currency', 
+                                  currency: 'AOA',
+                                  minimumFractionDigits: 0,
+                                  maximumFractionDigits: 0
+                                })}
+                              </div>
+                            )}
+                          </div>
+                          {table.status === 'aguardando_pagamento' && (
+                            <div className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
+                              !
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -439,6 +745,8 @@ export function TablesPanel() {
         onOpenChange={(open) => !open && setSelectedTable(null)}
         table={selectedTable}
         onDelete={setDeleteTableId}
+        allTables={filteredTables}
+        onNavigate={setSelectedTable}
       />
     </div>
   );

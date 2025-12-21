@@ -1,7 +1,7 @@
 {
-  "name": "Na Bancada - Sistema de Gestão de Restaurante",
-  "short_name": "Na Bancada",
-  "description": "Sistema completo de gestão de restaurante com QR Codes por mesa, painel administrativo e comunicação em tempo real com a cozinha",
+  "name": "NaBancada - Sistema de Gestão de Restaurante",
+  "short_name": "NaBancada",
+  "description": "Sistema profissional de gestão para restaurantes com QR Codes, PDV, controle de mesas e muito mais",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1c1917",

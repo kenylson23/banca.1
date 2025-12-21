@@ -1,24 +1,41 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, ShoppingBag, TrendingUp, Users, UtensilsCrossed, Tag, Gift, UserPlus, XCircle } from "lucide-react";
+import { 
+  Tag,
+  Gift,
+  UserPlus,
+  Clock,
+} from "lucide-react";
+import {
+  SalesIcon,
+  OrdersIcon,
+  TicketIcon,
+  TablesIcon,
+  CancellationsIcon,
+  MenuIcon,
+  KitchenIcon,
+  ReportsIcon,
+} from "@/components/custom-icons";
 import { formatKwanza } from "@/lib/formatters";
 import type { Order, MenuItem, Customer, Coupon } from "@shared/schema";
 import { DateRange } from "react-day-picker";
 import { motion } from "framer-motion";
-import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
-import { AdvancedSalesChart } from "@/components/advanced-sales-chart";
-import { SalesHeatmap } from "@/components/sales-heatmap";
-import { ActivityFeed } from "@/components/activity-feed";
-import { GoalsWidget } from "@/components/goals-widget";
-import { QuickActionsWidget } from "@/components/quick-actions-widget";
+import { InteractiveKPICard } from "@/components/interactive-kpi-card";
 import { AdvancedFilters } from "@/components/advanced-filters";
-import { TopDishesCard } from "@/components/top-dishes-card";
-import { RecentOrdersTable } from "@/components/recent-orders-table";
 import { useLocation } from "wouter";
+
+// Lazy load componentes pesados que não são críticos para o first paint
+const ModernChart = lazy(() => import("@/components/modern-chart").then(m => ({ default: m.ModernChart })));
+const DataHeatmap = lazy(() => import("@/components/data-heatmap").then(m => ({ default: m.DataHeatmap })));
+const ActivityFeed = lazy(() => import("@/components/activity-feed").then(m => ({ default: m.ActivityFeed })));
+const GoalsWidget = lazy(() => import("@/components/goals-widget").then(m => ({ default: m.GoalsWidget })));
+const QuickActionsWidget = lazy(() => import("@/components/quick-actions-widget").then(m => ({ default: m.QuickActionsWidget })));
+const TopDishesCard = lazy(() => import("@/components/top-dishes-card").then(m => ({ default: m.TopDishesCard })));
+const RecentOrdersTable = lazy(() => import("@/components/recent-orders-table").then(m => ({ default: m.RecentOrdersTable })));
 
 interface DashboardStats {
   todaySales: string;
@@ -60,7 +77,6 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [quickFilter, setQuickFilter] = useState<FilterOption>("today");
-  const [showComparison, setShowComparison] = useState(false);
 
   const handleQuickFilter = (filter: FilterOption) => {
     setQuickFilter(filter);
@@ -70,6 +86,8 @@ export default function Dashboard() {
   const { data: todayStats, isLoading: todayLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/stats/dashboard"],
     enabled: !dateRange?.from || !dateRange?.to,
+    staleTime: 30000, // Cache por 30 segundos
+    gcTime: 300000, // Garbage collection após 5 minutos
   });
 
   const { data: customStats, isLoading: customLoading } = useQuery<CustomRangeStats>({
@@ -110,6 +128,8 @@ export default function Dashboard() {
 
   const { data: recentOrders, isLoading: ordersLoading } = useQuery<Array<Order & { table: { number: number } }>>({
     queryKey: ["/api/orders/recent"],
+    staleTime: 10000, // Cache por 10 segundos
+    gcTime: 60000,
   });
 
   const { data: customersStats } = useQuery<{
@@ -118,6 +138,8 @@ export default function Dashboard() {
     newThisMonth: number;
   }>({
     queryKey: ["/api/customers/stats"],
+    staleTime: 60000, // Cache por 1 minuto
+    gcTime: 300000,
   });
 
   const { data: couponsStats } = useQuery<{
@@ -127,6 +149,8 @@ export default function Dashboard() {
     totalDiscount: string;
   }>({
     queryKey: ["/api/coupons/stats"],
+    staleTime: 60000, // Cache por 1 minuto
+    gcTime: 300000,
   });
 
   const { data: loyaltyStats } = useQuery<{
@@ -136,6 +160,8 @@ export default function Dashboard() {
     tierDistribution: { bronze: number; prata: number; ouro: number; platina: number };
   }>({
     queryKey: ["/api/loyalty/stats"],
+    staleTime: 60000, // Cache por 1 minuto
+    gcTime: 300000,
   });
 
   const historicalDays = useMemo(() => {
@@ -168,6 +194,8 @@ export default function Dashboard() {
       if (!response.ok) throw new Error('Failed to fetch historical stats');
       return response.json();
     },
+    staleTime: 60000, // Cache por 1 minuto
+    gcTime: 300000,
   });
 
   const salesChartData = historicalData || [];
@@ -180,6 +208,8 @@ export default function Dashboard() {
 
   const { data: heatmapData, isLoading: heatmapLoading } = useQuery<Array<{ day: string; hour: number; value: number }>>({
     queryKey: ["/api/stats/heatmap?days=30"],
+    staleTime: 120000, // Cache por 2 minutos (dados menos críticos)
+    gcTime: 300000,
   });
 
   // Mock activity feed data (in production, this would come from WebSocket or API)
@@ -230,7 +260,7 @@ export default function Dashboard() {
       id: "new-order",
       title: "PDV",
       description: "Abrir caixa",
-      icon: ShoppingBag,
+      icon: OrdersIcon,
       color: "primary",
       onClick: () => setLocation("/pdv"),
     },
@@ -238,7 +268,7 @@ export default function Dashboard() {
       id: "manage-menu",
       title: "Menu",
       description: "Gerenciar cardápio",
-      icon: UtensilsCrossed,
+      icon: MenuIcon,
       color: "success",
       onClick: () => setLocation("/menu"),
     },
@@ -246,7 +276,7 @@ export default function Dashboard() {
       id: "view-orders",
       title: "Cozinha",
       description: "Ver pedidos",
-      icon: TrendingUp,
+      icon: KitchenIcon,
       color: "warning",
       onClick: () => setLocation("/kitchen"),
     },
@@ -254,7 +284,7 @@ export default function Dashboard() {
       id: "reports",
       title: "Relatórios",
       description: "Ver análises",
-      icon: DollarSign,
+      icon: ReportsIcon,
       color: "info",
       onClick: () => setLocation("/reports"),
     },
@@ -288,80 +318,81 @@ export default function Dashboard() {
             onQuickFilterChange={handleQuickFilter}
             dateRange={dateRange}
             onDateRangeChange={setDateRange}
-            showComparison={showComparison}
-            onToggleComparison={() => setShowComparison(!showComparison)}
             onRefresh={() => window.location.reload()}
             isLoading={isLoading}
           />
         </motion.div>
 
-        {/* KPI Cards with Sparklines */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 lg:gap-4">
-          {isLoading ? (
-            <>
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-[140px] w-full rounded-lg" />
-              ))}
-            </>
-          ) : (
-            <>
-              <AdvancedKpiCard
-                title="Vendas Totais"
-                value={parseFloat(displayStats?.totalSales || "0")}
-                prefix="Kz "
-                decimals={2}
-                icon={DollarSign}
-                change={todayStats?.salesChange}
-                changeLabel="vs período anterior"
-                sparklineData={sparklineData}
-                gradient="from-success/10 via-success/5 to-transparent"
-                delay={0}
-                data-testid="card-kpi-sales"
-              />
+        {/* KPI Cards - Interactive */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <InteractiveKPICard
+            title="Vendas Totais"
+            value={formatKwanza(displayStats?.totalSales || "0")}
+            change={todayStats?.salesChange}
+            changeLabel="vs período anterior"
+            icon={SalesIcon}
+            iconColor="text-green-600"
+            iconBgColor="bg-green-500/10"
+            gradient="from-green-500/5 to-emerald-500/5"
+            sparklineData={sparklineData}
+            details={[
+              { label: "Hoje", value: formatKwanza(todayStats?.todaySales || "0") },
+              { label: "Ontem", value: formatKwanza(todayStats?.yesterdaySales || "0") },
+            ]}
+            isLoading={isLoading}
+          />
 
-              <AdvancedKpiCard
-                title="Pedidos"
-                value={displayStats?.totalOrders || 0}
-                icon={ShoppingBag}
-                change={todayStats?.ordersChange}
-                changeLabel="vs período anterior"
-                sparklineData={sparklineData?.map((_, i) => historicalData?.[i]?.orders || 0)}
-                gradient="from-primary/10 via-primary/5 to-transparent"
-                delay={0.1}
-                data-testid="card-kpi-orders"
-              />
+          <InteractiveKPICard
+            title="Pedidos"
+            value={displayStats?.totalOrders || 0}
+            change={todayStats?.ordersChange}
+            changeLabel="vs período anterior"
+            icon={OrdersIcon}
+            iconColor="text-orange-600"
+            iconBgColor="bg-orange-500/10"
+            gradient="from-orange-500/5 to-amber-500/5"
+            sparklineData={sparklineData?.map((_, i) => historicalData?.[i]?.orders || 0)}
+            details={[
+              { label: "Hoje", value: `${todayStats?.todayOrders || 0}` },
+              { label: "Ontem", value: `${todayStats?.yesterdayOrders || 0}` },
+            ]}
+            isLoading={isLoading}
+          />
 
-              <AdvancedKpiCard
-                title="Ticket Médio"
-                value={parseFloat(displayStats?.averageOrderValue || "0")}
-                prefix="Kz "
-                decimals={2}
-                icon={TrendingUp}
-                gradient="from-warning/10 via-warning/5 to-transparent"
-                delay={0.2}
-                data-testid="card-kpi-avg-ticket"
-              />
+          <InteractiveKPICard
+            title="Ticket Médio"
+            value={formatKwanza(displayStats?.averageOrderValue || "0")}
+            icon={TicketIcon}
+            iconColor="text-blue-600"
+            iconBgColor="bg-blue-500/10"
+            gradient="from-blue-500/5 to-cyan-500/5"
+            isLoading={isLoading}
+          />
 
-              <AdvancedKpiCard
-                title="Mesas Ativas"
-                value={displayStats?.activeTables || 0}
-                icon={Users}
-                gradient="from-info/10 via-info/5 to-transparent"
-                delay={0.3}
-                data-testid="card-kpi-active-tables"
-              />
+          <InteractiveKPICard
+            title="Mesas Ativas"
+            value={displayStats?.activeTables || 0}
+            icon={TablesIcon}
+            iconColor="text-purple-600"
+            iconBgColor="bg-purple-500/10"
+            gradient="from-purple-500/5 to-pink-500/5"
+            isLoading={isLoading}
+          />
 
-              <AdvancedKpiCard
-                title="Cancelamentos"
-                value={'cancelledOrders' in (stats || {}) ? stats?.cancelledOrders || 0 : 0}
-                icon={XCircle}
-                changeLabel={`${('cancellationRate' in (stats || {}) ? stats?.cancellationRate || 0 : 0).toFixed(1)}% taxa • ${formatKwanza('cancelledRevenue' in (stats || {}) ? stats?.cancelledRevenue || "0" : "0")} perdidos`}
-                gradient="from-destructive/10 via-destructive/5 to-transparent"
-                delay={0.4}
-                data-testid="card-kpi-cancelled"
-              />
-            </>
-          )}
+          <InteractiveKPICard
+            title="Cancelamentos"
+            value={'cancelledOrders' in (stats || {}) ? stats?.cancelledOrders || 0 : 0}
+            change={-('cancellationRate' in (stats || {}) ? stats?.cancellationRate || 0 : 0)}
+            changeLabel="taxa de cancelamento"
+            icon={CancellationsIcon}
+            iconColor="text-red-600"
+            iconBgColor="bg-red-500/10"
+            gradient="from-red-500/5 to-rose-500/5"
+            details={[
+              { label: "Perdidos", value: formatKwanza('cancelledRevenue' in (stats || {}) ? stats?.cancelledRevenue || "0" : "0") },
+            ]}
+            isLoading={isLoading}
+          />
         </div>
 
         {/* Performance Cards - Clientes, Cupons e Fidelidade */}
@@ -449,46 +480,87 @@ export default function Dashboard() {
           </Card>
         </motion.div>
 
-        {/* Main Charts Section */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-          <div className="xl:col-span-2 space-y-4">
-            {/* Advanced Sales Chart */}
-            {historicalLoading ? (
-              <Skeleton className="h-[320px] w-full rounded-lg" />
-            ) : (
-              <AdvancedSalesChart
-                data={salesChartData}
-                showComparison={showComparison}
-                title="Evolução de Vendas e Pedidos"
-              />
-            )}
+        {/* Main Analytics Section - 70/30 Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Content - 70% */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Section Title */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <h2 className="text-lg font-semibold mb-4">Análise de Desempenho</h2>
+            </motion.div>
 
-            {/* Heatmap */}
-            {heatmapLoading ? (
-              <Skeleton className="h-[400px] w-full rounded-lg" />
-            ) : (
-              <SalesHeatmap data={heatmapData || []} />
-            )}
+            {/* Modern Sales Chart */}
+            <Suspense fallback={<Skeleton className="h-[360px] w-full rounded-lg" />}>
+              <ModernChart
+                title="Evolução de Vendas e Pedidos"
+                data={salesChartData.map(item => ({
+                  ...item,
+                  date: new Date(item.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+                }))}
+                type="area"
+                dataKeys={[
+                  { key: "sales", color: "#10b981", label: "Vendas (Kz)" },
+                  { key: "orders", color: "#f97316", label: "Pedidos" }
+                ]}
+                xAxisKey="date"
+                height={320}
+                isLoading={historicalLoading}
+              />
+            </Suspense>
+
+            {/* Data Heatmap */}
+            <Suspense fallback={<Skeleton className="h-[360px] w-full rounded-lg" />}>
+              <DataHeatmap
+                title="Mapa de Calor - Horários de Maior Movimento"
+                data={heatmapData?.map(item => ({
+                  day: ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"][new Date(item.day).getDay()],
+                  hour: `${item.hour}h`,
+                  value: item.value
+                })) || []}
+                isLoading={heatmapLoading}
+              />
+            </Suspense>
           </div>
 
-          {/* Sidebar Widgets */}
-          <div className="space-y-4">
+          {/* Sidebar - 30% */}
+          <div className="space-y-6">
+            {/* Section Title */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <h2 className="text-lg font-semibold mb-4">Ações Rápidas</h2>
+            </motion.div>
+
             {/* Goals Widget */}
-            <GoalsWidget goals={mockGoals} />
+            <Suspense fallback={<Skeleton className="h-[240px] w-full rounded-lg" />}>
+              <GoalsWidget goals={mockGoals} />
+            </Suspense>
 
             {/* Quick Actions */}
-            <QuickActionsWidget actions={quickActions} />
+            <Suspense fallback={<Skeleton className="h-[240px] w-full rounded-lg" />}>
+              <QuickActionsWidget actions={quickActions} />
+            </Suspense>
           </div>
         </div>
 
         {/* Activity Feed & Top Dishes */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ActivityFeed activities={mockActivities} maxHeight={400} />
+          <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-lg" />}>
+            <ActivityFeed activities={mockActivities} maxHeight={400} />
+          </Suspense>
           
           {isLoading ? (
             <Skeleton className="h-[400px] w-full rounded-lg" />
           ) : (
-            <TopDishesCard dishes={displayStats?.topDishes || []} />
+            <Suspense fallback={<Skeleton className="h-[400px] w-full rounded-lg" />}>
+              <TopDishesCard dishes={displayStats?.topDishes || []} />
+            </Suspense>
           )}
         </div>
 
@@ -496,7 +568,9 @@ export default function Dashboard() {
         {ordersLoading ? (
           <Skeleton className="h-[350px] w-full rounded-lg" />
         ) : (
-          <RecentOrdersTable orders={recentOrders || []} />
+          <Suspense fallback={<Skeleton className="h-[350px] w-full rounded-lg" />}>
+            <RecentOrdersTable orders={recentOrders || []} />
+          </Suspense>
         )}
       </div>
     </div>

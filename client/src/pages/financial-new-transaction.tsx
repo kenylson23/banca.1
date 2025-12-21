@@ -35,10 +35,15 @@ export default function FinancialNewTransaction() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [enableInstallments, setEnableInstallments] = useState(false);
+  
+  // Get query params to pre-fill form
+  const queryParams = new URLSearchParams(window.location.search);
+  const typeParam = queryParams.get('type');
+  
   const [transactionForm, setTransactionForm] = useState<TransactionFormData>({
     cashRegisterId: "",
     categoryId: "",
-    type: "despesa",
+    type: (typeParam === 'receita' || typeParam === 'despesa') ? typeParam : "despesa",
     paymentMethod: "dinheiro",
     amount: "",
     occurredAt: new Date().toISOString().slice(0, 16),

@@ -1,6 +1,8 @@
 import { PrinterSettings } from '@/components/PrinterSettings';
+import { PrinterStatistics } from '@/components/PrinterStatistics';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Printer } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Printer, BarChart3 } from 'lucide-react';
 
 export default function PrinterSetup() {
   return (
@@ -52,7 +54,26 @@ export default function PrinterSetup() {
         </CardContent>
       </Card>
 
-      <PrinterSettings />
+      <Tabs defaultValue="settings" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="settings" className="gap-2">
+            <Printer className="h-4 w-4" />
+            Configurações
+          </TabsTrigger>
+          <TabsTrigger value="statistics" className="gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Estatísticas
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="settings" className="mt-6">
+          <PrinterSettings />
+        </TabsContent>
+        
+        <TabsContent value="statistics" className="mt-6">
+          <PrinterStatistics />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

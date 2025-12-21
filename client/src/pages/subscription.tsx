@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +35,12 @@ import {
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { SubscriptionPlanSelector } from "@/components/subscription-plan-selector";
+import { SubscriptionUsageChart } from "@/components/subscription-usage-chart";
+import { SubscriptionAlerts } from "@/components/subscription-alerts";
+import { SubscriptionNextPayment } from "@/components/subscription-next-payment";
+import { SubscriptionInsights } from "@/components/subscription-insights";
+import { SubscriptionFeatures } from "@/components/subscription-features";
+import { SubscriptionBadges } from "@/components/subscription-badges";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -116,18 +123,26 @@ export default function Subscription() {
 
   const { data: subscription, isLoading: subscriptionLoading } = useQuery<Subscription>({
     queryKey: ['/api/subscription'],
+    staleTime: 30000, // Cache por 30 segundos
+    gcTime: 300000, // Garbage collection após 5 minutos
   });
 
   const { data: limits, isLoading: limitsLoading } = useQuery<SubscriptionLimits>({
     queryKey: ['/api/subscription/limits'],
+    staleTime: 60000, // Cache por 1 minuto
+    gcTime: 300000,
   });
 
   const { data: payments, isLoading: paymentsLoading } = useQuery<SubscriptionPayment[]>({
     queryKey: ['/api/subscription/payments'],
+    staleTime: 120000, // Cache por 2 minutos (menos crítico)
+    gcTime: 300000,
   });
 
   const { data: plans, isLoading: plansLoading } = useQuery<SubscriptionPlan[]>({
     queryKey: ['/api/subscription-plans'],
+    staleTime: 300000, // Cache por 5 minutos (dados estáticos)
+    gcTime: 600000,
   });
 
   const cancelSubscriptionMutation = useMutation({
@@ -154,21 +169,21 @@ export default function Subscription() {
 
   if (subscriptionLoading || limitsLoading) {
     return (
-      <div className="p-6">
-        <div className="space-y-6">
+      <div className="min-h-screen p-4 sm:p-6">
+        <div className="max-w-7xl mx-auto space-y-4">
           <div>
-            <h1 className="text-3xl font-bold" data-testid="text-title">Assinatura</h1>
-            <p className="text-muted-foreground" data-testid="text-subtitle">
+            <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-title">Assinatura</h1>
+            <p className="text-sm text-muted-foreground" data-testid="text-subtitle">
               Gerencie sua assinatura e veja o uso dos recursos
             </p>
           </div>
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2">
             <Card>
-              <CardHeader>
-                <div className="h-6 w-32 bg-muted animate-pulse rounded" />
+              <CardHeader className="pb-3">
+                <div className="h-5 w-32 bg-muted animate-pulse rounded" />
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <div className="h-4 w-full bg-muted animate-pulse rounded" />
                   <div className="h-4 w-3/4 bg-muted animate-pulse rounded" />
                 </div>
@@ -182,12 +197,12 @@ export default function Subscription() {
 
   if (!subscription || !limits) {
     return (
-      <div className="p-6">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
+      <div className="min-h-screen p-4 sm:p-6">
+        <div className="max-w-7xl mx-auto space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h1 className="text-3xl font-bold" data-testid="text-title">Assinatura</h1>
-              <p className="text-muted-foreground" data-testid="text-subtitle">
+              <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-title">Assinatura</h1>
+              <p className="text-sm text-muted-foreground" data-testid="text-subtitle">
                 Gerencie sua assinatura e veja o uso dos recursos
               </p>
             </div>
@@ -196,6 +211,7 @@ export default function Subscription() {
                 setSelectorMode('create');
                 setShowPlanSelector(true);
               }}
+              size="sm"
               data-testid="button-create-subscription"
             >
               Criar Subscrição
@@ -203,23 +219,23 @@ export default function Subscription() {
           </div>
           <Alert data-testid="alert-no-subscription">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Sem Assinatura Ativa</AlertTitle>
-            <AlertDescription>
+            <AlertTitle className="text-sm">Sem Assinatura Ativa</AlertTitle>
+            <AlertDescription className="text-xs">
               Você não possui uma assinatura ativa. Selecione um plano para começar.
             </AlertDescription>
           </Alert>
 
           {plans && plans.length > 0 && (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
               {plans.map((plan) => (
-                <Card key={plan.id} data-testid={`plan-preview-${plan.slug}`}>
-                  <CardHeader>
-                    <CardTitle>{plan.name}</CardTitle>
-                    <CardDescription>{plan.description}</CardDescription>
+                <Card key={plan.id} data-testid={`plan-preview-${plan.slug}`} className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">{plan.name}</CardTitle>
+                    <CardDescription className="text-xs">{plan.description}</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-2xl font-bold">{parseFloat(plan.priceMonthlyKz).toLocaleString('pt-AO')} Kz</p>
-                    <p className="text-sm text-muted-foreground">por mês</p>
+                    <p className="text-xl font-bold">{parseFloat(plan.priceMonthlyKz).toLocaleString('pt-AO')} Kz</p>
+                    <p className="text-xs text-muted-foreground">por mês</p>
                   </CardContent>
                 </Card>
               ))}
@@ -282,18 +298,19 @@ export default function Subscription() {
   };
 
   return (
-    <div className="p-6">
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold" data-testid="text-title">Assinatura</h1>
-            <p className="text-muted-foreground" data-testid="text-subtitle">
+            <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-title">Assinatura</h1>
+            <p className="text-sm text-muted-foreground" data-testid="text-subtitle">
               Gerencie sua assinatura e veja o uso dos recursos
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               variant="outline"
+              size="sm"
               onClick={() => {
                 setSelectorMode('upgrade');
                 setShowPlanSelector(true);
@@ -306,6 +323,7 @@ export default function Subscription() {
             {subscription.status === 'ativa' && (
               <Button
                 variant="destructive"
+                size="sm"
                 onClick={() => setShowCancelDialog(true)}
                 data-testid="button-cancel-subscription"
               >
@@ -316,25 +334,39 @@ export default function Subscription() {
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card data-testid="card-current-plan">
-            <CardHeader>
+        {/* Alertas Inteligentes */}
+        <SubscriptionAlerts
+          subscription={subscription}
+          limits={limits}
+          usage={limits.usage}
+          onUpgrade={() => {
+            setSelectorMode('upgrade');
+            setShowPlanSelector(true);
+          }}
+        />
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          {/* Coluna Principal - 2/3 */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card data-testid="card-current-plan">
+            <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <CreditCard className="h-4 w-4" />
                   Plano Atual
                 </CardTitle>
-                <Badge variant={getStatusBadgeVariant(subscription.status)} data-testid={`badge-status-${subscription.status}`}>
+                <Badge variant={getStatusBadgeVariant(subscription.status)} data-testid={`badge-status-${subscription.status}`} className="text-xs">
                   {subscription.status === 'ativa' ? 'Ativa' : subscription.status === 'trial' ? 'Trial' : subscription.status}
                 </Badge>
               </div>
-              <CardDescription>{limits.plan.description}</CardDescription>
+              <CardDescription className="text-xs">{limits.plan.description}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div>
-                  <h3 className="text-2xl font-bold" data-testid="text-plan-name">{limits.plan.name}</h3>
-                  <p className="text-muted-foreground" data-testid="text-plan-price">
+                  <h3 className="text-lg font-bold" data-testid="text-plan-name">{limits.plan.name}</h3>
+                  <p className="text-sm text-muted-foreground" data-testid="text-plan-price">
                     {subscription.billingInterval === 'mensal' 
                       ? formatCurrency(
                           subscription.currency === 'AOA' ? limits.plan.priceMonthlyKz : limits.plan.priceMonthlyUsd,
@@ -351,9 +383,9 @@ export default function Subscription() {
                 <Separator />
                 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5" />
                       Período atual
                     </span>
                     <span className="text-muted-foreground" data-testid="text-period">
@@ -362,10 +394,10 @@ export default function Subscription() {
                   </div>
                   
                   {subscription.status === 'trial' && (
-                    <Alert data-testid="alert-trial">
-                      <Clock className="h-4 w-4" />
-                      <AlertTitle>Período de Teste</AlertTitle>
-                      <AlertDescription>
+                    <Alert data-testid="alert-trial" className="py-2">
+                      <Clock className="h-3.5 w-3.5" />
+                      <AlertTitle className="text-xs">Período de Teste</AlertTitle>
+                      <AlertDescription className="text-xs">
                         Seu período de teste termina em {format(new Date(subscription.currentPeriodEnd), 'dd MMM yyyy', { locale: ptBR })}
                       </AlertDescription>
                     </Alert>
@@ -376,37 +408,37 @@ export default function Subscription() {
           </Card>
 
           <Card data-testid="card-usage-summary">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <TrendingUp className="h-4 w-4" />
                 Resumo de Uso
               </CardTitle>
-              <CardDescription>Uso dos recursos do seu plano</CardDescription>
+              <CardDescription className="text-xs">Uso dos recursos do seu plano</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Filiais</p>
-                    <p className={`text-2xl font-bold ${getUsageColor(getUsagePercentage(limits.usage.branches, limits.plan.maxBranches))}`} data-testid="text-branches-usage">
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-0.5">
+                    <p className="text-xs text-muted-foreground">Filiais</p>
+                    <p className={`text-lg font-bold ${getUsageColor(getUsagePercentage(limits.usage.branches, limits.plan.maxBranches))}`} data-testid="text-branches-usage">
                       {limits.usage.branches}/{limits.plan.maxBranches}
                     </p>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Mesas</p>
-                    <p className={`text-2xl font-bold ${getUsageColor(getUsagePercentage(limits.usage.tables, limits.plan.maxTables))}`} data-testid="text-tables-usage">
+                  <div className="space-y-0.5">
+                    <p className="text-xs text-muted-foreground">Mesas</p>
+                    <p className={`text-lg font-bold ${getUsageColor(getUsagePercentage(limits.usage.tables, limits.plan.maxTables))}`} data-testid="text-tables-usage">
                       {limits.usage.tables}/{limits.plan.maxTables}
                     </p>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Produtos</p>
-                    <p className={`text-2xl font-bold ${getUsageColor(getUsagePercentage(limits.usage.menuItems, limits.plan.maxMenuItems))}`} data-testid="text-items-usage">
+                  <div className="space-y-0.5">
+                    <p className="text-xs text-muted-foreground">Produtos</p>
+                    <p className={`text-lg font-bold ${getUsageColor(getUsagePercentage(limits.usage.menuItems, limits.plan.maxMenuItems))}`} data-testid="text-items-usage">
                       {limits.usage.menuItems}/{limits.plan.maxMenuItems === 999999 ? '∞' : limits.plan.maxMenuItems}
                     </p>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Usuários</p>
-                    <p className={`text-2xl font-bold ${getUsageColor(getUsagePercentage(limits.usage.users, limits.plan.maxUsers))}`} data-testid="text-users-usage">
+                  <div className="space-y-0.5">
+                    <p className="text-xs text-muted-foreground">Usuários</p>
+                    <p className={`text-lg font-bold ${getUsageColor(getUsagePercentage(limits.usage.users, limits.plan.maxUsers))}`} data-testid="text-users-usage">
                       {limits.usage.users}/{limits.plan.maxUsers === 999999 ? '∞' : limits.plan.maxUsers}
                     </p>
                   </div>
@@ -414,8 +446,8 @@ export default function Subscription() {
                 
                 <Separator />
                 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
                     <span>Pedidos este mês</span>
                     <span className={`font-medium ${getUsageColor(getUsagePercentage(limits.usage.ordersThisMonth, limits.plan.maxOrdersPerMonth))}`} data-testid="text-orders-usage">
                       {limits.usage.ordersThisMonth}/{limits.plan.maxOrdersPerMonth === 999999 ? '∞' : limits.plan.maxOrdersPerMonth}
@@ -423,139 +455,140 @@ export default function Subscription() {
                   </div>
                   <Progress 
                     value={getUsagePercentage(limits.usage.ordersThisMonth, limits.plan.maxOrdersPerMonth)} 
-                    className="h-2"
+                    className="h-1.5"
                     data-testid="progress-orders"
                   />
                 </div>
               </div>
             </CardContent>
           </Card>
-        </div>
+            </div>
 
-        <Card data-testid="card-resource-limits">
-          <CardHeader>
-            <CardTitle>Limites de Recursos</CardTitle>
-            <CardDescription>Detalhes sobre o uso e limites do seu plano</CardDescription>
+            {/* Limites de Recursos */}
+            <Card data-testid="card-resource-limits">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Limites de Recursos</CardTitle>
+            <CardDescription className="text-xs">Detalhes sobre o uso e limites do seu plano</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="flex items-center gap-3 p-3 rounded-lg border" data-testid="limit-item-branches">
-                  <div className={`p-2 rounded-full ${limits.withinLimits.branches ? 'bg-primary/10' : 'bg-destructive/10'}`}>
-                    <Building2 className={`h-5 w-5 ${limits.withinLimits.branches ? 'text-primary' : 'text-destructive'}`} />
+            <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="flex items-center gap-2 p-2.5 rounded-lg border" data-testid="limit-item-branches">
+                  <div className={`p-1.5 rounded-full ${limits.withinLimits.branches ? 'bg-primary/10' : 'bg-destructive/10'}`}>
+                    <Building2 className={`h-4 w-4 ${limits.withinLimits.branches ? 'text-primary' : 'text-destructive'}`} />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="font-medium">Filiais</p>
+                      <p className="text-sm font-medium">Filiais</p>
                       {limits.withinLimits.branches ? (
-                        <CheckCircle className="h-4 w-4 text-primary" />
+                        <CheckCircle className="h-3.5 w-3.5 text-primary" />
                       ) : (
-                        <AlertCircle className="h-4 w-4 text-destructive" />
+                        <AlertCircle className="h-3.5 w-3.5 text-destructive" />
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {limits.usage.branches} de {limits.plan.maxBranches} usadas
                     </p>
                     <Progress 
                       value={getUsagePercentage(limits.usage.branches, limits.plan.maxBranches)} 
-                      className="h-1 mt-2"
+                      className="h-1 mt-1.5"
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 p-3 rounded-lg border" data-testid="limit-item-tables">
-                  <div className={`p-2 rounded-full ${limits.withinLimits.tables ? 'bg-primary/10' : 'bg-destructive/10'}`}>
-                    <Table2 className={`h-5 w-5 ${limits.withinLimits.tables ? 'text-primary' : 'text-destructive'}`} />
+                <div className="flex items-center gap-2 p-2.5 rounded-lg border" data-testid="limit-item-tables">
+                  <div className={`p-1.5 rounded-full ${limits.withinLimits.tables ? 'bg-primary/10' : 'bg-destructive/10'}`}>
+                    <Table2 className={`h-4 w-4 ${limits.withinLimits.tables ? 'text-primary' : 'text-destructive'}`} />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="font-medium">Mesas</p>
+                      <p className="text-sm font-medium">Mesas</p>
                       {limits.withinLimits.tables ? (
-                        <CheckCircle className="h-4 w-4 text-primary" />
+                        <CheckCircle className="h-3.5 w-3.5 text-primary" />
                       ) : (
-                        <AlertCircle className="h-4 w-4 text-destructive" />
+                        <AlertCircle className="h-3.5 w-3.5 text-destructive" />
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {limits.usage.tables} de {limits.plan.maxTables} usadas
                     </p>
                     <Progress 
                       value={getUsagePercentage(limits.usage.tables, limits.plan.maxTables)} 
-                      className="h-1 mt-2"
+                      className="h-1 mt-1.5"
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 p-3 rounded-lg border" data-testid="limit-item-menu-items">
-                  <div className={`p-2 rounded-full ${limits.withinLimits.menuItems ? 'bg-primary/10' : 'bg-destructive/10'}`}>
-                    <UtensilsCrossed className={`h-5 w-5 ${limits.withinLimits.menuItems ? 'text-primary' : 'text-destructive'}`} />
+                <div className="flex items-center gap-2 p-2.5 rounded-lg border" data-testid="limit-item-menu-items">
+                  <div className={`p-1.5 rounded-full ${limits.withinLimits.menuItems ? 'bg-primary/10' : 'bg-destructive/10'}`}>
+                    <UtensilsCrossed className={`h-4 w-4 ${limits.withinLimits.menuItems ? 'text-primary' : 'text-destructive'}`} />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="font-medium">Itens do Menu</p>
+                      <p className="text-sm font-medium">Itens do Menu</p>
                       {limits.withinLimits.menuItems ? (
-                        <CheckCircle className="h-4 w-4 text-primary" />
+                        <CheckCircle className="h-3.5 w-3.5 text-primary" />
                       ) : (
-                        <AlertCircle className="h-4 w-4 text-destructive" />
+                        <AlertCircle className="h-3.5 w-3.5 text-destructive" />
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {limits.usage.menuItems} de {limits.plan.maxMenuItems === 999999 ? '∞' : limits.plan.maxMenuItems}
                     </p>
                     {limits.plan.maxMenuItems !== 999999 && (
                       <Progress 
                         value={getUsagePercentage(limits.usage.menuItems, limits.plan.maxMenuItems)} 
-                        className="h-1 mt-2"
+                        className="h-1 mt-1.5"
                       />
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 p-3 rounded-lg border" data-testid="limit-item-users">
-                  <div className={`p-2 rounded-full ${limits.withinLimits.users ? 'bg-primary/10' : 'bg-destructive/10'}`}>
-                    <Users className={`h-5 w-5 ${limits.withinLimits.users ? 'text-primary' : 'text-destructive'}`} />
+                <div className="flex items-center gap-2 p-2.5 rounded-lg border" data-testid="limit-item-users">
+                  <div className={`p-1.5 rounded-full ${limits.withinLimits.users ? 'bg-primary/10' : 'bg-destructive/10'}`}>
+                    <Users className={`h-4 w-4 ${limits.withinLimits.users ? 'text-primary' : 'text-destructive'}`} />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="font-medium">Usuários</p>
+                      <p className="text-sm font-medium">Usuários</p>
                       {limits.withinLimits.users ? (
-                        <CheckCircle className="h-4 w-4 text-primary" />
+                        <CheckCircle className="h-3.5 w-3.5 text-primary" />
                       ) : (
-                        <AlertCircle className="h-4 w-4 text-destructive" />
+                        <AlertCircle className="h-3.5 w-3.5 text-destructive" />
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {limits.usage.users} de {limits.plan.maxUsers === 999999 ? '∞' : limits.plan.maxUsers}
                     </p>
                     {limits.plan.maxUsers !== 999999 && (
                       <Progress 
                         value={getUsagePercentage(limits.usage.users, limits.plan.maxUsers)} 
-                        className="h-1 mt-2"
+                        className="h-1 mt-1.5"
                       />
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 p-3 rounded-lg border md:col-span-2" data-testid="limit-item-orders">
-                  <div className={`p-2 rounded-full ${limits.withinLimits.orders ? 'bg-primary/10' : 'bg-destructive/10'}`}>
-                    <ShoppingCart className={`h-5 w-5 ${limits.withinLimits.orders ? 'text-primary' : 'text-destructive'}`} />
+                <div className="flex items-center gap-2 p-2.5 rounded-lg border md:col-span-2" data-testid="limit-item-orders">
+                  <div className={`p-1.5 rounded-full ${limits.withinLimits.orders ? 'bg-primary/10' : 'bg-destructive/10'}`}>
+                    <ShoppingCart className={`h-4 w-4 ${limits.withinLimits.orders ? 'text-primary' : 'text-destructive'}`} />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="font-medium">Pedidos este Mês</p>
+                      <p className="text-sm font-medium">Pedidos este Mês</p>
                       {limits.withinLimits.orders ? (
-                        <CheckCircle className="h-4 w-4 text-primary" />
+                        <CheckCircle className="h-3.5 w-3.5 text-primary" />
                       ) : (
-                        <AlertCircle className="h-4 w-4 text-destructive" />
+                        <AlertCircle className="h-3.5 w-3.5 text-destructive" />
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {limits.usage.ordersThisMonth} de {limits.plan.maxOrdersPerMonth === 999999 ? '∞' : limits.plan.maxOrdersPerMonth} processados
                     </p>
                     {limits.plan.maxOrdersPerMonth !== 999999 && (
                       <Progress 
                         value={getUsagePercentage(limits.usage.ordersThisMonth, limits.plan.maxOrdersPerMonth)} 
-                        className="h-1 mt-2"
+                        className="h-1 mt-1.5"
                       />
                     )}
                   </div>
@@ -563,50 +596,118 @@ export default function Subscription() {
               </div>
 
               {(!limits.withinLimits.branches || !limits.withinLimits.tables || !limits.withinLimits.menuItems || !limits.withinLimits.users || !limits.withinLimits.orders) && (
-                <Alert variant="destructive" data-testid="alert-limit-reached">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Limite Atingido</AlertTitle>
-                  <AlertDescription>
+                <Alert variant="destructive" data-testid="alert-limit-reached" className="py-2.5">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  <AlertTitle className="text-sm">Limite Atingido</AlertTitle>
+                  <AlertDescription className="text-xs">
                     Você atingiu o limite de um ou mais recursos. Considere fazer upgrade do seu plano para continuar crescendo.
                   </AlertDescription>
                 </Alert>
               )}
             </div>
           </CardContent>
-        </Card>
+            </Card>
 
-        {payments && payments.length > 0 && (
+            {/* Histórico de Pagamentos */}
+            {payments && payments.length > 0 && (
           <Card data-testid="card-payment-history">
-            <CardHeader>
-              <CardTitle>Histórico de Pagamentos</CardTitle>
-              <CardDescription>Últimos pagamentos da sua assinatura</CardDescription>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Histórico de Pagamentos</CardTitle>
+              <CardDescription className="text-xs">Últimos pagamentos da sua assinatura</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {payments.slice(0, 5).map((payment) => (
-                  <div key={payment.id} className="flex items-center justify-between p-3 rounded-lg border" data-testid={`payment-item-${payment.id}`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-full ${payment.status === 'pago' ? 'bg-primary/10' : payment.status === 'pendente' ? 'bg-yellow-100 dark:bg-yellow-900/20' : 'bg-destructive/10'}`}>
-                        <CreditCard className={`h-4 w-4 ${payment.status === 'pago' ? 'text-primary' : payment.status === 'pendente' ? 'text-yellow-600' : 'text-destructive'}`} />
+                  <div key={payment.id} className="flex items-center justify-between p-2.5 rounded-lg border" data-testid={`payment-item-${payment.id}`}>
+                    <div className="flex items-center gap-2.5">
+                      <div className={`p-1.5 rounded-full ${payment.status === 'pago' ? 'bg-primary/10' : payment.status === 'pendente' ? 'bg-yellow-100 dark:bg-yellow-900/20' : 'bg-destructive/10'}`}>
+                        <CreditCard className={`h-3.5 w-3.5 ${payment.status === 'pago' ? 'text-primary' : payment.status === 'pendente' ? 'text-yellow-600' : 'text-destructive'}`} />
                       </div>
                       <div>
-                        <p className="font-medium" data-testid={`payment-amount-${payment.id}`}>
+                        <p className="text-sm font-medium" data-testid={`payment-amount-${payment.id}`}>
                           {formatCurrency(payment.amount, payment.currency)}
                         </p>
-                        <p className="text-sm text-muted-foreground" data-testid={`payment-date-${payment.id}`}>
+                        <p className="text-xs text-muted-foreground" data-testid={`payment-date-${payment.id}`}>
                           {format(new Date(payment.createdAt), "dd 'de' MMM yyyy", { locale: ptBR })}
                         </p>
                       </div>
                     </div>
-                    <Badge variant={getPaymentStatusBadge(payment.status).variant} data-testid={`payment-status-${payment.id}`}>
+                    <Badge variant={getPaymentStatusBadge(payment.status).variant} data-testid={`payment-status-${payment.id}`} className="text-xs">
                       {getPaymentStatusBadge(payment.status).label}
                     </Badge>
                   </div>
                 ))}
               </div>
             </CardContent>
-          </Card>
-        )}
+              </Card>
+            )}
+          </div>
+
+          {/* Coluna Lateral - 1/3 */}
+          <div className="space-y-4">
+            {/* Gráfico de Uso */}
+            <SubscriptionUsageChart
+              usage={{
+                branches: limits.usage.branches,
+                maxBranches: limits.plan.maxBranches,
+                tables: limits.usage.tables,
+                maxTables: limits.plan.maxTables,
+                menuItems: limits.usage.menuItems,
+                maxMenuItems: limits.plan.maxMenuItems,
+                users: limits.usage.users,
+                maxUsers: limits.plan.maxUsers,
+                orders: limits.usage.ordersThisMonth,
+                maxOrders: limits.plan.maxOrdersPerMonth,
+              }}
+            />
+
+            {/* Próximo Pagamento */}
+            <SubscriptionNextPayment
+              subscription={{
+                status: subscription.status,
+                currentPeriodEnd: subscription.currentPeriodEnd,
+                billingInterval: subscription.billingInterval,
+                currency: subscription.currency,
+              }}
+              plan={limits.plan}
+            />
+
+            {/* Features Incluídas */}
+            <SubscriptionFeatures plan={limits.plan} />
+
+            {/* Badges e Gamification */}
+            <SubscriptionBadges
+              subscription={{
+                createdAt: subscription.createdAt,
+                status: subscription.status,
+              }}
+              usage={{
+                orders: limits.usage.ordersThisMonth,
+              }}
+              totalOrders={limits.usage.ordersThisMonth}
+            />
+          </div>
+        </div>
+
+        {/* Insights */}
+        <SubscriptionInsights
+          usage={{
+            branches: limits.usage.branches,
+            maxBranches: limits.plan.maxBranches,
+            tables: limits.usage.tables,
+            maxTables: limits.plan.maxTables,
+            menuItems: limits.usage.menuItems,
+            maxMenuItems: limits.plan.maxMenuItems,
+            users: limits.usage.users,
+            maxUsers: limits.plan.maxUsers,
+            orders: limits.usage.ordersThisMonth,
+            maxOrders: limits.plan.maxOrdersPerMonth,
+          }}
+          subscription={{
+            billingInterval: subscription.billingInterval,
+          }}
+          plan={limits.plan}
+        />
       </div>
 
       <SubscriptionPlanSelector
@@ -617,19 +718,19 @@ export default function Subscription() {
       />
 
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <AlertDialogContent data-testid="dialog-cancel-confirmation">
+        <AlertDialogContent data-testid="dialog-cancel-confirmation" className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancelar Subscrição</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-base">Cancelar Subscrição</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
               Tem certeza que deseja cancelar sua subscrição? Você ainda terá acesso até o fim do período pago ({format(new Date(subscription.currentPeriodEnd), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-no">Não, manter subscrição</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-no" className="text-sm">Não, manter subscrição</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => cancelSubscriptionMutation.mutate()}
               disabled={cancelSubscriptionMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-sm"
               data-testid="button-cancel-yes"
             >
               {cancelSubscriptionMutation.isPending ? 'Cancelando...' : 'Sim, cancelar'}

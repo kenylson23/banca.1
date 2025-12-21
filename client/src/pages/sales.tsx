@@ -4,17 +4,19 @@ import { SalesTable } from '@/components/SalesTable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { formatKwanza } from '@/lib/formatters';
 import { Download, AlertCircle, DollarSign, ShoppingBag, TrendingUp, CreditCard, Package, CheckCircle } from 'lucide-react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { format, startOfDay, endOfDay, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { queryClient } from '@/lib/queryClient';
 import { motion } from 'framer-motion';
-import { AdvancedKpiCard } from '@/components/advanced-kpi-card';
-import { AdvancedSalesChart } from '@/components/advanced-sales-chart';
+import { InteractiveKPICard } from '@/components/interactive-kpi-card';
+import { ModernChart } from '@/components/modern-chart';
 import { AdvancedFilters, type FilterOption } from '@/components/advanced-filters';
 import { ActivityFeed } from '@/components/activity-feed';
 import { GoalsWidget } from '@/components/goals-widget';
+import { SalesIcon, OrdersIcon, TicketIcon } from '@/components/custom-icons';
 import { DateRange } from 'react-day-picker';
 import type { Order } from '@shared/schema';
 
@@ -288,46 +290,42 @@ export default function Sales() {
             </>
           ) : (
             <>
-              <AdvancedKpiCard
+              <InteractiveKPICard
                 title="Vendas Totais"
-                value={parseFloat(salesReport?.totalSales || "0")}
-                prefix="Kz "
-                decimals={2}
-                icon={DollarSign}
+                value={formatKwanza(salesReport?.totalSales || "0")}
+                icon={SalesIcon}
+                iconColor="text-green-600"
+                iconBgColor="bg-green-500/10"
+                gradient="from-green-500/5 to-emerald-500/5"
                 sparklineData={sparklineData}
-                gradient="from-success/10 via-success/5 to-transparent"
-                delay={0}
-                data-testid="card-kpi-sales"
               />
 
-              <AdvancedKpiCard
+              <InteractiveKPICard
                 title="Total de Pedidos"
                 value={salesReport?.totalOrders || 0}
-                icon={ShoppingBag}
+                icon={OrdersIcon}
+                iconColor="text-orange-600"
+                iconBgColor="bg-orange-500/10"
+                gradient="from-orange-500/5 to-amber-500/5"
                 sparklineData={sparklineData?.map((_, i) => historicalData?.[i]?.orders || 0)}
-                gradient="from-primary/10 via-primary/5 to-transparent"
-                delay={0.1}
-                data-testid="card-kpi-orders"
               />
 
-              <AdvancedKpiCard
+              <InteractiveKPICard
                 title="Ticket Médio"
-                value={parseFloat(salesReport?.averageTicket || "0")}
-                prefix="Kz "
-                decimals={2}
-                icon={TrendingUp}
-                gradient="from-warning/10 via-warning/5 to-transparent"
-                delay={0.2}
-                data-testid="card-kpi-avg-ticket"
+                value={formatKwanza(salesReport?.averageTicket || "0")}
+                icon={TicketIcon}
+                iconColor="text-blue-600"
+                iconBgColor="bg-blue-500/10"
+                gradient="from-blue-500/5 to-cyan-500/5"
               />
 
-              <AdvancedKpiCard
+              <InteractiveKPICard
                 title="Pedidos Completos"
                 value={salesReport?.ordersByStatus?.find(s => s.status === 'servido')?.count || 0}
                 icon={CheckCircle}
-                gradient="from-info/10 via-info/5 to-transparent"
-                delay={0.3}
-                data-testid="card-kpi-completed"
+                iconColor="text-green-600"
+                iconBgColor="bg-green-500/10"
+                gradient="from-green-500/5 to-emerald-500/5"
               />
             </>
           )}
@@ -374,10 +372,19 @@ export default function Sales() {
                     <Download className="h-4 w-4 mr-2" />
                     Exportar CSV
                   </Button>
-                  <AdvancedSalesChart
-                    data={salesChartData}
-                    showComparison={showComparison}
+                  <ModernChart
                     title="Evolução de Vendas e Pedidos"
+                    data={salesChartData.map(item => ({
+                      ...item,
+                      date: new Date(item.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+                    }))}
+                    type="area"
+                    dataKeys={[
+                      { key: "sales", color: "#10b981", label: "Vendas (Kz)" },
+                      { key: "orders", color: "#f97316", label: "Pedidos" }
+                    ]}
+                    xAxisKey="date"
+                    height={320}
                   />
                 </div>
 

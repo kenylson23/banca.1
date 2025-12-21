@@ -9,6 +9,7 @@ import {
   varchar,
   text,
   integer,
+  serial,
   decimal,
   pgEnum,
 } from "drizzle-orm/pg-core";
@@ -117,6 +118,7 @@ export const updateRestaurantAppearanceSchema = z.object({
   whatsappNumber: z.string()
     .regex(/^(\+244|244)?\s*[9][0-9]{2}\s*[0-9]{3}\s*[0-9]{3}$|^(\+244|244)?[9][0-9]{8}$/, "Formato de telefone angolano inválido")
     .optional(),
+  businessHours: z.string().optional(),
   isOpen: z.number().min(0).max(1).optional(),
 });
 
@@ -428,6 +430,128 @@ export const insertUserAuditLogSchema = createInsertSchema(userAuditLogs).omit({
 export type InsertUserAuditLog = z.infer<typeof insertUserAuditLogSchema>;
 export type UserAuditLog = typeof userAuditLogs.$inferSelect;
 
+// ===== PRINTER SETTINGS =====
+
+// Printer Type Enum
+export const printerTypeEnum = pgEnum('printer_type', ['receipt', 'kitchen', 'invoice']);
+
+// Printer Language Enum
+export const printerLanguageEnum = pgEnum('printer_language', ['esc-pos', 'star-prnt']);
+
+// Printer Configurations - Settings synced across devices
+export const printerConfigurations = pgTable("printer_configurations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }), // Null = global config
+  printerType: printerTypeEnum("printer_type").notNull(),
+  printerName: varchar("printer_name", { length: 200 }).notNull(),
+  vendorId: integer("vendor_id"),
+  productId: integer("product_id"),
+  serialNumber: varchar("serial_number", { length: 100 }),
+  language: printerLanguageEnum("language").default('esc-pos'),
+  codepageMapping: varchar("codepage_mapping", { length: 50 }),
+  paperWidth: integer("paper_width").notNull().default(80), // 58mm or 80mm
+  marginLeft: integer("margin_left").default(0),
+  marginRight: integer("margin_right").default(0),
+  marginTop: integer("margin_top").default(0),
+  marginBottom: integer("margin_bottom").default(0),
+  autoPrint: integer("auto_print").notNull().default(0), // Auto-print on order creation
+  copies: integer("copies").default(1), // Number of copies to print
+  soundEnabled: integer("sound_enabled").default(1), // Play sound on print
+  autoReconnect: integer("auto_reconnect").default(1), // Auto-reconnect on disconnect
+  isActive: integer("is_active").notNull().default(1),
+  lastConnected: timestamp("last_connected"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPrinterConfigurationSchema = createInsertSchema(printerConfigurations).omit({
+  id: true,
+  restaurantId: true,
+  createdAt: true,
+  updatedAt: true,
+  lastConnected: true,
+}).extend({
+  branchId: z.string().optional().nullable(),
+  userId: z.string().optional().nullable(),
+  printerType: z.enum(['receipt', 'kitchen', 'invoice']),
+  printerName: z.string().min(1, "Nome da impressora é obrigatório"),
+  vendorId: z.number().int().optional(),
+  productId: z.number().int().optional(),
+  serialNumber: z.string().optional(),
+  language: z.enum(['esc-pos', 'star-prnt']).optional(),
+  codepageMapping: z.string().optional(),
+  paperWidth: z.number().int().min(58).max(80).default(80),
+  marginLeft: z.number().int().min(0).default(0),
+  marginRight: z.number().int().min(0).default(0),
+  marginTop: z.number().int().min(0).default(0),
+  marginBottom: z.number().int().min(0).default(0),
+  autoPrint: z.number().min(0).max(1).default(0),
+  copies: z.number().int().min(1).max(5).default(1),
+  soundEnabled: z.number().min(0).max(1).default(1),
+  autoReconnect: z.number().min(0).max(1).default(1),
+  isActive: z.number().min(0).max(1).default(1),
+});
+
+export const updatePrinterConfigurationSchema = z.object({
+  printerName: z.string().min(1, "Nome da impressora é obrigatório").optional(),
+  language: z.enum(['esc-pos', 'star-prnt']).optional(),
+  codepageMapping: z.string().optional(),
+  paperWidth: z.number().int().min(58).max(80).optional(),
+  marginLeft: z.number().int().min(0).optional(),
+  marginRight: z.number().int().min(0).optional(),
+  marginTop: z.number().int().min(0).optional(),
+  marginBottom: z.number().int().min(0).optional(),
+  autoPrint: z.number().min(0).max(1).optional(),
+  copies: z.number().int().min(1).max(5).optional(),
+  soundEnabled: z.number().min(0).max(1).optional(),
+  autoReconnect: z.number().min(0).max(1).optional(),
+  isActive: z.number().min(0).max(1).optional(),
+  lastConnected: z.string().optional(),
+});
+
+export type InsertPrinterConfiguration = z.infer<typeof insertPrinterConfigurationSchema>;
+export type UpdatePrinterConfiguration = z.infer<typeof updatePrinterConfigurationSchema>;
+export type PrinterConfiguration = typeof printerConfigurations.$inferSelect;
+
+// Print History - Track all print jobs
+export const printHistory = pgTable("print_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  printerId: varchar("printer_id").references(() => printerConfigurations.id, { onDelete: 'set null' }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'set null' }),
+  orderId: varchar("order_id").references(() => orders.id, { onDelete: 'set null' }),
+  printerType: printerTypeEnum("printer_type").notNull(),
+  printerName: varchar("printer_name", { length: 200 }).notNull(),
+  documentType: varchar("document_type", { length: 50 }).notNull(), // 'order', 'receipt', 'invoice', 'bill', 'report'
+  orderNumber: varchar("order_number", { length: 20 }),
+  success: integer("success").notNull().default(1),
+  errorMessage: text("error_message"),
+  printedAt: timestamp("printed_at").defaultNow(),
+});
+
+export const insertPrintHistorySchema = createInsertSchema(printHistory).omit({
+  id: true,
+  restaurantId: true,
+  printedAt: true,
+}).extend({
+  branchId: z.string().optional().nullable(),
+  printerId: z.string().optional().nullable(),
+  userId: z.string().optional().nullable(),
+  orderId: z.string().optional().nullable(),
+  printerType: z.enum(['receipt', 'kitchen', 'invoice']),
+  printerName: z.string().min(1, "Nome da impressora é obrigatório"),
+  documentType: z.string().min(1, "Tipo de documento é obrigatório"),
+  orderNumber: z.string().optional(),
+  success: z.number().min(0).max(1).default(1),
+  errorMessage: z.string().optional(),
+});
+
+export type InsertPrintHistory = z.infer<typeof insertPrintHistorySchema>;
+export type PrintHistory = typeof printHistory.$inferSelect;
+
 // Table Status Enum
 export const tableStatusEnum = pgEnum('table_status', ['livre', 'ocupada', 'em_andamento', 'aguardando_pagamento', 'encerrada']);
 
@@ -447,6 +571,8 @@ export const tables = pgTable("tables", {
   customerCount: integer("customer_count").default(0),
   lastActivity: timestamp("last_activity"),
   isOccupied: integer("is_occupied").notNull().default(0), // Manter para compatibilidade
+  positionX: decimal("position_x", { precision: 5, scale: 2 }).default('50'), // Posição X (0-100)
+  positionY: decimal("position_y", { precision: 5, scale: 2 }).default('50'), // Posição Y (0-100)
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -602,6 +728,7 @@ export const tableGuests = pgTable("table_guests", {
   sessionId: varchar("session_id").notNull().references(() => tableSessions.id, { onDelete: 'cascade' }),
   tableId: varchar("table_id").notNull().references(() => tables.id, { onDelete: 'cascade' }),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  guestNumber: integer("guest_number").notNull(),
   name: varchar("name", { length: 200 }),
   seatNumber: integer("seat_number"),
   status: guestStatusEnum("status").notNull().default('ativo'),
@@ -616,6 +743,7 @@ export const tableGuests = pgTable("table_guests", {
 export const insertTableGuestSchema = createInsertSchema(tableGuests).omit({
   id: true,
   restaurantId: true,
+  guestNumber: true,
   subtotal: true,
   paidAmount: true,
   status: true,
@@ -1033,7 +1161,9 @@ export const orders = pgTable("orders", {
   customerName: varchar("customer_name", { length: 200 }),
   customerPhone: varchar("customer_phone", { length: 50 }),
   deliveryAddress: text("delivery_address"),
+  deliveryNotes: text("delivery_notes"),
   orderNotes: text("order_notes"),
+  orderNumber: varchar("order_number", { length: 20 }),
   orderTitle: varchar("order_title", { length: 200 }),
   status: orderStatusEnum("status").notNull().default('pendente'),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default('0'),
@@ -1124,6 +1254,7 @@ export const updateOrderMetadataSchema = z.object({
   customerName: z.string().max(200).optional(),
   customerPhone: z.string().max(50).optional(),
   deliveryAddress: z.string().optional(),
+  deliveryNotes: z.string().optional(),
   orderNotes: z.string().optional(),
 });
 
@@ -1155,6 +1286,59 @@ export const updateOrderItemQuantitySchema = z.object({
   quantity: z.number().int().min(1, "Quantidade deve ser pelo menos 1"),
 });
 
+export const reassignOrderItemSchema = z.object({
+  newGuestId: z.string().uuid("ID de cliente inválido"),
+  reason: z.string().max(500).optional(),
+});
+
+// Order Item Audit Action Enum
+export const orderItemAuditActionEnum = pgEnum('order_item_audit_action', [
+  'item_reassigned',      // Item movido entre clientes
+  'item_added',           // Item adicionado ao pedido
+  'item_removed',         // Item removido do pedido
+  'quantity_changed',     // Quantidade alterada
+]);
+
+// Order Item Audit Logs - Auditoria de movimentação de itens
+export const orderItemAuditLogs = pgTable("order_item_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  orderItemId: varchar("order_item_id").references(() => orderItems.id, { onDelete: 'set null' }),
+  orderId: varchar("order_id").references(() => orders.id, { onDelete: 'set null' }),
+  sessionId: varchar("session_id").references(() => tableSessions.id, { onDelete: 'set null' }),
+  action: orderItemAuditActionEnum("action").notNull(),
+  actorUserId: varchar("actor_user_id").notNull().references(() => users.id, { onDelete: 'restrict' }),
+  sourceGuestId: varchar("source_guest_id").references(() => tableGuests.id, { onDelete: 'set null' }),
+  targetGuestId: varchar("target_guest_id").references(() => tableGuests.id, { onDelete: 'set null' }),
+  itemDetails: jsonb("item_details").notNull(), // Nome do item, quantidade, preço
+  oldValue: jsonb("old_value"), // Valor antigo (quantidade antiga, cliente antigo, etc)
+  newValue: jsonb("new_value"), // Valor novo
+  reason: text("reason"), // Motivo da mudança
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_order_item_audit_restaurant").on(table.restaurantId),
+  index("idx_order_item_audit_session").on(table.sessionId),
+  index("idx_order_item_audit_order").on(table.orderId),
+  index("idx_order_item_audit_created").on(table.createdAt),
+]);
+
+export const insertOrderItemAuditLogSchema = createInsertSchema(orderItemAuditLogs).omit({
+  id: true,
+  restaurantId: true,
+  actorUserId: true,
+  createdAt: true,
+}).extend({
+  orderItemId: z.string().optional(),
+  orderId: z.string().optional(),
+  sessionId: z.string().optional(),
+  action: z.enum(['item_reassigned', 'item_added', 'item_removed', 'quantity_changed']),
+  sourceGuestId: z.string().optional(),
+  targetGuestId: z.string().optional(),
+  reason: z.string().max(500).optional(),
+});
+
 export const linkCustomerSchema = z.object({
   customerId: z.string().uuid("ID de cliente inválido"),
 });
@@ -1179,6 +1363,9 @@ export type ApplyDeliveryFee = z.infer<typeof applyDeliveryFeeSchema>;
 export type ApplyPackagingFee = z.infer<typeof applyPackagingFeeSchema>;
 export type RecordPayment = z.infer<typeof recordPaymentSchema>;
 export type UpdateOrderItemQuantity = z.infer<typeof updateOrderItemQuantitySchema>;
+export type ReassignOrderItem = z.infer<typeof reassignOrderItemSchema>;
+export type InsertOrderItemAuditLog = z.infer<typeof insertOrderItemAuditLogSchema>;
+export type OrderItemAuditLog = typeof orderItemAuditLogs.$inferSelect;
 export type LinkCustomer = z.infer<typeof linkCustomerSchema>;
 export type ApplyCoupon = z.infer<typeof applyCouponSchema>;
 export type RedeemLoyaltyPoints = z.infer<typeof redeemLoyaltyPointsSchema>;
@@ -1755,7 +1942,43 @@ export const orderItemsRelations = relations(orderItems, ({ one, many }) => ({
     fields: [orderItems.menuItemId],
     references: [menuItems.id],
   }),
+  guest: one(tableGuests, {
+    fields: [orderItems.guestId],
+    references: [tableGuests.id],
+  }),
   orderItemOptions: many(orderItemOptions),
+  auditLogs: many(orderItemAuditLogs),
+}));
+
+export const orderItemAuditLogsRelations = relations(orderItemAuditLogs, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [orderItemAuditLogs.restaurantId],
+    references: [restaurants.id],
+  }),
+  orderItem: one(orderItems, {
+    fields: [orderItemAuditLogs.orderItemId],
+    references: [orderItems.id],
+  }),
+  order: one(orders, {
+    fields: [orderItemAuditLogs.orderId],
+    references: [orders.id],
+  }),
+  session: one(tableSessions, {
+    fields: [orderItemAuditLogs.sessionId],
+    references: [tableSessions.id],
+  }),
+  actor: one(users, {
+    fields: [orderItemAuditLogs.actorUserId],
+    references: [users.id],
+  }),
+  sourceGuest: one(tableGuests, {
+    fields: [orderItemAuditLogs.sourceGuestId],
+    references: [tableGuests.id],
+  }),
+  targetGuest: one(tableGuests, {
+    fields: [orderItemAuditLogs.targetGuestId],
+    references: [tableGuests.id],
+  }),
 }));
 
 export const optionGroupsRelations = relations(optionGroups, ({ one, many }) => ({
@@ -3036,3 +3259,29 @@ export const customerNotificationPreferencesRelations = relations(customerNotifi
     references: [customers.id],
   }),
 }));
+
+// Link Analytics - Tracking de acessos ao menu público
+export const linkAnalytics = pgTable("link_analytics", {
+  id: serial("id").primaryKey(),
+  restaurantId: integer("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  source: varchar("source", { length: 255 }), // 'direct', 'whatsapp', 'instagram', 'facebook', 'qrcode', etc
+  referrer: text("referrer"),
+  userAgent: text("user_agent"),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  sessionId: varchar("session_id", { length: 255 }),
+  converted: integer("converted").notNull().default(0), // 1 if resulted in an order
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_link_analytics_restaurant_id").on(table.restaurantId),
+  index("idx_link_analytics_timestamp").on(table.timestamp),
+  index("idx_link_analytics_session_id").on(table.sessionId),
+]);
+
+export const insertLinkAnalyticsSchema = createInsertSchema(linkAnalytics).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertLinkAnalytics = z.infer<typeof insertLinkAnalyticsSchema>;
+export type LinkAnalytics = typeof linkAnalytics.$inferSelect;

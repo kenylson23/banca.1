@@ -22,6 +22,8 @@ import { useToast } from "@/hooks/use-toast";
 import { indexedDB } from "@/lib/indexeddb";
 import { formatKwanza } from "@/lib/formatters";
 import { ProductOptionsDialog, type OptionGroup, type SelectedOption } from "@/components/product-options-dialog";
+import { usePrinter } from "@/hooks/usePrinter";
+import { printerService } from "@/lib/printer-service";
 
 const newOrderFormSchema = insertOrderSchema.extend({
   orderType: z.enum(["mesa", "delivery", "takeout", "balcao", "pdv"]),
@@ -94,6 +96,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
   const [optionsDialogOpen, setOptionsDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<NormalizedMenuItem | null>(null);
   const { toast } = useToast();
+  const { getPrinterByType } = usePrinter();
 
   // Generate new receipt number when dialog opens
   useEffect(() => {
@@ -101,6 +104,36 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
       setReceiptNumber(Math.floor(Math.random() * 90000) + 10000);
     }
   }, [open]);
+
+  const form = useForm<NewOrderForm>({
+    resolver: zodResolver(newOrderFormSchema),
+    defaultValues: {
+      restaurantId,
+      orderType: "balcao",
+      status: "pendente",
+      customerName: "",
+      customerPhone: "",
+      deliveryAddress: "",
+      deliveryNotes: "",
+      orderNotes: "",
+      paymentMethod: "dinheiro" as const,
+      discount: undefined,
+      discountType: undefined,
+      serviceCharge: undefined,
+      deliveryFee: undefined,
+      customerId: undefined,
+      tableId: undefined,
+      tableSessionId: undefined,
+      couponId: undefined,
+      guestId: undefined,
+
+    },
+  });
+
+  const orderType = form.watch("orderType");
+  const selectedTableId = form.watch("tableId");
+  const [creatingGuest, setCreatingGuest] = useState(false);
+  const [newGuestName, setNewGuestName] = useState("");
 
   const { data: rawMenuItems = [] } = useQuery<MenuItem[]>({
     queryKey: ["/api/menu-items"],
@@ -119,29 +152,35 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
     enabled: open,
   });
 
-  const form = useForm<NewOrderForm>({
-    resolver: zodResolver(newOrderFormSchema),
-    defaultValues: {
-      restaurantId,
-      orderType: "balcao",
-      status: "pendente",
-      customerName: "",
-      customerPhone: "",
-      deliveryAddress: "",
-      orderNotes: "",
-      paymentMethod: "dinheiro" as const,
-      discount: undefined,
-      discountType: undefined,
-      serviceCharge: undefined,
-      deliveryFee: undefined,
-      customerId: undefined,
-      tableId: undefined,
-      tableSessionId: undefined,
-      couponId: undefined,
-    },
+  // Fetch guests for the selected table
+  const { data: guests = [], isLoading: isLoadingGuests } = useQuery<Array<{ id: string; guestNumber: number; name?: string | null; status: string }>>({
+    queryKey: ["/api/tables", selectedTableId, "guests"],
+    enabled: open && !!selectedTableId,
   });
 
-  const orderType = form.watch("orderType");
+  // Mutation to create a new guest
+  const createGuestMutation = useMutation({
+    mutationFn: async ({ tableId, guestName }: { tableId: string; guestName?: string }) => {
+      const response = await apiRequest("POST", `/api/tables/${tableId}/guests`, { name: guestName });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tables", selectedTableId, "guests"] });
+      setCreatingGuest(false);
+      setNewGuestName("");
+      toast({
+        title: "Cliente adicionado",
+        description: "Novo cliente adicionado à mesa com sucesso.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível adicionar o cliente à mesa.",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Pre-select table when initialTableId is provided
   useEffect(() => {
@@ -273,7 +312,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
         return offlineOrder;
       }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       const isOnline = typeof navigator !== 'undefined' && navigator.onLine;
       
       if (!isOnline && data?.id) {
@@ -295,6 +334,39 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
           title: "Pedido criado",
           description: "O pedido foi criado com sucesso.",
         });
+      }
+      
+      // Impressão automática na cozinha
+      const kitchenPrinter = getPrinterByType('kitchen');
+      if (kitchenPrinter && data?.id) {
+        try {
+          // Verificar se a impressão automática está habilitada
+          const autoPrintEnabled = localStorage.getItem('auto-print-kitchen') !== 'false';
+          
+          if (autoPrintEnabled) {
+            await printerService.printKitchenOrder('kitchen', {
+              orderNumber: data.orderNumber || data.id.slice(-6),
+              orderType: data.orderType || 'balcao',
+              customerName: data.customerName,
+              tableNumber: data.table?.number,
+              items: data.orderItems || cart.map(item => ({
+                name: item.name,
+                quantity: item.quantity,
+                selectedOptions: item.selectedOptions || [],
+              })),
+              notes: data.orderNotes || '',
+              createdAt: data.createdAt || new Date().toISOString(),
+            });
+            
+            toast({
+              title: "Pedido impresso",
+              description: "Pedido enviado para impressora da cozinha",
+            });
+          }
+        } catch (error) {
+          console.error('Erro ao imprimir pedido:', error);
+          // Não mostrar erro ao usuário para não interromper o fluxo
+        }
       }
       
       if (onOrderCreated && data?.id) {
@@ -682,7 +754,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  {tables.filter(t => t.status === "livre").map((table) => (
+                                  {tables.map((table) => (
                                     <SelectItem key={table.id} value={table.id}>
                                       Mesa {table.number}
                                     </SelectItem>
@@ -714,26 +786,105 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
                       )}
                     </div>
 
-                    {orderType === "delivery" && (
-                      <FormField
-                        control={form.control}
-                        name="deliveryAddress"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs">Endereço</FormLabel>
-                            <FormControl>
-                              <Textarea 
-                                data-testid="input-delivery-address" 
-                                {...field} 
-                                value={field.value || ""}
-                                placeholder="Endereço de entrega"
-                                className="text-sm resize-none"
-                                rows={2}
+                    {orderType === "mesa" && selectedTableId && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <FormField
+                          control={form.control}
+                          name="guestId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Cliente da Mesa {isLoadingGuests && "(Carregando...)"}</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || undefined}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-guest" className="h-9 text-sm">
+                                    <SelectValue placeholder={isLoadingGuests ? "Carregando..." : guests.length === 0 ? "Nenhum cliente na mesa" : "Selecionar cliente"} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {guests.length === 0 ? (
+                                    <div className="px-2 py-3 text-sm text-muted-foreground text-center">
+                                      Nenhum cliente adicionado ainda
+                                    </div>
+                                  ) : (
+                                    guests.map((g) => (
+                                      <SelectItem key={g.id} value={g.id}>
+                                        {(g.name || `Cliente ${g.guestNumber}`)}
+                                      </SelectItem>
+                                    ))
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
+                        <div className="flex items-end">
+                          {creatingGuest ? (
+                            <div className="flex w-full gap-2">
+                              <Input 
+                                placeholder="Nome (opcional)"
+                                value={newGuestName}
+                                onChange={(e) => setNewGuestName(e.target.value)}
+                                className="h-9 text-sm"
                               />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => selectedTableId && createGuestMutation.mutate({ tableId: selectedTableId, guestName: newGuestName || undefined })}
+                                disabled={createGuestMutation.isPending}
+                              >
+                                {createGuestMutation.isPending ? 'Criando...' : 'Adicionar'}
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button type="button" variant="outline" size="sm" onClick={() => setCreatingGuest(true)}>
+                              + Adicionar Pessoa
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {orderType === "delivery" && (
+                      <>
+                        <FormField
+                          control={form.control}
+                          name="deliveryAddress"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Endereço de Entrega</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  data-testid="input-delivery-address" 
+                                  {...field} 
+                                  value={field.value || ""}
+                                  placeholder="Rua, número, bairro, cidade..."
+                                  className="text-sm resize-none"
+                                  rows={2}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="deliveryNotes"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Observações (opcional)</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  data-testid="input-delivery-notes" 
+                                  {...field} 
+                                  value={field.value || ""}
+                                  placeholder="Ex: Portão azul, interfone 12, deixar com porteiro..."
+                                  className="text-sm resize-none"
+                                  rows={2}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </>
                     )}
 
                     <Separator />

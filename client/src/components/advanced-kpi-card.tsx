@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
-import { LucideIcon, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Icon as PhosphorIcon, TrendUp, TrendDown, Minus as MinusIcon } from "@phosphor-icons/react";
 import { AnimatedCounter } from "./animated-counter";
 import { MiniSparkline } from "./mini-sparkline";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,7 @@ interface AdvancedKpiCardProps {
   prefix?: string;
   suffix?: string;
   decimals?: number;
-  icon: LucideIcon;
+  icon: PhosphorIcon;
   change?: number;
   changeLabel?: string;
   sparklineData?: number[];
@@ -37,9 +37,9 @@ export function AdvancedKpiCard({
 }: AdvancedKpiCardProps) {
   const getTrendIcon = () => {
     if (change === undefined || change === null) return null;
-    if (change > 0) return TrendingUp;
-    if (change < 0) return TrendingDown;
-    return Minus;
+    if (change > 0) return TrendUp;
+    if (change < 0) return TrendDown;
+    return MinusIcon;
   };
 
   const getTrendColor = () => {
@@ -83,7 +83,7 @@ export function AdvancedKpiCard({
               whileHover={{ scale: 1.1, rotate: 5 }}
               transition={{ type: "spring", stiffness: 400, damping: 10 }}
             >
-              <Icon className="w-4 h-4 text-primary" />
+              <Icon className="w-4 h-4 text-primary" weight="duotone" />
             </motion.div>
           </div>
 
@@ -103,7 +103,7 @@ export function AdvancedKpiCard({
                     getTrendColor()
                   )}
                 >
-                  <TrendIcon className="w-3 h-3" />
+                  <TrendIcon className="w-3 h-3" weight="bold" />
                   <span className="text-xs">
                     {Math.abs(change).toFixed(1)}%
                   </span>

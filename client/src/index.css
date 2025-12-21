@@ -2,6 +2,97 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile-First Optimizations */
+@layer utilities {
+  /* Safe area for notch devices */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* Touch-friendly tap targets */
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent text selection on interactive elements */
+  .no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Smooth scrolling with momentum */
+  .momentum-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Extra small breakpoint for very small devices */
+  @media (min-width: 375px) {
+    .xs\:inline {
+      display: inline;
+    }
+    
+    .xs\:flex {
+      display: flex;
+    }
+    
+    .xs\:hidden {
+      display: none;
+    }
+  }
+}
+
+/* Focus Rings Acessíveis e Luxuosos */
+@layer base {
+  *:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.5);
+    border-radius: 0.5rem;
+  }
+
+  /* Focus para inputs e textareas */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.3);
+    border-color: rgb(251, 191, 36);
+  }
+
+  /* Focus para botões */
+  button:focus-visible {
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.4),
+                0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+  }
+
+  /* Focus para links */
+  a:focus-visible {
+    box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.5);
+    border-radius: 0.25rem;
+  }
+
+  /* Dark mode adjustments */
+  .dark *:focus-visible {
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.6);
+  }
+}
+
 /* LIGHT MODE - Preto e Branco Minimalista */
 :root {
   --button-outline: rgba(0,0,0, .12);

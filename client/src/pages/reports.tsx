@@ -380,20 +380,20 @@ export default function Reports() {
   const currentActiveItem = Object.keys(tabMapping).find(key => tabMapping[key] === activeTab) || "Dashboard";
 
   return (
-    <div className="min-h-screen">
-      <div className="space-y-4 p-4 sm:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 pb-safe">
+      <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 lg:p-8 pb-20 sm:pb-8">
         {/* Header with Gradient */}
         <motion.div
-          className="space-y-4"
+          className="space-y-3 sm:space-y-4 sticky top-0 z-10 bg-gradient-to-br from-background via-background to-muted/20 py-2 sm:py-0 -mx-3 px-3 sm:mx-0 sm:px-0 backdrop-blur-sm sm:backdrop-blur-none"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="flex flex-col gap-2">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+          <div className="flex flex-col gap-1 sm:gap-2">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight bg-gradient-to-r from-primary via-indigo-600 to-violet-600 bg-clip-text text-transparent truncate">
               Relatórios Avançados
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
               {dateRange?.from && dateRange?.to 
                 ? `Análise do período personalizado`
                 : `Análise detalhada de vendas, pedidos e desempenho • Últimos 7 dias`
@@ -438,7 +438,7 @@ export default function Reports() {
             className="space-y-4"
           >
             {/* KPI Cards with Sparklines */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
               {loadingOrders || loadingPerformance ? (
                 <>
                   {[...Array(4)].map((_, i) => (
@@ -495,7 +495,7 @@ export default function Reports() {
             </div>
 
             {/* Cancelled Orders Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {loadingCancelled ? (
                 <>
                   {[...Array(2)].map((_, i) => (
@@ -528,7 +528,7 @@ export default function Reports() {
             </div>
 
             {/* Main Charts Section */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
               <div className="xl:col-span-2 space-y-4">
                 {/* Advanced Sales Chart */}
                 {historicalLoading ? (
@@ -592,7 +592,7 @@ export default function Reports() {
             </div>
 
             {/* Activity Feed & Top Dishes */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
               <ActivityFeed activities={activities} maxHeight={500} />
               
               {loadingProducts ? (

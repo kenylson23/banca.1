@@ -1,4 +1,5 @@
 import ReceiptPrinterEncoder from '@point-of-sale/receipt-printer-encoder';
+import QRCode from 'qrcode';
 
 export type PrinterType = 'receipt' | 'kitchen' | 'invoice';
 export type PrinterStatus = 'connected' | 'disconnected' | 'error';
@@ -20,17 +21,128 @@ export interface PrinterConfig {
   name: string;
   autoReconnect: boolean;
   paperWidth: number; // em mm (58 ou 80)
+  copies?: number; // número de cópias
+  soundEnabled?: boolean; // som ao imprimir
+}
+
+export interface PrintHistory {
+  id: string;
+  timestamp: string;
+  printerType: PrinterType;
+  printerName: string;
+  documentType: 'order' | 'receipt' | 'invoice' | 'bill' | 'report';
+  orderNumber?: string;
+  success: boolean;
+  error?: string;
 }
 
 class PrinterService {
   private connectedPrinters: Map<string, ConnectedPrinter> = new Map();
   private printerConfigs: Map<PrinterType, PrinterConfig> = new Map();
   private listeners: Set<(printers: ConnectedPrinter[]) => void> = new Set();
+  private printHistory: PrintHistory[] = [];
+  private maxHistorySize = 100;
 
   constructor() {
     this.loadConfigs();
     this.setupUSBListeners();
     this.loadSavedPrinters();
+    this.loadPrintHistory();
+  }
+
+  // Carregar histórico de impressões
+  private loadPrintHistory() {
+    try {
+      const saved = localStorage.getItem('print-history');
+      if (saved) {
+        this.printHistory = JSON.parse(saved);
+      }
+    } catch (error) {
+      console.error('Failed to load print history:', error);
+    }
+  }
+
+  // Salvar histórico de impressões
+  private savePrintHistory() {
+    try {
+      // Manter apenas as últimas impressões
+      if (this.printHistory.length > this.maxHistorySize) {
+        this.printHistory = this.printHistory.slice(-this.maxHistorySize);
+      }
+      localStorage.setItem('print-history', JSON.stringify(this.printHistory));
+    } catch (error) {
+      console.error('Failed to save print history:', error);
+    }
+  }
+
+  // Adicionar entrada ao histórico
+  private addToHistory(entry: Omit<PrintHistory, 'id' | 'timestamp'>) {
+    const historyEntry: PrintHistory = {
+      ...entry,
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+    };
+    this.printHistory.unshift(historyEntry);
+    this.savePrintHistory();
+  }
+
+  // Tocar som de impressão
+  private playPrintSound() {
+    try {
+      const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBzGJ0fPTgjMGHm7A7+OZWQ0OV6vl8q1bGg1Dn93xu3AeBzqN0vTPfC0HKX3J8diJOQkSY7jo6qJSEwxKouHxtWYdBz6V2fHJdyoFKHzJ8N+MPwkTXbLo7aVUFAo+mtzzwG0dBzCK0fLRfC0HKXzI8N+KPQkTXbPo7KRUFQk+m9zzwG4dBjiL0PHQfS0HJnzH796JPgkSXrLp7KVTFAo+mt3ywm0eBzCK0PHRfC4HJ37H796JPAgRX7Lp7KVUFAo9md3ywW8dBzCK0fHQfC0HJnvH8N6JPQgRXrPo7KVVFAo9m93yv2wdBzCK0PHQfC0HJnrG8N6JPQgSXrPo7KVVFAo9m93yv2wdBzCK0PHQfC0HJ3rG8N6JPAgSXrPo7KVUFAo9m93yw2wdBzCK0PHRfC4HJ3vH796IPQkSXrLo7KVUFAo9m93ywmwdBzCK0PHRfS0HJ3rH8N6IPQkSXrPo7KZVFQo9mt3ywm0dBzCK0PHRfS0HJnrG8N6HOwgQXrPo7KZVFQo9mt3ywW4dBzCJ0PHRfS0HJ3rG8N6JOwgRXrPo7KZVFQo9mt3yv24dBzCK0PHRfS0HJ3rG8N6JOwgRXrPo7KZUFQo9mt3yv20dBzCK0PHRfS0HJ3rG8N6JOwgRXrPo7KZUFQo9mt3ywG4dBzCK0PHRfS0HJ3rH796IPQgRXrPo7KZUFQo9mt3ywG4dBzCK0PHRfS0HJ3rH796IPQgRXrPo7KZUFQo9md3ywG4dBzCK0PHRfS0HJ3rH796IPQgRXrPo7KZUFQo9md3ywG4dBzCK0PHRfS4HJ3rG8N+IPQgQXrLo7KZUFAo9md3yv24dBzCK0PDRfS4HJ3rG8N+IPAgQXrPo7KZUFAk9md3ywG0dBzCK0PHRfS0HJ3rH796IPAgRXrPo7KZVFAo9mtzyv24dBzCJ0PHRfS0HKHrG8N+JPAgRXrPo7KVUFQo9mtzzwG0dBzCK0PHRfS0HKHrG8N+JPQgRXrLo7KVUFQk9mtzywG4dBzCK0PDRfS4HJ3vH796IPQkRXrLo7KVUFQo9mtzywG4dBzCK0PDRfS4HJ3vH796IPQgRXrLo7KVUFQo9mtzywG4dBzCK0PDRfS4HJ3vH796IPQgRXrLo7KVUFQo9mtzywG4dBzCK0PDRfS4HJ3vH796JPQgRXrLo7KVUFQo9mtzywG4dBzCK0PDRfS4HJ3vH796JPQgRXrLo7KVUFQo9mtzywG4dBzCK0PDRfS4HJ3vH796JPQgRXrLo7KVUFQo9mtzywG4dBzCK0PDRfS4HJ3vH796JPQgRXrLo7KVUFQo9mtzywG4dBzCK0PDRfS4HJ3vH796JPQgRXrLo7KVUFQo9');
+      audio.volume = 0.3;
+      audio.play().catch(() => {}); // Ignorar erros se o navegador bloquear
+    } catch (error) {
+      // Silenciosamente ignorar erros de áudio
+    }
+  }
+
+  // Obter histórico de impressões
+  public getPrintHistory(limit?: number): PrintHistory[] {
+    if (limit) {
+      return this.printHistory.slice(0, limit);
+    }
+    return [...this.printHistory];
+  }
+
+  // Limpar histórico
+  public clearPrintHistory() {
+    this.printHistory = [];
+    localStorage.removeItem('print-history');
+  }
+
+  // Obter estatísticas de impressões
+  public getPrintStatistics() {
+    const total = this.printHistory.length;
+    const successful = this.printHistory.filter(h => h.success).length;
+    const failed = total - successful;
+    
+    const byType: Record<PrinterType, number> = {
+      receipt: 0,
+      kitchen: 0,
+      invoice: 0,
+    };
+    
+    const byDocument: Record<string, number> = {};
+    
+    this.printHistory.forEach(h => {
+      byType[h.printerType]++;
+      byDocument[h.documentType] = (byDocument[h.documentType] || 0) + 1;
+    });
+
+    // Impressões por hora (últimas 24h)
+    const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentPrints = this.printHistory.filter(h => new Date(h.timestamp) > last24h);
+    
+    return {
+      total,
+      successful,
+      failed,
+      successRate: total > 0 ? (successful / total) * 100 : 0,
+      byType,
+      byDocument,
+      last24Hours: recentPrints.length,
+    };
   }
 
   private async loadSavedPrinters() {
@@ -286,9 +398,23 @@ class PrinterService {
     return this.printerConfigs.get(type);
   }
 
-  private async sendToPrinter(printer: ConnectedPrinter, data: Uint8Array) {
+  private async sendToPrinter(
+    printer: ConnectedPrinter, 
+    data: Uint8Array, 
+    documentType: PrintHistory['documentType'] = 'order',
+    orderNumber?: string
+  ) {
     if (!printer.device) {
-      throw new Error('Impressora não está conectada');
+      const error = 'Impressora não está conectada';
+      this.addToHistory({
+        printerType: printer.type,
+        printerName: printer.name,
+        documentType,
+        orderNumber,
+        success: false,
+        error,
+      });
+      throw new Error(error);
     }
 
     // Verificar e reestabelecer conexão se necessário
@@ -311,27 +437,75 @@ class PrinterService {
       }
     } catch (error) {
       console.error('Error preparing device:', error);
-      throw new Error('Impressora desconectada. Reconecte a impressora.');
+      const errorMsg = 'Impressora desconectada. Reconecte a impressora.';
+      this.addToHistory({
+        printerType: printer.type,
+        printerName: printer.name,
+        documentType,
+        orderNumber,
+        success: false,
+        error: errorMsg,
+      });
+      throw new Error(errorMsg);
     }
 
     if (!printer.endpointNumber) {
       // Tentar detectar endpoint se não estiver configurado
       const endpoint = this.detectOutEndpoint(printer.device);
       if (!endpoint) {
-        throw new Error('Endpoint de comunicação não configurado. Reconecte a impressora.');
+        const error = 'Endpoint de comunicação não configurado. Reconecte a impressora.';
+        this.addToHistory({
+          printerType: printer.type,
+          printerName: printer.name,
+          documentType,
+          orderNumber,
+          success: false,
+          error,
+        });
+        throw new Error(error);
       }
       printer.endpointNumber = endpoint;
       this.savePrinters();
     }
 
     try {
-      const result = await printer.device.transferOut(printer.endpointNumber, data);
-      if (result.status !== 'ok') {
-        throw new Error(`Falha na transferência: ${result.status}`);
+      // Obter configurações da impressora
+      const config = this.printerConfigs.get(printer.type);
+      const copies = config?.copies || 1;
+
+      // Imprimir o número de cópias configurado
+      for (let i = 0; i < copies; i++) {
+        const result = await printer.device.transferOut(printer.endpointNumber, data);
+        if (result.status !== 'ok') {
+          throw new Error(`Falha na transferência: ${result.status}`);
+        }
+      }
+
+      // Adicionar ao histórico (sucesso)
+      this.addToHistory({
+        printerType: printer.type,
+        printerName: printer.name,
+        documentType,
+        orderNumber,
+        success: true,
+      });
+
+      // Tocar som se habilitado
+      if (config?.soundEnabled !== false) {
+        this.playPrintSound();
       }
     } catch (error) {
       console.error('Error sending to printer:', error);
-      throw new Error('Falha ao enviar dados para impressora. Verifique a conexão.');
+      const errorMsg = 'Falha ao enviar dados para impressora. Verifique a conexão.';
+      this.addToHistory({
+        printerType: printer.type,
+        printerName: printer.name,
+        documentType,
+        orderNumber,
+        success: false,
+        error: errorMsg,
+      });
+      throw new Error(errorMsg);
     }
   }
 
@@ -406,7 +580,7 @@ class PrinterService {
     encoder.newline().newline().newline().cut('partial');
 
     const data = encoder.encode();
-    await this.sendToPrinter(printer, data);
+    await this.sendToPrinter(printer, data, 'receipt');
   }
 
   public async printText(type: PrinterType, text: string, options?: { 
@@ -446,7 +620,7 @@ class PrinterService {
     }
 
     const data = encoder.encode();
-    await this.sendToPrinter(printer, data);
+    await this.sendToPrinter(printer, data, 'receipt');
   }
 
   public async testPrint(printerId: string) {
@@ -481,7 +655,7 @@ class PrinterService {
       .cut('partial');
 
     const data = encoder.encode();
-    await this.sendToPrinter(printer, data);
+    await this.sendToPrinter(printer, data, 'order');
   }
 
   public async printInvoice(
@@ -577,7 +751,233 @@ class PrinterService {
     encoder.newline().newline().newline().cut('partial');
 
     const data = encoder.encode();
-    await this.sendToPrinter(printer, data);
+    await this.sendToPrinter(printer, data, 'invoice', content.invoiceNumber);
+  }
+
+  public async printGuestBill(
+    type: PrinterType,
+    content: {
+      restaurantName: string;
+      restaurantAddress?: string;
+      restaurantPhone?: string;
+      restaurantNIF?: string;
+      restaurantLogoUrl?: string;
+      tableName: string;
+      guestName: string;  // Este campo vem mapeado do nome do guest
+      guestNumber: number;
+      entryTime: string;
+      items: Array<{ name: string; quantity: number; price: string; total: string }>;
+      subtotal?: string;
+      serviceCharge?: string;
+      discount?: string;
+      total: string;
+      paymentMethod?: string;
+      isPaid: boolean;
+      orderCount: number;
+      documentId: string;
+      timestamp: string;
+    }
+  ) {
+    const printer = this.getPrinter(type);
+    if (!printer) {
+      throw new Error(`Nenhuma impressora ${type} conectada`);
+    }
+
+    const config = this.getConfig(type);
+    const paperWidth = config?.paperWidth || 80;
+    const columns = paperWidth === 80 ? 48 : 32;
+
+    const encoder = new ReceiptPrinterEncoder({
+      language: printer.language || 'esc-pos',
+      codepageMapping: printer.codepageMapping || 'epson',
+      columns,
+    });
+
+    encoder.initialize();
+
+    // ============ CABEÇALHO COM LOGO/BRANDING ============
+    encoder.align('center');
+    
+    // Logo do restaurante (se disponível)
+    if (content.restaurantLogoUrl) {
+      try {
+        // Carregar imagem do logo
+        const response = await fetch(content.restaurantLogoUrl);
+        const blob = await response.blob();
+        
+        // Converter para base64
+        const reader = new FileReader();
+        const imageDataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        
+        // Adicionar logo ao recibo
+        encoder.image(imageDataUrl, 200, 200, 'atkinson');
+        encoder.newline();
+      } catch (error) {
+        console.error('Erro ao carregar logo:', error);
+        // Continuar sem logo se houver erro
+      }
+    }
+    
+    // Nome do restaurante em destaque
+    encoder.bold(true).size('normal');
+    encoder.line(content.restaurantName.toUpperCase());
+    encoder.bold(false).size('normal');
+    
+    // Informações do restaurante
+    if (content.restaurantAddress) {
+      encoder.line(content.restaurantAddress);
+    }
+    if (content.restaurantPhone) {
+      encoder.line(`Tel: ${content.restaurantPhone}`);
+    }
+    if (content.restaurantNIF) {
+      encoder.line(`NIF: ${content.restaurantNIF}`);
+    }
+    
+    encoder.newline();
+    
+    // Tipo de documento
+    encoder.bold(true).line('*** CONTA INDIVIDUAL ***').bold(false);
+    encoder.newline();
+
+    // ============ INFORMAÇÕES DA CONTA ============
+    encoder.align('left');
+    encoder.line('='.repeat(columns)).newline();
+    
+    // Informações da mesa e cliente
+    encoder.bold(true).line('INFORMACOES DA CONTA').bold(false);
+    encoder.line(`Mesa: ${content.tableName}`);
+    encoder.line(`Cliente: ${content.guestName}`);
+    encoder.line(`Numero: #${content.guestNumber}`);
+    encoder.line(`Entrada: ${content.entryTime}`);
+    encoder.line(`Pedidos: ${content.orderCount}`);
+    
+    encoder.newline().line('='.repeat(columns)).newline();
+
+    // ============ ITENS CONSUMIDOS ============
+    encoder.bold(true).line('ITENS CONSUMIDOS').bold(false).newline();
+    
+    // Cabeçalho da tabela
+    encoder.line('Item                      Qtd  Valor');
+    encoder.line('-'.repeat(columns));
+    
+    // Lista de itens
+    content.items.forEach(item => {
+      // Nome do item (primeira linha)
+      const itemName = item.name.length > 25 ? item.name.substring(0, 22) + '...' : item.name;
+      encoder.line(itemName);
+      
+      // Quantidade, preço unitário e total (segunda linha)
+      const qtyPriceTotal = `  ${item.quantity}x ${item.price}`;
+      const spaces = columns - qtyPriceTotal.length - item.total.length;
+      encoder.line(qtyPriceTotal + ' '.repeat(Math.max(spaces, 1)) + item.total);
+    });
+    
+    encoder.newline().line('='.repeat(columns)).newline();
+
+    // ============ TOTAIS ============
+    encoder.bold(true).line('RESUMO DO PAGAMENTO').bold(false).newline();
+    
+    // Subtotal
+    if (content.subtotal) {
+      const subtotalLine = 'Subtotal:';
+      const spaces = columns - subtotalLine.length - content.subtotal.length;
+      encoder.line(subtotalLine + ' '.repeat(Math.max(spaces, 1)) + content.subtotal);
+    }
+    
+    // Taxa de serviço
+    if (content.serviceCharge) {
+      const serviceLine = 'Taxa Servico:';
+      const spaces = columns - serviceLine.length - content.serviceCharge.length;
+      encoder.line(serviceLine + ' '.repeat(Math.max(spaces, 1)) + content.serviceCharge);
+    }
+    
+    // Desconto
+    if (content.discount) {
+      const discountLine = 'Desconto:';
+      const spaces = columns - discountLine.length - content.discount.length;
+      encoder.line(discountLine + ' '.repeat(Math.max(spaces, 1)) + content.discount);
+    }
+    
+    encoder.line('-'.repeat(columns));
+    
+    // Total
+    const totalLine = 'TOTAL A PAGAR:';
+    const spaces = columns - totalLine.length - content.total.length;
+    encoder.bold(true).size('normal');
+    encoder.line(totalLine + ' '.repeat(Math.max(spaces, 1)) + content.total);
+    encoder.bold(false).size('normal');
+    
+    encoder.newline().line('='.repeat(columns)).newline();
+
+    // ============ INFORMAÇÕES DE PAGAMENTO ============
+    if (content.paymentMethod) {
+      encoder.bold(true).line('FORMA DE PAGAMENTO').bold(false);
+      encoder.line(content.paymentMethod.toUpperCase());
+      encoder.newline();
+    }
+    
+    // Status de pagamento
+    encoder.align('center');
+    if (content.isPaid) {
+      encoder.bold(true).line('*** PAGO ***').bold(false);
+    } else {
+      encoder.bold(true).line('*** PENDENTE ***').bold(false);
+    }
+    encoder.newline();
+
+    // ============ QR CODE / CÓDIGO DE RASTREAMENTO ============
+    encoder.align('center');
+    
+    // Gerar URL de rastreamento
+    const trackingUrl = `${window.location.origin}/track-order?id=${content.documentId}`;
+    
+    try {
+      // Gerar QR Code como imagem
+      const qrCodeDataUrl = await QRCode.toDataURL(trackingUrl, {
+        width: 200,
+        margin: 1,
+        errorCorrectionLevel: 'M',
+      });
+      
+      // Converter data URL para array de bytes
+      const base64Data = qrCodeDataUrl.split(',')[1];
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      // Adicionar QR Code ao recibo (suportado por impressoras ESC/POS)
+      encoder.qrcode(trackingUrl, 1, 8, 'h');
+      encoder.newline();
+    } catch (error) {
+      console.error('Erro ao gerar QR Code:', error);
+      // Se falhar, apenas mostrar o ID
+    }
+    
+    encoder.line(`Doc ID: ${content.documentId}`);
+    encoder.line('Escaneie para rastrear');
+    encoder.newline();
+
+    // ============ RODAPÉ ============
+    encoder.line('-'.repeat(columns));
+    encoder.line('Documento sem valor fiscal');
+    encoder.line(content.timestamp);
+    encoder.newline();
+    
+    encoder.bold(true).line('OBRIGADO PELA VISITA!').bold(false);
+    encoder.line('Volte sempre!');
+
+    // ============ CORTE ============
+    encoder.newline().newline().newline().cut('partial');
+
+    const data = encoder.encode();
+    await this.sendToPrinter(printer, data, 'bill', content.documentId);
   }
 
   public async printFinancialReport(
@@ -665,7 +1065,87 @@ class PrinterService {
     encoder.newline().newline().newline().cut('partial');
 
     const data = encoder.encode();
-    await this.sendToPrinter(printer, data);
+    await this.sendToPrinter(printer, data, 'report');
+  }
+
+  public async printKitchenOrder(
+    type: PrinterType,
+    content: {
+      orderNumber: string;
+      orderType: string;
+      customerName?: string;
+      tableNumber?: number;
+      items: Array<{
+        name: string;
+        quantity: number;
+        selectedOptions?: Array<{ optionName: string; quantity: number }>;
+      }>;
+      notes?: string;
+      createdAt: string;
+    }
+  ) {
+    const printer = this.getPrinter(type);
+    if (!printer) {
+      throw new Error(`Nenhuma impressora ${type} conectada`);
+    }
+
+    const config = this.getConfig(type);
+    const paperWidth = config?.paperWidth || 80;
+
+    const encoder = new ReceiptPrinterEncoder({
+      language: printer.language || 'esc-pos',
+      codepageMapping: printer.codepageMapping || 'epson',
+      columns: paperWidth === 80 ? 48 : 32,
+    });
+
+    encoder.initialize();
+
+    // Cabeçalho
+    encoder.align('center').bold(true).size('normal').line('*** COZINHA ***').bold(false).size('normal');
+    encoder.line(`Pedido #${content.orderNumber}`).newline();
+
+    // Tipo e informações
+    encoder.align('left');
+    encoder.line(`Tipo: ${content.orderType.toUpperCase()}`);
+    if (content.customerName) {
+      encoder.line(`Cliente: ${content.customerName}`);
+    }
+    if (content.tableNumber) {
+      encoder.line(`Mesa: ${content.tableNumber}`);
+    }
+    encoder.line(`Hora: ${new Date(content.createdAt).toLocaleTimeString('pt-AO')}`);
+    encoder.newline().line('='.repeat(paperWidth === 80 ? 48 : 32)).newline();
+
+    // Itens
+    encoder.bold(true).line('ITENS:').bold(false).newline();
+    content.items.forEach(item => {
+      encoder.bold(true).line(`${item.quantity}x ${item.name}`).bold(false);
+      
+      // Opções selecionadas
+      if (item.selectedOptions && item.selectedOptions.length > 0) {
+        item.selectedOptions.forEach(opt => {
+          encoder.line(`  + ${opt.optionName} ${opt.quantity > 1 ? `(${opt.quantity}x)` : ''}`);
+        });
+      }
+      encoder.newline();
+    });
+
+    // Observações
+    if (content.notes) {
+      encoder.line('='.repeat(paperWidth === 80 ? 48 : 32));
+      encoder.bold(true).line('OBSERVAÇÕES:').bold(false);
+      encoder.line(content.notes);
+      encoder.newline();
+    }
+
+    encoder.line('='.repeat(paperWidth === 80 ? 48 : 32)).newline();
+    encoder.align('center').line(new Date().toLocaleString('pt-AO'));
+
+    // Cortar papel
+    encoder.newline().newline().newline().cut('partial');
+
+    const data = encoder.encode();
+    await this.sendToPrinter(printer, data, 'order', content.orderNumber);
   }
 }
 

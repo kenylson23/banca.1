@@ -11,10 +11,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
-import { User, Phone, KeyRound, Loader2, Gift, LogOut, Crown, Star, TrendingUp, Award, Sparkles, Percent, ShoppingBag } from 'lucide-react';
+import { User, Phone, KeyRound, Loader2, Gift, LogOut, Crown, Star, TrendingUp, Award, Sparkles, Percent, ShoppingBag, Package, Tag, History, ChevronRight } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { Progress } from '@/components/ui/progress';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 
 interface CustomerLoginDialogProps {
   open: boolean;
@@ -223,28 +227,25 @@ export function CustomerLoginDialog({
   const renderPhoneStep = () => (
     <div className="space-y-4">
       <div className="text-center mb-6">
-        <div 
-          className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-          style={{ backgroundColor: `${primaryColor}20` }}
-        >
-          <Gift className="w-8 h-8" style={{ color: primaryColor }} />
+        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center mx-auto mb-4 shadow-sm border border-amber-500/30">
+          <Gift className="w-8 h-8 text-amber-500" />
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-neutral-300">
           Acesse seus pontos de fidelidade e benefícios exclusivos
         </p>
       </div>
       
       <div className="space-y-2">
-        <Label htmlFor="phone">Número de Telefone</Label>
+        <Label htmlFor="phone" className="text-neutral-200 font-medium">Número de Telefone</Label>
         <div className="relative">
-          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
           <Input
             id="phone"
             type="tel"
             placeholder="9XX XXX XXX"
             value={phone}
             onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 9))}
-            className="pl-10"
+            className="pl-10 h-11 bg-neutral-800 border-neutral-700 text-white placeholder:text-neutral-500 focus:border-amber-500 focus:ring-amber-500"
             data-testid="input-customer-phone"
           />
         </div>
@@ -253,8 +254,7 @@ export function CustomerLoginDialog({
       <Button 
         onClick={handleRequestOtp} 
         disabled={isLoading || phone.length < 9}
-        className="w-full"
-        style={{ backgroundColor: primaryColor }}
+        className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-white font-semibold shadow-md shadow-amber-500/30"
         data-testid="button-request-otp"
       >
         {isLoading ? (
@@ -262,32 +262,38 @@ export function CustomerLoginDialog({
         ) : null}
         Receber Código
       </Button>
+      
+      <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-lg p-3">
+        <div className="flex items-start gap-2">
+          <Gift className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+          <p className="text-xs text-neutral-300">
+            Ganhe pontos em cada pedido e troque por descontos especiais
+          </p>
+        </div>
+      </div>
     </div>
   );
 
   const renderOtpStep = () => (
     <div className="space-y-4">
       <div className="text-center mb-6">
-        <div 
-          className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-          style={{ backgroundColor: `${primaryColor}20` }}
-        >
-          <KeyRound className="w-8 h-8" style={{ color: primaryColor }} />
+        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center mx-auto mb-4 shadow-sm border border-amber-500/30">
+          <KeyRound className="w-8 h-8 text-amber-500" />
         </div>
-        <p className="text-sm text-muted-foreground">
-          Digite o código de 6 dígitos enviado para {phone}
+        <p className="text-sm text-neutral-300">
+          Digite o código de 6 dígitos enviado para <span className="font-semibold text-white">{phone}</span>
         </p>
       </div>
 
       {devOtpCode && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 text-center">
-          <p className="text-xs text-yellow-600 dark:text-yellow-400 mb-1">Código de teste (dev)</p>
-          <p className="text-lg font-mono font-bold text-yellow-700 dark:text-yellow-300">{devOtpCode}</p>
+        <div className="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 rounded-lg p-3 text-center">
+          <p className="text-xs text-amber-500 mb-1 font-medium">Código de teste (dev)</p>
+          <p className="text-lg font-mono font-bold text-amber-400">{devOtpCode}</p>
         </div>
       )}
       
       <div className="space-y-2">
-        <Label htmlFor="otp">Código de Verificação</Label>
+        <Label htmlFor="otp" className="text-neutral-200 font-medium">Código de Verificação</Label>
         <Input
           id="otp"
           type="text"
@@ -295,7 +301,7 @@ export function CustomerLoginDialog({
           placeholder="000000"
           value={otpCode}
           onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-          className="text-center text-2xl tracking-widest font-mono"
+          className="text-center text-2xl tracking-widest font-mono h-14 bg-neutral-800 border-neutral-700 text-white placeholder:text-neutral-600 focus:border-amber-500 focus:ring-amber-500"
           maxLength={6}
           data-testid="input-otp-code"
         />
@@ -309,7 +315,7 @@ export function CustomerLoginDialog({
             setOtpCode('');
             setDevOtpCode(null);
           }}
-          className="flex-1"
+          className="flex-1 h-11 border-neutral-700 bg-neutral-800 hover:bg-neutral-700 text-white"
           data-testid="button-back-to-phone"
         >
           Voltar
@@ -317,8 +323,7 @@ export function CustomerLoginDialog({
         <Button 
           onClick={handleVerifyOtp} 
           disabled={isLoading || otpCode.length !== 6}
-          className="flex-1"
-          style={{ backgroundColor: primaryColor }}
+          className="flex-1 h-11 bg-amber-500 hover:bg-amber-600 text-white font-semibold shadow-md shadow-amber-500/30"
           data-testid="button-verify-otp"
         >
           {isLoading ? (
@@ -332,13 +337,37 @@ export function CustomerLoginDialog({
         variant="ghost" 
         onClick={handleRequestOtp}
         disabled={isLoading}
-        className="w-full text-sm"
+        className="w-full text-sm hover:bg-amber-500/10 text-amber-500"
         data-testid="button-resend-otp"
       >
         Reenviar código
       </Button>
     </div>
   );
+
+  // Fetch customer orders
+  const { data: customerOrders } = useQuery({
+    queryKey: ['customer-orders', customer?.id, restaurantId],
+    queryFn: async () => {
+      if (!customer?.id) return [];
+      const response = await fetch(`/api/public/customers/${customer.id}/orders?restaurantId=${restaurantId}`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: isAuthenticated && !!customer?.id,
+  });
+
+  // Fetch customer coupons
+  const { data: customerCoupons } = useQuery({
+    queryKey: ['customer-coupons', customer?.id, restaurantId],
+    queryFn: async () => {
+      if (!customer?.id) return [];
+      const response = await fetch(`/api/public/customers/${customer.id}/coupons?restaurantId=${restaurantId}`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: isAuthenticated && !!customer?.id,
+  });
 
   const renderProfileStep = () => {
     if (!customer) return null;
@@ -497,36 +526,168 @@ export function CustomerLoginDialog({
           </motion.div>
         )}
 
-        <motion.div 
-          className="bg-muted/30 rounded-xl p-4"
-          initial={{ opacity: 0, x: 10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <Award className="w-4 h-4" style={{ color: primaryColor }} />
-            <span className="text-sm font-medium">Seus Benefícios</span>
-          </div>
-          <div className="space-y-2">
-            {tierBenefits.map((benefit, index) => (
-              <motion.div 
-                key={index}
-                className="flex items-center gap-3 text-sm"
-                initial={{ opacity: 0, x: -5 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4 + index * 0.1 }}
-              >
-                <span className="text-muted-foreground">{benefit.icon}</span>
-                <span>{benefit.text}</span>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
+        {/* Tabs for Orders, Coupons, and Benefits */}
+        <Tabs defaultValue="benefits" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 bg-neutral-800">
+            <TabsTrigger value="benefits" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white">
+              <Award className="w-3.5 h-3.5 mr-1.5" />
+              Benefícios
+            </TabsTrigger>
+            <TabsTrigger value="orders" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white">
+              <Package className="w-3.5 h-3.5 mr-1.5" />
+              Pedidos
+            </TabsTrigger>
+            <TabsTrigger value="coupons" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white">
+              <Tag className="w-3.5 h-3.5 mr-1.5" />
+              Cupons
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="benefits" className="mt-4">
+            <motion.div 
+              className="bg-neutral-800/50 rounded-xl p-4"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <Award className="w-4 h-4 text-amber-500" />
+                <span className="text-sm font-medium text-white">Seus Benefícios</span>
+              </div>
+              <div className="space-y-2">
+                {tierBenefits.map((benefit, index) => (
+                  <motion.div 
+                    key={index}
+                    className="flex items-center gap-3 text-sm text-neutral-300"
+                    initial={{ opacity: 0, x: -5 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <span className="text-amber-500">{benefit.icon}</span>
+                    <span>{benefit.text}</span>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="orders" className="mt-4">
+            <ScrollArea className="h-[300px] pr-4">
+              {customerOrders && customerOrders.length > 0 ? (
+                <div className="space-y-3">
+                  {customerOrders.map((order: any, index: number) => (
+                    <motion.div
+                      key={order.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="bg-neutral-800/50 rounded-lg p-3 hover:bg-neutral-800 transition-colors"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
+                            <Package className="w-4 h-4 text-amber-500" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-white">Pedido #{order.orderNumber || order.id.slice(0, 8)}</p>
+                            <p className="text-xs text-neutral-400">
+                              {new Date(order.createdAt).toLocaleDateString('pt-AO', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric'
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge variant={order.status === 'concluído' ? 'default' : 'secondary'} className="text-xs">
+                          {order.status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-neutral-400">{order.items?.length || 0} {order.items?.length === 1 ? 'item' : 'itens'}</p>
+                        <p className="text-sm font-bold text-amber-500">{formatKwanza(order.totalAmount)}</p>
+                      </div>
+                      {order.pointsEarned > 0 && (
+                        <div className="mt-2 pt-2 border-t border-neutral-700 flex items-center gap-1 text-xs text-amber-400">
+                          <Sparkles className="w-3 h-3" />
+                          +{order.pointsEarned} pontos ganhos
+                        </div>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                  <History className="w-12 h-12 text-neutral-600 mb-3" />
+                  <p className="text-sm text-neutral-400">Nenhum pedido ainda</p>
+                  <p className="text-xs text-neutral-500 mt-1">Seus pedidos aparecerão aqui</p>
+                </div>
+              )}
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="coupons" className="mt-4">
+            <ScrollArea className="h-[300px] pr-4">
+              {customerCoupons && customerCoupons.length > 0 ? (
+                <div className="space-y-3">
+                  {customerCoupons.map((coupon: any, index: number) => (
+                    <motion.div
+                      key={coupon.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-lg p-3"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center">
+                            <Tag className="w-4 h-4 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-white">{coupon.code}</p>
+                            <p className="text-xs text-amber-400">
+                              {coupon.discountType === 'percentage' 
+                                ? `${coupon.discountValue}% de desconto`
+                                : `${formatKwanza(coupon.discountValue)} de desconto`}
+                            </p>
+                          </div>
+                        </div>
+                        {coupon.isActive ? (
+                          <Badge className="bg-green-500 text-white text-xs">Ativo</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">Usado</Badge>
+                        )}
+                      </div>
+                      {coupon.description && (
+                        <p className="text-xs text-neutral-300 mb-2">{coupon.description}</p>
+                      )}
+                      {coupon.expiresAt && (
+                        <p className="text-xs text-neutral-400">
+                          Válido até {new Date(coupon.expiresAt).toLocaleDateString('pt-AO')}
+                        </p>
+                      )}
+                      {coupon.minOrderValue && (
+                        <p className="text-xs text-neutral-400 mt-1">
+                          Pedido mínimo: {formatKwanza(coupon.minOrderValue)}
+                        </p>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                  <Tag className="w-12 h-12 text-neutral-600 mb-3" />
+                  <p className="text-sm text-neutral-400">Nenhum cupom disponível</p>
+                  <p className="text-xs text-neutral-500 mt-1">Cupons especiais aparecerão aqui</p>
+                </div>
+              )}
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
         
         <Button 
           variant="outline" 
           onClick={handleLogout}
-          className="w-full"
+          className="w-full mt-4 bg-neutral-800 hover:bg-neutral-700 text-white border-neutral-700"
           data-testid="button-customer-logout"
         >
           <LogOut className="w-4 h-4 mr-2" />
@@ -538,12 +699,12 @@ export function CustomerLoginDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="sm:max-w-md rounded-2xl bg-neutral-900 border-neutral-800">
+        <DialogHeader className="space-y-2">
+          <DialogTitle className="text-xl font-bold text-white">
             {step === 'profile' ? 'Minha Conta' : 'Acessar Meus Benefícios'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm text-neutral-400">
             {step === 'phone' && 'Entre com seu telefone para ver seus pontos e benefícios'}
             {step === 'otp' && 'Confirme seu acesso com o código enviado'}
             {step === 'profile' && 'Seus pontos e benefícios de fidelidade'}

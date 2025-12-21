@@ -1,4 +1,38 @@
-import { LayoutDashboard, UtensilsCrossed, QrCode, ChefHat, LogOut, Users, User, Shield, Building2, Settings, BarChart3, CreditCard, TrendingUp, DollarSign, Receipt, FileText, Wallet, Package, PanelLeftClose, PanelLeft, ChevronRight, Briefcase, DollarSignIcon, Building, UserCircle, Gift, Tag, Printer, Crown, Bell } from "lucide-react";
+import { 
+  SquaresFour as LayoutDashboard, 
+  ForkKnife as UtensilsCrossed, 
+  QrCode, 
+  ChefHat as ChefHatIcon, 
+  SignOut as LogOut, 
+  UsersThree as Users, 
+  User, 
+  ShieldCheck as Shield, 
+  Buildings as Building2, 
+  Gear as Settings, 
+  ChartBar as BarChart3, 
+  CreditCard, 
+  TrendUp as TrendingUp, 
+  CurrencyCircleDollar as DollarSign, 
+  Receipt, 
+  FileText, 
+  Wallet, 
+  Package, 
+  CaretLeft as PanelLeftClose, 
+  CaretRight as PanelLeft, 
+  CaretRight as ChevronRight, 
+  Briefcase, 
+  CurrencyCircleDollar as DollarSignIcon, 
+  Building, 
+  UserCircle, 
+  Gift, 
+  Tag, 
+  Printer, 
+  Crown, 
+  Bell,
+  GridFour as LayoutGrid
+} from "@phosphor-icons/react";
+
+const ChefHat = ChefHatIcon;
 import {
   Sidebar,
   SidebarContent,
@@ -85,22 +119,16 @@ const adminMenuItems: MenuItem[] = [
     icon: DollarSign,
     items: [
       {
-        title: "Vendas",
-        section: "sales" as Section,
-        path: "/sales",
-        icon: TrendingUp,
+        title: "Dashboard",
+        section: "financial-dashboard" as Section,
+        path: "/financial/dashboard",
+        icon: LayoutDashboard,
       },
       {
-        title: "Lançamentos",
+        title: "Transações",
         section: "financial" as Section,
         path: "/financial",
         icon: DollarSign,
-      },
-      {
-        title: "Despesas",
-        section: "expenses" as Section,
-        path: "/expenses",
-        icon: Receipt,
       },
       {
         title: "Caixa",
@@ -109,7 +137,13 @@ const adminMenuItems: MenuItem[] = [
         icon: Wallet,
       },
       {
-        title: "Relatórios Financeiros",
+        title: "Vendas",
+        section: "sales" as Section,
+        path: "/sales",
+        icon: TrendingUp,
+      },
+      {
+        title: "Relatórios",
         section: "financial-reports" as Section,
         path: "/financial/reports",
         icon: FileText,
@@ -271,22 +305,16 @@ const managerMenuItems: MenuItem[] = [
     icon: DollarSign,
     items: [
       {
-        title: "Vendas",
-        section: "sales" as Section,
-        path: "/sales",
-        icon: TrendingUp,
+        title: "Dashboard",
+        section: "financial-dashboard" as Section,
+        path: "/financial/dashboard",
+        icon: LayoutDashboard,
       },
       {
-        title: "Lançamentos",
+        title: "Transações",
         section: "financial" as Section,
         path: "/financial",
         icon: DollarSign,
-      },
-      {
-        title: "Despesas",
-        section: "expenses" as Section,
-        path: "/expenses",
-        icon: Receipt,
       },
       {
         title: "Caixa",
@@ -295,7 +323,13 @@ const managerMenuItems: MenuItem[] = [
         icon: Wallet,
       },
       {
-        title: "Relatórios Financeiros",
+        title: "Vendas",
+        section: "sales" as Section,
+        path: "/sales",
+        icon: TrendingUp,
+      },
+      {
+        title: "Relatórios",
         section: "financial-reports" as Section,
         path: "/financial/reports",
         icon: FileText,
@@ -415,17 +449,25 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
   };
 
   return (
-    <Sidebar collapsible="icon" role="navigation" aria-label="Menu principal de navegação" className="border-r border-sidebar-border">
-      <SidebarContent className="flex flex-col h-full pt-20">
+    <Sidebar 
+      collapsible="icon" 
+      role="navigation" 
+      aria-label="Menu principal de navegação" 
+      className="border-r border-border/40 bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60"
+    >
+      <SidebarContent className="flex flex-col h-full pt-16">
         <BranchSelector />
+        
+        {/* Elegant divider */}
+        <div className="mx-4 my-2 h-px bg-gradient-to-r from-transparent via-border to-transparent group-data-[collapsible=icon]:mx-2" />
 
-        <div className="flex-1 overflow-y-auto">
-          <SidebarGroup className="px-3 py-4 group-data-[collapsible=icon]:px-2">
-            <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2 group-data-[collapsible=icon]:hidden">
+        <div className="flex-1 px-2">
+          <SidebarGroup className="px-2 py-2 group-data-[collapsible=icon]:px-1">
+            <SidebarGroupLabel className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest px-3 mb-2 group-data-[collapsible=icon]:hidden">
               Menu Principal
             </SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu className="space-y-1">
+              <SidebarMenu className="space-y-0">
                 {menuItems.map((item) => {
                   // Item with subitems (category with dropdown)
                   if (item.items) {
@@ -445,12 +487,12 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
                                 <SidebarMenuButton
                                   isActive={isActive}
                                   data-testid={`button-${item.title.toLowerCase()}`}
-                                  className="h-10 px-3 rounded-lg transition-all duration-200 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+                                  className="h-9 px-3 rounded-xl transition-all duration-200 hover:scale-[1.02] hover:bg-accent/60 active:scale-[0.98] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 data-[active=true]:bg-accent/80 data-[active=true]:shadow-sm"
                                 >
-                                  <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                                  <span className="font-medium group-data-[collapsible=icon]:hidden">{item.title}</span>
+                                  <item.icon className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
+                                  <span className="font-medium text-[12px] group-data-[collapsible=icon]:hidden">{item.title}</span>
                                   <ChevronRight 
-                                    className={`ml-auto h-4 w-4 shrink-0 transition-transform duration-200 group-data-[collapsible=icon]:hidden ${isOpen ? 'rotate-90' : ''}`}
+                                    className={`ml-auto h-3 w-3 shrink-0 transition-transform duration-200 group-data-[collapsible=icon]:hidden ${isOpen ? 'rotate-90' : ''}`}
                                     aria-hidden="true"
                                   />
                                 </SidebarMenuButton>
@@ -479,10 +521,10 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
                                     data-testid={`button-${subItem.title.toLowerCase()}`}
                                     aria-label={`Navegar para ${subItem.title}`}
                                     aria-current={currentSection === subItem.section ? 'page' : undefined}
-                                    className="transition-all duration-200"
+                                    className="transition-all duration-200 hover:translate-x-1 hover:scale-[1.02] hover:bg-accent/40 active:scale-[0.98] rounded-lg h-8 data-[active=true]:bg-accent/60"
                                   >
-                                    <subItem.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                                    <span className="font-medium">{subItem.title}</span>
+                                    <subItem.icon className="h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
+                                    <span className="font-medium text-[11px]">{subItem.title}</span>
                                   </SidebarMenuSubButton>
                                 </SidebarMenuSubItem>
                               ))}
@@ -504,10 +546,10 @@ export function AppSidebar({ currentSection }: AppSidebarProps) {
                             data-testid={`button-${item.title.toLowerCase()}`}
                             aria-label={`Navegar para ${item.title}`}
                             aria-current={currentSection === item.section ? 'page' : undefined}
-                            className="h-10 px-3 rounded-lg transition-all duration-200 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+                            className="h-9 px-3 rounded-xl transition-all duration-200 hover:scale-[1.02] hover:bg-accent/60 active:scale-[0.98] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 data-[active=true]:bg-accent/80 data-[active=true]:shadow-sm"
                           >
-                            <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                            <span className="font-medium group-data-[collapsible=icon]:hidden">{item.title}</span>
+                            <item.icon className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
+                            <span className="font-medium text-[12px] group-data-[collapsible=icon]:hidden">{item.title}</span>
                           </SidebarMenuButton>
                         </TooltipTrigger>
                         {!open && (

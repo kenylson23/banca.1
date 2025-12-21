@@ -1,7 +1,20 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, RefreshCw, Search, ShoppingBag, Truck, UtensilsCrossed, Map, MapPin, Phone, Clock, User } from "lucide-react";
+import { 
+  Plus,
+  RefreshCw,
+  Search,
+  ShoppingCart,
+  Truck,
+  UtensilsCrossed,
+  Map,
+  MapPin,
+  Phone,
+  Clock,
+  User
+} from "lucide-react";
+import { PDVIcon } from "@/components/custom-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,7 +29,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { NewOrderDialog } from "@/components/new-order-dialog";
 import { OrderDetailsDialog } from "@/components/order-details-dialog";
 import type { Order, OrderItem, MenuItem, Table, Customer } from "@shared/schema";
-import { TablesPanel } from "@/components/TablesPanel";
+import { RestaurantFloorPlan } from "@/components/RestaurantFloorPlan";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { PDVKpiCard } from "@/components/pdv-kpi-card";
@@ -185,7 +198,7 @@ export default function PDV() {
                 setDetailsDialogOpen(true);
               }}
               onCancel={() => cancelOrderMutation.mutate(order.id)}
-              onPay={() => setLocation(`/orders/${order.id}`)}
+              onPay={() => setLocation(`/orders/${order.id}?mode=checkout`)}
               onAccept={() => updateOrderStatusMutation.mutate({ orderId: order.id, status: "em_preparo" })}
             />
           ))}
@@ -239,49 +252,51 @@ export default function PDV() {
   };
 
   return (
-    <div className="min-h-screen">
-      <div className="space-y-4 p-4 sm:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 pb-safe">
+      <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 lg:p-8 pb-20 sm:pb-8">
         {/* Header */}
         <motion.div
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sticky top-0 z-10 bg-gradient-to-br from-background via-background to-muted/20 py-2 sm:py-0 -mx-3 px-3 sm:mx-0 sm:px-0 backdrop-blur-sm sm:backdrop-blur-none"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight bg-gradient-to-r from-primary via-blue-600 to-cyan-600 bg-clip-text text-transparent truncate">
               Ponto de Venda
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-1">
               Gerenciamento de pedidos em tempo real
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button
               variant="outline"
               size="icon"
               onClick={() => refetch()}
+              className="touch-manipulation"
               data-testid="button-refresh"
             >
-              <RefreshCw className="h-5 w-5" />
+              <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
             <Button
               variant="outline"
               size="icon"
               onClick={() => setShowSearch(!showSearch)}
+              className="touch-manipulation"
               data-testid="button-search"
             >
-              <Search className="h-5 w-5" />
+              <Search className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
             {user?.restaurantId && (
               <NewOrderDialog 
                 restaurantId={user.restaurantId}
                 onOrderCreated={handleOrderCreated}
                 trigger={
-                  <Button size="lg" data-testid="button-new-order">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Novo pedido
+                  <Button size="default" className="flex-1 sm:flex-initial gap-2 touch-manipulation" data-testid="button-new-order">
+                    <Plus className="h-4 w-4" />
+                    <span className="sm:inline">Novo</span>
                   </Button>
                 }
               />
@@ -316,7 +331,7 @@ export default function PDV() {
             pendingOrders={balcaoCounts.pendente}
             inProgressOrders={balcaoCounts.emCurso}
             revenue={balcaoCounts.revenue}
-            icon={ShoppingBag}
+            icon={ShoppingCart}
             color="balcao"
             isActive={activeTab === "balcao"}
             delay={0}
@@ -407,7 +422,7 @@ export default function PDV() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
           >
-            <TablesPanel />
+            <RestaurantFloorPlan />
           </motion.div>
         )}
 
@@ -451,6 +466,23 @@ export default function PDV() {
                             <Badge className={getStatusColor(order.status)}>
                               {getStatusLabel(order.status)}
                             </Badge>
+                            {(() => {
+                              const elapsed = order.createdAt ? Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000) : 0;
+                              if (elapsed > 45) {
+                                return (
+                                  <Badge variant="destructive" className="animate-pulse">
+                                    🚨 URGENTE
+                                  </Badge>
+                                );
+                              } else if (elapsed > 30) {
+                                return (
+                                  <Badge variant="secondary" className="bg-orange-500 text-white">
+                                    ⚠️ Atrasado
+                                  </Badge>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
                           <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
                             <Clock className="h-3 w-3" />
@@ -482,9 +514,32 @@ export default function PDV() {
                       )}
 
                       {order.deliveryAddress && (
-                        <div className="flex items-start gap-2 text-sm bg-muted/50 p-2 rounded-md">
-                          <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                          <span className="break-words">{order.deliveryAddress}</span>
+                        <div className="space-y-2">
+                          <div className="flex items-start gap-2 text-sm bg-muted/50 p-2 rounded-md">
+                            <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                            <span className="break-words flex-1">{order.deliveryAddress}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => {
+                                navigator.clipboard.writeText(order.deliveryAddress || '');
+                                toast({
+                                  title: "Endereço copiado!",
+                                  description: "Cole no Google Maps ou Waze",
+                                });
+                              }}
+                              title="Copiar endereço"
+                            >
+                              📋
+                            </Button>
+                          </div>
+                          {(order as any).deliveryNotes && (
+                            <div className="flex items-start gap-2 text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950 p-2 rounded-md border border-blue-200 dark:border-blue-800">
+                              <span className="font-semibold">💬 Obs:</span>
+                              <span className="break-words">{(order as any).deliveryNotes}</span>
+                            </div>
+                          )}
                         </div>
                       )}
 
