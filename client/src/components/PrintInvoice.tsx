@@ -76,14 +76,14 @@ export function PrintInvoice({
       await printerService.printInvoice('invoice', {
         invoiceNumber: order.id.substring(0, 8).toUpperCase(),
         date: order.createdAt ? format(new Date(order.createdAt), "dd/MM/yyyy", { locale: ptBR }) : format(new Date(), "dd/MM/yyyy", { locale: ptBR }),
-        customerName: order.customerName,
-        customerPhone: order.customerPhone,
+        customerName: order.customerName || undefined,
+        customerPhone: order.customerPhone || undefined,
         items,
         subtotal: formatKwanza(order.subtotal || order.totalAmount),
         discount: order.discount && parseFloat(order.discount) > 0 ? formatKwanza(order.discount) : undefined,
         total: formatKwanza(order.totalAmount),
         paymentInfo,
-        notes: order.orderNotes,
+        notes: order.orderNotes || undefined,
       });
 
       toast({

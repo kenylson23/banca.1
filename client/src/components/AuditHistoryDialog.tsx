@@ -43,12 +43,8 @@ export function AuditHistoryDialog({
   onOpenChange,
   sessionId,
 }: AuditHistoryDialogProps) {
-  const { data: auditLogs, isLoading } = useQuery<AuditLog[]>({
+  const { data: auditLogs = [], isLoading } = useQuery<AuditLog[]>({
     queryKey: ['/api/tables/sessions', sessionId, 'audit-logs'],
-    queryFn: async () => {
-      const response = await apiRequest(`/api/tables/sessions/${sessionId}/audit-logs`);
-      return response;
-    },
     enabled: open && !!sessionId,
   });
 

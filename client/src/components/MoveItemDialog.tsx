@@ -74,13 +74,11 @@ export function MoveItemDialog({
   const moveItemMutation = useMutation({
     mutationFn: async (data: { itemId: string; newGuestId: string; reason?: string }) => {
       const response = await apiRequest(
+        'PATCH',
         `/api/order-items/${data.itemId}/reassign`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({ 
-            newGuestId: data.newGuestId,
-            reason: data.reason,
-          }),
+        { 
+          newGuestId: data.newGuestId,
+          reason: data.reason,
         }
       );
       return response;

@@ -37,24 +37,28 @@ interface KitchenOrderDialogProps {
   onClose: () => void;
 }
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   pendente: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20",
   em_preparo: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20",
   pronto: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20",
   servido: "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20",
+  cancelado: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
 };
 
-const statusLabels = {
+const statusLabels: Record<string, string> = {
   pendente: "Pendente",
   em_preparo: "Em Preparo",
   pronto: "Pronto",
   servido: "Servido",
+  cancelado: "Cancelado",
 };
 
-const orderTypeLabels = {
+const orderTypeLabels: Record<string, string> = {
   mesa: "Mesa",
   delivery: "Entrega",
   balcao: "Balcão",
+  takeout: "Takeout",
+  pdv: "PDV",
 };
 
 export function KitchenOrderDialog({ order, open, onClose }: KitchenOrderDialogProps) {
@@ -183,17 +187,7 @@ export function KitchenOrderDialog({ order, open, onClose }: KitchenOrderDialogP
                         </p>
                       </div>
                       
-                      {/* Options */}
-                      {item.options && item.options.length > 0 && (
-                        <div className="mt-1 ml-7 space-y-0.5">
-                          {item.options.map((option, idx) => (
-                            <div key={idx} className="text-xs text-muted-foreground">
-                              + {option.quantity > 1 && `${option.quantity}x `}
-                              {option.optionName}
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      {/* Options - commented out as order items don't have options in current schema */}
                       
                       {/* Notes */}
                       {item.notes && (
