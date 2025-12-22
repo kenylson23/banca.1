@@ -23,6 +23,7 @@ export default defineConfig({
       "@shared": path.resolve(import.meta.dirname, "shared"),
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
     },
+    dedupe: ['react', 'react-dom'],
   },
   root: path.resolve(import.meta.dirname, "client"),
   build: {
@@ -30,18 +31,10 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          // Vendor chunks - simplificado para reduzir uso de memória
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'react-vendor';
-            }
-            if (id.includes('recharts')) {
-              return 'charts';
-            }
-            // Agrupar outros vendors
-            return 'vendor';
-          }
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'react-router': ['wouter'],
+          'ui-lib': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
         },
       },
     },
