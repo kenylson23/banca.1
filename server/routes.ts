@@ -408,8 +408,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create subscription automatically with trial period
       try {
         const currentDate = new Date();
+        const trialDays = selectedPlan.trialDays || 14; // Use plan's trial days or default to 14
         const trialEndDate = new Date(currentDate);
-        trialEndDate.setDate(trialEndDate.getDate() + 30); // 30 days trial
+        trialEndDate.setDate(trialEndDate.getDate() + trialDays);
+
+        // Calculate first billing period (starts after trial)
+        const firstBillingStart = new Date(trialEndDate);
+        const firstBillingEnd = new Date(firstBillingStart);
+        firstBillingEnd.setMonth(firstBillingEnd.getMonth() + 1); // Default monthly
 
         await storage.createSubscription(restaurant.id, {
           planId: data.planId,
@@ -418,27 +424,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currency: 'AOA', // Default to AOA
           currentPeriodStart: currentDate,
           currentPeriodEnd: trialEndDate,
+          trialStart: currentDate,
           trialEnd: trialEndDate,
+          autoRenew: 1,
+          cancelAtPeriodEnd: 0,
         });
+
+        console.log(`✅ Subscription created for restaurant ${restaurant.id} with ${trialDays} days trial`);
       } catch (subscriptionError) {
-        console.error('Error creating subscription for new restaurant:', subscriptionError);
+        console.error('❌ Error creating subscription for new restaurant:', subscriptionError);
         // Rollback: delete admin user and restaurant if subscription creation fails
         try {
           await storage.deleteUser(restaurant.id, adminUser.id);
           await storage.deleteRestaurant(restaurant.id);
+          console.log(`🔄 Rolled back restaurant ${restaurant.id} creation due to subscription error`);
         } catch (rollbackError) {
-          console.error('Error during rollback:', rollbackError);
+          console.error('❌ CRITICAL: Error during rollback:', rollbackError);
         }
         return res.status(500).json({ message: "Erro ao criar subscrição. Por favor, tente novamente." });
       }
 
       res.json({
-        message: "Cadastro realizado com sucesso! Aguarde aprovação do super administrador.",
+        message: `Cadastro realizado com sucesso! Você tem ${selectedPlan.trialDays || 14} dias de teste gratuito. Aguarde aprovação do super administrador para começar a usar o sistema.`,
         restaurant: {
           id: restaurant.id,
           name: restaurant.name,
           email: restaurant.email,
           status: restaurant.status,
+        },
+        subscription: {
+          planName: selectedPlan.name,
+          trialDays: selectedPlan.trialDays || 14,
+          status: 'trial',
         }
       });
     } catch (error) {
