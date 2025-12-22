@@ -8217,6 +8217,15 @@ export class DatabaseStorage implements IStorage {
     canAddCoupon: boolean;
     canAddInventoryItem: boolean;
   }> {
+    // Try to get from cache first (5 minutes TTL)
+    const { cache, CacheKeys, CacheTTL } = await import('./cache.js');
+    const cacheKey = CacheKeys.subscriptionLimits(restaurantId);
+    
+    const cached = cache.get<any>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+    
     const subscriptionData = await this.getSubscriptionByRestaurantId(restaurantId);
     
     if (!subscriptionData) {
@@ -8315,7 +8324,7 @@ export class DatabaseStorage implements IStorage {
       inventoryItems: isUnlimited(plan.maxInventoryItems) || inventoryItemsCount < plan.maxInventoryItems,
     };
 
-    return {
+    const result = {
       plan,
       subscription,
       usage,
@@ -8329,6 +8338,12 @@ export class DatabaseStorage implements IStorage {
       canAddCoupon: withinLimits.coupons,
       canAddInventoryItem: withinLimits.inventoryItems,
     };
+    
+    // Cache result for 5 minutes
+    const { cache, CacheKeys, CacheTTL } = await import('./cache.js');
+    cache.set(CacheKeys.subscriptionLimits(restaurantId), result, CacheTTL.subscriptionLimits);
+    
+    return result;
   }
 
   // Subscription Payment operations

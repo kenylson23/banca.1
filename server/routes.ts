@@ -386,7 +386,15 @@ async function checkSubscriptionStatus(req: any, res: any, next: any) {
   }
 
   try {
-    const subscription = await storage.getSubscriptionByRestaurantId(user.restaurantId);
+    const { cache, CacheKeys, CacheTTL, getOrSet } = await import('./cache.js');
+    const cacheKey = CacheKeys.subscription(user.restaurantId);
+    
+    // Try to get from cache first (1 minute TTL)
+    const subscription = await getOrSet(
+      cacheKey,
+      CacheTTL.subscription,
+      () => storage.getSubscriptionByRestaurantId(user.restaurantId)
+    );
     
     // If no subscription exists, block access
     if (!subscription) {
@@ -415,6 +423,9 @@ async function checkSubscriptionStatus(req: any, res: any, next: any) {
     if (now > periodEnd && (subscription.status === 'trial' || subscription.status === 'ativa')) {
       // Auto-update status to expired
       await storage.updateSubscription(subscription.id, { status: 'expirada' });
+      
+      // Invalidate cache so next request gets updated status
+      cache.delete(cacheKey);
       
       return res.status(402).json({ 
         message: "Sua subscrição expirou. Renove para continuar usando o sistema.",
