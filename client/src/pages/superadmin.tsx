@@ -54,6 +54,8 @@ import { RestaurantDetailsDialog } from "@/components/RestaurantDetailsDialog";
 import { RestaurantCredentialsDialog } from "@/components/RestaurantCredentialsDialog";
 import { SuperAdminSubscriptionDialog } from "@/components/SuperAdminSubscriptionDialog";
 import { PlanManagementDialog } from "@/components/PlanManagementDialog";
+import { CacheMonitorCard } from "@/components/CacheMonitorCard";
+import { MigrationRunnerCard } from "@/components/MigrationRunnerCard";
 
 interface SuperAdminStats {
   totalRestaurants: number;
@@ -441,6 +443,10 @@ export default function SuperAdmin() {
 
         {/* DASHBOARD TAB */}
         <TabsContent value="dashboard" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <MigrationRunnerCard />
+            <CacheMonitorCard />
+          </div>
           <SuperAdminAnalyticsCard data={analytics} isLoading={analyticsLoading} />
           <RestaurantRankingCard data={rankings} isLoading={rankingsLoading} />
         </TabsContent>

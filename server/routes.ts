@@ -549,6 +549,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Migration runner endpoint (TEMPORARY - remove after running)
+  // Only accessible by super admin
+  app.post('/api/admin/run-migration', isSuperAdmin, async (req, res) => {
+    try {
+      const { migrationName } = req.body;
+      
+      if (!migrationName) {
+        return res.status(400).json({ 
+          message: 'Migration name is required',
+          example: { migrationName: 'add_performance_indexes' }
+        });
+      }
+
+      const fs = await import('fs');
+      const path = await import('path');
+      
+      const migrationPath = path.join(process.cwd(), 'server', 'migrations', `${migrationName}.sql`);
+      
+      if (!fs.existsSync(migrationPath)) {
+        return res.status(404).json({ 
+          message: `Migration file not found: ${migrationName}.sql`,
+          path: migrationPath
+        });
+      }
+
+      const sql = fs.readFileSync(migrationPath, 'utf8');
+      
+      console.log(`🔄 Running migration: ${migrationName}.sql`);
+      
+      // Split by semicolon and execute each statement
+      const statements = sql
+        .split(';')
+        .map(s => s.trim())
+        .filter(s => s.length > 0 && !s.startsWith('--'));
+      
+      let executed = 0;
+      const errors: any[] = [];
+      
+      for (const statement of statements) {
+        try {
+          await db.execute(statement);
+          executed++;
+        } catch (error: any) {
+          // Ignore "already exists" errors
+          if (!error.message?.includes('already exists')) {
+            errors.push({
+              statement: statement.substring(0, 100) + '...',
+              error: error.message
+            });
+          }
+        }
+      }
+
+      console.log(`✅ Migration completed: ${executed} statements executed`);
+      
+      res.json({
+        success: true,
+        migration: migrationName,
+        executed,
+        errors: errors.length > 0 ? errors : undefined,
+        message: `Migration ${migrationName} executed successfully. ${executed} statements ran.`
+      });
+    } catch (error) {
+      console.error('❌ Error running migration:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Error running migration',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Cache statistics endpoint (debug/monitoring)
+  app.get('/api/admin/cache/stats', isSuperAdmin, async (req, res) => {
+    try {
+      const { cache } = await import('./cache.js');
+      const stats = cache.getStats();
+      
+      res.json({
+        ...stats,
+        timestamp: new Date().toISOString(),
+        uptimeSeconds: Math.floor(process.uptime())
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        message: 'Error getting cache stats',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Clear cache endpoint
+  app.post('/api/admin/cache/clear', isSuperAdmin, async (req, res) => {
+    try {
+      const { cache } = await import('./cache.js');
+      const { pattern } = req.body;
+      
+      if (pattern) {
+        cache.deletePattern(pattern);
+        res.json({ 
+          success: true, 
+          message: `Cache cleared for pattern: ${pattern}` 
+        });
+      } else {
+        cache.clear();
+        res.json({ 
+          success: true, 
+          message: 'All cache cleared' 
+        });
+      }
+    } catch (error) {
+      res.status(500).json({ 
+        message: 'Error clearing cache',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Cron/Webhook endpoint for subscription monitoring
   // Can be called by external cron services (e.g., cron-job.org, EasyCron, Render Cron Jobs)
   app.post('/api/cron/check-subscriptions', async (req, res) => {
