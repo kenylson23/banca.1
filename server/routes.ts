@@ -8565,89 +8565,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
 
-  // Setup WebSocket server for real-time updates
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
-
-  // Map of WebSocket connections by restaurant ID for targeted broadcasts
-  const clientsByRestaurant = new Map<string, Set<WebSocket>>();
-  const clients = new Set<WebSocket>();
-  const clientRestaurantMap = new WeakMap<WebSocket, string>();
-
-  wss.on('connection', (ws) => {
-    clients.add(ws);
-
-    ws.on('message', (data) => {
-      try {
-        const message = JSON.parse(data.toString());
-        
-        // Handle authentication message to associate connection with restaurant
-        if (message.type === 'auth' && message.restaurantId) {
-          const restaurantId = message.restaurantId;
-          clientRestaurantMap.set(ws, restaurantId);
-          
-          if (!clientsByRestaurant.has(restaurantId)) {
-            clientsByRestaurant.set(restaurantId, new Set());
-          }
-          clientsByRestaurant.get(restaurantId)!.add(ws);
-          
-          ws.send(JSON.stringify({ type: 'auth_success', restaurantId }));
-        }
-      } catch (error) {
-        // Ignore parse errors
-      }
-    });
-
-    ws.on('close', () => {
-      clients.delete(ws);
-      const restaurantId = clientRestaurantMap.get(ws);
-      if (restaurantId) {
-        const restaurantClients = clientsByRestaurant.get(restaurantId);
-        if (restaurantClients) {
-          restaurantClients.delete(ws);
-          if (restaurantClients.size === 0) {
-            clientsByRestaurant.delete(restaurantId);
-          }
-        }
-      }
-    });
-
-    ws.on('error', (error) => {
-      clients.delete(ws);
-      const restaurantId = clientRestaurantMap.get(ws);
-      if (restaurantId) {
-        const restaurantClients = clientsByRestaurant.get(restaurantId);
-        if (restaurantClients) {
-          restaurantClients.delete(ws);
-        }
-      }
-    });
-  });
-
-  // Broadcast to all connected clients (legacy behavior)
-  function broadcastToClients(message: any) {
-    const messageStr = JSON.stringify(message);
-    clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(messageStr);
-      }
-    });
-  }
-
-  // Broadcast to clients of a specific restaurant only
-  function broadcastToRestaurant(restaurantId: string, message: any) {
-    const restaurantClients = clientsByRestaurant.get(restaurantId);
-    if (!restaurantClients) return;
-    
-    const messageStr = JSON.stringify(message);
-    restaurantClients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(messageStr);
-      }
-    });
-  }
-
-  // Make broadcastToRestaurant available for notification creation
-  (global as any).broadcastToRestaurant = broadcastToRestaurant;
+  // Setup WebSocket server with Redis Pub/Sub for horizontal scaling
+  const { setupWebSocket } = await import('./websocket.js');
+  await setupWebSocket(httpServer);
 
   return httpServer;
 }

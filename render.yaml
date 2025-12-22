@@ -4,6 +4,7 @@ services:
     runtime: node
     plan: starter
     region: oregon
+    numInstances: 1  # Scale to 2-10 for horizontal scaling (requires Redis)
     buildCommand: npm install && npm run build
     startCommand: npm start
     healthCheckPath: /
@@ -14,3 +15,7 @@ services:
         sync: false
       - key: SESSION_SECRET
         generateValue: true
+      - key: REDIS_URL
+        sync: false  # Optional: Add Redis for horizontal scaling
+      - key: CRON_SECRET
+        generateValue: true  # For scheduled subscription checks

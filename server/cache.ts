@@ -1,9 +1,11 @@
 /**
- * Simple in-memory cache for performance optimization
+ * Distributed cache with Redis support for horizontal scaling
  * 
- * This cache stores frequently accessed data to reduce database queries.
- * In production with multiple instances, consider using Redis instead.
+ * Automatically uses Redis if REDIS_URL is set, otherwise falls back to in-memory.
+ * Redis allows multiple app instances to share the same cache.
  */
+
+import type Redis from 'ioredis';
 
 interface CacheEntry<T> {
   data: T;
@@ -11,23 +13,95 @@ interface CacheEntry<T> {
   ttl: number; // Time to live in milliseconds
 }
 
+// Redis client (lazy loaded)
+let redisClient: Redis | null = null;
+
+async function getRedisClient(): Promise<Redis | null> {
+  if (redisClient !== null) {
+    return redisClient;
+  }
+
+  const redisUrl = process.env.REDIS_URL;
+  if (!redisUrl) {
+    return null; // No Redis configured
+  }
+
+  try {
+    const { default: IORedis } = await import('ioredis');
+    redisClient = new IORedis(redisUrl, {
+      maxRetriesPerRequest: 3,
+      retryStrategy(times) {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      },
+      reconnectOnError(err) {
+        const targetError = 'READONLY';
+        if (err.message.includes(targetError)) {
+          return true;
+        }
+        return false;
+      }
+    });
+
+    redisClient.on('error', (err) => {
+      console.error('❌ Redis connection error:', err.message);
+    });
+
+    redisClient.on('connect', () => {
+      console.log('✅ Redis connected successfully');
+    });
+
+    return redisClient;
+  } catch (error) {
+    console.error('❌ Failed to initialize Redis:', error);
+    return null;
+  }
+}
+
 class SimpleCache {
   private cache: Map<string, CacheEntry<any>>;
   private cleanupInterval: NodeJS.Timeout | null;
+  private useRedis: boolean = false;
 
   constructor() {
     this.cache = new Map();
     
-    // Cleanup expired entries every 5 minutes
+    // Check if Redis is available
+    getRedisClient().then(client => {
+      if (client) {
+        this.useRedis = true;
+        console.log('🚀 Cache: Using Redis (distributed)');
+      } else {
+        console.log('💾 Cache: Using in-memory (single instance only)');
+      }
+    });
+
+    // Cleanup expired entries every 5 minutes (only for in-memory)
     this.cleanupInterval = setInterval(() => {
-      this.cleanup();
+      if (!this.useRedis) {
+        this.cleanup();
+      }
     }, 5 * 60 * 1000);
   }
 
   /**
-   * Get value from cache
+   * Get value from cache (async for Redis support)
    */
-  get<T>(key: string): T | null {
+  async get<T>(key: string): Promise<T | null> {
+    const redis = await getRedisClient();
+    
+    if (redis && this.useRedis) {
+      try {
+        const value = await redis.get(key);
+        if (!value) return null;
+        return JSON.parse(value) as T;
+      } catch (error) {
+        console.error('❌ Redis get error:', error);
+        // Fallback to in-memory
+      }
+    }
+
+    // In-memory fallback
     const entry = this.cache.get(key);
     
     if (!entry) {
@@ -44,9 +118,23 @@ class SimpleCache {
   }
 
   /**
-   * Set value in cache with TTL
+   * Set value in cache with TTL (async for Redis support)
    */
-  set<T>(key: string, data: T, ttl: number = 60000): void {
+  async set<T>(key: string, data: T, ttl: number = 60000): Promise<void> {
+    const redis = await getRedisClient();
+    
+    if (redis && this.useRedis) {
+      try {
+        const ttlSeconds = Math.ceil(ttl / 1000);
+        await redis.setex(key, ttlSeconds, JSON.stringify(data));
+        return;
+      } catch (error) {
+        console.error('❌ Redis set error:', error);
+        // Fallback to in-memory
+      }
+    }
+
+    // In-memory fallback
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
@@ -55,16 +143,43 @@ class SimpleCache {
   }
 
   /**
-   * Delete specific key
+   * Delete specific key (async for Redis support)
    */
-  delete(key: string): void {
+  async delete(key: string): Promise<void> {
+    const redis = await getRedisClient();
+    
+    if (redis && this.useRedis) {
+      try {
+        await redis.del(key);
+        return;
+      } catch (error) {
+        console.error('❌ Redis delete error:', error);
+      }
+    }
+
+    // In-memory fallback
     this.cache.delete(key);
   }
 
   /**
-   * Delete all keys matching a pattern
+   * Delete all keys matching a pattern (async for Redis support)
    */
-  deletePattern(pattern: string): void {
+  async deletePattern(pattern: string): Promise<void> {
+    const redis = await getRedisClient();
+    
+    if (redis && this.useRedis) {
+      try {
+        const keys = await redis.keys(pattern);
+        if (keys.length > 0) {
+          await redis.del(...keys);
+        }
+        return;
+      } catch (error) {
+        console.error('❌ Redis deletePattern error:', error);
+      }
+    }
+
+    // In-memory fallback
     const regex = new RegExp(pattern);
     for (const key of this.cache.keys()) {
       if (regex.test(key)) {
@@ -74,9 +189,21 @@ class SimpleCache {
   }
 
   /**
-   * Clear all cache
+   * Clear all cache (async for Redis support)
    */
-  clear(): void {
+  async clear(): Promise<void> {
+    const redis = await getRedisClient();
+    
+    if (redis && this.useRedis) {
+      try {
+        await redis.flushdb();
+        return;
+      } catch (error) {
+        console.error('❌ Redis clear error:', error);
+      }
+    }
+
+    // In-memory fallback
     this.cache.clear();
   }
 
@@ -118,9 +245,27 @@ class SimpleCache {
   }
 
   /**
-   * Get cache statistics
+   * Get cache statistics (async for Redis support)
    */
-  getStats() {
+  async getStats() {
+    const redis = await getRedisClient();
+    
+    if (redis && this.useRedis) {
+      try {
+        const info = await redis.info('stats');
+        const dbsize = await redis.dbsize();
+        
+        return {
+          total: dbsize,
+          valid: dbsize, // Redis auto-expires, so all keys are valid
+          expired: 0
+        };
+      } catch (error) {
+        console.error('❌ Redis getStats error:', error);
+      }
+    }
+
+    // In-memory fallback
     const now = Date.now();
     let validEntries = 0;
     let expiredEntries = 0;
@@ -172,7 +317,7 @@ export async function getOrSet<T>(
   fetchFn: () => Promise<T>
 ): Promise<T> {
   // Try to get from cache
-  const cached = cache.get<T>(key);
+  const cached = await cache.get<T>(key);
   if (cached !== null) {
     return cached;
   }
@@ -181,7 +326,7 @@ export async function getOrSet<T>(
   const data = await fetchFn();
   
   // Store in cache
-  cache.set(key, data, ttl);
+  await cache.set(key, data, ttl);
   
   return data;
 }
