@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { ProductCard3D } from '@/components/ui/product-card-3d';
@@ -7,7 +6,7 @@ import type { MenuItem } from '@/types/menu';
 
 interface ProductGridProps {
   items: MenuItem[];
-  onAddToCart: (item: MenuItem, e: React.MouseEvent) => void;
+  onAddToCart: (item: MenuItem, e: React.MouseEvent<HTMLButtonElement>) => void;
   onItemClick: (item: MenuItem) => void;
   isFavorite: (id: string) => boolean;
   toggleFavorite: (id: string) => void;

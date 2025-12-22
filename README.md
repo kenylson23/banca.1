@@ -81,7 +81,7 @@ Crie um arquivo `.env` na raiz do projeto:
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/nabancada
 NODE_ENV=development
-SESSION_SECRET=sua-chave-secreta-aqui
+SESSION_SECRET=sua-chave-secreta-aqui  # Gere com: npm run generate:secret
 ```
 
 4. Execute o setup do banco de dados:
@@ -129,11 +129,20 @@ Este projeto inclui um arquivo `render.yaml` que configura automaticamente o ban
      - O `npm run db:push -- --force` aplica automaticamente as migrações do banco a cada deploy
 
 3. **Configurar Variáveis de Ambiente**
+   
+   **Gerar SESSION_SECRET:**
+   ```bash
+   npm run generate:secret
+   ```
+   
+   **No Render Dashboard, adicione:**
    ```
    DATABASE_URL=<internal-database-url>
    NODE_ENV=production
-   SESSION_SECRET=<chave-aleatoria-segura>
+   SESSION_SECRET=<copie-o-secret-gerado-acima>
    ```
+   
+   📖 **Guia completo**: Veja [RENDER_SESSION_SECRET_SETUP.md](./RENDER_SESSION_SECRET_SETUP.md)
 
 4. **Deploy Automático**
    - O Render fará o deploy automaticamente
@@ -243,7 +252,7 @@ DATABASE_URL=postgresql://...
 NODE_ENV=development
 
 # Sessão
-SESSION_SECRET=chave-secreta-minimo-32-caracteres
+SESSION_SECRET=chave-secreta-minimo-32-caracteres  # Gere com: npm run generate:secret
 
 # Porta (opcional, padrão: 5000)
 PORT=5000

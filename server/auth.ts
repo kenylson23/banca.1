@@ -19,8 +19,18 @@ export function getSession() {
     tableName: "sessions",
   });
 
-  if (!process.env.SESSION_SECRET) {
+  // Get SESSION_SECRET from environment
+  const sessionSecret = process.env.SESSION_SECRET;
+  
+  if (!sessionSecret) {
+    console.error("⚠️  SESSION_SECRET is not set!");
+    console.error("🔧 Please set SESSION_SECRET in your environment variables.");
+    console.error("💡 Generate a secure secret with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"");
     throw new Error("SESSION_SECRET must be set");
+  }
+
+  if (sessionSecret.length < 32) {
+    console.warn("⚠️  SESSION_SECRET is too short (minimum 32 characters recommended)");
   }
 
   // Cookie configuration that works in both development and production
@@ -29,7 +39,7 @@ export function getSession() {
   const isProduction = process.env.NODE_ENV === "production";
   
   return session({
-    secret: process.env.SESSION_SECRET,
+    secret: sessionSecret,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
