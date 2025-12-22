@@ -538,6 +538,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Cron/Webhook endpoint for subscription monitoring
+  // Can be called by external cron services (e.g., cron-job.org, EasyCron, Render Cron Jobs)
+  app.post('/api/cron/check-subscriptions', async (req, res) => {
+    // Optional: Add authentication via secret token
+    const authToken = req.headers['x-cron-secret'] || req.query.token;
+    const expectedToken = process.env.CRON_SECRET || 'change-me-in-production';
+    
+    if (authToken !== expectedToken) {
+      return res.status(401).json({ 
+        message: 'Unauthorized. Invalid cron secret.' 
+      });
+    }
+
+    try {
+      console.log('\n🔔 Cron job triggered: Checking subscriptions...');
+      
+      const { checkExpiredSubscriptions, checkExpiringSubscriptions } = await import('../scripts/check-subscriptions.js');
+      
+      const expiredResults = await checkExpiredSubscriptions();
+      const expiringResults = await checkExpiringSubscriptions();
+      
+      res.json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        results: {
+          expired: expiredResults,
+          expiring: expiringResults
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error in cron job:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Error checking subscriptions',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Auth routes
   app.post('/api/auth/login', (req, res, next) => {
     try {
