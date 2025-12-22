@@ -372,6 +372,76 @@ function isSuperAdmin(req: any, res: any, next: any) {
   next();
 }
 
+// Middleware to check if restaurant has active subscription
+async function checkSubscriptionStatus(req: any, res: any, next: any) {
+  // Skip check for superadmin
+  const user = req.user as User;
+  if (user.role === 'superadmin') {
+    return next();
+  }
+
+  // Skip check if user has no restaurant (shouldn't happen but safety first)
+  if (!user.restaurantId) {
+    return next();
+  }
+
+  try {
+    const subscription = await storage.getSubscriptionByRestaurantId(user.restaurantId);
+    
+    // If no subscription exists, block access
+    if (!subscription) {
+      return res.status(402).json({ 
+        message: "Subscrição não encontrada. Entre em contato com o suporte.",
+        code: 'NO_SUBSCRIPTION'
+      });
+    }
+
+    const now = new Date();
+    const periodEnd = new Date(subscription.currentPeriodEnd);
+
+    // Check if subscription is expired or suspended
+    if (subscription.status === 'expirada' || subscription.status === 'suspensa') {
+      return res.status(402).json({ 
+        message: subscription.status === 'expirada' 
+          ? "Sua subscrição expirou. Renove para continuar usando o sistema."
+          : "Sua subscrição está suspensa. Entre em contato com o suporte.",
+        code: 'SUBSCRIPTION_INACTIVE',
+        status: subscription.status,
+        planName: subscription.plan.name
+      });
+    }
+
+    // Check if trial or active period has ended
+    if (now > periodEnd && (subscription.status === 'trial' || subscription.status === 'ativa')) {
+      // Auto-update status to expired
+      await storage.updateSubscription(subscription.id, { status: 'expirada' });
+      
+      return res.status(402).json({ 
+        message: "Sua subscrição expirou. Renove para continuar usando o sistema.",
+        code: 'SUBSCRIPTION_EXPIRED',
+        expiredAt: periodEnd.toISOString(),
+        planName: subscription.plan.name
+      });
+    }
+
+    // Check if subscription is cancelled and period has ended
+    if (subscription.status === 'cancelada' && now > periodEnd) {
+      return res.status(402).json({ 
+        message: "Sua subscrição foi cancelada e o período de acesso terminou.",
+        code: 'SUBSCRIPTION_CANCELLED',
+        endedAt: periodEnd.toISOString()
+      });
+    }
+
+    // All checks passed, allow access
+    next();
+  } catch (error) {
+    console.error('❌ Error checking subscription status:', error);
+    // In case of error, allow access but log the issue
+    next();
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   setupAuth(app);
@@ -682,7 +752,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== BRANCH MANAGEMENT ROUTES =====
-  app.get('/api/branches', isAdmin, async (req, res) => {
+  app.get('/api/branches', isAdmin, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId) {
@@ -696,7 +766,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/branches', isAdmin, async (req, res) => {
+  app.post('/api/branches', isAdmin, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId) {
@@ -1488,7 +1558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== USER MANAGEMENT ROUTES (Admin Only) =====
-  app.get('/api/users', isAdmin, async (req, res) => {
+  app.get("/api/users", isAdmin, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user as User;
       const restaurantId = currentUser.role === 'superadmin' ? null : currentUser.restaurantId || null;
@@ -2787,7 +2857,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== TABLE ROUTES (Admin Only) =====
-  app.get("/api/tables", isAdmin, async (req, res) => {
+  app.get("/api/tables", isAdmin, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
@@ -3824,7 +3894,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== MENU ITEM ROUTES (Admin Only) =====
-  app.get("/api/menu-items", isAdmin, async (req, res) => {
+  app.get("/api/menu-items", isAdmin, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
@@ -4344,7 +4414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/orders", isAdmin, async (req, res) => {
+  app.get("/api/orders", isAdmin, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
@@ -5480,7 +5550,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== REPORTS ROUTES (Admin Only) =====
-  app.get("/api/reports/sales", isAdmin, async (req, res) => {
+  app.get("/api/reports/sales", isAdmin, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user as User;
       
@@ -7244,7 +7314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== CUSTOMER ROUTES =====
 
-  app.get("/api/customers", isAdmin, async (req, res) => {
+  app.get("/api/customers", isAdmin, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId) {
