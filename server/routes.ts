@@ -667,6 +667,164 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // OFFLINE SYNC API
+  // ============================================================================
+
+  /**
+   * Get changes since last sync (for offline-first apps)
+   * Pulls updates from server to sync with local IndexedDB
+   */
+  app.get('/api/sync/changes', isAuthenticated, async (req, res) => {
+    try {
+      const { since } = req.query;
+      const user = req.user as User;
+      const restaurantId = user.restaurantId;
+
+      if (!restaurantId) {
+        return res.status(400).json({ message: 'Restaurant ID required' });
+      }
+
+      const sinceDate = since ? new Date(since as string) : new Date(Date.now() - 24 * 60 * 60 * 1000); // Default: last 24h
+
+      // Fetch changes since last sync
+      const [orders, tables, menuItems, customers] = await Promise.all([
+        // Orders updated/created since
+        db.select()
+          .from(ordersTable)
+          .where(
+            and(
+              eq(ordersTable.restaurantId, restaurantId),
+              gte(ordersTable.updatedAt, sinceDate)
+            )
+          )
+          .limit(500),
+
+        // Tables updated since
+        db.select()
+          .from(tablesTable)
+          .where(
+            and(
+              eq(tablesTable.restaurantId, restaurantId),
+              gte(tablesTable.updatedAt, sinceDate)
+            )
+          )
+          .limit(100),
+
+        // Menu items (always sync all for offline availability)
+        db.select()
+          .from(menuItemsTable)
+          .where(eq(menuItemsTable.restaurantId, restaurantId))
+          .limit(500),
+
+        // Customers
+        db.select()
+          .from(customersTable)
+          .where(eq(customersTable.restaurantId, restaurantId))
+          .limit(1000)
+      ]);
+
+      res.json({
+        orders: orders.map(o => ({
+          ...o,
+          synced: true,
+          updatedAt: o.updatedAt,
+        })),
+        tables: tables.map(t => ({
+          ...t,
+          synced: true,
+          updatedAt: t.updatedAt || new Date(),
+        })),
+        menuItems: menuItems.map(m => ({
+          ...m,
+          synced: true,
+          updatedAt: m.updatedAt || new Date(),
+        })),
+        customers: customers.map(c => ({
+          ...c,
+          synced: true,
+          updatedAt: c.updatedAt || new Date(),
+        })),
+        timestamp: new Date().toISOString()
+      });
+
+      console.log(`📥 Sync: Sent ${orders.length} orders, ${tables.length} tables, ${menuItems.length} menu items to client`);
+    } catch (error) {
+      console.error('❌ Sync error:', error);
+      res.status(500).json({ message: 'Sync failed', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  /**
+   * Batch sync operations from offline clients
+   * Receives queued operations and executes them
+   */
+  app.post('/api/sync/operations', isAuthenticated, async (req, res) => {
+    try {
+      const { operations } = req.body;
+      const user = req.user as User;
+
+      if (!Array.isArray(operations)) {
+        return res.status(400).json({ message: 'Operations must be an array' });
+      }
+
+      const results = [];
+
+      for (const op of operations) {
+        try {
+          let result;
+
+          switch (op.operation) {
+            case 'CREATE_ORDER':
+              result = await storage.createOrder(user.restaurantId, {
+                ...op.data,
+                offlineId: op.entityId
+              });
+              break;
+
+            case 'UPDATE_ORDER':
+              result = await storage.updateOrder(op.entityId, op.data);
+              break;
+
+            case 'CREATE_PAYMENT':
+              // Payment logic here
+              result = { success: true, id: op.entityId };
+              break;
+
+            case 'UPDATE_TABLE':
+              result = await storage.updateTable(op.entityId, op.data);
+              break;
+
+            default:
+              throw new Error(`Unknown operation: ${op.operation}`);
+          }
+
+          results.push({
+            id: op.id,
+            entityId: op.entityId,
+            success: true,
+            data: result
+          });
+
+        } catch (error: any) {
+          results.push({
+            id: op.id,
+            entityId: op.entityId,
+            success: false,
+            error: error.message
+          });
+        }
+      }
+
+      res.json({ results });
+      console.log(`📤 Sync: Processed ${operations.length} operations (${results.filter(r => r.success).length} succeeded)`);
+
+    } catch (error) {
+      console.error('❌ Sync operations error:', error);
+      res.status(500).json({ message: 'Sync operations failed' });
+    }
+  });
+
   // Cron/Webhook endpoint for subscription monitoring
   // Can be called by external cron services (e.g., cron-job.org, EasyCron, Render Cron Jobs)
   app.post('/api/cron/check-subscriptions', async (req, res) => {

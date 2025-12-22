@@ -1,5 +1,5 @@
 import { Switch, Route, Redirect } from "wouter";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -9,6 +9,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { CartProvider } from "@/contexts/CartContext";
 import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 import { SubscriptionExpiredAlert } from "@/components/SubscriptionExpiredAlert";
+import { ConnectionIndicator } from "@/components/ConnectionIndicator";
+import { syncEngine } from "@/lib/sync-engine";
+import { offlineManager } from "@/lib/offline-manager";
 
 // Lazy load pages for better code splitting
 const Landing = lazy(() => import("@/pages/landing"));
@@ -292,10 +295,21 @@ function Router() {
 }
 
 function AppContent() {
+  const { user } = useAuth();
+
+  // Initialize offline manager with restaurant ID when user logs in
+  useEffect(() => {
+    if (user?.restaurantId) {
+      offlineManager.setRestaurantId(user.restaurantId);
+      console.log('✅ Offline manager initialized for restaurant:', user.restaurantId);
+    }
+  }, [user?.restaurantId]);
+
   return (
     <>
       <Toaster />
       <SubscriptionExpiredAlert />
+      {user && <ConnectionIndicator />}
       <Router />
     </>
   );
