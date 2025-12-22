@@ -14,6 +14,11 @@ import {
   checkCanUseExpenseTracking,
   checkCanUseLoyaltyProgram,
   checkCanUseInventoryModule,
+  checkCanCreateOrder,
+  checkCanAddBranch,
+  checkCanAddUser,
+  checkCanAddTable,
+  checkCanAddMenuItem,
 } from "./planLimits";
 import passport from "passport";
 import QRCode from "qrcode";
@@ -1101,17 +1106,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check subscription limits (only for non-superadmin users)
       if (currentUser.role !== 'superadmin') {
-        const subscription = await storage.getSubscriptionByRestaurantId(currentUser.restaurantId);
-        if (subscription) {
-          const plan = await storage.getSubscriptionPlanById(subscription.planId);
-          if (plan && plan.maxBranches !== null) {
-            const currentBranches = await storage.getBranches(currentUser.restaurantId);
-            if (currentBranches.length >= plan.maxBranches) {
-              return res.status(403).json({ 
-                message: `Limite de filiais atingido. Seu plano permite até ${plan.maxBranches} filiais. Faça upgrade para adicionar mais.` 
-              });
-            }
-          }
+        try {
+          await checkCanAddBranch(storage, currentUser.restaurantId);
+        } catch (error: any) {
+          return res.status(403).json({ 
+            message: error.message || "Limite de filiais atingido" 
+          });
         }
       }
 
@@ -1935,17 +1935,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check subscription limits (only for non-superadmin users)
       if (currentUser.role !== 'superadmin' && data.restaurantId) {
-        const subscription = await storage.getSubscriptionByRestaurantId(data.restaurantId);
-        if (subscription) {
-          const plan = await storage.getSubscriptionPlanById(subscription.planId);
-          if (plan && plan.maxUsers !== null) {
-            const currentUsers = await storage.getAllUsers(data.restaurantId);
-            if (currentUsers.length >= plan.maxUsers) {
-              return res.status(403).json({ 
-                message: `Limite de usuários atingido. Seu plano permite até ${plan.maxUsers} usuários. Faça upgrade para adicionar mais.` 
-              });
-            }
-          }
+        try {
+          await checkCanAddUser(storage, data.restaurantId);
+        } catch (error: any) {
+          return res.status(403).json({ 
+            message: error.message || "Limite de usuários atingido" 
+          });
         }
       }
       
@@ -3210,17 +3205,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check subscription limits (only for non-superadmin users)
       if (currentUser.role !== 'superadmin') {
-        const subscription = await storage.getSubscriptionByRestaurantId(restaurantId);
-        if (subscription) {
-          const plan = await storage.getSubscriptionPlanById(subscription.planId);
-          if (plan && plan.maxTables !== null) {
-            const currentTables = await storage.getTables(restaurantId, null);
-            if (currentTables.length >= plan.maxTables) {
-              return res.status(403).json({ 
-                message: `Limite de mesas atingido. Seu plano permite até ${plan.maxTables} mesas. Faça upgrade para adicionar mais.` 
-              });
-            }
-          }
+        try {
+          await checkCanAddTable(storage, restaurantId);
+        } catch (error: any) {
+          return res.status(403).json({ 
+            message: error.message || "Limite de mesas atingido" 
+          });
         }
       }
       
@@ -4248,17 +4238,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check subscription limits (only for non-superadmin users)
       if (currentUser.role !== 'superadmin') {
-        const subscription = await storage.getSubscriptionByRestaurantId(restaurantId);
-        if (subscription) {
-          const plan = await storage.getSubscriptionPlanById(subscription.planId);
-          if (plan && plan.maxMenuItems !== null) {
-            const currentMenuItems = await storage.getMenuItems(restaurantId, null);
-            if (currentMenuItems.length >= plan.maxMenuItems) {
-              return res.status(403).json({ 
-                message: `Limite de produtos atingido. Seu plano permite até ${plan.maxMenuItems} produtos. Faça upgrade para adicionar mais.` 
-              });
-            }
-          }
+        try {
+          await checkCanAddMenuItem(storage, restaurantId);
+        } catch (error: any) {
+          return res.status(403).json({ 
+            message: error.message || "Limite de produtos atingido" 
+          });
         }
       }
       
@@ -4766,6 +4751,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { items, ...orderData } = req.body;
       
       console.log('Creating order with data:', JSON.stringify({ orderData, items }, null, 2));
+      
+      // Check subscription limits for orders (only for non-superadmin users)
+      if (currentUser.role !== 'superadmin' && currentUser.restaurantId) {
+        try {
+          await checkCanCreateOrder(storage, currentUser.restaurantId);
+        } catch (error: any) {
+          return res.status(403).json({ 
+            message: error.message || "Limite de pedidos atingido" 
+          });
+        }
+      }
       
       // Automatically set createdBy and branchId to track which admin created the order
       const validatedOrder = insertOrderSchema.parse({

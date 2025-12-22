@@ -16852,7 +16852,8 @@ var vite_config_default = defineConfig({
       "@": path3.resolve(import.meta.dirname, "client", "src"),
       "@shared": path3.resolve(import.meta.dirname, "shared"),
       "@assets": path3.resolve(import.meta.dirname, "attached_assets")
-    }
+    },
+    dedupe: ["react", "react-dom"]
   },
   root: path3.resolve(import.meta.dirname, "client"),
   build: {
@@ -16860,54 +16861,17 @@ var vite_config_default = defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (id.includes("react") || id.includes("react-dom")) {
-              return "react-vendor";
-            }
-            if (id.includes("recharts")) {
-              return "charts";
-            }
-            if (id.includes("framer-motion")) {
-              return "animations";
-            }
-            if (id.includes("@tanstack/react-query")) {
-              return "query";
-            }
-            if (id.includes("lucide-react")) {
-              return "icons";
-            }
-            if (id.includes("date-fns") || id.includes("react-day-picker")) {
-              return "date";
-            }
-            if (id.includes("react-hook-form") || id.includes("zod")) {
-              return "forms";
-            }
-            return "vendor";
-          }
-          if (id.includes("components/modern-chart") || id.includes("components/data-heatmap") || id.includes("components/advanced-sales-chart")) {
-            return "dashboard-charts";
-          }
-          if (id.includes("components/activity-feed") || id.includes("components/goals-widget") || id.includes("components/quick-actions-widget")) {
-            return "dashboard-widgets";
-          }
-          if (id.includes("components/ui/")) {
-            return "ui-components";
-          }
+        manualChunks: {
+          "react-vendor": ["react", "react-dom"],
+          "react-router": ["wouter"],
+          "ui-lib": ["@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-select"]
         }
       }
     },
-    chunkSizeWarningLimit: 1500,
+    chunkSizeWarningLimit: 2e3,
     sourcemap: false,
-    // Desabilita sourcemaps em produção para reduzir tamanho
-    minify: "terser",
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        // Remove console.logs em produção
-        drop_debugger: true
-      }
-    }
+    minify: "esbuild"
+    // esbuild é mais rápido e usa menos memória que terser
   },
   server: {
     // Desabilita cache em desenvolvimento
