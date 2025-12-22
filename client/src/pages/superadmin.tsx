@@ -233,78 +233,99 @@ export default function SuperAdmin() {
   };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">Super Administrador</h1>
-        <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
-          Centro de comando e controle da plataforma NaBancada
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="container mx-auto px-4 py-8 space-y-8">
+        {/* Header Section */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 p-8 text-white shadow-2xl">
+          <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                <Store className="h-8 w-8" />
+              </div>
+              <div>
+                <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Super Admin</h1>
+                <p className="text-orange-100 text-sm sm:text-base mt-1">
+                  Painel de Controle da Plataforma NaBancada
+                </p>
+              </div>
+            </div>
+          </div>
+          {/* Decorative elements */}
+          <div className="absolute -right-4 -bottom-4 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+          <div className="absolute -left-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+        </div>
 
       {/* Overview Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
+        <Card className="overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">
               Total de Restaurantes
             </CardTitle>
-            <Store className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+              <Store className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+            </div>
           </CardHeader>
           <CardContent>
             {statsLoading ? (
-              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-10 w-20" />
             ) : (
               <>
-                <div className="text-3xl font-bold" data-testid="text-total-restaurants">
+                <div className="text-4xl font-bold text-slate-900 dark:text-white" data-testid="text-total-restaurants">
                   {stats?.totalRestaurants || 0}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Cadastrados
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                  Cadastrados na plataforma
                 </p>
               </>
             )}
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950">
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-green-700 dark:text-green-400">
               Ativos
             </CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
+            <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+              <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+            </div>
           </CardHeader>
           <CardContent>
             {statsLoading ? (
-              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-10 w-20" />
             ) : (
               <>
-                <div className="text-3xl font-bold text-green-500" data-testid="text-active-restaurants">
+                <div className="text-4xl font-bold text-green-600 dark:text-green-400" data-testid="text-active-restaurants">
                   {stats?.activeRestaurants || 0}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Aprovados
+                <p className="text-xs text-green-600/70 dark:text-green-400/70 mt-2">
+                  Aprovados e operando
                 </p>
               </>
             )}
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-950 dark:to-amber-950">
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
               Pendentes
             </CardTitle>
-            <Clock className="h-4 w-4 text-yellow-500" />
+            <div className="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
+              <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+            </div>
           </CardHeader>
           <CardContent>
             {statsLoading ? (
-              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-10 w-20" />
             ) : (
               <>
-                <div className="text-3xl font-bold text-yellow-500" data-testid="text-pending-restaurants">
+                <div className="text-4xl font-bold text-yellow-600 dark:text-yellow-400" data-testid="text-pending-restaurants">
                   {stats?.pendingRestaurants || 0}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-yellow-600/70 dark:text-yellow-400/70 mt-2">
                   Aguardando aprovação
                 </p>
               </>
@@ -312,45 +333,49 @@ export default function SuperAdmin() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950 dark:to-rose-950">
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-red-700 dark:text-red-400">
               Suspensos
             </CardTitle>
-            <Ban className="h-4 w-4 text-red-500" />
+            <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
+              <Ban className="h-5 w-5 text-red-600 dark:text-red-400" />
+            </div>
           </CardHeader>
           <CardContent>
             {statsLoading ? (
-              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-10 w-20" />
             ) : (
               <>
-                <div className="text-3xl font-bold text-red-500" data-testid="text-suspended-restaurants">
+                <div className="text-4xl font-bold text-red-600 dark:text-red-400" data-testid="text-suspended-restaurants">
                   {stats?.suspendedRestaurants || 0}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Bloqueados
+                <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-2">
+                  Temporariamente bloqueados
                 </p>
               </>
             )}
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-950 dark:to-blue-950">
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-sm font-medium text-cyan-700 dark:text-cyan-400">
               Receita Total
             </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 bg-cyan-100 dark:bg-cyan-900 rounded-lg">
+              <DollarSign className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+            </div>
           </CardHeader>
           <CardContent>
             {statsLoading ? (
-              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-10 w-32" />
             ) : (
               <>
-                <div className="text-3xl font-bold" data-testid="text-total-revenue">
+                <div className="text-3xl font-bold text-cyan-600 dark:text-cyan-400" data-testid="text-total-revenue">
                   {formatKwanza(stats?.totalRevenue || "0")}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-cyan-600/70 dark:text-cyan-400/70 mt-2">
                   Todos os restaurantes
                 </p>
               </>
@@ -361,32 +386,58 @@ export default function SuperAdmin() {
 
       {/* Main Tabs */}
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full grid-cols-6 mb-4">
-          <TabsTrigger value="dashboard" data-testid="tab-dashboard">
-            <BarChart3 className="h-4 w-4 mr-2" />
-            Dashboard
-          </TabsTrigger>
-          <TabsTrigger value="restaurants" data-testid="tab-restaurants">
-            <Building2 className="h-4 w-4 mr-2" />
-            Restaurantes
-          </TabsTrigger>
-          <TabsTrigger value="plans" data-testid="tab-plans">
-            <CreditCard className="h-4 w-4 mr-2" />
-            Planos
-          </TabsTrigger>
-          <TabsTrigger value="subscriptions" data-testid="tab-subscriptions">
-            <Users className="h-4 w-4 mr-2" />
-            Subscrições
-          </TabsTrigger>
-          <TabsTrigger value="financial" data-testid="tab-financial">
-            <DollarSign className="h-4 w-4 mr-2" />
-            Financeiro
-          </TabsTrigger>
-          <TabsTrigger value="messages" data-testid="tab-messages">
-            <MessageSquare className="h-4 w-4 mr-2" />
-            Mensagens
-          </TabsTrigger>
-        </TabsList>
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg p-2 mb-6">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 bg-transparent p-0">
+            <TabsTrigger 
+              value="dashboard" 
+              data-testid="tab-dashboard"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300"
+            >
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger 
+              value="restaurants" 
+              data-testid="tab-restaurants"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300"
+            >
+              <Building2 className="h-4 w-4 mr-2" />
+              Restaurantes
+            </TabsTrigger>
+            <TabsTrigger 
+              value="plans" 
+              data-testid="tab-plans"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300"
+            >
+              <CreditCard className="h-4 w-4 mr-2" />
+              Planos
+            </TabsTrigger>
+            <TabsTrigger 
+              value="subscriptions" 
+              data-testid="tab-subscriptions"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300"
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Subscrições
+            </TabsTrigger>
+            <TabsTrigger 
+              value="financial" 
+              data-testid="tab-financial"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300"
+            >
+              <DollarSign className="h-4 w-4 mr-2" />
+              Financeiro
+            </TabsTrigger>
+            <TabsTrigger 
+              value="messages" 
+              data-testid="tab-messages"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-300"
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Mensagens
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* DASHBOARD TAB */}
         <TabsContent value="dashboard" className="space-y-4">
@@ -1008,6 +1059,7 @@ export default function SuperAdmin() {
         open={isPlanDialogOpen}
         onOpenChange={setIsPlanDialogOpen}
       />
+    </div>
     </div>
   );
 }
