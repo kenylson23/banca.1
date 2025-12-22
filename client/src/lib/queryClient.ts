@@ -4,6 +4,16 @@ async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     try {
       const errorData = await res.json();
+      
+      // Handle subscription errors (HTTP 402 - Payment Required)
+      if (res.status === 402 && errorData.code) {
+        // Dispatch custom event for subscription errors
+        const event = new CustomEvent('subscription-error', {
+          detail: errorData
+        });
+        window.dispatchEvent(event);
+      }
+      
       const error = new Error(errorData.message || res.statusText);
       Object.assign(error, errorData);
       throw error;

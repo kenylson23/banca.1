@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/useAuth";
 import { CartProvider } from "@/contexts/CartContext";
 import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
+import { SubscriptionExpiredAlert } from "@/components/SubscriptionExpiredAlert";
 
 // Lazy load pages for better code splitting
 const Landing = lazy(() => import("@/pages/landing"));
@@ -294,6 +295,7 @@ function AppContent() {
   return (
     <>
       <Toaster />
+      <SubscriptionExpiredAlert />
       <Router />
     </>
   );
