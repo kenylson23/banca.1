@@ -8340,8 +8340,7 @@ export class DatabaseStorage implements IStorage {
     };
     
     // Cache result for 5 minutes
-    const { cache, CacheKeys, CacheTTL } = await import('./cache.js');
-    cache.set(CacheKeys.subscriptionLimits(restaurantId), result, CacheTTL.subscriptionLimits);
+    cache.set(cacheKey, result, CacheTTL.subscriptionLimits);
     
     return result;
   }
