@@ -905,11 +905,11 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
   lastVisit: true,
   createdAt: true,
   updatedAt: true,
+  cpf: true, // CPF field removed from customer creation
 }).extend({
   name: z.string().min(1, "Nome é obrigatório"),
   phone: z.string().optional(),
   email: z.string().email("Email inválido").optional().or(z.literal('')),
-  cpf: z.string().optional(),
   birthDate: z.string().optional(),
   branchId: z.string().optional().nullable(),
   address: z.string().optional(),
@@ -921,7 +921,6 @@ export const updateCustomerSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").optional(),
   phone: z.string().optional(),
   email: z.string().email("Email inválido").optional().or(z.literal('')),
-  cpf: z.string().optional(),
   birthDate: z.string().optional(),
   address: z.string().optional(),
   notes: z.string().optional(),

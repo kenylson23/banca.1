@@ -49,11 +49,26 @@ export function ConnectionIndicator() {
 
     // Update pending operations count
     const updatePendingOps = async () => {
-      const stats = await offlineDB.getSyncStats();
-      setPendingOps(stats.pending);
-      if (stats.lastSync) {
-        const date = new Date(stats.lastSync);
-        setLastSync(date.toLocaleTimeString('pt-BR'));
+      try {
+        const stats = await offlineDB.getSyncStats();
+        setPendingOps(stats.pending);
+        if (stats.lastSync) {
+          const date = new Date(stats.lastSync);
+          setLastSync(date.toLocaleTimeString('pt-BR'));
+        }
+      } catch (error) {
+        console.error('Error getting sync stats:', error);
+        // If there's an error (e.g., old DB schema), try to reinitialize
+        if (error instanceof Error && error.message.includes('IDBKeyRange')) {
+          console.log('🔄 Detected old database schema, attempting to recreate...');
+          try {
+            await offlineDB.delete();
+            await offlineDB.open();
+            console.log('✅ Database recreated successfully');
+          } catch (recreateError) {
+            console.error('❌ Failed to recreate database:', recreateError);
+          }
+        }
       }
     };
 

@@ -42,7 +42,6 @@ export default function Customers() {
     name: "",
     phone: "",
     email: "",
-    cpf: "",
     address: "",
   });
 
@@ -132,7 +131,6 @@ export default function Customers() {
       name: "",
       phone: "",
       email: "",
-      cpf: "",
       address: "",
     });
     setEditingCustomer(null);
@@ -144,7 +142,6 @@ export default function Customers() {
       name: customer.name,
       phone: customer.phone || "",
       email: customer.email || "",
-      cpf: customer.cpf || "",
       address: customer.address || "",
     });
     setIsDialogOpen(true);
@@ -230,70 +227,91 @@ export default function Customers() {
                 <span className="sm:inline">Novo</span>
               </Button>
             </DialogTrigger>
-            <DialogContent data-testid="dialog-create-customer">
-              <DialogHeader>
-                <DialogTitle>{editingCustomer ? 'Editar Cliente' : 'Criar Novo Cliente'}</DialogTitle>
-                <DialogDescription>
-                  Preencha os dados do cliente
-                </DialogDescription>
+            <DialogContent className="sm:max-w-[500px]" data-testid="dialog-create-customer">
+              <DialogHeader className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                    <UserPlus className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl">
+                      {editingCustomer ? 'Editar Cliente' : 'Novo Cliente'}
+                    </DialogTitle>
+                    <DialogDescription className="text-sm">
+                      {editingCustomer ? 'Atualize os dados do cliente' : 'Adicione um novo cliente ao sistema'}
+                    </DialogDescription>
+                  </div>
+                </div>
               </DialogHeader>
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handleSubmit} className="space-y-6 pt-4">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Nome *</Label>
+                    <Label htmlFor="name" className="flex items-center gap-2 text-sm font-medium">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      Nome Completo *
+                    </Label>
                     <Input
                       id="name"
-                      placeholder="Nome completo"
+                      placeholder="Digite o nome completo"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required
+                      className="h-11"
                       data-testid="input-customer-name"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Telefone</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="+244 900 000 000"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      data-testid="input-customer-phone"
-                    />
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone" className="flex items-center gap-2 text-sm font-medium">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        Telefone
+                      </Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="+244 900 000 000"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        className="h-11"
+                        data-testid="input-customer-phone"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="email" className="flex items-center gap-2 text-sm font-medium">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        Email
+                      </Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="email@exemplo.com"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="h-11"
+                        data-testid="input-customer-email"
+                      />
+                    </div>
                   </div>
+                  
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="email@exemplo.com"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      data-testid="input-customer-email"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="cpf">CPF/BI</Label>
-                    <Input
-                      id="cpf"
-                      placeholder="Documento de identificação"
-                      value={formData.cpf}
-                      onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
-                      data-testid="input-customer-cpf"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Endereço</Label>
+                    <Label htmlFor="address" className="flex items-center gap-2 text-sm font-medium">
+                      <span className="text-muted-foreground">📍</span>
+                      Endereço
+                    </Label>
                     <Input
                       id="address"
-                      placeholder="Endereço completo"
+                      placeholder="Rua, número, bairro..."
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      className="h-11"
                       data-testid="input-customer-address"
                     />
                   </div>
                 </div>
-                <DialogFooter className="mt-6">
+                
+                <DialogFooter className="gap-2 sm:gap-0">
                   <Button
                     type="button"
                     variant="outline"
@@ -301,6 +319,7 @@ export default function Customers() {
                       setIsDialogOpen(false);
                       resetForm();
                     }}
+                    className="h-11"
                     data-testid="button-cancel"
                   >
                     Cancelar
@@ -308,9 +327,19 @@ export default function Customers() {
                   <Button
                     type="submit"
                     disabled={createCustomerMutation.isPending || updateCustomerMutation.isPending}
+                    className="h-11 min-w-[100px]"
                     data-testid="button-submit-customer"
                   >
-                    {editingCustomer ? 'Atualizar' : 'Criar'}
+                    {createCustomerMutation.isPending || updateCustomerMutation.isPending ? (
+                      <>
+                        <span className="mr-2">⏳</span>
+                        Salvando...
+                      </>
+                    ) : (
+                      <>
+                        {editingCustomer ? '💾 Atualizar' : '✨ Criar'}
+                      </>
+                    )}
                   </Button>
                 </DialogFooter>
               </form>

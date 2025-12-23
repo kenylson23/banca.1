@@ -1210,9 +1210,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const restaurant = await storage.updateRestaurantStatus(req.params.id, status);
+      
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurante não encontrado" });
+      }
+
+      // Invalidate cache for this restaurant
+      const { cache, CacheKeys } = await import('./cache.js');
+      cache.deletePattern(`restaurant:${req.params.id}*`);
+      cache.deletePattern('superadmin:*');
+      
+      console.log(`✅ Restaurant ${restaurant.name} status updated to: ${status}`);
+      
       res.json(restaurant);
     } catch (error) {
-      res.status(500).json({ message: "Erro ao atualizar status do restaurante" });
+      console.error('❌ Error updating restaurant status:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao atualizar status do restaurante';
+      res.status(500).json({ message: errorMessage });
     }
   });
 
@@ -7695,43 +7709,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/customers", isAuthenticated, async (req, res) => {
     try {
       const currentUser = req.user as User;
+      
+      console.log('📝 Creating customer - User:', {
+        id: currentUser.id,
+        restaurantId: currentUser.restaurantId,
+        role: currentUser.role
+      });
+      
       if (!currentUser.restaurantId) {
+        console.error('❌ User not associated with restaurant');
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+      console.log('🔍 Checking plan limits...');
       await checkCanAddCustomer(storage, currentUser.restaurantId);
+      console.log('✅ Plan limits OK');
 
+      console.log('📋 Validating customer data:', req.body);
       const validatedData = insertCustomerSchema.parse(req.body);
+      console.log('✅ Data validated:', validatedData);
 
       if (validatedData.phone) {
         const existing = await storage.getCustomerByPhone(currentUser.restaurantId, validatedData.phone);
         if (existing) {
+          console.log('❌ Phone already exists:', validatedData.phone);
           return res.status(400).json({ message: "Já existe um cliente com este telefone" });
         }
       }
 
-      if (validatedData.cpf) {
-        const existing = await storage.getCustomerByCpf(currentUser.restaurantId, validatedData.cpf);
-        if (existing) {
-          return res.status(400).json({ message: "Já existe um cliente com este CPF" });
-        }
-      }
 
+      console.log('💾 Creating customer in database...');
       const customer = await storage.createCustomer(
         currentUser.restaurantId,
         currentUser.activeBranchId || null,
         validatedData
       );
+      
+      console.log('✅ Customer created successfully:', customer.id);
       res.status(201).json(customer);
     } catch (error: any) {
-      console.error('Customer creation error:', error);
+      console.error('❌ Customer creation error:', error);
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      
       if (error.name === 'PlanLimitError' || error.name === 'PlanFeatureError') {
         return res.status(403).json({ message: error.message });
       }
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+        console.error('Validation errors:', error.errors);
+        return res.status(400).json({ 
+          message: "Dados inválidos", 
+          errors: error.errors,
+          details: error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+        });
       }
-      res.status(500).json({ message: "Erro ao criar cliente" });
+      res.status(500).json({ 
+        message: "Erro ao criar cliente",
+        error: error.message,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   });
 

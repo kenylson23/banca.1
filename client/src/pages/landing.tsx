@@ -1,525 +1,362 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  QrCode,
-  ChefHat,
-  BarChart3,
-  Smartphone,
-  Check,
-  ArrowRight,
-  Utensils,
-  Clock,
-  Shield,
-  Zap,
-  Users,
-  TrendingUp,
-  CreditCard,
-  Package,
-  Phone,
-  Mail,
-  MapPin,
-  Menu,
-  X
-} from "lucide-react";
-import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+import { Zap, ArrowRight, LayoutDashboard, Menu, X } from "lucide-react";
 
 export default function Landing() {
   const [, navigate] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    document.title = "Na Bancada - Gestão de Restaurantes Inteligente";
+    document.title = "NA BANCADA | Sistema de Gestão para Restaurantes";
     const meta = document.querySelector('meta[name="description"]');
     if (meta) {
-      meta.setAttribute("content", "Plataforma completa de gestão de restaurantes com pedidos por QR Code, painel da cozinha, PDV integrado e análises avançadas. Aumenta vendas em até 35%.");
+      meta.setAttribute("content", "Controle total de restaurante com PDV, QR Code, delivery e análises inteligentes.");
     }
   }, []);
 
-  const features = [
-    {
-      icon: QrCode,
-      title: "Pedidos por QR Code",
-      description: "Clientes pedem diretamente do telemóvel. Sem filas, sem erros, sem papel."
-    },
-    {
-      icon: ChefHat,
-      title: "Painel da Cozinha",
-      description: "Visualização inteligente de pedidos. Priorização automática. Rastreamento em tempo real."
-    },
-    {
-      icon: CreditCard,
-      title: "PDV & Pagamentos",
-      description: "Terminal de vendas integrado com múltiplas formas de pagamento e controle completo."
-    },
-    {
-      icon: BarChart3,
-      title: "Relatórios Inteligentes",
-      description: "Análises de vendas, produtos populares, horários de pico e muito mais, em tempo real."
-    },
-    {
-      icon: Smartphone,
-      title: "Cardápio Digital",
-      description: "Menu moderno com fotos, descrições, preços e opções de personalização por item."
-    },
-    {
-      icon: Users,
-      title: "Multi-Usuários",
-      description: "Gestão de permissões para cozinheiros, garçons, caixas e administradores."
-    }
-  ];
-
-  const benefits = [
-    { icon: Clock, text: "Implementação em minutos, não horas" },
-    { icon: Zap, text: "Atualizações automáticas e segurança de ponta" },
-    { icon: TrendingUp, text: "Aumento médio de 25-35% nas vendas" },
-    { icon: Shield, text: "Dados 100% seguros com encriptação" },
-    { icon: Package, text: "Gestão de inventário integrada" },
-    { icon: Users, text: "Suporte técnico especializado 24/7" }
-  ];
-
-  const pricingPlans = [
-    {
-      id: "starter",
-      name: "Starter",
-      description: "Perfeito para restaurantes pequenos",
-      price: 15000,
-      interval: "mês",
-      features: [
-        "1 Filial",
-        "10 Mesas",
-        "50 Itens do Menu",
-        "500 Pedidos/mês",
-        "2 Usuários",
-        "QR Code para pedidos",
-        "Painel da cozinha",
-        "Suporte por email"
-      ],
-      popular: false
-    },
-    {
-      id: "professional",
-      name: "Professional",
-      description: "Para restaurantes em crescimento",
-      price: 35000,
-      interval: "mês",
-      features: [
-        "3 Filiais",
-        "30 Mesas",
-        "150 Itens do Menu",
-        "2.000 Pedidos/mês",
-        "5 Usuários",
-        "Tudo do Starter +",
-        "Multi-filiais",
-        "Relatórios avançados",
-        "PDV completo",
-        "Cardápio digital",
-        "Suporte prioritário"
-      ],
-      popular: true
-    },
-    {
-      id: "enterprise",
-      name: "Enterprise",
-      description: "Para grandes operações",
-      price: "Personalizado",
-      interval: "negociar",
-      features: [
-        "Filiais ilimitadas",
-        "Mesas ilimitadas",
-        "Itens ilimitados",
-        "Pedidos ilimitados",
-        "Usuários ilimitados",
-        "Tudo do Professional +",
-        "API customizada",
-        "Integração ERP",
-        "Análises avançadas",
-        "Suporte dedicado",
-        "Consultoria incluída"
-      ],
-      popular: false
-    }
-  ];
-
-  const testimonials = [
-    {
-      name: "Maria João Ferreira",
-      role: "Proprietária",
-      company: "Restaurante Sabor de Angola",
-      quote: "Transformou completamente o nosso negócio. Os clientes adoram pedir pelo telemóvel e a cozinha nunca mais errou um pedido!",
-      rating: 5
-    },
-    {
-      name: "Paulo Costa",
-      role: "Gerente Geral",
-      company: "Churrasqueira Luanda",
-      quote: "Incrível como economizamos tempo! Antes gastávamos horas anotando pedidos. Agora tudo é automático e sem erros.",
-      rating: 5
-    },
-    {
-      name: "Ana Silva",
-      role: "Diretora de Operações",
-      company: "Rede Café Colonial",
-      quote: "Gerenciamos 5 filiais com uma única plataforma. As estatísticas ajudam-nos a tomar decisões inteligentes.",
-      rating: 5
-    }
-  ];
+  const handleBeamAnimation = (e: any) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    e.currentTarget.style.setProperty("--mouse-x", `${x}px`);
+    e.currentTarget.style.setProperty("--mouse-y", `${y}px`);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      {/* Navigation */}
-      <nav className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <div className="min-h-screen bg-[#020408] text-white overflow-x-hidden pb-10">
+      <style>{`
+        body { font-family: 'Inter', sans-serif; }
+        .glass-nav {
+          background: rgba(10, 20, 30, 0.7);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .spotlight-card {
+          --mouse-x: 0px;
+          --mouse-y: 0px;
+          position: relative;
+          background: rgba(255, 255, 255, 0.02);
+        }
+        .spotlight-card::before {
+          content: "";
+          position: absolute;
+          top: 0; left: 0; right: 0; bottom: 0;
+          border-radius: inherit;
+          background: radial-gradient(800px circle at var(--mouse-x) var(--mouse-y), rgba(59, 130, 246, 0.15), transparent 40%);
+          opacity: 0;
+          transition: opacity 0.5s ease;
+          z-index: 0;
+          pointer-events: none;
+        }
+        .spotlight-card:hover::before { opacity: 1; }
+        .spotlight-inner {
+          position: relative;
+          background: #0b0d11;
+          border-radius: inherit;
+          z-index: 1;
+          height: 100%;
+          width: 100%;
+        }
+        .spotlight-inner::after {
+          content: "";
+          position: absolute;
+          top: 0; left: 0; right: 0; bottom: 0;
+          border-radius: inherit;
+          background: radial-gradient(600px circle at var(--mouse-x) var(--mouse-y), rgba(255, 255, 255, 0.06), transparent 40%);
+          opacity: 0;
+          transition: opacity 0.5s ease;
+          z-index: 2;
+          pointer-events: none;
+        }
+        .spotlight-card:hover .spotlight-inner::after { opacity: 1; }
+        @keyframes beam-spin { to { transform: rotate(360deg); } }
+        @keyframes dots-move { 
+          0% { background-position: 0 0; } 
+          100% { background-position: 24px 24px; } 
+        }
+        .beam-button {
+          position: relative;
+          overflow: hidden;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          text-transform: uppercase;
+          transition: all 0.5s;
+          font-size: 0.875rem;
+          font-weight: bold;
+          color: white;
+          letter-spacing: 0.1em;
+          border-radius: 9999px;
+          padding: 1rem 2.5rem;
+        }
+        .beam-button:hover {
+          transform: scale(1.02);
+          box-shadow: 0 0 40px -10px rgba(59, 130, 246, 0.5);
+        }
+        .beam-button::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          z-index: -2;
+          border-radius: 9999px;
+          overflow: hidden;
+          padding: 1px;
+        }
+        .beam-button::after {
+          content: "";
+          position: absolute;
+          inset: 1px;
+          border-radius: 9999px;
+          background: linear-gradient(to bottom, rgba(255, 255, 255, 0.05), transparent);
+          z-index: -1;
+        }
+        .beam-inner {
+          position: absolute;
+          bottom: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 66.666%;
+          height: 50%;
+          background: rgba(59, 130, 246, 0.1);
+          filter: blur(32px);
+          border-radius: 50%;
+          pointer-events: none;
+        }
+      `}</style>
+
+      {/* Background texture */}
+      <div className="fixed inset-0 z-0 pointer-events-none opacity-20" style={{backgroundImage: 'url("https://www.transparenttextures.com/patterns/cubes.png")', mixBlendMode: 'overlay'}}></div>
+
+      {/* Fixed Pill Navigation */}
+      <div className="fixed top-6 left-0 right-0 flex justify-center z-50 px-4 pointer-events-none">
+        <nav className="glass-nav flex w-full max-w-5xl pointer-events-auto rounded-full pt-3 pr-3 pb-3 pl-6 shadow-2xl items-center justify-between">
+          {/* Logo */}
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
-            <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
-              <Utensils className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 rounded bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white">
+              <LayoutDashboard size={18} />
             </div>
-            <span className="font-bold text-lg">Na Bancada</span>
+            <span className="text-xl font-semibold tracking-tight text-gray-100 uppercase">NA BANCADA</span>
           </div>
 
-          {/* Desktop Menu */}
-          <div className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition">Funcionalidades</a>
-            <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition">Preços</a>
-            <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition">Clientes</a>
-            <Button onClick={() => navigate("/login")} variant="outline" size="sm">
-              Entrar
-            </Button>
-            <Button onClick={() => navigate("/login")} size="sm" className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700">
-              Começar Grátis
-            </Button>
+          {/* Links (Desktop) */}
+          <div className="hidden lg:flex items-center gap-8 text-sm text-gray-400 font-medium">
+            <a href="#features" className="text-white hover:text-blue-400 transition-colors">Funcionalidades</a>
+            <a href="#workflow" className="hover:text-white transition-colors">Como Funciona</a>
+            <a href="#pricing" className="hover:text-white transition-colors">Planos</a>
+            <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
           </div>
 
-          {/* Mobile Menu Button */}
-          <button
-            className="md:hidden"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            data-testid="button-mobile-menu"
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
+          {/* Actions */}
+          <div className="flex items-center gap-3">
+            <a href="#" className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-sm font-medium hover:bg-white/10 transition-colors text-gray-300">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+              </span>
+              Sistema Online
+            </a>
+            <button
+              onClick={() => navigate("/login")}
+              className="px-5 py-2 rounded-full border border-white/20 bg-blue-600 text-white text-sm font-bold hover:bg-blue-500 transition-all shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+              data-testid="button-start-now"
+            >
+              Começar Agora
+            </button>
+            <button
+              className="lg:hidden text-white flex items-center ml-2"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
+        </nav>
+      </div>
+
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="fixed top-24 left-0 right-0 z-40 glass-nav mx-4 rounded-2xl p-4 space-y-4 max-w-5xl mx-auto">
+          <a href="#features" className="block text-gray-300 hover:text-white transition">Funcionalidades</a>
+          <a href="#workflow" className="block text-gray-300 hover:text-white transition">Como Funciona</a>
+          <a href="#pricing" className="block text-gray-300 hover:text-white transition">Planos</a>
+          <a href="#faq" className="block text-gray-300 hover:text-white transition">FAQ</a>
         </div>
+      )}
 
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t bg-background/95 backdrop-blur">
-            <div className="px-4 py-4 space-y-3">
-              <a href="#features" className="block text-sm text-muted-foreground hover:text-foreground transition">Funcionalidades</a>
-              <a href="#pricing" className="block text-sm text-muted-foreground hover:text-foreground transition">Preços</a>
-              <a href="#testimonials" className="block text-sm text-muted-foreground hover:text-foreground transition">Clientes</a>
-              <Button onClick={() => navigate("/login")} variant="outline" size="sm" className="w-full">
-                Entrar
-              </Button>
-              <Button onClick={() => navigate("/login")} size="sm" className="w-full bg-gradient-to-r from-orange-500 to-red-600">
-                Começar Grátis
-              </Button>
-            </div>
+      {/* MAIN HERO */}
+      <div
+        className="spotlight-card group mx-4 sm:mx-6 lg:mt-32 max-w-7xl z-10 rounded-[40px] mt-32 pt-[1px] pr-[1px] pb-[1px] pl-[1px] relative mx-auto"
+        onMouseMove={handleBeamAnimation}
+      >
+        <div className="spotlight-inner overflow-hidden flex flex-col min-h-[800px] z-10 rounded-[40px] justify-center bg-[#080a0f]">
+          {/* Version */}
+          <div className="absolute top-8 right-8 z-20 pointer-events-none">
+            <span className="font-mono text-sm font-bold text-white/10 tracking-widest">V. 2.4.0</span>
           </div>
-        )}
-      </nav>
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden py-20 sm:py-32">
-        <div className="absolute inset-0 -z-10">
-          <div className="absolute inset-0 bg-gradient-to-b from-orange-500/10 via-transparent to-transparent"></div>
-        </div>
+          {/* Grid Background */}
+          <div className="absolute inset-0 z-0 pointer-events-none opacity-20" style={{backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px)', backgroundSize: '60px 60px'}}></div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center space-y-8">
-            <div className="space-y-4">
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
-                Gestão Inteligente de
-                <span className="block bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent">
-                  Restaurantes
-                </span>
+          {/* Content */}
+          <main className="z-10 container max-w-7xl lg:px-12 grid lg:grid-cols-2 gap-16 mx-auto pt-20 pr-6 pb-20 pl-6 items-center">
+            {/* Left Column */}
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest mb-6">
+                <Zap size={14} />
+                Automação Inteligente
+              </div>
+
+              <h1 className="text-5xl lg:text-7xl leading-[1.05] mb-8 tracking-tighter text-white">
+                Gestão Completa para <span className="text-blue-500">Restaurantes</span>
               </h1>
-              <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
-                Aumente suas vendas em até 35%. Reduza custos operacionais. Melhore a experiência do cliente com pedidos por QR Code, painel inteligente da cozinha e análises em tempo real.
+
+              <p className="text-gray-400 text-lg leading-relaxed mb-10 max-w-lg font-light">
+                Controle total, desde o pedido na mesa até o fechamento do caixa. O sistema PDV, QR Code e delivery que moderniza o seu negócio e aumenta o lucro.
               </p>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                {/* Main Button */}
+                <button
+                  onClick={() => navigate("/login")}
+                  className="beam-button group"
+                  data-testid="button-consul"
+                >
+                  <div className="beam-inner"></div>
+                  <span className="relative z-10 text-white/90 group-hover:text-white">Falar com Consultor</span>
+                  <ArrowRight size={16} className="relative z-10 ml-2 transition-transform group-hover:translate-x-1" />
+                </button>
+
+                {/* Secondary Button */}
+                <button
+                  onClick={() => navigate("/login")}
+                  className="hover:bg-white/5 transition-all flex text-base font-medium text-gray-300 bg-white/5 rounded-full py-4 px-8 items-center justify-center relative overflow-hidden"
+                  style={{boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.1), 0 4px 20px rgba(0, 0, 0, 0.5)'}}
+                  data-testid="button-demo"
+                >
+                  <span className="text-base font-medium text-gray-200 tracking-tight relative z-10">
+                    Ver Demonstração
+                  </span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 ml-2 opacity-70 relative z-10">
+                    <polygon points="6 3 20 12 6 21 6 3"></polygon>
+                  </svg>
+                </button>
+              </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                onClick={() => navigate("/login")}
-                size="lg"
-                className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white h-12 px-8"
-                data-testid="button-start-free"
-              >
-                Começar Grátis <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-              <Button
-                onClick={() => navigate("/login")}
-                variant="outline"
-                size="lg"
-                className="h-12 px-8"
-                data-testid="button-demo"
-              >
-                Ver Demo
-              </Button>
-            </div>
+            {/* Right Column - Device Mockups */}
+            <div className="relative w-full h-[500px] lg:h-[650px] flex items-center justify-center">
+              {/* Glow */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/20 blur-[120px] rounded-full pointer-events-none mix-blend-screen"></div>
 
-            <div className="pt-8 grid grid-cols-3 gap-8 max-w-2xl mx-auto text-center">
-              <div>
-                <div className="text-3xl font-bold text-orange-500">500+</div>
-                <div className="text-sm text-muted-foreground">Restaurantes ativos</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold text-orange-500">50K+</div>
-                <div className="text-sm text-muted-foreground">Pedidos por dia</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold text-orange-500">4.9★</div>
-                <div className="text-sm text-muted-foreground">Satisfação</div>
+              {/* Mockups Container */}
+              <div className="relative w-full max-w-[800px] h-full flex items-center justify-center scale-75 sm:scale-100 lg:scale-85 xl:scale-100">
+                {/* Dashboard */}
+                <div className="absolute top-[10%] left-1/2 -translate-x-1/2 w-[500px] h-[320px] bg-[#0e1015] rounded-xl border border-white/10 shadow-2xl z-10 flex flex-col overflow-hidden transform hover:-translate-y-2 transition-transform">
+                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600/90 to-indigo-600/90 backdrop-blur border border-blue-400/30 text-white px-5 py-1.5 rounded-full text-xs font-bold shadow-lg whitespace-nowrap z-50">
+                    Delivery
+                  </div>
+                  <div className="h-8 bg-[#1a1d24] border-b border-white/5 flex items-center px-3 gap-2">
+                    <div className="flex gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                      <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    </div>
+                  </div>
+                  <div className="flex-1 p-3 grid grid-cols-3 gap-2 bg-[#0B0D11]">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="bg-[#16191f]/50 rounded border border-white/5 p-2">
+                        <div className="h-2 w-12 bg-white/10 rounded mb-2"></div>
+                        <div className="h-16 bg-[#1f232b] rounded border border-white/5"></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tablet */}
+                <div className="absolute bottom-[10%] left-0 z-20 w-[400px]">
+                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600/90 to-indigo-600/90 backdrop-blur border border-blue-400/30 text-white px-5 py-1.5 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
+                    Cardápio em Tablet
+                  </div>
+                  <div className="relative w-full h-[260px] bg-[#111318] rounded-2xl border-[6px] border-[#1f232b] shadow-2xl overflow-hidden flex flex-col">
+                    <div className="h-10 border-b border-white/5 flex items-center justify-between px-4 bg-[#16191f]">
+                      <div className="w-20 h-2 bg-white/10 rounded-full"></div>
+                      <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold">3</div>
+                    </div>
+                    <div className="flex-1 flex">
+                      <div className="w-16 border-r border-white/5 py-4 flex flex-col items-center gap-4 bg-[#13151a]">
+                        <div className="w-8 h-8 rounded-lg bg-orange-500/20"></div>
+                        <div className="w-8 h-8 rounded-lg bg-white/5"></div>
+                      </div>
+                      <div className="flex-1 p-3 grid grid-cols-2 gap-3">
+                        {[1, 2, 3].map(i => (
+                          <div key={i} className="bg-[#1f232b] rounded-lg p-2 border border-white/5">
+                            <div className="w-full h-16 bg-white/5 rounded-md"></div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Phone */}
+                <div className="absolute bottom-[10%] right-0 z-30 w-[250px]">
+                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600/90 to-indigo-600/90 backdrop-blur border border-blue-400/30 text-white px-5 py-1.5 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
+                    QR Code
+                  </div>
+                  <div className="relative w-full aspect-[9/19] bg-[#0e1015] rounded-[30px] border-[8px] border-[#1a1d24] shadow-2xl overflow-hidden flex flex-col">
+                    <div className="h-8 bg-[#1a1d24] border-b border-white/5 flex items-center justify-center gap-2 px-4">
+                      <div className="w-6 h-6 bg-white/10 rounded-full"></div>
+                      <div className="flex-1 h-2 bg-white/10 rounded"></div>
+                    </div>
+                    <div className="flex-1 p-4 flex items-center justify-center">
+                      <div className="w-32 h-32 bg-white/10 rounded-lg border border-white/20 flex items-center justify-center">
+                        <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-600 rounded flex items-center justify-center text-white text-2xl font-bold">QR</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          </main>
         </div>
-      </section>
+      </div>
 
       {/* Features Section */}
-      <section id="features" className="py-20 sm:py-32 border-t">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="text-center space-y-4">
-            <h2 className="text-3xl sm:text-4xl font-bold">Tudo que precisa para gerir seu restaurante</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Funcionalidades poderosas desenhadas especificamente para restaurantes, cafés e bares.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature) => {
-              const Icon = feature.icon;
-              return (
-                <Card key={feature.title} className="hover-elevate">
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col gap-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-orange-500/20 to-red-600/20 rounded-lg flex items-center justify-center">
-                        <Icon className="w-6 h-6 text-orange-500" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
-                        <p className="text-sm text-muted-foreground">{feature.description}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits Section */}
-      <section className="py-20 sm:py-32 bg-muted/30 border-t">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center space-y-4 mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold">Por que escolher Na Bancada?</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Benefícios comprovados para aumentar lucros e eficiência operacional.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {benefits.map((benefit) => {
-              const Icon = benefit.icon;
-              return (
-                <div key={benefit.text} className="flex gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="flex items-center justify-center h-12 w-12 rounded-lg bg-gradient-to-br from-orange-500/20 to-red-600/20">
-                      <Icon className="w-6 h-6 text-orange-500" />
-                    </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground pt-2">{benefit.text}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Section */}
-      <section id="pricing" className="py-20 sm:py-32 border-t">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="text-center space-y-4">
-            <h2 className="text-3xl sm:text-4xl font-bold">Planos simples e transparentes</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Escolha o plano que se adequa ao seu restaurante. Sem taxas ocultas, sem contratos longos.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {pricingPlans.map((plan) => (
-              <Card
-                key={plan.id}
-                className={`flex flex-col relative ${
-                  plan.popular ? "border-orange-500/50 lg:scale-105" : ""
-                } hover-elevate`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs font-semibold px-4 py-1 rounded-full">
-                      Mais Popular
-                    </span>
-                  </div>
-                )}
-
-                <CardContent className="pt-8 flex flex-col gap-6 flex-1">
-                  <div>
-                    <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
-                    <p className="text-sm text-muted-foreground mb-4">{plan.description}</p>
-                    <div className="space-y-1">
-                      {typeof plan.price === "string" ? (
-                        <p className="text-3xl font-bold">{plan.price}</p>
-                      ) : (
-                        <>
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-3xl font-bold">{plan.price.toLocaleString("pt-AO")}</span>
-                            <span className="text-sm text-muted-foreground">Kz/{plan.interval}</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <ul className="space-y-3 flex-1">
-                    {plan.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-3">
-                        <Check className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
-                        <span className="text-sm text-muted-foreground">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <Button
-                    onClick={() => navigate("/login")}
-                    className={
-                      plan.popular
-                        ? "bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 w-full"
-                        : "w-full"
-                    }
-                    variant={plan.popular ? "default" : "outline"}
-                    data-testid={`button-plan-${plan.id}`}
-                  >
-                    {plan.id === "enterprise" ? "Contacte-nos" : "Começar Agora"}
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials Section */}
-      <section id="testimonials" className="py-20 sm:py-32 bg-muted/30 border-t">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="text-center space-y-4">
-            <h2 className="text-3xl sm:text-4xl font-bold">O que nossos clientes dizem</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Histórias de sucesso de restaurantes que transformaram seus negócios com Na Bancada.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {testimonials.map((testimonial) => (
-              <Card key={testimonial.name} className="hover-elevate">
-                <CardContent className="pt-6 space-y-4">
-                  <div className="flex gap-1">
-                    {[...Array(testimonial.rating)].map((_, i) => (
-                      <span key={i} className="text-orange-500">★</span>
-                    ))}
-                  </div>
-                  <p className="text-muted-foreground italic">"{testimonial.quote}"</p>
-                  <div className="border-t pt-4">
-                    <p className="font-semibold text-sm">{testimonial.name}</p>
-                    <p className="text-xs text-muted-foreground">{testimonial.role}</p>
-                    <p className="text-xs text-muted-foreground">{testimonial.company}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+      <section id="features" className="max-w-7xl mx-auto px-4 py-20 mt-20">
+        <h2 className="text-4xl font-bold text-center mb-12">Funcionalidades Poderosas</h2>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[
+            { title: "PDV Integrado", desc: "Terminal de vendas completo" },
+            { title: "QR Code", desc: "Pedidos diretos da mesa" },
+            { title: "Delivery", desc: "Gestão de entregas" },
+            { title: "Análises", desc: "Relatórios em tempo real" },
+            { title: "Multi-Filial", desc: "Controle centralizado" },
+            { title: "Suporte 24/7", desc: "Sempre disponível" }
+          ].map((feature, i) => (
+            <div key={i} className="p-6 border border-white/10 rounded-xl bg-white/5 hover:bg-white/10 transition">
+              <h3 className="font-bold text-lg mb-2">{feature.title}</h3>
+              <p className="text-gray-400 text-sm">{feature.desc}</p>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 sm:py-32 border-t">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-8">
-          <div className="space-y-4">
-            <h2 className="text-3xl sm:text-4xl font-bold">Pronto para transformar seu restaurante?</h2>
-            <p className="text-lg text-muted-foreground">
-              Junte-se a 500+ restaurantes que já aumentaram suas vendas com Na Bancada.
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              onClick={() => navigate("/login")}
-              size="lg"
-              className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 h-12 px-8"
-              data-testid="button-cta-start"
-            >
-              Começar Agora <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-          </div>
-        </div>
+      <section className="max-w-7xl mx-auto px-4 py-20 text-center">
+        <h2 className="text-4xl font-bold mb-8">Pronto para começar?</h2>
+        <button
+          onClick={() => navigate("/login")}
+          className="px-10 py-4 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all shadow-[0_0_30px_rgba(59,130,246,0.4)] hover:shadow-[0_0_40px_rgba(59,130,246,0.6)]"
+          data-testid="button-final-cta"
+        >
+          Falar com Consultor Agora
+        </button>
       </section>
 
       {/* Footer */}
-      <footer className="border-t bg-muted/30 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
-                  <Utensils className="w-5 h-5 text-white" />
-                </div>
-                <span className="font-bold">Na Bancada</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Plataforma de gestão de restaurantes completa e inteligente.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Produto</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#features" className="hover:text-foreground transition">Funcionalidades</a></li>
-                <li><a href="#pricing" className="hover:text-foreground transition">Preços</a></li>
-                <li><a href="/termos" className="hover:text-foreground transition">Termos</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Legal</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="/privacidade" className="hover:text-foreground transition">Privacidade</a></li>
-                <li><a href="#" className="hover:text-foreground transition">Cookies</a></li>
-                <li><a href="#" className="hover:text-foreground transition">Sobre</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Contacte-nos</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li className="flex items-center gap-2">
-                  <Mail className="w-4 h-4" />
-                  <a href="mailto:suporte@nabancada.com" className="hover:text-foreground transition">
-                    suporte@nabancada.com
-                  </a>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Phone className="w-4 h-4" />
-                  <a href="tel:+244922123456" className="hover:text-foreground transition">
-                    +244 92 212 3456
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="border-t pt-8 text-center text-sm text-muted-foreground">
-            <p>&copy; 2025 Na Bancada. Todos os direitos reservados.</p>
-          </div>
+      <footer className="border-t border-white/10 py-12">
+        <div className="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
+          <p>&copy; 2025 NA BANCADA. Todos os direitos reservados.</p>
         </div>
       </footer>
     </div>

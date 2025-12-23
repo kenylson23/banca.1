@@ -914,6 +914,11 @@ export class DatabaseStorage implements IStorage {
       .set({ status, updatedAt: new Date() })
       .where(eq(restaurants.id, id))
       .returning();
+    
+    if (!updated) {
+      throw new Error(`Restaurante com ID ${id} não encontrado`);
+    }
+    
     return updated;
   }
 

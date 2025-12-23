@@ -96,11 +96,22 @@ export class OfflineDB extends Dexie {
   constructor() {
     super('nabancada_offline');
     
+    // Version 1: Initial schema
     this.version(1).stores({
       orders: 'id, restaurantId, tableId, status, createdAt, synced, localOnly',
       tables: 'id, restaurantId, number, status, synced',
       menuItems: 'id, restaurantId, categoryId, available, synced',
       customers: 'id, restaurantId, phone, email, synced',
+      payments: 'id, orderId, restaurantId, synced, localOnly',
+      syncQueue: '++id, operation, entity, entityId, synced, timestamp'
+    });
+    
+    // Version 2: Fixed customers table - removed optional fields from index
+    this.version(2).stores({
+      orders: 'id, restaurantId, tableId, status, createdAt, synced, localOnly',
+      tables: 'id, restaurantId, number, status, synced',
+      menuItems: 'id, restaurantId, categoryId, available, synced',
+      customers: 'id, restaurantId, synced', // phone and email removed from indexes (they're optional)
       payments: 'id, orderId, restaurantId, synced, localOnly',
       syncQueue: '++id, operation, entity, entityId, synced, timestamp'
     });
@@ -159,17 +170,36 @@ export class OfflineDB extends Dexie {
 // Singleton instance
 export const offlineDB = new OfflineDB();
 
-// Initialize database on app load
-offlineDB.open().then(() => {
-  console.log('✅ Offline database initialized');
-  
-  // Log database size
-  offlineDB.getDatabaseSize().then(size => {
+// Initialize database on app load with cleanup check
+import { initDatabaseCleanup } from './db-cleanup';
+
+(async function initOfflineDB() {
+  try {
+    // Check and cleanup if needed
+    await initDatabaseCleanup();
+    
+    // Open database
+    await offlineDB.open();
+    console.log('✅ Offline database initialized');
+    
+    // Log database size
+    const size = await offlineDB.getDatabaseSize();
     console.log(`📊 Offline DB: ${size.total} records (${size.orders} orders, ${size.syncQueue} pending sync)`);
-  });
-}).catch(err => {
-  console.error('❌ Failed to initialize offline database:', err);
-});
+  } catch (err) {
+    console.error('❌ Failed to initialize offline database:', err);
+    console.error('⚠️ Attempting to delete and recreate database...');
+    
+    // If initialization fails, delete the database and try again
+    try {
+      await offlineDB.delete();
+      console.log('🗑️ Old database deleted, creating new one...');
+      await offlineDB.open();
+      console.log('✅ Offline database recreated successfully');
+    } catch (deleteErr) {
+      console.error('❌ Failed to recreate database:', deleteErr);
+    }
+  }
+})();
 
 // Export types for use in other files
 export type { Table };
