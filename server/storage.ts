@@ -905,6 +905,20 @@ export class DatabaseStorage implements IStorage {
       role: 'admin',
     }).returning();
 
+    // Create default subscription with Básico plan
+    const basicPlan = await this.getSubscriptionPlanBySlug('basico');
+    if (basicPlan) {
+      const { nanoid } = await import('nanoid');
+      await db.insert(subscriptions).values({
+        id: nanoid(),
+        restaurantId: restaurant.id,
+        planId: basicPlan.id,
+        status: 'ativa',
+        startDate: new Date(),
+        renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      });
+    }
+
     return { restaurant, adminUser };
   }
 
@@ -8231,10 +8245,26 @@ export class DatabaseStorage implements IStorage {
       return cached;
     }
     
-    const subscriptionData = await this.getSubscriptionByRestaurantId(restaurantId);
+    let subscriptionData = await this.getSubscriptionByRestaurantId(restaurantId);
     
     if (!subscriptionData) {
-      throw new Error("Restaurante não possui subscrição ativa");
+      // Create default subscription for existing restaurants without one
+      const basicPlan = await this.getSubscriptionPlanBySlug('basico');
+      if (basicPlan) {
+        const { nanoid } = await import('nanoid');
+        await db.insert(subscriptions).values({
+          id: nanoid(),
+          restaurantId,
+          planId: basicPlan.id,
+          status: 'ativa',
+          startDate: new Date(),
+          renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        });
+        subscriptionData = await this.getSubscriptionByRestaurantId(restaurantId);
+      }
+      if (!subscriptionData) {
+        throw new Error("Restaurante não possui subscrição ativa");
+      }
     }
 
     const { plan, ...subscription } = subscriptionData;
