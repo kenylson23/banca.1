@@ -8241,11 +8241,12 @@ export class DatabaseStorage implements IStorage {
     const cacheKey = CacheKeys.subscriptionLimits(restaurantId);
     
     const cached = cache.get<any>(cacheKey);
-    if (cached) {
+    if (cached && cached.plan) {
       return cached;
     }
     
     let subscriptionData = await this.getSubscriptionByRestaurantId(restaurantId);
+    let createdNewSubscription = false;
     
     if (!subscriptionData) {
       // Create default subscription for existing restaurants without one
@@ -8260,6 +8261,9 @@ export class DatabaseStorage implements IStorage {
           startDate: new Date(),
           renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         });
+        // Clear cache for this restaurant since we created a new subscription
+        cache.delete(cacheKey);
+        createdNewSubscription = true;
         subscriptionData = await this.getSubscriptionByRestaurantId(restaurantId);
       }
       if (!subscriptionData) {
