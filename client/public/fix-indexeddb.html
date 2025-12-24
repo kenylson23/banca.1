@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corrigir IndexedDB - Na Bancada</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        .status {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        .info { background: #e3f2fd; color: #1565c0; border-left: 4px solid #1565c0; }
+        .success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #2e7d32; }
+        .error { background: #ffebee; color: #c62828; border-left: 4px solid #c62828; }
+        .warning { background: #fff3e0; color: #ef6c00; border-left: 4px solid #ef6c00; }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            font-weight: 600;
+        }
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+        .step-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Corrigir IndexedDB</h1>
+        
+        <div class="status info">
+            <strong>ℹ️ Sobre esta ferramenta</strong><br>
+            Esta página ajuda a corrigir problemas com o banco de dados local (IndexedDB) do sistema Na Bancada.
+        </div>
+
+        <div id="status"></div>
+
+        <div class="step">
+            <div class="step-title">Passo 1: Deletar banco antigo</div>
+            <button onclick="deleteDatabaseNow()">🗑️ Deletar IndexedDB</button>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Passo 2: Voltar ao sistema</div>
+            <button onclick="goToApp()">🏠 Ir para Na Bancada</button>
+        </div>
+
+        <div class="status warning">
+            <strong>⚠️ Atenção:</strong><br>
+            Esta ação vai deletar todos os dados locais não sincronizados. Certifique-se de que está online antes de proceder.
+        </div>
+    </div>
+
+    <script>
+        function addStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = message;
+            statusDiv.appendChild(div);
+        }
+
+        async function deleteDatabaseNow() {
+            addStatus('🔄 Iniciando processo de limpeza...', 'info');
+            
+            try {
+                const dbName = 'nabancada_offline';
+                
+                // Verificar se existe
+                const databases = await indexedDB.databases();
+                const exists = databases.some(db => db.name === dbName);
+                
+                if (!exists) {
+                    addStatus('✅ Database já não existe. Tudo limpo!', 'success');
+                    return;
+                }
+                
+                // Deletar
+                const request = indexedDB.deleteDatabase(dbName);
+                
+                request.onsuccess = () => {
+                    addStatus('✅ Database deletado com sucesso!', 'success');
+                    addStatus('ℹ️ Agora você pode voltar ao sistema. O banco será recriado automaticamente.', 'info');
+                };
+                
+                request.onerror = (e) => {
+                    addStatus('❌ Erro ao deletar: ' + e.target.error, 'error');
+                };
+                
+                request.onblocked = () => {
+                    addStatus('⚠️ Operação bloqueada. Feche todas as abas do Na Bancada e tente novamente.', 'warning');
+                };
+                
+            } catch (error) {
+                addStatus('❌ Erro: ' + error.message, 'error');
+            }
+        }
+
+        function goToApp() {
+            window.location.href = '/';
+        }
+
+        // Auto-check on load
+        window.onload = async () => {
+            try {
+                const databases = await indexedDB.databases();
+                const nabancadaDB = databases.find(db => db.name === 'nabancada_offline');
+                
+                if (nabancadaDB) {
+                    addStatus(`📊 Database encontrado: <code>nabancada_offline</code> (versão ${nabancadaDB.version})`, 'info');
+                } else {
+                    addStatus('ℹ️ Nenhum database encontrado. Tudo limpo!', 'success');
+                }
+            } catch (error) {
+                addStatus('⚠️ Não foi possível verificar databases: ' + error.message, 'warning');
+            }
+        };
+    </script>
+</body>
+</html>

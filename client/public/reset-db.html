@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset IndexedDB - Aplicando...</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 500px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .info { background: #e3f2fd; color: #1565c0; }
+        .success { background: #e8f5e9; color: #2e7d32; }
+        .error { background: #ffebee; color: #c62828; }
+        #log {
+            text-align: left;
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .log-entry {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Aplicando Correção</h1>
+        <div class="spinner" id="spinner"></div>
+        <div id="status" class="status info">Iniciando reset do IndexedDB...</div>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        const logDiv = document.getElementById('log');
+        const statusDiv = document.getElementById('status');
+        const spinner = document.getElementById('spinner');
+
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function setStatus(message, type = 'info') {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        async function applyFix() {
+            log('🔧 Iniciando correção automática...');
+            
+            try {
+                const dbName = 'nabancada_offline';
+                
+                log('📋 Verificando databases existentes...');
+                const databases = await indexedDB.databases();
+                log(`Encontrados: ${databases.map(db => db.name).join(', ') || 'nenhum'}`);
+                
+                const exists = databases.some(db => db.name === dbName);
+                
+                if (exists) {
+                    log('🗑️ Database antigo encontrado, deletando...');
+                    setStatus('Deletando banco de dados antigo...', 'info');
+                    
+                    const deleteRequest = indexedDB.deleteDatabase(dbName);
+                    
+                    deleteRequest.onsuccess = () => {
+                        log('✅ Database deletado com sucesso!');
+                        setStatus('✅ Correção aplicada! Redirecionando...', 'success');
+                        spinner.style.display = 'none';
+                        
+                        log('🔄 Redirecionando para o sistema em 2 segundos...');
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 2000);
+                    };
+                    
+                    deleteRequest.onerror = (e) => {
+                        log('❌ Erro ao deletar: ' + e.target.error);
+                        setStatus('❌ Erro ao aplicar correção', 'error');
+                        spinner.style.display = 'none';
+                    };
+                    
+                    deleteRequest.onblocked = () => {
+                        log('⚠️ Operação bloqueada - outras abas abertas');
+                        setStatus('⚠️ Feche outras abas e recarregue esta página', 'error');
+                        spinner.style.display = 'none';
+                    };
+                    
+                } else {
+                    log('✅ Database não existe, nada a fazer');
+                    setStatus('✅ Banco já está limpo! Redirecionando...', 'success');
+                    spinner.style.display = 'none';
+                    
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1500);
+                }
+                
+            } catch (error) {
+                log('❌ Erro: ' + error.message);
+                setStatus('❌ Erro ao aplicar correção', 'error');
+                spinner.style.display = 'none';
+                console.error(error);
+            }
+        }
+
+        // Aplicar correção automaticamente ao carregar
+        window.onload = () => {
+            applyFix();
+        };
+    </script>
+</body>
+</html>

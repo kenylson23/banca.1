@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, UserPlus, Search, Users, TrendingUp, Star, Phone, Mail, Award, DollarSign, Calendar, Sparkles, UserCheck } from "lucide-react";
+import { useCustomersOffline } from "@/hooks/useCustomersOffline";
+import { Trash2, UserPlus, Search, Users, TrendingUp, Star, Phone, Mail, Award, DollarSign, Calendar, Sparkles, UserCheck, WifiOff, Wifi } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -45,76 +46,23 @@ export default function Customers() {
     address: "",
   });
 
-  const { data: customers = [], isLoading } = useQuery<Customer[]>({
-    queryKey: ['/api/customers'],
+  // Use offline-capable hook
+  const {
+    customers,
+    isLoading,
+    isOnline,
+    createCustomerMutation,
+    updateCustomerMutation,
+    deleteCustomerMutation,
+  } = useCustomersOffline();
+
+  // Keep the stats query as-is (online only)
+  const { data: customersStats } = useQuery<any>({
+    queryKey: ['/api/customers', 'stats'],
   });
 
   const { data: stats } = useQuery<CustomerStats>({
     queryKey: ['/api/customers', 'stats'],
-  });
-
-  const createCustomerMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      return await apiRequest('POST', '/api/customers', data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
-      setIsDialogOpen(false);
-      resetForm();
-      toast({
-        title: "Sucesso",
-        description: "Cliente criado com sucesso",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao criar cliente",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateCustomerMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
-      return await apiRequest('PUT', `/api/customers/${id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
-      setIsDialogOpen(false);
-      resetForm();
-      toast({
-        title: "Sucesso",
-        description: "Cliente atualizado com sucesso",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao atualizar cliente",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const deleteCustomerMutation = useMutation({
-    mutationFn: async (customerId: string) => {
-      return await apiRequest('DELETE', `/api/customers/${customerId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
-      toast({
-        title: "Sucesso",
-        description: "Cliente deletado com sucesso",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao deletar cliente",
-        variant: "destructive",
-      });
-    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -134,6 +82,7 @@ export default function Customers() {
       address: "",
     });
     setEditingCustomer(null);
+    setIsDialogOpen(false);
   };
 
   const openEditDialog = (customer: Customer) => {
@@ -206,9 +155,11 @@ export default function Customers() {
           transition={{ duration: 0.5 }}
         >
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight bg-gradient-to-r from-primary via-green-600 to-emerald-600 bg-clip-text text-transparent truncate" data-testid="text-page-title">
-              Gestão de Clientes
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight bg-gradient-to-r from-primary via-green-600 to-emerald-600 bg-clip-text text-transparent truncate" data-testid="text-page-title">
+                Gestão de Clientes
+              </h1>
+            </div>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1 sm:mt-2 line-clamp-1">
               Análise de clientes e programa de fidelidade
             </p>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Limpeza Forçada</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .box {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #b91c1c;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background: #dcfce7; color: #166534; }
+        .error { background: #fee2e2; color: #991b1b; }
+        .info { background: #dbeafe; color: #1e40af; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>🧹 Limpeza Completa do IndexedDB</h1>
+        <p>Esta ferramenta vai deletar TUDO relacionado ao IndexedDB.</p>
+        
+        <button onclick="cleanEverything()">🗑️ LIMPAR TUDO AGORA</button>
+        
+        <div id="status"></div>
+    </div>
+
+    <script>
+        function addStatus(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = msg;
+            document.getElementById('status').appendChild(div);
+        }
+
+        async function cleanEverything() {
+            addStatus('🔄 Iniciando limpeza completa...', 'info');
+            
+            try {
+                // 1. Deletar IndexedDB
+                addStatus('1/4 Deletando nabancada_offline...', 'info');
+                await new Promise((resolve, reject) => {
+                    const req = indexedDB.deleteDatabase('nabancada_offline');
+                    req.onsuccess = resolve;
+                    req.onerror = reject;
+                    req.onblocked = () => {
+                        addStatus('❌ BLOQUEADO! Feche TODAS as outras abas!', 'error');
+                        reject(new Error('blocked'));
+                    };
+                });
+                addStatus('✅ Database deletado', 'success');
+                
+                // 2. Limpar localStorage
+                addStatus('2/4 Limpando localStorage...', 'info');
+                localStorage.removeItem('lastSuccessfulSync');
+                addStatus('✅ localStorage limpo', 'success');
+                
+                // 3. Limpar sessionStorage
+                addStatus('3/4 Limpando sessionStorage...', 'info');
+                sessionStorage.clear();
+                addStatus('✅ sessionStorage limpo', 'success');
+                
+                // 4. Limpar Service Worker cache
+                addStatus('4/4 Limpando cache...', 'info');
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    await Promise.all(cacheNames.map(name => caches.delete(name)));
+                    addStatus('✅ Cache limpo', 'success');
+                }
+                
+                addStatus('', 'success');
+                addStatus('🎉 LIMPEZA COMPLETA! Redirecionando...', 'success');
+                
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+                
+            } catch (error) {
+                addStatus('❌ Erro: ' + error.message, 'error');
+                if (error.message === 'blocked') {
+                    addStatus('⚠️ FECHE TODAS AS ABAS DO NA BANCADA E TENTE NOVAMENTE!', 'error');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
