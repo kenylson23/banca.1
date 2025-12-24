@@ -312,9 +312,9 @@ export default function Users() {
       case 'admin': return Shield;
       case 'manager': return Crown;
       case 'cashier': return Briefcase;
-      case 'waiter': return Users;
+      case 'waiter': return UsersIcon;
       case 'kitchen': return ChefHat;
-      default: return Users;
+      default: return UsersIcon;
     }
   };
 
@@ -541,7 +541,7 @@ export default function Users() {
           <AdvancedKpiCard
             title="Total"
             value={totalUsers}
-            icon={Users}
+            icon={UsersIcon}
             trend={0}
             iconColor="bg-blue-500/10 text-blue-600"
             className="touch-manipulation"
