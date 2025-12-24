@@ -45,11 +45,28 @@ export function useCustomersOffline() {
       });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Erro',
-        description: error.message || 'Erro ao criar cliente',
-        variant: 'destructive',
-      });
+      console.error('Customer creation error:', error);
+      
+      // Handle specific error codes from backend
+      if (error.code === 'FEATURE_NOT_AVAILABLE') {
+        toast({
+          title: 'Funcionalidade Não Disponível',
+          description: error.message || 'Esta funcionalidade não está disponível no seu plano atual.',
+          variant: 'destructive',
+        });
+      } else if (error.code === 'LIMIT_REACHED') {
+        toast({
+          title: 'Limite Atingido',
+          description: error.message || 'Você atingiu o limite de clientes do seu plano.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Erro',
+          description: error.message || 'Erro ao criar cliente',
+          variant: 'destructive',
+        });
+      }
     },
   });
 

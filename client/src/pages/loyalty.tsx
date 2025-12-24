@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Award, TrendingUp, Gift, Medal, Sparkles, Target, Users, Crown } from "lucide-react";
+import { Settings, Award, TrendingUp, Gift, Medal, Sparkles, Target, Users, Crown, Lock, ArrowUpCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatKwanza } from "@/lib/formatters";
 import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
@@ -21,6 +21,12 @@ type LoyaltyTransactionWithCustomer = LoyaltyTransaction & { customer: Customer 
 
 export default function Loyalty() {
   const { toast } = useToast();
+
+  // Check subscription to see if loyalty program is available
+  const { data: subscription } = useQuery<any>({
+    queryKey: ['/api/subscription'],
+    retry: false,
+  });
   const [formData, setFormData] = useState<{
     isActive: number;
     pointsPerCurrency: string;
@@ -141,6 +147,98 @@ export default function Loyalty() {
         points: customer.loyaltyPoints,
       }));
   }, [transactions]);
+
+  // Check if loyalty program feature is available in the plan
+  const hasLoyaltyProgram = useMemo(() => {
+    if (!subscription?.plan) return false;
+    // Check both the flag and the features array
+    if (subscription.plan.hasLoyaltyProgram === 1) return true;
+    const features = Array.isArray(subscription.plan.features) 
+      ? subscription.plan.features 
+      : JSON.parse(subscription.plan.features || '[]');
+    return features.includes('fidelidade');
+  }, [subscription]);
+
+  // Show feature locked message if loyalty program is not available in the plan
+  if (subscription && !hasLoyaltyProgram) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 pb-safe">
+        <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 lg:p-8 pb-20 sm:pb-8">
+          <motion.div
+            className="flex flex-col items-center justify-center min-h-[60vh] gap-6"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="flex items-center justify-center w-20 h-20 rounded-full bg-purple-500/10">
+              <Lock className="h-10 w-10 text-purple-500" />
+            </div>
+            <div className="text-center space-y-2 max-w-md">
+              <h2 className="text-2xl font-bold">Funcionalidade Bloqueada</h2>
+              <p className="text-muted-foreground">
+                O programa de fidelidade não está disponível no plano <span className="font-semibold">{subscription.plan?.name}</span>.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Faça upgrade para o plano <span className="font-semibold text-primary">Profissional</span> ou superior para criar programas de pontos e recompensar seus clientes fiéis.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 mt-4">
+              <Button
+                size="lg"
+                onClick={() => window.location.href = '/subscription'}
+                className="gap-2"
+              >
+                <ArrowUpCircle className="h-5 w-5" />
+                Fazer Upgrade
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => window.history.back()}
+              >
+                Voltar
+              </Button>
+            </div>
+            <Card className="mt-8 max-w-2xl">
+              <CardHeader>
+                <CardTitle className="text-lg">O que você ganha com o upgrade:</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <Award className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Programa de Pontos Personalizável</p>
+                    <p className="text-sm text-muted-foreground">Configure quantos pontos o cliente ganha por cada compra</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Gift className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Sistema de Recompensas</p>
+                    <p className="text-sm text-muted-foreground">Clientes podem trocar pontos por descontos e prêmios</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Crown className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Níveis de Fidelidade (Bronze, Prata, Ouro)</p>
+                    <p className="text-sm text-muted-foreground">Clientes sobem de nível conforme acumulam pontos</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <TrendingUp className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Relatórios de Engajamento</p>
+                    <p className="text-sm text-muted-foreground">Veja quem são seus clientes mais fiéis e ativos</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 pb-safe">

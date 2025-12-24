@@ -14,7 +14,7 @@ import { AlertCircle, CreditCard, Clock } from 'lucide-react';
 
 interface SubscriptionError {
   message: string;
-  code: 'NO_SUBSCRIPTION' | 'SUBSCRIPTION_INACTIVE' | 'SUBSCRIPTION_EXPIRED' | 'SUBSCRIPTION_CANCELLED';
+  code: 'NO_SUBSCRIPTION' | 'SUBSCRIPTION_INACTIVE' | 'SUBSCRIPTION_EXPIRED' | 'SUBSCRIPTION_CANCELLED' | 'PLAN_DATA_MISSING';
   status?: string;
   planName?: string;
   expiredAt?: string;
@@ -79,7 +79,7 @@ export function SubscriptionExpiredAlert() {
     }
   };
 
-  const showContactSupport = error.code === 'NO_SUBSCRIPTION' || error.status === 'suspensa';
+  const showContactSupport = error.code === 'NO_SUBSCRIPTION' || error.code === 'PLAN_DATA_MISSING' || error.status === 'suspensa';
 
   return (
     <AlertDialog open={!!error} onOpenChange={(open) => !open && handleClose()}>

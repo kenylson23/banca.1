@@ -30,7 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Plus, Edit2, Trash2, Package, TrendingDown, TrendingUp, AlertTriangle, Box, Archive, Warehouse } from "lucide-react";
+import { ArrowLeft, Plus, Edit2, Trash2, Package, TrendingDown, TrendingUp, AlertTriangle, Box, Archive, Warehouse, Lock, ArrowUpCircle } from "lucide-react";
 import { TubelightNavBar } from "@/components/ui/tubelight-navbar";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
@@ -78,6 +78,12 @@ export default function InventoryPage() {
   
   const [newItemDialog, setNewItemDialog] = useState(false);
   const [editItemDialog, setEditItemDialog] = useState(false);
+
+  // Check subscription to see if inventory module is available
+  const { data: subscription } = useQuery<any>({
+    queryKey: ['/api/subscription'],
+    retry: false,
+  });
   const [deleteItemDialog, setDeleteItemDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItemWithDetails | null>(null);
 
@@ -500,6 +506,98 @@ export default function InventoryPage() {
         return <Badge>{type}</Badge>;
     }
   };
+
+  // Check if inventory module feature is available in the plan
+  const hasInventoryModule = useMemo(() => {
+    if (!subscription?.plan) return false;
+    // Check both the flag and the features array
+    if (subscription.plan.hasInventoryModule === 1) return true;
+    const features = Array.isArray(subscription.plan.features) 
+      ? subscription.plan.features 
+      : JSON.parse(subscription.plan.features || '[]');
+    return features.includes('inventario');
+  }, [subscription]);
+
+  // Show feature locked message if inventory module is not available in the plan
+  if (subscription && !hasInventoryModule) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 pb-safe">
+        <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 lg:p-8 pb-20 sm:pb-8">
+          <motion.div
+            className="flex flex-col items-center justify-center min-h-[60vh] gap-6"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="flex items-center justify-center w-20 h-20 rounded-full bg-blue-500/10">
+              <Lock className="h-10 w-10 text-blue-500" />
+            </div>
+            <div className="text-center space-y-2 max-w-md">
+              <h2 className="text-2xl font-bold">Funcionalidade Bloqueada</h2>
+              <p className="text-muted-foreground">
+                O módulo de inventário não está disponível no plano <span className="font-semibold">{subscription.plan?.name}</span>.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Faça upgrade para o plano <span className="font-semibold text-primary">Empresarial</span> ou superior para gerenciar estoque, controlar custos e evitar desperdícios.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 mt-4">
+              <Button
+                size="lg"
+                onClick={() => window.location.href = '/subscription'}
+                className="gap-2"
+              >
+                <ArrowUpCircle className="h-5 w-5" />
+                Fazer Upgrade
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => window.history.back()}
+              >
+                Voltar
+              </Button>
+            </div>
+            <Card className="mt-8 max-w-2xl">
+              <CardHeader>
+                <CardTitle className="text-lg">O que você ganha com o upgrade:</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <Package className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Controle Completo de Estoque</p>
+                    <p className="text-sm text-muted-foreground">Gerencie produtos, quantidades e custos em tempo real</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Alertas de Estoque Baixo</p>
+                    <p className="text-sm text-muted-foreground">Receba notificações quando produtos estiverem acabando</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Warehouse className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Transferências Entre Filiais</p>
+                    <p className="text-sm text-muted-foreground">Movimente estoque entre suas unidades facilmente</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <TrendingUp className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Relatórios de Custos e Perdas</p>
+                    <p className="text-sm text-muted-foreground">Analise desperdícios e otimize compras</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">

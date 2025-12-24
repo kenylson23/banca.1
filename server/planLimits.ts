@@ -15,7 +15,7 @@ export class PlanLimitError extends Error {
 export class PlanFeatureError extends Error {
   constructor(
     message: string,
-    public readonly featureName: 'loyalty' | 'coupons' | 'expenses' | 'inventory' | 'stockTransfers'
+    public readonly featureName: 'loyalty' | 'coupons' | 'expenses' | 'inventory' | 'stockTransfers' | 'customers'
   ) {
     super(message);
     this.name = 'PlanFeatureError';
@@ -90,9 +90,22 @@ export async function checkCanCreateOrder(storage: IStorage, restaurantId: strin
 export async function checkCanAddCustomer(storage: IStorage, restaurantId: string): Promise<void> {
   const limits = await storage.checkSubscriptionLimits(restaurantId);
   
+  // First check if the plan has customer management feature
+  const planFeatures = Array.isArray(limits.plan.features) 
+    ? limits.plan.features 
+    : (typeof limits.plan.features === 'string' ? JSON.parse(limits.plan.features) : []);
+  
+  if (!planFeatures.includes('gestao_clientes')) {
+    throw new PlanFeatureError(
+      `A gestão de clientes não está disponível no plano ${limits.plan.name}. Faça upgrade para o plano Profissional ou superior para gerenciar clientes, programas de fidelidade e histórico de compras.`,
+      'customers' as any
+    );
+  }
+  
+  // Then check the customer limit
   if (!limits.canAddCustomer) {
     throw new PlanLimitError(
-      `Limite de clientes atingido. O plano ${limits.plan.name} permite até ${limits.plan.maxCustomers} clientes e você já possui ${limits.usage.customers}.`,
+      `Limite de clientes atingido. O plano ${limits.plan.name} permite até ${limits.plan.maxCustomers} clientes e você já possui ${limits.usage.customers}. Faça upgrade para aumentar este limite.`,
       'customers',
       limits.usage.customers,
       limits.plan.maxCustomers

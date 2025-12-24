@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Tag, TrendingUp, Percent, Trash2, Calendar, ShoppingBag, TicketPercent, Clock, DollarSign, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Plus, Search, Tag, TrendingUp, Percent, Trash2, Calendar, ShoppingBag, TicketPercent, Clock, DollarSign, AlertCircle, CheckCircle2, Lock, ArrowUpCircle, Gift } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +53,12 @@ export default function Coupons() {
     validFrom: new Date().toISOString().split('T')[0],
     validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     isActive: 1,
+  });
+
+  // Check subscription to see if coupon system is available
+  const { data: subscription } = useQuery<any>({
+    queryKey: ['/api/subscription'],
+    retry: false,
   });
 
   const { data: coupons = [], isLoading } = useQuery<Coupon[]>({
@@ -230,6 +236,98 @@ export default function Coupons() {
   const couponSparkline = useMemo(() => {
     return Array.from({ length: 7 }, () => Math.floor(Math.random() * 20) + 5);
   }, []);
+
+  // Check if coupon system feature is available in the plan
+  const hasCouponSystem = useMemo(() => {
+    if (!subscription?.plan) return false;
+    // Check both the flag and the features array
+    if (subscription.plan.hasCouponSystem === 1) return true;
+    const features = Array.isArray(subscription.plan.features) 
+      ? subscription.plan.features 
+      : JSON.parse(subscription.plan.features || '[]');
+    return features.includes('cupons');
+  }, [subscription]);
+
+  // Show feature locked message if coupon system is not available in the plan
+  if (subscription && !hasCouponSystem) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 pb-safe">
+        <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 lg:p-8 pb-20 sm:pb-8">
+          <motion.div
+            className="flex flex-col items-center justify-center min-h-[60vh] gap-6"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="flex items-center justify-center w-20 h-20 rounded-full bg-orange-500/10">
+              <Lock className="h-10 w-10 text-orange-500" />
+            </div>
+            <div className="text-center space-y-2 max-w-md">
+              <h2 className="text-2xl font-bold">Funcionalidade Bloqueada</h2>
+              <p className="text-muted-foreground">
+                O sistema de cupons não está disponível no plano <span className="font-semibold">{subscription.plan?.name}</span>.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Faça upgrade para o plano <span className="font-semibold text-primary">Profissional</span> ou superior para criar cupons de desconto e atrair mais clientes.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 mt-4">
+              <Button
+                size="lg"
+                onClick={() => window.location.href = '/subscription'}
+                className="gap-2"
+              >
+                <ArrowUpCircle className="h-5 w-5" />
+                Fazer Upgrade
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => window.history.back()}
+              >
+                Voltar
+              </Button>
+            </div>
+            <Card className="mt-8 max-w-2xl">
+              <CardHeader>
+                <CardTitle className="text-lg">O que você ganha com o upgrade:</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <TicketPercent className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Cupons Personalizados</p>
+                    <p className="text-sm text-muted-foreground">Crie códigos promocionais com descontos percentuais ou fixos</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Gift className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Campanhas Promocionais</p>
+                    <p className="text-sm text-muted-foreground">Lance promoções sazonais e atraia novos clientes</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Calendar className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Controle de Validade e Limites</p>
+                    <p className="text-sm text-muted-foreground">Defina período de validade e número máximo de usos</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <TrendingUp className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Relatórios de Performance</p>
+                    <p className="text-sm text-muted-foreground">Veja quais cupons geram mais vendas e descontos</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 pb-safe">

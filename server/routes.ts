@@ -394,6 +394,8 @@ async function checkSubscriptionStatus(req: any, res: any, next: any) {
     const { cache, CacheKeys, CacheTTL, getOrSet } = await import('./cache.js');
     const cacheKey = CacheKeys.subscription(user.restaurantId);
     
+    console.log('🔒 checkSubscriptionStatus - RestaurantId:', user.restaurantId);
+    
     // Try to get from cache first (1 minute TTL)
     const subscription = await getOrSet(
       cacheKey,
@@ -401,11 +403,28 @@ async function checkSubscriptionStatus(req: any, res: any, next: any) {
       () => storage.getSubscriptionByRestaurantId(user.restaurantId)
     );
     
+    console.log('🔒 checkSubscriptionStatus - Subscription:', subscription ? { 
+      id: subscription.id, 
+      status: subscription.status, 
+      planId: subscription.planId,
+      planName: subscription.plan?.name 
+    } : 'NOT FOUND');
+    
     // If no subscription exists, block access
     if (!subscription) {
+      console.log('❌ checkSubscriptionStatus - NO_SUBSCRIPTION');
       return res.status(402).json({ 
         message: "Subscrição não encontrada. Entre em contato com o suporte.",
         code: 'NO_SUBSCRIPTION'
+      });
+    }
+
+    // If subscription.plan is missing, there's a data integrity issue
+    if (!subscription.plan) {
+      console.error('❌ checkSubscriptionStatus - MISSING PLAN DATA for subscription:', subscription.id);
+      return res.status(402).json({ 
+        message: "Erro na configuração do plano. Entre em contato com o suporte.",
+        code: 'PLAN_DATA_MISSING'
       });
     }
 
@@ -420,7 +439,7 @@ async function checkSubscriptionStatus(req: any, res: any, next: any) {
           : "Sua subscrição está suspensa. Entre em contato com o suporte.",
         code: 'SUBSCRIPTION_INACTIVE',
         status: subscription.status,
-        planName: subscription.plan.name
+        planName: subscription.plan?.name || 'Desconhecido'
       });
     }
 
@@ -436,7 +455,7 @@ async function checkSubscriptionStatus(req: any, res: any, next: any) {
         message: "Sua subscrição expirou. Renove para continuar usando o sistema.",
         code: 'SUBSCRIPTION_EXPIRED',
         expiredAt: periodEnd.toISOString(),
-        planName: subscription.plan.name
+        planName: subscription.plan?.name || 'Desconhecido'
       });
     }
 
@@ -1079,6 +1098,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(userWithoutPassword);
     } catch (error) {
       res.status(500).json({ message: "Erro ao atualizar filial ativa" });
+    }
+  });
+
+  // PUBLIC DEBUG ROUTE: Check and fix missing subscriptions (temporary - remove after fix)
+  app.post('/api/debug/fix-subscriptions', async (req, res) => {
+    try {
+      console.log('🔧 Starting subscription fix...');
+      
+      // Get all restaurants
+      const allRestaurants = await storage.getRestaurants();
+      console.log(`📊 Total restaurants: ${allRestaurants.length}`);
+      
+      let fixed = 0;
+      const fixedRestaurants = [];
+      
+      // Get Base plan (Básico)
+      const basePlan = await storage.getSubscriptionPlanBySlug('basico');
+      
+      if (!basePlan) {
+        console.error('❌ Base plan not found!');
+        return res.status(500).json({ message: "Base plan not found. Please seed subscription plans first." });
+      }
+      
+      console.log(`📦 Using plan: ${basePlan.name} (ID: ${basePlan.id})`);
+      
+      // Check each restaurant
+      for (const restaurant of allRestaurants) {
+        const subscription = await storage.getSubscriptionByRestaurantId(restaurant.id);
+        
+        if (!subscription) {
+          console.log(`  ❌ ${restaurant.name} - NO SUBSCRIPTION, creating...`);
+          
+          const now = new Date();
+          const trialEnd = new Date(now);
+          trialEnd.setDate(trialEnd.getDate() + 30);
+          
+          await storage.createSubscription({
+            restaurantId: restaurant.id,
+            planId: basePlan.id,
+            status: 'trial',
+            currentPeriodStart: now,
+            currentPeriodEnd: trialEnd,
+          });
+          
+          fixed++;
+          fixedRestaurants.push({
+            id: restaurant.id,
+            name: restaurant.name,
+            email: restaurant.email
+          });
+        } else {
+          console.log(`  ✅ ${restaurant.name} - Has subscription (${subscription.status})`);
+        }
+      }
+      
+      console.log(`✅ Fixed ${fixed} restaurants!`);
+      
+      res.json({ 
+        message: fixed === 0 ? "All restaurants have subscriptions" : `Fixed ${fixed} restaurants`,
+        fixed,
+        restaurants: fixedRestaurants
+      });
+    } catch (error) {
+      console.error('❌ Error fixing subscriptions:', error);
+      res.status(500).json({ message: "Error fixing subscriptions", error: String(error) });
     }
   });
 
@@ -1898,9 +1982,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== USER MANAGEMENT ROUTES (Admin Only) =====
-  app.get("/api/users", isAdmin, checkSubscriptionStatus, async (req, res) => {
+  app.get("/api/users", async (req, res) => {
+    console.log('\n🔍 ===== GET /api/users REQUEST =====');
+    console.log('📌 Headers:', req.headers.cookie ? 'Has cookie' : 'No cookie');
+    console.log('📌 Session:', req.session ? 'Has session' : 'No session');
+    console.log('📌 User:', req.user ? JSON.stringify(req.user) : 'Not authenticated');
+    
+    // Manual isAdmin check with detailed logging
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
+      console.log('❌ Not authenticated');
+      return res.status(401).json({ message: "Não autenticado" });
+    }
+    
+    const currentUser = req.user as User;
+    console.log('👤 User:', { id: currentUser.id, email: currentUser.email, role: currentUser.role, restaurantId: currentUser.restaurantId });
+    
+    // Check if user is admin/manager
+    if (!['admin', 'superadmin', 'manager'].includes(currentUser.role)) {
+      console.log(`❌ Access denied - role is ${currentUser.role}`);
+      return res.status(403).json({ 
+        message: "Acesso negado. Apenas administradores e gerentes podem acessar esta funcionalidade.",
+        currentRole: currentUser.role,
+        requiredRoles: ['admin', 'superadmin', 'manager']
+      });
+    }
+    
+    console.log('✅ Role check passed');
+    
+    // Check restaurant association
+    if (currentUser.role !== 'superadmin' && !currentUser.restaurantId) {
+      console.log('❌ User has no restaurantId');
+      return res.status(403).json({ message: "Usuário não associado a nenhum restaurante" });
+    }
+    
+    console.log('✅ Restaurant check passed');
+    
+    // Check subscription if not superadmin
+    if (currentUser.role !== 'superadmin') {
+      console.log('🔒 Checking subscription...');
+      try {
+        const { cache, CacheKeys, CacheTTL, getOrSet } = await import('./cache.js');
+        const cacheKey = CacheKeys.subscription(currentUser.restaurantId);
+        
+        const subscription = await getOrSet(
+          cacheKey,
+          CacheTTL.subscription,
+          () => storage.getSubscriptionByRestaurantId(currentUser.restaurantId)
+        );
+        
+        console.log('🔒 Subscription:', subscription ? { 
+          id: subscription.id, 
+          status: subscription.status, 
+          planId: subscription.planId,
+          planName: subscription.plan?.name 
+        } : 'NOT FOUND');
+        
+        if (!subscription) {
+          console.log('❌ No subscription found');
+          return res.status(402).json({ 
+            message: "Subscrição não encontrada. Entre em contato com o suporte.",
+            code: 'NO_SUBSCRIPTION'
+          });
+        }
+        
+        if (!subscription.plan) {
+          console.log('❌ Subscription plan data missing');
+          return res.status(402).json({ 
+            message: "Erro na configuração do plano. Entre em contato com o suporte.",
+            code: 'PLAN_DATA_MISSING'
+          });
+        }
+        
+        console.log('✅ Subscription check passed');
+      } catch (error) {
+        console.error('❌ Error checking subscription:', error);
+        return res.status(500).json({ message: "Erro ao verificar subscrição" });
+      }
+    }
+    
     try {
-      const currentUser = req.user as User;
       const restaurantId = currentUser.role === 'superadmin' ? null : currentUser.restaurantId || null;
       
       // Parse pagination and filter parameters
@@ -1909,7 +2069,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const search = req.query.search as string | undefined;
       const role = req.query.role as string | undefined;
       
+      console.log('🔍 Query params:', { page, limit, search, role });
+      console.log('🔍 Fetching users for restaurantId:', restaurantId);
+      
       const result = await storage.getUsersPaginated(restaurantId, { page, limit, search, role });
+      
+      console.log('✅ Users fetched:', { total: result.total, usersCount: result.users.length });
       
       const usersWithoutPassword = result.users.map(user => ({
         id: user.id,
@@ -1922,6 +2087,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: user.updatedAt,
       }));
       
+      console.log('✅ Sending response');
+      console.log('===== END GET /api/users =====\n');
+      
       res.json({
         users: usersWithoutPassword,
         pagination: {
@@ -1932,7 +2100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error('❌ Error fetching users:', error);
       res.status(500).json({ message: "Erro ao buscar usuários" });
     }
   });
@@ -7721,9 +7889,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
-      console.log('🔍 Checking plan limits...');
-      await checkCanAddCustomer(storage, currentUser.restaurantId);
-      console.log('✅ Plan limits OK');
+      // Check plan limits and features
+      console.log('🔍 Checking plan limits and features...');
+      try {
+        await checkCanAddCustomer(storage, currentUser.restaurantId);
+        console.log('✅ Plan limits OK');
+      } catch (limitError: any) {
+        if (limitError.name === 'PlanFeatureError') {
+          console.log('⚠️ Feature not available in current plan');
+          return res.status(403).json({ 
+            message: limitError.message,
+            code: 'FEATURE_NOT_AVAILABLE',
+            featureName: 'gestao_clientes',
+            upgradeRequired: true
+          });
+        }
+        if (limitError.name === 'PlanLimitError') {
+          console.log('⚠️ Customer limit reached');
+          return res.status(403).json({ 
+            message: limitError.message,
+            code: 'LIMIT_REACHED',
+            current: limitError.current,
+            max: limitError.max,
+            upgradeRequired: true
+          });
+        }
+        throw limitError;
+      }
 
       console.log('📋 Validating customer data:', req.body);
       const validatedData = insertCustomerSchema.parse(req.body);

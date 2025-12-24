@@ -8,6 +8,55 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
+// load-env.js
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+var __dirname;
+var init_load_env = __esm({
+  "load-env.js"() {
+    "use strict";
+    __dirname = path.dirname(fileURLToPath(import.meta.url));
+    try {
+      const envFilePath = path.join(__dirname, ".env");
+      if (fs.existsSync(envFilePath)) {
+        const envContent = fs.readFileSync(envFilePath, "utf8");
+        envContent.split("\n").forEach((line) => {
+          line = line.trim();
+          if (line && !line.startsWith("#")) {
+            const [key, ...valueParts] = line.split("=");
+            if (key && valueParts.length > 0) {
+              const value = valueParts.join("=").trim();
+              if (!process.env[key]) {
+                process.env[key] = value;
+              }
+            }
+          }
+        });
+        console.log("\u2713 Loaded .env file");
+      }
+    } catch (error) {
+      console.warn("Could not load .env file:", error.message);
+    }
+    try {
+      const envFile = path.join(__dirname, ".cache/replit/env/latest.json");
+      if (fs.existsSync(envFile)) {
+        const data = JSON.parse(fs.readFileSync(envFile, "utf8"));
+        const env = data.environment || {};
+        const dbVars = ["DATABASE_URL", "PGHOST", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGPORT"];
+        dbVars.forEach((key) => {
+          if (env[key] && !process.env[key]) {
+            process.env[key] = env[key];
+          }
+        });
+        console.log("\u2713 Loaded Replit environment cache");
+      }
+    } catch (error) {
+      console.warn("Could not load Replit environment cache:", error.message);
+    }
+  }
+});
+
 // shared/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
@@ -993,12 +1042,13 @@ var init_schema = __esm({
       visitCount: true,
       lastVisit: true,
       createdAt: true,
-      updatedAt: true
+      updatedAt: true,
+      cpf: true
+      // CPF field removed from customer creation
     }).extend({
       name: z.string().min(1, "Nome \xE9 obrigat\xF3rio"),
       phone: z.string().optional(),
       email: z.string().email("Email inv\xE1lido").optional().or(z.literal("")),
-      cpf: z.string().optional(),
       birthDate: z.string().optional(),
       branchId: z.string().optional().nullable(),
       address: z.string().optional(),
@@ -1009,7 +1059,6 @@ var init_schema = __esm({
       name: z.string().min(1, "Nome \xE9 obrigat\xF3rio").optional(),
       phone: z.string().optional(),
       email: z.string().email("Email inv\xE1lido").optional().or(z.literal("")),
-      cpf: z.string().optional(),
       birthDate: z.string().optional(),
       address: z.string().optional(),
       notes: z.string().optional(),
@@ -4359,7 +4408,16 @@ async function ensureTablesExist() {
             maxMenuItems: 50,
             maxOrdersPerMonth: 500,
             maxUsers: 2,
+            maxCustomers: 50,
             historyRetentionDays: 30,
+            hasLoyaltyProgram: 0,
+            maxActiveCoupons: 0,
+            hasCouponSystem: 0,
+            hasExpenseTracking: 0,
+            maxExpenseCategories: 0,
+            hasInventoryModule: 0,
+            maxInventoryItems: 0,
+            hasStockTransfers: 0,
             features: JSON.stringify([
               "pdv",
               "gestao_mesas",
@@ -4387,7 +4445,16 @@ async function ensureTablesExist() {
             maxMenuItems: 150,
             maxOrdersPerMonth: 2e3,
             maxUsers: 5,
+            maxCustomers: 200,
             historyRetentionDays: 90,
+            hasLoyaltyProgram: 1,
+            maxActiveCoupons: 50,
+            hasCouponSystem: 1,
+            hasExpenseTracking: 1,
+            maxExpenseCategories: 50,
+            hasInventoryModule: 0,
+            maxInventoryItems: 0,
+            hasStockTransfers: 0,
             features: JSON.stringify([
               "pdv",
               "gestao_mesas",
@@ -4423,7 +4490,16 @@ async function ensureTablesExist() {
             maxMenuItems: 999999,
             maxOrdersPerMonth: 1e4,
             maxUsers: 15,
+            maxCustomers: 1e3,
             historyRetentionDays: 365,
+            hasLoyaltyProgram: 1,
+            maxActiveCoupons: 200,
+            hasCouponSystem: 1,
+            hasExpenseTracking: 1,
+            maxExpenseCategories: 200,
+            hasInventoryModule: 1,
+            maxInventoryItems: 5e3,
+            hasStockTransfers: 1,
             features: JSON.stringify([
               "pdv",
               "gestao_mesas",
@@ -4465,7 +4541,16 @@ async function ensureTablesExist() {
             maxMenuItems: 999999,
             maxOrdersPerMonth: 999999,
             maxUsers: 999999,
+            maxCustomers: 999999,
             historyRetentionDays: 999999,
+            hasLoyaltyProgram: 1,
+            maxActiveCoupons: 999999,
+            hasCouponSystem: 1,
+            hasExpenseTracking: 1,
+            maxExpenseCategories: 999999,
+            hasInventoryModule: 1,
+            maxInventoryItems: 999999,
+            hasStockTransfers: 1,
             features: JSON.stringify([
               "tudo_ilimitado",
               "servidor_dedicado",
@@ -4487,14 +4572,20 @@ async function ensureTablesExist() {
               price_monthly_kz, price_annual_kz,
               price_monthly_usd, price_annual_usd,
               trial_days, max_branches, max_tables, max_menu_items,
-              max_orders_per_month, max_users, history_retention_days,
+              max_orders_per_month, max_users, max_customers, history_retention_days,
+              has_loyalty_program, max_active_coupons, has_coupon_system,
+              has_expense_tracking, max_expense_categories,
+              has_inventory_module, max_inventory_items, has_stock_transfers,
               features, is_active, display_order
             ) VALUES (
               ${plan.name}, ${plan.slug}, ${plan.description},
               ${plan.priceMonthlyKz}, ${plan.priceAnnualKz},
               ${plan.priceMonthlyUsd}, ${plan.priceAnnualUsd},
               ${plan.trialDays}, ${plan.maxBranches}, ${plan.maxTables}, ${plan.maxMenuItems},
-              ${plan.maxOrdersPerMonth}, ${plan.maxUsers}, ${plan.historyRetentionDays},
+              ${plan.maxOrdersPerMonth}, ${plan.maxUsers}, ${plan.maxCustomers}, ${plan.historyRetentionDays},
+              ${plan.hasLoyaltyProgram}, ${plan.maxActiveCoupons}, ${plan.hasCouponSystem},
+              ${plan.hasExpenseTracking}, ${plan.maxExpenseCategories},
+              ${plan.hasInventoryModule}, ${plan.maxInventoryItems}, ${plan.hasStockTransfers},
               ${plan.features}::jsonb, ${plan.isActive}, ${plan.displayOrder}
             )
           `);
@@ -4540,11 +4631,289 @@ var init_initDb = __esm({
   }
 });
 
+// server/cache.ts
+var cache_exports = {};
+__export(cache_exports, {
+  CacheKeys: () => CacheKeys,
+  CacheTTL: () => CacheTTL,
+  cache: () => cache,
+  getOrSet: () => getOrSet
+});
+async function getRedisClient() {
+  if (redisClient !== null) {
+    return redisClient;
+  }
+  const redisUrl = process.env.REDIS_URL;
+  if (!redisUrl) {
+    return null;
+  }
+  try {
+    const { default: IORedis } = await import("ioredis");
+    redisClient = new IORedis(redisUrl, {
+      maxRetriesPerRequest: 3,
+      retryStrategy(times) {
+        const delay = Math.min(times * 50, 2e3);
+        return delay;
+      },
+      reconnectOnError(err) {
+        const targetError = "READONLY";
+        if (err.message.includes(targetError)) {
+          return true;
+        }
+        return false;
+      }
+    });
+    redisClient.on("error", (err) => {
+      console.error("\u274C Redis connection error:", err.message);
+    });
+    redisClient.on("connect", () => {
+      console.log("\u2705 Redis connected successfully");
+    });
+    return redisClient;
+  } catch (error) {
+    console.error("\u274C Failed to initialize Redis:", error);
+    return null;
+  }
+}
+async function getOrSet(key, ttl, fetchFn) {
+  const cached = await cache.get(key);
+  if (cached !== null) {
+    return cached;
+  }
+  const data = await fetchFn();
+  await cache.set(key, data, ttl);
+  return data;
+}
+var redisClient, SimpleCache, cache, CacheKeys, CacheTTL;
+var init_cache = __esm({
+  "server/cache.ts"() {
+    "use strict";
+    redisClient = null;
+    SimpleCache = class {
+      cache;
+      cleanupInterval;
+      useRedis = false;
+      constructor() {
+        this.cache = /* @__PURE__ */ new Map();
+        getRedisClient().then((client) => {
+          if (client) {
+            this.useRedis = true;
+            console.log("\u{1F680} Cache: Using Redis (distributed)");
+          } else {
+            console.log("\u{1F4BE} Cache: Using in-memory (single instance only)");
+          }
+        });
+        this.cleanupInterval = setInterval(() => {
+          if (!this.useRedis) {
+            this.cleanup();
+          }
+        }, 5 * 60 * 1e3);
+      }
+      /**
+       * Get value from cache (async for Redis support)
+       */
+      async get(key) {
+        const redis = await getRedisClient();
+        if (redis && this.useRedis) {
+          try {
+            const value = await redis.get(key);
+            if (!value) return null;
+            return JSON.parse(value);
+          } catch (error) {
+            console.error("\u274C Redis get error:", error);
+          }
+        }
+        const entry = this.cache.get(key);
+        if (!entry) {
+          return null;
+        }
+        if (Date.now() - entry.timestamp > entry.ttl) {
+          this.cache.delete(key);
+          return null;
+        }
+        return entry.data;
+      }
+      /**
+       * Set value in cache with TTL (async for Redis support)
+       */
+      async set(key, data, ttl = 6e4) {
+        const redis = await getRedisClient();
+        if (redis && this.useRedis) {
+          try {
+            const ttlSeconds = Math.ceil(ttl / 1e3);
+            await redis.setex(key, ttlSeconds, JSON.stringify(data));
+            return;
+          } catch (error) {
+            console.error("\u274C Redis set error:", error);
+          }
+        }
+        this.cache.set(key, {
+          data,
+          timestamp: Date.now(),
+          ttl
+        });
+      }
+      /**
+       * Delete specific key (async for Redis support)
+       */
+      async delete(key) {
+        const redis = await getRedisClient();
+        if (redis && this.useRedis) {
+          try {
+            await redis.del(key);
+            return;
+          } catch (error) {
+            console.error("\u274C Redis delete error:", error);
+          }
+        }
+        this.cache.delete(key);
+      }
+      /**
+       * Delete all keys matching a pattern (async for Redis support)
+       */
+      async deletePattern(pattern) {
+        const redis = await getRedisClient();
+        if (redis && this.useRedis) {
+          try {
+            const keys = await redis.keys(pattern);
+            if (keys.length > 0) {
+              await redis.del(...keys);
+            }
+            return;
+          } catch (error) {
+            console.error("\u274C Redis deletePattern error:", error);
+          }
+        }
+        const regex = new RegExp(pattern);
+        for (const key of this.cache.keys()) {
+          if (regex.test(key)) {
+            this.cache.delete(key);
+          }
+        }
+      }
+      /**
+       * Clear all cache (async for Redis support)
+       */
+      async clear() {
+        const redis = await getRedisClient();
+        if (redis && this.useRedis) {
+          try {
+            await redis.flushdb();
+            return;
+          } catch (error) {
+            console.error("\u274C Redis clear error:", error);
+          }
+        }
+        this.cache.clear();
+      }
+      /**
+       * Get cache size
+       */
+      size() {
+        return this.cache.size;
+      }
+      /**
+       * Cleanup expired entries
+       */
+      cleanup() {
+        const now = Date.now();
+        let cleaned = 0;
+        for (const [key, entry] of this.cache.entries()) {
+          if (now - entry.timestamp > entry.ttl) {
+            this.cache.delete(key);
+            cleaned++;
+          }
+        }
+        if (cleaned > 0) {
+          console.log(`\u{1F9F9} Cache cleanup: removed ${cleaned} expired entries`);
+        }
+      }
+      /**
+       * Stop cleanup interval (for graceful shutdown)
+       */
+      destroy() {
+        if (this.cleanupInterval) {
+          clearInterval(this.cleanupInterval);
+          this.cleanupInterval = null;
+        }
+        this.clear();
+      }
+      /**
+       * Get cache statistics (async for Redis support)
+       */
+      async getStats() {
+        const redis = await getRedisClient();
+        if (redis && this.useRedis) {
+          try {
+            const info = await redis.info("stats");
+            const dbsize = await redis.dbsize();
+            return {
+              total: dbsize,
+              valid: dbsize,
+              // Redis auto-expires, so all keys are valid
+              expired: 0
+            };
+          } catch (error) {
+            console.error("\u274C Redis getStats error:", error);
+          }
+        }
+        const now = Date.now();
+        let validEntries = 0;
+        let expiredEntries = 0;
+        for (const entry of this.cache.values()) {
+          if (now - entry.timestamp > entry.ttl) {
+            expiredEntries++;
+          } else {
+            validEntries++;
+          }
+        }
+        return {
+          total: this.cache.size,
+          valid: validEntries,
+          expired: expiredEntries
+        };
+      }
+    };
+    cache = new SimpleCache();
+    CacheKeys = {
+      subscription: (restaurantId) => `subscription:${restaurantId}`,
+      subscriptionLimits: (restaurantId) => `limits:${restaurantId}`,
+      menu: (restaurantId) => `menu:${restaurantId}`,
+      restaurant: (id) => `restaurant:${id}`,
+      restaurantBySlug: (slug) => `restaurant:slug:${slug}`,
+      user: (id) => `user:${id}`,
+      tables: (restaurantId) => `tables:${restaurantId}`
+    };
+    CacheTTL = {
+      subscription: 60 * 1e3,
+      // 1 minute
+      subscriptionLimits: 5 * 60 * 1e3,
+      // 5 minutes
+      menu: 10 * 60 * 1e3,
+      // 10 minutes
+      restaurant: 30 * 60 * 1e3,
+      // 30 minutes
+      user: 5 * 60 * 1e3,
+      // 5 minutes
+      tables: 30 * 1e3
+      // 30 seconds (changes frequently)
+    };
+    process.on("SIGTERM", () => {
+      console.log("\u{1F6D1} Destroying cache on SIGTERM...");
+      cache.destroy();
+    });
+    process.on("SIGINT", () => {
+      console.log("\u{1F6D1} Destroying cache on SIGINT...");
+      cache.destroy();
+    });
+  }
+});
+
 // server/storage.ts
 var storage_exports = {};
 __export(storage_exports, {
   DatabaseStorage: () => DatabaseStorage,
-  and: () => and2,
+  and: () => and3,
   db: () => db,
   desc: () => desc2,
   eq: () => eq2,
@@ -4559,9 +4928,9 @@ __export(storage_exports, {
   storage: () => storage,
   tableGuests: () => tableGuests
 });
-import { eq, desc, sql as sql3, and, gte, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
+import { eq, desc, sql as sql3, and as and2, gte as gte2, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { eq as eq2, and as and2, or as or2, desc as desc2, sql as sql4 } from "drizzle-orm";
+import { eq as eq2, and as and3, or as or2, desc as desc2, sql as sql4 } from "drizzle-orm";
 function generateSlug(name) {
   return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
@@ -4631,10 +5000,26 @@ var init_storage = __esm({
           firstName: data.name,
           role: "admin"
         }).returning();
+        const basicPlan = await this.getSubscriptionPlanBySlug("basico");
+        if (basicPlan) {
+          const { nanoid: nanoid3 } = await import("nanoid");
+          await db.insert(subscriptions).values({
+            id: nanoid3(),
+            restaurantId: restaurant.id,
+            planId: basicPlan.id,
+            status: "ativa",
+            startDate: /* @__PURE__ */ new Date(),
+            renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1e3)
+            // 30 days
+          });
+        }
         return { restaurant, adminUser };
       }
       async updateRestaurantStatus(id, status) {
         const [updated] = await db.update(restaurants).set({ status, updatedAt: /* @__PURE__ */ new Date() }).where(eq(restaurants.id, id)).returning();
+        if (!updated) {
+          throw new Error(`Restaurante com ID ${id} n\xE3o encontrado`);
+        }
         return updated;
       }
       async deleteRestaurant(id) {
@@ -4777,7 +5162,7 @@ var init_storage = __esm({
       }
       async getRestaurantAdmins(restaurantId) {
         await this.ensureTables();
-        return await db.select().from(users).where(and(eq(users.restaurantId, restaurantId), eq(users.role, "admin"))).orderBy(users.createdAt);
+        return await db.select().from(users).where(and2(eq(users.restaurantId, restaurantId), eq(users.role, "admin"))).orderBy(users.createdAt);
       }
       async resetRestaurantAdminCredentials(restaurantId, userId, data) {
         await this.ensureTables();
@@ -4824,7 +5209,7 @@ var init_storage = __esm({
             )
           );
         }
-        const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
+        const whereClause = conditions.length > 0 ? and2(...conditions) : void 0;
         const [countResult] = await db.select({ count: sql3`count(*)::int` }).from(users).where(whereClause);
         const total = countResult?.count || 0;
         const totalPages = Math.ceil(total / limit);
@@ -4856,7 +5241,7 @@ var init_storage = __esm({
             )
           );
         }
-        const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
+        const whereClause = conditions.length > 0 ? and2(...conditions) : void 0;
         const queryLimit = options2?.limit || 100;
         return await db.select().from(userAuditLogs).where(whereClause).orderBy(desc(userAuditLogs.createdAt)).limit(queryLimit);
       }
@@ -4867,8 +5252,8 @@ var init_storage = __esm({
       // Table operations
       async getTables(restaurantId, branchId) {
         if (branchId) {
-          const sharedTables = await db.select().from(tables).where(and(eq(tables.restaurantId, restaurantId), isNull(tables.branchId))).orderBy(tables.number);
-          const branchTables = await db.select().from(tables).where(and(eq(tables.restaurantId, restaurantId), eq(tables.branchId, branchId))).orderBy(tables.number);
+          const sharedTables = await db.select().from(tables).where(and2(eq(tables.restaurantId, restaurantId), isNull(tables.branchId))).orderBy(tables.number);
+          const branchTables = await db.select().from(tables).where(and2(eq(tables.restaurantId, restaurantId), eq(tables.branchId, branchId))).orderBy(tables.number);
           const overriddenNumbers = new Set(branchTables.map((t) => t.number));
           const result = [
             ...branchTables,
@@ -4887,11 +5272,11 @@ var init_storage = __esm({
         return table;
       }
       async createTable(restaurantId, branchId, table) {
-        const conditions = branchId ? and(
+        const conditions = branchId ? and2(
           eq(tables.restaurantId, restaurantId),
           eq(tables.branchId, branchId),
           eq(tables.number, table.number)
-        ) : and(
+        ) : and2(
           eq(tables.restaurantId, restaurantId),
           eq(tables.number, table.number)
         );
@@ -4968,7 +5353,7 @@ var init_storage = __esm({
         }
         const tablesWithOrders = await Promise.all(
           allTables.map(async (table) => {
-            const tableOrders = await db.select().from(orders).leftJoin(orderItems, eq(orders.id, orderItems.orderId)).leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id)).where(and(
+            const tableOrders = await db.select().from(orders).leftJoin(orderItems, eq(orders.id, orderItems.orderId)).leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id)).where(and2(
               eq(orders.tableId, table.id),
               eq(orders.restaurantId, restaurantId),
               or(
@@ -5069,7 +5454,7 @@ var init_storage = __esm({
       async getTableSessions(restaurantId, tableId) {
         let query = db.select().from(tableSessions).where(eq(tableSessions.restaurantId, restaurantId));
         if (tableId) {
-          query = query.where(and(
+          query = query.where(and2(
             eq(tableSessions.restaurantId, restaurantId),
             eq(tableSessions.tableId, tableId)
           ));
@@ -5084,10 +5469,10 @@ var init_storage = __esm({
         if (sessionId) {
           conditions.push(eq(tablePayments.sessionId, sessionId));
         }
-        return await db.select().from(tablePayments).where(and(...conditions)).orderBy(desc(tablePayments.createdAt));
+        return await db.select().from(tablePayments).where(and2(...conditions)).orderBy(desc(tablePayments.createdAt));
       }
       async calculateTableTotal(restaurantId, tableId) {
-        const tableOrders = await db.select().from(orders).where(and(
+        const tableOrders = await db.select().from(orders).where(and2(
           eq(orders.tableId, tableId),
           eq(orders.restaurantId, restaurantId),
           or(
@@ -5112,7 +5497,7 @@ var init_storage = __esm({
       async getCategories(restaurantId, branchId) {
         if (branchId) {
           return await db.select().from(categories).where(
-            and(
+            and2(
               eq(categories.restaurantId, restaurantId),
               or(
                 isNull(categories.branchId),
@@ -5161,7 +5546,7 @@ var init_storage = __esm({
         let results;
         if (branchId) {
           results = await db.select().from(menuItems).leftJoin(categories, eq(menuItems.categoryId, categories.id)).where(
-            and(
+            and2(
               eq(menuItems.restaurantId, restaurantId),
               or(
                 isNull(menuItems.branchId),
@@ -5254,7 +5639,7 @@ var init_storage = __esm({
           const tableIds = branchTables.map((t) => t.id);
           const branchCondition = or(eq(orders.branchId, branchId), isNull(orders.branchId));
           const tableCondition = tableIds.length > 0 ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId)) : sql3`true`;
-          allOrders = await db.select().from(orders).leftJoin(customers, eq(orders.customerId, customers.id)).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          allOrders = await db.select().from(orders).leftJoin(customers, eq(orders.customerId, customers.id)).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             eq(orders.restaurantId, restaurantId),
             branchCondition,
             // CRÍTICO: Garante isolamento de filial
@@ -5293,7 +5678,7 @@ var init_storage = __esm({
           const tableIds = branchTables.map((t) => t.id);
           const branchCondition = or(eq(orders.branchId, branchId), isNull(orders.branchId));
           const tableCondition = tableIds.length > 0 ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId)) : sql3`true`;
-          results = await db.select().from(orders).leftJoin(customers, eq(orders.customerId, customers.id)).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          results = await db.select().from(orders).leftJoin(customers, eq(orders.customerId, customers.id)).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             eq(orders.restaurantId, restaurantId),
             branchCondition,
             // CRÍTICO: Garante isolamento de filial
@@ -5341,7 +5726,7 @@ var init_storage = __esm({
       async searchOrders(restaurantId, searchTerm) {
         const trimmedSearch = searchTerm.trim();
         const foundOrders = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(
-          and(
+          and2(
             eq(orders.restaurantId, restaurantId),
             or(
               eq(orders.id, trimmedSearch),
@@ -5602,7 +5987,7 @@ var init_storage = __esm({
           if (quantity < 1) {
             throw new Error("Quantity must be at least 1");
           }
-          const [updated] = await tx.update(orderItems).set({ quantity }).where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId))).returning();
+          const [updated] = await tx.update(orderItems).set({ quantity }).where(and2(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId))).returning();
           if (!updated) {
             throw new Error("Order item not found");
           }
@@ -5616,7 +6001,7 @@ var init_storage = __esm({
           if (!orderData) {
             throw new Error("Order not found");
           }
-          await tx.delete(orderItems).where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId)));
+          await tx.delete(orderItems).where(and2(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId)));
           const remainingItems = await tx.select().from(orderItems).where(eq(orderItems.orderId, orderId));
           if (remainingItems.length === 0 && orderData.orderType === "mesa" && orderData.tableId) {
             await this.updateTableOccupancy(orderData.restaurantId, orderData.tableId, false);
@@ -5741,7 +6126,7 @@ var init_storage = __esm({
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq(orders.id, orderId)).returning();
           if (userId) {
-            const saleCategoryResults = await tx.select().from(financialCategories).where(and(
+            const saleCategoryResults = await tx.select().from(financialCategories).where(and2(
               eq(financialCategories.restaurantId, restaurantId),
               eq(financialCategories.type, "receita"),
               eq(financialCategories.name, "Vendas PDV")
@@ -5806,7 +6191,7 @@ var init_storage = __esm({
                 lastVisit: /* @__PURE__ */ new Date(),
                 updatedAt: /* @__PURE__ */ new Date()
               };
-              const activeLoyaltyPrograms = await tx.select().from(loyaltyPrograms).where(and(
+              const activeLoyaltyPrograms = await tx.select().from(loyaltyPrograms).where(and2(
                 eq(loyaltyPrograms.restaurantId, restaurantId),
                 eq(loyaltyPrograms.isActive, 1)
               )).limit(1);
@@ -5904,7 +6289,7 @@ var init_storage = __esm({
       }
       async cancelOrder(restaurantId, orderId, cancellationReason, userId) {
         return await db.transaction(async (tx) => {
-          const [order] = await tx.select().from(orders).where(and(
+          const [order] = await tx.select().from(orders).where(and2(
             eq(orders.id, orderId),
             eq(orders.restaurantId, restaurantId)
           )).for("update");
@@ -5977,7 +6362,7 @@ var init_storage = __esm({
           }
           const paidAmount = parseFloat(order.paidAmount || "0");
           if (paidAmount > 0 && userId) {
-            let refundCategoryResults = await tx.select().from(financialCategories).where(and(
+            let refundCategoryResults = await tx.select().from(financialCategories).where(and2(
               eq(financialCategories.restaurantId, restaurantId),
               eq(financialCategories.type, "despesa"),
               eq(financialCategories.name, "Estornos e Reembolsos")
@@ -6063,10 +6448,10 @@ var init_storage = __esm({
             completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
             cancelledOrders: sql3`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
             cancelledRevenue: sql3`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
-          }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-            gte(orders.createdAt, today)
+            gte2(orders.createdAt, today)
           ));
         } else {
           todayStatsQuery = await db.select({
@@ -6074,9 +6459,9 @@ var init_storage = __esm({
             completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
             cancelledOrders: sql3`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
             cancelledRevenue: sql3`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
-          }).from(orders).where(and(
+          }).from(orders).where(and2(
             eq(orders.restaurantId, restaurantId),
-            gte(orders.createdAt, today)
+            gte2(orders.createdAt, today)
           ));
         }
         const todayStats = todayStatsQuery[0] || { completedOrders: 0, completedRevenue: "0", cancelledOrders: 0, cancelledRevenue: "0" };
@@ -6089,19 +6474,19 @@ var init_storage = __esm({
           yesterdayStatsQuery = await db.select({
             completedOrders: sql3`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
             completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
-          }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-            gte(orders.createdAt, yesterday),
+            gte2(orders.createdAt, yesterday),
             sql3`${orders.createdAt} < ${today}`
           ));
         } else {
           yesterdayStatsQuery = await db.select({
             completedOrders: sql3`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
             completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
-          }).from(orders).where(and(
+          }).from(orders).where(and2(
             eq(orders.restaurantId, restaurantId),
-            gte(orders.createdAt, yesterday),
+            gte2(orders.createdAt, yesterday),
             sql3`${orders.createdAt} < ${today}`
           ));
         }
@@ -6114,13 +6499,13 @@ var init_storage = __esm({
         const ordersChange = yesterdayOrders > 0 ? (todayOrders - yesterdayOrders) / yesterdayOrders * 100 : todayOrders > 0 ? 100 : 0;
         let activeTables;
         if (branchId) {
-          activeTables = await db.select().from(tables).where(and(
+          activeTables = await db.select().from(tables).where(and2(
             eq(tables.restaurantId, restaurantId),
             eq(tables.branchId, branchId),
             eq(tables.isOccupied, 1)
           ));
         } else {
-          activeTables = await db.select().from(tables).where(and(
+          activeTables = await db.select().from(tables).where(and2(
             eq(tables.restaurantId, restaurantId),
             eq(tables.isOccupied, 1)
           ));
@@ -6129,17 +6514,17 @@ var init_storage = __esm({
         const cancellationRate = totalOrdersIncludingCancelled > 0 ? todayCancelledOrders / totalOrdersIncludingCancelled * 100 : 0;
         let todayOrderIdsQuery;
         if (branchId) {
-          todayOrderIdsQuery = await db.select({ id: orders.id }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          todayOrderIdsQuery = await db.select({ id: orders.id }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), isNull(orders.tableId)),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
-            gte(orders.createdAt, today)
+            gte2(orders.createdAt, today)
           ));
         } else {
-          todayOrderIdsQuery = await db.select({ id: orders.id }).from(orders).where(and(
+          todayOrderIdsQuery = await db.select({ id: orders.id }).from(orders).where(and2(
             eq(orders.restaurantId, restaurantId),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
-            gte(orders.createdAt, today)
+            gte2(orders.createdAt, today)
           ));
         }
         const todayOrderIds = todayOrderIdsQuery.map((row) => row.id);
@@ -6185,10 +6570,10 @@ var init_storage = __esm({
             completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
             cancelledOrders: sql3`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
             cancelledRevenue: sql3`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
-          }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-            gte(orders.createdAt, periodStart),
+            gte2(orders.createdAt, periodStart),
             sql3`${orders.createdAt} <= ${periodEnd}`
           ));
         } else {
@@ -6197,9 +6582,9 @@ var init_storage = __esm({
             completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
             cancelledOrders: sql3`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
             cancelledRevenue: sql3`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
-          }).from(orders).where(and(
+          }).from(orders).where(and2(
             eq(orders.restaurantId, restaurantId),
-            gte(orders.createdAt, periodStart),
+            gte2(orders.createdAt, periodStart),
             sql3`${orders.createdAt} <= ${periodEnd}`
           ));
         }
@@ -6213,18 +6598,18 @@ var init_storage = __esm({
         const cancellationRate = totalOrdersIncludingCancelled > 0 ? periodCancelledOrders / totalOrdersIncludingCancelled * 100 : 0;
         let orderIdsQuery;
         if (branchId) {
-          orderIdsQuery = await db.select({ id: orders.id }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          orderIdsQuery = await db.select({ id: orders.id }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), isNull(orders.tableId)),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
-            gte(orders.createdAt, periodStart),
+            gte2(orders.createdAt, periodStart),
             sql3`${orders.createdAt} <= ${periodEnd}`
           ));
         } else {
-          orderIdsQuery = await db.select({ id: orders.id }).from(orders).where(and(
+          orderIdsQuery = await db.select({ id: orders.id }).from(orders).where(and2(
             eq(orders.restaurantId, restaurantId),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
-            gte(orders.createdAt, periodStart),
+            gte2(orders.createdAt, periodStart),
             sql3`${orders.createdAt} <= ${periodEnd}`
           ));
         }
@@ -6272,18 +6657,18 @@ var init_storage = __esm({
           dayEnd.setHours(23, 59, 59, 999);
           let dayOrdersData;
           if (branchId) {
-            dayOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+            dayOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
               eq(orders.restaurantId, restaurantId),
               or(eq(tables.branchId, branchId), isNull(orders.tableId)),
               sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
-              gte(orders.createdAt, dayStart),
+              gte2(orders.createdAt, dayStart),
               sql3`${orders.createdAt} <= ${dayEnd}`
             ));
           } else {
-            dayOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+            dayOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
               eq(orders.restaurantId, restaurantId),
               sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
-              gte(orders.createdAt, dayStart),
+              gte2(orders.createdAt, dayStart),
               sql3`${orders.createdAt} <= ${dayEnd}`
             ));
           }
@@ -6308,18 +6693,18 @@ var init_storage = __esm({
         startDate.setHours(0, 0, 0, 0);
         let ordersData;
         if (branchId) {
-          ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), isNull(orders.tableId)),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
-            gte(orders.createdAt, startDate),
+            gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${today}`
           ));
         } else {
-          ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             eq(orders.restaurantId, restaurantId),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
-            gte(orders.createdAt, startDate),
+            gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${today}`
           ));
         }
@@ -6371,18 +6756,18 @@ var init_storage = __esm({
         }
         let periodOrdersData;
         if (branchId) {
-          periodOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          periodOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), isNull(orders.tableId)),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
-            gte(orders.createdAt, periodStart),
+            gte2(orders.createdAt, periodStart),
             sql3`${orders.createdAt} <= ${periodEnd}`
           ));
         } else {
-          periodOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          periodOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             eq(orders.restaurantId, restaurantId),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
-            gte(orders.createdAt, periodStart),
+            gte2(orders.createdAt, periodStart),
             sql3`${orders.createdAt} <= ${periodEnd}`
           ));
         }
@@ -6578,7 +6963,7 @@ var init_storage = __esm({
           count: data.count,
           total: data.total.toFixed(2)
         }));
-        const allOrderItems = await db.select().from(orderItems).leftJoin(orders, eq(orderItems.orderId, orders.id)).leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id)).where(and(
+        const allOrderItems = await db.select().from(orderItems).leftJoin(orders, eq(orderItems.orderId, orders.id)).leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id)).where(and2(
           eq(orders.restaurantId, restaurantId),
           ne(orders.status, "cancelado")
         ));
@@ -6623,9 +7008,9 @@ var init_storage = __esm({
       async getSuperAdminFinancialOverview(startDate, endDate) {
         const end = endDate || /* @__PURE__ */ new Date();
         const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1e3);
-        const allOrders = await db.select().from(orders).where(and(
+        const allOrders = await db.select().from(orders).where(and2(
           ne(orders.status, "cancelado"),
-          gte(orders.createdAt, start),
+          gte2(orders.createdAt, start),
           sql3`${orders.createdAt} <= ${end}`
         ));
         const totalOrders = allOrders.length;
@@ -6666,8 +7051,8 @@ var init_storage = __esm({
             orders: dayOrders.length
           });
         }
-        const allShifts = await db.select().from(financialShifts).leftJoin(restaurants, eq(financialShifts.restaurantId, restaurants.id)).where(and(
-          gte(financialShifts.startedAt, start),
+        const allShifts = await db.select().from(financialShifts).leftJoin(restaurants, eq(financialShifts.restaurantId, restaurants.id)).where(and2(
+          gte2(financialShifts.startedAt, start),
           sql3`${financialShifts.startedAt} <= ${end}`
         ));
         const shiftsMap = /* @__PURE__ */ new Map();
@@ -6699,18 +7084,18 @@ var init_storage = __esm({
       async getSalesReport(restaurantId, branchId, startDate, endDate) {
         let periodOrders;
         if (branchId) {
-          periodOrders = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          periodOrders = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
-            gte(orders.createdAt, startDate),
+            gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${endDate}`
           ));
         } else {
-          periodOrders = await db.select().from(orders).where(and(
+          periodOrders = await db.select().from(orders).where(and2(
             eq(orders.restaurantId, restaurantId),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
-            gte(orders.createdAt, startDate),
+            gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${endDate}`
           ));
         }
@@ -6760,18 +7145,18 @@ var init_storage = __esm({
       async getCancelledOrdersStats(restaurantId, branchId, startDate, endDate) {
         let cancelledOrdersData;
         if (branchId) {
-          cancelledOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          cancelledOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
             eq(orders.status, "cancelado"),
-            gte(orders.createdAt, startDate),
+            gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${endDate}`
           )).orderBy(desc(orders.createdAt));
         } else {
-          cancelledOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          cancelledOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             eq(orders.restaurantId, restaurantId),
             eq(orders.status, "cancelado"),
-            gte(orders.createdAt, startDate),
+            gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${endDate}`
           )).orderBy(desc(orders.createdAt));
         }
@@ -6803,7 +7188,7 @@ var init_storage = __esm({
       async getOrdersReport(restaurantId, branchId, startDate, endDate, status, orderType) {
         let baseConditions = [
           eq(orders.restaurantId, restaurantId),
-          gte(orders.createdAt, startDate),
+          gte2(orders.createdAt, startDate),
           sql3`${orders.createdAt} <= ${endDate}`
         ];
         if (status === "cancelado") {
@@ -6818,15 +7203,15 @@ var init_storage = __esm({
         }
         let ordersData;
         if (branchId) {
-          ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             ...baseConditions,
             or(
-              and(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NOT NULL`),
+              and2(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NOT NULL`),
               sql3`${orders.tableId} IS NULL`
             )
           )).orderBy(desc(orders.createdAt));
         } else {
-          ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(...baseConditions)).orderBy(desc(orders.createdAt));
+          ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(...baseConditions)).orderBy(desc(orders.createdAt));
         }
         const ordersWithItems = await Promise.all(
           ordersData.map(async (orderRow) => {
@@ -6846,16 +7231,16 @@ var init_storage = __esm({
       async getProductsReport(restaurantId, branchId, startDate, endDate) {
         let periodOrdersRaw;
         if (branchId) {
-          periodOrdersRaw = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          periodOrdersRaw = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
-            gte(orders.createdAt, startDate),
+            gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${endDate}`
           ));
         } else {
-          periodOrdersRaw = await db.select().from(orders).where(and(
+          periodOrdersRaw = await db.select().from(orders).where(and2(
             eq(orders.restaurantId, restaurantId),
-            gte(orders.createdAt, startDate),
+            gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${endDate}`
           ));
         }
@@ -6911,16 +7296,16 @@ var init_storage = __esm({
       async getPerformanceReport(restaurantId, branchId, startDate, endDate) {
         let periodOrdersRaw;
         if (branchId) {
-          periodOrdersRaw = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+          periodOrdersRaw = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
-            gte(orders.createdAt, startDate),
+            gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${endDate}`
           ));
         } else {
-          periodOrdersRaw = await db.select().from(orders).where(and(
+          periodOrdersRaw = await db.select().from(orders).where(and2(
             eq(orders.restaurantId, restaurantId),
-            gte(orders.createdAt, startDate),
+            gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${endDate}`
           ));
         }
@@ -6975,7 +7360,7 @@ var init_storage = __esm({
         }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).$dynamic();
         const conditions = [
           eq(orders.restaurantId, restaurantId),
-          gte(orders.createdAt, startDate),
+          gte2(orders.createdAt, startDate),
           sql3`${orders.createdAt} <= ${endDate}`
         ];
         if (periodFilter && periodFilter !== "all") {
@@ -7004,7 +7389,7 @@ var init_storage = __esm({
         if (orderType && orderType !== "all") {
           conditions.push(eq(orders.orderType, orderType));
         }
-        query = query.where(and(...conditions));
+        query = query.where(and2(...conditions));
         if (orderBy === "updated") {
           query = query.orderBy(desc(orders.updatedAt));
         } else {
@@ -7019,7 +7404,7 @@ var init_storage = __esm({
       async getSalesStats(restaurantId, branchId, startDate, endDate, orderStatus, paymentStatus, orderType, periodFilter) {
         const baseConditions = [
           eq(orders.restaurantId, restaurantId),
-          gte(orders.createdAt, startDate),
+          gte2(orders.createdAt, startDate),
           sql3`${orders.createdAt} <= ${endDate}`
         ];
         if (periodFilter && periodFilter !== "all") {
@@ -7048,7 +7433,7 @@ var init_storage = __esm({
         if (orderType && orderType !== "all") {
           baseConditions.push(eq(orders.orderType, orderType));
         }
-        let allQuery = db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(...baseConditions)).$dynamic();
+        let allQuery = db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(...baseConditions)).$dynamic();
         const allResults = await allQuery;
         const allOrders = allResults.map((row) => row.orders);
         const cancelledOrdersList = allOrders.filter((o) => o.status === "cancelado");
@@ -7062,7 +7447,7 @@ var init_storage = __esm({
           // Exclude cancelled orders in the query
           sql3`${orders.status} != 'cancelado'`
         ];
-        let validQuery = db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(...validConditions)).$dynamic();
+        let validQuery = db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(...validConditions)).$dynamic();
         const validResults = await validQuery;
         const validOrders = validResults.map((row) => row.orders);
         const totalOrders = validOrders.length;
@@ -7181,7 +7566,7 @@ var init_storage = __esm({
         } else {
           conditions.push(isNull(financialShifts.branchId));
         }
-        const [shift] = await db.select().from(financialShifts).where(and(...conditions));
+        const [shift] = await db.select().from(financialShifts).where(and2(...conditions));
         return shift;
       }
       async getAllShifts(restaurantId, branchId, startDate, endDate) {
@@ -7192,12 +7577,12 @@ var init_storage = __esm({
           conditions.push(isNull(financialShifts.branchId));
         }
         if (startDate) {
-          conditions.push(gte(financialShifts.startedAt, startDate));
+          conditions.push(gte2(financialShifts.startedAt, startDate));
         }
         if (endDate) {
           conditions.push(sql3`${financialShifts.endedAt} <= ${endDate}`);
         }
-        return await db.select().from(financialShifts).where(and(...conditions)).orderBy(desc(financialShifts.startedAt));
+        return await db.select().from(financialShifts).where(and2(...conditions)).orderBy(desc(financialShifts.startedAt));
       }
       async getShiftById(id) {
         const [shift] = await db.select().from(financialShifts).where(eq(financialShifts.id, id));
@@ -7248,10 +7633,10 @@ var init_storage = __esm({
           if (filters.tableId) conditions.push(eq(financialEvents.tableId, filters.tableId));
           if (filters.shiftId) conditions.push(eq(financialEvents.shiftId, filters.shiftId));
           if (filters.operatorId) conditions.push(eq(financialEvents.operatorId, filters.operatorId));
-          if (filters.startDate) conditions.push(gte(financialEvents.createdAt, filters.startDate));
+          if (filters.startDate) conditions.push(gte2(financialEvents.createdAt, filters.startDate));
           if (filters.endDate) conditions.push(sql3`${financialEvents.createdAt} <= ${filters.endDate}`);
         }
-        return await db.select().from(financialEvents).where(and(...conditions)).orderBy(desc(financialEvents.createdAt));
+        return await db.select().from(financialEvents).where(and2(...conditions)).orderBy(desc(financialEvents.createdAt));
       }
       // Order Adjustment operations
       async createOrderAdjustment(restaurantId, adjustment) {
@@ -7277,10 +7662,10 @@ var init_storage = __esm({
         if (filters) {
           if (filters.orderId) conditions.push(eq(paymentEvents.orderId, filters.orderId));
           if (filters.sessionId) conditions.push(eq(paymentEvents.sessionId, filters.sessionId));
-          if (filters.startDate) conditions.push(gte(paymentEvents.createdAt, filters.startDate));
+          if (filters.startDate) conditions.push(gte2(paymentEvents.createdAt, filters.startDate));
           if (filters.endDate) conditions.push(sql3`${paymentEvents.createdAt} <= ${filters.endDate}`);
         }
-        return await db.select().from(paymentEvents).where(and(...conditions)).orderBy(desc(paymentEvents.createdAt));
+        return await db.select().from(paymentEvents).where(and2(...conditions)).orderBy(desc(paymentEvents.createdAt));
       }
       // Report Aggregation operations
       async createReportAggregation(restaurantId, aggregation) {
@@ -7301,12 +7686,12 @@ var init_storage = __esm({
           conditions.push(isNull(reportAggregations.branchId));
         }
         if (startDate) {
-          conditions.push(gte(reportAggregations.periodStart, startDate));
+          conditions.push(gte2(reportAggregations.periodStart, startDate));
         }
         if (endDate) {
           conditions.push(sql3`${reportAggregations.periodEnd} <= ${endDate}`);
         }
-        return await db.select().from(reportAggregations).where(and(...conditions)).orderBy(desc(reportAggregations.periodStart));
+        return await db.select().from(reportAggregations).where(and2(...conditions)).orderBy(desc(reportAggregations.periodStart));
       }
       async getLatestAggregation(restaurantId, branchId, periodType) {
         let conditions = [
@@ -7318,7 +7703,7 @@ var init_storage = __esm({
         } else {
           conditions.push(isNull(reportAggregations.branchId));
         }
-        const [latest] = await db.select().from(reportAggregations).where(and(...conditions)).orderBy(desc(reportAggregations.periodStart)).limit(1);
+        const [latest] = await db.select().from(reportAggregations).where(and2(...conditions)).orderBy(desc(reportAggregations.periodStart)).limit(1);
         return latest;
       }
       // Menu Visit operations
@@ -7332,7 +7717,7 @@ var init_storage = __esm({
       async getMenuVisitStats(restaurantId, branchId, startDate, endDate) {
         let conditions = [
           eq(menuVisits.restaurantId, restaurantId),
-          gte(menuVisits.createdAt, startDate),
+          gte2(menuVisits.createdAt, startDate),
           sql3`${menuVisits.createdAt} <= ${endDate}`
         ];
         if (branchId !== null) {
@@ -7344,7 +7729,7 @@ var init_storage = __esm({
             conditions.push(branchCondition);
           }
         }
-        const allVisits = await db.select().from(menuVisits).where(and(...conditions));
+        const allVisits = await db.select().from(menuVisits).where(and2(...conditions));
         const totalVisits = allVisits.length;
         const today = /* @__PURE__ */ new Date();
         today.setHours(0, 0, 0, 0);
@@ -7378,12 +7763,12 @@ var init_storage = __esm({
           conditions.push(eq(customerReviews.branchId, branchId));
         }
         if (startDate) {
-          conditions.push(gte(customerReviews.createdAt, startDate));
+          conditions.push(gte2(customerReviews.createdAt, startDate));
         }
         if (endDate) {
           conditions.push(sql3`${customerReviews.createdAt} <= ${endDate}`);
         }
-        let query = db.select().from(customerReviews).where(and(...conditions)).orderBy(desc(customerReviews.createdAt));
+        let query = db.select().from(customerReviews).where(and2(...conditions)).orderBy(desc(customerReviews.createdAt));
         if (limit) {
           query = query.limit(limit);
         }
@@ -7401,7 +7786,7 @@ var init_storage = __esm({
           eq(orders.restaurantId, restaurantId),
           eq(orders.paymentStatus, "pago"),
           ne(orders.status, "cancelado"),
-          gte(orders.createdAt, startDate),
+          gte2(orders.createdAt, startDate),
           sql3`${orders.createdAt} <= ${endDate}`
         ];
         if (branchId !== null) {
@@ -7424,7 +7809,7 @@ var init_storage = __esm({
             ));
           }
         }
-        const periodOrders = await db.select().from(orders).where(and(...orderConditions));
+        const periodOrders = await db.select().from(orders).where(and2(...orderConditions));
         const totalOrders = periodOrders.length;
         const totalRevenue = periodOrders.reduce((sum, order) => sum + parseFloat(order.totalAmount), 0);
         const averageTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
@@ -7492,10 +7877,10 @@ var init_storage = __esm({
         if (branchId !== null) {
           conditions.push(eq(cashRegisters.branchId, branchId));
         }
-        return await db.select().from(cashRegisters).where(and(...conditions)).orderBy(desc(cashRegisters.createdAt));
+        return await db.select().from(cashRegisters).where(and2(...conditions)).orderBy(desc(cashRegisters.createdAt));
       }
       async getCashRegisterById(id, restaurantId) {
-        const [cashRegister] = await db.select().from(cashRegisters).where(and(
+        const [cashRegister] = await db.select().from(cashRegisters).where(and2(
           eq(cashRegisters.id, id),
           eq(cashRegisters.restaurantId, restaurantId)
         )).limit(1);
@@ -7517,14 +7902,14 @@ var init_storage = __esm({
         const [updated] = await db.update(cashRegisters).set({
           ...data,
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(and(
+        }).where(and2(
           eq(cashRegisters.id, id),
           eq(cashRegisters.restaurantId, restaurantId)
         )).returning();
         return updated;
       }
       async deleteCashRegister(id, restaurantId) {
-        await db.delete(cashRegisters).where(and(
+        await db.delete(cashRegisters).where(and2(
           eq(cashRegisters.id, id),
           eq(cashRegisters.restaurantId, restaurantId)
         ));
@@ -7546,7 +7931,7 @@ var init_storage = __esm({
         if (type) {
           conditions.push(eq(financialCategories.type, type));
         }
-        return await db.select().from(financialCategories).where(and(...conditions)).orderBy(desc(financialCategories.isDefault), financialCategories.name);
+        return await db.select().from(financialCategories).where(and2(...conditions)).orderBy(desc(financialCategories.isDefault), financialCategories.name);
       }
       async createFinancialCategory(restaurantId, data) {
         const [newCategory] = await db.insert(financialCategories).values({
@@ -7564,7 +7949,7 @@ var init_storage = __esm({
             message: "Categoria n\xE3o pode ser exclu\xEDda pois possui lan\xE7amentos associados"
           };
         }
-        await db.delete(financialCategories).where(and(
+        await db.delete(financialCategories).where(and2(
           eq(financialCategories.id, id),
           eq(financialCategories.restaurantId, restaurantId)
         ));
@@ -7622,7 +8007,7 @@ var init_storage = __esm({
           );
         }
         if (filters?.startDate) {
-          conditions.push(gte(financialTransactions.occurredAt, filters.startDate));
+          conditions.push(gte2(financialTransactions.occurredAt, filters.startDate));
         }
         if (filters?.endDate) {
           conditions.push(sql3`${financialTransactions.occurredAt} <= ${filters.endDate}`);
@@ -7641,7 +8026,7 @@ var init_storage = __esm({
           cashRegister: cashRegisters,
           category: financialCategories,
           recordedBy: users
-        }).from(financialTransactions).leftJoin(cashRegisters, eq(financialTransactions.cashRegisterId, cashRegisters.id)).leftJoin(financialCategories, eq(financialTransactions.categoryId, financialCategories.id)).leftJoin(users, eq(financialTransactions.recordedByUserId, users.id)).where(and(...conditions)).orderBy(desc(financialTransactions.occurredAt));
+        }).from(financialTransactions).leftJoin(cashRegisters, eq(financialTransactions.cashRegisterId, cashRegisters.id)).leftJoin(financialCategories, eq(financialTransactions.categoryId, financialCategories.id)).leftJoin(users, eq(financialTransactions.recordedByUserId, users.id)).where(and2(...conditions)).orderBy(desc(financialTransactions.occurredAt));
         return results.map((r) => ({
           ...r.transaction,
           cashRegister: r.cashRegister,
@@ -7650,7 +8035,7 @@ var init_storage = __esm({
         }));
       }
       async deleteFinancialTransaction(id, restaurantId) {
-        const [transaction] = await db.select().from(financialTransactions).where(and(
+        const [transaction] = await db.select().from(financialTransactions).where(and2(
           eq(financialTransactions.id, id),
           eq(financialTransactions.restaurantId, restaurantId)
         )).limit(1);
@@ -7678,7 +8063,7 @@ var init_storage = __esm({
         if (cashRegisterId) {
           registerConditions.push(eq(cashRegisters.id, cashRegisterId));
         }
-        const registers = await db.select().from(cashRegisters).where(and(...registerConditions));
+        const registers = await db.select().from(cashRegisters).where(and2(...registerConditions));
         const totalBalance = registers.reduce((sum, r) => sum + parseFloat(r.currentBalance), 0);
         const cashRegisterBalances = registers.map((r) => ({
           id: r.id,
@@ -7695,7 +8080,7 @@ var init_storage = __esm({
           );
         }
         if (startDate) {
-          transactionConditions.push(gte(financialTransactions.occurredAt, startDate));
+          transactionConditions.push(gte2(financialTransactions.occurredAt, startDate));
         }
         if (endDate) {
           transactionConditions.push(sql3`${financialTransactions.occurredAt} <= ${endDate}`);
@@ -7703,7 +8088,7 @@ var init_storage = __esm({
         if (cashRegisterId) {
           transactionConditions.push(eq(financialTransactions.cashRegisterId, cashRegisterId));
         }
-        const transactions = await db.select().from(financialTransactions).where(and(...transactionConditions));
+        const transactions = await db.select().from(financialTransactions).where(and2(...transactionConditions));
         const totalIncome = transactions.filter((t) => t.type === "receita").reduce((sum, t) => sum + parseFloat(t.amount), 0);
         const totalExpense = transactions.filter((t) => t.type === "despesa").reduce((sum, t) => sum + parseFloat(t.amount), 0);
         const netResult = totalIncome - totalExpense;
@@ -7739,7 +8124,7 @@ var init_storage = __esm({
           cashRegister: cashRegisters,
           openedBy: openedByUsers,
           closedBy: closedByUsers
-        }).from(cashRegisterShifts).leftJoin(cashRegisters, eq(cashRegisterShifts.cashRegisterId, cashRegisters.id)).leftJoin(openedByUsers, eq(cashRegisterShifts.openedByUserId, openedByUsers.id)).leftJoin(closedByUsers, eq(cashRegisterShifts.closedByUserId, closedByUsers.id)).where(and(...conditions)).orderBy(desc(cashRegisterShifts.openedAt));
+        }).from(cashRegisterShifts).leftJoin(cashRegisters, eq(cashRegisterShifts.cashRegisterId, cashRegisters.id)).leftJoin(openedByUsers, eq(cashRegisterShifts.openedByUserId, openedByUsers.id)).leftJoin(closedByUsers, eq(cashRegisterShifts.closedByUserId, closedByUsers.id)).where(and2(...conditions)).orderBy(desc(cashRegisterShifts.openedAt));
         return results.map((r) => ({
           ...r.shift,
           cashRegister: r.cashRegister,
@@ -7748,7 +8133,7 @@ var init_storage = __esm({
         }));
       }
       async getActiveCashRegisterShift(cashRegisterId, restaurantId) {
-        const [shift] = await db.select().from(cashRegisterShifts).where(and(
+        const [shift] = await db.select().from(cashRegisterShifts).where(and2(
           eq(cashRegisterShifts.cashRegisterId, cashRegisterId),
           eq(cashRegisterShifts.restaurantId, restaurantId),
           eq(cashRegisterShifts.status, "aberto")
@@ -7763,7 +8148,7 @@ var init_storage = __esm({
         if (branchId !== null) {
           conditions.push(eq(cashRegisters.branchId, branchId));
         }
-        const registers = await db.select().from(cashRegisters).where(and(...conditions));
+        const registers = await db.select().from(cashRegisters).where(and2(...conditions));
         const registersWithShifts = [];
         for (const register of registers) {
           const activeShift = await this.getActiveCashRegisterShift(register.id, restaurantId);
@@ -7787,7 +8172,7 @@ var init_storage = __esm({
             openingAmount: data.openingAmount,
             notes: data.notes
           }).returning();
-          const openingCategoryResults = await tx.select().from(financialCategories).where(and(
+          const openingCategoryResults = await tx.select().from(financialCategories).where(and2(
             eq(financialCategories.restaurantId, restaurantId),
             eq(financialCategories.type, "ajuste"),
             eq(financialCategories.isDefault, 1)
@@ -7828,7 +8213,7 @@ var init_storage = __esm({
         });
       }
       async closeCashRegisterShift(shiftId, restaurantId, userId, data) {
-        const [shift] = await db.select().from(cashRegisterShifts).where(and(
+        const [shift] = await db.select().from(cashRegisterShifts).where(and2(
           eq(cashRegisterShifts.id, shiftId),
           eq(cashRegisterShifts.restaurantId, restaurantId),
           eq(cashRegisterShifts.status, "aberto")
@@ -7882,7 +8267,7 @@ var init_storage = __esm({
           conditions.push(eq(expenses.categoryId, filters.categoryId));
         }
         if (filters?.startDate) {
-          conditions.push(gte(expenses.occurredAt, filters.startDate));
+          conditions.push(gte2(expenses.occurredAt, filters.startDate));
         }
         if (filters?.endDate) {
           const endOfDay = new Date(filters.endDate);
@@ -7894,7 +8279,7 @@ var init_storage = __esm({
           category: financialCategories,
           recordedBy: users,
           transaction: financialTransactions
-        }).from(expenses).leftJoin(financialCategories, eq(expenses.categoryId, financialCategories.id)).leftJoin(users, eq(expenses.recordedByUserId, users.id)).leftJoin(financialTransactions, eq(expenses.transactionId, financialTransactions.id)).where(and(...conditions)).orderBy(desc(expenses.occurredAt));
+        }).from(expenses).leftJoin(financialCategories, eq(expenses.categoryId, financialCategories.id)).leftJoin(users, eq(expenses.recordedByUserId, users.id)).leftJoin(financialTransactions, eq(expenses.transactionId, financialTransactions.id)).where(and2(...conditions)).orderBy(desc(expenses.occurredAt));
         return results.map((r) => ({
           ...r.expense,
           category: r.category,
@@ -7993,7 +8378,7 @@ var init_storage = __esm({
       async getFinancialReport(restaurantId, branchId, startDate, endDate) {
         let conditions = [
           eq(financialTransactions.restaurantId, restaurantId),
-          gte(financialTransactions.occurredAt, startDate)
+          gte2(financialTransactions.occurredAt, startDate)
         ];
         const endOfDay = new Date(endDate);
         endOfDay.setHours(23, 59, 59, 999);
@@ -8009,7 +8394,7 @@ var init_storage = __esm({
         const transactions = await db.select({
           transaction: financialTransactions,
           category: financialCategories
-        }).from(financialTransactions).leftJoin(financialCategories, eq(financialTransactions.categoryId, financialCategories.id)).where(and(...conditions));
+        }).from(financialTransactions).leftJoin(financialCategories, eq(financialTransactions.categoryId, financialCategories.id)).where(and2(...conditions));
         const totalRevenue = transactions.filter((t) => t.transaction.type === "receita").reduce((sum, t) => sum + parseFloat(t.transaction.amount), 0);
         const totalExpenses = transactions.filter((t) => t.transaction.type === "despesa").reduce((sum, t) => sum + parseFloat(t.transaction.amount), 0);
         const totalAdjustments = transactions.filter((t) => t.transaction.type === "ajuste").reduce((sum, t) => sum + parseFloat(t.transaction.amount), 0);
@@ -8075,7 +8460,7 @@ var init_storage = __esm({
       }
       async updateInventoryCategory(id, restaurantId, data) {
         const [category] = await db.update(inventoryCategories).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(
-          and(
+          and2(
             eq(inventoryCategories.id, id),
             eq(inventoryCategories.restaurantId, restaurantId)
           )
@@ -8084,7 +8469,7 @@ var init_storage = __esm({
       }
       async deleteInventoryCategory(id, restaurantId) {
         await db.delete(inventoryCategories).where(
-          and(
+          and2(
             eq(inventoryCategories.id, id),
             eq(inventoryCategories.restaurantId, restaurantId)
           )
@@ -8100,7 +8485,7 @@ var init_storage = __esm({
       }
       async updateMeasurementUnit(id, restaurantId, data) {
         const [unit] = await db.update(measurementUnits).set(data).where(
-          and(
+          and2(
             eq(measurementUnits.id, id),
             eq(measurementUnits.restaurantId, restaurantId)
           )
@@ -8109,7 +8494,7 @@ var init_storage = __esm({
       }
       async deleteMeasurementUnit(id, restaurantId) {
         await db.delete(measurementUnits).where(
-          and(
+          and2(
             eq(measurementUnits.id, id),
             eq(measurementUnits.restaurantId, restaurantId)
           )
@@ -8128,7 +8513,7 @@ var init_storage = __esm({
           item: inventoryItems,
           category: inventoryCategories,
           unit: measurementUnits
-        }).from(inventoryItems).leftJoin(inventoryCategories, eq(inventoryItems.categoryId, inventoryCategories.id)).innerJoin(measurementUnits, eq(inventoryItems.unitId, measurementUnits.id)).where(and(...conditions)).orderBy(inventoryItems.name);
+        }).from(inventoryItems).leftJoin(inventoryCategories, eq(inventoryItems.categoryId, inventoryCategories.id)).innerJoin(measurementUnits, eq(inventoryItems.unitId, measurementUnits.id)).where(and2(...conditions)).orderBy(inventoryItems.name);
         return items.map((row) => ({
           ...row.item,
           category: row.category,
@@ -8165,7 +8550,7 @@ var init_storage = __esm({
         if (data.isActive !== void 0) updateData.isActive = data.isActive;
         updateData.updatedAt = /* @__PURE__ */ new Date();
         const [updated] = await db.update(inventoryItems).set(updateData).where(
-          and(
+          and2(
             eq(inventoryItems.id, id),
             eq(inventoryItems.restaurantId, restaurantId)
           )
@@ -8174,7 +8559,7 @@ var init_storage = __esm({
       }
       async deleteInventoryItem(id, restaurantId) {
         await db.delete(inventoryItems).where(
-          and(
+          and2(
             eq(inventoryItems.id, id),
             eq(inventoryItems.restaurantId, restaurantId)
           )
@@ -8188,7 +8573,7 @@ var init_storage = __esm({
           category: inventoryCategories,
           unit: measurementUnits
         }).from(branchStock).innerJoin(inventoryItems, eq(branchStock.inventoryItemId, inventoryItems.id)).leftJoin(inventoryCategories, eq(inventoryItems.categoryId, inventoryCategories.id)).innerJoin(measurementUnits, eq(inventoryItems.unitId, measurementUnits.id)).where(
-          and(
+          and2(
             eq(branchStock.restaurantId, restaurantId),
             eq(branchStock.branchId, branchId)
           )
@@ -8204,7 +8589,7 @@ var init_storage = __esm({
       }
       async getStockByItemId(restaurantId, branchId, inventoryItemId) {
         const [stock] = await db.select().from(branchStock).where(
-          and(
+          and2(
             eq(branchStock.restaurantId, restaurantId),
             eq(branchStock.branchId, branchId),
             eq(branchStock.inventoryItemId, inventoryItemId)
@@ -8243,7 +8628,7 @@ var init_storage = __esm({
           conditions.push(eq(stockMovements.movementType, filters.movementType));
         }
         if (filters?.startDate) {
-          conditions.push(gte(stockMovements.createdAt, filters.startDate));
+          conditions.push(gte2(stockMovements.createdAt, filters.startDate));
         }
         if (filters?.endDate) {
           const endOfDay = new Date(filters.endDate);
@@ -8254,7 +8639,7 @@ var init_storage = __esm({
           movement: stockMovements,
           item: inventoryItems,
           user: users
-        }).from(stockMovements).innerJoin(inventoryItems, eq(stockMovements.inventoryItemId, inventoryItems.id)).innerJoin(users, eq(stockMovements.recordedByUserId, users.id)).where(and(...conditions)).orderBy(desc(stockMovements.createdAt));
+        }).from(stockMovements).innerJoin(inventoryItems, eq(stockMovements.inventoryItemId, inventoryItems.id)).innerJoin(users, eq(stockMovements.recordedByUserId, users.id)).where(and2(...conditions)).orderBy(desc(stockMovements.createdAt));
         return movements.map((row) => ({
           ...row.movement,
           inventoryItem: row.item,
@@ -8374,7 +8759,7 @@ var init_storage = __esm({
       async getRecipeIngredients(restaurantId, menuItemId, tx) {
         const executor = tx || db;
         const ingredients = await executor.select().from(recipeIngredients).leftJoin(inventoryItems, eq(recipeIngredients.inventoryItemId, inventoryItems.id)).leftJoin(measurementUnits, eq(inventoryItems.unitId, measurementUnits.id)).where(
-          and(
+          and2(
             eq(recipeIngredients.restaurantId, restaurantId),
             eq(recipeIngredients.menuItemId, menuItemId)
           )
@@ -8399,7 +8784,7 @@ var init_storage = __esm({
           ...data,
           updatedAt: /* @__PURE__ */ new Date()
         }).where(
-          and(
+          and2(
             eq(recipeIngredients.id, id),
             eq(recipeIngredients.restaurantId, restaurantId)
           )
@@ -8408,7 +8793,7 @@ var init_storage = __esm({
       }
       async deleteRecipeIngredient(id, restaurantId) {
         await db.delete(recipeIngredients).where(
-          and(
+          and2(
             eq(recipeIngredients.id, id),
             eq(recipeIngredients.restaurantId, restaurantId)
           )
@@ -8464,7 +8849,7 @@ var init_storage = __esm({
                 continue;
               }
               const [currentStock] = await tx.select().from(branchStock).where(
-                and(
+                and2(
                   eq(branchStock.branchId, branchId),
                   eq(branchStock.inventoryItemId, ingredient.inventoryItemId)
                 )
@@ -8528,7 +8913,7 @@ var init_storage = __esm({
               continue;
             }
             const [currentStock] = await tx.select().from(branchStock).where(
-              and(
+              and2(
                 eq(branchStock.branchId, branchId),
                 eq(branchStock.inventoryItemId, ingredient.inventoryItemId)
               )
@@ -8565,7 +8950,7 @@ var init_storage = __esm({
         if (filters?.isActive !== void 0) {
           conditions.push(eq(customers.isActive, filters.isActive));
         }
-        let query = db.select().from(customers).where(and(...conditions));
+        let query = db.select().from(customers).where(and2(...conditions));
         const results = await query.orderBy(desc(customers.createdAt));
         if (filters?.search) {
           const searchTerm = filters.search.toLowerCase();
@@ -8580,11 +8965,11 @@ var init_storage = __esm({
         return customer;
       }
       async getCustomerByPhone(restaurantId, phone) {
-        const [customer] = await db.select().from(customers).where(and(eq(customers.restaurantId, restaurantId), eq(customers.phone, phone)));
+        const [customer] = await db.select().from(customers).where(and2(eq(customers.restaurantId, restaurantId), eq(customers.phone, phone)));
         return customer;
       }
       async getCustomerByCpf(restaurantId, cpf) {
-        const [customer] = await db.select().from(customers).where(and(eq(customers.restaurantId, restaurantId), eq(customers.cpf, cpf)));
+        const [customer] = await db.select().from(customers).where(and2(eq(customers.restaurantId, restaurantId), eq(customers.cpf, cpf)));
         return customer;
       }
       async createCustomer(restaurantId, branchId, data) {
@@ -8596,11 +8981,11 @@ var init_storage = __esm({
         return customer;
       }
       async updateCustomer(id, restaurantId, data) {
-        const [updated] = await db.update(customers).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(customers.id, id), eq(customers.restaurantId, restaurantId))).returning();
+        const [updated] = await db.update(customers).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(and2(eq(customers.id, id), eq(customers.restaurantId, restaurantId))).returning();
         return updated;
       }
       async deleteCustomer(id, restaurantId) {
-        await db.delete(customers).where(and(eq(customers.id, id), eq(customers.restaurantId, restaurantId)));
+        await db.delete(customers).where(and2(eq(customers.id, id), eq(customers.restaurantId, restaurantId)));
       }
       async updateCustomerTier(customerId, restaurantId) {
         const customer = await this.getCustomerById(customerId);
@@ -8631,7 +9016,7 @@ var init_storage = __esm({
         if (branchId) {
           conditions.push(or(eq(customers.branchId, branchId), isNull(customers.branchId)));
         }
-        const allCustomers = await db.select().from(customers).where(and(...conditions));
+        const allCustomers = await db.select().from(customers).where(and2(...conditions));
         const now = /* @__PURE__ */ new Date();
         const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const stats = {
@@ -8669,7 +9054,7 @@ var init_storage = __esm({
         const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1e3);
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1e3);
         await db.update(customerSessions).set({ isActive: 0 }).where(
-          and(
+          and2(
             eq(customerSessions.customerId, customerId),
             eq(customerSessions.restaurantId, restaurantId),
             eq(customerSessions.isActive, 1),
@@ -8693,7 +9078,7 @@ var init_storage = __esm({
       }
       async verifyCustomerOtp(customerId, restaurantId, otpCode) {
         const [session2] = await db.select().from(customerSessions).where(
-          and(
+          and2(
             eq(customerSessions.customerId, customerId),
             eq(customerSessions.restaurantId, restaurantId),
             eq(customerSessions.isActive, 1),
@@ -8731,7 +9116,7 @@ var init_storage = __esm({
       }
       async getCustomerSessionByToken(token) {
         const [result] = await db.select().from(customerSessions).innerJoin(customers, eq(customerSessions.customerId, customers.id)).where(
-          and(
+          and2(
             eq(customerSessions.token, token),
             eq(customerSessions.isActive, 1),
             isNull(customerSessions.otpCode)
@@ -8771,7 +9156,7 @@ var init_storage = __esm({
       }
       async cleanupExpiredSessions() {
         await db.update(customerSessions).set({ isActive: 0 }).where(
-          and(
+          and2(
             eq(customerSessions.isActive, 1),
             lt(customerSessions.expiresAt, /* @__PURE__ */ new Date())
           )
@@ -8799,12 +9184,12 @@ var init_storage = __esm({
           conditions.push(eq(loyaltyTransactions.customerId, customerId));
         }
         if (filters?.startDate) {
-          conditions.push(gte(loyaltyTransactions.createdAt, filters.startDate));
+          conditions.push(gte2(loyaltyTransactions.createdAt, filters.startDate));
         }
         if (filters?.endDate) {
           conditions.push(sql3`${loyaltyTransactions.createdAt} <= ${filters.endDate}`);
         }
-        const transactions = await db.select().from(loyaltyTransactions).leftJoin(customers, eq(loyaltyTransactions.customerId, customers.id)).where(and(...conditions)).orderBy(desc(loyaltyTransactions.createdAt));
+        const transactions = await db.select().from(loyaltyTransactions).leftJoin(customers, eq(loyaltyTransactions.customerId, customers.id)).where(and2(...conditions)).orderBy(desc(loyaltyTransactions.createdAt));
         return transactions.map((t) => ({
           ...t.loyalty_transactions,
           customer: t.customers
@@ -8865,14 +9250,14 @@ var init_storage = __esm({
         if (filters?.code) {
           conditions.push(eq(coupons.code, filters.code.toUpperCase()));
         }
-        return await db.select().from(coupons).where(and(...conditions)).orderBy(desc(coupons.createdAt));
+        return await db.select().from(coupons).where(and2(...conditions)).orderBy(desc(coupons.createdAt));
       }
       async getCouponById(id) {
         const [coupon] = await db.select().from(coupons).where(eq(coupons.id, id));
         return coupon;
       }
       async getCouponByCode(restaurantId, code) {
-        const [coupon] = await db.select().from(coupons).where(and(eq(coupons.restaurantId, restaurantId), eq(coupons.code, code.toUpperCase())));
+        const [coupon] = await db.select().from(coupons).where(and2(eq(coupons.restaurantId, restaurantId), eq(coupons.code, code.toUpperCase())));
         return coupon;
       }
       async createCoupon(restaurantId, branchId, data, userId) {
@@ -8898,11 +9283,11 @@ var init_storage = __esm({
         if (data.validUntil) {
           updateData.validUntil = new Date(data.validUntil);
         }
-        const [updated] = await db.update(coupons).set(updateData).where(and(eq(coupons.id, id), eq(coupons.restaurantId, restaurantId))).returning();
+        const [updated] = await db.update(coupons).set(updateData).where(and2(eq(coupons.id, id), eq(coupons.restaurantId, restaurantId))).returning();
         return updated;
       }
       async deleteCoupon(id, restaurantId) {
-        await db.delete(coupons).where(and(eq(coupons.id, id), eq(coupons.restaurantId, restaurantId)));
+        await db.delete(coupons).where(and2(eq(coupons.id, id), eq(coupons.restaurantId, restaurantId)));
       }
       async validateCoupon(restaurantId, code, orderValue, orderType, customerId) {
         const coupon = await this.getCouponByCode(restaurantId, code);
@@ -8935,7 +9320,7 @@ var init_storage = __esm({
         }
         if (customerId && coupon.maxUsesPerCustomer) {
           const usageCount = await db.select({ count: sql3`count(*)` }).from(couponUsages).where(
-            and(
+            and2(
               eq(couponUsages.couponId, coupon.id),
               eq(couponUsages.customerId, customerId)
             )
@@ -8976,12 +9361,12 @@ var init_storage = __esm({
           conditions.push(eq(couponUsages.customerId, filters.customerId));
         }
         if (filters?.startDate) {
-          conditions.push(gte(couponUsages.createdAt, filters.startDate));
+          conditions.push(gte2(couponUsages.createdAt, filters.startDate));
         }
         if (filters?.endDate) {
           conditions.push(sql3`${couponUsages.createdAt} <= ${filters.endDate}`);
         }
-        const usages = await db.select().from(couponUsages).leftJoin(coupons, eq(couponUsages.couponId, coupons.id)).leftJoin(customers, eq(couponUsages.customerId, customers.id)).leftJoin(orders, eq(couponUsages.orderId, orders.id)).where(and(...conditions)).orderBy(desc(couponUsages.createdAt));
+        const usages = await db.select().from(couponUsages).leftJoin(coupons, eq(couponUsages.couponId, coupons.id)).leftJoin(customers, eq(couponUsages.customerId, customers.id)).leftJoin(orders, eq(couponUsages.orderId, orders.id)).where(and2(...conditions)).orderBy(desc(couponUsages.createdAt));
         return usages.map((u) => ({
           ...u.coupon_usages,
           coupon: u.coupons,
@@ -8994,13 +9379,13 @@ var init_storage = __esm({
         if (branchId) {
           conditions.push(or(eq(coupons.branchId, branchId), isNull(coupons.branchId)));
         }
-        const allCoupons = await db.select().from(coupons).where(and(...conditions));
+        const allCoupons = await db.select().from(coupons).where(and2(...conditions));
         const now = /* @__PURE__ */ new Date();
         const activeCoupons = allCoupons.filter(
           (c) => c.isActive === 1 && c.validFrom <= now && c.validUntil >= now
         );
         let usageConditions = [eq(couponUsages.restaurantId, restaurantId)];
-        const allUsages = await db.select().from(couponUsages).where(and(...usageConditions));
+        const allUsages = await db.select().from(couponUsages).where(and2(...usageConditions));
         const totalDiscount = allUsages.reduce((sum, usage) => sum + parseFloat(usage.discountApplied), 0).toFixed(2);
         const couponUsageMap = /* @__PURE__ */ new Map();
         allUsages.forEach((usage) => {
@@ -9025,7 +9410,7 @@ var init_storage = __esm({
       }
       // Order-Customer-Coupon-Loyalty integration methods
       async linkCustomerToOrder(restaurantId, orderId, customerId) {
-        const [updated] = await db.update(orders).set({ customerId, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(orders.id, orderId), eq(orders.restaurantId, restaurantId))).returning();
+        const [updated] = await db.update(orders).set({ customerId, updatedAt: /* @__PURE__ */ new Date() }).where(and2(eq(orders.id, orderId), eq(orders.restaurantId, restaurantId))).returning();
         if (!updated) {
           throw new Error("Pedido n\xE3o encontrado");
         }
@@ -9042,7 +9427,7 @@ var init_storage = __esm({
           couponId,
           couponDiscount: discount.toFixed(2),
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(and(eq(orders.id, orderId), eq(orders.restaurantId, restaurantId)));
+        }).where(and2(eq(orders.id, orderId), eq(orders.restaurantId, restaurantId)));
         await this.applyCoupon(restaurantId, couponId, orderId, order.customerId || void 0, discount);
         return this.calculateOrderTotal(orderId);
       }
@@ -9052,7 +9437,7 @@ var init_storage = __esm({
           loyaltyPointsRedeemed: points,
           loyaltyDiscountAmount: result.discountAmount.toFixed(2),
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(and(eq(orders.id, orderId), eq(orders.restaurantId, restaurantId)));
+        }).where(and2(eq(orders.id, orderId), eq(orders.restaurantId, restaurantId)));
         const order = await this.calculateOrderTotal(orderId);
         return {
           order,
@@ -9117,6 +9502,7 @@ var init_storage = __esm({
             maxMenuItems: 50,
             maxOrdersPerMonth: 500,
             maxUsers: 2,
+            maxCustomers: 0,
             historyRetentionDays: 30,
             features: [
               "pdv",
@@ -9145,6 +9531,7 @@ var init_storage = __esm({
             maxMenuItems: 150,
             maxOrdersPerMonth: 2e3,
             maxUsers: 5,
+            maxCustomers: 500,
             historyRetentionDays: 90,
             features: [
               "pdv",
@@ -9181,6 +9568,7 @@ var init_storage = __esm({
             maxMenuItems: 999999,
             maxOrdersPerMonth: 1e4,
             maxUsers: 15,
+            maxCustomers: 5e3,
             historyRetentionDays: 365,
             features: [
               "pdv",
@@ -9223,6 +9611,7 @@ var init_storage = __esm({
             maxMenuItems: 999999,
             maxOrdersPerMonth: 999999,
             maxUsers: 999999,
+            maxCustomers: 999999,
             historyRetentionDays: 999999,
             features: [
               "tudo_ilimitado",
@@ -9282,33 +9671,57 @@ var init_storage = __esm({
         return canceled;
       }
       async checkSubscriptionLimits(restaurantId) {
-        const subscriptionData = await this.getSubscriptionByRestaurantId(restaurantId);
+        const { cache: cache2, CacheKeys: CacheKeys2, CacheTTL: CacheTTL2 } = await Promise.resolve().then(() => (init_cache(), cache_exports));
+        const cacheKey = CacheKeys2.subscriptionLimits(restaurantId);
+        const cached = cache2.get(cacheKey);
+        if (cached && cached.plan) {
+          return cached;
+        }
+        let subscriptionData = await this.getSubscriptionByRestaurantId(restaurantId);
+        let createdNewSubscription = false;
         if (!subscriptionData) {
-          throw new Error("Restaurante n\xE3o possui subscri\xE7\xE3o ativa");
+          const basicPlan = await this.getSubscriptionPlanBySlug("basico");
+          if (basicPlan) {
+            const { nanoid: nanoid3 } = await import("nanoid");
+            await db.insert(subscriptions).values({
+              id: nanoid3(),
+              restaurantId,
+              planId: basicPlan.id,
+              status: "ativa",
+              startDate: /* @__PURE__ */ new Date(),
+              renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1e3)
+            });
+            cache2.delete(cacheKey);
+            createdNewSubscription = true;
+            subscriptionData = await this.getSubscriptionByRestaurantId(restaurantId);
+          }
+          if (!subscriptionData) {
+            throw new Error("Restaurante n\xE3o possui subscri\xE7\xE3o ativa");
+          }
         }
         const { plan, ...subscription } = subscriptionData;
-        const branchesCount = await db.select({ count: sql3`count(*)` }).from(branches).where(eq(branches.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
-        const tablesCount = await db.select({ count: sql3`count(*)` }).from(tables).where(eq(tables.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
-        const menuItemsCount = await db.select({ count: sql3`count(*)` }).from(menuItems).where(eq(menuItems.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
-        const usersCount = await db.select({ count: sql3`count(*)` }).from(users).where(eq(users.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
+        const branchesCount = await db.select({ count: sql3`count(*)` }).from(branches).where(eq(branches.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
+        const tablesCount = await db.select({ count: sql3`count(*)` }).from(tables).where(eq(tables.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
+        const menuItemsCount = await db.select({ count: sql3`count(*)` }).from(menuItems).where(eq(menuItems.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
+        const usersCount = await db.select({ count: sql3`count(*)` }).from(users).where(eq(users.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
         const startOfMonth = /* @__PURE__ */ new Date();
         startOfMonth.setDate(1);
         startOfMonth.setHours(0, 0, 0, 0);
         const ordersThisMonth = await db.select({ count: sql3`count(*)` }).from(orders).where(
-          and(
+          and2(
             eq(orders.restaurantId, restaurantId),
-            gte(orders.createdAt, startOfMonth),
+            gte2(orders.createdAt, startOfMonth),
             ne(orders.status, "cancelado")
           )
-        ).then((result) => Number(result[0]?.count || 0));
-        const customersCount = await db.select({ count: sql3`count(*)` }).from(customers).where(eq(customers.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
+        ).then((result2) => Number(result2[0]?.count || 0));
+        const customersCount = await db.select({ count: sql3`count(*)` }).from(customers).where(eq(customers.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
         const activeCouponsCount = await db.select({ count: sql3`count(*)` }).from(coupons).where(
-          and(
+          and2(
             eq(coupons.restaurantId, restaurantId),
             eq(coupons.isActive, 1)
           )
-        ).then((result) => Number(result[0]?.count || 0));
-        const inventoryItemsCount = await db.select({ count: sql3`count(*)` }).from(inventoryItems).where(eq(inventoryItems.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
+        ).then((result2) => Number(result2[0]?.count || 0));
+        const inventoryItemsCount = await db.select({ count: sql3`count(*)` }).from(inventoryItems).where(eq(inventoryItems.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
         const usage = {
           branches: branchesCount,
           tables: tablesCount,
@@ -9330,7 +9743,7 @@ var init_storage = __esm({
           coupons: isUnlimited(plan.maxActiveCoupons) || activeCouponsCount < plan.maxActiveCoupons,
           inventoryItems: isUnlimited(plan.maxInventoryItems) || inventoryItemsCount < plan.maxInventoryItems
         };
-        return {
+        const result = {
           plan,
           subscription,
           usage,
@@ -9344,6 +9757,8 @@ var init_storage = __esm({
           canAddCoupon: withinLimits.coupons,
           canAddInventoryItem: withinLimits.inventoryItems
         };
+        cache2.set(cacheKey, result, CacheTTL2.subscriptionLimits);
+        return result;
       }
       // Subscription Payment operations
       async getSubscriptionPayments(restaurantId) {
@@ -9368,9 +9783,9 @@ var init_storage = __esm({
         const menuItemsCount = await db.select({ count: sql3`count(*)` }).from(menuItems).where(eq(menuItems.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
         const usersCount = await db.select({ count: sql3`count(*)` }).from(users).where(eq(users.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
         const ordersCount = await db.select({ count: sql3`count(*)` }).from(orders).where(
-          and(
+          and2(
             eq(orders.restaurantId, restaurantId),
-            gte(orders.createdAt, subscription.currentPeriodStart),
+            gte2(orders.createdAt, subscription.currentPeriodStart),
             ne(orders.status, "cancelado")
           )
         ).then((result) => Number(result[0]?.count || 0));
@@ -9450,7 +9865,7 @@ var init_storage = __esm({
             )
           );
         }
-        return await db.select().from(notifications).where(and(...conditions)).orderBy(desc(notifications.createdAt)).limit(limit);
+        return await db.select().from(notifications).where(and2(...conditions)).orderBy(desc(notifications.createdAt)).limit(limit);
       }
       async getUnreadNotificationsCount(restaurantId, userId) {
         const conditions = [
@@ -9465,7 +9880,7 @@ var init_storage = __esm({
             )
           );
         }
-        const result = await db.select({ count: sql3`count(*)` }).from(notifications).where(and(...conditions));
+        const result = await db.select({ count: sql3`count(*)` }).from(notifications).where(and2(...conditions));
         return Number(result[0]?.count || 0);
       }
       async createNotification(restaurantId, data) {
@@ -9480,7 +9895,7 @@ var init_storage = __esm({
           isRead: 1,
           readAt: /* @__PURE__ */ new Date()
         }).where(
-          and(
+          and2(
             eq(notifications.id, notificationId),
             eq(notifications.restaurantId, restaurantId)
           )
@@ -9506,11 +9921,11 @@ var init_storage = __esm({
         await db.update(notifications).set({
           isRead: 1,
           readAt: /* @__PURE__ */ new Date()
-        }).where(and(...conditions));
+        }).where(and2(...conditions));
       }
       async deleteNotification(restaurantId, notificationId) {
         await db.delete(notifications).where(
-          and(
+          and2(
             eq(notifications.id, notificationId),
             eq(notifications.restaurantId, restaurantId)
           )
@@ -9520,7 +9935,7 @@ var init_storage = __esm({
         const cutoffDate = /* @__PURE__ */ new Date();
         cutoffDate.setDate(cutoffDate.getDate() - daysOld);
         const result = await db.delete(notifications).where(
-          and(
+          and2(
             eq(notifications.restaurantId, restaurantId),
             lt(notifications.createdAt, cutoffDate)
           )
@@ -9535,7 +9950,7 @@ var init_storage = __esm({
         } else {
           conditions.push(isNull(notificationPreferences.userId));
         }
-        const [prefs] = await db.select().from(notificationPreferences).where(and(...conditions));
+        const [prefs] = await db.select().from(notificationPreferences).where(and2(...conditions));
         return prefs;
       }
       async upsertNotificationPreferences(restaurantId, userId, data) {
@@ -9731,7 +10146,7 @@ var init_storage = __esm({
       }
       async getPrinterConfigurationById(restaurantId, id) {
         const [config] = await db.select().from(printerConfigurations).where(
-          and(
+          and2(
             eq(printerConfigurations.id, id),
             eq(printerConfigurations.restaurantId, restaurantId)
           )
@@ -9750,7 +10165,7 @@ var init_storage = __esm({
           ...data,
           updatedAt: /* @__PURE__ */ new Date()
         }).where(
-          and(
+          and2(
             eq(printerConfigurations.id, id),
             eq(printerConfigurations.restaurantId, restaurantId)
           )
@@ -9762,7 +10177,7 @@ var init_storage = __esm({
       }
       async deletePrinterConfiguration(restaurantId, id) {
         await db.delete(printerConfigurations).where(
-          and(
+          and2(
             eq(printerConfigurations.id, id),
             eq(printerConfigurations.restaurantId, restaurantId)
           )
@@ -9770,7 +10185,7 @@ var init_storage = __esm({
       }
       async getActivePrintersByType(restaurantId, printerType, branchId) {
         let query = db.select().from(printerConfigurations).where(
-          and(
+          and2(
             eq(printerConfigurations.restaurantId, restaurantId),
             eq(printerConfigurations.printerType, printerType),
             eq(printerConfigurations.isActive, 1)
@@ -9799,7 +10214,7 @@ var init_storage = __esm({
       }
       async getPrintHistoryByOrder(restaurantId, orderId) {
         return await db.select().from(printHistory).where(
-          and(
+          and2(
             eq(printHistory.restaurantId, restaurantId),
             eq(printHistory.orderId, orderId)
           )
@@ -9814,9 +10229,9 @@ var init_storage = __esm({
           successfulPrints: sql3`count(*) filter (where ${printHistory.success} = 1)`,
           failedPrints: sql3`count(*) filter (where ${printHistory.success} = 0)`
         }).from(printHistory).where(
-          and(
+          and2(
             eq(printHistory.restaurantId, restaurantId),
-            gte(printHistory.printedAt, startDate)
+            gte2(printHistory.printedAt, startDate)
           )
         ).groupBy(printHistory.printerType);
         return stats;
@@ -9837,7 +10252,7 @@ var init_storage = __esm({
       }
       async validateTableForOrder(tableId, restaurantId) {
         const [table] = await db.select().from(tables).where(
-          and(
+          and2(
             eq(tables.id, tableId),
             eq(tables.restaurantId, restaurantId)
           )
@@ -9849,61 +10264,327 @@ var init_storage = __esm({
   }
 });
 
-// load-env.js
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-var __dirname = path.dirname(fileURLToPath(import.meta.url));
-try {
-  const envFilePath = path.join(__dirname, ".env");
-  if (fs.existsSync(envFilePath)) {
-    const envContent = fs.readFileSync(envFilePath, "utf8");
-    envContent.split("\n").forEach((line) => {
-      line = line.trim();
-      if (line && !line.startsWith("#")) {
-        const [key, ...valueParts] = line.split("=");
-        if (key && valueParts.length > 0) {
-          const value = valueParts.join("=").trim();
-          if (!process.env[key]) {
-            process.env[key] = value;
+// scripts/check-subscriptions.ts
+var check_subscriptions_exports = {};
+__export(check_subscriptions_exports, {
+  checkExpiredSubscriptions: () => checkExpiredSubscriptions,
+  checkExpiringSubscriptions: () => checkExpiringSubscriptions,
+  generateReport: () => generateReport
+});
+import { eq as eq4, and as and5, lte, gte as gte4, sql as sql6 } from "drizzle-orm";
+async function checkExpiredSubscriptions() {
+  console.log("\u{1F50D} Checking for expired subscriptions...");
+  const now = /* @__PURE__ */ new Date();
+  const expiredSubs = await db.select({
+    id: subscriptions.id,
+    restaurantId: subscriptions.restaurantId,
+    restaurantName: restaurants.name,
+    planName: subscriptionPlans.name,
+    status: subscriptions.status,
+    currentPeriodEnd: subscriptions.currentPeriodEnd
+  }).from(subscriptions).innerJoin(restaurants, eq4(subscriptions.restaurantId, restaurants.id)).innerJoin(subscriptionPlans, eq4(subscriptions.planId, subscriptionPlans.id)).where(
+    and5(
+      lte(subscriptions.currentPeriodEnd, now),
+      sql6`${subscriptions.status} IN ('trial', 'ativa')`
+    )
+  );
+  if (expiredSubs.length === 0) {
+    console.log("\u2705 No expired subscriptions found");
+    return { expired: 0, updated: 0 };
+  }
+  console.log(`\u26A0\uFE0F  Found ${expiredSubs.length} expired subscription(s)`);
+  let updatedCount = 0;
+  for (const sub of expiredSubs) {
+    try {
+      await db.update(subscriptions).set({
+        status: "expirada",
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq4(subscriptions.id, sub.id));
+      updatedCount++;
+      console.log(`  \u2705 Updated ${sub.restaurantName} (${sub.planName}) - expired ${Math.floor((now.getTime() - sub.currentPeriodEnd.getTime()) / (1e3 * 60 * 60 * 24))} days ago`);
+    } catch (error) {
+      console.error(`  \u274C Failed to update subscription ${sub.id}:`, error);
+    }
+  }
+  console.log(`
+\u{1F4CA} Summary: ${updatedCount}/${expiredSubs.length} subscriptions updated to 'expirada'
+`);
+  return { expired: expiredSubs.length, updated: updatedCount };
+}
+async function checkExpiringSubscriptions() {
+  console.log("\u{1F50D} Checking for expiring subscriptions...");
+  const now = /* @__PURE__ */ new Date();
+  const in7Days = new Date(now);
+  in7Days.setDate(in7Days.getDate() + 7);
+  const in3Days = new Date(now);
+  in3Days.setDate(in3Days.getDate() + 3);
+  const in1Day = new Date(now);
+  in1Day.setDate(in1Day.getDate() + 1);
+  const expiringSubs = await db.select({
+    id: subscriptions.id,
+    restaurantId: subscriptions.restaurantId,
+    restaurantName: restaurants.name,
+    restaurantEmail: restaurants.email,
+    planName: subscriptionPlans.name,
+    status: subscriptions.status,
+    currentPeriodEnd: subscriptions.currentPeriodEnd,
+    autoRenew: subscriptions.autoRenew,
+    billingInterval: subscriptions.billingInterval,
+    currency: subscriptions.currency
+  }).from(subscriptions).innerJoin(restaurants, eq4(subscriptions.restaurantId, restaurants.id)).innerJoin(subscriptionPlans, eq4(subscriptions.planId, subscriptionPlans.id)).where(
+    and5(
+      lte(subscriptions.currentPeriodEnd, in7Days),
+      gte4(subscriptions.currentPeriodEnd, now),
+      sql6`${subscriptions.status} IN ('trial', 'ativa')`
+    )
+  ).orderBy(subscriptions.currentPeriodEnd);
+  if (expiringSubs.length === 0) {
+    console.log("\u2705 No subscriptions expiring in the next 7 days");
+    return { total: 0, alerts: [] };
+  }
+  console.log(`\u26A0\uFE0F  Found ${expiringSubs.length} subscription(s) expiring soon:
+`);
+  const alerts = [];
+  for (const sub of expiringSubs) {
+    const daysUntilExpiration = Math.ceil(
+      (sub.currentPeriodEnd.getTime() - now.getTime()) / (1e3 * 60 * 60 * 24)
+    );
+    const priority = daysUntilExpiration <= 1 ? "high" : daysUntilExpiration <= 3 ? "medium" : "low";
+    const emoji = daysUntilExpiration <= 1 ? "\u{1F6A8}" : daysUntilExpiration <= 3 ? "\u26A0\uFE0F" : "\u{1F4E2}";
+    console.log(`  ${emoji} ${sub.restaurantName} (${sub.planName})`);
+    console.log(`     Status: ${sub.status} | Expira em: ${daysUntilExpiration} dia(s)`);
+    console.log(`     Email: ${sub.restaurantEmail}`);
+    console.log(`     Auto-renovar: ${sub.autoRenew ? "Sim" : "N\xE3o"}`);
+    console.log("");
+    alerts.push({
+      restaurant: sub.restaurantName,
+      plan: sub.planName,
+      daysLeft: daysUntilExpiration,
+      priority
+    });
+  }
+  console.log(`\u{1F4CA} Summary: ${expiringSubs.length} subscription(s) expiring soon`);
+  console.log(`   \u{1F6A8} High priority (\u22641 day): ${alerts.filter((a) => a.priority === "high").length}`);
+  console.log(`   \u26A0\uFE0F  Medium priority (2-3 days): ${alerts.filter((a) => a.priority === "medium").length}`);
+  console.log(`   \u{1F4E2} Low priority (4-7 days): ${alerts.filter((a) => a.priority === "low").length}
+`);
+  return { total: expiringSubs.length, alerts };
+}
+async function generateReport() {
+  console.log("\u{1F4CA} RELAT\xD3RIO DE SUBSCRI\xC7\xD5ES\n");
+  console.log("\u2550".repeat(60));
+  const statusCounts = await db.select({
+    status: subscriptions.status,
+    count: sql6`count(*)::int`
+  }).from(subscriptions).groupBy(subscriptions.status);
+  console.log("\n\u{1F4C8} Status das Subscri\xE7\xF5es:");
+  for (const row of statusCounts) {
+    const emoji = row.status === "ativa" ? "\u2705" : row.status === "trial" ? "\u{1F381}" : row.status === "expirada" ? "\u274C" : row.status === "suspensa" ? "\u23F8\uFE0F" : row.status === "cancelada" ? "\u{1F6AB}" : "\u2753";
+    console.log(`  ${emoji} ${row.status.padEnd(12)}: ${row.count}`);
+  }
+  const planCounts = await db.select({
+    planName: subscriptionPlans.name,
+    count: sql6`count(*)::int`
+  }).from(subscriptions).innerJoin(subscriptionPlans, eq4(subscriptions.planId, subscriptionPlans.id)).groupBy(subscriptionPlans.name);
+  console.log("\n\u{1F4B3} Subscri\xE7\xF5es por Plano:");
+  for (const row of planCounts) {
+    console.log(`  \u2022 ${row.planName.padEnd(20)}: ${row.count}`);
+  }
+  console.log("\n" + "\u2550".repeat(60) + "\n");
+}
+async function main() {
+  console.log("\n\u{1F680} INICIANDO VERIFICA\xC7\xC3O DE SUBSCRI\xC7\xD5ES");
+  console.log(`\u{1F4C5} Data/Hora: ${(/* @__PURE__ */ new Date()).toLocaleString("pt-BR")}
+`);
+  console.log("\u2550".repeat(60) + "\n");
+  try {
+    const expiredResults = await checkExpiredSubscriptions();
+    const expiringResults = await checkExpiringSubscriptions();
+    await generateReport();
+    console.log("\u2705 VERIFICA\xC7\xC3O CONCLU\xCDDA COM SUCESSO\n");
+    process.exit(0);
+  } catch (error) {
+    console.error("\n\u274C ERRO DURANTE VERIFICA\xC7\xC3O:", error);
+    process.exit(1);
+  }
+}
+var init_check_subscriptions = __esm({
+  "scripts/check-subscriptions.ts"() {
+    "use strict";
+    init_load_env();
+    init_db();
+    init_schema();
+    if (import.meta.url === `file://${process.argv[1]}`) {
+      main();
+    }
+  }
+});
+
+// server/websocket.ts
+var websocket_exports = {};
+__export(websocket_exports, {
+  setupWebSocket: () => setupWebSocket
+});
+import { WebSocketServer, WebSocket } from "ws";
+async function getRedisClients() {
+  if (pubClient && subClient) {
+    return { pub: pubClient, sub: subClient };
+  }
+  const redisUrl = process.env.REDIS_URL;
+  if (!redisUrl) {
+    return null;
+  }
+  try {
+    const { default: IORedis } = await import("ioredis");
+    pubClient = new IORedis(redisUrl, { lazyConnect: true });
+    subClient = new IORedis(redisUrl, { lazyConnect: true });
+    await Promise.all([pubClient.connect(), subClient.connect()]);
+    console.log("\u2705 Redis Pub/Sub connected for WebSocket");
+    return { pub: pubClient, sub: subClient };
+  } catch (error) {
+    console.error("\u274C Failed to initialize Redis Pub/Sub:", error);
+    return null;
+  }
+}
+async function setupWebSocket(httpServer) {
+  const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
+  const clientsByRestaurant = /* @__PURE__ */ new Map();
+  const clients = /* @__PURE__ */ new Set();
+  const clientRestaurantMap = /* @__PURE__ */ new WeakMap();
+  const redis = await getRedisClients();
+  const useRedis = redis !== null;
+  if (useRedis) {
+    console.log("\u{1F680} WebSocket: Using Redis Pub/Sub (distributed)");
+    redis.sub.subscribe("ws:broadcast", "ws:restaurant", (err) => {
+      if (err) {
+        console.error("\u274C Redis subscribe error:", err);
+      }
+    });
+    redis.sub.on("message", (channel, message) => {
+      try {
+        const data = JSON.parse(message);
+        if (channel === "ws:broadcast") {
+          broadcastToClientsLocal(data.message);
+        } else if (channel === "ws:restaurant") {
+          if (data.restaurantId) {
+            broadcastToRestaurantLocal(data.restaurantId, data.message);
+          }
+        }
+      } catch (error) {
+        console.error("\u274C Error processing Redis message:", error);
+      }
+    });
+  } else {
+    console.log("\u{1F4BE} WebSocket: Using local only (single instance)");
+  }
+  wss.on("connection", (ws) => {
+    clients.add(ws);
+    ws.on("message", (data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        if (message.type === "auth" && message.restaurantId) {
+          const restaurantId = message.restaurantId;
+          clientRestaurantMap.set(ws, restaurantId);
+          if (!clientsByRestaurant.has(restaurantId)) {
+            clientsByRestaurant.set(restaurantId, /* @__PURE__ */ new Set());
+          }
+          clientsByRestaurant.get(restaurantId).add(ws);
+          ws.send(JSON.stringify({ type: "auth_success", restaurantId }));
+        }
+      } catch (error) {
+      }
+    });
+    ws.on("close", () => {
+      clients.delete(ws);
+      const restaurantId = clientRestaurantMap.get(ws);
+      if (restaurantId) {
+        const restaurantClients = clientsByRestaurant.get(restaurantId);
+        if (restaurantClients) {
+          restaurantClients.delete(ws);
+          if (restaurantClients.size === 0) {
+            clientsByRestaurant.delete(restaurantId);
           }
         }
       }
     });
-    console.log("\u2713 Loaded .env file");
-  }
-} catch (error) {
-  console.warn("Could not load .env file:", error.message);
-}
-try {
-  const envFile = path.join(__dirname, ".cache/replit/env/latest.json");
-  if (fs.existsSync(envFile)) {
-    const data = JSON.parse(fs.readFileSync(envFile, "utf8"));
-    const env = data.environment || {};
-    const dbVars = ["DATABASE_URL", "PGHOST", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGPORT"];
-    dbVars.forEach((key) => {
-      if (env[key] && !process.env[key]) {
-        process.env[key] = env[key];
+    ws.on("error", (error) => {
+      console.error("\u274C WebSocket error:", error);
+      clients.delete(ws);
+      const restaurantId = clientRestaurantMap.get(ws);
+      if (restaurantId) {
+        const restaurantClients = clientsByRestaurant.get(restaurantId);
+        if (restaurantClients) {
+          restaurantClients.delete(ws);
+        }
       }
     });
-    console.log("\u2713 Loaded Replit environment cache");
+  });
+  function broadcastToClientsLocal(message) {
+    const messageStr = JSON.stringify(message);
+    clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(messageStr);
+      }
+    });
   }
-} catch (error) {
-  console.warn("Could not load Replit environment cache:", error.message);
+  function broadcastToRestaurantLocal(restaurantId, message) {
+    const restaurantClients = clientsByRestaurant.get(restaurantId);
+    if (!restaurantClients) return;
+    const messageStr = JSON.stringify(message);
+    restaurantClients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(messageStr);
+      }
+    });
+  }
+  async function broadcastToClients2(message) {
+    broadcastToClientsLocal(message);
+    if (useRedis && redis) {
+      try {
+        await redis.pub.publish("ws:broadcast", JSON.stringify({ message }));
+      } catch (error) {
+        console.error("\u274C Redis publish error:", error);
+      }
+    }
+  }
+  async function broadcastToRestaurant(restaurantId, message) {
+    broadcastToRestaurantLocal(restaurantId, message);
+    if (useRedis && redis) {
+      try {
+        await redis.pub.publish("ws:restaurant", JSON.stringify({
+          restaurantId,
+          message
+        }));
+      } catch (error) {
+        console.error("\u274C Redis publish error:", error);
+      }
+    }
+  }
+  global.broadcastToClients = broadcastToClients2;
+  global.broadcastToRestaurant = broadcastToRestaurant;
+  return wss;
 }
+var pubClient, subClient;
+var init_websocket = __esm({
+  "server/websocket.ts"() {
+    "use strict";
+    pubClient = null;
+    subClient = null;
+  }
+});
 
 // server/index.ts
+init_load_env();
 import express2 from "express";
 
 // server/routes.ts
 init_storage();
 import { createServer } from "http";
-import { WebSocketServer, WebSocket } from "ws";
 
 // server/orderNumberGenerator.ts
 init_db();
 init_schema();
-import { sql as sql5, and as and3, gte as gte2, eq as eq3 } from "drizzle-orm";
+import { sql as sql5, and as and4, gte as gte3, eq as eq3 } from "drizzle-orm";
 function getCurrentShift() {
   const now = /* @__PURE__ */ new Date();
   const hour = now.getHours();
@@ -9948,10 +10629,10 @@ async function generateOrderNumber(restaurantId, orderType) {
   const shift = getCurrentShift();
   try {
     const lastOrder = await db.select({ orderNumber: orders.orderNumber }).from(orders).where(
-      and3(
+      and4(
         eq3(orders.restaurantId, restaurantId),
         eq3(orders.orderType, orderType),
-        gte2(orders.createdAt, shift.start)
+        gte3(orders.createdAt, shift.start)
       )
     ).orderBy(sql5`${orders.createdAt} DESC`).limit(1);
     let nextNumber = 1;
@@ -9990,11 +10671,73 @@ var PlanFeatureError = class extends Error {
     this.name = "PlanFeatureError";
   }
 };
+async function checkCanAddUser(storage2, restaurantId) {
+  const limits = await storage2.checkSubscriptionLimits(restaurantId);
+  if (!limits.canAddUser) {
+    throw new PlanLimitError(
+      `Limite de usu\xE1rios atingido. O plano ${limits.plan.name} permite at\xE9 ${limits.plan.maxUsers} usu\xE1rios e voc\xEA j\xE1 possui ${limits.usage.users}.`,
+      "users",
+      limits.usage.users,
+      limits.plan.maxUsers
+    );
+  }
+}
+async function checkCanAddBranch(storage2, restaurantId) {
+  const limits = await storage2.checkSubscriptionLimits(restaurantId);
+  if (!limits.canAddBranch) {
+    throw new PlanLimitError(
+      `Limite de filiais atingido. O plano ${limits.plan.name} permite at\xE9 ${limits.plan.maxBranches} filiais e voc\xEA j\xE1 possui ${limits.usage.branches}.`,
+      "branches",
+      limits.usage.branches,
+      limits.plan.maxBranches
+    );
+  }
+}
+async function checkCanAddTable(storage2, restaurantId) {
+  const limits = await storage2.checkSubscriptionLimits(restaurantId);
+  if (!limits.canAddTable) {
+    throw new PlanLimitError(
+      `Limite de mesas atingido. O plano ${limits.plan.name} permite at\xE9 ${limits.plan.maxTables} mesas e voc\xEA j\xE1 possui ${limits.usage.tables}.`,
+      "tables",
+      limits.usage.tables,
+      limits.plan.maxTables
+    );
+  }
+}
+async function checkCanAddMenuItem(storage2, restaurantId) {
+  const limits = await storage2.checkSubscriptionLimits(restaurantId);
+  if (!limits.canAddMenuItem) {
+    throw new PlanLimitError(
+      `Limite de produtos no menu atingido. O plano ${limits.plan.name} permite at\xE9 ${limits.plan.maxMenuItems} produtos e voc\xEA j\xE1 possui ${limits.usage.menuItems}.`,
+      "menuItems",
+      limits.usage.menuItems,
+      limits.plan.maxMenuItems
+    );
+  }
+}
+async function checkCanCreateOrder(storage2, restaurantId) {
+  const limits = await storage2.checkSubscriptionLimits(restaurantId);
+  if (!limits.canCreateOrder) {
+    throw new PlanLimitError(
+      `Limite de pedidos mensais atingido. O plano ${limits.plan.name} permite at\xE9 ${limits.plan.maxOrdersPerMonth} pedidos por m\xEAs e voc\xEA j\xE1 criou ${limits.usage.ordersThisMonth}.`,
+      "orders",
+      limits.usage.ordersThisMonth,
+      limits.plan.maxOrdersPerMonth
+    );
+  }
+}
 async function checkCanAddCustomer(storage2, restaurantId) {
   const limits = await storage2.checkSubscriptionLimits(restaurantId);
+  const planFeatures = Array.isArray(limits.plan.features) ? limits.plan.features : typeof limits.plan.features === "string" ? JSON.parse(limits.plan.features) : [];
+  if (!planFeatures.includes("gestao_clientes")) {
+    throw new PlanFeatureError(
+      `A gest\xE3o de clientes n\xE3o est\xE1 dispon\xEDvel no plano ${limits.plan.name}. Fa\xE7a upgrade para o plano Profissional ou superior para gerenciar clientes, programas de fidelidade e hist\xF3rico de compras.`,
+      "customers"
+    );
+  }
   if (!limits.canAddCustomer) {
     throw new PlanLimitError(
-      `Limite de clientes atingido. O plano ${limits.plan.name} permite at\xE9 ${limits.plan.maxCustomers} clientes e voc\xEA j\xE1 possui ${limits.usage.customers}.`,
+      `Limite de clientes atingido. O plano ${limits.plan.name} permite at\xE9 ${limits.plan.maxCustomers} clientes e voc\xEA j\xE1 possui ${limits.usage.customers}. Fa\xE7a upgrade para aumentar este limite.`,
       "customers",
       limits.usage.customers,
       limits.plan.maxCustomers
@@ -10319,6 +11062,61 @@ function isSuperAdmin(req, res, next) {
   }
   next();
 }
+async function checkSubscriptionStatus(req, res, next) {
+  const user = req.user;
+  if (user.role === "superadmin") {
+    return next();
+  }
+  if (!user.restaurantId) {
+    return next();
+  }
+  try {
+    const { cache: cache2, CacheKeys: CacheKeys2, CacheTTL: CacheTTL2, getOrSet: getOrSet2 } = await Promise.resolve().then(() => (init_cache(), cache_exports));
+    const cacheKey = CacheKeys2.subscription(user.restaurantId);
+    const subscription = await getOrSet2(
+      cacheKey,
+      CacheTTL2.subscription,
+      () => storage.getSubscriptionByRestaurantId(user.restaurantId)
+    );
+    if (!subscription) {
+      return res.status(402).json({
+        message: "Subscri\xE7\xE3o n\xE3o encontrada. Entre em contato com o suporte.",
+        code: "NO_SUBSCRIPTION"
+      });
+    }
+    const now = /* @__PURE__ */ new Date();
+    const periodEnd = new Date(subscription.currentPeriodEnd);
+    if (subscription.status === "expirada" || subscription.status === "suspensa") {
+      return res.status(402).json({
+        message: subscription.status === "expirada" ? "Sua subscri\xE7\xE3o expirou. Renove para continuar usando o sistema." : "Sua subscri\xE7\xE3o est\xE1 suspensa. Entre em contato com o suporte.",
+        code: "SUBSCRIPTION_INACTIVE",
+        status: subscription.status,
+        planName: subscription.plan.name
+      });
+    }
+    if (now > periodEnd && (subscription.status === "trial" || subscription.status === "ativa")) {
+      await storage.updateSubscription(subscription.id, { status: "expirada" });
+      cache2.delete(cacheKey);
+      return res.status(402).json({
+        message: "Sua subscri\xE7\xE3o expirou. Renove para continuar usando o sistema.",
+        code: "SUBSCRIPTION_EXPIRED",
+        expiredAt: periodEnd.toISOString(),
+        planName: subscription.plan.name
+      });
+    }
+    if (subscription.status === "cancelada" && now > periodEnd) {
+      return res.status(402).json({
+        message: "Sua subscri\xE7\xE3o foi cancelada e o per\xEDodo de acesso terminou.",
+        code: "SUBSCRIPTION_CANCELLED",
+        endedAt: periodEnd.toISOString()
+      });
+    }
+    next();
+  } catch (error) {
+    console.error("\u274C Error checking subscription status:", error);
+    next();
+  }
+}
 async function registerRoutes(app2) {
   setupAuth(app2);
   app2.use("/api/public", (req, res, next) => {
@@ -10344,8 +11142,12 @@ async function registerRoutes(app2) {
       const { restaurant, adminUser } = await storage.createRestaurant(data);
       try {
         const currentDate = /* @__PURE__ */ new Date();
+        const trialDays = selectedPlan.trialDays || 14;
         const trialEndDate = new Date(currentDate);
-        trialEndDate.setDate(trialEndDate.getDate() + 30);
+        trialEndDate.setDate(trialEndDate.getDate() + trialDays);
+        const firstBillingStart = new Date(trialEndDate);
+        const firstBillingEnd = new Date(firstBillingStart);
+        firstBillingEnd.setMonth(firstBillingEnd.getMonth() + 1);
         await storage.createSubscription(restaurant.id, {
           planId: data.planId,
           status: "trial",
@@ -10355,25 +11157,35 @@ async function registerRoutes(app2) {
           // Default to AOA
           currentPeriodStart: currentDate,
           currentPeriodEnd: trialEndDate,
-          trialEnd: trialEndDate
+          trialStart: currentDate,
+          trialEnd: trialEndDate,
+          autoRenew: 1,
+          cancelAtPeriodEnd: 0
         });
+        console.log(`\u2705 Subscription created for restaurant ${restaurant.id} with ${trialDays} days trial`);
       } catch (subscriptionError) {
-        console.error("Error creating subscription for new restaurant:", subscriptionError);
+        console.error("\u274C Error creating subscription for new restaurant:", subscriptionError);
         try {
           await storage.deleteUser(restaurant.id, adminUser.id);
           await storage.deleteRestaurant(restaurant.id);
+          console.log(`\u{1F504} Rolled back restaurant ${restaurant.id} creation due to subscription error`);
         } catch (rollbackError) {
-          console.error("Error during rollback:", rollbackError);
+          console.error("\u274C CRITICAL: Error during rollback:", rollbackError);
         }
         return res.status(500).json({ message: "Erro ao criar subscri\xE7\xE3o. Por favor, tente novamente." });
       }
       res.json({
-        message: "Cadastro realizado com sucesso! Aguarde aprova\xE7\xE3o do super administrador.",
+        message: `Cadastro realizado com sucesso! Voc\xEA tem ${selectedPlan.trialDays || 14} dias de teste gratuito. Aguarde aprova\xE7\xE3o do super administrador para come\xE7ar a usar o sistema.`,
         restaurant: {
           id: restaurant.id,
           name: restaurant.name,
           email: restaurant.email,
           status: restaurant.status
+        },
+        subscription: {
+          planName: selectedPlan.name,
+          trialDays: selectedPlan.trialDays || 14,
+          status: "trial"
         }
       });
     } catch (error) {
@@ -10383,6 +11195,239 @@ async function registerRoutes(app2) {
       }
       const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
       res.status(500).json({ message: "Erro ao cadastrar restaurante", details: errorMessage });
+    }
+  });
+  app2.post("/api/admin/run-migration", isSuperAdmin, async (req, res) => {
+    try {
+      const { migrationName } = req.body;
+      if (!migrationName) {
+        return res.status(400).json({
+          message: "Migration name is required",
+          example: { migrationName: "add_performance_indexes" }
+        });
+      }
+      const fs4 = await import("fs");
+      const path5 = await import("path");
+      const migrationPath = path5.join(process.cwd(), "server", "migrations", `${migrationName}.sql`);
+      if (!fs4.existsSync(migrationPath)) {
+        return res.status(404).json({
+          message: `Migration file not found: ${migrationName}.sql`,
+          path: migrationPath
+        });
+      }
+      const sql7 = fs4.readFileSync(migrationPath, "utf8");
+      console.log(`\u{1F504} Running migration: ${migrationName}.sql`);
+      const statements = sql7.split(";").map((s) => s.trim()).filter((s) => s.length > 0 && !s.startsWith("--"));
+      let executed = 0;
+      const errors = [];
+      for (const statement of statements) {
+        try {
+          await db.execute(statement);
+          executed++;
+        } catch (error) {
+          if (!error.message?.includes("already exists")) {
+            errors.push({
+              statement: statement.substring(0, 100) + "...",
+              error: error.message
+            });
+          }
+        }
+      }
+      console.log(`\u2705 Migration completed: ${executed} statements executed`);
+      res.json({
+        success: true,
+        migration: migrationName,
+        executed,
+        errors: errors.length > 0 ? errors : void 0,
+        message: `Migration ${migrationName} executed successfully. ${executed} statements ran.`
+      });
+    } catch (error) {
+      console.error("\u274C Error running migration:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error running migration",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  app2.get("/api/admin/cache/stats", isSuperAdmin, async (req, res) => {
+    try {
+      const { cache: cache2 } = await Promise.resolve().then(() => (init_cache(), cache_exports));
+      const stats = cache2.getStats();
+      res.json({
+        ...stats,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        uptimeSeconds: Math.floor(process.uptime())
+      });
+    } catch (error) {
+      res.status(500).json({
+        message: "Error getting cache stats",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  app2.post("/api/admin/cache/clear", isSuperAdmin, async (req, res) => {
+    try {
+      const { cache: cache2 } = await Promise.resolve().then(() => (init_cache(), cache_exports));
+      const { pattern } = req.body;
+      if (pattern) {
+        cache2.deletePattern(pattern);
+        res.json({
+          success: true,
+          message: `Cache cleared for pattern: ${pattern}`
+        });
+      } else {
+        cache2.clear();
+        res.json({
+          success: true,
+          message: "All cache cleared"
+        });
+      }
+    } catch (error) {
+      res.status(500).json({
+        message: "Error clearing cache",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  app2.get("/api/sync/changes", isAuthenticated, async (req, res) => {
+    try {
+      const { since } = req.query;
+      const user = req.user;
+      const restaurantId = user.restaurantId;
+      if (!restaurantId) {
+        return res.status(400).json({ message: "Restaurant ID required" });
+      }
+      const sinceDate = since ? new Date(since) : new Date(Date.now() - 24 * 60 * 60 * 1e3);
+      const [orders2, tables2, menuItems2, customers2] = await Promise.all([
+        // Orders updated/created since
+        db.select().from(ordersTable).where(
+          and(
+            eq2(ordersTable.restaurantId, restaurantId),
+            gte(ordersTable.updatedAt, sinceDate)
+          )
+        ).limit(500),
+        // Tables updated since
+        db.select().from(tablesTable).where(
+          and(
+            eq2(tablesTable.restaurantId, restaurantId),
+            gte(tablesTable.updatedAt, sinceDate)
+          )
+        ).limit(100),
+        // Menu items (always sync all for offline availability)
+        db.select().from(menuItemsTable).where(eq2(menuItemsTable.restaurantId, restaurantId)).limit(500),
+        // Customers
+        db.select().from(customersTable).where(eq2(customersTable.restaurantId, restaurantId)).limit(1e3)
+      ]);
+      res.json({
+        orders: orders2.map((o) => ({
+          ...o,
+          synced: true,
+          updatedAt: o.updatedAt
+        })),
+        tables: tables2.map((t) => ({
+          ...t,
+          synced: true,
+          updatedAt: t.updatedAt || /* @__PURE__ */ new Date()
+        })),
+        menuItems: menuItems2.map((m) => ({
+          ...m,
+          synced: true,
+          updatedAt: m.updatedAt || /* @__PURE__ */ new Date()
+        })),
+        customers: customers2.map((c) => ({
+          ...c,
+          synced: true,
+          updatedAt: c.updatedAt || /* @__PURE__ */ new Date()
+        })),
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      console.log(`\u{1F4E5} Sync: Sent ${orders2.length} orders, ${tables2.length} tables, ${menuItems2.length} menu items to client`);
+    } catch (error) {
+      console.error("\u274C Sync error:", error);
+      res.status(500).json({ message: "Sync failed", error: error instanceof Error ? error.message : "Unknown error" });
+    }
+  });
+  app2.post("/api/sync/operations", isAuthenticated, async (req, res) => {
+    try {
+      const { operations } = req.body;
+      const user = req.user;
+      if (!Array.isArray(operations)) {
+        return res.status(400).json({ message: "Operations must be an array" });
+      }
+      const results = [];
+      for (const op of operations) {
+        try {
+          let result;
+          switch (op.operation) {
+            case "CREATE_ORDER":
+              result = await storage.createOrder(user.restaurantId, {
+                ...op.data,
+                offlineId: op.entityId
+              });
+              break;
+            case "UPDATE_ORDER":
+              result = await storage.updateOrder(op.entityId, op.data);
+              break;
+            case "CREATE_PAYMENT":
+              result = { success: true, id: op.entityId };
+              break;
+            case "UPDATE_TABLE":
+              result = await storage.updateTable(op.entityId, op.data);
+              break;
+            default:
+              throw new Error(`Unknown operation: ${op.operation}`);
+          }
+          results.push({
+            id: op.id,
+            entityId: op.entityId,
+            success: true,
+            data: result
+          });
+        } catch (error) {
+          results.push({
+            id: op.id,
+            entityId: op.entityId,
+            success: false,
+            error: error.message
+          });
+        }
+      }
+      res.json({ results });
+      console.log(`\u{1F4E4} Sync: Processed ${operations.length} operations (${results.filter((r) => r.success).length} succeeded)`);
+    } catch (error) {
+      console.error("\u274C Sync operations error:", error);
+      res.status(500).json({ message: "Sync operations failed" });
+    }
+  });
+  app2.post("/api/cron/check-subscriptions", async (req, res) => {
+    const authToken = req.headers["x-cron-secret"] || req.query.token;
+    const expectedToken = process.env.CRON_SECRET || "change-me-in-production";
+    if (authToken !== expectedToken) {
+      return res.status(401).json({
+        message: "Unauthorized. Invalid cron secret."
+      });
+    }
+    try {
+      console.log("\n\u{1F514} Cron job triggered: Checking subscriptions...");
+      const { checkExpiredSubscriptions: checkExpiredSubscriptions2, checkExpiringSubscriptions: checkExpiringSubscriptions2 } = await Promise.resolve().then(() => (init_check_subscriptions(), check_subscriptions_exports));
+      const expiredResults = await checkExpiredSubscriptions2();
+      const expiringResults = await checkExpiringSubscriptions2();
+      res.json({
+        success: true,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        results: {
+          expired: expiredResults,
+          expiring: expiringResults
+        }
+      });
+    } catch (error) {
+      console.error("\u274C Error in cron job:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error checking subscriptions",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
   app2.post("/api/auth/login", (req, res, next) => {
@@ -10565,7 +11610,7 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Erro ao atualizar filial ativa" });
     }
   });
-  app2.get("/api/branches", isAdmin, async (req, res) => {
+  app2.get("/api/branches", isAdmin, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user;
       if (!currentUser.restaurantId) {
@@ -10577,24 +11622,19 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Erro ao buscar filiais" });
     }
   });
-  app2.post("/api/branches", isAdmin, async (req, res) => {
+  app2.post("/api/branches", isAdmin, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user;
       if (!currentUser.restaurantId) {
         return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
       }
       if (currentUser.role !== "superadmin") {
-        const subscription = await storage.getSubscriptionByRestaurantId(currentUser.restaurantId);
-        if (subscription) {
-          const plan = await storage.getSubscriptionPlanById(subscription.planId);
-          if (plan && plan.maxBranches !== null) {
-            const currentBranches = await storage.getBranches(currentUser.restaurantId);
-            if (currentBranches.length >= plan.maxBranches) {
-              return res.status(403).json({
-                message: `Limite de filiais atingido. Seu plano permite at\xE9 ${plan.maxBranches} filiais. Fa\xE7a upgrade para adicionar mais.`
-              });
-            }
-          }
+        try {
+          await checkCanAddBranch(storage, currentUser.restaurantId);
+        } catch (error) {
+          return res.status(403).json({
+            message: error.message || "Limite de filiais atingido"
+          });
         }
       }
       const data = insertBranchSchema.parse(req.body);
@@ -10681,9 +11721,18 @@ async function registerRoutes(app2) {
         return res.status(400).json({ message: "Status inv\xE1lido" });
       }
       const restaurant = await storage.updateRestaurantStatus(req.params.id, status);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurante n\xE3o encontrado" });
+      }
+      const { cache: cache2, CacheKeys: CacheKeys2 } = await Promise.resolve().then(() => (init_cache(), cache_exports));
+      cache2.deletePattern(`restaurant:${req.params.id}*`);
+      cache2.deletePattern("superadmin:*");
+      console.log(`\u2705 Restaurant ${restaurant.name} status updated to: ${status}`);
       res.json(restaurant);
     } catch (error) {
-      res.status(500).json({ message: "Erro ao atualizar status do restaurante" });
+      console.error("\u274C Error updating restaurant status:", error);
+      const errorMessage = error instanceof Error ? error.message : "Erro ao atualizar status do restaurante";
+      res.status(500).json({ message: errorMessage });
     }
   });
   app2.delete("/api/superadmin/restaurants/:id", isSuperAdmin, async (req, res) => {
@@ -11238,7 +12287,7 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Erro ao registrar pagamento" });
     }
   });
-  app2.get("/api/users", isAdmin, async (req, res) => {
+  app2.get("/api/users", isAdmin, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user;
       const restaurantId = currentUser.role === "superadmin" ? null : currentUser.restaurantId || null;
@@ -11279,17 +12328,12 @@ async function registerRoutes(app2) {
         data.restaurantId = currentUser.restaurantId;
       }
       if (currentUser.role !== "superadmin" && data.restaurantId) {
-        const subscription = await storage.getSubscriptionByRestaurantId(data.restaurantId);
-        if (subscription) {
-          const plan = await storage.getSubscriptionPlanById(subscription.planId);
-          if (plan && plan.maxUsers !== null) {
-            const currentUsers = await storage.getAllUsers(data.restaurantId);
-            if (currentUsers.length >= plan.maxUsers) {
-              return res.status(403).json({
-                message: `Limite de usu\xE1rios atingido. Seu plano permite at\xE9 ${plan.maxUsers} usu\xE1rios. Fa\xE7a upgrade para adicionar mais.`
-              });
-            }
-          }
+        try {
+          await checkCanAddUser(storage, data.restaurantId);
+        } catch (error) {
+          return res.status(403).json({
+            message: error.message || "Limite de usu\xE1rios atingido"
+          });
         }
       }
       const existingUser = await storage.getUserByEmail(data.email);
@@ -12140,9 +13184,9 @@ async function registerRoutes(app2) {
         return res.status(404).json({ message: "Cliente n\xE3o encontrado" });
       }
       const orders2 = await db.query.orders.findMany({
-        where: (orders3, { eq: eq4, and: and4 }) => and4(
-          eq4(orders3.restaurantId, restaurantId),
-          eq4(orders3.customerId, customerId)
+        where: (orders3, { eq: eq5, and: and6 }) => and6(
+          eq5(orders3.restaurantId, restaurantId),
+          eq5(orders3.customerId, customerId)
         ),
         with: {
           orderItems: {
@@ -12184,7 +13228,7 @@ async function registerRoutes(app2) {
     try {
       const { orderId } = req.params;
       const order = await db.query.orders.findFirst({
-        where: (orders2, { eq: eq4 }) => eq4(orders2.id, orderId),
+        where: (orders2, { eq: eq5 }) => eq5(orders2.id, orderId),
         with: {
           orderItems: {
             with: {
@@ -12257,7 +13301,7 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Erro ao buscar cupons do cliente" });
     }
   });
-  app2.get("/api/tables", isAdmin, async (req, res) => {
+  app2.get("/api/tables", isAdmin, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user;
       if (!currentUser.restaurantId && currentUser.role !== "superadmin") {
@@ -12279,17 +13323,12 @@ async function registerRoutes(app2) {
       }
       const restaurantId = currentUser.restaurantId;
       if (currentUser.role !== "superadmin") {
-        const subscription = await storage.getSubscriptionByRestaurantId(restaurantId);
-        if (subscription) {
-          const plan = await storage.getSubscriptionPlanById(subscription.planId);
-          if (plan && plan.maxTables !== null) {
-            const currentTables = await storage.getTables(restaurantId, null);
-            if (currentTables.length >= plan.maxTables) {
-              return res.status(403).json({
-                message: `Limite de mesas atingido. Seu plano permite at\xE9 ${plan.maxTables} mesas. Fa\xE7a upgrade para adicionar mais.`
-              });
-            }
-          }
+        try {
+          await checkCanAddTable(storage, restaurantId);
+        } catch (error) {
+          return res.status(403).json({
+            message: error.message || "Limite de mesas atingido"
+          });
         }
       }
       const data = insertTableSchema.parse(req.body);
@@ -12525,9 +13564,9 @@ async function registerRoutes(app2) {
       const restaurantId = currentUser.restaurantId;
       const { sessionId } = req.params;
       const logs = await db.query.orderItemAuditLogs.findMany({
-        where: (logs2, { eq: eq4, and: and4 }) => and4(
-          eq4(logs2.sessionId, sessionId),
-          eq4(logs2.restaurantId, restaurantId)
+        where: (logs2, { eq: eq5, and: and6 }) => and6(
+          eq5(logs2.sessionId, sessionId),
+          eq5(logs2.restaurantId, restaurantId)
         ),
         with: {
           actor: {
@@ -13031,7 +14070,7 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to reorder categories" });
     }
   });
-  app2.get("/api/menu-items", isAdmin, async (req, res) => {
+  app2.get("/api/menu-items", isAdmin, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user;
       if (!currentUser.restaurantId && currentUser.role !== "superadmin") {
@@ -13054,17 +14093,12 @@ async function registerRoutes(app2) {
       }
       const restaurantId = currentUser.restaurantId;
       if (currentUser.role !== "superadmin") {
-        const subscription = await storage.getSubscriptionByRestaurantId(restaurantId);
-        if (subscription) {
-          const plan = await storage.getSubscriptionPlanById(subscription.planId);
-          if (plan && plan.maxMenuItems !== null) {
-            const currentMenuItems = await storage.getMenuItems(restaurantId, null);
-            if (currentMenuItems.length >= plan.maxMenuItems) {
-              return res.status(403).json({
-                message: `Limite de produtos atingido. Seu plano permite at\xE9 ${plan.maxMenuItems} produtos. Fa\xE7a upgrade para adicionar mais.`
-              });
-            }
-          }
+        try {
+          await checkCanAddMenuItem(storage, restaurantId);
+        } catch (error) {
+          return res.status(403).json({
+            message: error.message || "Limite de produtos atingido"
+          });
         }
       }
       const branchId = currentUser.activeBranchId || null;
@@ -13469,7 +14503,7 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to fetch recent orders" });
     }
   });
-  app2.get("/api/orders", isAdmin, async (req, res) => {
+  app2.get("/api/orders", isAdmin, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user;
       if (!currentUser.restaurantId && currentUser.role !== "superadmin") {
@@ -13489,6 +14523,15 @@ async function registerRoutes(app2) {
       const currentUser = req.user;
       const { items, ...orderData } = req.body;
       console.log("Creating order with data:", JSON.stringify({ orderData, items }, null, 2));
+      if (currentUser.role !== "superadmin" && currentUser.restaurantId) {
+        try {
+          await checkCanCreateOrder(storage, currentUser.restaurantId);
+        } catch (error) {
+          return res.status(403).json({
+            message: error.message || "Limite de pedidos atingido"
+          });
+        }
+      }
       const validatedOrder = insertOrderSchema.parse({
         ...orderData,
         createdBy: currentUser.id,
@@ -13724,7 +14767,7 @@ async function registerRoutes(app2) {
       const restaurantId = currentUser.restaurantId;
       const { newGuestId, reason } = reassignOrderItemSchema.parse(req.body);
       const orderItem = await db.query.orderItems.findFirst({
-        where: (items, { eq: eq4 }) => eq4(items.id, req.params.itemId),
+        where: (items, { eq: eq5 }) => eq5(items.id, req.params.itemId),
         with: {
           order: true
         }
@@ -13742,9 +14785,9 @@ async function registerRoutes(app2) {
         return res.status(400).json({ message: "N\xE3o \xE9 poss\xEDvel mover itens de pedido j\xE1 pago" });
       }
       const newGuest = await db.query.tableGuests.findFirst({
-        where: (guests, { eq: eq4, and: and4 }) => and4(
-          eq4(guests.id, newGuestId),
-          eq4(guests.restaurantId, restaurantId)
+        where: (guests, { eq: eq5, and: and6 }) => and6(
+          eq5(guests.id, newGuestId),
+          eq5(guests.restaurantId, restaurantId)
         )
       });
       if (!newGuest) {
@@ -13759,7 +14802,7 @@ async function registerRoutes(app2) {
       const oldGuestId = orderItem.guestId;
       await db.update(orderItems).set({ guestId: newGuestId }).where(eq2(orderItems.id, req.params.itemId));
       const menuItem = await db.query.menuItems.findFirst({
-        where: (items, { eq: eq4 }) => eq4(items.id, orderItem.menuItemId)
+        where: (items, { eq: eq5 }) => eq5(items.id, orderItem.menuItemId)
       });
       if (oldGuestId) {
         await storage.recalculateGuestTotal(restaurantId, oldGuestId);
@@ -13782,7 +14825,7 @@ async function registerRoutes(app2) {
         oldValue: {
           guestId: oldGuestId,
           guestNumber: oldGuestId ? (await db.query.tableGuests.findFirst({
-            where: (guests, { eq: eq4 }) => eq4(guests.id, oldGuestId)
+            where: (guests, { eq: eq5 }) => eq5(guests.id, oldGuestId)
           }))?.guestNumber : null
         },
         newValue: {
@@ -14375,7 +15418,7 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to fetch kitchen stats" });
     }
   });
-  app2.get("/api/reports/sales", isAdmin, async (req, res) => {
+  app2.get("/api/reports/sales", isAdmin, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user;
       let restaurantId;
@@ -15856,7 +16899,7 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Erro ao buscar estat\xEDsticas" });
     }
   });
-  app2.get("/api/customers", isAdmin, async (req, res) => {
+  app2.get("/api/customers", isAdmin, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user;
       if (!currentUser.restaurantId) {
@@ -15908,38 +16951,80 @@ async function registerRoutes(app2) {
   app2.post("/api/customers", isAuthenticated, async (req, res) => {
     try {
       const currentUser = req.user;
+      console.log("\u{1F4DD} Creating customer - User:", {
+        id: currentUser.id,
+        restaurantId: currentUser.restaurantId,
+        role: currentUser.role
+      });
       if (!currentUser.restaurantId) {
+        console.error("\u274C User not associated with restaurant");
         return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
       }
-      await checkCanAddCustomer(storage, currentUser.restaurantId);
+      console.log("\u{1F50D} Checking plan limits and features...");
+      try {
+        await checkCanAddCustomer(storage, currentUser.restaurantId);
+        console.log("\u2705 Plan limits OK");
+      } catch (limitError) {
+        if (limitError.name === "PlanFeatureError") {
+          console.log("\u26A0\uFE0F Feature not available in current plan");
+          return res.status(403).json({
+            message: limitError.message,
+            code: "FEATURE_NOT_AVAILABLE",
+            featureName: "gestao_clientes",
+            upgradeRequired: true
+          });
+        }
+        if (limitError.name === "PlanLimitError") {
+          console.log("\u26A0\uFE0F Customer limit reached");
+          return res.status(403).json({
+            message: limitError.message,
+            code: "LIMIT_REACHED",
+            current: limitError.current,
+            max: limitError.max,
+            upgradeRequired: true
+          });
+        }
+        throw limitError;
+      }
+      console.log("\u{1F4CB} Validating customer data:", req.body);
       const validatedData = insertCustomerSchema.parse(req.body);
+      console.log("\u2705 Data validated:", validatedData);
       if (validatedData.phone) {
         const existing = await storage.getCustomerByPhone(currentUser.restaurantId, validatedData.phone);
         if (existing) {
+          console.log("\u274C Phone already exists:", validatedData.phone);
           return res.status(400).json({ message: "J\xE1 existe um cliente com este telefone" });
         }
       }
-      if (validatedData.cpf) {
-        const existing = await storage.getCustomerByCpf(currentUser.restaurantId, validatedData.cpf);
-        if (existing) {
-          return res.status(400).json({ message: "J\xE1 existe um cliente com este CPF" });
-        }
-      }
+      console.log("\u{1F4BE} Creating customer in database...");
       const customer = await storage.createCustomer(
         currentUser.restaurantId,
         currentUser.activeBranchId || null,
         validatedData
       );
+      console.log("\u2705 Customer created successfully:", customer.id);
       res.status(201).json(customer);
     } catch (error) {
-      console.error("Customer creation error:", error);
+      console.error("\u274C Customer creation error:", error);
+      console.error("Error name:", error.name);
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
       if (error.name === "PlanLimitError" || error.name === "PlanFeatureError") {
         return res.status(403).json({ message: error.message });
       }
       if (error instanceof z2.ZodError) {
-        return res.status(400).json({ message: "Dados inv\xE1lidos", errors: error.errors });
+        console.error("Validation errors:", error.errors);
+        return res.status(400).json({
+          message: "Dados inv\xE1lidos",
+          errors: error.errors,
+          details: error.errors.map((e) => `${e.path.join(".")}: ${e.message}`)
+        });
       }
-      res.status(500).json({ message: "Erro ao criar cliente" });
+      res.status(500).json({
+        message: "Erro ao criar cliente",
+        error: error.message,
+        details: process.env.NODE_ENV === "development" ? error.stack : void 0
+      });
     }
   });
   app2.put("/api/customers/:id", isAuthenticated, async (req, res) => {
@@ -16758,70 +17843,8 @@ async function registerRoutes(app2) {
     }
   });
   const httpServer = createServer(app2);
-  const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
-  const clientsByRestaurant = /* @__PURE__ */ new Map();
-  const clients = /* @__PURE__ */ new Set();
-  const clientRestaurantMap = /* @__PURE__ */ new WeakMap();
-  wss.on("connection", (ws) => {
-    clients.add(ws);
-    ws.on("message", (data) => {
-      try {
-        const message = JSON.parse(data.toString());
-        if (message.type === "auth" && message.restaurantId) {
-          const restaurantId = message.restaurantId;
-          clientRestaurantMap.set(ws, restaurantId);
-          if (!clientsByRestaurant.has(restaurantId)) {
-            clientsByRestaurant.set(restaurantId, /* @__PURE__ */ new Set());
-          }
-          clientsByRestaurant.get(restaurantId).add(ws);
-          ws.send(JSON.stringify({ type: "auth_success", restaurantId }));
-        }
-      } catch (error) {
-      }
-    });
-    ws.on("close", () => {
-      clients.delete(ws);
-      const restaurantId = clientRestaurantMap.get(ws);
-      if (restaurantId) {
-        const restaurantClients = clientsByRestaurant.get(restaurantId);
-        if (restaurantClients) {
-          restaurantClients.delete(ws);
-          if (restaurantClients.size === 0) {
-            clientsByRestaurant.delete(restaurantId);
-          }
-        }
-      }
-    });
-    ws.on("error", (error) => {
-      clients.delete(ws);
-      const restaurantId = clientRestaurantMap.get(ws);
-      if (restaurantId) {
-        const restaurantClients = clientsByRestaurant.get(restaurantId);
-        if (restaurantClients) {
-          restaurantClients.delete(ws);
-        }
-      }
-    });
-  });
-  function broadcastToClients(message) {
-    const messageStr = JSON.stringify(message);
-    clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(messageStr);
-      }
-    });
-  }
-  function broadcastToRestaurant(restaurantId, message) {
-    const restaurantClients = clientsByRestaurant.get(restaurantId);
-    if (!restaurantClients) return;
-    const messageStr = JSON.stringify(message);
-    restaurantClients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(messageStr);
-      }
-    });
-  }
-  global.broadcastToRestaurant = broadcastToRestaurant;
+  const { setupWebSocket: setupWebSocket2 } = await Promise.resolve().then(() => (init_websocket(), websocket_exports));
+  await setupWebSocket2(httpServer);
   return httpServer;
 }
 
