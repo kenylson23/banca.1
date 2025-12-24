@@ -905,19 +905,8 @@ export class DatabaseStorage implements IStorage {
       role: 'admin',
     }).returning();
 
-    // Create default subscription with Básico plan
-    const basicPlan = await this.getSubscriptionPlanBySlug('basico');
-    if (basicPlan) {
-      const { nanoid } = await import('nanoid');
-      await db.insert(subscriptions).values({
-        id: nanoid(),
-        restaurantId: restaurant.id,
-        planId: basicPlan.id,
-        status: 'ativa',
-        startDate: new Date(),
-        renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-      });
-    }
+    // Subscription will be created by the registration route
+    // to handle trial period and other configurations properly
 
     return { restaurant, adminUser };
   }
