@@ -8048,6 +8048,7 @@ export class DatabaseStorage implements IStorage {
         maxMenuItems: 50,
         maxOrdersPerMonth: 500,
         maxUsers: 2,
+        maxCustomers: 0,
         historyRetentionDays: 30,
         features: [
           'pdv', 'gestao_mesas', 'menu_digital', 'qr_code',
@@ -8071,6 +8072,7 @@ export class DatabaseStorage implements IStorage {
         maxMenuItems: 150,
         maxOrdersPerMonth: 2000,
         maxUsers: 5,
+        maxCustomers: 500,
         historyRetentionDays: 90,
         features: [
           'pdv', 'gestao_mesas', 'menu_digital', 'qr_code',
@@ -8096,6 +8098,7 @@ export class DatabaseStorage implements IStorage {
         maxMenuItems: 999999,
         maxOrdersPerMonth: 10000,
         maxUsers: 15,
+        maxCustomers: 5000,
         historyRetentionDays: 365,
         features: [
           'pdv', 'gestao_mesas', 'menu_digital', 'qr_code',
@@ -8123,6 +8126,7 @@ export class DatabaseStorage implements IStorage {
         maxMenuItems: 999999,
         maxOrdersPerMonth: 999999,
         maxUsers: 999999,
+        maxCustomers: 999999,
         historyRetentionDays: 999999,
         features: [
           'tudo_ilimitado', 'servidor_dedicado', 'white_label',
