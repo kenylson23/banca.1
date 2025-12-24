@@ -391,7 +391,7 @@ async function checkSubscriptionStatus(req: any, res: any, next: any) {
   }
 
   try {
-    const { cache, CacheKeys, CacheTTL, getOrSet } = await import('./cache.js');
+    const { cache, CacheKeys, CacheTTL, getOrSet } = await import('./cache.ts');
     const cacheKey = CacheKeys.subscription(user.restaurantId);
     
     console.log('🔒 checkSubscriptionStatus - RestaurantId:', user.restaurantId);
@@ -648,7 +648,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Cache statistics endpoint (debug/monitoring)
   app.get('/api/admin/cache/stats', isSuperAdmin, async (req, res) => {
     try {
-      const { cache } = await import('./cache.js');
+      const { cache } = await import('./cache.ts');
       const stats = cache.getStats();
       
       res.json({
@@ -667,7 +667,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Clear cache endpoint
   app.post('/api/admin/cache/clear', isSuperAdmin, async (req, res) => {
     try {
-      const { cache } = await import('./cache.js');
+      const { cache } = await import('./cache.ts');
       const { pattern } = req.body;
       
       if (pattern) {
@@ -1303,7 +1303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Invalidate cache for this restaurant
-      const { cache, CacheKeys } = await import('./cache.js');
+      const { cache, CacheKeys } = await import('./cache.ts');
       cache.deletePattern(`restaurant:${req.params.id}*`);
       cache.deletePattern('superadmin:*');
       
@@ -2024,7 +2024,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (currentUser.role !== 'superadmin') {
       console.log('🔒 Checking subscription...');
       try {
-        const { cache, CacheKeys, CacheTTL, getOrSet } = await import('./cache.js');
+        const { cache, CacheKeys, CacheTTL, getOrSet } = await import('./cache.ts');
         const cacheKey = CacheKeys.subscription(currentUser.restaurantId);
         
         const subscription = await getOrSet(
