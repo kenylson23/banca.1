@@ -1134,12 +1134,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const trialEnd = new Date(now);
           trialEnd.setDate(trialEnd.getDate() + 30);
           
-          await storage.createSubscription({
-            restaurantId: restaurant.id,
+          await storage.createSubscription(restaurant.id, {
             planId: basePlan.id,
             status: 'trial',
+            billingInterval: 'mensal',
+            currency: 'AOA',
             currentPeriodStart: now,
             currentPeriodEnd: trialEnd,
+            autoRenew: 1,
+            cancelAtPeriodEnd: 0,
           });
           
           fixed++;
