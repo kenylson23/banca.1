@@ -68,18 +68,10 @@ interface TableGuestsManagerProps {
 interface TableGuest {
   id: string;
   sessionId: string;
-  customerId?: string | null;
   name: string | null;
   guestNumber: number;
   status: string;
   joinedAt: Date;
-  customer?: {
-    id: string;
-    name: string;
-    phone?: string;
-    loyaltyPoints: number;
-    tier: string;
-  };
 }
 
 interface OrdersByGuest {
@@ -91,12 +83,6 @@ interface OrdersByGuest {
 export function TableGuestsManager({ table }: TableGuestsManagerProps) {
   const { toast } = useToast();
   const [selectedGuest, setSelectedGuest] = useState<string | null>(null);
-  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
-  const [guestToLink, setGuestToLink] = useState<string | null>(null);
-  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
-
-  // Check subscription and features using the hook
-  const { hasAccess: hasCustomerManagement } = useFeatureAccess('gestao_clientes');
 
   // Fetch all guests from the table
   const { data: allGuests = [], isLoading: loadingGuests } = useQuery<TableGuest[]>({
@@ -189,30 +175,6 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
     },
   });
 
-  // Link customer to guest
-  const linkCustomerMutation = useMutation({
-    mutationFn: async ({ guestId, customerId }: { guestId: string; customerId: string }) => {
-      return apiRequest('PATCH', `/api/tables/${table.id}/guests/${guestId}`, {
-        customerId,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/orders-by-guest`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/guests`] });
-      toast({
-        title: 'Cliente vinculado',
-        description: 'Cliente foi vinculado com sucesso',
-      });
-      setGuestToLink(null);
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Erro ao vincular cliente',
-        description: error.message || 'Não foi possível vincular o cliente',
-        variant: 'destructive',
-      });
-    },
-  });
 
   const handleDeleteGuest = (guestId: string) => {
     const guest = ordersByGuest.find(og => og.guest.id === guestId);
@@ -230,25 +192,6 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
     deleteGuestMutation.mutate(guestId);
   };
 
-  const handleLinkCustomer = (guestId: string) => {
-    // Check if user has access to customer management
-    if (!hasCustomerManagement) {
-      setShowUpgradeDialog(true);
-      return;
-    }
-    
-    setGuestToLink(guestId);
-    setShowCustomerSearch(true);
-  };
-
-  const handleSelectCustomer = (customer: any) => {
-    if (guestToLink) {
-      linkCustomerMutation.mutate({
-        guestId: guestToLink,
-        customerId: customer.id,
-      });
-    }
-  };
 
   if (isLoading) {
     return (
@@ -282,22 +225,7 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
   const paidGuests = guestsWithOrders.filter(g => g.guest.status === 'pago').length;
 
   return (
-    <>
-      <CustomerSearchDialog
-        open={showCustomerSearch}
-        onOpenChange={setShowCustomerSearch}
-        onSelectCustomer={handleSelectCustomer}
-      />
-
-      <UpgradeDialog
-        open={showUpgradeDialog}
-        onOpenChange={setShowUpgradeDialog}
-        feature="gestao_clientes"
-        featureLabel="Gestão de Clientes"
-        featureDescription="Cadastre e gerencie seus clientes, vincule-os às mesas, acompanhe histórico de consumo e crie campanhas de fidelização personalizadas."
-      />
-
-      <div className="space-y-4">
+    <div className="space-y-4">
         {/* Summary Card */}
         <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-background via-primary/5 to-background">
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16"></div>
