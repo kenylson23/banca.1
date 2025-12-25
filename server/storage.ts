@@ -1417,13 +1417,28 @@ export class DatabaseStorage implements IStorage {
     try {
       const allTables = await this.getTables(restaurantId, branchId);
       
-      // Simply return tables with empty orders array as fallback
-      const result = allTables.map(table => ({
-        ...table,
-        orders: [],
-        guestsAwaitingBill: 0,
-        guestCount: 0,
-      }));
+      // Fetch orders for each table
+      const result = await Promise.all(
+        allTables.map(async (table) => {
+          try {
+            const orders = await this.getOrdersByTableId(restaurantId, table.id);
+            return {
+              ...table,
+              orders: orders || [],
+              guestsAwaitingBill: 0,
+              guestCount: 0,
+            };
+          } catch (error) {
+            console.warn(`Failed to fetch orders for table ${table.id}:`, error);
+            return {
+              ...table,
+              orders: [],
+              guestsAwaitingBill: 0,
+              guestCount: 0,
+            };
+          }
+        })
+      );
       
       return result;
     } catch (error) {
