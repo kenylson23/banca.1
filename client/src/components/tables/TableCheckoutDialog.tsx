@@ -39,7 +39,7 @@ interface TableGuest {
 interface OrdersByGuest {
   guest: TableGuest;
   orders: any[];
-  totalAmount: number;
+  subtotal: string;
 }
 
 export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutComplete }: TableCheckoutDialogProps) {
@@ -183,10 +183,11 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
     if (!table) return;
 
     try {
-      const guest = ordersByGuest.find(og => og.guest.id === guestId);
-      if (!guest) return;
+      const guestData = ordersByGuest.find(og => og.guest.id === guestId);
+      if (!guestData) return;
 
-      const amountToPay = (guest.totalAmount || 0).toFixed(2);
+      const remainingToPay = parseFloat(guestData.subtotal) - parseFloat(guestData.guest.paidAmount || '0');
+      const amountToPay = remainingToPay.toFixed(2);
 
       await recordPaymentMutation.mutateAsync({
         tableId: table.id,
@@ -194,16 +195,19 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
         paymentMethod,
       });
 
-      await updateGuestStatusMutation.mutateAsync({
-        guestId,
-        status: 'pago',
-      });
+      // Se o status ainda não for pago, atualiza (a recordPayment no backend já faz isso, mas por redundância/UI)
+      if (guestData.guest.status !== 'pago') {
+        await updateGuestStatusMutation.mutateAsync({
+          guestId,
+          status: 'pago',
+        });
+      }
 
       setPayingGuests(prev => ({ ...prev, [guestId]: true }));
 
-      // Check if all guests have paid
+      // Check if all guests have paid (using current data + optimization)
       const allPaid = ordersByGuest.every(og => 
-        payingGuests[og.guest.id] || og.guest.id === guestId
+        og.guest.id === guestId || og.guest.status === 'pago' || payingGuests[og.guest.id]
       );
 
       if (allPaid) {
@@ -386,8 +390,8 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
                           key={guestData.guest.id}
                           guest={{
                             ...guestData.guest,
-                            subtotal: (guestData.totalAmount || 0).toFixed(2),
-                            paidAmount: '0.00',
+                            subtotal: guestData.subtotal,
+                            paidAmount: guestData.guest.paidAmount || '0.00',
                           }}
                           onPay={handleGuestPayment}
                           isPaying={isProcessing}

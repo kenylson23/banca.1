@@ -4064,14 +4064,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : [];
       
       // Group orders by guestId
-      const ordersByGuest = guests.map(guest => ({
-        guest,
-        orders: orders.filter((order: any) => order.guestId === guest.id),
-        subtotal: orders
-          .filter((order: any) => order.guestId === guest.id && order.status !== 'cancelado')
-          .reduce((sum: number, order: any) => sum + parseFloat(order.totalAmount), 0)
-          .toFixed(2),
-      }));
+      const ordersByGuest = guests.map(guest => {
+        const guestOrders = orders.filter((order: any) => order.guestId === guest.id && order.status !== 'cancelado');
+        const subtotal = guestOrders.reduce((sum: number, order: any) => sum + parseFloat(order.totalAmount), 0);
+        
+        return {
+          guest,
+          orders: guestOrders,
+          subtotal: subtotal.toFixed(2),
+        };
+      });
       
       // Orders without guest (anonymous)
       const anonymousOrders = orders.filter((order: any) => !order.guestId);

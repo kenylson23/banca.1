@@ -13,12 +13,42 @@ import {
   Star as StarIcon,
   Clock as ClockIcon,
   ShoppingBag as ShoppingBagIcon,
+  Eye as EyeIcon,
+  User as UserIcon,
+  CreditCard as CreditCardIcon,
+  WarningCircle,
+  ArrowUp as ArrowUpIcon,
+  Link as LinkIcon,
+  Lock as LockIcon,
 } from '@phosphor-icons/react';
 import { formatKwanza } from '@/lib/formatters';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import type { Table } from '@shared/schema';
 import { motion, AnimatePresence } from 'framer-motion';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+interface TableGuest {
+  id: string;
+  sessionId: string;
+  name: string | null;
+  guestNumber: number;
+  status: string;
+  joinedAt: Date;
+  paidAmount: string;
+  subtotal: string;
+}
+
+interface OrdersByGuest {
+  guest: TableGuest;
+  orders: any[];
+  subtotal: string;
+}
+
+const hasCustomerManagement = true;
+const handleLinkCustomer = (id: string) => {};
+const linkCustomerMutation = { isPending: false };
 
 // Helper function to generate avatar colors based on guest number
 const getAvatarColor = (guestNumber: number) => {
