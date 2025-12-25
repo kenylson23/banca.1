@@ -3977,40 +3977,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Mesa não possui sessão ativa" });
       }
       
-      const { name, seatNumber, customerId } = req.body;
-      
-      // If customerId is provided, fetch customer data
-      let customerData = null;
-      if (customerId) {
-        customerData = await storage.getCustomerById(restaurantId, customerId);
-        if (!customerData) {
-          return res.status(404).json({ message: "Cliente não encontrado" });
-        }
-      }
+      const { name, seatNumber } = req.body;
       
       const guest = await storage.createTableGuest(restaurantId, {
         sessionId: table.currentSessionId,
         tableId: table.id,
-        customerId: customerId || null,
-        name: name || customerData?.name,
+        name,
         seatNumber,
       });
       
-      // Include customer info in response if linked
-      const guestWithCustomer = customerData ? {
-        ...guest,
-        customer: {
-          id: customerData.id,
-          name: customerData.name,
-          phone: customerData.phone,
-          loyaltyPoints: customerData.loyaltyPoints,
-          tier: customerData.tier,
-        }
-      } : guest;
+      broadcastToClients({ type: 'guest_joined', data: { tableId: table.id, guest } });
       
-      broadcastToClients({ type: 'guest_joined', data: { tableId: table.id, guest: guestWithCustomer } });
-      
-      res.json(guestWithCustomer);
+      res.json(guest);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Erro ao adicionar cliente" });
     }
@@ -4030,41 +4008,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Cliente não encontrado" });
       }
       
-      const { name, seatNumber, status, customerId } = req.body;
-      
-      // If customerId is provided, validate it exists
-      let customerData = null;
-      if (customerId !== undefined) {
-        if (customerId) {
-          customerData = await storage.getCustomerById(restaurantId, customerId);
-          if (!customerData) {
-            return res.status(404).json({ message: "Cliente não encontrado" });
-          }
-        }
-      }
+      const { name, seatNumber, status } = req.body;
       
       const updatedGuest = await storage.updateTableGuest(req.params.guestId, { 
-        customerId: customerId !== undefined ? customerId : undefined,
         name, 
         seatNumber, 
         status 
       });
       
-      // Include customer info in response if linked
-      const guestWithCustomer = updatedGuest.customerId && customerData ? {
-        ...updatedGuest,
-        customer: {
-          id: customerData.id,
-          name: customerData.name,
-          phone: customerData.phone,
-          loyaltyPoints: customerData.loyaltyPoints,
-          tier: customerData.tier,
-        }
-      } : updatedGuest;
+      broadcastToClients({ type: 'guest_updated', data: { tableId: req.params.id, guest: updatedGuest } });
       
-      broadcastToClients({ type: 'guest_updated', data: { tableId: req.params.id, guest: guestWithCustomer } });
-      
-      res.json(guestWithCustomer);
+      res.json(updatedGuest);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Erro ao atualizar cliente" });
     }
