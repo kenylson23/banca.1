@@ -43,7 +43,7 @@ interface SelectedOption {
 
 interface CartItem {
   id: string;
-  menuItem: MenuItem;
+  menuItem: any;
   quantity: number;
   selectedOptions: SelectedOption[];
 }
@@ -154,7 +154,7 @@ export function TableOrderDialog({ open, onOpenChange, table, onOrderCreated }: 
       priceAdjustment: string;
       quantity: number;
     }>;
-    menuItem?: MenuItem;
+    menuItem?: any;
   }) => {
     // Use the full MenuItem if provided, otherwise create a minimal one
     const menuItem = item.menuItem || {
@@ -171,7 +171,7 @@ export function TableOrderDialog({ open, onOpenChange, table, onOrderCreated }: 
       tags: null,
       createdAt: new Date(),
       updatedAt: new Date(),
-    } as MenuItem;
+    } as any;
     
     // Convert to our cart format
     const selectedOptions: SelectedOption[] = item.selectedOptions.map(opt => ({
@@ -196,11 +196,12 @@ export function TableOrderDialog({ open, onOpenChange, table, onOrderCreated }: 
   // Add new guest mutation
   const addGuestMutation = useMutation({
     mutationFn: async (name: string) => {
-      return apiRequest('POST', `/api/tables/${table?.id}/guests`, {
+      const response = await apiRequest('POST', `/api/tables/${table?.id}/guests`, {
         name: name.trim() || undefined,
       });
+      return response as any;
     },
-    onSuccess: (newGuest) => {
+    onSuccess: (newGuest: any) => {
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${table?.id}/guests`] });
       setSelectedGuest(newGuest.id);
       setShowNewGuestDialog(false);
@@ -310,7 +311,6 @@ export function TableOrderDialog({ open, onOpenChange, table, onOrderCreated }: 
             <div className="lg:col-span-2 flex flex-col min-h-0">
               <ProductSelector
                 onAddToOrder={handleAddToOrder}
-                selectedItems={cartItems.map(item => item.menuItem.id)}
               />
             </div>
 
@@ -501,14 +501,7 @@ export function TableOrderDialog({ open, onOpenChange, table, onOrderCreated }: 
       </Dialog>
 
       {/* Menu Item Options Dialog */}
-      {selectedMenuItem && (
-        <MenuItemOptionsDialog
-          open={showOptionsDialog}
-          onOpenChange={setShowOptionsDialog}
-          menuItem={selectedMenuItem}
-          onConfirm={handleOptionsConfirm}
-        />
-      )}
+      {/* Removed - handled by ProductSelector */}
     </>
   );
 }

@@ -116,7 +116,7 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
-  const authUser = user?.data;
+  const authUser = user;
   const isSuperadmin = authUser?.role === 'superadmin';
 
   // Generate QR Code when dialog opens
@@ -215,14 +215,9 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
         toast({ 
           title: '✅ Mesa ocupada', 
           description: `${customerName} foi cadastrado. Você informou ${count} pessoas - deseja cadastrar as outras ${count - 1}?`,
-          action: {
-            label: 'Cadastrar',
-            onClick: () => {
-              setGuestsExpanded(true);
-              setAddingGuest(true);
-            }
-          },
         });
+        setGuestsExpanded(true);
+        setAddingGuest(true);
       } else if (hasName) {
         // Only 1 person with name
         toast({ 
