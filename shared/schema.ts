@@ -734,7 +734,6 @@ export const tableGuests = pgTable("table_guests", {
   sessionId: varchar("session_id").notNull().references(() => tableSessions.id, { onDelete: 'cascade' }),
   tableId: varchar("table_id").notNull().references(() => tables.id, { onDelete: 'cascade' }),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
-  customerId: varchar("customer_id").references(() => customers.id, { onDelete: 'set null' }), // Link to registered customer
   name: varchar("name", { length: 200 }),
   seatNumber: integer("seat_number"),
   status: guestStatusEnum("status").notNull().default('ativo'),
@@ -749,7 +748,6 @@ export const tableGuests = pgTable("table_guests", {
 export const insertTableGuestSchema = createInsertSchema(tableGuests).omit({
   id: true,
   restaurantId: true,
-  guestNumber: true,
   subtotal: true,
   paidAmount: true,
   status: true,
@@ -758,13 +756,13 @@ export const insertTableGuestSchema = createInsertSchema(tableGuests).omit({
 }).extend({
   sessionId: z.string().min(1, "Sessão é obrigatória"),
   tableId: z.string().min(1, "Mesa é obrigatória"),
-  customerId: z.string().optional().nullable(),
   name: z.string().optional(),
   seatNumber: z.number().int().positive().optional(),
+  token: z.string().optional(),
+  deviceInfo: z.string().optional(),
 });
 
 export const updateTableGuestSchema = z.object({
-  customerId: z.string().optional().nullable(),
   name: z.string().optional(),
   seatNumber: z.number().int().positive().optional(),
   status: z.enum(['ativo', 'aguardando_conta', 'pago', 'saiu']).optional(),
