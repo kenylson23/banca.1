@@ -70,6 +70,18 @@ export default function FinancialTransactionsUnified() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [deleteTransactionId, setDeleteTransactionId] = useState<string | null>(null);
 
+  // Check subscription to see if expense tracking is available
+  const { data: subscription } = useQuery<any>({
+    queryKey: ['/api/subscription'],
+    retry: false,
+  });
+
+  // Check if expense tracking feature is available in the plan
+  const hasExpenseTracking = useMemo(() => {
+    if (!subscription?.plan) return false;
+    return subscription.plan.hasExpenseTracking === 1;
+  }, [subscription]);
+
   // Construir parâmetros de query
   const { transactionParams, actualDateRange } = useMemo(() => {
     const params: any = {};
@@ -291,7 +303,7 @@ export default function FinancialTransactionsUnified() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TransactionType)} className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsList className={cn("grid w-full max-w-md", hasExpenseTracking ? "grid-cols-3" : "grid-cols-2")}>
             <TabsTrigger value="all" className="gap-2">
               <DollarSign className="h-4 w-4" />
               Todas
@@ -300,10 +312,12 @@ export default function FinancialTransactionsUnified() {
               <TrendingUp className="h-4 w-4" />
               Receitas
             </TabsTrigger>
-            <TabsTrigger value="despesa" className="gap-2">
-              <TrendingDown className="h-4 w-4" />
-              Despesas
-            </TabsTrigger>
+            {hasExpenseTracking && (
+              <TabsTrigger value="despesa" className="gap-2">
+                <TrendingDown className="h-4 w-4" />
+                Despesas
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* KPIs */}
@@ -332,15 +346,17 @@ export default function FinancialTransactionsUnified() {
                   variant="success"
                   data-testid="kpi-total-income"
                 />
-                <InteractiveKPICard
-                  title="Total Despesas"
-                  value={formatKwanza(summary?.totalExpense || "0")}
-                  icon={TrendingDown}
-                  trend={-3.2}
-                  sparklineData={sparklineData}
-                  variant="destructive"
-                  data-testid="kpi-total-expense"
-                />
+                {hasExpenseTracking && (
+                  <InteractiveKPICard
+                    title="Total Despesas"
+                    value={formatKwanza(summary?.totalExpense || "0")}
+                    icon={TrendingDown}
+                    trend={-3.2}
+                    sparklineData={sparklineData}
+                    variant="destructive"
+                    data-testid="kpi-total-expense"
+                  />
+                )}
                 <InteractiveKPICard
                   title="Transações"
                   value={kpiData.count.toString()}

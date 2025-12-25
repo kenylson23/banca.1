@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste API de Usuários</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #00ff00;
+        }
+        .log {
+            background: #000;
+            padding: 15px;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .error { color: #ff4444; }
+        .success { color: #44ff44; }
+        .info { color: #4444ff; }
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #44ff44;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste da API de Usuários</h1>
+    <p>Este teste vai verificar se a API de usuários está funcionando corretamente.</p>
+    
+    <button onclick="testAPI()">▶ Executar Teste</button>
+    
+    <div class="log" id="log">
+        <div>Aguardando teste...</div>
+    </div>
+    
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logDiv.innerHTML += `<div class="${className}">[${time}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        async function testAPI() {
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML = '';
+            
+            log('🚀 Iniciando teste...', 'info');
+            log('', 'info');
+            
+            try {
+                // Test 1: Check authentication
+                log('📋 Teste 1: Verificando autenticação...', 'info');
+                const authResponse = await fetch('/api/user', {
+                    credentials: 'include'
+                });
+                
+                if (!authResponse.ok) {
+                    log(`❌ Não autenticado (Status: ${authResponse.status})`, 'error');
+                    log('💡 Por favor, faça login no sistema primeiro!', 'info');
+                    return;
+                }
+                
+                const user = await authResponse.json();
+                log(`✅ Autenticado como: ${user.email} (${user.role})`, 'success');
+                log('', 'info');
+                
+                // Test 2: Fetch users
+                log('📋 Teste 2: Buscando lista de usuários...', 'info');
+                const startTime = Date.now();
+                
+                const usersResponse = await fetch('/api/users?page=1&limit=20', {
+                    credentials: 'include'
+                });
+                
+                const responseTime = Date.now() - startTime;
+                log(`⏱️ Tempo de resposta: ${responseTime}ms`, 'info');
+                log(`📊 Status Code: ${usersResponse.status}`, 'info');
+                
+                if (!usersResponse.ok) {
+                    const errorData = await usersResponse.json().catch(() => ({ message: 'Erro desconhecido' }));
+                    log(`❌ Erro na requisição!`, 'error');
+                    log(`Status: ${usersResponse.status}`, 'error');
+                    log(`Mensagem: ${errorData.message}`, 'error');
+                    if (errorData.code) {
+                        log(`Código: ${errorData.code}`, 'error');
+                    }
+                    log('', 'info');
+                    log('💡 Possíveis causas:', 'info');
+                    if (usersResponse.status === 402) {
+                        log('   - Problema com subscrição do restaurante', 'info');
+                        log('   - Execute a correção em: /fix-subscriptions.html', 'info');
+                    } else if (usersResponse.status === 403) {
+                        log('   - Sem permissão de acesso', 'info');
+                    } else if (usersResponse.status === 500) {
+                        log('   - Erro interno do servidor', 'info');
+                    }
+                    return;
+                }
+                
+                const data = await usersResponse.json();
+                log(`✅ Sucesso! ${data.users.length} usuários carregados`, 'success');
+                log(`📊 Total: ${data.pagination.total} usuários`, 'success');
+                log(`📄 Página: ${data.pagination.page} de ${data.pagination.totalPages}`, 'success');
+                log('', 'info');
+                log('🎉 A API está funcionando corretamente!', 'success');
+                log('', 'info');
+                log('Usuários:', 'info');
+                data.users.forEach((u, i) => {
+                    log(`  ${i + 1}. ${u.firstName || ''} ${u.lastName || ''} (${u.email}) - ${u.role}`, 'info');
+                });
+                
+            } catch (error) {
+                log(`❌ Erro durante o teste: ${error.message}`, 'error');
+                log('', 'info');
+                log('💡 Isso pode indicar:', 'info');
+                log('   - Problema de conexão com o servidor', 'info');
+                log('   - Servidor não está respondendo', 'info');
+                log('   - Erro de JavaScript no código', 'info');
+            }
+        }
+    </script>
+</body>
+</html>

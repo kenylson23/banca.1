@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useInfiniteQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useInView } from "react-intersection-observer";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { LimitWarningBanner } from "@/components/LimitWarningBanner";
 import { Trash2, UserPlus, Pencil, Key, Eye, EyeOff, Search, ChevronLeft, ChevronRight, X, Users as UsersIcon, UserCheck, UserX, TrendingUp, Activity, Calendar, Filter, Download, Mail, Phone, Shield, Crown, Briefcase, ChefHat } from "lucide-react";
 import {
   Dialog,
@@ -161,6 +162,17 @@ export default function Users() {
   });
   if (debouncedSearch) queryParams.set("search", debouncedSearch);
   if (roleFilter && roleFilter !== "all") queryParams.set("role", roleFilter);
+
+  // Check subscription limits
+  const { data: subscription } = useQuery<any>({
+    queryKey: ['/api/subscription'],
+    retry: false,
+  });
+
+  const maxUsers = useMemo(() => {
+    if (!subscription?.plan?.maxUsers) return 2;
+    return subscription.plan.maxUsers >= 999999 ? Infinity : subscription.plan.maxUsers;
+  }, [subscription]);
 
   const { data, isLoading } = useQuery<PaginatedUsersResponse>({
     queryKey: ['/api/users', page, debouncedSearch, roleFilter],
@@ -530,6 +542,17 @@ export default function Users() {
             </DialogContent>
           </Dialog>
         </motion.div>
+
+        {/* Limit Warning Banner */}
+        {maxUsers !== Infinity && (
+          <LimitWarningBanner
+            current={totalUsers}
+            max={maxUsers}
+            resourceName="usuário"
+            resourceNamePlural="usuários"
+            upgradeMessage="Faça upgrade do seu plano para adicionar mais usuários à sua equipe."
+          />
+        )}
 
         {/* KPIs Dashboard */}
         <motion.div

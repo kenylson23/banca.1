@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Trash2, Edit, MapPin, Phone, Plus, CheckCircle, XCircle, Star, TrendingUp, Users, DollarSign, Activity, Calendar } from "lucide-react";
+import { LimitWarningBanner } from "@/components/LimitWarningBanner";
 import {
   Dialog,
   DialogContent,
@@ -49,6 +50,17 @@ export default function Branches() {
   const { data: branches = [], isLoading } = useQuery<Branch[]>({
     queryKey: ['/api/branches'],
   });
+
+  // Check subscription limits
+  const { data: subscription } = useQuery<any>({
+    queryKey: ['/api/subscription'],
+    retry: false,
+  });
+
+  const maxBranches = useMemo(() => {
+    if (!subscription?.plan?.maxBranches) return 1;
+    return subscription.plan.maxBranches >= 999999 ? Infinity : subscription.plan.maxBranches;
+  }, [subscription]);
 
   const createBranchMutation = useMutation({
     mutationFn: async (data: { name: string; address: string; phone: string; isActive: number }) => {
@@ -270,6 +282,17 @@ export default function Branches() {
           </DialogContent>
         </Dialog>
         </motion.div>
+
+        {/* Limit Warning Banner */}
+        {maxBranches !== Infinity && (
+          <LimitWarningBanner
+            current={totalBranches}
+            max={maxBranches}
+            resourceName="filial"
+            resourceNamePlural="filiais"
+            upgradeMessage="Faça upgrade do seu plano para adicionar mais filiais e expandir seu negócio."
+          />
+        )}
 
         {/* KPIs Dashboard */}
         <motion.div

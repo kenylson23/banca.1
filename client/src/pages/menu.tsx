@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { ExternalLink, UtensilsCrossed, Folder, Palette, ChefHat } from "lucide-react";
@@ -11,6 +11,7 @@ import { CustomizeMenuTab } from "@/components/menu/CustomizeMenuTab";
 import { RecipesTab } from "@/components/menu/RecipesTab";
 import { motion } from "framer-motion";
 import { TubelightNavBar } from "@/components/ui/tubelight-navbar";
+import { LimitWarningBanner } from "@/components/LimitWarningBanner";
 
 type TabValue = "items" | "categories" | "recipes" | "customize";
 
@@ -27,6 +28,24 @@ export default function Menu() {
     queryKey: ['/api/public/restaurants', currentUser?.restaurantId],
     enabled: !!currentUser?.restaurantId,
   });
+
+  // Check subscription limits
+  const { data: subscription } = useQuery<any>({
+    queryKey: ['/api/subscription'],
+    retry: false,
+  });
+
+  const { data: menuItems = [] } = useQuery<any[]>({
+    queryKey: ['/api/menu-items'],
+    retry: false,
+  });
+
+  const maxMenuItems = useMemo(() => {
+    if (!subscription?.plan?.maxMenuItems) return 50;
+    return subscription.plan.maxMenuItems >= 999999 ? Infinity : subscription.plan.maxMenuItems;
+  }, [subscription]);
+
+  const totalMenuItems = menuItems.length;
 
   const navItems = [
     { name: "Itens", url: "#", icon: UtensilsCrossed },
@@ -110,6 +129,17 @@ export default function Menu() {
             className="relative"
           />
         </div>
+
+        {/* Limit Warning Banner */}
+        {maxMenuItems !== Infinity && (
+          <LimitWarningBanner
+            current={totalMenuItems}
+            max={maxMenuItems}
+            resourceName="produto"
+            resourceNamePlural="produtos"
+            upgradeMessage="Faça upgrade do seu plano para adicionar mais produtos ao seu menu."
+          />
+        )}
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}

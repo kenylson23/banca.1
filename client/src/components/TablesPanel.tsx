@@ -34,7 +34,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { TableCard } from "@/components/TableCard";
-import { TableDetailsDialog } from "@/components/TableDetailsDialog";
+import { TableDetailsDialogNew as TableDetailsDialog } from "@/components/TableDetailsDialogNew";
 import type { Table } from "@shared/schema";
 
 export function TablesPanel() {
@@ -409,13 +409,21 @@ export function TablesPanel() {
 
       {/* KPIs Dashboard */}
       <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Mesas Livres</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600" data-testid="kpi-free-count">{statusCounts.livre}</div>
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Mesas Ocupadas</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold" data-testid="kpi-occupied-count">{occupiedTables.length}</div>
+              <div className="text-2xl font-bold text-red-600" data-testid="kpi-occupied-count">{occupiedTables.length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -439,7 +447,7 @@ export function TablesPanel() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Total em Aberto</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-500" data-testid="kpi-total-revenue">
+              <div className="text-2xl font-bold text-emerald-600" data-testid="kpi-total-revenue">
                 {totalRevenue.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
               </div>
             </CardContent>

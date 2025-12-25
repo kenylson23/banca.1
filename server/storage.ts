@@ -1347,6 +1347,10 @@ export class DatabaseStorage implements IStorage {
       capacity: table.capacity,
       area: table.area,
       qrCode: table.qrCode,
+      status: 'livre',        // Garantir status inicial correto
+      isOccupied: 0,          // Garantir não ocupada
+      totalAmount: '0',       // Valor inicial zerado
+      customerCount: 0,       // Sem clientes inicialmente
     }).returning();
     return newTable;
   }

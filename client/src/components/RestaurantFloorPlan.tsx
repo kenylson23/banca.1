@@ -27,7 +27,7 @@ import {
 import { formatKwanza } from '@/lib/formatters';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { TableDetailsDialog } from './TableDetailsDialog';
+import { TableDetailsDialogNew as TableDetailsDialog } from './TableDetailsDialogNew';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -217,7 +217,7 @@ export function RestaurantFloorPlan({ className }: RestaurantFloorPlanProps) {
         if (!old) return old;
         return old.map((table: Table) => 
           table.id === tableId 
-            ? { ...table, positionX: x.toString(), positionY: y.toString() }
+            ? { ...table, positionX: x, positionY: y }
             : table
         );
       });
@@ -227,25 +227,43 @@ export function RestaurantFloorPlan({ className }: RestaurantFloorPlanProps) {
     onSuccess: () => {
       // Silently refetch in background to sync with server
       queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
+      // ✅ CORREÇÃO: Feedback visual de sucesso
+      toast({ 
+        title: '✅ Posição salva', 
+        description: 'A posição da mesa foi atualizada com sucesso.',
+        duration: 2000,
+      });
     },
     onError: (error: any, variables, context) => {
       // Revert to previous state on error
       if (context?.previousTables) {
         queryClient.setQueryData(['/api/tables/with-orders'], context.previousTables);
       }
+      // ✅ CORREÇÃO: Feedback melhorado com opção de retry
       toast({ 
-        title: 'Erro ao atualizar posição', 
+        title: '❌ Erro ao salvar posição', 
         description: error.message || 'Tente novamente',
-        variant: 'destructive' 
+        variant: 'destructive',
+        action: (
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => updateTablePositionMutation.mutate(variables)}
+          >
+            Tentar novamente
+          </Button>
+        ),
       });
     },
   });
 
   const getTableStatus = (table: Table) => {
-    if (table.status === 'disponivel') return 'available';
+    if (table.status === 'livre' || table.status === 'disponivel') return 'available';
     if (table.status === 'ocupada') return 'occupied';
+    if (table.status === 'em_andamento') return 'occupied';
     if (table.status === 'aguardando_pagamento') return 'payment';
-    return 'reserved';
+    if (table.status === 'encerrada') return 'available';
+    return 'available'; // Default para livre
   };
 
   const getStatusColor = (status: string) => {
@@ -255,31 +273,26 @@ export function RestaurantFloorPlan({ className }: RestaurantFloorPlanProps) {
         available: 'bg-green-500/20 border-green-500 hover:bg-green-500/30',
         occupied: 'bg-red-500/20 border-red-500 hover:bg-red-500/30',
         payment: 'bg-yellow-500/20 border-yellow-500 hover:bg-yellow-500/30',
-        reserved: 'bg-blue-500/20 border-blue-500 hover:bg-blue-500/30',
       },
       modern: {
         available: 'bg-emerald-500/20 border-emerald-500 hover:bg-emerald-500/30',
         occupied: 'bg-rose-500/20 border-rose-500 hover:bg-rose-500/30',
         payment: 'bg-amber-500/20 border-amber-500 hover:bg-amber-500/30',
-        reserved: 'bg-cyan-500/20 border-cyan-500 hover:bg-cyan-500/30',
       },
       elegant: {
         available: 'bg-teal-600/20 border-teal-600 hover:bg-teal-600/30',
         occupied: 'bg-purple-600/20 border-purple-600 hover:bg-purple-600/30',
         payment: 'bg-orange-600/20 border-orange-600 hover:bg-orange-600/30',
-        reserved: 'bg-indigo-600/20 border-indigo-600 hover:bg-indigo-600/30',
       },
       vibrant: {
         available: 'bg-lime-500/25 border-lime-500 hover:bg-lime-500/35',
         occupied: 'bg-pink-500/25 border-pink-500 hover:bg-pink-500/35',
         payment: 'bg-yellow-400/25 border-yellow-400 hover:bg-yellow-400/35',
-        reserved: 'bg-sky-500/25 border-sky-500 hover:bg-sky-500/35',
       },
       minimal: {
         available: 'bg-slate-200/30 border-slate-400 hover:bg-slate-200/40 dark:bg-slate-700/30 dark:border-slate-500',
         occupied: 'bg-slate-400/30 border-slate-600 hover:bg-slate-400/40 dark:bg-slate-600/30 dark:border-slate-400',
         payment: 'bg-slate-300/30 border-slate-500 hover:bg-slate-300/40 dark:bg-slate-650/30 dark:border-slate-450',
-        reserved: 'bg-slate-350/30 border-slate-550 hover:bg-slate-350/40 dark:bg-slate-625/30 dark:border-slate-475',
       },
     };
 
@@ -289,7 +302,6 @@ export function RestaurantFloorPlan({ className }: RestaurantFloorPlanProps) {
       case 'available': return currentTheme.available;
       case 'occupied': return currentTheme.occupied;
       case 'payment': return currentTheme.payment;
-      case 'reserved': return currentTheme.reserved;
       default: return 'bg-muted border-border';
     }
   };
@@ -299,7 +311,6 @@ export function RestaurantFloorPlan({ className }: RestaurantFloorPlanProps) {
       case 'available': return 'Livre';
       case 'occupied': return 'Ocupada';
       case 'payment': return 'Aguardando';
-      case 'reserved': return 'Reservada';
       default: return '';
     }
   };
@@ -869,6 +880,10 @@ export function RestaurantFloorPlan({ className }: RestaurantFloorPlanProps) {
     let x = Math.max(0, Math.min(100, (centerX / contentWidth) * 100));
     let y = Math.max(0, Math.min(100, (centerY / contentHeight) * 100));
     
+    // ✅ CORREÇÃO: Aplicar validação de limites (clamping) para prevenir mesas fora do canvas
+    x = Math.max(5, Math.min(95, x));
+    y = Math.max(5, Math.min(95, y));
+    
     // Calculate final alignment guides
     const guides = calculateAlignmentGuides(tableId, x, y);
     
@@ -932,8 +947,8 @@ export function RestaurantFloorPlan({ className }: RestaurantFloorPlanProps) {
 
   const stats = {
     total: tables.length,
-    occupied: tables.filter(t => t.status === 'ocupada').length,
-    available: tables.filter(t => t.status === 'disponivel').length,
+    occupied: tables.filter(t => t.status === 'ocupada' || t.status === 'em_andamento').length,
+    available: tables.filter(t => t.status === 'livre').length,
     payment: tables.filter(t => t.status === 'aguardando_pagamento').length,
   };
 
@@ -1451,12 +1466,33 @@ export function RestaurantFloorPlan({ className }: RestaurantFloorPlanProps) {
               <AnimatePresence>
                 {filteredTables.map((table, index) => {
                   const status = getTableStatus(table);
-                  // Parse positions from database (they come as strings)
-                  // If no position saved, use deterministic grid-based layout
+                  // ✅ CORREÇÃO: Parse robusto e consistente de posições
                   const hasPosition = table.positionX !== null && table.positionY !== null;
-                  const defaultPos = hasPosition ? null : getDefaultPosition(table.id, index, filteredTables.length);
-                  const x = hasPosition ? parseFloat(table.positionX!.toString()) : defaultPos!.x;
-                  const y = hasPosition ? parseFloat(table.positionY!.toString()) : defaultPos!.y;
+                  
+                  let x: number;
+                  let y: number;
+                  
+                  if (hasPosition) {
+                    // Garantir que sempre obtemos um número válido
+                    x = typeof table.positionX === 'number' 
+                      ? table.positionX 
+                      : parseFloat(String(table.positionX));
+                    y = typeof table.positionY === 'number' 
+                      ? table.positionY 
+                      : parseFloat(String(table.positionY));
+                    
+                    // Validar que são números válidos e dentro dos limites
+                    if (isNaN(x) || isNaN(y) || x < 0 || x > 100 || y < 0 || y > 100) {
+                      console.warn(`Mesa ${table.number} (ID: ${table.id}) tem posição inválida (x: ${x}, y: ${y}), usando posição padrão`);
+                      const defaultPos = getDefaultPosition(table.id, index, filteredTables.length);
+                      x = defaultPos.x;
+                      y = defaultPos.y;
+                    }
+                  } else {
+                    const defaultPos = getDefaultPosition(table.id, index, filteredTables.length);
+                    x = defaultPos.x;
+                    y = defaultPos.y;
+                  }
                   const shape = getTableShape(table.capacity);
                   const dimensions = getTableDimensions(shape, table.capacity);
 

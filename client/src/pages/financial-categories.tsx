@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Trash2, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
+import { Plus, Trash2, DollarSign, TrendingUp, TrendingDown, Lock, ArrowUpCircle, Receipt, Tag, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { FinancialCategory } from "@shared/schema";
+import { motion } from "framer-motion";
 
 interface CategoryFormData {
   type: 'receita' | 'despesa';
@@ -54,9 +55,21 @@ export default function FinancialCategories() {
     description: "",
   });
 
+  // Check subscription to see if expense tracking is available
+  const { data: subscription } = useQuery<any>({
+    queryKey: ['/api/subscription'],
+    retry: false,
+  });
+
   const { data: categories, isLoading } = useQuery<FinancialCategory[]>({
     queryKey: ["/api/financial/categories"],
   });
+
+  // Check if expense tracking feature is available in the plan
+  const hasExpenseTracking = useMemo(() => {
+    if (!subscription?.plan) return false;
+    return subscription.plan.hasExpenseTracking === 1;
+  }, [subscription]);
 
   const createCategoryMutation = useMutation({
     mutationFn: async (data: CategoryFormData) => {
@@ -134,6 +147,87 @@ export default function FinancialCategories() {
 
   const expenseCategories = categories?.filter(c => c.type === 'despesa') || [];
   const incomeCategories = categories?.filter(c => c.type === 'receita') || [];
+
+  // If expense tracking is not available in the plan, show blocked screen
+  if (subscription && !hasExpenseTracking) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+        <div className="p-4 sm:p-6">
+          <motion.div
+            className="flex flex-col items-center justify-center min-h-[60vh] gap-6"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="flex items-center justify-center w-20 h-20 rounded-full bg-orange-500/10">
+              <Lock className="h-10 w-10 text-orange-500" />
+            </div>
+            <div className="text-center space-y-2 max-w-md">
+              <h2 className="text-2xl font-bold">Funcionalidade Bloqueada</h2>
+              <p className="text-muted-foreground">
+                A gestão de despesas não está disponível no plano <span className="font-semibold">{subscription.plan?.name}</span>.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Faça upgrade para o plano <span className="font-semibold text-primary">Profissional</span> ou superior para organizar suas despesas e ter controle completo das finanças.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 mt-4">
+              <Button
+                size="lg"
+                onClick={() => window.location.href = '/subscription'}
+                className="gap-2"
+              >
+                <ArrowUpCircle className="h-5 w-5" />
+                Fazer Upgrade
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => window.history.back()}
+              >
+                Voltar
+              </Button>
+            </div>
+            <Card className="mt-8 max-w-2xl">
+              <CardHeader>
+                <CardTitle className="text-lg">O que você ganha com o upgrade:</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <Receipt className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Gestão Completa de Despesas</p>
+                    <p className="text-sm text-muted-foreground">Registre e organize todas as despesas do seu negócio</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Tag className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Categorias Personalizadas</p>
+                    <p className="text-sm text-muted-foreground">Crie até 50 categorias para organizar receitas e despesas</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <TrendingUp className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Relatórios Financeiros Detalhados</p>
+                    <p className="text-sm text-muted-foreground">Acompanhe lucros, despesas e margem de ganho em tempo real</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Controle de Fluxo de Caixa</p>
+                    <p className="text-sm text-muted-foreground">Tenha visão completa da saúde financeira do seu restaurante</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6">

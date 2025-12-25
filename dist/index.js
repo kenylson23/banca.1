@@ -839,9 +839,15 @@ var init_schema = __esm({
       restaurantId: true,
       status: true,
       startedAt: true,
-      endedAt: true
+      endedAt: true,
+      closingBalance: true,
+      expectedBalance: true,
+      discrepancy: true
     }).extend({
-      openingBalance: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inv\xE1lido").optional()
+      operatorId: z.string().min(1, "Operador \xE9 obrigat\xF3rio"),
+      branchId: z.string().nullable().optional(),
+      openingBalance: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inv\xE1lido").optional(),
+      notes: z.string().optional().nullable()
     });
     tableSessions = pgTable("table_sessions", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -4913,7 +4919,7 @@ var init_cache = __esm({
 var storage_exports = {};
 __export(storage_exports, {
   DatabaseStorage: () => DatabaseStorage,
-  and: () => and3,
+  and: () => and2,
   db: () => db,
   desc: () => desc2,
   eq: () => eq2,
@@ -4928,9 +4934,9 @@ __export(storage_exports, {
   storage: () => storage,
   tableGuests: () => tableGuests
 });
-import { eq, desc, sql as sql3, and as and2, gte as gte2, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
+import { eq, desc, sql as sql3, and, gte as gte2, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { eq as eq2, and as and3, or as or2, desc as desc2, sql as sql4 } from "drizzle-orm";
+import { eq as eq2, and as and2, or as or2, desc as desc2, sql as sql4 } from "drizzle-orm";
 function generateSlug(name) {
   return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
@@ -5000,19 +5006,6 @@ var init_storage = __esm({
           firstName: data.name,
           role: "admin"
         }).returning();
-        const basicPlan = await this.getSubscriptionPlanBySlug("basico");
-        if (basicPlan) {
-          const { nanoid: nanoid3 } = await import("nanoid");
-          await db.insert(subscriptions).values({
-            id: nanoid3(),
-            restaurantId: restaurant.id,
-            planId: basicPlan.id,
-            status: "ativa",
-            startDate: /* @__PURE__ */ new Date(),
-            renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1e3)
-            // 30 days
-          });
-        }
         return { restaurant, adminUser };
       }
       async updateRestaurantStatus(id, status) {
@@ -5162,7 +5155,7 @@ var init_storage = __esm({
       }
       async getRestaurantAdmins(restaurantId) {
         await this.ensureTables();
-        return await db.select().from(users).where(and2(eq(users.restaurantId, restaurantId), eq(users.role, "admin"))).orderBy(users.createdAt);
+        return await db.select().from(users).where(and(eq(users.restaurantId, restaurantId), eq(users.role, "admin"))).orderBy(users.createdAt);
       }
       async resetRestaurantAdminCredentials(restaurantId, userId, data) {
         await this.ensureTables();
@@ -5209,7 +5202,7 @@ var init_storage = __esm({
             )
           );
         }
-        const whereClause = conditions.length > 0 ? and2(...conditions) : void 0;
+        const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
         const [countResult] = await db.select({ count: sql3`count(*)::int` }).from(users).where(whereClause);
         const total = countResult?.count || 0;
         const totalPages = Math.ceil(total / limit);
@@ -5241,7 +5234,7 @@ var init_storage = __esm({
             )
           );
         }
-        const whereClause = conditions.length > 0 ? and2(...conditions) : void 0;
+        const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
         const queryLimit = options2?.limit || 100;
         return await db.select().from(userAuditLogs).where(whereClause).orderBy(desc(userAuditLogs.createdAt)).limit(queryLimit);
       }
@@ -5252,8 +5245,8 @@ var init_storage = __esm({
       // Table operations
       async getTables(restaurantId, branchId) {
         if (branchId) {
-          const sharedTables = await db.select().from(tables).where(and2(eq(tables.restaurantId, restaurantId), isNull(tables.branchId))).orderBy(tables.number);
-          const branchTables = await db.select().from(tables).where(and2(eq(tables.restaurantId, restaurantId), eq(tables.branchId, branchId))).orderBy(tables.number);
+          const sharedTables = await db.select().from(tables).where(and(eq(tables.restaurantId, restaurantId), isNull(tables.branchId))).orderBy(tables.number);
+          const branchTables = await db.select().from(tables).where(and(eq(tables.restaurantId, restaurantId), eq(tables.branchId, branchId))).orderBy(tables.number);
           const overriddenNumbers = new Set(branchTables.map((t) => t.number));
           const result = [
             ...branchTables,
@@ -5272,11 +5265,11 @@ var init_storage = __esm({
         return table;
       }
       async createTable(restaurantId, branchId, table) {
-        const conditions = branchId ? and2(
+        const conditions = branchId ? and(
           eq(tables.restaurantId, restaurantId),
           eq(tables.branchId, branchId),
           eq(tables.number, table.number)
-        ) : and2(
+        ) : and(
           eq(tables.restaurantId, restaurantId),
           eq(tables.number, table.number)
         );
@@ -5290,7 +5283,15 @@ var init_storage = __esm({
           number: table.number,
           capacity: table.capacity,
           area: table.area,
-          qrCode: table.qrCode
+          qrCode: table.qrCode,
+          status: "livre",
+          // Garantir status inicial correto
+          isOccupied: 0,
+          // Garantir não ocupada
+          totalAmount: "0",
+          // Valor inicial zerado
+          customerCount: 0
+          // Sem clientes inicialmente
         }).returning();
         return newTable;
       }
@@ -5353,7 +5354,7 @@ var init_storage = __esm({
         }
         const tablesWithOrders = await Promise.all(
           allTables.map(async (table) => {
-            const tableOrders = await db.select().from(orders).leftJoin(orderItems, eq(orders.id, orderItems.orderId)).leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id)).where(and2(
+            const tableOrders = await db.select().from(orders).leftJoin(orderItems, eq(orders.id, orderItems.orderId)).leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id)).where(and(
               eq(orders.tableId, table.id),
               eq(orders.restaurantId, restaurantId),
               or(
@@ -5454,7 +5455,7 @@ var init_storage = __esm({
       async getTableSessions(restaurantId, tableId) {
         let query = db.select().from(tableSessions).where(eq(tableSessions.restaurantId, restaurantId));
         if (tableId) {
-          query = query.where(and2(
+          query = query.where(and(
             eq(tableSessions.restaurantId, restaurantId),
             eq(tableSessions.tableId, tableId)
           ));
@@ -5469,10 +5470,10 @@ var init_storage = __esm({
         if (sessionId) {
           conditions.push(eq(tablePayments.sessionId, sessionId));
         }
-        return await db.select().from(tablePayments).where(and2(...conditions)).orderBy(desc(tablePayments.createdAt));
+        return await db.select().from(tablePayments).where(and(...conditions)).orderBy(desc(tablePayments.createdAt));
       }
       async calculateTableTotal(restaurantId, tableId) {
-        const tableOrders = await db.select().from(orders).where(and2(
+        const tableOrders = await db.select().from(orders).where(and(
           eq(orders.tableId, tableId),
           eq(orders.restaurantId, restaurantId),
           or(
@@ -5497,7 +5498,7 @@ var init_storage = __esm({
       async getCategories(restaurantId, branchId) {
         if (branchId) {
           return await db.select().from(categories).where(
-            and2(
+            and(
               eq(categories.restaurantId, restaurantId),
               or(
                 isNull(categories.branchId),
@@ -5546,7 +5547,7 @@ var init_storage = __esm({
         let results;
         if (branchId) {
           results = await db.select().from(menuItems).leftJoin(categories, eq(menuItems.categoryId, categories.id)).where(
-            and2(
+            and(
               eq(menuItems.restaurantId, restaurantId),
               or(
                 isNull(menuItems.branchId),
@@ -5639,7 +5640,7 @@ var init_storage = __esm({
           const tableIds = branchTables.map((t) => t.id);
           const branchCondition = or(eq(orders.branchId, branchId), isNull(orders.branchId));
           const tableCondition = tableIds.length > 0 ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId)) : sql3`true`;
-          allOrders = await db.select().from(orders).leftJoin(customers, eq(orders.customerId, customers.id)).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          allOrders = await db.select().from(orders).leftJoin(customers, eq(orders.customerId, customers.id)).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             branchCondition,
             // CRÍTICO: Garante isolamento de filial
@@ -5678,7 +5679,7 @@ var init_storage = __esm({
           const tableIds = branchTables.map((t) => t.id);
           const branchCondition = or(eq(orders.branchId, branchId), isNull(orders.branchId));
           const tableCondition = tableIds.length > 0 ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId)) : sql3`true`;
-          results = await db.select().from(orders).leftJoin(customers, eq(orders.customerId, customers.id)).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          results = await db.select().from(orders).leftJoin(customers, eq(orders.customerId, customers.id)).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             branchCondition,
             // CRÍTICO: Garante isolamento de filial
@@ -5726,7 +5727,7 @@ var init_storage = __esm({
       async searchOrders(restaurantId, searchTerm) {
         const trimmedSearch = searchTerm.trim();
         const foundOrders = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(
-          and2(
+          and(
             eq(orders.restaurantId, restaurantId),
             or(
               eq(orders.id, trimmedSearch),
@@ -5987,7 +5988,7 @@ var init_storage = __esm({
           if (quantity < 1) {
             throw new Error("Quantity must be at least 1");
           }
-          const [updated] = await tx.update(orderItems).set({ quantity }).where(and2(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId))).returning();
+          const [updated] = await tx.update(orderItems).set({ quantity }).where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId))).returning();
           if (!updated) {
             throw new Error("Order item not found");
           }
@@ -6001,7 +6002,7 @@ var init_storage = __esm({
           if (!orderData) {
             throw new Error("Order not found");
           }
-          await tx.delete(orderItems).where(and2(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId)));
+          await tx.delete(orderItems).where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId)));
           const remainingItems = await tx.select().from(orderItems).where(eq(orderItems.orderId, orderId));
           if (remainingItems.length === 0 && orderData.orderType === "mesa" && orderData.tableId) {
             await this.updateTableOccupancy(orderData.restaurantId, orderData.tableId, false);
@@ -6126,7 +6127,7 @@ var init_storage = __esm({
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq(orders.id, orderId)).returning();
           if (userId) {
-            const saleCategoryResults = await tx.select().from(financialCategories).where(and2(
+            const saleCategoryResults = await tx.select().from(financialCategories).where(and(
               eq(financialCategories.restaurantId, restaurantId),
               eq(financialCategories.type, "receita"),
               eq(financialCategories.name, "Vendas PDV")
@@ -6191,7 +6192,7 @@ var init_storage = __esm({
                 lastVisit: /* @__PURE__ */ new Date(),
                 updatedAt: /* @__PURE__ */ new Date()
               };
-              const activeLoyaltyPrograms = await tx.select().from(loyaltyPrograms).where(and2(
+              const activeLoyaltyPrograms = await tx.select().from(loyaltyPrograms).where(and(
                 eq(loyaltyPrograms.restaurantId, restaurantId),
                 eq(loyaltyPrograms.isActive, 1)
               )).limit(1);
@@ -6289,7 +6290,7 @@ var init_storage = __esm({
       }
       async cancelOrder(restaurantId, orderId, cancellationReason, userId) {
         return await db.transaction(async (tx) => {
-          const [order] = await tx.select().from(orders).where(and2(
+          const [order] = await tx.select().from(orders).where(and(
             eq(orders.id, orderId),
             eq(orders.restaurantId, restaurantId)
           )).for("update");
@@ -6362,7 +6363,7 @@ var init_storage = __esm({
           }
           const paidAmount = parseFloat(order.paidAmount || "0");
           if (paidAmount > 0 && userId) {
-            let refundCategoryResults = await tx.select().from(financialCategories).where(and2(
+            let refundCategoryResults = await tx.select().from(financialCategories).where(and(
               eq(financialCategories.restaurantId, restaurantId),
               eq(financialCategories.type, "despesa"),
               eq(financialCategories.name, "Estornos e Reembolsos")
@@ -6448,7 +6449,7 @@ var init_storage = __esm({
             completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
             cancelledOrders: sql3`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
             cancelledRevenue: sql3`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
-          }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), isNull(orders.tableId)),
             gte2(orders.createdAt, today)
@@ -6459,7 +6460,7 @@ var init_storage = __esm({
             completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
             cancelledOrders: sql3`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
             cancelledRevenue: sql3`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
-          }).from(orders).where(and2(
+          }).from(orders).where(and(
             eq(orders.restaurantId, restaurantId),
             gte2(orders.createdAt, today)
           ));
@@ -6474,7 +6475,7 @@ var init_storage = __esm({
           yesterdayStatsQuery = await db.select({
             completedOrders: sql3`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
             completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
-          }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), isNull(orders.tableId)),
             gte2(orders.createdAt, yesterday),
@@ -6484,7 +6485,7 @@ var init_storage = __esm({
           yesterdayStatsQuery = await db.select({
             completedOrders: sql3`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
             completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
-          }).from(orders).where(and2(
+          }).from(orders).where(and(
             eq(orders.restaurantId, restaurantId),
             gte2(orders.createdAt, yesterday),
             sql3`${orders.createdAt} < ${today}`
@@ -6499,13 +6500,13 @@ var init_storage = __esm({
         const ordersChange = yesterdayOrders > 0 ? (todayOrders - yesterdayOrders) / yesterdayOrders * 100 : todayOrders > 0 ? 100 : 0;
         let activeTables;
         if (branchId) {
-          activeTables = await db.select().from(tables).where(and2(
+          activeTables = await db.select().from(tables).where(and(
             eq(tables.restaurantId, restaurantId),
             eq(tables.branchId, branchId),
             eq(tables.isOccupied, 1)
           ));
         } else {
-          activeTables = await db.select().from(tables).where(and2(
+          activeTables = await db.select().from(tables).where(and(
             eq(tables.restaurantId, restaurantId),
             eq(tables.isOccupied, 1)
           ));
@@ -6514,14 +6515,14 @@ var init_storage = __esm({
         const cancellationRate = totalOrdersIncludingCancelled > 0 ? todayCancelledOrders / totalOrdersIncludingCancelled * 100 : 0;
         let todayOrderIdsQuery;
         if (branchId) {
-          todayOrderIdsQuery = await db.select({ id: orders.id }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          todayOrderIdsQuery = await db.select({ id: orders.id }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), isNull(orders.tableId)),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, today)
           ));
         } else {
-          todayOrderIdsQuery = await db.select({ id: orders.id }).from(orders).where(and2(
+          todayOrderIdsQuery = await db.select({ id: orders.id }).from(orders).where(and(
             eq(orders.restaurantId, restaurantId),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, today)
@@ -6570,7 +6571,7 @@ var init_storage = __esm({
             completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
             cancelledOrders: sql3`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
             cancelledRevenue: sql3`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
-          }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), isNull(orders.tableId)),
             gte2(orders.createdAt, periodStart),
@@ -6582,7 +6583,7 @@ var init_storage = __esm({
             completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
             cancelledOrders: sql3`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
             cancelledRevenue: sql3`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
-          }).from(orders).where(and2(
+          }).from(orders).where(and(
             eq(orders.restaurantId, restaurantId),
             gte2(orders.createdAt, periodStart),
             sql3`${orders.createdAt} <= ${periodEnd}`
@@ -6598,7 +6599,7 @@ var init_storage = __esm({
         const cancellationRate = totalOrdersIncludingCancelled > 0 ? periodCancelledOrders / totalOrdersIncludingCancelled * 100 : 0;
         let orderIdsQuery;
         if (branchId) {
-          orderIdsQuery = await db.select({ id: orders.id }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          orderIdsQuery = await db.select({ id: orders.id }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), isNull(orders.tableId)),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
@@ -6606,7 +6607,7 @@ var init_storage = __esm({
             sql3`${orders.createdAt} <= ${periodEnd}`
           ));
         } else {
-          orderIdsQuery = await db.select({ id: orders.id }).from(orders).where(and2(
+          orderIdsQuery = await db.select({ id: orders.id }).from(orders).where(and(
             eq(orders.restaurantId, restaurantId),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, periodStart),
@@ -6657,7 +6658,7 @@ var init_storage = __esm({
           dayEnd.setHours(23, 59, 59, 999);
           let dayOrdersData;
           if (branchId) {
-            dayOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+            dayOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
               eq(orders.restaurantId, restaurantId),
               or(eq(tables.branchId, branchId), isNull(orders.tableId)),
               sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
@@ -6665,7 +6666,7 @@ var init_storage = __esm({
               sql3`${orders.createdAt} <= ${dayEnd}`
             ));
           } else {
-            dayOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+            dayOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
               eq(orders.restaurantId, restaurantId),
               sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
               gte2(orders.createdAt, dayStart),
@@ -6693,7 +6694,7 @@ var init_storage = __esm({
         startDate.setHours(0, 0, 0, 0);
         let ordersData;
         if (branchId) {
-          ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), isNull(orders.tableId)),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
@@ -6701,7 +6702,7 @@ var init_storage = __esm({
             sql3`${orders.createdAt} <= ${today}`
           ));
         } else {
-          ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, startDate),
@@ -6756,7 +6757,7 @@ var init_storage = __esm({
         }
         let periodOrdersData;
         if (branchId) {
-          periodOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          periodOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), isNull(orders.tableId)),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
@@ -6764,7 +6765,7 @@ var init_storage = __esm({
             sql3`${orders.createdAt} <= ${periodEnd}`
           ));
         } else {
-          periodOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          periodOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, periodStart),
@@ -6963,7 +6964,7 @@ var init_storage = __esm({
           count: data.count,
           total: data.total.toFixed(2)
         }));
-        const allOrderItems = await db.select().from(orderItems).leftJoin(orders, eq(orderItems.orderId, orders.id)).leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id)).where(and2(
+        const allOrderItems = await db.select().from(orderItems).leftJoin(orders, eq(orderItems.orderId, orders.id)).leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id)).where(and(
           eq(orders.restaurantId, restaurantId),
           ne(orders.status, "cancelado")
         ));
@@ -7008,7 +7009,7 @@ var init_storage = __esm({
       async getSuperAdminFinancialOverview(startDate, endDate) {
         const end = endDate || /* @__PURE__ */ new Date();
         const start = startDate || new Date(end.getTime() - 30 * 24 * 60 * 60 * 1e3);
-        const allOrders = await db.select().from(orders).where(and2(
+        const allOrders = await db.select().from(orders).where(and(
           ne(orders.status, "cancelado"),
           gte2(orders.createdAt, start),
           sql3`${orders.createdAt} <= ${end}`
@@ -7051,7 +7052,7 @@ var init_storage = __esm({
             orders: dayOrders.length
           });
         }
-        const allShifts = await db.select().from(financialShifts).leftJoin(restaurants, eq(financialShifts.restaurantId, restaurants.id)).where(and2(
+        const allShifts = await db.select().from(financialShifts).leftJoin(restaurants, eq(financialShifts.restaurantId, restaurants.id)).where(and(
           gte2(financialShifts.startedAt, start),
           sql3`${financialShifts.startedAt} <= ${end}`
         ));
@@ -7084,7 +7085,7 @@ var init_storage = __esm({
       async getSalesReport(restaurantId, branchId, startDate, endDate) {
         let periodOrders;
         if (branchId) {
-          periodOrders = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          periodOrders = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
@@ -7092,7 +7093,7 @@ var init_storage = __esm({
             sql3`${orders.createdAt} <= ${endDate}`
           ));
         } else {
-          periodOrders = await db.select().from(orders).where(and2(
+          periodOrders = await db.select().from(orders).where(and(
             eq(orders.restaurantId, restaurantId),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, startDate),
@@ -7145,7 +7146,7 @@ var init_storage = __esm({
       async getCancelledOrdersStats(restaurantId, branchId, startDate, endDate) {
         let cancelledOrdersData;
         if (branchId) {
-          cancelledOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          cancelledOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
             eq(orders.status, "cancelado"),
@@ -7153,7 +7154,7 @@ var init_storage = __esm({
             sql3`${orders.createdAt} <= ${endDate}`
           )).orderBy(desc(orders.createdAt));
         } else {
-          cancelledOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          cancelledOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             eq(orders.status, "cancelado"),
             gte2(orders.createdAt, startDate),
@@ -7203,15 +7204,15 @@ var init_storage = __esm({
         }
         let ordersData;
         if (branchId) {
-          ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             ...baseConditions,
             or(
-              and2(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NOT NULL`),
+              and(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NOT NULL`),
               sql3`${orders.tableId} IS NULL`
             )
           )).orderBy(desc(orders.createdAt));
         } else {
-          ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(...baseConditions)).orderBy(desc(orders.createdAt));
+          ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(...baseConditions)).orderBy(desc(orders.createdAt));
         }
         const ordersWithItems = await Promise.all(
           ordersData.map(async (orderRow) => {
@@ -7231,14 +7232,14 @@ var init_storage = __esm({
       async getProductsReport(restaurantId, branchId, startDate, endDate) {
         let periodOrdersRaw;
         if (branchId) {
-          periodOrdersRaw = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          periodOrdersRaw = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
             gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${endDate}`
           ));
         } else {
-          periodOrdersRaw = await db.select().from(orders).where(and2(
+          periodOrdersRaw = await db.select().from(orders).where(and(
             eq(orders.restaurantId, restaurantId),
             gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${endDate}`
@@ -7296,14 +7297,14 @@ var init_storage = __esm({
       async getPerformanceReport(restaurantId, branchId, startDate, endDate) {
         let periodOrdersRaw;
         if (branchId) {
-          periodOrdersRaw = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(
+          periodOrdersRaw = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             or(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
             gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${endDate}`
           ));
         } else {
-          periodOrdersRaw = await db.select().from(orders).where(and2(
+          periodOrdersRaw = await db.select().from(orders).where(and(
             eq(orders.restaurantId, restaurantId),
             gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${endDate}`
@@ -7389,7 +7390,7 @@ var init_storage = __esm({
         if (orderType && orderType !== "all") {
           conditions.push(eq(orders.orderType, orderType));
         }
-        query = query.where(and2(...conditions));
+        query = query.where(and(...conditions));
         if (orderBy === "updated") {
           query = query.orderBy(desc(orders.updatedAt));
         } else {
@@ -7433,7 +7434,7 @@ var init_storage = __esm({
         if (orderType && orderType !== "all") {
           baseConditions.push(eq(orders.orderType, orderType));
         }
-        let allQuery = db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(...baseConditions)).$dynamic();
+        let allQuery = db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(...baseConditions)).$dynamic();
         const allResults = await allQuery;
         const allOrders = allResults.map((row) => row.orders);
         const cancelledOrdersList = allOrders.filter((o) => o.status === "cancelado");
@@ -7447,7 +7448,7 @@ var init_storage = __esm({
           // Exclude cancelled orders in the query
           sql3`${orders.status} != 'cancelado'`
         ];
-        let validQuery = db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and2(...validConditions)).$dynamic();
+        let validQuery = db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(...validConditions)).$dynamic();
         const validResults = await validQuery;
         const validOrders = validResults.map((row) => row.orders);
         const totalOrders = validOrders.length;
@@ -7566,7 +7567,7 @@ var init_storage = __esm({
         } else {
           conditions.push(isNull(financialShifts.branchId));
         }
-        const [shift] = await db.select().from(financialShifts).where(and2(...conditions));
+        const [shift] = await db.select().from(financialShifts).where(and(...conditions));
         return shift;
       }
       async getAllShifts(restaurantId, branchId, startDate, endDate) {
@@ -7582,7 +7583,7 @@ var init_storage = __esm({
         if (endDate) {
           conditions.push(sql3`${financialShifts.endedAt} <= ${endDate}`);
         }
-        return await db.select().from(financialShifts).where(and2(...conditions)).orderBy(desc(financialShifts.startedAt));
+        return await db.select().from(financialShifts).where(and(...conditions)).orderBy(desc(financialShifts.startedAt));
       }
       async getShiftById(id) {
         const [shift] = await db.select().from(financialShifts).where(eq(financialShifts.id, id));
@@ -7636,7 +7637,7 @@ var init_storage = __esm({
           if (filters.startDate) conditions.push(gte2(financialEvents.createdAt, filters.startDate));
           if (filters.endDate) conditions.push(sql3`${financialEvents.createdAt} <= ${filters.endDate}`);
         }
-        return await db.select().from(financialEvents).where(and2(...conditions)).orderBy(desc(financialEvents.createdAt));
+        return await db.select().from(financialEvents).where(and(...conditions)).orderBy(desc(financialEvents.createdAt));
       }
       // Order Adjustment operations
       async createOrderAdjustment(restaurantId, adjustment) {
@@ -7665,7 +7666,7 @@ var init_storage = __esm({
           if (filters.startDate) conditions.push(gte2(paymentEvents.createdAt, filters.startDate));
           if (filters.endDate) conditions.push(sql3`${paymentEvents.createdAt} <= ${filters.endDate}`);
         }
-        return await db.select().from(paymentEvents).where(and2(...conditions)).orderBy(desc(paymentEvents.createdAt));
+        return await db.select().from(paymentEvents).where(and(...conditions)).orderBy(desc(paymentEvents.createdAt));
       }
       // Report Aggregation operations
       async createReportAggregation(restaurantId, aggregation) {
@@ -7691,7 +7692,7 @@ var init_storage = __esm({
         if (endDate) {
           conditions.push(sql3`${reportAggregations.periodEnd} <= ${endDate}`);
         }
-        return await db.select().from(reportAggregations).where(and2(...conditions)).orderBy(desc(reportAggregations.periodStart));
+        return await db.select().from(reportAggregations).where(and(...conditions)).orderBy(desc(reportAggregations.periodStart));
       }
       async getLatestAggregation(restaurantId, branchId, periodType) {
         let conditions = [
@@ -7703,7 +7704,7 @@ var init_storage = __esm({
         } else {
           conditions.push(isNull(reportAggregations.branchId));
         }
-        const [latest] = await db.select().from(reportAggregations).where(and2(...conditions)).orderBy(desc(reportAggregations.periodStart)).limit(1);
+        const [latest] = await db.select().from(reportAggregations).where(and(...conditions)).orderBy(desc(reportAggregations.periodStart)).limit(1);
         return latest;
       }
       // Menu Visit operations
@@ -7729,7 +7730,7 @@ var init_storage = __esm({
             conditions.push(branchCondition);
           }
         }
-        const allVisits = await db.select().from(menuVisits).where(and2(...conditions));
+        const allVisits = await db.select().from(menuVisits).where(and(...conditions));
         const totalVisits = allVisits.length;
         const today = /* @__PURE__ */ new Date();
         today.setHours(0, 0, 0, 0);
@@ -7768,7 +7769,7 @@ var init_storage = __esm({
         if (endDate) {
           conditions.push(sql3`${customerReviews.createdAt} <= ${endDate}`);
         }
-        let query = db.select().from(customerReviews).where(and2(...conditions)).orderBy(desc(customerReviews.createdAt));
+        let query = db.select().from(customerReviews).where(and(...conditions)).orderBy(desc(customerReviews.createdAt));
         if (limit) {
           query = query.limit(limit);
         }
@@ -7809,7 +7810,7 @@ var init_storage = __esm({
             ));
           }
         }
-        const periodOrders = await db.select().from(orders).where(and2(...orderConditions));
+        const periodOrders = await db.select().from(orders).where(and(...orderConditions));
         const totalOrders = periodOrders.length;
         const totalRevenue = periodOrders.reduce((sum, order) => sum + parseFloat(order.totalAmount), 0);
         const averageTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
@@ -7877,10 +7878,10 @@ var init_storage = __esm({
         if (branchId !== null) {
           conditions.push(eq(cashRegisters.branchId, branchId));
         }
-        return await db.select().from(cashRegisters).where(and2(...conditions)).orderBy(desc(cashRegisters.createdAt));
+        return await db.select().from(cashRegisters).where(and(...conditions)).orderBy(desc(cashRegisters.createdAt));
       }
       async getCashRegisterById(id, restaurantId) {
-        const [cashRegister] = await db.select().from(cashRegisters).where(and2(
+        const [cashRegister] = await db.select().from(cashRegisters).where(and(
           eq(cashRegisters.id, id),
           eq(cashRegisters.restaurantId, restaurantId)
         )).limit(1);
@@ -7902,14 +7903,14 @@ var init_storage = __esm({
         const [updated] = await db.update(cashRegisters).set({
           ...data,
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(and2(
+        }).where(and(
           eq(cashRegisters.id, id),
           eq(cashRegisters.restaurantId, restaurantId)
         )).returning();
         return updated;
       }
       async deleteCashRegister(id, restaurantId) {
-        await db.delete(cashRegisters).where(and2(
+        await db.delete(cashRegisters).where(and(
           eq(cashRegisters.id, id),
           eq(cashRegisters.restaurantId, restaurantId)
         ));
@@ -7931,7 +7932,7 @@ var init_storage = __esm({
         if (type) {
           conditions.push(eq(financialCategories.type, type));
         }
-        return await db.select().from(financialCategories).where(and2(...conditions)).orderBy(desc(financialCategories.isDefault), financialCategories.name);
+        return await db.select().from(financialCategories).where(and(...conditions)).orderBy(desc(financialCategories.isDefault), financialCategories.name);
       }
       async createFinancialCategory(restaurantId, data) {
         const [newCategory] = await db.insert(financialCategories).values({
@@ -7949,7 +7950,7 @@ var init_storage = __esm({
             message: "Categoria n\xE3o pode ser exclu\xEDda pois possui lan\xE7amentos associados"
           };
         }
-        await db.delete(financialCategories).where(and2(
+        await db.delete(financialCategories).where(and(
           eq(financialCategories.id, id),
           eq(financialCategories.restaurantId, restaurantId)
         ));
@@ -8026,7 +8027,7 @@ var init_storage = __esm({
           cashRegister: cashRegisters,
           category: financialCategories,
           recordedBy: users
-        }).from(financialTransactions).leftJoin(cashRegisters, eq(financialTransactions.cashRegisterId, cashRegisters.id)).leftJoin(financialCategories, eq(financialTransactions.categoryId, financialCategories.id)).leftJoin(users, eq(financialTransactions.recordedByUserId, users.id)).where(and2(...conditions)).orderBy(desc(financialTransactions.occurredAt));
+        }).from(financialTransactions).leftJoin(cashRegisters, eq(financialTransactions.cashRegisterId, cashRegisters.id)).leftJoin(financialCategories, eq(financialTransactions.categoryId, financialCategories.id)).leftJoin(users, eq(financialTransactions.recordedByUserId, users.id)).where(and(...conditions)).orderBy(desc(financialTransactions.occurredAt));
         return results.map((r) => ({
           ...r.transaction,
           cashRegister: r.cashRegister,
@@ -8035,7 +8036,7 @@ var init_storage = __esm({
         }));
       }
       async deleteFinancialTransaction(id, restaurantId) {
-        const [transaction] = await db.select().from(financialTransactions).where(and2(
+        const [transaction] = await db.select().from(financialTransactions).where(and(
           eq(financialTransactions.id, id),
           eq(financialTransactions.restaurantId, restaurantId)
         )).limit(1);
@@ -8063,7 +8064,7 @@ var init_storage = __esm({
         if (cashRegisterId) {
           registerConditions.push(eq(cashRegisters.id, cashRegisterId));
         }
-        const registers = await db.select().from(cashRegisters).where(and2(...registerConditions));
+        const registers = await db.select().from(cashRegisters).where(and(...registerConditions));
         const totalBalance = registers.reduce((sum, r) => sum + parseFloat(r.currentBalance), 0);
         const cashRegisterBalances = registers.map((r) => ({
           id: r.id,
@@ -8088,7 +8089,7 @@ var init_storage = __esm({
         if (cashRegisterId) {
           transactionConditions.push(eq(financialTransactions.cashRegisterId, cashRegisterId));
         }
-        const transactions = await db.select().from(financialTransactions).where(and2(...transactionConditions));
+        const transactions = await db.select().from(financialTransactions).where(and(...transactionConditions));
         const totalIncome = transactions.filter((t) => t.type === "receita").reduce((sum, t) => sum + parseFloat(t.amount), 0);
         const totalExpense = transactions.filter((t) => t.type === "despesa").reduce((sum, t) => sum + parseFloat(t.amount), 0);
         const netResult = totalIncome - totalExpense;
@@ -8124,7 +8125,7 @@ var init_storage = __esm({
           cashRegister: cashRegisters,
           openedBy: openedByUsers,
           closedBy: closedByUsers
-        }).from(cashRegisterShifts).leftJoin(cashRegisters, eq(cashRegisterShifts.cashRegisterId, cashRegisters.id)).leftJoin(openedByUsers, eq(cashRegisterShifts.openedByUserId, openedByUsers.id)).leftJoin(closedByUsers, eq(cashRegisterShifts.closedByUserId, closedByUsers.id)).where(and2(...conditions)).orderBy(desc(cashRegisterShifts.openedAt));
+        }).from(cashRegisterShifts).leftJoin(cashRegisters, eq(cashRegisterShifts.cashRegisterId, cashRegisters.id)).leftJoin(openedByUsers, eq(cashRegisterShifts.openedByUserId, openedByUsers.id)).leftJoin(closedByUsers, eq(cashRegisterShifts.closedByUserId, closedByUsers.id)).where(and(...conditions)).orderBy(desc(cashRegisterShifts.openedAt));
         return results.map((r) => ({
           ...r.shift,
           cashRegister: r.cashRegister,
@@ -8133,7 +8134,7 @@ var init_storage = __esm({
         }));
       }
       async getActiveCashRegisterShift(cashRegisterId, restaurantId) {
-        const [shift] = await db.select().from(cashRegisterShifts).where(and2(
+        const [shift] = await db.select().from(cashRegisterShifts).where(and(
           eq(cashRegisterShifts.cashRegisterId, cashRegisterId),
           eq(cashRegisterShifts.restaurantId, restaurantId),
           eq(cashRegisterShifts.status, "aberto")
@@ -8148,7 +8149,7 @@ var init_storage = __esm({
         if (branchId !== null) {
           conditions.push(eq(cashRegisters.branchId, branchId));
         }
-        const registers = await db.select().from(cashRegisters).where(and2(...conditions));
+        const registers = await db.select().from(cashRegisters).where(and(...conditions));
         const registersWithShifts = [];
         for (const register of registers) {
           const activeShift = await this.getActiveCashRegisterShift(register.id, restaurantId);
@@ -8172,7 +8173,7 @@ var init_storage = __esm({
             openingAmount: data.openingAmount,
             notes: data.notes
           }).returning();
-          const openingCategoryResults = await tx.select().from(financialCategories).where(and2(
+          const openingCategoryResults = await tx.select().from(financialCategories).where(and(
             eq(financialCategories.restaurantId, restaurantId),
             eq(financialCategories.type, "ajuste"),
             eq(financialCategories.isDefault, 1)
@@ -8213,7 +8214,7 @@ var init_storage = __esm({
         });
       }
       async closeCashRegisterShift(shiftId, restaurantId, userId, data) {
-        const [shift] = await db.select().from(cashRegisterShifts).where(and2(
+        const [shift] = await db.select().from(cashRegisterShifts).where(and(
           eq(cashRegisterShifts.id, shiftId),
           eq(cashRegisterShifts.restaurantId, restaurantId),
           eq(cashRegisterShifts.status, "aberto")
@@ -8279,7 +8280,7 @@ var init_storage = __esm({
           category: financialCategories,
           recordedBy: users,
           transaction: financialTransactions
-        }).from(expenses).leftJoin(financialCategories, eq(expenses.categoryId, financialCategories.id)).leftJoin(users, eq(expenses.recordedByUserId, users.id)).leftJoin(financialTransactions, eq(expenses.transactionId, financialTransactions.id)).where(and2(...conditions)).orderBy(desc(expenses.occurredAt));
+        }).from(expenses).leftJoin(financialCategories, eq(expenses.categoryId, financialCategories.id)).leftJoin(users, eq(expenses.recordedByUserId, users.id)).leftJoin(financialTransactions, eq(expenses.transactionId, financialTransactions.id)).where(and(...conditions)).orderBy(desc(expenses.occurredAt));
         return results.map((r) => ({
           ...r.expense,
           category: r.category,
@@ -8394,7 +8395,7 @@ var init_storage = __esm({
         const transactions = await db.select({
           transaction: financialTransactions,
           category: financialCategories
-        }).from(financialTransactions).leftJoin(financialCategories, eq(financialTransactions.categoryId, financialCategories.id)).where(and2(...conditions));
+        }).from(financialTransactions).leftJoin(financialCategories, eq(financialTransactions.categoryId, financialCategories.id)).where(and(...conditions));
         const totalRevenue = transactions.filter((t) => t.transaction.type === "receita").reduce((sum, t) => sum + parseFloat(t.transaction.amount), 0);
         const totalExpenses = transactions.filter((t) => t.transaction.type === "despesa").reduce((sum, t) => sum + parseFloat(t.transaction.amount), 0);
         const totalAdjustments = transactions.filter((t) => t.transaction.type === "ajuste").reduce((sum, t) => sum + parseFloat(t.transaction.amount), 0);
@@ -8460,7 +8461,7 @@ var init_storage = __esm({
       }
       async updateInventoryCategory(id, restaurantId, data) {
         const [category] = await db.update(inventoryCategories).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(
-          and2(
+          and(
             eq(inventoryCategories.id, id),
             eq(inventoryCategories.restaurantId, restaurantId)
           )
@@ -8469,7 +8470,7 @@ var init_storage = __esm({
       }
       async deleteInventoryCategory(id, restaurantId) {
         await db.delete(inventoryCategories).where(
-          and2(
+          and(
             eq(inventoryCategories.id, id),
             eq(inventoryCategories.restaurantId, restaurantId)
           )
@@ -8485,7 +8486,7 @@ var init_storage = __esm({
       }
       async updateMeasurementUnit(id, restaurantId, data) {
         const [unit] = await db.update(measurementUnits).set(data).where(
-          and2(
+          and(
             eq(measurementUnits.id, id),
             eq(measurementUnits.restaurantId, restaurantId)
           )
@@ -8494,7 +8495,7 @@ var init_storage = __esm({
       }
       async deleteMeasurementUnit(id, restaurantId) {
         await db.delete(measurementUnits).where(
-          and2(
+          and(
             eq(measurementUnits.id, id),
             eq(measurementUnits.restaurantId, restaurantId)
           )
@@ -8513,7 +8514,7 @@ var init_storage = __esm({
           item: inventoryItems,
           category: inventoryCategories,
           unit: measurementUnits
-        }).from(inventoryItems).leftJoin(inventoryCategories, eq(inventoryItems.categoryId, inventoryCategories.id)).innerJoin(measurementUnits, eq(inventoryItems.unitId, measurementUnits.id)).where(and2(...conditions)).orderBy(inventoryItems.name);
+        }).from(inventoryItems).leftJoin(inventoryCategories, eq(inventoryItems.categoryId, inventoryCategories.id)).innerJoin(measurementUnits, eq(inventoryItems.unitId, measurementUnits.id)).where(and(...conditions)).orderBy(inventoryItems.name);
         return items.map((row) => ({
           ...row.item,
           category: row.category,
@@ -8550,7 +8551,7 @@ var init_storage = __esm({
         if (data.isActive !== void 0) updateData.isActive = data.isActive;
         updateData.updatedAt = /* @__PURE__ */ new Date();
         const [updated] = await db.update(inventoryItems).set(updateData).where(
-          and2(
+          and(
             eq(inventoryItems.id, id),
             eq(inventoryItems.restaurantId, restaurantId)
           )
@@ -8559,7 +8560,7 @@ var init_storage = __esm({
       }
       async deleteInventoryItem(id, restaurantId) {
         await db.delete(inventoryItems).where(
-          and2(
+          and(
             eq(inventoryItems.id, id),
             eq(inventoryItems.restaurantId, restaurantId)
           )
@@ -8573,7 +8574,7 @@ var init_storage = __esm({
           category: inventoryCategories,
           unit: measurementUnits
         }).from(branchStock).innerJoin(inventoryItems, eq(branchStock.inventoryItemId, inventoryItems.id)).leftJoin(inventoryCategories, eq(inventoryItems.categoryId, inventoryCategories.id)).innerJoin(measurementUnits, eq(inventoryItems.unitId, measurementUnits.id)).where(
-          and2(
+          and(
             eq(branchStock.restaurantId, restaurantId),
             eq(branchStock.branchId, branchId)
           )
@@ -8589,7 +8590,7 @@ var init_storage = __esm({
       }
       async getStockByItemId(restaurantId, branchId, inventoryItemId) {
         const [stock] = await db.select().from(branchStock).where(
-          and2(
+          and(
             eq(branchStock.restaurantId, restaurantId),
             eq(branchStock.branchId, branchId),
             eq(branchStock.inventoryItemId, inventoryItemId)
@@ -8639,7 +8640,7 @@ var init_storage = __esm({
           movement: stockMovements,
           item: inventoryItems,
           user: users
-        }).from(stockMovements).innerJoin(inventoryItems, eq(stockMovements.inventoryItemId, inventoryItems.id)).innerJoin(users, eq(stockMovements.recordedByUserId, users.id)).where(and2(...conditions)).orderBy(desc(stockMovements.createdAt));
+        }).from(stockMovements).innerJoin(inventoryItems, eq(stockMovements.inventoryItemId, inventoryItems.id)).innerJoin(users, eq(stockMovements.recordedByUserId, users.id)).where(and(...conditions)).orderBy(desc(stockMovements.createdAt));
         return movements.map((row) => ({
           ...row.movement,
           inventoryItem: row.item,
@@ -8759,7 +8760,7 @@ var init_storage = __esm({
       async getRecipeIngredients(restaurantId, menuItemId, tx) {
         const executor = tx || db;
         const ingredients = await executor.select().from(recipeIngredients).leftJoin(inventoryItems, eq(recipeIngredients.inventoryItemId, inventoryItems.id)).leftJoin(measurementUnits, eq(inventoryItems.unitId, measurementUnits.id)).where(
-          and2(
+          and(
             eq(recipeIngredients.restaurantId, restaurantId),
             eq(recipeIngredients.menuItemId, menuItemId)
           )
@@ -8784,7 +8785,7 @@ var init_storage = __esm({
           ...data,
           updatedAt: /* @__PURE__ */ new Date()
         }).where(
-          and2(
+          and(
             eq(recipeIngredients.id, id),
             eq(recipeIngredients.restaurantId, restaurantId)
           )
@@ -8793,7 +8794,7 @@ var init_storage = __esm({
       }
       async deleteRecipeIngredient(id, restaurantId) {
         await db.delete(recipeIngredients).where(
-          and2(
+          and(
             eq(recipeIngredients.id, id),
             eq(recipeIngredients.restaurantId, restaurantId)
           )
@@ -8849,7 +8850,7 @@ var init_storage = __esm({
                 continue;
               }
               const [currentStock] = await tx.select().from(branchStock).where(
-                and2(
+                and(
                   eq(branchStock.branchId, branchId),
                   eq(branchStock.inventoryItemId, ingredient.inventoryItemId)
                 )
@@ -8913,7 +8914,7 @@ var init_storage = __esm({
               continue;
             }
             const [currentStock] = await tx.select().from(branchStock).where(
-              and2(
+              and(
                 eq(branchStock.branchId, branchId),
                 eq(branchStock.inventoryItemId, ingredient.inventoryItemId)
               )
@@ -8950,7 +8951,7 @@ var init_storage = __esm({
         if (filters?.isActive !== void 0) {
           conditions.push(eq(customers.isActive, filters.isActive));
         }
-        let query = db.select().from(customers).where(and2(...conditions));
+        let query = db.select().from(customers).where(and(...conditions));
         const results = await query.orderBy(desc(customers.createdAt));
         if (filters?.search) {
           const searchTerm = filters.search.toLowerCase();
@@ -8965,11 +8966,11 @@ var init_storage = __esm({
         return customer;
       }
       async getCustomerByPhone(restaurantId, phone) {
-        const [customer] = await db.select().from(customers).where(and2(eq(customers.restaurantId, restaurantId), eq(customers.phone, phone)));
+        const [customer] = await db.select().from(customers).where(and(eq(customers.restaurantId, restaurantId), eq(customers.phone, phone)));
         return customer;
       }
       async getCustomerByCpf(restaurantId, cpf) {
-        const [customer] = await db.select().from(customers).where(and2(eq(customers.restaurantId, restaurantId), eq(customers.cpf, cpf)));
+        const [customer] = await db.select().from(customers).where(and(eq(customers.restaurantId, restaurantId), eq(customers.cpf, cpf)));
         return customer;
       }
       async createCustomer(restaurantId, branchId, data) {
@@ -8981,11 +8982,11 @@ var init_storage = __esm({
         return customer;
       }
       async updateCustomer(id, restaurantId, data) {
-        const [updated] = await db.update(customers).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(and2(eq(customers.id, id), eq(customers.restaurantId, restaurantId))).returning();
+        const [updated] = await db.update(customers).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(customers.id, id), eq(customers.restaurantId, restaurantId))).returning();
         return updated;
       }
       async deleteCustomer(id, restaurantId) {
-        await db.delete(customers).where(and2(eq(customers.id, id), eq(customers.restaurantId, restaurantId)));
+        await db.delete(customers).where(and(eq(customers.id, id), eq(customers.restaurantId, restaurantId)));
       }
       async updateCustomerTier(customerId, restaurantId) {
         const customer = await this.getCustomerById(customerId);
@@ -9016,7 +9017,7 @@ var init_storage = __esm({
         if (branchId) {
           conditions.push(or(eq(customers.branchId, branchId), isNull(customers.branchId)));
         }
-        const allCustomers = await db.select().from(customers).where(and2(...conditions));
+        const allCustomers = await db.select().from(customers).where(and(...conditions));
         const now = /* @__PURE__ */ new Date();
         const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const stats = {
@@ -9054,7 +9055,7 @@ var init_storage = __esm({
         const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1e3);
         const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1e3);
         await db.update(customerSessions).set({ isActive: 0 }).where(
-          and2(
+          and(
             eq(customerSessions.customerId, customerId),
             eq(customerSessions.restaurantId, restaurantId),
             eq(customerSessions.isActive, 1),
@@ -9078,7 +9079,7 @@ var init_storage = __esm({
       }
       async verifyCustomerOtp(customerId, restaurantId, otpCode) {
         const [session2] = await db.select().from(customerSessions).where(
-          and2(
+          and(
             eq(customerSessions.customerId, customerId),
             eq(customerSessions.restaurantId, restaurantId),
             eq(customerSessions.isActive, 1),
@@ -9116,7 +9117,7 @@ var init_storage = __esm({
       }
       async getCustomerSessionByToken(token) {
         const [result] = await db.select().from(customerSessions).innerJoin(customers, eq(customerSessions.customerId, customers.id)).where(
-          and2(
+          and(
             eq(customerSessions.token, token),
             eq(customerSessions.isActive, 1),
             isNull(customerSessions.otpCode)
@@ -9156,7 +9157,7 @@ var init_storage = __esm({
       }
       async cleanupExpiredSessions() {
         await db.update(customerSessions).set({ isActive: 0 }).where(
-          and2(
+          and(
             eq(customerSessions.isActive, 1),
             lt(customerSessions.expiresAt, /* @__PURE__ */ new Date())
           )
@@ -9189,7 +9190,7 @@ var init_storage = __esm({
         if (filters?.endDate) {
           conditions.push(sql3`${loyaltyTransactions.createdAt} <= ${filters.endDate}`);
         }
-        const transactions = await db.select().from(loyaltyTransactions).leftJoin(customers, eq(loyaltyTransactions.customerId, customers.id)).where(and2(...conditions)).orderBy(desc(loyaltyTransactions.createdAt));
+        const transactions = await db.select().from(loyaltyTransactions).leftJoin(customers, eq(loyaltyTransactions.customerId, customers.id)).where(and(...conditions)).orderBy(desc(loyaltyTransactions.createdAt));
         return transactions.map((t) => ({
           ...t.loyalty_transactions,
           customer: t.customers
@@ -9250,14 +9251,14 @@ var init_storage = __esm({
         if (filters?.code) {
           conditions.push(eq(coupons.code, filters.code.toUpperCase()));
         }
-        return await db.select().from(coupons).where(and2(...conditions)).orderBy(desc(coupons.createdAt));
+        return await db.select().from(coupons).where(and(...conditions)).orderBy(desc(coupons.createdAt));
       }
       async getCouponById(id) {
         const [coupon] = await db.select().from(coupons).where(eq(coupons.id, id));
         return coupon;
       }
       async getCouponByCode(restaurantId, code) {
-        const [coupon] = await db.select().from(coupons).where(and2(eq(coupons.restaurantId, restaurantId), eq(coupons.code, code.toUpperCase())));
+        const [coupon] = await db.select().from(coupons).where(and(eq(coupons.restaurantId, restaurantId), eq(coupons.code, code.toUpperCase())));
         return coupon;
       }
       async createCoupon(restaurantId, branchId, data, userId) {
@@ -9283,11 +9284,11 @@ var init_storage = __esm({
         if (data.validUntil) {
           updateData.validUntil = new Date(data.validUntil);
         }
-        const [updated] = await db.update(coupons).set(updateData).where(and2(eq(coupons.id, id), eq(coupons.restaurantId, restaurantId))).returning();
+        const [updated] = await db.update(coupons).set(updateData).where(and(eq(coupons.id, id), eq(coupons.restaurantId, restaurantId))).returning();
         return updated;
       }
       async deleteCoupon(id, restaurantId) {
-        await db.delete(coupons).where(and2(eq(coupons.id, id), eq(coupons.restaurantId, restaurantId)));
+        await db.delete(coupons).where(and(eq(coupons.id, id), eq(coupons.restaurantId, restaurantId)));
       }
       async validateCoupon(restaurantId, code, orderValue, orderType, customerId) {
         const coupon = await this.getCouponByCode(restaurantId, code);
@@ -9320,7 +9321,7 @@ var init_storage = __esm({
         }
         if (customerId && coupon.maxUsesPerCustomer) {
           const usageCount = await db.select({ count: sql3`count(*)` }).from(couponUsages).where(
-            and2(
+            and(
               eq(couponUsages.couponId, coupon.id),
               eq(couponUsages.customerId, customerId)
             )
@@ -9366,7 +9367,7 @@ var init_storage = __esm({
         if (filters?.endDate) {
           conditions.push(sql3`${couponUsages.createdAt} <= ${filters.endDate}`);
         }
-        const usages = await db.select().from(couponUsages).leftJoin(coupons, eq(couponUsages.couponId, coupons.id)).leftJoin(customers, eq(couponUsages.customerId, customers.id)).leftJoin(orders, eq(couponUsages.orderId, orders.id)).where(and2(...conditions)).orderBy(desc(couponUsages.createdAt));
+        const usages = await db.select().from(couponUsages).leftJoin(coupons, eq(couponUsages.couponId, coupons.id)).leftJoin(customers, eq(couponUsages.customerId, customers.id)).leftJoin(orders, eq(couponUsages.orderId, orders.id)).where(and(...conditions)).orderBy(desc(couponUsages.createdAt));
         return usages.map((u) => ({
           ...u.coupon_usages,
           coupon: u.coupons,
@@ -9379,13 +9380,13 @@ var init_storage = __esm({
         if (branchId) {
           conditions.push(or(eq(coupons.branchId, branchId), isNull(coupons.branchId)));
         }
-        const allCoupons = await db.select().from(coupons).where(and2(...conditions));
+        const allCoupons = await db.select().from(coupons).where(and(...conditions));
         const now = /* @__PURE__ */ new Date();
         const activeCoupons = allCoupons.filter(
           (c) => c.isActive === 1 && c.validFrom <= now && c.validUntil >= now
         );
         let usageConditions = [eq(couponUsages.restaurantId, restaurantId)];
-        const allUsages = await db.select().from(couponUsages).where(and2(...usageConditions));
+        const allUsages = await db.select().from(couponUsages).where(and(...usageConditions));
         const totalDiscount = allUsages.reduce((sum, usage) => sum + parseFloat(usage.discountApplied), 0).toFixed(2);
         const couponUsageMap = /* @__PURE__ */ new Map();
         allUsages.forEach((usage) => {
@@ -9410,7 +9411,7 @@ var init_storage = __esm({
       }
       // Order-Customer-Coupon-Loyalty integration methods
       async linkCustomerToOrder(restaurantId, orderId, customerId) {
-        const [updated] = await db.update(orders).set({ customerId, updatedAt: /* @__PURE__ */ new Date() }).where(and2(eq(orders.id, orderId), eq(orders.restaurantId, restaurantId))).returning();
+        const [updated] = await db.update(orders).set({ customerId, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(orders.id, orderId), eq(orders.restaurantId, restaurantId))).returning();
         if (!updated) {
           throw new Error("Pedido n\xE3o encontrado");
         }
@@ -9427,7 +9428,7 @@ var init_storage = __esm({
           couponId,
           couponDiscount: discount.toFixed(2),
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(and2(eq(orders.id, orderId), eq(orders.restaurantId, restaurantId)));
+        }).where(and(eq(orders.id, orderId), eq(orders.restaurantId, restaurantId)));
         await this.applyCoupon(restaurantId, couponId, orderId, order.customerId || void 0, discount);
         return this.calculateOrderTotal(orderId);
       }
@@ -9437,7 +9438,7 @@ var init_storage = __esm({
           loyaltyPointsRedeemed: points,
           loyaltyDiscountAmount: result.discountAmount.toFixed(2),
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(and2(eq(orders.id, orderId), eq(orders.restaurantId, restaurantId)));
+        }).where(and(eq(orders.id, orderId), eq(orders.restaurantId, restaurantId)));
         const order = await this.calculateOrderTotal(orderId);
         return {
           order,
@@ -9708,7 +9709,7 @@ var init_storage = __esm({
         startOfMonth.setDate(1);
         startOfMonth.setHours(0, 0, 0, 0);
         const ordersThisMonth = await db.select({ count: sql3`count(*)` }).from(orders).where(
-          and2(
+          and(
             eq(orders.restaurantId, restaurantId),
             gte2(orders.createdAt, startOfMonth),
             ne(orders.status, "cancelado")
@@ -9716,7 +9717,7 @@ var init_storage = __esm({
         ).then((result2) => Number(result2[0]?.count || 0));
         const customersCount = await db.select({ count: sql3`count(*)` }).from(customers).where(eq(customers.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
         const activeCouponsCount = await db.select({ count: sql3`count(*)` }).from(coupons).where(
-          and2(
+          and(
             eq(coupons.restaurantId, restaurantId),
             eq(coupons.isActive, 1)
           )
@@ -9783,7 +9784,7 @@ var init_storage = __esm({
         const menuItemsCount = await db.select({ count: sql3`count(*)` }).from(menuItems).where(eq(menuItems.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
         const usersCount = await db.select({ count: sql3`count(*)` }).from(users).where(eq(users.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
         const ordersCount = await db.select({ count: sql3`count(*)` }).from(orders).where(
-          and2(
+          and(
             eq(orders.restaurantId, restaurantId),
             gte2(orders.createdAt, subscription.currentPeriodStart),
             ne(orders.status, "cancelado")
@@ -9865,7 +9866,7 @@ var init_storage = __esm({
             )
           );
         }
-        return await db.select().from(notifications).where(and2(...conditions)).orderBy(desc(notifications.createdAt)).limit(limit);
+        return await db.select().from(notifications).where(and(...conditions)).orderBy(desc(notifications.createdAt)).limit(limit);
       }
       async getUnreadNotificationsCount(restaurantId, userId) {
         const conditions = [
@@ -9880,7 +9881,7 @@ var init_storage = __esm({
             )
           );
         }
-        const result = await db.select({ count: sql3`count(*)` }).from(notifications).where(and2(...conditions));
+        const result = await db.select({ count: sql3`count(*)` }).from(notifications).where(and(...conditions));
         return Number(result[0]?.count || 0);
       }
       async createNotification(restaurantId, data) {
@@ -9895,7 +9896,7 @@ var init_storage = __esm({
           isRead: 1,
           readAt: /* @__PURE__ */ new Date()
         }).where(
-          and2(
+          and(
             eq(notifications.id, notificationId),
             eq(notifications.restaurantId, restaurantId)
           )
@@ -9921,11 +9922,11 @@ var init_storage = __esm({
         await db.update(notifications).set({
           isRead: 1,
           readAt: /* @__PURE__ */ new Date()
-        }).where(and2(...conditions));
+        }).where(and(...conditions));
       }
       async deleteNotification(restaurantId, notificationId) {
         await db.delete(notifications).where(
-          and2(
+          and(
             eq(notifications.id, notificationId),
             eq(notifications.restaurantId, restaurantId)
           )
@@ -9935,7 +9936,7 @@ var init_storage = __esm({
         const cutoffDate = /* @__PURE__ */ new Date();
         cutoffDate.setDate(cutoffDate.getDate() - daysOld);
         const result = await db.delete(notifications).where(
-          and2(
+          and(
             eq(notifications.restaurantId, restaurantId),
             lt(notifications.createdAt, cutoffDate)
           )
@@ -9950,7 +9951,7 @@ var init_storage = __esm({
         } else {
           conditions.push(isNull(notificationPreferences.userId));
         }
-        const [prefs] = await db.select().from(notificationPreferences).where(and2(...conditions));
+        const [prefs] = await db.select().from(notificationPreferences).where(and(...conditions));
         return prefs;
       }
       async upsertNotificationPreferences(restaurantId, userId, data) {
@@ -10146,7 +10147,7 @@ var init_storage = __esm({
       }
       async getPrinterConfigurationById(restaurantId, id) {
         const [config] = await db.select().from(printerConfigurations).where(
-          and2(
+          and(
             eq(printerConfigurations.id, id),
             eq(printerConfigurations.restaurantId, restaurantId)
           )
@@ -10165,7 +10166,7 @@ var init_storage = __esm({
           ...data,
           updatedAt: /* @__PURE__ */ new Date()
         }).where(
-          and2(
+          and(
             eq(printerConfigurations.id, id),
             eq(printerConfigurations.restaurantId, restaurantId)
           )
@@ -10177,7 +10178,7 @@ var init_storage = __esm({
       }
       async deletePrinterConfiguration(restaurantId, id) {
         await db.delete(printerConfigurations).where(
-          and2(
+          and(
             eq(printerConfigurations.id, id),
             eq(printerConfigurations.restaurantId, restaurantId)
           )
@@ -10185,7 +10186,7 @@ var init_storage = __esm({
       }
       async getActivePrintersByType(restaurantId, printerType, branchId) {
         let query = db.select().from(printerConfigurations).where(
-          and2(
+          and(
             eq(printerConfigurations.restaurantId, restaurantId),
             eq(printerConfigurations.printerType, printerType),
             eq(printerConfigurations.isActive, 1)
@@ -10214,7 +10215,7 @@ var init_storage = __esm({
       }
       async getPrintHistoryByOrder(restaurantId, orderId) {
         return await db.select().from(printHistory).where(
-          and2(
+          and(
             eq(printHistory.restaurantId, restaurantId),
             eq(printHistory.orderId, orderId)
           )
@@ -10229,7 +10230,7 @@ var init_storage = __esm({
           successfulPrints: sql3`count(*) filter (where ${printHistory.success} = 1)`,
           failedPrints: sql3`count(*) filter (where ${printHistory.success} = 0)`
         }).from(printHistory).where(
-          and2(
+          and(
             eq(printHistory.restaurantId, restaurantId),
             gte2(printHistory.printedAt, startDate)
           )
@@ -10252,7 +10253,7 @@ var init_storage = __esm({
       }
       async validateTableForOrder(tableId, restaurantId) {
         const [table] = await db.select().from(tables).where(
-          and2(
+          and(
             eq(tables.id, tableId),
             eq(tables.restaurantId, restaurantId)
           )
@@ -10271,7 +10272,7 @@ __export(check_subscriptions_exports, {
   checkExpiringSubscriptions: () => checkExpiringSubscriptions,
   generateReport: () => generateReport
 });
-import { eq as eq4, and as and5, lte, gte as gte4, sql as sql6 } from "drizzle-orm";
+import { eq as eq4, and as and4, lte, gte as gte4, sql as sql6 } from "drizzle-orm";
 async function checkExpiredSubscriptions() {
   console.log("\u{1F50D} Checking for expired subscriptions...");
   const now = /* @__PURE__ */ new Date();
@@ -10283,7 +10284,7 @@ async function checkExpiredSubscriptions() {
     status: subscriptions.status,
     currentPeriodEnd: subscriptions.currentPeriodEnd
   }).from(subscriptions).innerJoin(restaurants, eq4(subscriptions.restaurantId, restaurants.id)).innerJoin(subscriptionPlans, eq4(subscriptions.planId, subscriptionPlans.id)).where(
-    and5(
+    and4(
       lte(subscriptions.currentPeriodEnd, now),
       sql6`${subscriptions.status} IN ('trial', 'ativa')`
     )
@@ -10332,7 +10333,7 @@ async function checkExpiringSubscriptions() {
     billingInterval: subscriptions.billingInterval,
     currency: subscriptions.currency
   }).from(subscriptions).innerJoin(restaurants, eq4(subscriptions.restaurantId, restaurants.id)).innerJoin(subscriptionPlans, eq4(subscriptions.planId, subscriptionPlans.id)).where(
-    and5(
+    and4(
       lte(subscriptions.currentPeriodEnd, in7Days),
       gte4(subscriptions.currentPeriodEnd, now),
       sql6`${subscriptions.status} IN ('trial', 'ativa')`
@@ -10579,12 +10580,14 @@ import express2 from "express";
 
 // server/routes.ts
 init_storage();
+init_schema();
 import { createServer } from "http";
+import { and as and5, isNull as isNull2 } from "drizzle-orm";
 
 // server/orderNumberGenerator.ts
 init_db();
 init_schema();
-import { sql as sql5, and as and4, gte as gte3, eq as eq3 } from "drizzle-orm";
+import { sql as sql5, and as and3, gte as gte3, eq as eq3 } from "drizzle-orm";
 function getCurrentShift() {
   const now = /* @__PURE__ */ new Date();
   const hour = now.getHours();
@@ -10629,7 +10632,7 @@ async function generateOrderNumber(restaurantId, orderType) {
   const shift = getCurrentShift();
   try {
     const lastOrder = await db.select({ orderNumber: orders.orderNumber }).from(orders).where(
-      and4(
+      and3(
         eq3(orders.restaurantId, restaurantId),
         eq3(orders.orderType, orderType),
         gte3(orders.createdAt, shift.start)
@@ -11073,15 +11076,30 @@ async function checkSubscriptionStatus(req, res, next) {
   try {
     const { cache: cache2, CacheKeys: CacheKeys2, CacheTTL: CacheTTL2, getOrSet: getOrSet2 } = await Promise.resolve().then(() => (init_cache(), cache_exports));
     const cacheKey = CacheKeys2.subscription(user.restaurantId);
+    console.log("\u{1F512} checkSubscriptionStatus - RestaurantId:", user.restaurantId);
     const subscription = await getOrSet2(
       cacheKey,
       CacheTTL2.subscription,
       () => storage.getSubscriptionByRestaurantId(user.restaurantId)
     );
+    console.log("\u{1F512} checkSubscriptionStatus - Subscription:", subscription ? {
+      id: subscription.id,
+      status: subscription.status,
+      planId: subscription.planId,
+      planName: subscription.plan?.name
+    } : "NOT FOUND");
     if (!subscription) {
+      console.log("\u274C checkSubscriptionStatus - NO_SUBSCRIPTION");
       return res.status(402).json({
         message: "Subscri\xE7\xE3o n\xE3o encontrada. Entre em contato com o suporte.",
         code: "NO_SUBSCRIPTION"
+      });
+    }
+    if (!subscription.plan) {
+      console.error("\u274C checkSubscriptionStatus - MISSING PLAN DATA for subscription:", subscription.id);
+      return res.status(402).json({
+        message: "Erro na configura\xE7\xE3o do plano. Entre em contato com o suporte.",
+        code: "PLAN_DATA_MISSING"
       });
     }
     const now = /* @__PURE__ */ new Date();
@@ -11091,7 +11109,7 @@ async function checkSubscriptionStatus(req, res, next) {
         message: subscription.status === "expirada" ? "Sua subscri\xE7\xE3o expirou. Renove para continuar usando o sistema." : "Sua subscri\xE7\xE3o est\xE1 suspensa. Entre em contato com o suporte.",
         code: "SUBSCRIPTION_INACTIVE",
         status: subscription.status,
-        planName: subscription.plan.name
+        planName: subscription.plan?.name || "Desconhecido"
       });
     }
     if (now > periodEnd && (subscription.status === "trial" || subscription.status === "ativa")) {
@@ -11101,7 +11119,7 @@ async function checkSubscriptionStatus(req, res, next) {
         message: "Sua subscri\xE7\xE3o expirou. Renove para continuar usando o sistema.",
         code: "SUBSCRIPTION_EXPIRED",
         expiredAt: periodEnd.toISOString(),
-        planName: subscription.plan.name
+        planName: subscription.plan?.name || "Desconhecido"
       });
     }
     if (subscription.status === "cancelada" && now > periodEnd) {
@@ -11302,14 +11320,14 @@ async function registerRoutes(app2) {
       const [orders2, tables2, menuItems2, customers2] = await Promise.all([
         // Orders updated/created since
         db.select().from(ordersTable).where(
-          and(
+          and5(
             eq2(ordersTable.restaurantId, restaurantId),
             gte(ordersTable.updatedAt, sinceDate)
           )
         ).limit(500),
         // Tables updated since
         db.select().from(tablesTable).where(
-          and(
+          and5(
             eq2(tablesTable.restaurantId, restaurantId),
             gte(tablesTable.updatedAt, sinceDate)
           )
@@ -11608,6 +11626,134 @@ async function registerRoutes(app2) {
       res.json(userWithoutPassword);
     } catch (error) {
       res.status(500).json({ message: "Erro ao atualizar filial ativa" });
+    }
+  });
+  app2.post("/api/debug/fix-subscriptions", async (req, res) => {
+    try {
+      console.log("\u{1F527} Starting subscription fix...");
+      const allRestaurants = await storage.getRestaurants();
+      console.log(`\u{1F4CA} Total restaurants: ${allRestaurants.length}`);
+      let fixed = 0;
+      const fixedRestaurants = [];
+      const basePlan = await storage.getSubscriptionPlanBySlug("basico");
+      if (!basePlan) {
+        console.error("\u274C Base plan not found!");
+        return res.status(500).json({ message: "Base plan not found. Please seed subscription plans first." });
+      }
+      console.log(`\u{1F4E6} Using plan: ${basePlan.name} (ID: ${basePlan.id})`);
+      for (const restaurant of allRestaurants) {
+        const subscription = await storage.getSubscriptionByRestaurantId(restaurant.id);
+        if (!subscription) {
+          console.log(`  \u274C ${restaurant.name} - NO SUBSCRIPTION, creating...`);
+          const now = /* @__PURE__ */ new Date();
+          const trialEnd = new Date(now);
+          trialEnd.setDate(trialEnd.getDate() + 30);
+          await storage.createSubscription(restaurant.id, {
+            planId: basePlan.id,
+            status: "trial",
+            billingInterval: "mensal",
+            currency: "AOA",
+            currentPeriodStart: now,
+            currentPeriodEnd: trialEnd,
+            autoRenew: 1,
+            cancelAtPeriodEnd: 0
+          });
+          fixed++;
+          fixedRestaurants.push({
+            id: restaurant.id,
+            name: restaurant.name,
+            email: restaurant.email
+          });
+        } else {
+          console.log(`  \u2705 ${restaurant.name} - Has subscription (${subscription.status})`);
+        }
+      }
+      console.log(`\u2705 Fixed ${fixed} restaurants!`);
+      res.json({
+        message: fixed === 0 ? "All restaurants have subscriptions" : `Fixed ${fixed} restaurants`,
+        fixed,
+        restaurants: fixedRestaurants
+      });
+    } catch (error) {
+      console.error("\u274C Error fixing subscriptions:", error);
+      res.status(500).json({ message: "Error fixing subscriptions", error: String(error) });
+    }
+  });
+  app2.post("/api/debug/fix-table-status", async (req, res) => {
+    try {
+      console.log("\u{1F527} Starting table status fix...");
+      const allTables = await db.select().from(tables);
+      console.log(`\u{1F4CA} Total tables found: ${allTables.length}`);
+      let fixed = 0;
+      const fixedTables = [];
+      for (const table of allTables) {
+        let activeSession = null;
+        if (table.currentSessionId) {
+          const [session2] = await db.select().from(tableSessions).where(and5(
+            eq2(tableSessions.id, table.currentSessionId),
+            isNull2(tableSessions.endedAt)
+          ));
+          activeSession = session2;
+        }
+        let correctStatus = "livre";
+        let shouldUpdate = false;
+        if (activeSession) {
+          correctStatus = activeSession.status;
+          if (table.status !== correctStatus) {
+            shouldUpdate = true;
+          }
+        } else {
+          if (table.status !== "livre") {
+            shouldUpdate = true;
+          }
+        }
+        if (shouldUpdate) {
+          await db.update(tables).set({
+            status: correctStatus,
+            currentSessionId: activeSession ? table.currentSessionId : null,
+            totalAmount: activeSession ? table.totalAmount : "0",
+            customerName: activeSession ? table.customerName : null,
+            customerCount: activeSession ? table.customerCount : 0,
+            lastActivity: activeSession ? table.lastActivity : null,
+            isOccupied: correctStatus !== "livre" ? 1 : 0
+          }).where(eq2(tables.id, table.id));
+          fixed++;
+          fixedTables.push({
+            id: table.id,
+            number: table.number,
+            oldStatus: table.status,
+            newStatus: correctStatus,
+            hasActiveSession: !!activeSession
+          });
+          console.log(`  \u2705 Fixed Table ${table.number}: ${table.status} \u2192 ${correctStatus}`);
+        } else {
+          console.log(`  \u2713 Table ${table.number}: ${table.status} (OK)`);
+        }
+      }
+      const updatedTables = await db.select().from(tables);
+      const stats = {
+        total: updatedTables.length,
+        livre: updatedTables.filter((t) => t.status === "livre").length,
+        ocupada: updatedTables.filter((t) => t.status === "ocupada").length,
+        em_andamento: updatedTables.filter((t) => t.status === "em_andamento").length,
+        aguardando_pagamento: updatedTables.filter((t) => t.status === "aguardando_pagamento").length
+      };
+      console.log(`\u2705 Fixed ${fixed} tables!`);
+      console.log(`\u{1F4CA} Stats: ${stats.livre} livres, ${stats.ocupada} ocupadas, ${stats.em_andamento} em andamento, ${stats.aguardando_pagamento} aguardando pagamento`);
+      res.json({
+        success: true,
+        message: fixed === 0 ? "All tables have correct status" : `Fixed ${fixed} tables`,
+        fixed,
+        stats,
+        fixedTables: fixedTables.length > 0 ? fixedTables : void 0
+      });
+    } catch (error) {
+      console.error("\u274C Error fixing table status:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error fixing table status",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   app2.get("/api/branches", isAdmin, checkSubscriptionStatus, async (req, res) => {
@@ -12287,15 +12433,77 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Erro ao registrar pagamento" });
     }
   });
-  app2.get("/api/users", isAdmin, checkSubscriptionStatus, async (req, res) => {
+  app2.get("/api/users", async (req, res) => {
+    console.log("\n\u{1F50D} ===== GET /api/users REQUEST =====");
+    console.log("\u{1F4CC} Headers:", req.headers.cookie ? "Has cookie" : "No cookie");
+    console.log("\u{1F4CC} Session:", req.session ? "Has session" : "No session");
+    console.log("\u{1F4CC} User:", req.user ? JSON.stringify(req.user) : "Not authenticated");
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
+      console.log("\u274C Not authenticated");
+      return res.status(401).json({ message: "N\xE3o autenticado" });
+    }
+    const currentUser = req.user;
+    console.log("\u{1F464} User:", { id: currentUser.id, email: currentUser.email, role: currentUser.role, restaurantId: currentUser.restaurantId });
+    if (!["admin", "superadmin", "manager"].includes(currentUser.role)) {
+      console.log(`\u274C Access denied - role is ${currentUser.role}`);
+      return res.status(403).json({
+        message: "Acesso negado. Apenas administradores e gerentes podem acessar esta funcionalidade.",
+        currentRole: currentUser.role,
+        requiredRoles: ["admin", "superadmin", "manager"]
+      });
+    }
+    console.log("\u2705 Role check passed");
+    if (currentUser.role !== "superadmin" && !currentUser.restaurantId) {
+      console.log("\u274C User has no restaurantId");
+      return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a nenhum restaurante" });
+    }
+    console.log("\u2705 Restaurant check passed");
+    if (currentUser.role !== "superadmin") {
+      console.log("\u{1F512} Checking subscription...");
+      try {
+        const { cache: cache2, CacheKeys: CacheKeys2, CacheTTL: CacheTTL2, getOrSet: getOrSet2 } = await Promise.resolve().then(() => (init_cache(), cache_exports));
+        const cacheKey = CacheKeys2.subscription(currentUser.restaurantId);
+        const subscription = await getOrSet2(
+          cacheKey,
+          CacheTTL2.subscription,
+          () => storage.getSubscriptionByRestaurantId(currentUser.restaurantId)
+        );
+        console.log("\u{1F512} Subscription:", subscription ? {
+          id: subscription.id,
+          status: subscription.status,
+          planId: subscription.planId,
+          planName: subscription.plan?.name
+        } : "NOT FOUND");
+        if (!subscription) {
+          console.log("\u274C No subscription found");
+          return res.status(402).json({
+            message: "Subscri\xE7\xE3o n\xE3o encontrada. Entre em contato com o suporte.",
+            code: "NO_SUBSCRIPTION"
+          });
+        }
+        if (!subscription.plan) {
+          console.log("\u274C Subscription plan data missing");
+          return res.status(402).json({
+            message: "Erro na configura\xE7\xE3o do plano. Entre em contato com o suporte.",
+            code: "PLAN_DATA_MISSING"
+          });
+        }
+        console.log("\u2705 Subscription check passed");
+      } catch (error) {
+        console.error("\u274C Error checking subscription:", error);
+        return res.status(500).json({ message: "Erro ao verificar subscri\xE7\xE3o" });
+      }
+    }
     try {
-      const currentUser = req.user;
       const restaurantId = currentUser.role === "superadmin" ? null : currentUser.restaurantId || null;
       const page = parseInt(req.query.page) || 1;
       const limit = Math.min(parseInt(req.query.limit) || 20, 100);
       const search = req.query.search;
       const role = req.query.role;
+      console.log("\u{1F50D} Query params:", { page, limit, search, role });
+      console.log("\u{1F50D} Fetching users for restaurantId:", restaurantId);
       const result = await storage.getUsersPaginated(restaurantId, { page, limit, search, role });
+      console.log("\u2705 Users fetched:", { total: result.total, usersCount: result.users.length });
       const usersWithoutPassword = result.users.map((user) => ({
         id: user.id,
         email: user.email,
@@ -12306,6 +12514,8 @@ async function registerRoutes(app2) {
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
       }));
+      console.log("\u2705 Sending response");
+      console.log("===== END GET /api/users =====\n");
       res.json({
         users: usersWithoutPassword,
         pagination: {
@@ -12316,7 +12526,7 @@ async function registerRoutes(app2) {
         }
       });
     } catch (error) {
-      console.error("Error fetching users:", error);
+      console.error("\u274C Error fetching users:", error);
       res.status(500).json({ message: "Erro ao buscar usu\xE1rios" });
     }
   });

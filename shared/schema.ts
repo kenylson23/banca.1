@@ -645,8 +645,14 @@ export const insertFinancialShiftSchema = createInsertSchema(financialShifts).om
   status: true,
   startedAt: true,
   endedAt: true,
+  closingBalance: true,
+  expectedBalance: true,
+  discrepancy: true,
 }).extend({
+  operatorId: z.string().min(1, "Operador é obrigatório"),
+  branchId: z.string().nullable().optional(),
   openingBalance: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido").optional(),
+  notes: z.string().optional().nullable(),
 });
 
 export type InsertFinancialShift = z.infer<typeof insertFinancialShiftSchema>;

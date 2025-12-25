@@ -3,7 +3,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { storage, db, eq, orderItems, orderItemAuditLogs, sql } from './storage';
+import { storage, db, eq, orderItems, orderItemAuditLogs, sql } from "./storage";
+import { and, isNull } from 'drizzle-orm';
+import { tables, tableSessions } from '@shared/schema';
 import { generateOrderNumber, formatOrderDisplay } from './orderNumberGenerator';
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import {
@@ -1166,6 +1168,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('❌ Error fixing subscriptions:', error);
       res.status(500).json({ message: "Error fixing subscriptions", error: String(error) });
+    }
+  });
+
+  // PUBLIC DEBUG ROUTE: Fix table status (temporary - remove after fix)
+  app.post('/api/debug/fix-table-status', async (req, res) => {
+    try {
+      console.log('🔧 Starting table status fix...');
+      
+      // Get all tables from database
+      const allTables = await db.select().from(tables);
+      console.log(`📊 Total tables found: ${allTables.length}`);
+      
+      let fixed = 0;
+      const fixedTables = [];
+      
+      for (const table of allTables) {
+        // Check if table has an active session
+        let activeSession = null;
+        if (table.currentSessionId) {
+          const [session] = await db.select()
+            .from(tableSessions)
+            .where(and(
+              eq(tableSessions.id, table.currentSessionId),
+              isNull(tableSessions.endedAt)
+            ));
+          activeSession = session;
+        }
+        
+        // Determine correct status
+        let correctStatus: 'livre' | 'ocupada' | 'em_andamento' | 'aguardando_pagamento' = 'livre';
+        let shouldUpdate = false;
+        
+        if (activeSession) {
+          // Mesa tem sessão ativa, status deve ser o da sessão
+          correctStatus = activeSession.status as any;
+          if (table.status !== correctStatus) {
+            shouldUpdate = true;
+          }
+        } else {
+          // Mesa não tem sessão ativa, deve estar livre
+          if (table.status !== 'livre') {
+            shouldUpdate = true;
+          }
+        }
+        
+        // Update if needed
+        if (shouldUpdate) {
+          await db.update(tables)
+            .set({
+              status: correctStatus,
+              currentSessionId: activeSession ? table.currentSessionId : null,
+              totalAmount: activeSession ? table.totalAmount : '0',
+              customerName: activeSession ? table.customerName : null,
+              customerCount: activeSession ? table.customerCount : 0,
+              lastActivity: activeSession ? table.lastActivity : null,
+              isOccupied: correctStatus !== 'livre' ? 1 : 0,
+            })
+            .where(eq(tables.id, table.id));
+          
+          fixed++;
+          fixedTables.push({
+            id: table.id,
+            number: table.number,
+            oldStatus: table.status,
+            newStatus: correctStatus,
+            hasActiveSession: !!activeSession,
+          });
+          
+          console.log(`  ✅ Fixed Table ${table.number}: ${table.status} → ${correctStatus}`);
+        } else {
+          console.log(`  ✓ Table ${table.number}: ${table.status} (OK)`);
+        }
+      }
+      
+      // Get updated stats
+      const updatedTables = await db.select().from(tables);
+      const stats = {
+        total: updatedTables.length,
+        livre: updatedTables.filter(t => t.status === 'livre').length,
+        ocupada: updatedTables.filter(t => t.status === 'ocupada').length,
+        em_andamento: updatedTables.filter(t => t.status === 'em_andamento').length,
+        aguardando_pagamento: updatedTables.filter(t => t.status === 'aguardando_pagamento').length,
+      };
+      
+      console.log(`✅ Fixed ${fixed} tables!`);
+      console.log(`📊 Stats: ${stats.livre} livres, ${stats.ocupada} ocupadas, ${stats.em_andamento} em andamento, ${stats.aguardando_pagamento} aguardando pagamento`);
+      
+      res.json({ 
+        success: true,
+        message: fixed === 0 ? "All tables have correct status" : `Fixed ${fixed} tables`,
+        fixed,
+        stats,
+        fixedTables: fixedTables.length > 0 ? fixedTables : undefined,
+      });
+    } catch (error) {
+      console.error('❌ Error fixing table status:', error);
+      res.status(500).json({ 
+        success: false,
+        message: "Error fixing table status", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
     }
   });
 

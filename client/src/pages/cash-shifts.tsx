@@ -86,6 +86,15 @@ export default function CashShifts() {
 
   const openShiftMutation = useMutation({
     mutationFn: async (data: typeof shiftForm) => {
+      // Validação no frontend
+      if (!data.cashRegisterId) {
+        throw new Error("Por favor, selecione uma caixa registradora");
+      }
+      
+      if (!data.openingAmount || parseFloat(data.openingAmount) < 0) {
+        throw new Error("Montante inicial inválido");
+      }
+      
       await apiRequest("POST", "/api/cash-register-shifts", {
         cashRegisterId: data.cashRegisterId,
         openingAmount: data.openingAmount,
@@ -134,18 +143,51 @@ export default function CashShifts() {
   });
 
   const handleOpenShiftClick = () => {
+    // Se não há caixas, redireciona para configuração
     if (activeCashRegisters.length === 0) {
       toast({
         title: "Nenhuma caixa disponível",
-        description: "Configure uma caixa registradora antes de abrir um turno.",
-        variant: "destructive",
+        description: "Vamos configurar sua primeira caixa registradora.",
+        variant: "default",
+      });
+      setConfigDialog(true);
+      return;
+    }
+    
+    // Verificar se há caixas com turnos abertos
+    const cashRegistersWithOpenShift = activeCashRegisters.filter(register =>
+      activeShifts.some(shift => shift.cashRegisterId === register.id)
+    );
+    
+    // Filtrar caixas disponíveis (sem turno aberto)
+    const availableCashRegisters = activeCashRegisters.filter(register =>
+      !activeShifts.some(shift => shift.cashRegisterId === register.id)
+    );
+    
+    // Se todas as caixas já têm turno aberto
+    if (availableCashRegisters.length === 0) {
+      toast({
+        title: "Todas as caixas já estão abertas",
+        description: "Feche um turno antes de abrir outro, ou adicione mais caixas.",
+        variant: "default",
       });
       return;
     }
-    // Pré-selecionar a primeira caixa ativa se houver apenas uma
-    if (activeCashRegisters.length === 1) {
-      setShiftForm({ ...shiftForm, cashRegisterId: activeCashRegisters[0].id });
+    
+    // Pré-selecionar a primeira caixa disponível
+    if (availableCashRegisters.length === 1) {
+      setShiftForm({ 
+        ...shiftForm, 
+        cashRegisterId: availableCashRegisters[0].id 
+      });
+    } else if (availableCashRegisters.length > 0) {
+      // Se há múltiplas caixas, pré-seleciona a primeira disponível
+      setShiftForm({ 
+        ...shiftForm, 
+        cashRegisterId: availableCashRegisters[0].id 
+      });
     }
+    
     setOpenShiftDialog(true);
   };
 
@@ -157,6 +199,13 @@ export default function CashShifts() {
     setCloseShiftForm({ closingAmountCounted: expected.toFixed(2), notes: "" });
     setCloseShiftDialog(true);
   };
+
+  // Lógica inteligente para controle de botões
+  const availableCashRegisters = activeCashRegisters.filter(register =>
+    !activeShifts.some(shift => shift.cashRegisterId === register.id)
+  );
+  const allCashesHaveOpenShift = activeCashRegisters.length > 0 && availableCashRegisters.length === 0;
+  const hasNoCashRegisters = activeCashRegisters.length === 0;
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6">
@@ -170,14 +219,15 @@ export default function CashShifts() {
               data-testid="button-config"
             >
               <Settings2 className="h-4 w-4 mr-2" />
-              Configuração da caixa
+              {hasNoCashRegisters ? "Criar primeira caixa" : "Configuração da caixa"}
             </Button>
             <Button
               onClick={handleOpenShiftClick}
+              disabled={allCashesHaveOpenShift}
               data-testid="button-open-shift"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Abrir caixa
+              {allCashesHaveOpenShift ? "Todas abertas" : "Abrir caixa"}
             </Button>
           </div>
         </div>
@@ -256,13 +306,33 @@ export default function CashShifts() {
               ) : (
                 <div className="text-center py-12">
                   <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground mb-4">
-                    Registre a quantia de dinheiro em caixa ao abrir e controle os pagamentos no final do turno.
-                  </p>
-                  <Button onClick={handleOpenShiftClick} data-testid="button-open-empty">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Abrir caixa
-                  </Button>
+                  {hasNoCashRegisters ? (
+                    <>
+                      <p className="text-lg font-medium mb-2">Nenhuma caixa registradora configurada</p>
+                      <p className="text-muted-foreground mb-4">
+                        Configure sua primeira caixa para começar a gerenciar turnos e pagamentos.
+                      </p>
+                      <Button onClick={() => setConfigDialog(true)} data-testid="button-config-empty">
+                        <Settings2 className="h-4 w-4 mr-2" />
+                        Configurar primeira caixa
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-lg font-medium mb-2">Nenhum turno aberto</p>
+                      <p className="text-muted-foreground mb-4">
+                        Abra um turno para registrar a quantia inicial e controlar os pagamentos.
+                      </p>
+                      <Button 
+                        onClick={handleOpenShiftClick} 
+                        disabled={allCashesHaveOpenShift}
+                        data-testid="button-open-empty"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        {allCashesHaveOpenShift ? "Todas as caixas já abertas" : "Abrir turno"}
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -337,8 +407,10 @@ export default function CashShifts() {
                   </Table>
                 </div>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  Nenhum turno fechado
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">
+                    Nenhum turno fechado ainda. Os turnos aparecerão aqui após serem encerrados.
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -355,7 +427,7 @@ export default function CashShifts() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="cash-register">Caixa registradora</Label>
+                <Label htmlFor="cash-register">Caixa registradora *</Label>
                 <Select
                   value={shiftForm.cashRegisterId}
                   onValueChange={(value) => setShiftForm({ ...shiftForm, cashRegisterId: value })}
@@ -364,13 +436,24 @@ export default function CashShifts() {
                     <SelectValue placeholder="Selecione uma caixa" />
                   </SelectTrigger>
                   <SelectContent>
-                    {activeCashRegisters.map((register) => (
-                      <SelectItem key={register.id} value={register.id}>
-                        {register.name}
-                      </SelectItem>
-                    ))}
+                    {activeCashRegisters.length > 0 ? (
+                      activeCashRegisters.map((register) => (
+                        <SelectItem key={register.id} value={register.id}>
+                          {register.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="p-2 text-sm text-muted-foreground">
+                        Nenhuma caixa registradora disponível
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
+                {activeCashRegisters.length === 0 && (
+                  <p className="text-sm text-destructive">
+                    Crie uma caixa registradora primeiro em "Configuração da caixa"
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">

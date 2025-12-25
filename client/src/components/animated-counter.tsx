@@ -20,18 +20,23 @@ export function AnimatedCounter({
 }: AnimatedCounterProps) {
   const motionValue = useMotionValue(0);
   const rounded = useTransform(motionValue, (latest) => {
-    return prefix + latest.toFixed(decimals) + suffix;
+    // Ensure latest is a number before calling toFixed
+    const numericValue = typeof latest === 'number' ? latest : parseFloat(String(latest)) || 0;
+    return prefix + numericValue.toFixed(decimals) + suffix;
   });
 
   const prevValue = useRef(0);
 
   useEffect(() => {
-    const controls = animate(motionValue, value, {
+    // Ensure value is a valid number
+    const numericValue = typeof value === 'number' && !isNaN(value) ? value : 0;
+    
+    const controls = animate(motionValue, numericValue, {
       duration,
       ease: "easeOut",
     });
 
-    prevValue.current = value;
+    prevValue.current = numericValue;
     
     return controls.stop;
   }, [value, motionValue, duration]);

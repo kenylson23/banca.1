@@ -20,7 +20,7 @@ import {
 import { TablesIcon } from '@/components/custom-icons';
 import { formatKwanza } from '@/lib/formatters';
 import { TableCheckoutDialog } from '@/components/tables/TableCheckoutDialog';
-import { TableDetailsDialog } from '@/components/TableDetailsDialog';
+import { TableDetailsDialogNew as TableDetailsDialog } from '@/components/TableDetailsDialogNew';
 import type { Table, Order, TableSession } from '@shared/schema';
 
 interface TableWithDetails extends Table {
@@ -49,6 +49,7 @@ export default function OpenTables() {
     refetchInterval: 10000,
   });
 
+  const freeTables = tables.filter(t => t.status === 'livre');
   const occupiedTables = tables.filter(t => t.status !== 'livre');
   const tablesWithDigitalOrders = occupiedTables.filter(t => t.hasDigitalOrders);
   const tablesAwaitingPayment = occupiedTables.filter(t => t.status === 'aguardando_pagamento');
@@ -97,7 +98,22 @@ export default function OpenTables() {
       </div>
 
       {/* KPI Cards modernos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        <Card className="relative overflow-hidden border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Mesas Livres</CardTitle>
+              <div className="p-2 bg-green-500/10 rounded-lg">
+                <TablesIcon className="w-5 h-5 text-green-500" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-green-600" data-testid="text-free-count">{freeTables.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">disponíveis</p>
+          </CardContent>
+        </Card>
+
         <Card className="relative overflow-hidden border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -108,7 +124,7 @@ export default function OpenTables() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold" data-testid="text-occupied-count">{occupiedTables.length}</div>
+            <div className="text-3xl font-bold text-blue-600" data-testid="text-occupied-count">{occupiedTables.length}</div>
             <p className="text-xs text-muted-foreground mt-1">mesas ativas</p>
           </CardContent>
         </Card>
@@ -151,17 +167,17 @@ export default function OpenTables() {
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
+        <Card className="relative overflow-hidden border-l-4 border-l-emerald-500 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total em Aberto</CardTitle>
-              <div className="p-2 bg-green-500/10 rounded-lg">
-                <Receipt className="w-5 h-5 text-green-500" />
+              <div className="p-2 bg-emerald-500/10 rounded-lg">
+                <Receipt className="w-5 h-5 text-emerald-500" />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl lg:text-3xl font-bold text-green-600" data-testid="text-total-revenue">
+            <div className="text-2xl lg:text-3xl font-bold text-emerald-600" data-testid="text-total-revenue">
               {totalRevenue.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
             </div>
             <p className="text-xs text-muted-foreground mt-1">receita pendente</p>
