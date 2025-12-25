@@ -57,6 +57,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
     ordersByGuest: OrdersByGuest[]; 
     anonymousOrders: any[]; 
     totalAmount: string;
+    paidAmount: string; // Adicionado para rastrear pagamentos parciais
   }>({
     queryKey: [`/api/tables/${table?.id}/orders-by-guest`],
     enabled: !!table?.id && open,
@@ -64,6 +65,8 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
 
   const ordersByGuest = ordersData?.ordersByGuest || [];
   const hasGuests = ordersByGuest.length > 0;
+  const tablePaidAmount = parseFloat(ordersData?.paidAmount || '0');
+  const remainingTotal = totalAmount - tablePaidAmount;
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -151,8 +154,8 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
 
     try {
       const amountToPay = splitEqually 
-        ? (totalAmount / numberOfPeople).toFixed(2)
-        : totalAmount.toFixed(2);
+        ? (remainingTotal / numberOfPeople).toFixed(2)
+        : remainingTotal.toFixed(2);
 
       await recordPaymentMutation.mutateAsync({
         tableId: table.id,
@@ -161,13 +164,13 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
         receivedAmount: paymentData.receivedAmount,
       });
 
-      // If not split, close the session immediately
+      // If not split and remaining is fully covered, close the session
       if (!splitEqually) {
         await closeSessionMutation.mutateAsync(table.id);
       } else {
         toast({
           title: 'Pagamento registrado',
-          description: `Pagamento de ${formatKwanza(amountToPay)} registrado. Faltam ${numberOfPeople - 1} pessoas.`,
+          description: `Pagamento de ${formatKwanza(amountToPay)} registrado.`,
         });
       }
     } catch (error) {
@@ -237,8 +240,19 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex justify-between text-lg font-semibold">
-                    <span>Total:</span>
+                    <span>Total Consumido:</span>
                     <span>{formatKwanza(totalAmount)}</span>
+                  </div>
+                  {tablePaidAmount > 0 && (
+                    <div className="flex justify-between text-green-600 font-medium">
+                      <span>Total Pago:</span>
+                      <span>{formatKwanza(tablePaidAmount)}</span>
+                    </div>
+                  )}
+                  <Separator />
+                  <div className="flex justify-between text-xl font-bold text-orange-600">
+                    <span>A Pagar:</span>
+                    <span>{formatKwanza(remainingTotal)}</span>
                   </div>
                   {hasGuests && (
                     <div className="text-sm text-muted-foreground">
@@ -337,10 +351,10 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
                   </CardHeader>
                   <CardContent>
                     <PaymentForm
-                      totalAmount={splitEqually ? amountPerPerson : totalAmount}
+                      totalAmount={splitEqually ? (remainingTotal / numberOfPeople) : remainingTotal}
                       onSubmit={handleSimplePayment}
                       isProcessing={isProcessing}
-                      submitLabel={splitEqually ? "Registrar Pagamento" : "Finalizar e Fechar Mesa"}
+                      submitLabel={splitEqually ? "Registrar Pagamento" : "Finalizar Restante e Fechar Mesa"}
                     />
                   </CardContent>
                 </Card>

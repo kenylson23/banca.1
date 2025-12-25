@@ -147,12 +147,19 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPan
     targetGuestName: string;
   } | null>(null);
 
-  const { data: ordersData, isLoading: loadingOrders } = useQuery<{ ordersByGuest: OrdersByGuest[]; anonymousOrders: any[]; totalAmount: string }>({
+  const { data: ordersData, isLoading: loadingOrders } = useQuery<{ 
+    ordersByGuest: OrdersByGuest[]; 
+    anonymousOrders: any[]; 
+    totalAmount: string;
+    paidAmount: string; 
+  }>({
     queryKey: [`/api/tables/${tableId}/orders-by-guest`],
     enabled: !!tableId,
   });
   
   const ordersByGuest = ordersData?.ordersByGuest || [];
+  const tablePaidAmount = parseFloat(ordersData?.paidAmount || '0');
+  const remainingAmount = totalAmount - tablePaidAmount;
 
   const { data: billSplits = [], isLoading: loadingSplits } = useQuery<BillSplit[]>({
     queryKey: [`/api/tables/${tableId}/bill-splits`],
@@ -324,9 +331,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPan
   }
 
   const guestsAwaitingBill = ordersByGuest.filter(og => og.guest.status === 'aguardando_conta');
-  const totalPaid = ordersByGuest.filter(og => og.guest.status === 'pago')
-    .reduce((sum, og) => sum + Number(og.totalAmount), 0);
-  const remainingAmount = totalAmount - totalPaid;
+  // remainingAmount já calculado acima usando paidAmount da sessão
 
   return (
     <DndContext
@@ -425,6 +430,11 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPan
                               <Badge className={getGuestStatusColor(guestData.guest.status)}>
                                 {getGuestStatusLabel(guestData.guest.status)}
                               </Badge>
+                              {parseFloat(guestData.guest.paidAmount || '0') > 0 && parseFloat(guestData.guest.paidAmount || '0') < parseFloat(guestData.guest.subtotal || '0') && (
+                                <Badge variant="outline" className="text-xs">
+                                  Parcial: {formatKwanza(guestData.guest.paidAmount)}
+                                </Badge>
+                              )}
                             </div>
                             <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
                               <ShoppingBag className="h-3 w-3" />

@@ -2584,6 +2584,64 @@ export class DatabaseStorage implements IStorage {
         .where(eq(orders.id, orderId))
         .returning();
 
+      // SINCRONIZAÇÃO COM A MESA: Se o pedido pertence a uma mesa com sessão ativa
+      if (updated.tableId) {
+        const [table] = await tx
+          .select()
+          .from(tables)
+          .where(eq(tables.id, updated.tableId));
+
+        if (table?.currentSessionId) {
+          // Registrar pagamento na tabela de pagamentos da mesa
+          await tx.insert(tablePayments).values({
+            restaurantId,
+            tableId: updated.tableId,
+            sessionId: table.currentSessionId,
+            amount: data.amount,
+            paymentMethod: data.paymentMethod,
+            notes: `Pagamento via Pedido #${orderId.substring(0, 8)}`,
+            operatorId: userId || null,
+          });
+
+          // Atualizar valor pago na sessão
+          const [session] = await tx
+            .select()
+            .from(tableSessions)
+            .where(eq(tableSessions.id, table.currentSessionId))
+            .for('update');
+
+          if (session) {
+            const currentSessionPaid = parseFloat(session.paidAmount || '0');
+            const newSessionPaid = currentSessionPaid + paymentAmount;
+            await tx.update(tableSessions)
+              .set({ paidAmount: newSessionPaid.toFixed(2) })
+              .where(eq(tableSessions.id, session.id));
+          }
+        }
+      }
+
+      // Se o pedido está vinculado a um guest, atualizar o guest também
+      if (updated.guestId) {
+        const [guest] = await tx
+          .select()
+          .from(tableGuests)
+          .where(eq(tableGuests.id, updated.guestId))
+          .for('update');
+
+        if (guest) {
+          const guestPaid = parseFloat(guest.paidAmount || '0');
+          const newGuestPaid = guestPaid + paymentAmount;
+          const guestSubtotal = parseFloat(guest.subtotal || '0');
+          
+          await tx.update(tableGuests)
+            .set({ 
+              paidAmount: newGuestPaid.toFixed(2),
+              status: newGuestPaid >= guestSubtotal - 0.01 ? 'pago' : guest.status
+            })
+            .where(eq(tableGuests.id, updated.guestId));
+        }
+      }
+
       if (userId) {
         const saleCategoryResults = await tx
           .select()

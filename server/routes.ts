@@ -4076,6 +4076,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Orders without guest (anonymous)
       const anonymousOrders = orders.filter((order: any) => !order.guestId);
       
+      // Buscar valor já pago na sessão para precisão total
+      const session = table.currentSessionId 
+        ? (await db.select().from(tableSessions).where(eq(tableSessions.id, table.currentSessionId)).limit(1))[0]
+        : null;
+
       res.json({
         ordersByGuest,
         anonymousOrders,
@@ -4083,6 +4088,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .filter((o: any) => o.status !== 'cancelado')
           .reduce((sum: number, o: any) => sum + parseFloat(o.totalAmount), 0)
           .toFixed(2),
+        paidAmount: session?.paidAmount || '0.00',
       });
     } catch (error) {
       res.status(500).json({ message: "Erro ao buscar pedidos por cliente" });
