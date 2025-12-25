@@ -1417,79 +1417,15 @@ export class DatabaseStorage implements IStorage {
     try {
       const allTables = await this.getTables(restaurantId, branchId);
       
-      const sessionIds = allTables
-        .filter(t => t.currentSessionId)
-        .map(t => t.currentSessionId as string);
+      // Simply return tables with empty orders array as fallback
+      const result = allTables.map(table => ({
+        ...table,
+        orders: [],
+        guestsAwaitingBill: 0,
+        guestCount: 0,
+      }));
       
-      let guestsByTable: Map<string, { count: number; awaitingBill: number }> = new Map();
-      
-      if (sessionIds.length > 0) {
-        const { inArray } = await import('drizzle-orm');
-        const allGuests = await db.select()
-          .from(tableGuests)
-          .where(inArray(tableGuests.sessionId, sessionIds));
-      
-      for (const guest of allGuests) {
-        const tableData = guestsByTable.get(guest.tableId) || { count: 0, awaitingBill: 0 };
-        tableData.count++;
-        if (guest.status === 'aguardando_conta') {
-          tableData.awaitingBill++;
-        }
-        guestsByTable.set(guest.tableId, tableData);
-      }
-    }
-    
-    const tablesWithOrders = await Promise.all(
-      allTables.map(async (table) => {
-        const tableOrders = await db.select()
-          .from(orders)
-          .leftJoin(orderItems, eq(orders.id, orderItems.orderId))
-          .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
-          .where(and(
-            eq(orders.tableId, table.id),
-            eq(orders.restaurantId, restaurantId),
-            or(
-              eq(orders.status, 'pendente'),
-              eq(orders.status, 'em_preparo'),
-              eq(orders.status, 'pronto')
-            )
-          ))
-          .orderBy(desc(orders.createdAt));
-
-        const groupedOrders = tableOrders.reduce((acc: any[], row: any) => {
-          const orderId = row.orders.id;
-          let order = acc.find((o: any) => o.id === orderId);
-          
-          if (!order) {
-            order = {
-              ...row.orders,
-              orderItems: [],
-            };
-            acc.push(order);
-          }
-          
-          if (row.order_items) {
-            order.orderItems.push({
-              ...row.order_items,
-              menuItem: row.menu_items,
-            });
-          }
-          
-          return acc;
-        }, []);
-
-        const guestData = guestsByTable.get(table.id) || { count: 0, awaitingBill: 0 };
-
-        return {
-          ...table,
-          orders: groupedOrders,
-          guestsAwaitingBill: guestData.awaitingBill,
-          guestCount: guestData.count,
-        };
-      })
-    );
-
-    return tablesWithOrders;
+      return result;
     } catch (error) {
       console.error('❌ Error in getTablesWithOrders:', error);
       throw error;
