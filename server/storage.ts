@@ -1414,18 +1414,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTablesWithOrders(restaurantId: string, branchId?: string | null): Promise<Array<Table & { orders: any[]; guestsAwaitingBill?: number; guestCount?: number }>> {
-    const allTables = await this.getTables(restaurantId, branchId);
-    
-    const sessionIds = allTables
-      .filter(t => t.currentSessionId)
-      .map(t => t.currentSessionId as string);
-    
-    let guestsByTable: Map<string, { count: number; awaitingBill: number }> = new Map();
-    
-    if (sessionIds.length > 0) {
-      const allGuests = await db.select()
-        .from(tableGuests)
-        .where(inArray(tableGuests.sessionId, sessionIds));
+    try {
+      const allTables = await this.getTables(restaurantId, branchId);
+      
+      const sessionIds = allTables
+        .filter(t => t.currentSessionId)
+        .map(t => t.currentSessionId as string);
+      
+      let guestsByTable: Map<string, { count: number; awaitingBill: number }> = new Map();
+      
+      if (sessionIds.length > 0) {
+        const { inArray } = await import('drizzle-orm');
+        const allGuests = await db.select()
+          .from(tableGuests)
+          .where(inArray(tableGuests.sessionId, sessionIds));
       
       for (const guest of allGuests) {
         const tableData = guestsByTable.get(guest.tableId) || { count: 0, awaitingBill: 0 };
@@ -1488,6 +1490,10 @@ export class DatabaseStorage implements IStorage {
     );
 
     return tablesWithOrders;
+    } catch (error) {
+      console.error('❌ Error in getTablesWithOrders:', error);
+      throw error;
+    }
   }
 
   async startTableSession(restaurantId: string, tableId: string, sessionData: { customerName?: string; customerCount?: number }): Promise<any> {
@@ -1514,6 +1520,16 @@ export class DatabaseStorage implements IStorage {
         isOccupied: 1,
       })
       .where(eq(tables.id, tableId));
+
+    // Create first guest automatically if customer name is provided
+    if (sessionData.customerName && sessionData.customerName.trim()) {
+      await this.createTableGuest(restaurantId, {
+        sessionId: session.id,
+        tableId,
+        name: sessionData.customerName,
+        seatNumber: 1,
+      });
+    }
 
     return session;
   }
@@ -8797,21 +8813,11 @@ export class DatabaseStorage implements IStorage {
 
   async createTableGuest(restaurantId: string, data: InsertTableGuest): Promise<TableGuest> {
     try {
-      // Get the next guest number for this session
-      const existingGuests = await db
-        .select()
-        .from(tableGuests)
-        .where(eq(tableGuests.sessionId, data.sessionId));
-      
-      const guestNumber = existingGuests.length + 1;
-      
       console.log('Creating guest:', {
         restaurantId,
         sessionId: data.sessionId,
         tableId: data.tableId,
         name: data.name,
-        guestNumber,
-        existingGuestsCount: existingGuests.length,
       });
       
       const [guest] = await db
@@ -8819,7 +8825,6 @@ export class DatabaseStorage implements IStorage {
         .values({
           ...data,
           restaurantId,
-          guestNumber,
         })
         .returning();
       

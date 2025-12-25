@@ -906,7 +906,6 @@ var init_schema = __esm({
       sessionId: varchar("session_id").notNull().references(() => tableSessions.id, { onDelete: "cascade" }),
       tableId: varchar("table_id").notNull().references(() => tables.id, { onDelete: "cascade" }),
       restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: "cascade" }),
-      guestNumber: integer("guest_number").notNull(),
       name: varchar("name", { length: 200 }),
       seatNumber: integer("seat_number"),
       status: guestStatusEnum("status").notNull().default("ativo"),
@@ -5412,6 +5411,14 @@ var init_storage = __esm({
           lastActivity: /* @__PURE__ */ new Date(),
           isOccupied: 1
         }).where(eq(tables.id, tableId));
+        if (sessionData.customerName && sessionData.customerName.trim()) {
+          await this.createTableGuest(restaurantId, {
+            sessionId: session2.id,
+            tableId,
+            name: sessionData.customerName,
+            seatNumber: 1
+          });
+        }
         return session2;
       }
       async endTableSession(restaurantId, tableId) {
@@ -10006,20 +10013,15 @@ var init_storage = __esm({
       }
       async createTableGuest(restaurantId, data) {
         try {
-          const existingGuests = await db.select().from(tableGuests).where(eq(tableGuests.sessionId, data.sessionId));
-          const guestNumber = existingGuests.length + 1;
           console.log("Creating guest:", {
             restaurantId,
             sessionId: data.sessionId,
             tableId: data.tableId,
-            name: data.name,
-            guestNumber,
-            existingGuestsCount: existingGuests.length
+            name: data.name
           });
           const [guest] = await db.insert(tableGuests).values({
             ...data,
-            restaurantId,
-            guestNumber
+            restaurantId
           }).returning();
           console.log("Guest created successfully:", guest.id);
           return guest;

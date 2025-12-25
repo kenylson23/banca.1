@@ -3466,7 +3466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== TABLE ROUTES (Admin Only) =====
-  app.get("/api/tables", isAdmin, checkSubscriptionStatus, async (req, res) => {
+  app.get("/api/tables", isAdmin, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
@@ -3718,6 +3718,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Garçons não podem fechar mesas. Solicite ao caixa." });
       }
       
+      const table = await storage.getTableById(req.params.id);
+      if (!table || !table.currentSessionId) {
+        return res.status(400).json({ message: "Mesa não possui sessão ativa" });
+      }
+
+      // Get all guests with linked customers to award loyalty points
+      const guests = await storage.getTableGuests(table.currentSessionId);
+      const loyaltyProgram = await storage.getLoyaltyProgramByRestaurantId(restaurantId);
+      
+      // Award loyalty points to linked customers
+      if (loyaltyProgram && loyaltyProgram.isActive) {
+        for (const guest of guests) {
+          if (guest.customerId && guest.subtotal && parseFloat(guest.subtotal) > 0) {
+            try {
+              const customer = await storage.getCustomerById(restaurantId, guest.customerId);
+              if (customer) {
+                // Calculate points based on subtotal
+                const subtotalAmount = parseFloat(guest.subtotal);
+                const pointsPerCurrency = parseFloat(loyaltyProgram.pointsPerCurrency || '1');
+                const pointsEarned = Math.floor(subtotalAmount * pointsPerCurrency);
+                
+                if (pointsEarned > 0) {
+                  // Create loyalty transaction
+                  await storage.createLoyaltyTransaction(restaurantId, {
+                    customerId: guest.customerId,
+                    orderId: null,
+                    type: 'ganho',
+                    points: pointsEarned,
+                    description: `Pontos ganhos na Mesa ${table.number} - ${guest.name || 'Cliente'}`,
+                    createdBy: currentUser.id,
+                  });
+                  
+                  console.log(`✅ Awarded ${pointsEarned} loyalty points to customer ${customer.name} (ID: ${customer.id})`);
+                }
+              }
+            } catch (error) {
+              console.error(`❌ Error awarding loyalty points to guest ${guest.id}:`, error);
+              // Continue with session closure even if loyalty points fail
+            }
+          }
+        }
+      }
+      
       await storage.endTableSession(restaurantId, req.params.id);
       
       const updatedTable = await storage.getTableById(req.params.id);
@@ -3934,18 +3977,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Mesa não possui sessão ativa" });
       }
       
-      const { name, seatNumber } = req.body;
+      const { name, seatNumber, customerId } = req.body;
+      
+      // If customerId is provided, fetch customer data
+      let customerData = null;
+      if (customerId) {
+        customerData = await storage.getCustomerById(restaurantId, customerId);
+        if (!customerData) {
+          return res.status(404).json({ message: "Cliente não encontrado" });
+        }
+      }
       
       const guest = await storage.createTableGuest(restaurantId, {
         sessionId: table.currentSessionId,
         tableId: table.id,
-        name,
+        customerId: customerId || null,
+        name: name || customerData?.name,
         seatNumber,
       });
       
-      broadcastToClients({ type: 'guest_joined', data: { tableId: table.id, guest } });
+      // Include customer info in response if linked
+      const guestWithCustomer = customerData ? {
+        ...guest,
+        customer: {
+          id: customerData.id,
+          name: customerData.name,
+          phone: customerData.phone,
+          loyaltyPoints: customerData.loyaltyPoints,
+          tier: customerData.tier,
+        }
+      } : guest;
       
-      res.json(guest);
+      broadcastToClients({ type: 'guest_joined', data: { tableId: table.id, guest: guestWithCustomer } });
+      
+      res.json(guestWithCustomer);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Erro ao adicionar cliente" });
     }
@@ -3959,17 +4024,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
       
+      const restaurantId = currentUser.restaurantId!;
       const guest = await storage.getTableGuestById(req.params.guestId);
       if (!guest) {
         return res.status(404).json({ message: "Cliente não encontrado" });
       }
       
-      const { name, seatNumber, status } = req.body;
-      const updatedGuest = await storage.updateTableGuest(req.params.guestId, { name, seatNumber, status });
+      const { name, seatNumber, status, customerId } = req.body;
       
-      broadcastToClients({ type: 'guest_updated', data: { tableId: req.params.id, guest: updatedGuest } });
+      // If customerId is provided, validate it exists
+      let customerData = null;
+      if (customerId !== undefined) {
+        if (customerId) {
+          customerData = await storage.getCustomerById(restaurantId, customerId);
+          if (!customerData) {
+            return res.status(404).json({ message: "Cliente não encontrado" });
+          }
+        }
+      }
       
-      res.json(updatedGuest);
+      const updatedGuest = await storage.updateTableGuest(req.params.guestId, { 
+        customerId: customerId !== undefined ? customerId : undefined,
+        name, 
+        seatNumber, 
+        status 
+      });
+      
+      // Include customer info in response if linked
+      const guestWithCustomer = updatedGuest.customerId && customerData ? {
+        ...updatedGuest,
+        customer: {
+          id: customerData.id,
+          name: customerData.name,
+          phone: customerData.phone,
+          loyaltyPoints: customerData.loyaltyPoints,
+          tier: customerData.tier,
+        }
+      } : updatedGuest;
+      
+      broadcastToClients({ type: 'guest_updated', data: { tableId: req.params.id, guest: guestWithCustomer } });
+      
+      res.json(guestWithCustomer);
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Erro ao atualizar cliente" });
     }

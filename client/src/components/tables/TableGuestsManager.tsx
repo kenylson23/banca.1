@@ -18,11 +18,17 @@ import {
   Crown as CrownIcon,
   ArrowUp as ArrowUpIcon,
   Clock as ClockIcon,
-  ShoppingBag as ShoppingBagIcon
+  ShoppingBag as ShoppingBagIcon,
+  User as UserIcon,
+  Link as LinkIcon,
+  Lock as LockIcon
 } from '@phosphor-icons/react';
 import { formatKwanza } from '@/lib/formatters';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { CustomerSearchDialog } from '@/components/CustomerSearchDialog';
+import { UpgradeDialog } from '@/components/UpgradeDialog';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import type { Table } from '@shared/schema';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -62,10 +68,18 @@ interface TableGuestsManagerProps {
 interface TableGuest {
   id: string;
   sessionId: string;
+  customerId?: string | null;
   name: string | null;
   guestNumber: number;
   status: string;
   joinedAt: Date;
+  customer?: {
+    id: string;
+    name: string;
+    phone?: string;
+    loyaltyPoints: number;
+    tier: string;
+  };
 }
 
 interface OrdersByGuest {
@@ -77,6 +91,12 @@ interface OrdersByGuest {
 export function TableGuestsManager({ table }: TableGuestsManagerProps) {
   const { toast } = useToast();
   const [selectedGuest, setSelectedGuest] = useState<string | null>(null);
+  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
+  const [guestToLink, setGuestToLink] = useState<string | null>(null);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+
+  // Check subscription and features using the hook
+  const { hasAccess: hasCustomerManagement } = useFeatureAccess('gestao_clientes');
 
   // Fetch all guests from the table
   const { data: allGuests = [], isLoading: loadingGuests } = useQuery<TableGuest[]>({
@@ -154,6 +174,7 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/orders-by-guest`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/guests`] });
       toast({
         title: 'Status atualizado',
         description: 'Cliente marcado como pago',
@@ -163,6 +184,31 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
       toast({
         title: 'Erro ao atualizar status',
         description: error.message || 'Não foi possível atualizar o status',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Link customer to guest
+  const linkCustomerMutation = useMutation({
+    mutationFn: async ({ guestId, customerId }: { guestId: string; customerId: string }) => {
+      return apiRequest('PATCH', `/api/tables/${table.id}/guests/${guestId}`, {
+        customerId,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/orders-by-guest`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/guests`] });
+      toast({
+        title: 'Cliente vinculado',
+        description: 'Cliente foi vinculado com sucesso',
+      });
+      setGuestToLink(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Erro ao vincular cliente',
+        description: error.message || 'Não foi possível vincular o cliente',
         variant: 'destructive',
       });
     },
@@ -182,6 +228,26 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
     }
 
     deleteGuestMutation.mutate(guestId);
+  };
+
+  const handleLinkCustomer = (guestId: string) => {
+    // Check if user has access to customer management
+    if (!hasCustomerManagement) {
+      setShowUpgradeDialog(true);
+      return;
+    }
+    
+    setGuestToLink(guestId);
+    setShowCustomerSearch(true);
+  };
+
+  const handleSelectCustomer = (customer: any) => {
+    if (guestToLink) {
+      linkCustomerMutation.mutate({
+        guestId: guestToLink,
+        customerId: customer.id,
+      });
+    }
   };
 
   if (isLoading) {
@@ -216,9 +282,24 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
   const paidGuests = guestsWithOrders.filter(g => g.guest.status === 'pago').length;
 
   return (
-    <div className="space-y-4">
-      {/* Summary Card */}
-      <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-background via-primary/5 to-background">
+    <>
+      <CustomerSearchDialog
+        open={showCustomerSearch}
+        onOpenChange={setShowCustomerSearch}
+        onSelectCustomer={handleSelectCustomer}
+      />
+
+      <UpgradeDialog
+        open={showUpgradeDialog}
+        onOpenChange={setShowUpgradeDialog}
+        feature="gestao_clientes"
+        featureLabel="Gestão de Clientes"
+        featureDescription="Cadastre e gerencie seus clientes, vincule-os às mesas, acompanhe histórico de consumo e crie campanhas de fidelização personalizadas."
+      />
+
+      <div className="space-y-4">
+        {/* Summary Card */}
+        <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-background via-primary/5 to-background">
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16"></div>
         <CardHeader>
           <div className="flex items-center justify-between relative">
@@ -338,6 +419,18 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
                                   Pago
                                 </Badge>
                               )}
+                              {guest.customer && hasCustomerManagement && (
+                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 flex-shrink-0">
+                                  <StarIcon className="w-3 h-3 mr-1" weight="fill" />
+                                  {guest.customer.loyaltyPoints} pts
+                                </Badge>
+                              )}
+                              {guest.name && !guest.customerId && (
+                                <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200 flex-shrink-0">
+                                  <UserIcon className="w-3 h-3 mr-1" />
+                                  Convidado
+                                </Badge>
+                              )}
                             </div>
                             <div className="flex items-center gap-3 text-xs text-muted-foreground">
                               <div className="flex items-center gap-1">
@@ -349,6 +442,27 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
                                 <span>{guestData.orders.length} {guestData.orders.length === 1 ? 'pedido' : 'pedidos'}</span>
                               </div>
                             </div>
+                            {guest.customer && hasCustomerManagement && (
+                              <div className="flex items-center gap-1 text-xs text-blue-600 mt-1">
+                                <LinkIcon className="w-3 h-3" weight="bold" />
+                                <span>Cliente cadastrado: {guest.customer.name}</span>
+                                {guest.customer.phone && (
+                                  <span className="text-muted-foreground">• {guest.customer.phone}</span>
+                                )}
+                              </div>
+                            )}
+                            {guest.name && !guest.customerId && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                <UserIcon className="w-3 h-3" />
+                                <span>Apenas identificação por nome</span>
+                                {!hasCustomerManagement && (
+                                  <Badge variant="outline" className="ml-2 text-xs">
+                                    <LockIcon className="w-2.5 h-2.5 mr-1" />
+                                    Upgrade para vincular
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
                           </div>
 
                           {/* Amount */}
@@ -383,6 +497,28 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
                         <EyeIcon className="w-4 h-4 mr-2" weight="duotone" />
                         {selectedGuest === guest.id ? 'Ocultar' : 'Ver'} Pedidos
                       </Button>
+
+                      {!guest.customerId && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleLinkCustomer(guest.id)}
+                          disabled={linkCustomerMutation.isPending}
+                          className={!hasCustomerManagement ? 'border-primary/30 hover:border-primary' : ''}
+                        >
+                          {hasCustomerManagement ? (
+                            <>
+                              <UserIcon className="w-4 h-4 mr-2" weight="duotone" />
+                              Vincular Cliente
+                            </>
+                          ) : (
+                            <>
+                              <LockIcon className="w-4 h-4 mr-2" weight="duotone" />
+                              Vincular Cliente (Premium)
+                            </>
+                          )}
+                        </Button>
+                      )}
 
                       {!isPaid && hasOrders && (
                         <Button
@@ -449,6 +585,7 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
       </div>
     </AnimatePresence>
   </ScrollArea>
-    </div>
+      </div>
+    </>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { 
   Users,
   Clock,
@@ -40,10 +45,13 @@ import {
   Split,
   TrendingUp,
   RefreshCw,
+  ChevronDown,
+  Trash2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest, queryClient } from '@/lib/queryClient';
+import { useLocation } from 'wouter';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -51,6 +59,8 @@ import type { Table, Order, OrderItem, MenuItem } from '@shared/schema';
 import { TableOrderDialog } from '@/components/tables/TableOrderDialog';
 import { TableCheckoutDialog } from '@/components/tables/TableCheckoutDialog';
 import { OrderDetailsDialog } from '@/components/order-details-dialog';
+import { BillSplitPanel } from '@/components/BillSplitPanel';
+import QRCode from 'qrcode';
 
 interface TableDetailsDialogProps {
   open: boolean;
@@ -86,6 +96,7 @@ const getStatusColor = (status: string) => {
 export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, allTables = [], onNavigate }: TableDetailsDialogProps) {
   const { toast } = useToast();
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [customerName, setCustomerName] = useState('');
   const [selectedPeopleCount, setSelectedPeopleCount] = useState<number | null>(null);
   const [customPeopleCount, setCustomPeopleCount] = useState('');
@@ -95,9 +106,48 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
+  const [addingGuest, setAddingGuest] = useState(false);
+  const [newGuestName, setNewGuestName] = useState('');
+  const [guestsExpanded, setGuestsExpanded] = useState(false);
+  const [splitExpanded, setSplitExpanded] = useState(false);
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [specialOccasion, setSpecialOccasion] = useState<string | null>(null);
+  const [showQRSelfRegister, setShowQRSelfRegister] = useState(false);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
   const authUser = user?.data;
   const isSuperadmin = authUser?.role === 'superadmin';
+
+  // Generate QR Code when dialog opens
+  useEffect(() => {
+    if (showQRSelfRegister && table) {
+      const url = `${window.location.origin}/guest-register/${table.id}`;
+      QRCode.toDataURL(url, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF',
+        },
+      })
+        .then(setQrCodeUrl)
+        .catch((err) => {
+          console.error('Error generating QR Code:', err);
+          toast({
+            title: 'Erro ao gerar QR Code',
+            description: 'Não foi possível gerar o QR Code.',
+            variant: 'destructive',
+          });
+        });
+    }
+  }, [showQRSelfRegister, table, toast]);
+
+  // Query guests
+  const { data: guests = [] } = useQuery<Array<{ id: string; name: string | null; seatNumber: number; status: string }>>({
+    queryKey: [`/api/tables/${table?.id}/guests`],
+    enabled: !!table?.id && table?.status !== 'livre',
+  });
 
   // Navigation
   const currentIndex = allTables.findIndex(t => t.id === table?.id);
@@ -116,6 +166,33 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
     }
   };
 
+  // Create guest mutation
+  const createGuestMutation = useMutation({
+    mutationFn: async ({ tableId, guestName }: { tableId: string; guestName?: string }) => {
+      if (!table?.currentSessionId) {
+        throw new Error('Mesa não tem sessão ativa');
+      }
+      const response = await apiRequest('POST', `/api/tables/${tableId}/guests`, {
+        name: guestName,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table?.id}/guests`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
+      toast({ title: 'Pessoa adicionada', description: 'Cliente adicionado à mesa com sucesso.' });
+      setAddingGuest(false);
+      setNewGuestName('');
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Erro ao adicionar pessoa',
+        description: error.message || 'Não foi possível adicionar a pessoa.',
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Start session mutation
   const startSessionMutation = useMutation({
     mutationFn: async () => {
@@ -128,7 +205,38 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
-      toast({ title: 'Mesa ocupada', description: 'Mesa pronta para receber pedidos.' });
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table?.id}/guests`] });
+      
+      const count = selectedPeopleCount || parseInt(customPeopleCount) || 1;
+      const hasName = customerName.trim().length > 0;
+      
+      if (hasName && count > 1) {
+        // If customer name was provided and there are more people
+        toast({ 
+          title: '✅ Mesa ocupada', 
+          description: `${customerName} foi cadastrado. Você informou ${count} pessoas - deseja cadastrar as outras ${count - 1}?`,
+          action: {
+            label: 'Cadastrar',
+            onClick: () => {
+              setGuestsExpanded(true);
+              setAddingGuest(true);
+            }
+          },
+        });
+      } else if (hasName) {
+        // Only 1 person with name
+        toast({ 
+          title: '✅ Mesa ocupada', 
+          description: `${customerName} foi cadastrado. Mesa pronta para receber pedidos.` 
+        });
+      } else {
+        // No name provided
+        toast({ 
+          title: '✅ Mesa ocupada', 
+          description: 'Mesa pronta para receber pedidos.' 
+        });
+      }
+      
       setCustomerName('');
       setSelectedPeopleCount(null);
       setCustomPeopleCount('');
@@ -212,7 +320,7 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
       </DialogHeader>
 
       <div className="space-y-4 pt-4">
-        {/* Customer name - optional */}
+        {/* Customer name - always visible */}
         <div className="space-y-2">
           <Label htmlFor="customerName" className="text-sm font-medium">
             👤 Nome do Cliente (opcional)
@@ -245,6 +353,27 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
               </Button>
             ))}
           </div>
+          
+          {/* Preview quando seleciona pessoas */}
+          {(selectedPeopleCount || (customPeopleCount && !showCustomCount)) && (
+            <div className="mt-3 p-3 bg-muted/50 rounded-lg border border-dashed">
+              <p className="text-xs font-medium text-muted-foreground mb-2">
+                Pré-visualização:
+              </p>
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center gap-2 text-primary">
+                  <div className="h-2 w-2 rounded-full bg-primary" />
+                  <span>{customerName || 'Cliente principal'} (assento 1)</span>
+                </div>
+                {Array.from({ length: (selectedPeopleCount || parseInt(customPeopleCount) || 1) - 1 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2 text-muted-foreground">
+                    <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />
+                    <span>Pessoa {i + 2} (adicionar depois)</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           
           {!showCustomCount ? (
             <Button
@@ -304,8 +433,86 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
           </Button>
         </div>
 
+        {/* Advanced Options - Collapsible */}
+        <div className="border-t pt-3 mt-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="w-full justify-between h-8"
+            onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+          >
+            <span className="text-xs font-medium">⚙️ Opções Avançadas</span>
+            <ChevronDown className={`h-4 w-4 transition-transform ${showAdvancedOptions ? 'rotate-180' : ''}`} />
+          </Button>
+          
+          {showAdvancedOptions && (
+            <div className="space-y-3 mt-3 animate-in fade-in slide-in-from-top-2">
+              {/* Phone */}
+              <div className="space-y-1.5">
+                <Label htmlFor="customerPhone" className="text-xs font-medium">
+                  📞 Telefone
+                </Label>
+                <Input
+                  id="customerPhone"
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="+244 923 456 789"
+                  className="h-9 text-sm"
+                />
+              </div>
+
+              {/* Special Occasion */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">🎂 Ocasião Especial</Label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <Button
+                    type="button"
+                    variant={specialOccasion === 'aniversario' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => setSpecialOccasion(specialOccasion === 'aniversario' ? null : 'aniversario')}
+                  >
+                    🎂
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={specialOccasion === 'comemoracao' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => setSpecialOccasion(specialOccasion === 'comemoracao' ? null : 'comemoracao')}
+                  >
+                    🎉
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={specialOccasion === 'primeira_visita' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => setSpecialOccasion(specialOccasion === 'primeira_visita' ? null : 'primeira_visita')}
+                  >
+                    ✨
+                  </Button>
+                </div>
+              </div>
+
+              {/* QR Code */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full h-8 text-xs"
+                onClick={() => setShowQRSelfRegister(true)}
+              >
+                📱 QR Code Auto-Cadastro
+              </Button>
+            </div>
+          )}
+        </div>
+
         {/* Helper text */}
-        <p className="text-xs text-muted-foreground text-center">
+        <p className="text-xs text-muted-foreground text-center mt-4">
           Após ocupar, você poderá criar pedidos para esta mesa
         </p>
       </div>
@@ -419,6 +626,114 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
           </CardContent>
         </Card>
 
+        {/* Pessoas na Mesa - Collapsible */}
+        <Collapsible open={guestsExpanded} onOpenChange={setGuestsExpanded}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="pb-3 cursor-pointer hover:bg-accent/50 transition-colors">
+                <div className="flex items-center justify-between w-full">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Pessoas na Mesa
+                    {guests.length > 0 && (
+                      <Badge variant="secondary">{guests.length}</Badge>
+                    )}
+                    {table.customerCount && table.customerCount > guests.length && (
+                      <Badge variant="destructive" className="ml-1">
+                        {table.customerCount - guests.length} faltam
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  <ChevronDown className={`h-5 w-5 transition-transform ${guestsExpanded ? 'rotate-180' : ''}`} />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-3 pt-0">
+                {/* Alert if missing guests */}
+                {table.customerCount && table.customerCount > guests.length && !addingGuest && (
+                  <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm">
+                    <p className="text-amber-800 dark:text-amber-200 font-medium">
+                      ⚠️ Você informou {table.customerCount} pessoas, mas só {guests.length} {guests.length === 1 ? 'foi cadastrada' : 'foram cadastradas'}.
+                    </p>
+                    <p className="text-amber-700 dark:text-amber-300 text-xs mt-1">
+                      Cadastre as outras {table.customerCount - guests.length} para facilitar a divisão da conta.
+                    </p>
+                  </div>
+                )}
+                
+                {/* Add guest form */}
+                {addingGuest ? (
+                  <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                    <Input
+                      placeholder="Nome (opcional)"
+                      value={newGuestName}
+                      onChange={(e) => setNewGuestName(e.target.value)}
+                      className="flex-1"
+                      autoFocus
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => createGuestMutation.mutate({ tableId: table.id, guestName: newGuestName || undefined })}
+                      disabled={createGuestMutation.isPending}
+                    >
+                      {createGuestMutation.isPending ? (
+                        <>
+                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                          Adicionando...
+                        </>
+                      ) : (
+                        'Adicionar'
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setAddingGuest(false);
+                        setNewGuestName('');
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAddingGuest(true)}
+                    className="w-full"
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Adicionar Pessoa
+                  </Button>
+                )}
+
+                {/* Guest list */}
+                {guests.length > 0 ? (
+                  <div className="space-y-2">
+                    <Separator />
+                    <div className="flex flex-wrap gap-2">
+                      {guests.map((guest) => (
+                        <Badge key={guest.id} variant="outline" className="py-1.5 px-3">
+                          <Users className="h-3 w-3 mr-1" />
+                          {guest.name || `Cliente ${guest.seatNumber || '?'}`}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  !addingGuest && (
+                    <p className="text-sm text-muted-foreground text-center py-2">
+                      Nenhuma pessoa adicionada ainda
+                    </p>
+                  )
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
         {/* Active orders - inline */}
         <Card>
           <CardHeader className="pb-3">
@@ -430,17 +745,15 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
                   <Badge variant="secondary">{table.orders.length}</Badge>
                 )}
               </CardTitle>
-              {authUser?.restaurantId && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowNewOrderDialog(true)}
-                  className="text-primary"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Novo
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowNewOrderDialog(true)}
+                className="text-primary"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Novo
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
@@ -500,52 +813,82 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
                 <p className="text-sm text-muted-foreground mb-4">
                   Nenhum pedido ainda
                 </p>
-                {authUser?.restaurantId && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowNewOrderDialog(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Criar Primeiro Pedido
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowNewOrderDialog(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Primeiro Pedido
+                </Button>
               </div>
             )}
           </CardContent>
         </Card>
+
+        {/* Divisão de Conta - Collapsible */}
+        <Collapsible open={splitExpanded} onOpenChange={setSplitExpanded}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="pb-3 cursor-pointer hover:bg-accent/50 transition-colors">
+                <div className="flex items-center justify-between w-full">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Split className="h-5 w-5" />
+                    Divisão de Conta
+                  </CardTitle>
+                  <ChevronDown className={`h-5 w-5 transition-transform ${splitExpanded ? 'rotate-180' : ''}`} />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <BillSplitPanel
+                  tableId={table.id}
+                  sessionId={table.currentSessionId || undefined}
+                  totalAmount={totalAmount}
+                />
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
       </div>
 
       {/* Footer - Main actions */}
       <div className="border-t px-6 py-4 bg-muted/30">
         <div className="grid grid-cols-2 gap-3">
-          {authUser?.restaurantId && (
-            <>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => setShowNewOrderDialog(true)}
-                className="h-14"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                <div className="text-left">
-                  <div className="font-semibold">Novo Pedido</div>
-                  <div className="text-xs text-muted-foreground">Adicionar itens</div>
-                </div>
-              </Button>
-              <Button
-                size="lg"
-                onClick={() => setShowCheckoutDialog(true)}
-                className="h-14"
-              >
-                <CreditCard className="h-5 w-5 mr-2" />
-                <div className="text-left">
-                  <div className="font-semibold">Fechar Conta</div>
-                  <div className="text-xs opacity-90">{formatKwanza(totalAmount)}</div>
-                </div>
-              </Button>
-            </>
-          )}
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={() => setShowNewOrderDialog(true)}
+            className="h-14"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            <div className="text-left">
+              <div className="font-semibold">Novo Pedido</div>
+              <div className="text-xs text-muted-foreground">Adicionar itens</div>
+            </div>
+          </Button>
+          <Button
+            size="lg"
+            onClick={() => {
+              // Se houver pedidos, redireciona para o primeiro pedido em modo checkout
+              if (table.orders && table.orders.length > 0) {
+                const firstOrder = table.orders[0];
+                setLocation(`/orders/${firstOrder.id}?mode=checkout&from=table&tableId=${table.id}`);
+                onOpenChange(false);
+              } else {
+                // Se não houver pedidos, abre diálogo de checkout tradicional
+                setShowCheckoutDialog(true);
+              }
+            }}
+            className="h-14"
+          >
+            <CreditCard className="h-5 w-5 mr-2" />
+            <div className="text-left">
+              <div className="font-semibold">Fechar Conta</div>
+              <div className="text-xs opacity-90">{formatKwanza(totalAmount)}</div>
+            </div>
+          </Button>
         </div>
       </div>
     </DialogContent>
@@ -587,29 +930,29 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
       </AlertDialog>
 
       {/* Create order dialog */}
-      {authUser?.restaurantId && (
-        <TableOrderDialog
+      <TableOrderDialog
+        table={table}
+        open={showNewOrderDialog}
+        onOpenChange={setShowNewOrderDialog}
+        onOrderCreated={() => {
+          setShowNewOrderDialog(false);
+          queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
+          toast({ title: 'Pedido criado', description: `Pedido criado para Mesa ${table.number}.` });
+        }}
+      />
+
+      {/* Checkout dialog - Only as fallback for tables without orders */}
+      {showCheckoutDialog && (
+        <TableCheckoutDialog
+          open={showCheckoutDialog}
+          onOpenChange={setShowCheckoutDialog}
           table={table}
-          open={showNewOrderDialog}
-          onOpenChange={setShowNewOrderDialog}
-          onOrderCreated={() => {
-            setShowNewOrderDialog(false);
-            queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
-            toast({ title: 'Pedido criado', description: `Pedido criado para Mesa ${table.number}.` });
+          onCheckoutComplete={() => {
+            setShowCheckoutDialog(false);
+            onOpenChange(false);
           }}
         />
       )}
-
-      {/* Checkout dialog */}
-      <TableCheckoutDialog
-        open={showCheckoutDialog}
-        onOpenChange={setShowCheckoutDialog}
-        table={table}
-        onCheckoutComplete={() => {
-          setShowCheckoutDialog(false);
-          onOpenChange(false);
-        }}
-      />
 
       {/* Order details dialog */}
       <OrderDetailsDialog
@@ -617,6 +960,54 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
         open={orderDetailsOpen}
         onOpenChange={setOrderDetailsOpen}
       />
+
+      {/* QR Code Self-Register Dialog - Using AlertDialog */}
+      <AlertDialog open={showQRSelfRegister} onOpenChange={setShowQRSelfRegister}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              📱 Auto-Cadastro de Clientes
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Os clientes podem escanear este QR Code para se cadastrarem na mesa
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-4 py-2">
+            {qrCodeUrl ? (
+              <div className="flex justify-center bg-white p-4 rounded-lg border">
+                <img src={qrCodeUrl} alt="QR Code" className="w-[280px] h-[280px]" />
+              </div>
+            ) : (
+              <div className="flex justify-center items-center bg-muted p-4 rounded-lg border h-[312px]">
+                <div className="text-center">
+                  <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
+                  <p className="text-sm text-muted-foreground">Gerando QR Code...</p>
+                </div>
+              </div>
+            )}
+
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-xs font-medium mb-2">📋 Como funciona:</p>
+              <ol className="text-xs space-y-1 text-muted-foreground">
+                <li>1. Cliente escaneia o QR Code</li>
+                <li>2. Abre página de cadastro no celular</li>
+                <li>3. Cliente digita seu nome</li>
+                <li>4. Aparece automaticamente na lista</li>
+              </ol>
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowQRSelfRegister(false)}>
+              Fechar
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => window.print()}>
+              🖨️ Imprimir QR Code
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

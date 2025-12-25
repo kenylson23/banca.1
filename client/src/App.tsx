@@ -19,6 +19,7 @@ const Privacy = lazy(() => import("@/pages/privacy"));
 const CustomerMenu = lazy(() => import("@/pages/customer-menu"));
 const PublicMenu = lazy(() => import("@/pages/public-menu"));
 const TrackOrder = lazy(() => import("@/pages/track-order"));
+const GuestRegister = lazy(() => import("@/pages/guest-register"));
 const MainDashboard = lazy(() => import("@/pages/main-dashboard"));
 const OrderDetail = lazy(() => import("@/pages/order-detail"));
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -46,6 +47,7 @@ function Router() {
         <Route path="/mesa/:tableNumber" component={CustomerMenu} />
         <Route path="/r/:slug/rastrear" component={TrackOrder} />
         <Route path="/r/:slug" component={PublicMenu} />
+        <Route path="/guest-register/:tableId" component={GuestRegister} />
       
       <Route path="/termos" component={Terms} />
       <Route path="/privacidade" component={Privacy} />
@@ -161,7 +163,7 @@ function Router() {
           }} />
           
           <Route path="/orders/:id" component={() => {
-            if (user?.role === 'admin') {
+            if (user?.role === 'admin' || user?.role === 'manager' || user?.role === 'cashier' || user?.role === 'waiter') {
               return <OrderDetail />;
             }
             return <Redirect to="/" />;

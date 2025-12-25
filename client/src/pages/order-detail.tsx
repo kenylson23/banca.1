@@ -24,6 +24,8 @@ import { PrintInvoice } from "@/components/PrintInvoice";
 import { PrintGuestBill } from "@/components/PrintGuestBill";
 import { ProductSelector } from "@/components/ProductSelector";
 import { PaymentDialog } from "@/components/PaymentDialog";
+import { BillSplitPanel } from "@/components/BillSplitPanel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { printerService } from "@/lib/printer-service";
 import { usePrinter } from "@/hooks/usePrinter";
 import type { Order, OrderItem, MenuItem, Customer, Coupon, LoyaltyProgram } from "@shared/schema";
@@ -64,6 +66,8 @@ export default function OrderDetail() {
   
   // Detect checkout mode from URL
   const isCheckoutMode = typeof window !== 'undefined' && window.location.search.includes('mode=checkout');
+  const isFromTable = typeof window !== 'undefined' && window.location.search.includes('from=table');
+  const tableIdFromUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tableId') : null;
   
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(false);
@@ -117,12 +121,12 @@ export default function OrderDetail() {
       setCustomerName(order.customerName || "");
       setCustomerPhone(order.customerPhone || "");
       
-      // Auto-open payment dialog in checkout mode
-      if (isCheckoutMode && order.paymentStatus !== "pago" && order.orderItems.length > 0) {
+      // Auto-open payment dialog in checkout mode (only for balcão/delivery, not tables)
+      if (isCheckoutMode && !isFromTable && order.paymentStatus !== "pago" && order.orderItems.length > 0) {
         setTimeout(() => setPaymentDialogOpen(true), 500);
       }
     }
-  }, [order, isCheckoutMode]);
+  }, [order, isCheckoutMode, isFromTable]);
 
   useEffect(() => {
     if (!order?.createdAt) return;
@@ -1172,7 +1176,13 @@ export default function OrderDetail() {
                     <span className="text-destructive font-medium">
                       Desconto {order.discountType === "percentual" ? `(${order.discount}%)` : ""}
                     </span>
-                    <span className="text-destructive font-semibold">-{formatKwanza(order.discount || 0)}</span>
+                    <span className="text-destructive font-semibold">
+                      -{formatKwanza(
+                        order.discountType === "percentual" 
+                          ? (Number(order.subtotal || 0) * Number(order.discount || 0)) / 100
+                          : Number(order.discount || 0)
+                      )}
+                    </span>
                   </motion.div>
                 )}
 
@@ -1270,7 +1280,48 @@ export default function OrderDetail() {
                   </div>
                 )}
 
-                {order.paymentStatus !== "pago" && order.orderItems.length > 0 && (
+                {/* Divisão de Conta para Mesas */}
+                {isFromTable && tableIdFromUrl && order.paymentStatus !== "pago" && (
+                  <Card className="mb-4">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Opções de Pagamento - Mesa</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Tabs defaultValue="simple" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="simple">Pagamento Simples</TabsTrigger>
+                          <TabsTrigger value="split">Divisão de Conta</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="simple" className="space-y-4 mt-4">
+                          <p className="text-sm text-muted-foreground">
+                            Registre o pagamento total da conta de uma vez.
+                          </p>
+                          <Button
+                            className="w-full h-12 text-lg font-semibold"
+                            size="lg"
+                            onClick={() => setPaymentDialogOpen(true)}
+                          >
+                            <DollarSign className="h-5 w-5 mr-2" />
+                            {order.paymentStatus === "parcial" 
+                              ? `Pagar ${formatKwanza(Number(order.totalAmount) - Number(order.paidAmount || 0))}`
+                              : `Pagar ${formatKwanza(order.totalAmount)}`
+                            }
+                          </Button>
+                        </TabsContent>
+                        <TabsContent value="split" className="mt-4">
+                          <BillSplitPanel
+                            tableId={tableIdFromUrl}
+                            sessionId={order.tableSessionId || undefined}
+                            totalAmount={Number(order.totalAmount)}
+                          />
+                        </TabsContent>
+                      </Tabs>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Pagamento Normal para Balcão/Delivery */}
+                {(!isFromTable || !tableIdFromUrl) && order.paymentStatus !== "pago" && order.orderItems.length > 0 && (
                   <>
                     <Button
                       className="w-full h-12 text-lg font-semibold"
@@ -1295,6 +1346,19 @@ export default function OrderDetail() {
                       title="Registrar Pagamento"
                     />
                   </>
+                )}
+
+                {/* PaymentDialog para mesas também */}
+                {isFromTable && (
+                  <PaymentDialog
+                    open={paymentDialogOpen}
+                    onOpenChange={setPaymentDialogOpen}
+                    totalAmount={Number(order.totalAmount)}
+                    paidAmount={Number(order.paidAmount || 0)}
+                    isSubmitting={recordPaymentMutation.isPending}
+                    onSubmit={(data) => recordPaymentMutation.mutate(data)}
+                    title="Registrar Pagamento da Mesa"
+                  />
                 )}
               </motion.div>
             </CardContent>

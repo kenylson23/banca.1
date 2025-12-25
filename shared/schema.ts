@@ -734,7 +734,7 @@ export const tableGuests = pgTable("table_guests", {
   sessionId: varchar("session_id").notNull().references(() => tableSessions.id, { onDelete: 'cascade' }),
   tableId: varchar("table_id").notNull().references(() => tables.id, { onDelete: 'cascade' }),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
-  guestNumber: integer("guest_number").notNull(),
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: 'set null' }), // Link to registered customer
   name: varchar("name", { length: 200 }),
   seatNumber: integer("seat_number"),
   status: guestStatusEnum("status").notNull().default('ativo'),
@@ -758,11 +758,13 @@ export const insertTableGuestSchema = createInsertSchema(tableGuests).omit({
 }).extend({
   sessionId: z.string().min(1, "Sessão é obrigatória"),
   tableId: z.string().min(1, "Mesa é obrigatória"),
+  customerId: z.string().optional().nullable(),
   name: z.string().optional(),
   seatNumber: z.number().int().positive().optional(),
 });
 
 export const updateTableGuestSchema = z.object({
+  customerId: z.string().optional().nullable(),
   name: z.string().optional(),
   seatNumber: z.number().int().positive().optional(),
   status: z.enum(['ativo', 'aguardando_conta', 'pago', 'saiu']).optional(),
@@ -3268,7 +3270,7 @@ export const customerNotificationPreferencesRelations = relations(customerNotifi
 // Link Analytics - Tracking de acessos ao menu público
 export const linkAnalytics = pgTable("link_analytics", {
   id: serial("id").primaryKey(),
-  restaurantId: integer("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   source: varchar("source", { length: 255 }), // 'direct', 'whatsapp', 'instagram', 'facebook', 'qrcode', etc
   referrer: text("referrer"),
