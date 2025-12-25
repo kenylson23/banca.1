@@ -4068,6 +4068,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const guestOrders = orders.filter((order: any) => order.guestId === guest.id && order.status !== 'cancelado');
         const subtotal = guestOrders.reduce((sum: number, order: any) => sum + parseFloat(order.totalAmount), 0);
         
+        console.log(`[DEBUG] Guest ${guest.name || guest.guestNumber} (${guest.id}):`, {
+          orderCount: guestOrders.length,
+          subtotal: subtotal,
+          orders: guestOrders.map(o => ({id: o.id, amount: o.totalAmount}))
+        });
+
         return {
           guest,
           orders: guestOrders,
