@@ -274,9 +274,29 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
           <div className="space-y-4 pr-4">
             {guestsWithOrders.map((guestData, index) => {
               const guest = guestData.guest;
-              const isPaid = guest.status === 'pago';
-              const hasOrders = guestData.orders.length > 0;
-              const guestName = guest.name || `Cliente ${guest.guestNumber}`;
+  const isPaid = guest.status === 'pago';
+  const hasOrders = guestData.orders.length > 0;
+  
+  // Funções auxiliares para labels de status (replicando lógica do BillSplitPanel)
+  const getGuestStatusColor = (status: string) => {
+    switch (status) {
+      case 'pago': return 'bg-green-500 hover:bg-green-600';
+      case 'aguardando_conta': return 'bg-orange-500 hover:bg-orange-600';
+      case 'comendo': return 'bg-blue-500 hover:bg-blue-600';
+      default: return 'bg-gray-500 hover:bg-gray-600';
+    }
+  };
+
+  const getGuestStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pago': return 'Pago';
+      case 'aguardando_conta': return 'Pediu Conta';
+      case 'comendo': return 'Consumindo';
+      default: return status;
+    }
+  };
+
+  const guestName = guest.name || `Cliente ${guest.guestNumber}`;
               const avatarColor = getAvatarColor(guest.guestNumber);
               const initials = getInitials(guest.name, guest.guestNumber);
               const isTopSpender = index === 0; // First guest is top spender
@@ -327,10 +347,12 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <h4 className="font-bold text-lg truncate">{guestName}</h4>
-                              {isPaid && (
-                                <Badge variant="default" className="bg-green-600 flex-shrink-0">
-                                  <CheckIcon className="w-3 h-3 mr-1" weight="bold" />
-                                  Pago
+                              <Badge className={getGuestStatusColor(guest.status)}>
+                                {getGuestStatusLabel(guest.status)}
+                              </Badge>
+                              {parseFloat(guest.paidAmount || '0') > 0 && parseFloat(guest.paidAmount || '0') < parseFloat(guestData.totalAmount.toString() || '0') && (
+                                <Badge variant="outline" className="text-xs">
+                                  Parcial: {formatKwanza(guest.paidAmount)}
                                 </Badge>
                               )}
                               {guest.customer && hasCustomerManagement && (
