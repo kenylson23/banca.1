@@ -264,6 +264,7 @@ export function TableOrderDialog({ open, onOpenChange, table, onOrderCreated }: 
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tables/open'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
       
       toast({
         title: 'Pedido criado',
