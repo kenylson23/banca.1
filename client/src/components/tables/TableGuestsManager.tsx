@@ -7,31 +7,17 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   UsersThree, 
-  Plus as PlusIcon, 
-  Eye as EyeIcon, 
-  CreditCard as CreditCardIcon, 
-  Trash as TrashIcon, 
-  ArrowsLeftRight,
+  Plus as PlusIcon,
+  Trash as TrashIcon,
   Check as CheckIcon,
-  WarningCircle,
   Star as StarIcon,
-  Crown as CrownIcon,
-  ArrowUp as ArrowUpIcon,
   Clock as ClockIcon,
   ShoppingBag as ShoppingBagIcon,
-  User as UserIcon,
-  Link as LinkIcon,
-  Lock as LockIcon
 } from '@phosphor-icons/react';
 import { formatKwanza } from '@/lib/formatters';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { CustomerSearchDialog } from '@/components/CustomerSearchDialog';
-import { UpgradeDialog } from '@/components/UpgradeDialog';
-import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import type { Table } from '@shared/schema';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Helper function to generate avatar colors based on guest number
@@ -513,7 +499,6 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
       </div>
     </AnimatePresence>
   </ScrollArea>
-      </div>
-    </>
+    </div>
   );
 }
