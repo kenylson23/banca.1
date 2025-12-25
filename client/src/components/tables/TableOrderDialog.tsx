@@ -67,7 +67,7 @@ export function TableOrderDialog({ open, onOpenChange, table, onOrderCreated }: 
   const [showOptionsDialog, setShowOptionsDialog] = useState(false);
 
   // Fetch guests for the table
-  const { data: guests = [] } = useQuery<TableGuest[]>({
+  const { data: guests = [], refetch: refetchGuests } = useQuery<TableGuest[]>({
     queryKey: table?.id ? [`/api/tables/${table.id}/guests`] : ['/api/guests/disabled'],
     enabled: !!table?.id && open,
   });
@@ -79,8 +79,12 @@ export function TableOrderDialog({ open, onOpenChange, table, onOrderCreated }: 
       setSelectedGuest(null);
       setShowGuestSection(false);
       setNewGuestName('');
+      // Refetch guests when dialog opens to ensure fresh data
+      if (table?.id) {
+        refetchGuests();
+      }
     }
-  }, [open]);
+  }, [open, table?.id, refetchGuests]);
 
   // Generate unique ID for cart items
   const generateItemId = (menuItemId: string, selectedOptions: SelectedOption[]) => {
@@ -206,6 +210,8 @@ export function TableOrderDialog({ open, onOpenChange, table, onOrderCreated }: 
       setSelectedGuest(newGuest.id);
       setShowNewGuestDialog(false);
       setNewGuestName('');
+      // Refetch immediately to show the new guest
+      refetchGuests();
       toast({
         title: 'Cliente adicionado',
         description: 'Cliente adicionado à mesa com sucesso',
