@@ -71,6 +71,11 @@ export default function OrderDetail() {
   const isFromTable = typeof window !== 'undefined' && window.location.search.includes('from=table');
   const tableIdFromUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tableId') : null;
   
+  const { data: order, isLoading } = useQuery<OrderDetail>({
+    queryKey: ["/api/orders", orderId],
+    enabled: !!orderId,
+  });
+
   const { data: tableGuests } = useQuery<any>({
     queryKey: [`/api/tables/${order?.tableId}/orders-by-guest`],
     enabled: !!order?.tableId && (order?.orderType === 'mesa' || order?.tableId !== null),
@@ -81,7 +86,7 @@ export default function OrderDetail() {
     enabled: !!order?.restaurantId,
   });
 
-  const hasTableGuests = tableGuests?.ordersByGuest && tableGuests.ordersByGuest.length > 0;
+  const hasTableGuests = !!(tableGuests?.ordersByGuest && tableGuests.ordersByGuest.length > 0);
 
   // Use session data for accurate totals if available
   const effectiveTotal = hasTableGuests && tableGuests?.totalAmount 
