@@ -115,6 +115,7 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
   const [showQRSelfRegister, setShowQRSelfRegister] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+  const [selectedGuestForCheckout, setSelectedGuestForCheckout] = useState<{ id: string; name: string } | null>(null);
 
   const authUser = user;
   const isSuperadmin = authUser?.role === 'superadmin';
@@ -821,31 +822,16 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
           </CardContent>
         </Card>
 
-        {/* Divisão de Conta - Collapsible */}
-        <Collapsible open={splitExpanded} onOpenChange={setSplitExpanded}>
-          <Card>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="pb-3 cursor-pointer hover:bg-accent/50 transition-colors">
-                <div className="flex items-center justify-between w-full">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Split className="h-5 w-5" />
-                    Divisão de Conta
-                  </CardTitle>
-                  <ChevronDown className={`h-5 w-5 transition-transform ${splitExpanded ? 'rotate-180' : ''}`} />
-                </div>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="pt-0">
-                <BillSplitPanel
-                  tableId={table.id}
-                  sessionId={table.currentSessionId || undefined}
-                  totalAmount={totalAmount}
-                />
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
+        {/* Gerenciar Clientes e Divisão de Conta */}
+        {table.status !== 'livre' && (
+          <TableGuestsManager 
+            table={table}
+            onCheckoutGuest={(guestId, guestName) => {
+              setSelectedGuestForCheckout({ id: guestId, name: guestName });
+              setSplitExpanded(false);
+            }}
+          />
+        )}
       </div>
 
       {/* Footer - Main actions */}
@@ -856,6 +842,7 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
             variant="outline"
             onClick={() => setShowNewOrderDialog(true)}
             className="h-14"
+            data-testid="button-new-order"
           >
             <Plus className="h-5 w-5 mr-2" />
             <div className="text-left">
@@ -869,7 +856,7 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
               // Se houver pedidos, redireciona para o primeiro pedido em modo checkout
               if (table.orders && table.orders.length > 0) {
                 const firstOrder = table.orders[0];
-                setLocation(`/orders/${firstOrder.id}?mode=checkout&from=table&tableId=${table.id}`);
+                setLocation(`/orders/${firstOrder.id}?mode=checkout&from=table&tableId=${table.id}&guestId=${selectedGuestForCheckout?.id || ''}`);
                 onOpenChange(false);
               } else {
                 // Se não houver pedidos, abre diálogo de checkout tradicional
@@ -877,10 +864,11 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
               }
             }}
             className="h-14"
+            data-testid="button-close-account"
           >
             <CreditCard className="h-5 w-5 mr-2" />
             <div className="text-left">
-              <div className="font-semibold">Fechar Conta</div>
+              <div className="font-semibold">Fechar Conta{selectedGuestForCheckout ? ' (Cliente)' : ' Geral'}</div>
               <div className="text-xs opacity-90">{formatKwanza(totalAmount)}</div>
             </div>
           </Button>

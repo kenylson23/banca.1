@@ -79,6 +79,7 @@ const getInitials = (name: string | null, guestNumber: number) => {
 
 interface TableGuestsManagerProps {
   table: Table;
+  onCheckoutGuest?: (guestId: string, guestName: string) => void;
 }
 
 interface TableGuest {
@@ -96,7 +97,7 @@ interface OrdersByGuest {
   subtotal: string; // API retorna como string, não number!
 }
 
-export function TableGuestsManager({ table }: TableGuestsManagerProps) {
+export function TableGuestsManager({ table, onCheckoutGuest }: TableGuestsManagerProps) {
   const { toast } = useToast();
   const [selectedGuest, setSelectedGuest] = useState<string | null>(null);
 
@@ -467,6 +468,19 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
                         {selectedGuest === guest.id ? 'Ocultar' : 'Ver'} Pedidos
                       </Button>
 
+                      {!isPaid && hasOrders && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => onCheckoutGuest?.(guest.id, guestName)}
+                          className="bg-primary hover:bg-primary/90"
+                          data-testid={`button-checkout-guest-${guest.id}`}
+                        >
+                          <CreditCardIcon className="w-4 h-4 mr-2" weight="duotone" />
+                          Fechar Conta
+                        </Button>
+                      )}
+
                       {!guest.customerId && (
                         <Button
                           variant="outline"
@@ -491,19 +505,19 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
 
                       {!isPaid && hasOrders && (
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
                           onClick={() => markPaidMutation.mutate(guest.id)}
                           disabled={markPaidMutation.isPending}
                         >
-                          <CreditCardIcon className="w-4 h-4 mr-2" weight="duotone" />
+                          <CheckIcon className="w-4 h-4 mr-2" weight="bold" />
                           Marcar como Pago
                         </Button>
                       )}
 
                       {!hasOrders && (
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleDeleteGuest(guest.id)}
                           disabled={deleteGuestMutation.isPending}
