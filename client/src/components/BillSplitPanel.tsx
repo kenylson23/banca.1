@@ -430,11 +430,14 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPan
                               <Badge className={getGuestStatusColor(guestData.guest.status)}>
                                 {getGuestStatusLabel(guestData.guest.status)}
                               </Badge>
-                              {parseFloat(guestData.guest.paidAmount || '0') > 0 && parseFloat(guestData.guest.paidAmount || '0') < parseFloat(guestData.guest.subtotal || '0') && (
+                              {parseFloat(guestData.guest.paidAmount || '0') > 0 && (
                                 <Badge variant="outline" className="text-xs">
-                                  Parcial: {formatKwanza(guestData.guest.paidAmount)}
+                                  Pago: {formatKwanza(guestData.guest.paidAmount)}
                                 </Badge>
                               )}
+                              <Badge variant="outline" className="text-xs text-primary font-bold">
+                                Consumo: {formatKwanza(guestData.subtotal)}
+                              </Badge>
                             </div>
                             <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
                               <ShoppingBag className="h-3 w-3" />

@@ -31,8 +31,10 @@ import { usePrinter } from "@/hooks/usePrinter";
 import type { Order, OrderItem, MenuItem, Customer, Coupon, LoyaltyProgram } from "@shared/schema";
 import { motion, AnimatePresence } from "framer-motion";
 
-interface OrderDetail extends Order {
-  orderItems: Array<OrderItem & { menuItem: MenuItem }>;
+interface OrdersByGuest {
+  guest: any;
+  orders: any[];
+  subtotal: string;
 }
 
 const statusColors = {
@@ -68,6 +70,11 @@ export default function OrderDetail() {
   const isCheckoutMode = typeof window !== 'undefined' && window.location.search.includes('mode=checkout');
   const isFromTable = typeof window !== 'undefined' && window.location.search.includes('from=table');
   const tableIdFromUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tableId') : null;
+  
+  // Use session data for accurate totals if available
+  const effectiveTotal = hasTableGuests && tableGuests?.totalAmount 
+    ? parseFloat(tableGuests.totalAmount) 
+    : parseFloat(order?.totalAmount?.toString() || "0");
   
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(false);
@@ -418,7 +425,7 @@ export default function OrderDetail() {
       const guest = tableGuests?.ordersByGuest?.find((og: any) => og.guest.id === guestId);
       if (!guest) return;
 
-      const amountToPay = (guest.totalAmount || 0).toFixed(2);
+      const amountToPay = (guest.subtotal || "0");
 
       // Record payment for table
       await apiRequest('POST', `/api/tables/${order.tableId}/payment`, {
@@ -998,7 +1005,7 @@ export default function OrderDetail() {
                                 </p>
                               </div>
                               <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
-                                {formatKwanza(guestData.totalAmount || 0)}
+                                {formatKwanza(guestData.subtotal || 0)}
                               </p>
                             </div>
                             
@@ -1008,7 +1015,7 @@ export default function OrderDetail() {
                             <PrintGuestBill
                               guest={guestData.guest}
                               orders={guestData.orders}
-                              totalAmount={guestData.totalAmount}
+                              totalAmount={parseFloat(guestData.subtotal || "0")}
                               table={{
                                 id: order.tableId!,
                                 number: order.tableNumber || 0,
@@ -1247,8 +1254,10 @@ export default function OrderDetail() {
                   repeat: order.paymentStatus === "pago" ? Infinity : 0,
                 }}
               >
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-muted-foreground">TOTAL A PAGAR</span>
+                <div className="flex justify-between items-end">
+                  <span className="text-3xl font-bold text-primary" data-testid="text-total">
+                    {formatKwanza(effectiveTotal)}
+                  </span>
                   <Badge
                     className={
                       order.paymentStatus === "pago"
@@ -1260,11 +1269,6 @@ export default function OrderDetail() {
                   >
                     {order.paymentStatus === "pago" ? "✓ Pago" : order.paymentStatus === "parcial" ? "Parcial" : "Pendente"}
                   </Badge>
-                </div>
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-3xl font-bold text-primary" data-testid="text-total">
-                    {formatKwanza(order.totalAmount)}
-                  </span>
                 </div>
                 
                 {order.paymentStatus === "parcial" && (

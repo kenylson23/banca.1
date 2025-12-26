@@ -380,11 +380,14 @@ export function TableGuestsManager({ table }: TableGuestsManagerProps) {
                               <Badge className={getGuestStatusColor(guest.status)}>
                                 {getGuestStatusLabel(guest.status)}
                               </Badge>
-                              {parseFloat(guest.paidAmount || '0') > 0 && parseFloat(guest.paidAmount || '0') < parseFloat(guestData.totalAmount.toString() || '0') && (
+                              {parseFloat(guest.paidAmount || '0') > 0 && (
                                 <Badge variant="outline" className="text-xs">
-                                  Parcial: {formatKwanza(guest.paidAmount)}
+                                  Pago: {formatKwanza(guest.paidAmount)}
                                 </Badge>
                               )}
+                              <Badge variant="outline" className="text-xs text-primary font-bold">
+                                Consumo: {formatKwanza(guestData.subtotal)}
+                              </Badge>
                               {guest.customer && hasCustomerManagement && (
                                 <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 flex-shrink-0">
                                   <StarIcon className="w-3 h-3 mr-1" weight="fill" />

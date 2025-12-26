@@ -186,8 +186,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
       const guestData = ordersByGuest.find(og => og.guest.id === guestId);
       if (!guestData) return;
 
-      const remainingToPay = parseFloat(guestData.subtotal) - parseFloat(guestData.guest.paidAmount || '0');
-      const amountToPay = remainingToPay.toFixed(2);
+      const amountToPay = (guestData.subtotal || "0");
 
       await recordPaymentMutation.mutateAsync({
         tableId: table.id,
