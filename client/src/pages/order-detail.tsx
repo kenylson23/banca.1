@@ -72,7 +72,7 @@ export default function OrderDetail() {
   const tableIdFromUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tableId') : null;
   
   // Use session data for accurate totals if available
-  const effectiveTotal = hasTableGuests && tableGuests?.totalAmount 
+  const effectiveTotal = tableGuests?.ordersByGuest && tableGuests.ordersByGuest.length > 0 && tableGuests?.totalAmount 
     ? parseFloat(tableGuests.totalAmount) 
     : parseFloat(order?.totalAmount?.toString() || "0");
   
