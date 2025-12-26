@@ -58,6 +58,7 @@ import { ptBR } from 'date-fns/locale';
 import type { Table, Order, OrderItem, MenuItem } from '@shared/schema';
 import { TableOrderDialog } from '@/components/tables/TableOrderDialog';
 import { TableCheckoutDialog } from '@/components/tables/TableCheckoutDialog';
+import { TableGuestsManager } from '@/components/tables/TableGuestsManager';
 import { OrderDetailsDialog } from '@/components/order-details-dialog';
 import { BillSplitPanel } from '@/components/BillSplitPanel';
 import QRCode from 'qrcode';
@@ -829,6 +830,17 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
             onCheckoutGuest={(guestId, guestName) => {
               setSelectedGuestForCheckout({ id: guestId, name: guestName });
               setSplitExpanded(false);
+            }}
+            onCheckoutAll={() => {
+              setSelectedGuestForCheckout(null);
+              // Redirect to checkout without guest filter
+              if (table.orders && table.orders.length > 0) {
+                const firstOrder = table.orders[0];
+                setLocation(`/orders/${firstOrder.id}?mode=checkout&from=table&tableId=${table.id}`);
+                onOpenChange(false);
+              } else {
+                setShowCheckoutDialog(true);
+              }
             }}
           />
         )}

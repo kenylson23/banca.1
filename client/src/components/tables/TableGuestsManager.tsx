@@ -29,21 +29,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-interface TableGuest {
-  id: string;
-  sessionId: string;
-  name: string | null;
-  guestNumber: number;
-  status: string;
-  joinedAt: Date;
-  paidAmount: string;
-  subtotal: string;
-}
 
 interface OrdersByGuest {
   guest: TableGuest;
   orders: any[];
   subtotal: string;
+  totalAmount?: number;
 }
 
 const hasCustomerManagement = true;
@@ -80,6 +71,7 @@ const getInitials = (name: string | null, guestNumber: number) => {
 interface TableGuestsManagerProps {
   table: Table;
   onCheckoutGuest?: (guestId: string, guestName: string) => void;
+  onCheckoutAll?: () => void;
 }
 
 interface TableGuest {
@@ -89,6 +81,14 @@ interface TableGuest {
   guestNumber: number;
   status: string;
   joinedAt: Date;
+  customerId?: string;
+  customer?: {
+    id: string;
+    name: string;
+    phone?: string;
+    loyaltyPoints: number;
+  };
+  paidAmount?: string;
 }
 
 interface OrdersByGuest {
@@ -97,7 +97,7 @@ interface OrdersByGuest {
   subtotal: string; // API retorna como string, não number!
 }
 
-export function TableGuestsManager({ table, onCheckoutGuest }: TableGuestsManagerProps) {
+export function TableGuestsManager({ table, onCheckoutGuest, onCheckoutAll }: TableGuestsManagerProps) {
   const { toast } = useToast();
   const [selectedGuest, setSelectedGuest] = useState<string | null>(null);
 
@@ -105,9 +105,6 @@ export function TableGuestsManager({ table, onCheckoutGuest }: TableGuestsManage
   const { data: allGuests = [], isLoading: loadingGuests } = useQuery<TableGuest[]>({
     queryKey: [`/api/tables/${table.id}/guests`],
     enabled: !!table.id,
-    onSuccess: (data) => {
-      console.log('🔍 Total de clientes retornados pela API:', data.length, data);
-    },
   });
 
   // Fetch guests with their orders
@@ -118,10 +115,6 @@ export function TableGuestsManager({ table, onCheckoutGuest }: TableGuestsManage
   }>({
     queryKey: [`/api/tables/${table.id}/orders-by-guest`],
     enabled: !!table.id,
-    onSuccess: (data) => {
-      console.log('🔍 Pedidos por cliente da API:', data.ordersByGuest);
-      console.log('🔍 Total da mesa:', data.totalAmount);
-    },
   });
 
   const isLoading = loadingGuests || loadingOrders;
@@ -143,6 +136,7 @@ export function TableGuestsManager({ table, onCheckoutGuest }: TableGuestsManage
       guest,
       orders: guestOrders?.orders || [],
       totalAmount: subtotalValue,
+      subtotal: guestOrders?.subtotal || '0',
     };
   });
 
@@ -246,8 +240,8 @@ export function TableGuestsManager({ table, onCheckoutGuest }: TableGuestsManage
         {/* Summary Card */}
         <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-background via-primary/5 to-background">
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16"></div>
-        <CardHeader>
-          <div className="flex items-center justify-between relative">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between relative mb-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <UsersThree className="w-5 h-5 text-primary" weight="duotone" />
@@ -278,6 +272,17 @@ export function TableGuestsManager({ table, onCheckoutGuest }: TableGuestsManage
               </div>
             </div>
           </div>
+          {/* Quick Action Button */}
+          {guestsWithOrders.length > 0 && (
+            <Button
+              onClick={onCheckoutAll}
+              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+              data-testid="button-checkout-all"
+            >
+              <CreditCardIcon className="w-4 h-4 mr-2" weight="duotone" />
+              Fechar Conta Geral
+            </Button>
+          )}
         </CardHeader>
       </Card>
 
@@ -383,7 +388,7 @@ export function TableGuestsManager({ table, onCheckoutGuest }: TableGuestsManage
                               </Badge>
                               {parseFloat(guest.paidAmount || '0') > 0 && (
                                 <Badge variant="outline" className="text-xs">
-                                  Pago: {formatKwanza(guest.paidAmount)}
+                                  Pago: {formatKwanza(guest.paidAmount ?? '0')}
                                 </Badge>
                               )}
                               <Badge variant="outline" className="text-xs text-primary font-bold">
