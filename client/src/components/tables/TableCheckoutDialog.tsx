@@ -204,14 +204,10 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
 
       setPayingGuests(prev => ({ ...prev, [guestId]: true }));
 
-      // Check if all guests have paid (using current data + optimization)
-      const allPaid = ordersByGuest.every(og => 
-        og.guest.id === guestId || og.guest.status === 'pago' || payingGuests[og.guest.id]
-      );
-
-      if (allPaid) {
-        await closeSessionMutation.mutateAsync(table.id);
-      }
+      toast({
+        title: 'Pagamento registrado',
+        description: `${guestData.guest.name || `Cliente ${guestData.guest.guestNumber}`} marcado como pago.`,
+      });
     } catch (error) {
       console.error('Guest payment error:', error);
     }
