@@ -114,8 +114,8 @@ export function setupAuth(app: Express) {
     try {
       const user = await storage.getUser(id);
       
-      // Enhanced logging for debugging session/authentication issues
-      if (process.env.NODE_ENV === 'production' || process.env.DEBUG_AUTH === 'true') {
+      // Enhanced logging for debugging session/authentication issues (disabled for performance)
+      if (false) {
         console.log('[AUTH] Deserializing user:', {
           userId: id,
           userFound: !!user,
@@ -154,8 +154,8 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
     return next();
   }
   
-  // Enhanced logging for debugging authentication issues
-  if (process.env.NODE_ENV === 'production' || process.env.DEBUG_AUTH === 'true') {
+  // Enhanced logging for debugging authentication issues (disabled for performance)
+  if (false) {
     console.log('[AUTH] isAuthenticated check failed:', {
       hasSession: !!req.session,
       sessionID: req.sessionID,
