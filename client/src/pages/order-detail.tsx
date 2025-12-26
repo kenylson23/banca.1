@@ -70,7 +70,21 @@ export default function OrderDetail() {
   const isCheckoutMode = typeof window !== 'undefined' && window.location.search.includes('mode=checkout');
   const isFromTable = typeof window !== 'undefined' && window.location.search.includes('from=table');
   const tableIdFromUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tableId') : null;
-  
+
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState(false);
+  const [title, setTitle] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [productSelectorOpen, setProductSelectorOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  const [couponCode, setCouponCode] = useState("");
+  const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState(0);
+
   const { data: order, isLoading } = useQuery<OrderDetail>({
     queryKey: ["/api/orders", orderId],
     enabled: !!orderId,
@@ -104,6 +118,20 @@ export default function OrderDetail() {
   const effectiveTotal = hasTableGuests && tableGuests?.totalAmount 
     ? parseFloat(tableGuests.totalAmount) 
     : parseFloat(order?.totalAmount?.toString() || "0");
+
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState(false);
+  const [title, setTitle] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [productSelectorOpen, setProductSelectorOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  const [couponCode, setCouponCode] = useState("");
+  const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState(0);
 
   const selectedCustomer = customers.find(c => c.id === (selectedCustomerId || order?.customerId));
 
