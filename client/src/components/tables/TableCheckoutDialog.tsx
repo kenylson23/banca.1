@@ -392,6 +392,13 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
                             subtotal: guestData.subtotal,
                             paidAmount: guestData.guest.paidAmount || '0.00',
                           }}
+                          orders={guestData.orders?.map((order: any) => ({
+                            id: order.id,
+                            itemName: order.itemName,
+                            quantity: order.quantity,
+                            price: order.price,
+                            subtotal: (parseFloat(order.price || '0') * order.quantity).toFixed(2),
+                          })) || []}
                           onPay={handleGuestPayment}
                           isPaying={isProcessing}
                         />
