@@ -71,56 +71,24 @@ export default function OrderDetail() {
   const isFromTable = typeof window !== 'undefined' && window.location.search.includes('from=table');
   const tableIdFromUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tableId') : null;
   
-  // Use session data for accurate totals if available
-  const effectiveTotal = tableGuests?.ordersByGuest && tableGuests.ordersByGuest.length > 0 && tableGuests?.totalAmount 
-    ? parseFloat(tableGuests.totalAmount) 
-    : parseFloat(order?.totalAmount?.toString() || "0");
-  
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState(false);
-  const [title, setTitle] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [productSelectorOpen, setProductSelectorOpen] = useState(false);
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [cancellationReason, setCancellationReason] = useState("");
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
-  const [couponCode, setCouponCode] = useState("");
-  const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState(0);
-
-  const { data: order, isLoading } = useQuery<OrderDetail>({
-    queryKey: ["/api/orders", orderId],
-    enabled: !!orderId,
-  });
-
-  const { data: menuItems = [] } = useQuery<MenuItem[]>({
-    queryKey: ["/api/menu-items"],
-  });
-
-  const { data: customers = [] } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
-  });
-
-  const { data: loyaltyProgram } = useQuery<LoyaltyProgram>({
-    queryKey: ["/api/loyalty", "program"],
-  });
-
-  // Fetch table guests if this is a table order
   const { data: tableGuests } = useQuery<any>({
     queryKey: [`/api/tables/${order?.tableId}/orders-by-guest`],
     enabled: !!order?.tableId && (order?.orderType === 'mesa' || order?.tableId !== null),
   });
 
-  // Fetch restaurant info for printing
   const { data: restaurant } = useQuery<any>({
     queryKey: [`/api/public/restaurants/${order?.restaurantId}`],
     enabled: !!order?.restaurantId,
   });
 
-  const selectedCustomer = customers.find(c => c.id === (selectedCustomerId || order?.customerId));
   const hasTableGuests = tableGuests?.ordersByGuest && tableGuests.ordersByGuest.length > 0;
+
+  // Use session data for accurate totals if available
+  const effectiveTotal = hasTableGuests && tableGuests?.totalAmount 
+    ? parseFloat(tableGuests.totalAmount) 
+    : parseFloat(order?.totalAmount?.toString() || "0");
+
+  const selectedCustomer = customers.find(c => c.id === (selectedCustomerId || order?.customerId));
 
   useEffect(() => {
     if (order) {
