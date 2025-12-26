@@ -119,20 +119,6 @@ export default function OrderDetail() {
     ? parseFloat(tableGuests.totalAmount) 
     : parseFloat(order?.totalAmount?.toString() || "0");
 
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState(false);
-  const [title, setTitle] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [productSelectorOpen, setProductSelectorOpen] = useState(false);
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [cancellationReason, setCancellationReason] = useState("");
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
-  const [couponCode, setCouponCode] = useState("");
-  const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState(0);
-
   const selectedCustomer = customers.find(c => c.id === (selectedCustomerId || order?.customerId));
 
   useEffect(() => {
