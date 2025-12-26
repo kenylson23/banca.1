@@ -76,6 +76,18 @@ export default function OrderDetail() {
     enabled: !!orderId,
   });
 
+  const { data: menuItems = [] } = useQuery<MenuItem[]>({
+    queryKey: ["/api/menu-items"],
+  });
+
+  const { data: customers = [] } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
+  });
+
+  const { data: loyaltyProgram } = useQuery<LoyaltyProgram>({
+    queryKey: ["/api/loyalty", "program"],
+  });
+
   const { data: tableGuests } = useQuery<any>({
     queryKey: [`/api/tables/${order?.tableId}/orders-by-guest`],
     enabled: !!order?.tableId && (order?.orderType === 'mesa' || order?.tableId !== null),
