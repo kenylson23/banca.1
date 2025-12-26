@@ -937,17 +937,15 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
       />
 
       {/* Checkout dialog - Only as fallback for tables without orders */}
-      {showCheckoutDialog && (
-        <TableCheckoutDialog
-          open={showCheckoutDialog}
-          onOpenChange={setShowCheckoutDialog}
-          table={table}
-          onCheckoutComplete={() => {
-            setShowCheckoutDialog(false);
-            onOpenChange(false);
-          }}
-        />
-      )}
+      <TableCheckoutDialog
+        open={showCheckoutDialog}
+        onOpenChange={setShowCheckoutDialog}
+        table={table}
+        onCheckoutComplete={() => {
+          setShowCheckoutDialog(false);
+          onOpenChange(false);
+        }}
+      />
 
       {/* Order details dialog */}
       <OrderDetailsDialog
