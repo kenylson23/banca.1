@@ -263,30 +263,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
                     </div>
                   )}
                   
-                  {/* Advanced Checkout Button */}
-                  {table.orders && table.orders.length > 0 && (
-                    <>
-                      <Separator />
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => {
-                          // Get the first order from the table to redirect to
-                          const firstOrder = table.orders?.[0];
-                          if (firstOrder?.id) {
-                            onOpenChange(false);
-                            setLocation(`/orders/${firstOrder.id}?mode=checkout`);
-                          }
-                        }}
-                      >
-                        <CreditCard className="w-4 h-4 mr-2" />
-                        Checkout Avançado (Descontos, Cupons, Fidelidade)
-                      </Button>
-                      <p className="text-xs text-center text-muted-foreground">
-                        Acesso completo a todas as funcionalidades de pagamento
-                      </p>
-                    </>
-                  )}
+                  {/* Note: Advanced checkout available through order management */}
                 </div>
               </CardContent>
             </Card>
@@ -294,11 +271,11 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
             {/* Checkout Modes */}
             <Tabs value={checkoutMode} onValueChange={(v) => setCheckoutMode(v as 'simple' | 'by_guest')}>
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="simple">
+                <TabsTrigger value="simple" data-testid="tab-simple-payment">
                   <Receipt className="w-4 h-4 mr-2" />
                   Pagamento Único
                 </TabsTrigger>
-                <TabsTrigger value="by_guest" disabled={!hasGuests}>
+                <TabsTrigger value="by_guest" data-testid="tab-guest-payment">
                   <Users className="w-4 h-4 mr-2" />
                   Por Cliente
                 </TabsTrigger>
@@ -355,9 +332,10 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
                   <CardContent>
                     <PaymentForm
                       totalAmount={splitEqually ? (remainingTotal / numberOfPeople) : remainingTotal}
+                      paidAmount={0}
                       onSubmit={handleSimplePayment}
-                      isProcessing={isProcessing}
-                      submitLabel={splitEqually ? "Registrar Pagamento" : "Finalizar Restante e Fechar Mesa"}
+                      isPending={isProcessing}
+                      allowSplit={splitEqually}
                     />
                   </CardContent>
                 </Card>
