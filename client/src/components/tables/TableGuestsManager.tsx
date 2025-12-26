@@ -125,13 +125,6 @@ export function TableGuestsManager({ table, onCheckoutGuest, onCheckoutAll }: Ta
   const guestsWithOrders = allGuests.map(guest => {
     const guestOrders = ordersByGuest.find(og => og.guest.id === guest.id);
     const subtotalValue = guestOrders?.subtotal ? parseFloat(guestOrders.subtotal) : 0;
-    console.log(`🔍 Cliente ${guest.name || guest.guestNumber}:`, {
-      guestId: guest.id,
-      encontrouPedidos: !!guestOrders,
-      subtotal: guestOrders?.subtotal,
-      totalAmount: subtotalValue,
-      numeroPedidos: guestOrders?.orders?.length || 0,
-    });
     return {
       guest,
       orders: guestOrders?.orders || [],

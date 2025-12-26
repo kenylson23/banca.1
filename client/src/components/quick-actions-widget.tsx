@@ -33,7 +33,7 @@ const defaultActions: QuickAction[] = [
     description: "Criar pedido rápido",
     icon: Plus,
     color: "primary",
-    onClick: () => console.log("New order"),
+    onClick: () => {},
   },
   {
     id: "view-orders",
@@ -41,7 +41,7 @@ const defaultActions: QuickAction[] = [
     description: "Ver todos os pedidos",
     icon: ShoppingBag,
     color: "success",
-    onClick: () => console.log("View orders"),
+    onClick: () => {},
   },
   {
     id: "manage-menu",
@@ -49,7 +49,7 @@ const defaultActions: QuickAction[] = [
     description: "Gerenciar cardápio",
     icon: Utensils,
     color: "warning",
-    onClick: () => console.log("Manage menu"),
+    onClick: () => {},
   },
   {
     id: "reports",
@@ -57,7 +57,7 @@ const defaultActions: QuickAction[] = [
     description: "Ver análises",
     icon: FileText,
     color: "info",
-    onClick: () => console.log("Reports"),
+    onClick: () => {},
   },
 ];
 
