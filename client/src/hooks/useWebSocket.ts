@@ -19,6 +19,8 @@ export function useWebSocket(onMessage?: MessageHandler) {
   onMessageRef.current = onMessage;
 
   const connect = useCallback(() => {
+    if (!window.location.host) return; // Safety check
+    
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws`;
 
@@ -48,6 +50,7 @@ export function useWebSocket(onMessage?: MessageHandler) {
       };
 
       ws.onerror = () => {
+        setIsConnected(false);
         ws.close();
       };
 
@@ -58,12 +61,13 @@ export function useWebSocket(onMessage?: MessageHandler) {
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
         }
+        // Reconnect after 30 seconds only (not 5 to reduce load)
         reconnectTimeoutRef.current = setTimeout(() => {
           connect();
-        }, 5000);
+        }, 30000);
       };
     } catch (error) {
-      // Failed to create WebSocket
+      setIsConnected(false);
     }
   }, [user?.restaurantId]);
 

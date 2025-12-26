@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -105,6 +105,8 @@ export function TableGuestsManager({ table, onCheckoutGuest, onCheckoutAll }: Ta
   const { data: allGuests = [], isLoading: loadingGuests } = useQuery<TableGuest[]>({
     queryKey: [`/api/tables/${table.id}/guests`],
     enabled: !!table.id,
+    staleTime: 5000,
+    gcTime: 60000,
   });
 
   // Fetch guests with their orders
@@ -115,23 +117,27 @@ export function TableGuestsManager({ table, onCheckoutGuest, onCheckoutAll }: Ta
   }>({
     queryKey: [`/api/tables/${table.id}/orders-by-guest`],
     enabled: !!table.id,
+    staleTime: 5000,
+    gcTime: 60000,
   });
 
   const isLoading = loadingGuests || loadingOrders;
   const ordersByGuest = ordersData?.ordersByGuest || [];
   const hasAnonymousOrders = (ordersData?.anonymousOrders || []).length > 0;
 
-  // Merge all guests with their order data
-  const guestsWithOrders = allGuests.map(guest => {
-    const guestOrders = ordersByGuest.find(og => og.guest.id === guest.id);
-    const subtotalValue = guestOrders?.subtotal ? parseFloat(guestOrders.subtotal) : 0;
-    return {
-      guest,
-      orders: guestOrders?.orders || [],
-      totalAmount: subtotalValue,
-      subtotal: guestOrders?.subtotal || '0',
-    };
-  });
+  // Merge all guests with their order data - memoized
+  const guestsWithOrders = useMemo(() => {
+    return allGuests.map(guest => {
+      const guestOrders = ordersByGuest.find(og => og.guest.id === guest.id);
+      const subtotalValue = guestOrders?.subtotal ? parseFloat(guestOrders.subtotal) : 0;
+      return {
+        guest,
+        orders: guestOrders?.orders || [],
+        totalAmount: subtotalValue,
+        subtotal: guestOrders?.subtotal || '0',
+      };
+    });
+  }, [allGuests, ordersByGuest]);
 
   // Delete guest mutation
   const deleteGuestMutation = useMutation({
