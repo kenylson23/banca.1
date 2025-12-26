@@ -5099,7 +5099,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/orders", isAdmin, async (req, res) => {
     try {
       const currentUser = req.user as User;
-      const { items, ...orderData } = req.body;
+      let { items, ...orderData } = req.body;
       
       console.log('Creating order with data:', JSON.stringify({ orderData, items }, null, 2));
       
@@ -5111,6 +5111,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ 
             message: error.message || "Limite de pedidos atingido" 
           });
+        }
+      }
+      
+      // Apply customer default settings if customerId is provided and no overrides are set
+      if (orderData.customerId) {
+        const customer = await storage.getCustomer(orderData.customerId);
+        if (customer) {
+          // Apply defaults only if not already set in the order
+          if (!orderData.discount && customer.defaultDiscount && parseFloat(customer.defaultDiscount as any) > 0) {
+            orderData.discount = customer.defaultDiscount;
+            orderData.discountType = customer.defaultDiscountType || 'valor';
+          }
+          if (!orderData.serviceCharge && customer.defaultServiceCharge && parseFloat(customer.defaultServiceCharge as any) > 0) {
+            orderData.serviceCharge = customer.defaultServiceCharge;
+            orderData.serviceName = customer.defaultServiceName || 'Taxa de Serviço';
+          }
+          if (!orderData.packagingFee && customer.defaultPackagingFee && parseFloat(customer.defaultPackagingFee as any) > 0) {
+            orderData.packagingFee = customer.defaultPackagingFee;
+          }
         }
       }
       

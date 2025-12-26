@@ -44,6 +44,11 @@ export default function Customers() {
     phone: "",
     email: "",
     address: "",
+    defaultDiscount: "",
+    defaultDiscountType: "valor",
+    defaultServiceCharge: "",
+    defaultServiceName: "",
+    defaultPackagingFee: "",
   });
 
   // Check subscription to see if customer management is available
@@ -95,6 +100,11 @@ export default function Customers() {
       phone: "",
       email: "",
       address: "",
+      defaultDiscount: "",
+      defaultDiscountType: "valor",
+      defaultServiceCharge: "",
+      defaultServiceName: "",
+      defaultPackagingFee: "",
     });
     setEditingCustomer(null);
     setIsDialogOpen(false);
@@ -107,6 +117,11 @@ export default function Customers() {
       phone: customer.phone || "",
       email: customer.email || "",
       address: customer.address || "",
+      defaultDiscount: customer.defaultDiscount?.toString() || "",
+      defaultDiscountType: customer.defaultDiscountType || "valor",
+      defaultServiceCharge: customer.defaultServiceCharge?.toString() || "",
+      defaultServiceName: customer.defaultServiceName || "",
+      defaultPackagingFee: customer.defaultPackagingFee?.toString() || "",
     });
     setIsDialogOpen(true);
   };
@@ -355,6 +370,82 @@ export default function Customers() {
                       className="h-11"
                       data-testid="input-customer-address"
                     />
+                  </div>
+
+                  <Separator className="my-4" />
+                  
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold text-foreground">Configurações Padrão de Pedido</p>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="defaultDiscount" className="text-sm font-medium">Desconto Padrão</Label>
+                        <Input
+                          id="defaultDiscount"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={formData.defaultDiscount}
+                          onChange={(e) => setFormData({ ...formData, defaultDiscount: e.target.value })}
+                          className="h-11"
+                          data-testid="input-default-discount"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="defaultDiscountType" className="text-sm font-medium">Tipo</Label>
+                        <select
+                          id="defaultDiscountType"
+                          value={formData.defaultDiscountType}
+                          onChange={(e) => setFormData({ ...formData, defaultDiscountType: e.target.value as any })}
+                          className="h-11 px-3 rounded-md border border-input bg-background text-sm"
+                          data-testid="select-discount-type"
+                        >
+                          <option value="valor">Valor (Kz)</option>
+                          <option value="percentual">Percentual (%)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="defaultServiceCharge" className="text-sm font-medium">Taxa de Serviço Padrão</Label>
+                      <Input
+                        id="defaultServiceCharge"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={formData.defaultServiceCharge}
+                        onChange={(e) => setFormData({ ...formData, defaultServiceCharge: e.target.value })}
+                        className="h-11"
+                        data-testid="input-default-service-charge"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="defaultServiceName" className="text-sm font-medium">Nome da Taxa (opcional)</Label>
+                      <Input
+                        id="defaultServiceName"
+                        placeholder="ex: Garçom"
+                        value={formData.defaultServiceName}
+                        onChange={(e) => setFormData({ ...formData, defaultServiceName: e.target.value })}
+                        className="h-11"
+                        data-testid="input-service-name"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="defaultPackagingFee" className="text-sm font-medium">Taxa de Embalagem Padrão</Label>
+                      <Input
+                        id="defaultPackagingFee"
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={formData.defaultPackagingFee}
+                        onChange={(e) => setFormData({ ...formData, defaultPackagingFee: e.target.value })}
+                        className="h-11"
+                        data-testid="input-default-packaging-fee"
+                      />
+                    </div>
                   </div>
                 </div>
                 

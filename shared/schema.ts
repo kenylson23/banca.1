@@ -896,6 +896,11 @@ export const customers = pgTable("customers", {
   visitCount: integer("visit_count").notNull().default(0),
   lastVisit: timestamp("last_visit"),
   notes: text("notes"),
+  defaultDiscount: decimal("default_discount", { precision: 10, scale: 2 }).default('0'),
+  defaultDiscountType: varchar("default_discount_type", { length: 20 }).default('valor'),
+  defaultServiceCharge: decimal("default_service_charge", { precision: 10, scale: 2 }).default('0'),
+  defaultServiceName: varchar("default_service_name", { length: 200 }),
+  defaultPackagingFee: decimal("default_packaging_fee", { precision: 10, scale: 2 }).default('0'),
   isActive: integer("is_active").notNull().default(1),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -921,6 +926,11 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
   address: z.string().optional(),
   notes: z.string().optional(),
   isActive: z.number().optional(),
+  defaultDiscount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Desconto inválido").optional(),
+  defaultDiscountType: z.enum(['valor', 'percentual']).optional(),
+  defaultServiceCharge: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa inválida").optional(),
+  defaultServiceName: z.string().optional(),
+  defaultPackagingFee: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa inválida").optional(),
 });
 
 export const updateCustomerSchema = z.object({
@@ -931,6 +941,11 @@ export const updateCustomerSchema = z.object({
   address: z.string().optional(),
   notes: z.string().optional(),
   isActive: z.number().optional(),
+  defaultDiscount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Desconto inválido").optional(),
+  defaultDiscountType: z.enum(['valor', 'percentual']).optional(),
+  defaultServiceCharge: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa inválida").optional(),
+  defaultServiceName: z.string().optional(),
+  defaultPackagingFee: z.string().regex(/^\d+(\.\d{1,2})?$/, "Taxa inválida").optional(),
 });
 
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
