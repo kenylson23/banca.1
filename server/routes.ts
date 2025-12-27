@@ -3527,7 +3527,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const baseUrl = process.env.REPLIT_DEV_DOMAIN 
         ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
         : `https://${req.hostname}`;
-      const qrCodeUrl = `${baseUrl}/mesa/${data.number}`;
+      const qrCodeUrl = `${baseUrl}/mesa/${data.number}?r=${restaurantId}`;
       const qrCode = await QRCode.toDataURL(qrCodeUrl, {
         width: 300,
         margin: 2,
