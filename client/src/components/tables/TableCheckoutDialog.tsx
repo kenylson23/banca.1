@@ -23,6 +23,7 @@ interface TableCheckoutDialogProps {
   onOpenChange: (open: boolean) => void;
   table: Table | null;
   onCheckoutComplete?: () => void;
+  initialMode?: 'simple' | 'by_guest' | 'advanced';
 }
 
 interface TableGuest {
@@ -105,7 +106,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
   // Reset state when dialog opens
   useEffect(() => {
     if (open) {
-      setCheckoutMode('simple');
+      setCheckoutMode(initialMode || 'simple');
       setSplitEqually(false);
       setNumberOfPeople(2);
       setPayingGuests({});
@@ -227,6 +228,8 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
       const guestData = ordersByGuest.find(og => og.guest.id === guestId);
       if (!guestData) return;
 
+      // In the future, we could allow individual adjustments here
+      // For now, we use the simple subtotal
       const amountToPay = (guestData.subtotal || "0");
 
       await recordPaymentMutation.mutateAsync({
@@ -235,14 +238,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
         paymentMethod,
       });
 
-      // Se o status ainda não for pago, atualiza (a recordPayment no backend já faz isso, mas por redundância/UI)
-      if (guestData.guest.status !== 'pago') {
-        await updateGuestStatusMutation.mutateAsync({
-          guestId,
-          status: 'pago',
-        });
-      }
-
+      // Update paying guests state for UI
       setPayingGuests(prev => ({ ...prev, [guestId]: true }));
 
       toast({
@@ -267,6 +263,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
       paymentMethod?: string;
       receivedAmount?: string;
       closeSession?: boolean;
+      redeemLoyaltyPoints?: number;
     }) => {
       return apiRequest('POST', `/api/orders/${data.orderId}/full-checkout`, data);
     },

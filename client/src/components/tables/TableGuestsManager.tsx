@@ -476,7 +476,14 @@ export function TableGuestsManager({ table, onCheckoutGuest, onCheckoutAll }: Ta
                         <Button
                           variant="default"
                           size="sm"
-                          onClick={() => onCheckoutGuest?.(guest.id, guestName)}
+                          onClick={() => {
+                            if (onCheckoutGuest) {
+                              onCheckoutGuest(guest.id, guestName);
+                            } else {
+                              // Fallback if no onCheckoutGuest provided
+                              markPaidMutation.mutate(guest.id);
+                            }
+                          }}
                           className="bg-primary hover:bg-primary/90"
                           data-testid={`button-checkout-guest-${guest.id}`}
                         >

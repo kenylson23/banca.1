@@ -117,6 +117,7 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [selectedGuestForCheckout, setSelectedGuestForCheckout] = useState<{ id: string; name: string } | null>(null);
+  const [checkoutMode, setCheckoutMode] = useState<'simple' | 'advanced'>('simple');
 
   const authUser = user;
   const isSuperadmin = authUser?.role === 'superadmin';
@@ -287,6 +288,11 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
       });
     },
   });
+
+  const onCheckoutGuest = (guestId: string, guestName: string) => {
+    setSelectedGuestForCheckout({ id: guestId, name: guestName });
+    setShowCheckoutDialog(true);
+  };
 
   if (!table) return null;
 
@@ -827,20 +833,10 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
         {table.status !== 'livre' && (
           <TableGuestsManager 
             table={table}
-            onCheckoutGuest={(guestId, guestName) => {
-              setSelectedGuestForCheckout({ id: guestId, name: guestName });
-              setSplitExpanded(false);
-            }}
+            onCheckoutGuest={onCheckoutGuest}
             onCheckoutAll={() => {
-              setSelectedGuestForCheckout(null);
-              // Redirect to checkout without guest filter
-              if (table.orders && table.orders.length > 0) {
-                const firstOrder = table.orders[0];
-                setLocation(`/orders/${firstOrder.id}?mode=checkout&from=table&tableId=${table.id}`);
-                onOpenChange(false);
-              } else {
-                setShowCheckoutDialog(true);
-              }
+              setCheckoutMode('simple');
+              setShowCheckoutDialog(true);
             }}
           />
         )}
@@ -941,9 +937,11 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
         open={showCheckoutDialog}
         onOpenChange={setShowCheckoutDialog}
         table={table}
+        initialMode={selectedGuestForCheckout ? 'by_guest' : (checkoutMode === 'advanced' ? 'advanced' : 'simple')}
         onCheckoutComplete={() => {
           setShowCheckoutDialog(false);
-          onOpenChange(false);
+          setSelectedGuestForCheckout(null);
+          setCheckoutMode('simple');
         }}
       />
 
