@@ -3791,6 +3791,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Atomic Full Checkout route
+  app.post("/api/orders/:id/full-checkout", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const restaurantId = currentUser.restaurantId!;
+      const orderId = req.params.id;
+
+      const {
+        discount,
+        discountType,
+        serviceCharge,
+        deliveryFee,
+        packagingFee,
+        paymentAmount,
+        paymentMethod,
+        receivedAmount,
+        closeSession
+      } = req.body;
+
+      const order = await storage.getOrderById(restaurantId, orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      // Apply adjustments first
+      if (discount !== undefined) {
+        await storage.applyDiscount(restaurantId, orderId, discount, discountType || 'valor');
+      }
+      if (serviceCharge !== undefined) {
+        await storage.applyServiceCharge(restaurantId, orderId, serviceCharge);
+      }
+      if (deliveryFee !== undefined && order.orderType === 'delivery') {
+        await storage.applyDeliveryFee(restaurantId, orderId, deliveryFee);
+      }
+      if (packagingFee !== undefined) {
+        await storage.applyPackagingFee(restaurantId, orderId, packagingFee);
+      }
+
+      // Record payment if provided
+      let updatedOrder = await storage.getOrderById(restaurantId, orderId);
+      if (paymentAmount && parseFloat(paymentAmount) > 0) {
+        updatedOrder = await storage.recordPayment(restaurantId, orderId, {
+          amount: paymentAmount,
+          paymentMethod: paymentMethod || 'dinheiro',
+          receivedAmount
+        }, currentUser.id);
+      }
+
+      // Handle table session closure
+      if (closeSession && order.tableId) {
+        await storage.endTableSession(restaurantId, order.tableId);
+      }
+
+      res.json(updatedOrder);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Erro no checkout completo" });
+    }
+  });
+
+  // Refund route
+  app.post("/api/tables/:id/refund", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const restaurantId = currentUser.restaurantId!;
+      const tableId = req.params.id;
+      const { amount, reason } = req.body;
+
+      if (!amount || parseFloat(amount) <= 0) {
+        return res.status(400).json({ message: "Valor de reembolso inválido" });
+      }
+
+      const table = await storage.getTableById(tableId);
+      if (!table || !table.currentSessionId) {
+        return res.status(404).json({ message: "Mesa ou sessão ativa não encontrada" });
+      }
+
+      // Record negative payment as refund
+      const payment = await storage.addTablePayment(restaurantId, {
+        tableId,
+        sessionId: table.currentSessionId,
+        amount: `-${amount}`,
+        paymentMethod: 'dinheiro',
+        notes: `REEMBOLSO: ${reason || 'Não especificado'}`,
+      });
+
+      broadcastToClients({ type: 'table_payment_refunded', data: { tableId, amount, reason } });
+
+      res.json({ success: true, payment });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Erro ao processar reembolso" });
+    }
+  });
+
   // Payment route for operational staff (cashier, manager, admin)
   app.post("/api/tables/:id/payment", isOperational, async (req, res) => {
     try {

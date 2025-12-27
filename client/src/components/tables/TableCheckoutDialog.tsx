@@ -243,7 +243,78 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
     }
   };
 
-  const isProcessing = recordPaymentMutation.isPending || closeSessionMutation.isPending;
+  // Advanced checkout mutation
+  const fullCheckoutMutation = useMutation({
+    mutationFn: async (data: {
+      orderId: string;
+      discount?: string;
+      discountType?: 'valor' | 'percentual';
+      serviceCharge?: string;
+      deliveryFee?: string;
+      packagingFee?: string;
+      paymentAmount?: string;
+      paymentMethod?: string;
+      receivedAmount?: string;
+      closeSession?: boolean;
+    }) => {
+      return apiRequest('POST', `/api/orders/${data.orderId}/full-checkout`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tables/open'] });
+      toast({ title: 'Checkout concluído', description: 'Ajustes e pagamento processados com sucesso.' });
+      onOpenChange(false);
+      onCheckoutComplete?.();
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Erro no checkout',
+        description: error.message || 'Não foi possível processar o checkout completo.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Handle advanced checkout
+  const handleAdvancedCheckout = async () => {
+    if (!table || !ordersData?.anonymousOrders?.[0]?.id) {
+      // If multiple orders, we might need a more complex selection, but usually tables have one main order
+      const mainOrder = ordersByGuest.flatMap(g => g.orders)[0] || ordersData?.anonymousOrders?.[0];
+      if (!mainOrder) {
+        toast({ title: 'Erro', description: 'Nenhum pedido encontrado para ajustar.', variant: 'destructive' });
+        return;
+      }
+      
+      await fullCheckoutMutation.mutateAsync({
+        orderId: mainOrder.id,
+        discount: discountValue,
+        discountType,
+        serviceCharge,
+        deliveryFee,
+        packagingFee,
+        paymentAmount: calculateAdjustedTotal().toFixed(2),
+        paymentMethod: 'dinheiro',
+        closeSession: true
+      });
+      return;
+    }
+
+    const orderId = ordersData.anonymousOrders[0].id;
+    await fullCheckoutMutation.mutateAsync({
+      orderId,
+      discount: discountValue,
+      discountType,
+      serviceCharge,
+      deliveryFee,
+      packagingFee,
+      paymentAmount: calculateAdjustedTotal().toFixed(2),
+      paymentMethod: 'dinheiro',
+      closeSession: true
+    });
+  };
+
+  const isProcessing = recordPaymentMutation.isPending || closeSessionMutation.isPending || fullCheckoutMutation.isPending;
 
   if (!table) return null;
 
@@ -548,17 +619,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
 
                     <Button 
                       className="w-full h-12 text-base"
-                      onClick={() => {
-                        if (table) {
-                          recordPaymentMutation.mutateAsync({
-                            tableId: table.id,
-                            amount: calculateAdjustedTotal().toFixed(2),
-                            paymentMethod: 'dinheiro',
-                          }).then(() => {
-                            closeSessionMutation.mutateAsync(table.id);
-                          });
-                        }
-                      }}
+                      onClick={handleAdvancedCheckout}
                       disabled={isProcessing}
                       data-testid="button-apply-adjustments"
                     >
