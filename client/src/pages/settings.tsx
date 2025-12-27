@@ -521,7 +521,7 @@ export default function Settings() {
               {activeSection === 'qrcode' && restaurant?.slug && (
                 <div className="space-y-3">
                   <QRCodeGenerator 
-                    url={publicLink}
+                    url={`${publicLink}?r=${restaurant.id}`}
                     restaurantName={restaurant.name}
                   />
                 </div>

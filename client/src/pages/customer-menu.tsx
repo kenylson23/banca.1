@@ -148,8 +148,14 @@ export default function CustomerMenu() {
   const [usePoints, setUsePoints] = useState(false);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
 
+  // Resolve restaurantId from URL search params if present (e.g., /mesa/5?r=uuid)
+  const searchParams = new URLSearchParams(window.location.search);
+  const urlRestaurantId = searchParams.get('r');
+
   const { data: currentTable, isLoading: tableLoading } = useQuery<any>({
-    queryKey: ['/api/public/tables', tableNumber],
+    queryKey: urlRestaurantId 
+      ? ['/api/public/tables', urlRestaurantId, tableNumber]
+      : ['/api/public/tables', tableNumber],
     enabled: !!tableNumber,
   });
 
