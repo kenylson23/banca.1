@@ -1,0 +1,49 @@
+📋 Análise do Checkout Avançado - Problemas Identificados
+Identifiquei 6 problemas principais no fluxo de pagamentos da gestão de mesas:
+
+🔴 1. Checkout Sem Funcionalidades Avançadas
+O TableCheckoutDialog.tsx apenas permite pagamento simples ou por cliente
+Faltam: desconto, taxa de serviço, taxa de entrega, taxa de embalagem
+Essas funcionalidades existem no backend mas não estão acessíveis no checkout
+🔴 2. Ordem das Operações Invertida
+Desconto/taxa devem ser aplicados ANTES do pagamento (para mostrar total correto)
+Atualmente são aplicados DEPOIS da criação do pedido (em endpoints separados)
+Gera confusão: cliente paga e depois a conta é ajustada
+🔴 3. Sem Visualização de Ajustes
+O checkout não mostra:
+Se há desconto/taxa já aplicado
+Qual foi o valor original vs. final
+Breakdown de: subtotal + taxa serviço + entrega + embalagem - desconto = total
+🔴 4. Falta Reembolso/Ajuste de Pagamento
+Não há endpoint para reembolsar pagamento parcial
+Não há forma de reverter pagamento se cliente reclamar
+Sem histórico de modificações nas contas
+🔴 5. Pagamento Parcial sem Controle
+Permite pagar parcial mas sem limite claro
+Sem validação: é possível registrar mais pagamento que o valor total
+🔴 6. Integração de Lealdade Incompleta
+Ponto de fidelidade só funciona em /mesa (customer menu)
+Não funciona em checkout de caixa (gestão de mesas)
+Sem poder resgatar pontos na gestão de mesas
+✅ Melhorias Recomendadas
+Expandir TableCheckoutDialog com aba "Ajustes Avançados"
+
+Campos para: desconto, taxa de serviço, taxa de entrega, taxa de embalagem
+Mostrar breakdown claro antes de salvar
+Criar endpoint /api/orders/:id/full-checkout
+
+Recebe: items, desconto, taxas, pagamento tudo de uma vez
+Aplica em transação atômica (evita inconsistência)
+Adicionar sistema de reembolso
+
+Endpoint: POST /api/tables/:id/refund
+Rastrear: valor original, reembolsado, motivo
+Melhorar UI com breakdown visual
+
+Mostrar: subtotal → descontos → taxas → total final
+Cores diferentes para cada componente
+Validações rigorosas
+
+Rejeitar pagamento > total
+Bloquear desconto em pedido servido
+Limitar taxa de serviço a % máximo configurável
