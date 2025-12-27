@@ -1316,7 +1316,11 @@ export class DatabaseStorage implements IStorage {
     return table;
   }
 
-  async getTableByNumber(tableNumber: number): Promise<Table | undefined> {
+  async getTableByNumber(tableNumber: number, restaurantId?: string): Promise<Table | undefined> {
+    if (restaurantId) {
+      const [table] = await db.select().from(tables).where(and(eq(tables.number, tableNumber), eq(tables.restaurantId, restaurantId)));
+      return table;
+    }
     const [table] = await db.select().from(tables).where(eq(tables.number, tableNumber));
     return table;
   }
