@@ -3807,12 +3807,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentAmount,
         paymentMethod,
         receivedAmount,
-        closeSession
+        closeSession,
+        redeemLoyaltyPoints
       } = req.body;
 
       const order = await storage.getOrderById(restaurantId, orderId);
       if (!order) {
         return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+
+      // Handle loyalty points redemption
+      if (redeemLoyaltyPoints && parseInt(redeemLoyaltyPoints) > 0) {
+        await storage.redeemLoyaltyPoints(restaurantId, orderId, parseInt(redeemLoyaltyPoints));
       }
 
       // Apply adjustments first

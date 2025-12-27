@@ -56,6 +56,8 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
   const [serviceCharge, setServiceCharge] = useState('0');
   const [deliveryFee, setDeliveryFee] = useState('0');
   const [packagingFee, setPackagingFee] = useState('0');
+  const [redeemPoints, setRedeemPoints] = useState(false);
+  const [pointsToRedeem, setPointsToRedeem] = useState('0');
 
   const totalAmount = parseFloat(table?.totalAmount || '0');
 
@@ -90,6 +92,13 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
     }
     
     adjusted += serviceChargeVal + deliveryVal + packagingVal;
+    
+    if (redeemPoints) {
+      const points = parseInt(pointsToRedeem) || 0;
+      // Assume 1 point = 1 unit of currency for now, or use restaurant config
+      adjusted -= points;
+    }
+    
     return Math.max(0, adjusted);
   };
 
@@ -105,6 +114,8 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
       setServiceCharge('0');
       setDeliveryFee('0');
       setPackagingFee('0');
+      setRedeemPoints(false);
+      setPointsToRedeem('0');
     }
   }, [open]);
 
@@ -278,31 +289,14 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
 
   // Handle advanced checkout
   const handleAdvancedCheckout = async () => {
-    if (!table || !ordersData?.anonymousOrders?.[0]?.id) {
-      // If multiple orders, we might need a more complex selection, but usually tables have one main order
-      const mainOrder = ordersByGuest.flatMap(g => g.orders)[0] || ordersData?.anonymousOrders?.[0];
-      if (!mainOrder) {
-        toast({ title: 'Erro', description: 'Nenhum pedido encontrado para ajustar.', variant: 'destructive' });
-        return;
-      }
-      
-      await fullCheckoutMutation.mutateAsync({
-        orderId: mainOrder.id,
-        discount: discountValue,
-        discountType,
-        serviceCharge,
-        deliveryFee,
-        packagingFee,
-        paymentAmount: calculateAdjustedTotal().toFixed(2),
-        paymentMethod: 'dinheiro',
-        closeSession: true
-      });
+    const mainOrder = ordersByGuest.flatMap(g => g.orders)[0] || ordersData?.anonymousOrders?.[0];
+    if (!mainOrder) {
+      toast({ title: 'Erro', description: 'Nenhum pedido encontrado para ajustar.', variant: 'destructive' });
       return;
     }
 
-    const orderId = ordersData.anonymousOrders[0].id;
     await fullCheckoutMutation.mutateAsync({
-      orderId,
+      orderId: mainOrder.id,
       discount: discountValue,
       discountType,
       serviceCharge,
@@ -310,7 +304,8 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
       packagingFee,
       paymentAmount: calculateAdjustedTotal().toFixed(2),
       paymentMethod: 'dinheiro',
-      closeSession: true
+      closeSession: true,
+      redeemLoyaltyPoints: redeemPoints ? parseInt(pointsToRedeem) : undefined
     });
   };
 
@@ -550,6 +545,37 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
                         <span className="text-green-600">{formatKwanza(calculateAdjustedTotal())}</span>
                       </div>
                     </div>
+
+                    {/* Loyalty Points Redemption */}
+                    <Card className="border-purple-200 bg-purple-50/30 dark:bg-purple-950/20">
+                      <CardContent className="pt-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Tag className="w-4 h-4 text-purple-600" />
+                            <Label className="font-medium">Resgatar Pontos</Label>
+                          </div>
+                          <Switch
+                            checked={redeemPoints}
+                            onCheckedChange={setRedeemPoints}
+                          />
+                        </div>
+                        {redeemPoints && (
+                          <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                            <Label className="text-sm">Pontos a resgatar</Label>
+                            <Input
+                              type="number"
+                              value={pointsToRedeem}
+                              onChange={(e) => setPointsToRedeem(e.target.value)}
+                              placeholder="0"
+                              className="h-9"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              1 ponto = {formatKwanza(1)} de desconto
+                            </p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
 
                     {/* Adjustment Fields */}
                     <div className="space-y-3">
