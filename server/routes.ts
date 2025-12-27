@@ -3798,6 +3798,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const restaurantId = currentUser.restaurantId!;
       const orderId = req.params.id;
 
+      const fullCheckoutSchema = z.object({
+        orderId: z.string(),
+        discount: z.string().optional(),
+        discountType: z.enum(['valor', 'percentual']).optional(),
+        serviceCharge: z.string().optional(),
+        deliveryFee: z.string().optional(),
+        packagingFee: z.string().optional(),
+        paymentAmount: z.string().optional(),
+        paymentMethod: z.string().optional(),
+        receivedAmount: z.string().optional(),
+        closeSession: z.boolean().optional(),
+        redeemLoyaltyPoints: z.number().optional(),
+      });
+
       const {
         discount,
         discountType,
@@ -3809,7 +3823,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         receivedAmount,
         closeSession,
         redeemLoyaltyPoints
-      } = req.body;
+      } = fullCheckoutSchema.parse(req.body);
 
       const order = await storage.getOrderById(restaurantId, orderId);
       if (!order) {

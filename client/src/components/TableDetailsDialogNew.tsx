@@ -829,8 +829,6 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
           </CardContent>
         </Card>
 
-        {/* Gerenciar Clientes e Divisão de Conta */}
-        {table.status !== 'livre' && (
           <TableGuestsManager 
             table={table}
             onCheckoutGuest={onCheckoutGuest}
@@ -839,7 +837,6 @@ export function TableDetailsDialogNew({ open, onOpenChange, table, onDelete, all
               setShowCheckoutDialog(true);
             }}
           />
-        )}
       </div>
 
       {/* Footer - Main actions */}

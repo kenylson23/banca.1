@@ -118,7 +118,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
       setRedeemPoints(false);
       setPointsToRedeem('0');
     }
-  }, [open]);
+  }, [open, initialMode]);
 
   // Mutations
   const recordPaymentMutation = useMutation({
