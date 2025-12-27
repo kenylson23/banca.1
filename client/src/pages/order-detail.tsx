@@ -115,10 +115,19 @@ export default function OrderDetail() {
 
   const hasTableGuests = !!(tableGuests?.ordersByGuest && tableGuests.ordersByGuest.length > 0);
 
+  // Get guest data if guestId is provided
+  const selectedGuestData = guestIdFromUrl && hasTableGuests 
+    ? tableGuests?.ordersByGuest?.find((og: any) => og.guest.id === guestIdFromUrl)
+    : null;
+
   // Use session data for accurate totals if available
-  const effectiveTotal = hasTableGuests && tableGuests?.totalAmount 
-    ? parseFloat(tableGuests.totalAmount) 
-    : parseFloat(order?.totalAmount?.toString() || "0");
+  // If guest is selected, use only that guest's subtotal
+  // Otherwise use table total
+  const effectiveTotal = selectedGuestData
+    ? parseFloat(selectedGuestData.subtotal || "0")
+    : (hasTableGuests && tableGuests?.totalAmount 
+      ? parseFloat(tableGuests.totalAmount) 
+      : parseFloat(order?.totalAmount?.toString() || "0"));
 
   const selectedCustomer = customers.find(c => c.id === (selectedCustomerId || order?.customerId));
 
@@ -1349,11 +1358,11 @@ export default function OrderDetail() {
                     <PaymentDialog
                       open={paymentDialogOpen}
                       onOpenChange={setPaymentDialogOpen}
-                      totalAmount={Number(order.totalAmount)}
-                      paidAmount={Number(order.paidAmount || 0)}
+                      totalAmount={effectiveTotal}
+                      paidAmount={selectedGuestData ? 0 : Number(order.paidAmount || 0)}
                       isSubmitting={recordPaymentMutation.isPending}
                       onSubmit={(data) => recordPaymentMutation.mutate(data)}
-                      title="Registrar Pagamento"
+                      title={selectedGuestData ? `Registrar Pagamento - ${selectedGuestData.guest.name || `Cliente ${selectedGuestData.guest.guestNumber}`}` : "Registrar Pagamento"}
                     />
                   </>
                 )}
@@ -1363,11 +1372,11 @@ export default function OrderDetail() {
                   <PaymentDialog
                     open={paymentDialogOpen}
                     onOpenChange={setPaymentDialogOpen}
-                    totalAmount={Number(order.totalAmount)}
-                    paidAmount={Number(order.paidAmount || 0)}
+                    totalAmount={effectiveTotal}
+                    paidAmount={selectedGuestData ? 0 : Number(order.paidAmount || 0)}
                     isSubmitting={recordPaymentMutation.isPending}
                     onSubmit={(data) => recordPaymentMutation.mutate(data)}
-                    title="Registrar Pagamento da Mesa"
+                    title={selectedGuestData ? `Registrar Pagamento - ${selectedGuestData.guest.name || `Cliente ${selectedGuestData.guest.guestNumber}`}` : "Registrar Pagamento da Mesa"}
                   />
                 )}
               </motion.div>
