@@ -70,6 +70,7 @@ export default function OrderDetail() {
   const isCheckoutMode = typeof window !== 'undefined' && window.location.search.includes('mode=checkout');
   const isFromTable = typeof window !== 'undefined' && window.location.search.includes('from=table');
   const tableIdFromUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tableId') : null;
+  const guestIdFromUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('guestId') : null;
 
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(false);
@@ -368,6 +369,12 @@ export default function OrderDetail() {
 
   const recordPaymentMutation = useMutation({
     mutationFn: async (data: { amount: string; paymentMethod: string; receivedAmount?: string }) => {
+      // If guest payment, use handleGuestPayment instead
+      if (guestIdFromUrl && order?.tableId) {
+        await handleGuestPayment(guestIdFromUrl, data.paymentMethod);
+        return { success: true };
+      }
+      
       const response = await apiRequest("POST", `/api/orders/${orderId}/payments`, data);
       return response.json();
     },
