@@ -38,6 +38,8 @@ import {
   loyaltyTransactions,
   coupons,
   couponUsages,
+  services,
+  orderServices,
   subscriptionPlans,
   subscriptions,
   subscriptionPayments,
@@ -143,6 +145,10 @@ import {
   type UpdateCoupon,
   type CouponUsage,
   type InsertCouponUsage,
+  type Service,
+  type InsertService,
+  type OrderService,
+  type InsertOrderService,
   type SubscriptionPlan,
   type InsertSubscriptionPlan,
   type UpdateSubscriptionPlan,
@@ -7699,6 +7705,221 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(coupons)
       .where(and(eq(coupons.id, id), eq(coupons.restaurantId, restaurantId)));
+  }
+
+  // ============================================================================
+  // SERVICE OPERATIONS
+  // ============================================================================
+
+  async getServices(
+    restaurantId: string,
+    branchId?: string | null
+  ): Promise<Service[]> {
+    let conditions = [eq(services.restaurantId, restaurantId)];
+
+    if (branchId !== undefined && branchId !== null) {
+      conditions.push(or(eq(services.branchId, branchId), isNull(services.branchId))!);
+    }
+
+    return await db
+      .select()
+      .from(services)
+      .where(and(...conditions))
+      .orderBy(services.displayOrder, desc(services.createdAt));
+  }
+
+  async getServiceById(id: string, restaurantId: string): Promise<Service | undefined> {
+    const [service] = await db
+      .select()
+      .from(services)
+      .where(and(eq(services.id, id), eq(services.restaurantId, restaurantId)));
+    return service;
+  }
+
+  async createService(
+    restaurantId: string,
+    branchId: string | null,
+    data: InsertService,
+    userId?: string
+  ): Promise<Service> {
+    const [service] = await db
+      .insert(services)
+      .values({
+        ...data,
+        restaurantId,
+        branchId,
+        createdBy: userId || null,
+      })
+      .returning();
+    return service;
+  }
+
+  async updateService(
+    id: string,
+    restaurantId: string,
+    data: Partial<InsertService>
+  ): Promise<Service> {
+    const updateData: any = { ...data, updatedAt: new Date() };
+
+    const [updated] = await db
+      .update(services)
+      .set(updateData)
+      .where(and(eq(services.id, id), eq(services.restaurantId, restaurantId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteService(id: string, restaurantId: string): Promise<void> {
+    await db
+      .delete(services)
+      .where(and(eq(services.id, id), eq(services.restaurantId, restaurantId)));
+  }
+
+  // ============================================================================
+  // TABLE STATUS MANAGEMENT
+  // ============================================================================
+
+  async updateTableStatus(
+    tableId: string,
+    newStatus: 'disponivel' | 'aguardando_pedido' | 'em_consumo' | 'aguardando_pgto' | 'pagamento_parcial' | 'reservada'
+  ): Promise<void> {
+    await db
+      .update(tables)
+      .set({ 
+        tableStatus: newStatus,
+        lastActivity: new Date()
+      })
+      .where(eq(tables.id, tableId));
+  }
+
+  async autoUpdateTableStatusOnOrderCreated(tableId: string): Promise<void> {
+    // When a new order is created, transition from 'aguardando_pedido' to 'em_consumo'
+    const [table] = await db
+      .select()
+      .from(tables)
+      .where(eq(tables.id, tableId));
+
+    if (table && table.tableStatus === 'aguardando_pedido') {
+      await this.updateTableStatus(tableId, 'em_consumo');
+    }
+  }
+
+  async autoUpdateTableStatusOnPayment(tableId: string): Promise<void> {
+    // When payment is made, check if all orders are paid
+    const [table] = await db
+      .select()
+      .from(tables)
+      .where(eq(tables.id, tableId));
+
+    if (!table || !table.currentSessionId) return;
+
+    // Get session totals
+    const [session] = await db
+      .select()
+      .from(tableSessions)
+      .where(eq(tableSessions.id, table.currentSessionId));
+
+    if (!session) return;
+
+    const totalAmount = parseFloat(session.totalAmount || '0');
+    const paidAmount = parseFloat(session.paidAmount || '0');
+
+    if (paidAmount >= totalAmount && totalAmount > 0) {
+      // Fully paid
+      await this.updateTableStatus(tableId, 'disponivel');
+    } else if (paidAmount > 0 && paidAmount < totalAmount) {
+      // Partially paid
+      await this.updateTableStatus(tableId, 'pagamento_parcial');
+    }
+  }
+
+  async autoUpdateTableStatusOnSessionStart(tableId: string): Promise<void> {
+    // When session starts, set to 'aguardando_pedido'
+    await this.updateTableStatus(tableId, 'aguardando_pedido');
+  }
+
+  async autoUpdateTableStatusOnSessionEnd(tableId: string): Promise<void> {
+    // When session ends, set to 'disponivel'
+    await this.updateTableStatus(tableId, 'disponivel');
+  }
+
+  async getSessionPayments(sessionId: string): Promise<any[]> {
+    return await db
+      .select()
+      .from(tablePayments)
+      .where(eq(tablePayments.sessionId, sessionId))
+      .orderBy(desc(tablePayments.createdAt));
+  }
+
+  async getApplicableServices(
+    restaurantId: string,
+    branchId: string | null | undefined,
+    orderType: string,
+    orderValue: number
+  ): Promise<Service[]> {
+    let conditions = [
+      eq(services.restaurantId, restaurantId),
+      eq(services.active, 1),
+    ];
+
+    if (branchId !== undefined && branchId !== null) {
+      conditions.push(or(eq(services.branchId, branchId), isNull(services.branchId))!);
+    }
+
+    const allServices = await db
+      .select()
+      .from(services)
+      .where(and(...conditions))
+      .orderBy(services.displayOrder);
+
+    // Filter by context and min order value
+    return allServices.filter(service => {
+      // Check context
+      if (service.context !== 'todos' && service.context !== orderType) {
+        return false;
+      }
+
+      // Check min order value
+      if (service.minOrderValue && orderValue < parseFloat(service.minOrderValue)) {
+        return false;
+      }
+
+      return true;
+    });
+  }
+
+  async createOrderService(
+    orderId: string,
+    serviceId: string | null,
+    restaurantId: string,
+    serviceName: string,
+    chargeType: 'valor' | 'percentual',
+    value: string,
+    calculatedAmount: string,
+    userId?: string
+  ): Promise<OrderService> {
+    const [orderService] = await db
+      .insert(orderServices)
+      .values({
+        orderId,
+        serviceId,
+        restaurantId,
+        serviceName,
+        chargeType,
+        value,
+        calculatedAmount,
+        appliedBy: userId || null,
+      })
+      .returning();
+    return orderService;
+  }
+
+  async getOrderServices(orderId: string): Promise<OrderService[]> {
+    return await db
+      .select()
+      .from(orderServices)
+      .where(eq(orderServices.orderId, orderId))
+      .orderBy(orderServices.createdAt);
   }
 
   async validateCoupon(

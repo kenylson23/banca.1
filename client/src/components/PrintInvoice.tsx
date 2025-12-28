@@ -53,6 +53,11 @@ export function PrintInvoice({
   const thermalPrinter = getPrinterByType('invoice');
 
   const handlePrintThermal = async () => {
+    if (!order || !order.id) {
+      console.error('Cannot print invoice: order or order.id is undefined');
+      return;
+    }
+
     setPrinting(true);
     try {
       const paymentMethodLabels: Record<string, string> = {
@@ -102,6 +107,11 @@ export function PrintInvoice({
   };
 
   const handlePrintBrowser = () => {
+    if (!order || !order.id) {
+      console.error('Cannot print invoice: order or order.id is undefined');
+      return;
+    }
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -450,8 +460,8 @@ export function PrintInvoice({
           <Button
             variant={variant}
             size={size}
-            disabled={printing}
-            data-testid={`button-print-invoice-${order.id}`}
+            disabled={printing || !order || !order.id}
+            data-testid={order?.id ? `button-print-invoice-${order.id}` : 'button-print-invoice-disabled'}
             className="gap-1"
           >
             <Printer className="h-4 w-4" />
@@ -462,7 +472,7 @@ export function PrintInvoice({
         <DropdownMenuContent align="end">
           <DropdownMenuItem
             onClick={handlePrintThermal}
-            data-testid={`menu-item-print-thermal-invoice-${order.id}`}
+            data-testid={order?.id ? `menu-item-print-thermal-invoice-${order.id}` : 'menu-item-print-thermal-invoice-disabled'}
           >
             <Printer className="h-4 w-4 mr-2" />
             Impressora Térmica
@@ -470,7 +480,7 @@ export function PrintInvoice({
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={handlePrintBrowser}
-            data-testid={`menu-item-print-browser-invoice-${order.id}`}
+            data-testid={order?.id ? `menu-item-print-browser-invoice-${order.id}` : 'menu-item-print-browser-invoice-disabled'}
           >
             <Printer className="h-4 w-4 mr-2" />
             Impressão do Navegador
@@ -485,8 +495,8 @@ export function PrintInvoice({
       variant={variant}
       size={size}
       onClick={handlePrintBrowser}
-      disabled={printing}
-      data-testid={`button-print-invoice-${order.id}`}
+      disabled={printing || !order || !order.id}
+      data-testid={order?.id ? `button-print-invoice-${order.id}` : 'button-print-invoice-disabled'}
     >
       <Printer className={isIconOnly ? "h-4 w-4" : "h-4 w-4 mr-2"} />
       {!isIconOnly && "Imprimir Fatura"}

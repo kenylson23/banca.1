@@ -146,12 +146,14 @@ __export(schema_exports, {
   insertOrderItemOptionSchema: () => insertOrderItemOptionSchema,
   insertOrderItemSchema: () => insertOrderItemSchema,
   insertOrderSchema: () => insertOrderSchema,
+  insertOrderServiceSchema: () => insertOrderServiceSchema,
   insertPaymentEventSchema: () => insertPaymentEventSchema,
   insertPrintHistorySchema: () => insertPrintHistorySchema,
   insertPrinterConfigurationSchema: () => insertPrinterConfigurationSchema,
   insertRecipeIngredientSchema: () => insertRecipeIngredientSchema,
   insertReportAggregationSchema: () => insertReportAggregationSchema,
   insertRestaurantSchema: () => insertRestaurantSchema,
+  insertServiceSchema: () => insertServiceSchema,
   insertStockMovementSchema: () => insertStockMovementSchema,
   insertSubscriptionPaymentSchema: () => insertSubscriptionPaymentSchema,
   insertSubscriptionPlanSchema: () => insertSubscriptionPlanSchema,
@@ -204,6 +206,7 @@ __export(schema_exports, {
   orderItemOptionsRelations: () => orderItemOptionsRelations,
   orderItems: () => orderItems,
   orderItemsRelations: () => orderItemsRelations,
+  orderServices: () => orderServices,
   orderStatusEnum: () => orderStatusEnum,
   orderTypeEnum: () => orderTypeEnum,
   orders: () => orders,
@@ -231,6 +234,9 @@ __export(schema_exports, {
   restaurantStatusEnum: () => restaurantStatusEnum,
   restaurants: () => restaurants,
   restaurantsRelations: () => restaurantsRelations,
+  serviceChargeTypeEnum: () => serviceChargeTypeEnum,
+  serviceContextEnum: () => serviceContextEnum,
+  services: () => services,
   sessions: () => sessions,
   shiftStatusEnum: () => shiftStatusEnum,
   stockMovementTypeEnum: () => stockMovementTypeEnum,
@@ -256,6 +262,7 @@ __export(schema_exports, {
   tableSessions: () => tableSessions,
   tableSessionsRelations: () => tableSessionsRelations,
   tableStatusEnum: () => tableStatusEnum,
+  tableStatusGranularEnum: () => tableStatusGranularEnum,
   tables: () => tables,
   tablesRelations: () => tablesRelations,
   transactionOriginEnum: () => transactionOriginEnum,
@@ -312,7 +319,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-var sessions, restaurantStatusEnum, restaurants, insertRestaurantSchema, registerRestaurantSchema, updateRestaurantSlugSchema, updateRestaurantAppearanceSchema, branches, insertBranchSchema, updateBranchSchema, userRoleEnum, ROLE_PERMISSIONS, users, insertUserSchema, loginSchema, updateUserSchema, updateProfileSchema, updatePasswordSchema, adminResetPasswordSchema, resetRestaurantAdminCredentialsSchema, userAuditActionEnum, userAuditLogs, insertUserAuditLogSchema, printerTypeEnum, printerLanguageEnum, printerConfigurations, insertPrinterConfigurationSchema, updatePrinterConfigurationSchema, printHistory, insertPrintHistorySchema, tableStatusEnum, tables, insertTableSchema, updateTableStatusSchema, shiftStatusEnum, financialEventTypeEnum, eventSourceEnum, adjustmentTypeEnum, reportPeriodTypeEnum, paymentMethodEnum, financialShifts, insertFinancialShiftSchema, tableSessions, insertTableSessionSchema, tablePayments, insertTablePaymentSchema, guestStatusEnum, billSplitTypeEnum, tableGuests, insertTableGuestSchema, updateTableGuestSchema, tableBillSplits, insertTableBillSplitSchema, updateTableBillSplitSchema, guestPayments, insertGuestPaymentSchema, orderStatusEnum, orderTypeEnum, paymentStatusEnum, discountTypeEnum, customerTierEnum, loyaltyTransactionTypeEnum, customers, insertCustomerSchema, updateCustomerSchema, customerSessions, insertCustomerSessionSchema, customerAuthRequestSchema, customerAuthVerifySchema, loyaltyPrograms, insertLoyaltyProgramSchema, updateLoyaltyProgramSchema, loyaltyTransactions, insertLoyaltyTransactionSchema, coupons, insertCouponSchema, updateCouponSchema, validateCouponSchema, couponUsages, insertCouponUsageSchema, orders, insertOrderSchema, publicOrderSchema, updateOrderStatusSchema, updateOrderMetadataSchema, applyDiscountSchema, applyServiceChargeSchema, applyDeliveryFeeSchema, applyPackagingFeeSchema, recordPaymentSchema, updateOrderItemQuantitySchema, reassignOrderItemSchema, orderItemAuditActionEnum, orderItemAuditLogs, insertOrderItemAuditLogSchema, linkCustomerSchema, applyCouponSchema, redeemLoyaltyPointsSchema, cancelOrderSchema, orderItems, insertOrderItemSchema, publicOrderItemSchema, orderItemOptions, insertOrderItemOptionSchema, financialEvents, insertFinancialEventSchema, orderAdjustments, insertOrderAdjustmentSchema, paymentEvents, insertPaymentEventSchema, reportAggregations, insertReportAggregationSchema, categories, insertCategorySchema, updateCategorySchema, menuItems, insertMenuItemSchema, updateMenuItemSchema, optionGroupTypeEnum, optionGroups, insertOptionGroupSchema, updateOptionGroupSchema, options, insertOptionSchema, updateOptionSchema, messages, insertMessageSchema, menuVisits, insertMenuVisitSchema, customerReviews, insertCustomerReviewSchema, restaurantsRelations, branchesRelations, usersRelations, categoriesRelations, menuItemsRelations, tablesRelations, tableSessionsRelations, tablePaymentsRelations, ordersRelations, orderItemsRelations, orderItemAuditLogsRelations, optionGroupsRelations, optionsRelations, orderItemOptionsRelations, messagesRelations, menuVisitsRelations, customerReviewsRelations, financialShiftsRelations, financialEventsRelations, orderAdjustmentsRelations, paymentEventsRelations, reportAggregationsRelations, cashRegisters, insertCashRegisterSchema, updateCashRegisterSchema, cashRegisterShiftStatusEnum, cashRegisterShifts, insertCashRegisterShiftSchema, closeCashRegisterShiftSchema, transactionTypeEnum, transactionOriginEnum, financialCategories, insertFinancialCategorySchema, financialTransactions, insertFinancialTransactionSchema, expenses, insertExpenseSchema, updateExpenseSchema, cashRegistersRelations, cashRegisterShiftsRelations, financialCategoriesRelations, financialTransactionsRelations, expensesRelations, stockMovementTypeEnum, inventoryCategories, insertInventoryCategorySchema, updateInventoryCategorySchema, measurementUnits, insertMeasurementUnitSchema, updateMeasurementUnitSchema, inventoryItems, insertInventoryItemSchema, updateInventoryItemSchema, branchStock, stockMovements, insertStockMovementSchema, inventoryCategoriesRelations, measurementUnitsRelations, inventoryItemsRelations, branchStockRelations, stockMovementsRelations, recipeIngredients, insertRecipeIngredientSchema, updateRecipeIngredientSchema, recipeIngredientsRelations, customersRelations, customerSessionsRelations, loyaltyProgramsRelations, loyaltyTransactionsRelations, couponsRelations, couponUsagesRelations, subscriptionPlanEnum, subscriptionStatusEnum, subscriptionPaymentStatusEnum, billingIntervalEnum, subscriptionPlans, insertSubscriptionPlanSchema, updateSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, updateSubscriptionSchema, superAdminCreateSubscriptionSchema, superAdminUpdateSubscriptionSchema, subscriptionPayments, insertSubscriptionPaymentSchema, subscriptionUsage, insertSubscriptionUsageSchema, subscriptionPlansRelations, subscriptionsRelations, subscriptionPaymentsRelations, subscriptionUsageRelations, notificationTypeEnum, notificationChannelEnum, notifications, insertNotificationSchema, notificationPreferences, insertNotificationPreferencesSchema, updateNotificationPreferencesSchema, customerNotificationPreferences, updateCustomerNotificationPreferencesSchema, notificationsRelations, notificationPreferencesRelations, customerNotificationPreferencesRelations, linkAnalytics, insertLinkAnalyticsSchema;
+var sessions, restaurantStatusEnum, restaurants, insertRestaurantSchema, registerRestaurantSchema, updateRestaurantSlugSchema, updateRestaurantAppearanceSchema, branches, insertBranchSchema, updateBranchSchema, userRoleEnum, ROLE_PERMISSIONS, users, insertUserSchema, loginSchema, updateUserSchema, updateProfileSchema, updatePasswordSchema, adminResetPasswordSchema, resetRestaurantAdminCredentialsSchema, userAuditActionEnum, userAuditLogs, insertUserAuditLogSchema, printerTypeEnum, printerLanguageEnum, printerConfigurations, insertPrinterConfigurationSchema, updatePrinterConfigurationSchema, printHistory, insertPrintHistorySchema, tableStatusEnum, tableStatusGranularEnum, tables, insertTableSchema, updateTableStatusSchema, shiftStatusEnum, financialEventTypeEnum, eventSourceEnum, adjustmentTypeEnum, reportPeriodTypeEnum, paymentMethodEnum, financialShifts, insertFinancialShiftSchema, tableSessions, insertTableSessionSchema, tablePayments, insertTablePaymentSchema, guestStatusEnum, billSplitTypeEnum, tableGuests, insertTableGuestSchema, updateTableGuestSchema, tableBillSplits, insertTableBillSplitSchema, updateTableBillSplitSchema, guestPayments, insertGuestPaymentSchema, orderStatusEnum, orderTypeEnum, paymentStatusEnum, discountTypeEnum, customerTierEnum, loyaltyTransactionTypeEnum, customers, insertCustomerSchema, updateCustomerSchema, customerSessions, insertCustomerSessionSchema, customerAuthRequestSchema, customerAuthVerifySchema, loyaltyPrograms, insertLoyaltyProgramSchema, updateLoyaltyProgramSchema, loyaltyTransactions, insertLoyaltyTransactionSchema, coupons, insertCouponSchema, updateCouponSchema, validateCouponSchema, couponUsages, insertCouponUsageSchema, orders, insertOrderSchema, publicOrderSchema, updateOrderStatusSchema, updateOrderMetadataSchema, applyDiscountSchema, applyServiceChargeSchema, applyDeliveryFeeSchema, applyPackagingFeeSchema, recordPaymentSchema, updateOrderItemQuantitySchema, reassignOrderItemSchema, orderItemAuditActionEnum, orderItemAuditLogs, insertOrderItemAuditLogSchema, linkCustomerSchema, applyCouponSchema, redeemLoyaltyPointsSchema, cancelOrderSchema, orderItems, insertOrderItemSchema, publicOrderItemSchema, orderItemOptions, insertOrderItemOptionSchema, financialEvents, insertFinancialEventSchema, orderAdjustments, insertOrderAdjustmentSchema, serviceChargeTypeEnum, serviceContextEnum, services, insertServiceSchema, orderServices, insertOrderServiceSchema, paymentEvents, insertPaymentEventSchema, reportAggregations, insertReportAggregationSchema, categories, insertCategorySchema, updateCategorySchema, menuItems, insertMenuItemSchema, updateMenuItemSchema, optionGroupTypeEnum, optionGroups, insertOptionGroupSchema, updateOptionGroupSchema, options, insertOptionSchema, updateOptionSchema, messages, insertMessageSchema, menuVisits, insertMenuVisitSchema, customerReviews, insertCustomerReviewSchema, restaurantsRelations, branchesRelations, usersRelations, categoriesRelations, menuItemsRelations, tablesRelations, tableSessionsRelations, tablePaymentsRelations, ordersRelations, orderItemsRelations, orderItemAuditLogsRelations, optionGroupsRelations, optionsRelations, orderItemOptionsRelations, messagesRelations, menuVisitsRelations, customerReviewsRelations, financialShiftsRelations, financialEventsRelations, orderAdjustmentsRelations, paymentEventsRelations, reportAggregationsRelations, cashRegisters, insertCashRegisterSchema, updateCashRegisterSchema, cashRegisterShiftStatusEnum, cashRegisterShifts, insertCashRegisterShiftSchema, closeCashRegisterShiftSchema, transactionTypeEnum, transactionOriginEnum, financialCategories, insertFinancialCategorySchema, financialTransactions, insertFinancialTransactionSchema, expenses, insertExpenseSchema, updateExpenseSchema, cashRegistersRelations, cashRegisterShiftsRelations, financialCategoriesRelations, financialTransactionsRelations, expensesRelations, stockMovementTypeEnum, inventoryCategories, insertInventoryCategorySchema, updateInventoryCategorySchema, measurementUnits, insertMeasurementUnitSchema, updateMeasurementUnitSchema, inventoryItems, insertInventoryItemSchema, updateInventoryItemSchema, branchStock, stockMovements, insertStockMovementSchema, inventoryCategoriesRelations, measurementUnitsRelations, inventoryItemsRelations, branchStockRelations, stockMovementsRelations, recipeIngredients, insertRecipeIngredientSchema, updateRecipeIngredientSchema, recipeIngredientsRelations, customersRelations, customerSessionsRelations, loyaltyProgramsRelations, loyaltyTransactionsRelations, couponsRelations, couponUsagesRelations, subscriptionPlanEnum, subscriptionStatusEnum, subscriptionPaymentStatusEnum, billingIntervalEnum, subscriptionPlans, insertSubscriptionPlanSchema, updateSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, updateSubscriptionSchema, superAdminCreateSubscriptionSchema, superAdminUpdateSubscriptionSchema, subscriptionPayments, insertSubscriptionPaymentSchema, subscriptionUsage, insertSubscriptionUsageSchema, subscriptionPlansRelations, subscriptionsRelations, subscriptionPaymentsRelations, subscriptionUsageRelations, notificationTypeEnum, notificationChannelEnum, notifications, insertNotificationSchema, notificationPreferences, insertNotificationPreferencesSchema, updateNotificationPreferencesSchema, customerNotificationPreferences, updateCustomerNotificationPreferencesSchema, notificationsRelations, notificationPreferencesRelations, customerNotificationPreferencesRelations, linkAnalytics, insertLinkAnalyticsSchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -764,6 +771,14 @@ var init_schema = __esm({
       errorMessage: z.string().optional()
     });
     tableStatusEnum = pgEnum("table_status", ["livre", "ocupada", "em_andamento", "aguardando_pagamento", "encerrada"]);
+    tableStatusGranularEnum = pgEnum("table_status_enum", [
+      "disponivel",
+      "aguardando_pedido",
+      "em_consumo",
+      "aguardando_pgto",
+      "pagamento_parcial",
+      "reservada"
+    ]);
     tables = pgTable("tables", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
       restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: "cascade" }),
@@ -774,6 +789,7 @@ var init_schema = __esm({
       // Área da mesa (ex: "Salão Principal", "Terraço", "VIP")
       qrCode: text("qr_code").notNull(),
       status: tableStatusEnum("status").notNull().default("livre"),
+      tableStatus: tableStatusGranularEnum("table_status").default("disponivel"),
       currentSessionId: varchar("current_session_id"),
       totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).default("0"),
       customerName: varchar("customer_name", { length: 200 }),
@@ -919,7 +935,6 @@ var init_schema = __esm({
     insertTableGuestSchema = createInsertSchema(tableGuests).omit({
       id: true,
       restaurantId: true,
-      guestNumber: true,
       subtotal: true,
       paidAmount: true,
       status: true,
@@ -929,7 +944,9 @@ var init_schema = __esm({
       sessionId: z.string().min(1, "Sess\xE3o \xE9 obrigat\xF3ria"),
       tableId: z.string().min(1, "Mesa \xE9 obrigat\xF3ria"),
       name: z.string().optional(),
-      seatNumber: z.number().int().positive().optional()
+      seatNumber: z.number().int().positive().optional(),
+      token: z.string().optional(),
+      deviceInfo: z.string().optional()
     });
     updateTableGuestSchema = z.object({
       name: z.string().optional(),
@@ -1514,6 +1531,88 @@ var init_schema = __esm({
       createdAt: true
     }).extend({
       amount: z.string().regex(/^-?\d+(\.\d{1,2})?$/, "Valor inv\xE1lido")
+    });
+    serviceChargeTypeEnum = pgEnum("service_charge_type", ["valor", "percentual"]);
+    serviceContextEnum = pgEnum("service_context", ["todos", "mesa", "delivery", "takeout", "balcao", "pdv"]);
+    services = pgTable("services", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: "cascade" }),
+      branchId: varchar("branch_id").references(() => branches.id, { onDelete: "cascade" }),
+      name: varchar("name", { length: 100 }).notNull(),
+      // ex: "Taxa de Garçom", "Couvert Artístico"
+      description: text("description"),
+      // descrição do serviço
+      chargeType: serviceChargeTypeEnum("charge_type").notNull().default("percentual"),
+      value: decimal("value", { precision: 10, scale: 2 }).notNull(),
+      // valor ou percentual
+      applyAutomatically: integer("apply_automatically").notNull().default(0),
+      // 1 = sim, 0 = não
+      context: serviceContextEnum("context").notNull().default("todos"),
+      // onde aplicar
+      minOrderValue: decimal("min_order_value", { precision: 10, scale: 2 }),
+      // valor mínimo para aplicar
+      active: integer("active").notNull().default(1),
+      // 1 = ativo, 0 = inativo
+      displayOrder: integer("display_order").notNull().default(0),
+      // ordem de exibição
+      createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    }, (table) => [
+      index("idx_services_restaurant_id").on(table.restaurantId),
+      index("idx_services_branch_id").on(table.branchId),
+      index("idx_services_active").on(table.active)
+    ]);
+    insertServiceSchema = createInsertSchema(services).omit({
+      id: true,
+      restaurantId: true,
+      branchId: true,
+      createdBy: true,
+      createdAt: true,
+      updatedAt: true
+    }).extend({
+      name: z.string().min(1, "Nome \xE9 obrigat\xF3rio").max(100),
+      description: z.string().optional().nullable(),
+      chargeType: z.enum(["valor", "percentual"]),
+      value: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inv\xE1lido"),
+      applyAutomatically: z.number().int().min(0).max(1).default(0),
+      context: z.enum(["todos", "mesa", "delivery", "takeout", "balcao", "pdv"]).default("todos"),
+      minOrderValue: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inv\xE1lido").optional().nullable(),
+      active: z.number().int().min(0).max(1).default(1),
+      displayOrder: z.number().int().default(0)
+    });
+    orderServices = pgTable("order_services", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+      serviceId: varchar("service_id").references(() => services.id, { onDelete: "set null" }),
+      // pode ser null se foi manual
+      restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: "cascade" }),
+      serviceName: varchar("service_name", { length: 100 }).notNull(),
+      // guarda o nome para histórico
+      chargeType: serviceChargeTypeEnum("charge_type").notNull(),
+      value: decimal("value", { precision: 10, scale: 2 }).notNull(),
+      // valor usado no momento
+      calculatedAmount: decimal("calculated_amount", { precision: 10, scale: 2 }).notNull(),
+      // valor calculado final
+      appliedBy: varchar("applied_by").references(() => users.id, { onDelete: "set null" }),
+      createdAt: timestamp("created_at").defaultNow()
+    }, (table) => [
+      index("idx_order_services_order_id").on(table.orderId),
+      index("idx_order_services_service_id").on(table.serviceId),
+      index("idx_order_services_restaurant_id").on(table.restaurantId)
+    ]);
+    insertOrderServiceSchema = createInsertSchema(orderServices).omit({
+      id: true,
+      restaurantId: true,
+      appliedBy: true,
+      createdAt: true
+    }).extend({
+      orderId: z.string().min(1, "Pedido \xE9 obrigat\xF3rio"),
+      serviceId: z.string().optional().nullable(),
+      serviceName: z.string().min(1, "Nome do servi\xE7o \xE9 obrigat\xF3rio").max(100),
+      chargeType: z.enum(["valor", "percentual"]),
+      value: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inv\xE1lido"),
+      calculatedAmount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inv\xE1lido")
     });
     paymentEvents = pgTable("payment_events", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -3083,7 +3182,7 @@ var init_schema = __esm({
     }));
     linkAnalytics = pgTable("link_analytics", {
       id: serial("id").primaryKey(),
-      restaurantId: integer("restaurant_id").notNull().references(() => restaurants.id, { onDelete: "cascade" }),
+      restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: "cascade" }),
       timestamp: timestamp("timestamp").defaultNow().notNull(),
       source: varchar("source", { length: 255 }),
       // 'direct', 'whatsapp', 'instagram', 'facebook', 'qrcode', etc
@@ -3279,7 +3378,7 @@ function setupAuth(app2) {
   passport.deserializeUser(async (id, cb) => {
     try {
       const user = await storage.getUser(id);
-      if (process.env.NODE_ENV === "production" || process.env.DEBUG_AUTH === "true") {
+      if (false) {
         console.log("[AUTH] Deserializing user:", {
           userId: id,
           userFound: !!user,
@@ -3314,7 +3413,7 @@ var init_auth = __esm({
       if (req.isAuthenticated()) {
         return next();
       }
-      if (process.env.NODE_ENV === "production" || process.env.DEBUG_AUTH === "true") {
+      if (false) {
         console.log("[AUTH] isAuthenticated check failed:", {
           hasSession: !!req.session,
           sessionID: req.sessionID,
@@ -5259,7 +5358,11 @@ var init_storage = __esm({
         const [table] = await db.select().from(tables).where(eq(tables.id, id));
         return table;
       }
-      async getTableByNumber(tableNumber) {
+      async getTableByNumber(tableNumber, restaurantId) {
+        if (restaurantId) {
+          const [table2] = await db.select().from(tables).where(and(eq(tables.number, tableNumber), eq(tables.restaurantId, restaurantId)));
+          return table2;
+        }
         const [table] = await db.select().from(tables).where(eq(tables.number, tableNumber));
         return table;
       }
@@ -5337,59 +5440,34 @@ var init_storage = __esm({
         return updated;
       }
       async getTablesWithOrders(restaurantId, branchId) {
-        const allTables = await this.getTables(restaurantId, branchId);
-        const sessionIds = allTables.filter((t) => t.currentSessionId).map((t) => t.currentSessionId);
-        let guestsByTable = /* @__PURE__ */ new Map();
-        if (sessionIds.length > 0) {
-          const allGuests = await db.select().from(tableGuests).where(inArray(tableGuests.sessionId, sessionIds));
-          for (const guest of allGuests) {
-            const tableData = guestsByTable.get(guest.tableId) || { count: 0, awaitingBill: 0 };
-            tableData.count++;
-            if (guest.status === "aguardando_conta") {
-              tableData.awaitingBill++;
-            }
-            guestsByTable.set(guest.tableId, tableData);
-          }
-        }
-        const tablesWithOrders = await Promise.all(
-          allTables.map(async (table) => {
-            const tableOrders = await db.select().from(orders).leftJoin(orderItems, eq(orders.id, orderItems.orderId)).leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id)).where(and(
-              eq(orders.tableId, table.id),
-              eq(orders.restaurantId, restaurantId),
-              or(
-                eq(orders.status, "pendente"),
-                eq(orders.status, "em_preparo"),
-                eq(orders.status, "pronto")
-              )
-            )).orderBy(desc(orders.createdAt));
-            const groupedOrders = tableOrders.reduce((acc, row) => {
-              const orderId = row.orders.id;
-              let order = acc.find((o) => o.id === orderId);
-              if (!order) {
-                order = {
-                  ...row.orders,
-                  orderItems: []
+        try {
+          const allTables = await this.getTables(restaurantId, branchId);
+          const result = await Promise.all(
+            allTables.map(async (table) => {
+              try {
+                const orders2 = await this.getOrdersByTableId(restaurantId, table.id);
+                return {
+                  ...table,
+                  orders: orders2 || [],
+                  guestsAwaitingBill: 0,
+                  guestCount: 0
                 };
-                acc.push(order);
+              } catch (error) {
+                console.warn(`Failed to fetch orders for table ${table.id}:`, error);
+                return {
+                  ...table,
+                  orders: [],
+                  guestsAwaitingBill: 0,
+                  guestCount: 0
+                };
               }
-              if (row.order_items) {
-                order.orderItems.push({
-                  ...row.order_items,
-                  menuItem: row.menu_items
-                });
-              }
-              return acc;
-            }, []);
-            const guestData = guestsByTable.get(table.id) || { count: 0, awaitingBill: 0 };
-            return {
-              ...table,
-              orders: groupedOrders,
-              guestsAwaitingBill: guestData.awaitingBill,
-              guestCount: guestData.count
-            };
-          })
-        );
-        return tablesWithOrders;
+            })
+          );
+          return result;
+        } catch (error) {
+          console.error("\u274C Error in getTablesWithOrders:", error);
+          throw error;
+        }
       }
       async startTableSession(restaurantId, tableId, sessionData) {
         const table = await this.getTableById(tableId);
@@ -6133,6 +6211,38 @@ var init_storage = __esm({
             paymentMethod: data.paymentMethod,
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq(orders.id, orderId)).returning();
+          if (updated.tableId) {
+            const [table] = await tx.select().from(tables).where(eq(tables.id, updated.tableId));
+            if (table?.currentSessionId) {
+              await tx.insert(tablePayments).values({
+                restaurantId,
+                tableId: updated.tableId,
+                sessionId: table.currentSessionId,
+                amount: data.amount,
+                paymentMethod: data.paymentMethod,
+                notes: `Pagamento via Pedido #${orderId.substring(0, 8)}`,
+                operatorId: userId || null
+              });
+              const [session2] = await tx.select().from(tableSessions).where(eq(tableSessions.id, table.currentSessionId)).for("update");
+              if (session2) {
+                const currentSessionPaid = parseFloat(session2.paidAmount || "0");
+                const newSessionPaid = currentSessionPaid + paymentAmount;
+                await tx.update(tableSessions).set({ paidAmount: newSessionPaid.toFixed(2) }).where(eq(tableSessions.id, session2.id));
+              }
+            }
+          }
+          if (updated.guestId) {
+            const [guest] = await tx.select().from(tableGuests).where(eq(tableGuests.id, updated.guestId)).for("update");
+            if (guest) {
+              const guestPaid = parseFloat(guest.paidAmount || "0");
+              const newGuestPaid = guestPaid + paymentAmount;
+              const guestSubtotal = parseFloat(guest.subtotal || "0");
+              await tx.update(tableGuests).set({
+                paidAmount: newGuestPaid.toFixed(2),
+                status: newGuestPaid >= guestSubtotal - 0.01 ? "pago" : guest.status
+              }).where(eq(tableGuests.id, updated.guestId));
+            }
+          }
           if (userId) {
             const saleCategoryResults = await tx.select().from(financialCategories).where(and(
               eq(financialCategories.restaurantId, restaurantId),
@@ -9296,6 +9406,109 @@ var init_storage = __esm({
       }
       async deleteCoupon(id, restaurantId) {
         await db.delete(coupons).where(and(eq(coupons.id, id), eq(coupons.restaurantId, restaurantId)));
+      }
+      // ============================================================================
+      // SERVICE OPERATIONS
+      // ============================================================================
+      async getServices(restaurantId, branchId) {
+        let conditions = [eq(services.restaurantId, restaurantId)];
+        if (branchId !== void 0 && branchId !== null) {
+          conditions.push(or(eq(services.branchId, branchId), isNull(services.branchId)));
+        }
+        return await db.select().from(services).where(and(...conditions)).orderBy(services.displayOrder, desc(services.createdAt));
+      }
+      async getServiceById(id, restaurantId) {
+        const [service] = await db.select().from(services).where(and(eq(services.id, id), eq(services.restaurantId, restaurantId)));
+        return service;
+      }
+      async createService(restaurantId, branchId, data, userId) {
+        const [service] = await db.insert(services).values({
+          ...data,
+          restaurantId,
+          branchId,
+          createdBy: userId || null
+        }).returning();
+        return service;
+      }
+      async updateService(id, restaurantId, data) {
+        const updateData = { ...data, updatedAt: /* @__PURE__ */ new Date() };
+        const [updated] = await db.update(services).set(updateData).where(and(eq(services.id, id), eq(services.restaurantId, restaurantId))).returning();
+        return updated;
+      }
+      async deleteService(id, restaurantId) {
+        await db.delete(services).where(and(eq(services.id, id), eq(services.restaurantId, restaurantId)));
+      }
+      // ============================================================================
+      // TABLE STATUS MANAGEMENT
+      // ============================================================================
+      async updateTableStatus(tableId, newStatus) {
+        await db.update(tables).set({
+          tableStatus: newStatus,
+          lastActivity: /* @__PURE__ */ new Date()
+        }).where(eq(tables.id, tableId));
+      }
+      async autoUpdateTableStatusOnOrderCreated(tableId) {
+        const [table] = await db.select().from(tables).where(eq(tables.id, tableId));
+        if (table && table.tableStatus === "aguardando_pedido") {
+          await this.updateTableStatus(tableId, "em_consumo");
+        }
+      }
+      async autoUpdateTableStatusOnPayment(tableId) {
+        const [table] = await db.select().from(tables).where(eq(tables.id, tableId));
+        if (!table || !table.currentSessionId) return;
+        const [session2] = await db.select().from(tableSessions).where(eq(tableSessions.id, table.currentSessionId));
+        if (!session2) return;
+        const totalAmount = parseFloat(session2.totalAmount || "0");
+        const paidAmount = parseFloat(session2.paidAmount || "0");
+        if (paidAmount >= totalAmount && totalAmount > 0) {
+          await this.updateTableStatus(tableId, "disponivel");
+        } else if (paidAmount > 0 && paidAmount < totalAmount) {
+          await this.updateTableStatus(tableId, "pagamento_parcial");
+        }
+      }
+      async autoUpdateTableStatusOnSessionStart(tableId) {
+        await this.updateTableStatus(tableId, "aguardando_pedido");
+      }
+      async autoUpdateTableStatusOnSessionEnd(tableId) {
+        await this.updateTableStatus(tableId, "disponivel");
+      }
+      async getSessionPayments(sessionId) {
+        return await db.select().from(tablePayments).where(eq(tablePayments.sessionId, sessionId)).orderBy(desc(tablePayments.createdAt));
+      }
+      async getApplicableServices(restaurantId, branchId, orderType, orderValue) {
+        let conditions = [
+          eq(services.restaurantId, restaurantId),
+          eq(services.active, 1)
+        ];
+        if (branchId !== void 0 && branchId !== null) {
+          conditions.push(or(eq(services.branchId, branchId), isNull(services.branchId)));
+        }
+        const allServices = await db.select().from(services).where(and(...conditions)).orderBy(services.displayOrder);
+        return allServices.filter((service) => {
+          if (service.context !== "todos" && service.context !== orderType) {
+            return false;
+          }
+          if (service.minOrderValue && orderValue < parseFloat(service.minOrderValue)) {
+            return false;
+          }
+          return true;
+        });
+      }
+      async createOrderService(orderId, serviceId, restaurantId, serviceName, chargeType, value, calculatedAmount, userId) {
+        const [orderService] = await db.insert(orderServices).values({
+          orderId,
+          serviceId,
+          restaurantId,
+          serviceName,
+          chargeType,
+          value,
+          calculatedAmount,
+          appliedBy: userId || null
+        }).returning();
+        return orderService;
+      }
+      async getOrderServices(orderId) {
+        return await db.select().from(orderServices).where(eq(orderServices.orderId, orderId)).orderBy(orderServices.createdAt);
       }
       async validateCoupon(restaurantId, code, orderValue, orderType, customerId) {
         const coupon = await this.getCouponByCode(restaurantId, code);
@@ -12755,6 +12968,22 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Erro ao buscar restaurante" });
     }
   });
+  app2.get("/api/public/tables/:restaurantId/:number", async (req, res) => {
+    try {
+      const restaurantId = req.params.restaurantId;
+      const tableNumber = parseInt(req.params.number);
+      if (isNaN(tableNumber)) {
+        return res.status(400).json({ message: "N\xFAmero de mesa inv\xE1lido" });
+      }
+      const table = await storage.getTableByNumber(tableNumber, restaurantId);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
+      }
+      res.json(table);
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao buscar mesa" });
+    }
+  });
   app2.get("/api/public/tables/:number", async (req, res) => {
     try {
       const tableNumber = parseInt(req.params.number);
@@ -13513,7 +13742,7 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Erro ao buscar cupons do cliente" });
     }
   });
-  app2.get("/api/tables", isAdmin, checkSubscriptionStatus, async (req, res) => {
+  app2.get("/api/tables", isAdmin, async (req, res) => {
     try {
       const currentUser = req.user;
       if (!currentUser.restaurantId && currentUser.role !== "superadmin") {
@@ -13545,7 +13774,7 @@ async function registerRoutes(app2) {
       }
       const data = insertTableSchema.parse(req.body);
       const baseUrl = process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : `https://${req.hostname}`;
-      const qrCodeUrl = `${baseUrl}/mesa/${data.number}`;
+      const qrCodeUrl = `${baseUrl}/mesa/${data.number}?r=${restaurantId}`;
       const qrCode = await QRCode.toDataURL(qrCodeUrl, {
         width: 300,
         margin: 2
@@ -13675,6 +13904,7 @@ async function registerRoutes(app2) {
         customerCount
       });
       await storage.calculateTableTotal(restaurantId, req.params.id);
+      await storage.autoUpdateTableStatusOnSessionStart(req.params.id);
       broadcastToClients({ type: "table_session_started", data: session2 });
       res.json(session2);
     } catch (error) {
@@ -13689,6 +13919,7 @@ async function registerRoutes(app2) {
       }
       const restaurantId = currentUser.restaurantId;
       await storage.endTableSession(restaurantId, req.params.id);
+      await storage.autoUpdateTableStatusOnSessionEnd(req.params.id);
       const updatedTable = await storage.getTableById(req.params.id);
       broadcastToClients({ type: "table_session_ended", data: updatedTable });
       res.json({ success: true, table: updatedTable });
@@ -13706,12 +13937,153 @@ async function registerRoutes(app2) {
       if (currentUser.role === "waiter") {
         return res.status(403).json({ message: "Gar\xE7ons n\xE3o podem fechar mesas. Solicite ao caixa." });
       }
+      const table = await storage.getTableById(req.params.id);
+      if (!table || !table.currentSessionId) {
+        return res.status(400).json({ message: "Mesa n\xE3o possui sess\xE3o ativa" });
+      }
+      const guests = await storage.getTableGuests(table.currentSessionId);
+      const loyaltyProgram = await storage.getLoyaltyProgramByRestaurantId(restaurantId);
+      if (loyaltyProgram && loyaltyProgram.isActive) {
+        for (const guest of guests) {
+          if (guest.customerId && guest.subtotal && parseFloat(guest.subtotal) > 0) {
+            try {
+              const customer = await storage.getCustomerById(restaurantId, guest.customerId);
+              if (customer) {
+                const subtotalAmount = parseFloat(guest.subtotal);
+                const pointsPerCurrency = parseFloat(loyaltyProgram.pointsPerCurrency || "1");
+                const pointsEarned = Math.floor(subtotalAmount * pointsPerCurrency);
+                if (pointsEarned > 0) {
+                  await storage.createLoyaltyTransaction(restaurantId, {
+                    customerId: guest.customerId,
+                    orderId: null,
+                    type: "ganho",
+                    points: pointsEarned,
+                    description: `Pontos ganhos na Mesa ${table.number} - ${guest.name || "Cliente"}`,
+                    createdBy: currentUser.id
+                  });
+                  console.log(`\u2705 Awarded ${pointsEarned} loyalty points to customer ${customer.name} (ID: ${customer.id})`);
+                }
+              }
+            } catch (error) {
+              console.error(`\u274C Error awarding loyalty points to guest ${guest.id}:`, error);
+            }
+          }
+        }
+      }
       await storage.endTableSession(restaurantId, req.params.id);
       const updatedTable = await storage.getTableById(req.params.id);
       broadcastToClients({ type: "table_session_ended", data: updatedTable });
       res.json({ success: true, table: updatedTable });
     } catch (error) {
       res.status(500).json({ message: error.message || "Failed to close table session" });
+    }
+  });
+  app2.post("/api/orders/:id/full-checkout", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      const restaurantId = currentUser.restaurantId;
+      const orderId = req.params.id;
+      const fullCheckoutSchema = z2.object({
+        orderId: z2.string(),
+        discount: z2.string().optional(),
+        discountType: z2.enum(["valor", "percentual"]).optional(),
+        services: z2.array(z2.object({
+          serviceId: z2.string().optional().nullable(),
+          serviceName: z2.string(),
+          chargeType: z2.enum(["valor", "percentual"]),
+          value: z2.string(),
+          calculatedAmount: z2.string()
+        })).optional(),
+        deliveryFee: z2.string().optional(),
+        packagingFee: z2.string().optional(),
+        paymentAmount: z2.string().optional(),
+        paymentMethod: z2.string().optional(),
+        receivedAmount: z2.string().optional(),
+        closeSession: z2.boolean().optional(),
+        redeemLoyaltyPoints: z2.number().optional()
+      });
+      const {
+        discount,
+        discountType,
+        services: services2,
+        deliveryFee,
+        packagingFee,
+        paymentAmount,
+        paymentMethod,
+        receivedAmount,
+        closeSession,
+        redeemLoyaltyPoints
+      } = fullCheckoutSchema.parse(req.body);
+      const order = await storage.getOrderById(restaurantId, orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Pedido n\xE3o encontrado" });
+      }
+      if (redeemLoyaltyPoints && parseInt(redeemLoyaltyPoints) > 0) {
+        await storage.redeemLoyaltyPoints(restaurantId, orderId, parseInt(redeemLoyaltyPoints));
+      }
+      if (discount !== void 0) {
+        await storage.applyDiscount(restaurantId, orderId, discount, discountType || "valor");
+      }
+      if (services2 && services2.length > 0) {
+        for (const service of services2) {
+          await storage.createOrderService(
+            orderId,
+            service.serviceId || null,
+            restaurantId,
+            service.serviceName,
+            service.chargeType,
+            service.value,
+            service.calculatedAmount,
+            currentUser.id
+          );
+        }
+      }
+      if (deliveryFee !== void 0 && order.orderType === "delivery") {
+        await storage.applyDeliveryFee(restaurantId, orderId, deliveryFee);
+      }
+      if (packagingFee !== void 0) {
+        await storage.applyPackagingFee(restaurantId, orderId, packagingFee);
+      }
+      let updatedOrder = await storage.getOrderById(restaurantId, orderId);
+      if (paymentAmount && parseFloat(paymentAmount) > 0) {
+        updatedOrder = await storage.recordPayment(restaurantId, orderId, {
+          amount: paymentAmount,
+          paymentMethod: paymentMethod || "dinheiro",
+          receivedAmount
+        }, currentUser.id);
+      }
+      if (closeSession && order.tableId) {
+        await storage.endTableSession(restaurantId, order.tableId);
+      }
+      res.json(updatedOrder);
+    } catch (error) {
+      res.status(500).json({ message: error.message || "Erro no checkout completo" });
+    }
+  });
+  app2.post("/api/tables/:id/refund", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      const restaurantId = currentUser.restaurantId;
+      const tableId = req.params.id;
+      const { amount, reason } = req.body;
+      if (!amount || parseFloat(amount) <= 0) {
+        return res.status(400).json({ message: "Valor de reembolso inv\xE1lido" });
+      }
+      const table = await storage.getTableById(tableId);
+      if (!table || !table.currentSessionId) {
+        return res.status(404).json({ message: "Mesa ou sess\xE3o ativa n\xE3o encontrada" });
+      }
+      const payment = await storage.addTablePayment(restaurantId, {
+        tableId,
+        sessionId: table.currentSessionId,
+        amount: `-${amount}`,
+        paymentMethod: "dinheiro",
+        notes: `REEMBOLSO: ${reason || "N\xE3o especificado"}`
+      });
+      broadcastToClients({ type: "table_payment_refunded", data: { tableId, amount, reason } });
+      res.json({ success: true, payment });
+    } catch (error) {
+      res.status(500).json({ message: error.message || "Erro ao processar reembolso" });
     }
   });
   app2.post("/api/tables/:id/payment", isOperational, async (req, res) => {
@@ -13724,10 +14096,33 @@ async function registerRoutes(app2) {
         return res.status(403).json({ message: "Gar\xE7ons n\xE3o podem registrar pagamentos. Solicite ao caixa." });
       }
       const restaurantId = currentUser.restaurantId;
-      const { amount, paymentMethod, notes, receivedAmount } = req.body;
+      const { amount, paymentMethod, notes, receivedAmount, services: services2, discount, discountType } = req.body;
       const table = await storage.getTableById(req.params.id);
       if (!table) {
         return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
+      }
+      if (table.currentSessionId && (services2 || discount)) {
+        const orders2 = await storage.getOrdersBySessionId(restaurantId, table.currentSessionId);
+        for (const order of orders2) {
+          if (discount && parseFloat(discount) > 0) {
+            await storage.applyDiscount(restaurantId, order.id, discount, discountType || "valor");
+          }
+          if (services2 && services2.length > 0) {
+            for (const service of services2) {
+              await storage.createOrderService(
+                order.id,
+                service.serviceId || null,
+                restaurantId,
+                service.serviceName,
+                service.chargeType,
+                service.value,
+                service.calculatedAmount,
+                currentUser.id
+              );
+            }
+          }
+        }
+        await storage.calculateTableTotal(restaurantId, req.params.id);
       }
       const payment = await storage.addTablePayment(restaurantId, {
         tableId: req.params.id,
@@ -13736,9 +14131,11 @@ async function registerRoutes(app2) {
         paymentMethod,
         notes: receivedAmount ? `Valor recebido: ${receivedAmount}. ${notes || ""}` : notes
       });
+      await storage.autoUpdateTableStatusOnPayment(req.params.id);
       broadcastToClients({ type: "table_payment_added", data: payment });
       res.json(payment);
     } catch (error) {
+      console.error("Payment processing error:", error);
       res.status(500).json({ message: error.message || "Failed to record payment" });
     }
   });
@@ -13900,12 +14297,17 @@ async function registerRoutes(app2) {
       if (!currentUser.restaurantId && currentUser.role !== "superadmin") {
         return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
       }
+      const restaurantId = currentUser.restaurantId;
       const guest = await storage.getTableGuestById(req.params.guestId);
       if (!guest) {
         return res.status(404).json({ message: "Cliente n\xE3o encontrado" });
       }
       const { name, seatNumber, status } = req.body;
-      const updatedGuest = await storage.updateTableGuest(req.params.guestId, { name, seatNumber, status });
+      const updatedGuest = await storage.updateTableGuest(req.params.guestId, {
+        name,
+        seatNumber,
+        status
+      });
       broadcastToClients({ type: "guest_updated", data: { tableId: req.params.id, guest: updatedGuest } });
       res.json(updatedGuest);
     } catch (error) {
@@ -13937,16 +14339,27 @@ async function registerRoutes(app2) {
       }
       const orders2 = await storage.getOrdersByTableId(table.restaurantId, table.id);
       const guests = table.currentSessionId ? await storage.getTableGuests(table.currentSessionId) : [];
-      const ordersByGuest = guests.map((guest) => ({
-        guest,
-        orders: orders2.filter((order) => order.guestId === guest.id),
-        subtotal: orders2.filter((order) => order.guestId === guest.id && order.status !== "cancelado").reduce((sum, order) => sum + parseFloat(order.totalAmount), 0).toFixed(2)
-      }));
+      const ordersByGuest = guests.map((guest) => {
+        const guestOrders = orders2.filter((order) => order.guestId === guest.id && order.status !== "cancelado");
+        const subtotal = guestOrders.reduce((sum, order) => sum + parseFloat(order.totalAmount), 0);
+        console.log(`[DEBUG] Guest ${guest.name || guest.guestNumber} (${guest.id}):`, {
+          orderCount: guestOrders.length,
+          subtotal,
+          orders: guestOrders.map((o) => ({ id: o.id, amount: o.totalAmount }))
+        });
+        return {
+          guest,
+          orders: guestOrders,
+          subtotal: subtotal.toFixed(2)
+        };
+      });
       const anonymousOrders = orders2.filter((order) => !order.guestId);
+      const session2 = table.currentSessionId ? (await db.select().from(tableSessions).where(eq2(tableSessions.id, table.currentSessionId)).limit(1))[0] : null;
       res.json({
         ordersByGuest,
         anonymousOrders,
-        totalAmount: orders2.filter((o) => o.status !== "cancelado").reduce((sum, o) => sum + parseFloat(o.totalAmount), 0).toFixed(2)
+        totalAmount: orders2.filter((o) => o.status !== "cancelado").reduce((sum, o) => sum + parseFloat(o.totalAmount), 0).toFixed(2),
+        paidAmount: session2?.paidAmount || "0.00"
       });
     } catch (error) {
       res.status(500).json({ message: "Erro ao buscar pedidos por cliente" });
@@ -14733,7 +15146,7 @@ async function registerRoutes(app2) {
   app2.post("/api/orders", isAdmin, async (req, res) => {
     try {
       const currentUser = req.user;
-      const { items, ...orderData } = req.body;
+      let { items, ...orderData } = req.body;
       console.log("Creating order with data:", JSON.stringify({ orderData, items }, null, 2));
       if (currentUser.role !== "superadmin" && currentUser.restaurantId) {
         try {
@@ -14742,6 +15155,22 @@ async function registerRoutes(app2) {
           return res.status(403).json({
             message: error.message || "Limite de pedidos atingido"
           });
+        }
+      }
+      if (orderData.customerId) {
+        const customer = await storage.getCustomer(orderData.customerId);
+        if (customer) {
+          if (!orderData.discount && customer.defaultDiscount && parseFloat(customer.defaultDiscount) > 0) {
+            orderData.discount = customer.defaultDiscount;
+            orderData.discountType = customer.defaultDiscountType || "valor";
+          }
+          if (!orderData.serviceCharge && customer.defaultServiceCharge && parseFloat(customer.defaultServiceCharge) > 0) {
+            orderData.serviceCharge = customer.defaultServiceCharge;
+            orderData.serviceName = customer.defaultServiceName || "Taxa de Servi\xE7o";
+          }
+          if (!orderData.packagingFee && customer.defaultPackagingFee && parseFloat(customer.defaultPackagingFee) > 0) {
+            orderData.packagingFee = customer.defaultPackagingFee;
+          }
         }
       }
       const validatedOrder = insertOrderSchema.parse({
@@ -14758,6 +15187,9 @@ async function registerRoutes(app2) {
         ...validatedOrder,
         orderNumber
       }, validatedItems);
+      if (validatedOrder.tableId) {
+        await storage.autoUpdateTableStatusOnOrderCreated(validatedOrder.tableId);
+      }
       broadcastToClients({ type: "new_order", data: order });
       try {
         const kitchenPrinters = await storage.getActivePrintersByType(
@@ -17537,6 +17969,132 @@ async function registerRoutes(app2) {
     } catch (error) {
       console.error("Coupon usages fetch error:", error);
       res.status(500).json({ message: "Erro ao buscar usos de cupons" });
+    }
+  });
+  app2.get("/api/tables/:id/payments", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      if (!currentUser.restaurantId && currentUser.role !== "superadmin") {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      const table = await storage.getTableById(req.params.id);
+      if (!table || !table.currentSessionId) {
+        return res.json([]);
+      }
+      const payments = await storage.getSessionPayments(table.currentSessionId);
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching table payments:", error);
+      res.status(500).json({ message: "Erro ao buscar pagamentos" });
+    }
+  });
+  app2.get("/api/services", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      const services2 = await storage.getServices(
+        currentUser.restaurantId,
+        currentUser.activeBranchId
+      );
+      res.json(services2);
+    } catch (error) {
+      console.error("Services fetch error:", error);
+      res.status(500).json({ message: "Erro ao buscar servi\xE7os" });
+    }
+  });
+  app2.get("/api/services/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      const service = await storage.getServiceById(req.params.id, currentUser.restaurantId);
+      if (!service) {
+        return res.status(404).json({ message: "Servi\xE7o n\xE3o encontrado" });
+      }
+      res.json(service);
+    } catch (error) {
+      console.error("Service fetch error:", error);
+      res.status(500).json({ message: "Erro ao buscar servi\xE7o" });
+    }
+  });
+  app2.post("/api/services", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      const validatedData = insertServiceSchema.parse(req.body);
+      const service = await storage.createService(
+        currentUser.restaurantId,
+        currentUser.activeBranchId || null,
+        validatedData,
+        currentUser.id
+      );
+      res.status(201).json(service);
+    } catch (error) {
+      console.error("Service creation error:", error);
+      if (error instanceof z2.ZodError) {
+        return res.status(400).json({ message: "Dados inv\xE1lidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao criar servi\xE7o" });
+    }
+  });
+  app2.patch("/api/services/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      const service = await storage.updateService(
+        req.params.id,
+        currentUser.restaurantId,
+        req.body
+      );
+      res.json(service);
+    } catch (error) {
+      console.error("Service update error:", error);
+      if (error instanceof z2.ZodError) {
+        return res.status(400).json({ message: "Dados inv\xE1lidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao atualizar servi\xE7o" });
+    }
+  });
+  app2.delete("/api/services/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      await storage.deleteService(req.params.id, currentUser.restaurantId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Service deletion error:", error);
+      res.status(500).json({ message: "Erro ao excluir servi\xE7o" });
+    }
+  });
+  app2.post("/api/services/applicable", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      const { orderType, orderValue } = req.body;
+      if (!orderType || orderValue === void 0) {
+        return res.status(400).json({ message: "orderType e orderValue s\xE3o obrigat\xF3rios" });
+      }
+      const applicableServices = await storage.getApplicableServices(
+        currentUser.restaurantId,
+        currentUser.activeBranchId,
+        orderType,
+        parseFloat(orderValue)
+      );
+      res.json(applicableServices);
+    } catch (error) {
+      console.error("Applicable services fetch error:", error);
+      res.status(500).json({ message: "Erro ao buscar servi\xE7os aplic\xE1veis" });
     }
   });
   app2.get("/api/subscription-plans", async (req, res) => {

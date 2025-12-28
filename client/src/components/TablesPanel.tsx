@@ -34,7 +34,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { TableCard } from "@/components/TableCard";
-import { TableDetailsDialogNew as TableDetailsDialog } from "@/components/TableDetailsDialogNew";
+import { TableDetailsDialogPro as TableDetailsDialog } from '@/components/TableDetailsDialogPro';
 import type { Table } from "@shared/schema";
 
 export function TablesPanel() {

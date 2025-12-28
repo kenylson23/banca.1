@@ -44,6 +44,11 @@ export function PrintPayment({
   const thermalPrinter = getPrinterByType('receipt');
 
   const handlePrintThermal = async () => {
+    if (!transaction || !transaction.id) {
+      console.error('Cannot print payment: transaction or transaction.id is undefined');
+      return;
+    }
+
     setPrinting(true);
     try {
       const isIncome = transaction.type === 'receita';
@@ -97,6 +102,11 @@ export function PrintPayment({
   };
 
   const handlePrintBrowser = () => {
+    if (!transaction || !transaction.id) {
+      console.error('Cannot print payment: transaction or transaction.id is undefined');
+      return;
+    }
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -296,8 +306,8 @@ export function PrintPayment({
           <Button
             variant={variant}
             size={size}
-            disabled={printing}
-            data-testid={`button-print-payment-${transaction.id}`}
+            disabled={printing || !transaction || !transaction.id}
+            data-testid={transaction?.id ? `button-print-payment-${transaction.id}` : 'button-print-payment-disabled'}
             className="gap-1"
           >
             <Printer className="h-4 w-4" />
@@ -308,7 +318,7 @@ export function PrintPayment({
         <DropdownMenuContent align="end">
           <DropdownMenuItem
             onClick={handlePrintThermal}
-            data-testid={`menu-item-print-thermal-${transaction.id}`}
+            data-testid={transaction?.id ? `menu-item-print-thermal-${transaction.id}` : 'menu-item-print-thermal-disabled'}
           >
             <Printer className="h-4 w-4 mr-2" />
             Impressora Térmica
@@ -316,7 +326,7 @@ export function PrintPayment({
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={handlePrintBrowser}
-            data-testid={`menu-item-print-browser-${transaction.id}`}
+            data-testid={transaction?.id ? `menu-item-print-browser-${transaction.id}` : 'menu-item-print-browser-disabled'}
           >
             <Printer className="h-4 w-4 mr-2" />
             Impressão do Navegador
@@ -331,8 +341,8 @@ export function PrintPayment({
       variant={variant}
       size={size}
       onClick={handlePrintBrowser}
-      disabled={printing}
-      data-testid={`button-print-payment-${transaction.id}`}
+      disabled={printing || !transaction || !transaction.id}
+      data-testid={transaction?.id ? `button-print-payment-${transaction.id}` : 'button-print-payment-disabled'}
     >
       <Printer className={isIconOnly ? "h-4 w-4" : "h-4 w-4 mr-2"} />
       {!isIconOnly && "Imprimir Recibo"}

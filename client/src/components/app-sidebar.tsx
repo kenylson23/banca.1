@@ -196,6 +196,12 @@ const adminMenuItems: MenuItem[] = [
         path: "/coupons",
         icon: Tag,
       },
+      {
+        title: "Serviços e Taxas",
+        section: "services" as Section,
+        path: "/services",
+        icon: TrendingUp,
+      },
     ],
   },
   {
@@ -369,6 +375,12 @@ const managerMenuItems: MenuItem[] = [
         section: "coupons" as Section,
         path: "/coupons",
         icon: Tag,
+      },
+      {
+        title: "Serviços e Taxas",
+        section: "services" as Section,
+        path: "/services",
+        icon: TrendingUp,
       },
     ],
   },

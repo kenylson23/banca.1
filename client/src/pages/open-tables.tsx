@@ -20,7 +20,7 @@ import {
 import { TablesIcon } from '@/components/custom-icons';
 import { formatKwanza } from '@/lib/formatters';
 import { TableCheckoutDialog } from '@/components/tables/TableCheckoutDialog';
-import { TableDetailsDialogNew as TableDetailsDialog } from '@/components/TableDetailsDialogNew';
+import { TableDetailsDialogPro as TableDetailsDialog } from '@/components/TableDetailsDialogPro';
 import type { Table, Order, TableSession } from '@shared/schema';
 
 interface TableWithDetails extends Table {

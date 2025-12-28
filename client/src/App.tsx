@@ -22,6 +22,7 @@ const TrackOrder = lazy(() => import("@/pages/track-order"));
 const GuestRegister = lazy(() => import("@/pages/guest-register"));
 const MainDashboard = lazy(() => import("@/pages/main-dashboard"));
 const OrderDetail = lazy(() => import("@/pages/order-detail"));
+const TableCheckout = lazy(() => import("@/pages/table-checkout-v2"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 // Loading fallback component
@@ -169,6 +170,13 @@ function Router() {
             return <Redirect to="/" />;
           }} />
           
+          <Route path="/tables/:id/checkout" component={() => {
+            if (user?.role === 'admin' || user?.role === 'manager' || user?.role === 'cashier' || user?.role === 'waiter') {
+              return <TableCheckout />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
           <Route path="/financial/dashboard" component={() => {
             if (user?.role === 'admin') {
               return <MainDashboard section="financial-dashboard" />;
@@ -257,6 +265,13 @@ function Router() {
           <Route path="/coupons" component={() => {
             if (user?.role === 'admin') {
               return <MainDashboard section="coupons" />;
+            }
+            return <Redirect to="/" />;
+          }} />
+          
+          <Route path="/services" component={() => {
+            if (user?.role === 'admin') {
+              return <MainDashboard section="services" />;
             }
             return <Redirect to="/" />;
           }} />

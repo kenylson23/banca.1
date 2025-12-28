@@ -1306,7 +1306,7 @@ export default function OrderDetail() {
                       <CardTitle className="text-lg">Opções de Pagamento - Mesa</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <Tabs defaultValue="simple" className="w-full">
+                      <Tabs defaultValue={isCheckoutMode ? "split" : "simple"} className="w-full">
                         <TabsList className="grid w-full grid-cols-2">
                           <TabsTrigger value="simple">Pagamento Simples</TabsTrigger>
                           <TabsTrigger value="split">Divisão de Conta</TabsTrigger>
@@ -1332,6 +1332,7 @@ export default function OrderDetail() {
                             tableId={tableIdFromUrl}
                             sessionId={order.tableSessionId || undefined}
                             totalAmount={Number(order.totalAmount)}
+                            initialGuestId={guestIdFromUrl}
                           />
                         </TabsContent>
                       </Tabs>

@@ -555,6 +555,16 @@ export type PrintHistory = typeof printHistory.$inferSelect;
 // Table Status Enum
 export const tableStatusEnum = pgEnum('table_status', ['livre', 'ocupada', 'em_andamento', 'aguardando_pagamento', 'encerrada']);
 
+// Granular table status enum for better state management
+export const tableStatusGranularEnum = pgEnum('table_status_enum', [
+  'disponivel',
+  'aguardando_pedido',
+  'em_consumo',
+  'aguardando_pgto',
+  'pagamento_parcial',
+  'reservada'
+]);
+
 // Tables - Mesas do restaurante
 export const tables = pgTable("tables", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -565,6 +575,7 @@ export const tables = pgTable("tables", {
   area: varchar("area", { length: 100 }), // Área da mesa (ex: "Salão Principal", "Terraço", "VIP")
   qrCode: text("qr_code").notNull(),
   status: tableStatusEnum("status").notNull().default('livre'),
+  tableStatus: tableStatusGranularEnum("table_status").default('disponivel'),
   currentSessionId: varchar("current_session_id"),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).default('0'),
   customerName: varchar("customer_name", { length: 200 }),
@@ -1489,6 +1500,92 @@ export const insertOrderAdjustmentSchema = createInsertSchema(orderAdjustments).
 
 export type InsertOrderAdjustment = z.infer<typeof insertOrderAdjustmentSchema>;
 export type OrderAdjustment = typeof orderAdjustments.$inferSelect;
+
+// Service Charge Type Enum
+export const serviceChargeTypeEnum = pgEnum('service_charge_type', ['valor', 'percentual']);
+
+// Service Context Enum (onde o serviço pode ser aplicado)
+export const serviceContextEnum = pgEnum('service_context', ['todos', 'mesa', 'delivery', 'takeout', 'balcao', 'pdv']);
+
+// Services - Serviços e Taxas configuráveis
+export const services = pgTable("services", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  name: varchar("name", { length: 100 }).notNull(), // ex: "Taxa de Garçom", "Couvert Artístico"
+  description: text("description"), // descrição do serviço
+  chargeType: serviceChargeTypeEnum("charge_type").notNull().default('percentual'),
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(), // valor ou percentual
+  applyAutomatically: integer("apply_automatically").notNull().default(0), // 1 = sim, 0 = não
+  context: serviceContextEnum("context").notNull().default('todos'), // onde aplicar
+  minOrderValue: decimal("min_order_value", { precision: 10, scale: 2 }), // valor mínimo para aplicar
+  active: integer("active").notNull().default(1), // 1 = ativo, 0 = inativo
+  displayOrder: integer("display_order").notNull().default(0), // ordem de exibição
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_services_restaurant_id").on(table.restaurantId),
+  index("idx_services_branch_id").on(table.branchId),
+  index("idx_services_active").on(table.active),
+]);
+
+export const insertServiceSchema = createInsertSchema(services).omit({
+  id: true,
+  restaurantId: true,
+  branchId: true,
+  createdBy: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Nome é obrigatório").max(100),
+  description: z.string().optional().nullable(),
+  chargeType: z.enum(['valor', 'percentual']),
+  value: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
+  applyAutomatically: z.number().int().min(0).max(1).default(0),
+  context: z.enum(['todos', 'mesa', 'delivery', 'takeout', 'balcao', 'pdv']).default('todos'),
+  minOrderValue: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido").optional().nullable(),
+  active: z.number().int().min(0).max(1).default(1),
+  displayOrder: z.number().int().default(0),
+});
+
+export type InsertService = z.infer<typeof insertServiceSchema>;
+export type Service = typeof services.$inferSelect;
+
+// Order Services - Serviços aplicados em pedidos
+export const orderServices = pgTable("order_services", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  serviceId: varchar("service_id").references(() => services.id, { onDelete: 'set null' }), // pode ser null se foi manual
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  serviceName: varchar("service_name", { length: 100 }).notNull(), // guarda o nome para histórico
+  chargeType: serviceChargeTypeEnum("charge_type").notNull(),
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(), // valor usado no momento
+  calculatedAmount: decimal("calculated_amount", { precision: 10, scale: 2 }).notNull(), // valor calculado final
+  appliedBy: varchar("applied_by").references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_order_services_order_id").on(table.orderId),
+  index("idx_order_services_service_id").on(table.serviceId),
+  index("idx_order_services_restaurant_id").on(table.restaurantId),
+]);
+
+export const insertOrderServiceSchema = createInsertSchema(orderServices).omit({
+  id: true,
+  restaurantId: true,
+  appliedBy: true,
+  createdAt: true,
+}).extend({
+  orderId: z.string().min(1, "Pedido é obrigatório"),
+  serviceId: z.string().optional().nullable(),
+  serviceName: z.string().min(1, "Nome do serviço é obrigatório").max(100),
+  chargeType: z.enum(['valor', 'percentual']),
+  value: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
+  calculatedAmount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
+});
+
+export type InsertOrderService = z.infer<typeof insertOrderServiceSchema>;
+export type OrderService = typeof orderServices.$inferSelect;
 
 // Payment Events - Eventos de pagamento detalhados
 export const paymentEvents = pgTable("payment_events", {

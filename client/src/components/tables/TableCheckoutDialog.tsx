@@ -23,7 +23,7 @@ interface TableCheckoutDialogProps {
   onOpenChange: (open: boolean) => void;
   table: Table | null;
   onCheckoutComplete?: () => void;
-  initialMode?: 'simple' | 'by_guest' | 'advanced';
+  initialMode?: 'simple' | 'by_guest';
 }
 
 interface TableGuest {
@@ -43,22 +43,21 @@ interface OrdersByGuest {
   subtotal: string;
 }
 
-export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutComplete }: TableCheckoutDialogProps) {
+export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutComplete, initialMode }: TableCheckoutDialogProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [checkoutMode, setCheckoutMode] = useState<'simple' | 'by_guest' | 'advanced'>('simple');
+  const [checkoutMode, setCheckoutMode] = useState<'simple' | 'by_guest'>('simple');
   const [splitEqually, setSplitEqually] = useState(false);
   const [numberOfPeople, setNumberOfPeople] = useState(2);
   const [payingGuests, setPayingGuests] = useState<Record<string, boolean>>({});
   
-  // Advanced checkout fields
-  const [discountValue, setDiscountValue] = useState('0');
-  const [discountType, setDiscountType] = useState<'valor' | 'percentual'>('valor');
-  const [serviceCharge, setServiceCharge] = useState('0');
-  const [deliveryFee, setDeliveryFee] = useState('0');
-  const [packagingFee, setPackagingFee] = useState('0');
-  const [redeemPoints, setRedeemPoints] = useState(false);
-  const [pointsToRedeem, setPointsToRedeem] = useState('0');
+  // Guest adjustments - store per guest
+  const [guestAdjustments, setGuestAdjustments] = useState<Record<string, {
+    discountValue: string;
+    discountType: 'valor' | 'percentual';
+    serviceCharge: string;
+    showAdjustments: boolean;
+  }>>({});
 
   const totalAmount = parseFloat(table?.totalAmount || '0');
 
@@ -78,27 +77,22 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
   const tablePaidAmount = parseFloat(ordersData?.paidAmount || '0');
   const remainingTotal = totalAmount - tablePaidAmount;
 
-  // Calculate adjusted total for advanced checkout
-  const calculateAdjustedTotal = () => {
-    let adjusted = totalAmount;
-    const discount = parseFloat(discountValue) || 0;
-    const serviceChargeVal = parseFloat(serviceCharge) || 0;
-    const deliveryVal = parseFloat(deliveryFee) || 0;
-    const packagingVal = parseFloat(packagingFee) || 0;
+  // Calculate adjusted total for a guest
+  const calculateGuestAdjustedTotal = (guestId: string, baseAmount: number) => {
+    const adjustments = guestAdjustments[guestId];
+    if (!adjustments) return baseAmount;
     
-    if (discountType === 'percentual') {
+    let adjusted = baseAmount;
+    const discount = parseFloat(adjustments.discountValue) || 0;
+    const serviceChargeVal = parseFloat(adjustments.serviceCharge) || 0;
+    
+    if (adjustments.discountType === 'percentual') {
       adjusted -= (adjusted * discount) / 100;
     } else {
       adjusted -= discount;
     }
     
-    adjusted += serviceChargeVal + deliveryVal + packagingVal;
-    
-    if (redeemPoints) {
-      const points = parseInt(pointsToRedeem) || 0;
-      // Assume 1 point = 1 unit of currency for now, or use restaurant config
-      adjusted -= points;
-    }
+    adjusted += serviceChargeVal;
     
     return Math.max(0, adjusted);
   };
@@ -110,13 +104,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
       setSplitEqually(false);
       setNumberOfPeople(2);
       setPayingGuests({});
-      setDiscountValue('0');
-      setDiscountType('valor');
-      setServiceCharge('0');
-      setDeliveryFee('0');
-      setPackagingFee('0');
-      setRedeemPoints(false);
-      setPointsToRedeem('0');
+      setGuestAdjustments({});
     }
   }, [open, initialMode]);
 
@@ -220,7 +208,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
     }
   };
 
-  // Handle guest payment
+  // Handle guest payment with adjustments
   const handleGuestPayment = async (guestId: string, paymentMethod: string) => {
     if (!table) return;
 
@@ -228,15 +216,37 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
       const guestData = ordersByGuest.find(og => og.guest.id === guestId);
       if (!guestData) return;
 
-      // In the future, we could allow individual adjustments here
-      // For now, we use the simple subtotal
-      const amountToPay = (guestData.subtotal || "0");
+      const baseAmount = parseFloat(guestData.subtotal || '0');
+      const adjustments = guestAdjustments[guestId];
+      
+      // If has adjustments, use full checkout endpoint
+      if (adjustments && (parseFloat(adjustments.discountValue) > 0 || parseFloat(adjustments.serviceCharge) > 0)) {
+        const adjustedAmount = calculateGuestAdjustedTotal(guestId, baseAmount);
+        const mainOrder = guestData.orders[0];
+        
+        if (!mainOrder) {
+          toast({ title: 'Erro', description: 'Nenhum pedido encontrado.', variant: 'destructive' });
+          return;
+        }
 
-      await recordPaymentMutation.mutateAsync({
-        tableId: table.id,
-        amount: amountToPay,
-        paymentMethod,
-      });
+        await fullCheckoutMutation.mutateAsync({
+          orderId: mainOrder.id,
+          discount: adjustments.discountValue,
+          discountType: adjustments.discountType,
+          serviceCharge: adjustments.serviceCharge,
+          paymentAmount: adjustedAmount.toFixed(2),
+          paymentMethod,
+          closeSession: false,
+          guestId: guestId,
+        });
+      } else {
+        // Simple payment without adjustments
+        await recordPaymentMutation.mutateAsync({
+          tableId: table.id,
+          amount: baseAmount.toFixed(2),
+          paymentMethod,
+        });
+      }
 
       // Update paying guests state for UI
       setPayingGuests(prev => ({ ...prev, [guestId]: true }));
@@ -258,6 +268,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
       discountType?: 'valor' | 'percentual';
       serviceCharge?: string;
       deliveryFee?: string;
+      guestId?: string;
       packagingFee?: string;
       paymentAmount?: string;
       paymentMethod?: string;
@@ -267,11 +278,21 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
     }) => {
       return apiRequest('POST', `/api/orders/${data.orderId}/full-checkout`, data);
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tables/open'] });
-      toast({ title: 'Checkout concluído', description: 'Ajustes e pagamento processados com sucesso.' });
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table?.id}/orders-by-guest`] });
+      
+      const message = variables.guestId 
+        ? 'Pagamento do cliente processado com sucesso.'
+        : 'Mesa fechada com sucesso.';
+      
+      toast({ 
+        title: 'Checkout concluído', 
+        description: message
+      });
+      
       onOpenChange(false);
       onCheckoutComplete?.();
     },
@@ -283,28 +304,6 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
       });
     },
   });
-
-  // Handle advanced checkout
-  const handleAdvancedCheckout = async () => {
-    const mainOrder = ordersByGuest.flatMap(g => g.orders)[0] || ordersData?.anonymousOrders?.[0];
-    if (!mainOrder) {
-      toast({ title: 'Erro', description: 'Nenhum pedido encontrado para ajustar.', variant: 'destructive' });
-      return;
-    }
-
-    await fullCheckoutMutation.mutateAsync({
-      orderId: mainOrder.id,
-      discount: discountValue,
-      discountType,
-      serviceCharge,
-      deliveryFee,
-      packagingFee,
-      paymentAmount: calculateAdjustedTotal().toFixed(2),
-      paymentMethod: 'dinheiro',
-      closeSession: true,
-      redeemLoyaltyPoints: redeemPoints ? parseInt(pointsToRedeem) : undefined
-    });
-  };
 
   const isProcessing = recordPaymentMutation.isPending || closeSessionMutation.isPending || fullCheckoutMutation.isPending;
 
@@ -358,8 +357,8 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
             </Card>
 
             {/* Checkout Modes */}
-            <Tabs value={checkoutMode} onValueChange={(v) => setCheckoutMode(v as 'simple' | 'by_guest' | 'advanced')}>
-              <TabsList className="grid w-full grid-cols-3">
+            <Tabs value={checkoutMode} onValueChange={(v) => setCheckoutMode(v as 'simple' | 'by_guest')}>
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="simple" data-testid="tab-simple-payment">
                   <Receipt className="w-4 h-4 mr-2" />
                   Pagamento Único
@@ -367,10 +366,6 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
                 <TabsTrigger value="by_guest" data-testid="tab-guest-payment">
                   <Users className="w-4 h-4 mr-2" />
                   Por Cliente
-                </TabsTrigger>
-                <TabsTrigger value="advanced" data-testid="tab-advanced-payment">
-                  <Tag className="w-4 h-4 mr-2" />
-                  Ajustes
                 </TabsTrigger>
               </TabsList>
 
@@ -472,6 +467,13 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
                           })) || []}
                           onPay={handleGuestPayment}
                           isPaying={isProcessing}
+                          adjustments={guestAdjustments[guestData.guest.id]}
+                          onAdjustmentsChange={(guestId, newAdjustments) => {
+                            setGuestAdjustments(prev => ({
+                              ...prev,
+                              [guestId]: newAdjustments
+                            }));
+                          }}
                         />
                       ))}
                     </div>
@@ -490,166 +492,6 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
                     </Card>
                   </>
                 )}
-              </TabsContent>
-
-              {/* Advanced Adjustments Mode */}
-              <TabsContent value="advanced" className="space-y-4">
-                <Card className="border-blue-200 bg-blue-50/30 dark:bg-blue-950/20">
-                  <CardContent className="pt-6 space-y-4">
-                    {/* Breakdown */}
-                    <div className="bg-white dark:bg-slate-950 p-4 rounded-lg space-y-2 text-sm">
-                      <div className="flex justify-between font-medium">
-                        <span>Subtotal:</span>
-                        <span>{formatKwanza(totalAmount)}</span>
-                      </div>
-                      
-                      {(parseFloat(discountValue) || 0) > 0 && (
-                        <div className="flex justify-between text-green-600">
-                          <span>Desconto ({discountType === 'percentual' ? discountValue + '%' : ''})</span>
-                          <span>-{formatKwanza(
-                            discountType === 'percentual' 
-                              ? (totalAmount * parseFloat(discountValue)) / 100 
-                              : parseFloat(discountValue)
-                          )}</span>
-                        </div>
-                      )}
-                      
-                      {(parseFloat(serviceCharge) || 0) > 0 && (
-                        <div className="flex justify-between text-orange-600">
-                          <span>Taxa de Serviço</span>
-                          <span>+{formatKwanza(parseFloat(serviceCharge))}</span>
-                        </div>
-                      )}
-                      
-                      {(parseFloat(deliveryFee) || 0) > 0 && (
-                        <div className="flex justify-between text-orange-600">
-                          <span>Taxa de Entrega</span>
-                          <span>+{formatKwanza(parseFloat(deliveryFee))}</span>
-                        </div>
-                      )}
-                      
-                      {(parseFloat(packagingFee) || 0) > 0 && (
-                        <div className="flex justify-between text-orange-600">
-                          <span>Taxa de Embalagem</span>
-                          <span>+{formatKwanza(parseFloat(packagingFee))}</span>
-                        </div>
-                      )}
-                      
-                      <Separator className="my-2" />
-                      
-                      <div className="flex justify-between font-bold text-lg">
-                        <span>Total Final:</span>
-                        <span className="text-green-600">{formatKwanza(calculateAdjustedTotal())}</span>
-                      </div>
-                    </div>
-
-                    {/* Loyalty Points Redemption */}
-                    <Card className="border-purple-200 bg-purple-50/30 dark:bg-purple-950/20">
-                      <CardContent className="pt-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Tag className="w-4 h-4 text-purple-600" />
-                            <Label className="font-medium">Resgatar Pontos</Label>
-                          </div>
-                          <Switch
-                            checked={redeemPoints}
-                            onCheckedChange={setRedeemPoints}
-                          />
-                        </div>
-                        {redeemPoints && (
-                          <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                            <Label className="text-sm">Pontos a resgatar</Label>
-                            <Input
-                              type="number"
-                              value={pointsToRedeem}
-                              onChange={(e) => setPointsToRedeem(e.target.value)}
-                              placeholder="0"
-                              className="h-9"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              1 ponto = {formatKwanza(1)} de desconto
-                            </p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    {/* Adjustment Fields */}
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                          <Percent className="w-4 h-4" />
-                          Desconto
-                        </Label>
-                        <div className="flex gap-2">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={discountValue}
-                            onChange={(e) => setDiscountValue(e.target.value)}
-                            placeholder="0.00"
-                            className="flex-1"
-                            data-testid="input-discount"
-                          />
-                          <select 
-                            value={discountType} 
-                            onChange={(e) => setDiscountType(e.target.value as 'valor' | 'percentual')}
-                            className="px-3 py-2 border border-gray-200 rounded-md"
-                            data-testid="select-discount-type"
-                          >
-                            <option value="valor">Valor</option>
-                            <option value="percentual">%</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Taxa de Serviço</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={serviceCharge}
-                          onChange={(e) => setServiceCharge(e.target.value)}
-                          placeholder="0.00"
-                          data-testid="input-service-charge"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Taxa de Entrega</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={deliveryFee}
-                          onChange={(e) => setDeliveryFee(e.target.value)}
-                          placeholder="0.00"
-                          data-testid="input-delivery-fee"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Taxa de Embalagem</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={packagingFee}
-                          onChange={(e) => setPackagingFee(e.target.value)}
-                          placeholder="0.00"
-                          data-testid="input-packaging-fee"
-                        />
-                      </div>
-                    </div>
-
-                    <Button 
-                      className="w-full h-12 text-base"
-                      onClick={handleAdvancedCheckout}
-                      disabled={isProcessing}
-                      data-testid="button-apply-adjustments"
-                    >
-                      {isProcessing ? 'Processando...' : 'Aplicar Ajustes e Pagar'}
-                    </Button>
-                  </CardContent>
-                </Card>
               </TabsContent>
             </Tabs>
           </div>

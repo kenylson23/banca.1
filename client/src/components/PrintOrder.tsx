@@ -17,6 +17,11 @@ export function PrintOrder({ order, restaurantName = 'NaBancada', variant = 'out
   const isIconOnly = size === 'icon';
 
   const handlePrint = () => {
+    if (!order || !order.id) {
+      console.error('Cannot print: order or order.id is undefined');
+      return;
+    }
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -248,7 +253,8 @@ export function PrintOrder({ order, restaurantName = 'NaBancada', variant = 'out
       variant={variant}
       size={size}
       onClick={handlePrint}
-      data-testid={`button-print-order-${order.id}`}
+      disabled={!order || !order.id}
+      data-testid={order?.id ? `button-print-order-${order.id}` : 'button-print-order-disabled'}
     >
       <Printer className={isIconOnly ? "h-4 w-4" : "h-4 w-4 mr-2"} />
       {!isIconOnly && "Imprimir"}

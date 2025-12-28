@@ -180,6 +180,7 @@ import {
   insertLoyaltyProgramSchema,
   insertCouponSchema,
   updateCouponSchema,
+  insertServiceSchema,
   resetRestaurantAdminCredentialsSchema,
   insertSubscriptionSchema,
   updateSubscriptionSchema,
@@ -3694,6 +3695,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.calculateTableTotal(restaurantId, req.params.id);
       
+      // Auto-update table status
+      await storage.autoUpdateTableStatusOnSessionStart(req.params.id);
+      
       broadcastToClients({ type: 'table_session_started', data: session });
       
       res.json(session);
@@ -3712,6 +3716,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const restaurantId = currentUser.restaurantId!;
       
       await storage.endTableSession(restaurantId, req.params.id);
+      
+      // Auto-update table status
+      await storage.autoUpdateTableStatusOnSessionEnd(req.params.id);
       
       const updatedTable = await storage.getTableById(req.params.id);
       broadcastToClients({ type: 'table_session_ended', data: updatedTable });
@@ -3802,7 +3809,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         orderId: z.string(),
         discount: z.string().optional(),
         discountType: z.enum(['valor', 'percentual']).optional(),
-        serviceCharge: z.string().optional(),
+        services: z.array(z.object({
+          serviceId: z.string().optional().nullable(),
+          serviceName: z.string(),
+          chargeType: z.enum(['valor', 'percentual']),
+          value: z.string(),
+          calculatedAmount: z.string(),
+        })).optional(),
         deliveryFee: z.string().optional(),
         packagingFee: z.string().optional(),
         paymentAmount: z.string().optional(),
@@ -3815,7 +3828,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const {
         discount,
         discountType,
-        serviceCharge,
+        services,
         deliveryFee,
         packagingFee,
         paymentAmount,
@@ -3839,9 +3852,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (discount !== undefined) {
         await storage.applyDiscount(restaurantId, orderId, discount, discountType || 'valor');
       }
-      if (serviceCharge !== undefined) {
-        await storage.applyServiceCharge(restaurantId, orderId, serviceCharge);
+      
+      // Apply services if provided
+      if (services && services.length > 0) {
+        for (const service of services) {
+          await storage.createOrderService(
+            orderId,
+            service.serviceId || null,
+            restaurantId,
+            service.serviceName,
+            service.chargeType,
+            service.value,
+            service.calculatedAmount,
+            currentUser.id
+          );
+        }
       }
+      
       if (deliveryFee !== undefined && order.orderType === 'delivery') {
         await storage.applyDeliveryFee(restaurantId, orderId, deliveryFee);
       }
@@ -3918,11 +3945,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const restaurantId = currentUser.restaurantId!;
-      const { amount, paymentMethod, notes, receivedAmount } = req.body;
+      const { amount, paymentMethod, notes, receivedAmount, services, discount, discountType } = req.body;
       
       const table = await storage.getTableById(req.params.id);
       if (!table) {
         return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+
+      // Get all orders from the current session to apply services and discounts
+      if (table.currentSessionId && (services || discount)) {
+        const orders = await storage.getOrdersBySessionId(restaurantId, table.currentSessionId);
+        
+        for (const order of orders) {
+          // Apply discount if provided
+          if (discount && parseFloat(discount) > 0) {
+            await storage.applyDiscount(restaurantId, order.id, discount, discountType || 'valor');
+          }
+          
+          // Apply services if provided
+          if (services && services.length > 0) {
+            for (const service of services) {
+              await storage.createOrderService(
+                order.id,
+                service.serviceId || null,
+                restaurantId,
+                service.serviceName,
+                service.chargeType,
+                service.value,
+                service.calculatedAmount,
+                currentUser.id
+              );
+            }
+          }
+        }
+        
+        // Recalculate table total after applying discounts and services
+        await storage.calculateTableTotal(restaurantId, req.params.id);
       }
       
       const payment = await storage.addTablePayment(restaurantId, {
@@ -3933,10 +3991,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: receivedAmount ? `Valor recebido: ${receivedAmount}. ${notes || ''}` : notes,
       });
       
+      // Auto-update table status based on payment
+      await storage.autoUpdateTableStatusOnPayment(req.params.id);
+      
       broadcastToClients({ type: 'table_payment_added', data: payment });
       
       res.json(payment);
     } catch (error: any) {
+      console.error('Payment processing error:', error);
       res.status(500).json({ message: error.message || "Failed to record payment" });
     }
   });
@@ -5283,6 +5345,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...validatedOrder,
         orderNumber
       }, validatedItems);
+      
+      // Auto-update table status if order is for a table
+      if (validatedOrder.tableId) {
+        await storage.autoUpdateTableStatusOnOrderCreated(validatedOrder.tableId);
+      }
       
       // Broadcast new order to WebSocket clients
       broadcastToClients({ type: 'new_order', data: order });
@@ -8637,6 +8704,169 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Erro ao buscar usos de cupons" });
     }
   });
+
+  // ============================================================================
+  // TABLE PAYMENTS ROUTES - Buscar pagamentos de mesa/sessão
+  // ============================================================================
+
+  // Get payments for a table
+  app.get("/api/tables/:id/payments", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const table = await storage.getTableById(req.params.id);
+      if (!table || !table.currentSessionId) {
+        return res.json([]);
+      }
+
+      const payments = await storage.getSessionPayments(table.currentSessionId);
+      res.json(payments);
+    } catch (error: any) {
+      console.error('Error fetching table payments:', error);
+      res.status(500).json({ message: "Erro ao buscar pagamentos" });
+    }
+  });
+
+  // ============================================================================
+  // SERVICES ROUTES - Configuração de Serviços e Taxas
+  // ============================================================================
+
+  // Get all services
+  app.get("/api/services", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const services = await storage.getServices(
+        currentUser.restaurantId,
+        currentUser.activeBranchId
+      );
+      res.json(services);
+    } catch (error: any) {
+      console.error('Services fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar serviços" });
+    }
+  });
+
+  // Get service by ID
+  app.get("/api/services/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const service = await storage.getServiceById(req.params.id, currentUser.restaurantId);
+      if (!service) {
+        return res.status(404).json({ message: "Serviço não encontrado" });
+      }
+      res.json(service);
+    } catch (error) {
+      console.error('Service fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar serviço" });
+    }
+  });
+
+  // Create service
+  app.post("/api/services", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const validatedData = insertServiceSchema.parse(req.body);
+
+      const service = await storage.createService(
+        currentUser.restaurantId,
+        currentUser.activeBranchId || null,
+        validatedData,
+        currentUser.id
+      );
+      res.status(201).json(service);
+    } catch (error: any) {
+      console.error('Service creation error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao criar serviço" });
+    }
+  });
+
+  // Update service
+  app.patch("/api/services/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const service = await storage.updateService(
+        req.params.id,
+        currentUser.restaurantId,
+        req.body
+      );
+      res.json(service);
+    } catch (error: any) {
+      console.error('Service update error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
+      }
+      res.status(500).json({ message: "Erro ao atualizar serviço" });
+    }
+  });
+
+  // Delete service
+  app.delete("/api/services/:id", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      await storage.deleteService(req.params.id, currentUser.restaurantId);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Service deletion error:', error);
+      res.status(500).json({ message: "Erro ao excluir serviço" });
+    }
+  });
+
+  // Get applicable services for an order
+  app.post("/api/services/applicable", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const { orderType, orderValue } = req.body;
+
+      if (!orderType || orderValue === undefined) {
+        return res.status(400).json({ message: "orderType e orderValue são obrigatórios" });
+      }
+
+      const applicableServices = await storage.getApplicableServices(
+        currentUser.restaurantId,
+        currentUser.activeBranchId,
+        orderType,
+        parseFloat(orderValue)
+      );
+      res.json(applicableServices);
+    } catch (error: any) {
+      console.error('Applicable services fetch error:', error);
+      res.status(500).json({ message: "Erro ao buscar serviços aplicáveis" });
+    }
+  });
+
+  // ============================================================================
+  // END SERVICES ROUTES
+  // ============================================================================
 
   // Subscription Plan routes
   app.get("/api/subscription-plans", async (req, res) => {

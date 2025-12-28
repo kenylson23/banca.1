@@ -91,6 +91,7 @@ interface BillSplitPanelProps {
   tableId: string;
   sessionId?: string;
   totalAmount: number;
+  initialGuestId?: string | null; // ID do cliente para focar automaticamente
 }
 
 const PAYMENT_METHODS = [
@@ -120,11 +121,11 @@ const getGuestStatusColor = (status: string) => {
   return colors[status] || 'bg-gray-500';
 };
 
-export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPanelProps) {
+export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId }: BillSplitPanelProps) {
   const { toast } = useToast();
   const [splitType, setSplitType] = useState<'igual' | 'por_pessoa' | 'personalizado'>('por_pessoa');
   const [splitCount, setSplitCount] = useState(2);
-  const [selectedGuest, setSelectedGuest] = useState<string | null>(null);
+  const [selectedGuest, setSelectedGuest] = useState<string | null>(initialGuestId || null);
   const [paymentMethod, setPaymentMethod] = useState('dinheiro');
   const [moveItemDialog, setMoveItemDialog] = useState<{
     open: boolean;
@@ -356,6 +357,21 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPan
           </Button>
         </div>
 
+        {/* Alert when specific guest is focused */}
+        {initialGuestId && ordersByGuest.find(og => og.guest.id === initialGuestId) && (
+          <Card className="border-blue-500/50 bg-blue-500/10">
+            <CardContent className="py-3">
+              <div className="flex items-center gap-2">
+                <UserCircle className="h-5 w-5 text-blue-500" />
+                <span className="font-medium text-blue-500">
+                  Checkout individual de: {ordersByGuest.find(og => og.guest.id === initialGuestId)?.guest.name || 
+                    `Cliente ${ordersByGuest.find(og => og.guest.id === initialGuestId)?.guest.guestNumber}`}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {guestsAwaitingBill.length > 0 && (
         <Card className="border-orange-500/50 bg-orange-500/10">
           <CardContent className="py-3">
@@ -482,7 +498,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPan
                         </div>
                       </div>
 
-                      {selectedGuest === guestData.guest.id && guestData.orders.length > 0 && (
+                      {selectedGuest === guestData.guest.id && guestData.orders && guestData.orders.length > 0 && (
                         <div className="mt-4 pt-4 border-t">
                           <div className="text-sm font-medium mb-3 flex items-center gap-2">
                             <span>Itens Consumidos:</span>
@@ -497,9 +513,9 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount }: BillSplitPan
                             disabled={guestData.guest.status === 'pago'}
                           >
                             <div className="space-y-1">
-                              {guestData.orders.map((order) => (
+                              {(guestData.orders || []).map((order) => (
                                 <div key={order.orderId}>
-                                  {order.items.map((item) => (
+                                  {(order.items || []).map((item) => (
                                     <DraggableOrderItem
                                       key={item.id}
                                       id={item.id}

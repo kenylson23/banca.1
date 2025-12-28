@@ -1,3 +1,4 @@
+import React from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -103,10 +104,9 @@ export function DataHeatmap({
 
                 {/* Days and cells */}
                 {DAYS.map((day, dayIdx) => (
-                  <>
+                  <React.Fragment key={day}>
                     {/* Day label */}
                     <div
-                      key={`label-${day}`}
                       className="text-xs font-medium text-muted-foreground flex items-center pr-2"
                     >
                       {day}
@@ -147,7 +147,7 @@ export function DataHeatmap({
                         </motion.div>
                       );
                     })}
-                  </>
+                  </React.Fragment>
                 ))}
               </div>
 

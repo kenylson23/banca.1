@@ -31,6 +31,7 @@ import Inventory from "./inventory";
 import Customers from "./customers";
 import Loyalty from "./loyalty";
 import Coupons from "./coupons";
+import Services from "./services";
 import PrinterSetup from "./printer-setup";
 import Subscription from "./subscription";
 import NotificationSettings from "./notification-settings";
@@ -62,6 +63,7 @@ export type Section =
   | "customers"
   | "loyalty"
   | "coupons"
+  | "services"
   | "printers"
   | "subscription"
   | "notification-settings";
@@ -136,6 +138,7 @@ export default function MainDashboard({ section }: MainDashboardProps) {
       customers: "Clientes",
       loyalty: "Programa de Fidelidade",
       coupons: "Cupons",
+      services: "Serviços e Taxas",
       printers: "Configuração de Impressoras",
       subscription: "Assinatura",
       "notification-settings": "Configurações de Notificação",
@@ -195,6 +198,8 @@ export default function MainDashboard({ section }: MainDashboardProps) {
         return <Loyalty />;
       case "coupons":
         return <Coupons />;
+      case "services":
+        return <Services />;
       case "printers":
         return <PrinterSetup />;
       case "subscription":
