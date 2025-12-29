@@ -1495,6 +1495,69 @@ export class DatabaseStorage implements IStorage {
     return session;
   }
 
+  // ✅ NOVO: Validar se a sessão pode ser fechada (todos pagaram)
+  async validateSessionClosure(sessionId: string): Promise<{
+    canClose: boolean;
+    totalPending: number;
+    unpaidGuests: Array<{ id: string; name: string; pending: number }>;
+    warnings: string[];
+  }> {
+    try {
+      const guests = await this.getTableGuests(sessionId);
+      const session = await db.select()
+        .from(tableSessions)
+        .where(eq(tableSessions.id, sessionId))
+        .then(rows => rows[0]);
+      
+      let totalPending = 0;
+      const unpaidGuests = [];
+      const warnings = [];
+      
+      for (const guest of guests) {
+        const subtotal = parseFloat(guest.subtotal || '0');
+        const paid = parseFloat(guest.paidAmount || '0');
+        const pending = subtotal - paid;
+        
+        if (pending > 0.01) { // Tolera 1 centavo de diferença
+          totalPending += pending;
+          unpaidGuests.push({
+            id: guest.id,
+            name: guest.name || `Convidado ${guest.guestNumber || '?'}`,
+            pending: parseFloat(pending.toFixed(2))
+          });
+        }
+      }
+      
+      // Verificar reconciliação com total da sessão
+      if (session) {
+        const sessionTotal = parseFloat(session.totalAmount || '0');
+        const sessionPaid = parseFloat(session.paidAmount || '0');
+        const sessionPending = sessionTotal - sessionPaid;
+        
+        if (Math.abs(sessionPending - totalPending) > 0.10) {
+          warnings.push(
+            `Diferença de reconciliação: ${Math.abs(sessionPending - totalPending).toFixed(2)} Kz entre sessão e guests`
+          );
+        }
+      }
+      
+      return {
+        canClose: totalPending <= 0,
+        totalPending: parseFloat(totalPending.toFixed(2)),
+        unpaidGuests,
+        warnings
+      };
+    } catch (error) {
+      console.error('[VALIDATE CLOSURE] Erro:', error);
+      return {
+        canClose: false,
+        totalPending: 0,
+        unpaidGuests: [],
+        warnings: ['Erro ao validar fechamento']
+      };
+    }
+  }
+
   async endTableSession(restaurantId: string, tableId: string): Promise<void> {
     const table = await this.getTableById(tableId);
     if (!table || !table.currentSessionId) {
@@ -1577,6 +1640,66 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(tablePayments)
       .where(and(...conditions))
       .orderBy(desc(tablePayments.createdAt));
+  }
+
+  // ✅ NOVO: Atualizar subtotal de um guest específico
+  async updateGuestSubtotal(guestId: string): Promise<void> {
+    try {
+      // Buscar todos os order items do guest
+      const items = await db.select({
+        orderItem: orderItems,
+        order: orders,
+      })
+        .from(orderItems)
+        .leftJoin(orders, eq(orderItems.orderId, orders.id))
+        .where(
+          and(
+            eq(orderItems.guestId, guestId),
+            // Apenas pedidos ativos (não cancelados)
+            or(
+              eq(orders.status, 'pendente'),
+              eq(orders.status, 'em_preparo'),
+              eq(orders.status, 'pronto'),
+              eq(orders.status, 'servido')
+            )
+          )
+        );
+      
+      // Calcular subtotal
+      const subtotal = items.reduce((sum, row) => {
+        if (row.orderItem) {
+          const itemTotal = parseFloat(row.orderItem.price) * row.orderItem.quantity;
+          return sum + itemTotal;
+        }
+        return sum;
+      }, 0);
+      
+      // Atualizar guest
+      await db.update(tableGuests)
+        .set({ 
+          subtotal: subtotal.toFixed(2),
+        })
+        .where(eq(tableGuests.id, guestId));
+      
+      console.log(`✅ [GUEST SUBTOTAL] Guest ${guestId} atualizado: ${subtotal.toFixed(2)} Kz`);
+    } catch (error) {
+      console.error(`❌ [GUEST SUBTOTAL] Erro ao atualizar guest ${guestId}:`, error);
+    }
+  }
+
+  // ✅ NOVO: Recalcular subtotais de todos os guests de uma sessão
+  async recalculateSessionSubtotals(sessionId: string): Promise<void> {
+    try {
+      const guests = await this.getTableGuests(sessionId);
+      
+      for (const guest of guests) {
+        await this.updateGuestSubtotal(guest.id);
+      }
+      
+      console.log(`✅ [SESSION SUBTOTALS] ${guests.length} guests atualizados na sessão ${sessionId}`);
+    } catch (error) {
+      console.error(`❌ [SESSION SUBTOTALS] Erro ao recalcular sessão ${sessionId}:`, error);
+    }
   }
 
   async calculateTableTotal(restaurantId: string, tableId: string): Promise<number> {
@@ -2115,6 +2238,21 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // ✅ NOVO: Atualizar subtotais dos guests envolvidos no pedido
+    const guestsToUpdate = new Set<string>();
+    for (const item of insertedItems) {
+      if (item.guestId) {
+        guestsToUpdate.add(item.guestId);
+      }
+    }
+    
+    if (guestsToUpdate.size > 0) {
+      console.log(`[ORDER CREATED] Atualizando subtotais de ${guestsToUpdate.size} guests`);
+      for (const guestId of guestsToUpdate) {
+        await this.updateGuestSubtotal(guestId);
+      }
+    }
+
     // Update table occupancy and recalculate total for table orders
     if (order.orderType === 'mesa' && order.tableId) {
       await this.updateTableOccupancy(restaurantId, order.tableId, true);
@@ -2216,6 +2354,18 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Cannot delete paid orders');
     }
 
+    // ✅ NOVO: Buscar guests afetados antes de deletar
+    const affectedItems = await db.select()
+      .from(orderItems)
+      .where(eq(orderItems.orderId, id));
+    
+    const guestsToUpdate = new Set<string>();
+    for (const item of affectedItems) {
+      if (item.guestId) {
+        guestsToUpdate.add(item.guestId);
+      }
+    }
+
     await db.delete(orderItemOptions).where(
       eq(orderItemOptions.orderItemId, 
         db.select({ id: orderItems.id }).from(orderItems).where(eq(orderItems.orderId, id)) as any
@@ -2224,6 +2374,14 @@ export class DatabaseStorage implements IStorage {
 
     await db.delete(orderItems).where(eq(orderItems.orderId, id));
     await db.delete(orders).where(eq(orders.id, id));
+
+    // ✅ NOVO: Atualizar subtotais dos guests afetados
+    if (guestsToUpdate.size > 0) {
+      console.log(`[ORDER DELETED] Atualizando subtotais de ${guestsToUpdate.size} guests`);
+      for (const guestId of guestsToUpdate) {
+        await this.updateGuestSubtotal(guestId);
+      }
+    }
 
     if (orderData.orders.tableId) {
       const remainingOrders = await db
@@ -9021,12 +9179,38 @@ export class DatabaseStorage implements IStorage {
 
   // ===== TABLE GUEST OPERATIONS =====
 
-  async getTableGuests(sessionId: string): Promise<TableGuest[]> {
-    return await db
-      .select()
-      .from(tableGuests)
-      .where(eq(tableGuests.sessionId, sessionId))
-      .orderBy(tableGuests.seatNumber);
+  async getTableGuests(sessionId: string): Promise<any[]> {
+    try {
+      // Tentar com LEFT JOIN (se colunas existirem)
+      const results = await db
+        .select({
+          guest: tableGuests,
+          customer: customers,
+        })
+        .from(tableGuests)
+        .leftJoin(customers, eq(tableGuests.customerId, customers.id))
+        .where(eq(tableGuests.sessionId, sessionId))
+        .orderBy(tableGuests.seatNumber);
+      
+      // Flatten structure: merge customer data into guest object
+      return results.map(row => ({
+        ...row.guest,
+        customer: row.customer || undefined,
+      }));
+    } catch (error: any) {
+      // Fallback: se der erro (colunas não existem), retornar sem JOIN
+      console.warn('[getTableGuests] LEFT JOIN falhou, usando fallback:', error.message);
+      const guests = await db
+        .select()
+        .from(tableGuests)
+        .where(eq(tableGuests.sessionId, sessionId))
+        .orderBy(tableGuests.seatNumber);
+      
+      return guests.map(guest => ({
+        ...guest,
+        customer: undefined, // Sem dados de customer
+      }));
+    }
   }
 
   async getTableGuestById(id: string): Promise<TableGuest | undefined> {

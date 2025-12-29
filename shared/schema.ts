@@ -745,7 +745,9 @@ export const tableGuests = pgTable("table_guests", {
   sessionId: varchar("session_id").notNull().references(() => tableSessions.id, { onDelete: 'cascade' }),
   tableId: varchar("table_id").notNull().references(() => tables.id, { onDelete: 'cascade' }),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: 'set null' }), // Vincula a cliente registrado (null = convidado anônimo)
   name: varchar("name", { length: 200 }),
+  guestNumber: integer("guest_number"), // Número sequencial para convidados anônimos (1, 2, 3...)
   seatNumber: integer("seat_number"),
   status: guestStatusEnum("status").notNull().default('ativo'),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default('0'),
@@ -767,14 +769,18 @@ export const insertTableGuestSchema = createInsertSchema(tableGuests).omit({
 }).extend({
   sessionId: z.string().min(1, "Sessão é obrigatória"),
   tableId: z.string().min(1, "Mesa é obrigatória"),
+  customerId: z.string().optional().nullable(),
   name: z.string().optional(),
+  guestNumber: z.number().int().positive().optional(),
   seatNumber: z.number().int().positive().optional(),
   token: z.string().optional(),
   deviceInfo: z.string().optional(),
 });
 
 export const updateTableGuestSchema = z.object({
+  customerId: z.string().optional().nullable(),
   name: z.string().optional(),
+  guestNumber: z.number().int().positive().optional(),
   seatNumber: z.number().int().positive().optional(),
   status: z.enum(['ativo', 'aguardando_conta', 'pago', 'saiu']).optional(),
 });
@@ -1412,6 +1418,7 @@ export const publicOrderItemSchema = createInsertSchema(orderItems).omit({
   orderId: true,
   createdAt: true,
 }).extend({
+  guestId: z.string().optional(), // Vinculação ao guest que fez o pedido
   selectedOptions: z.array(z.object({
     optionId: z.string(),
     optionName: z.string(),

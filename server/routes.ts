@@ -2800,6 +2800,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`[TABLE] Mesa ${table.number} aberta automaticamente via QR Code`);
         }
       }
+      
+      // ✅ NOVO: Auto-detecção de guest quando cliente faz pedido (Universal - funciona em TODOS os planos)
+      let detectedGuestId: string | null = null;
+      
+      if (validatedOrder.orderType === 'mesa' && validatedOrder.tableId) {
+        const table = await storage.getTableById(validatedOrder.tableId);
+        
+        if (table?.currentSessionId) {
+          const guestToken = req.headers['x-guest-token'] as string | undefined;
+          
+          // OPÇÃO 1: Cliente autenticado (Plano Profissional+)
+          if (validatedOrder.customerId) {
+            console.log(`[GUEST AUTO-DETECT] Procurando guest para customerId: ${validatedOrder.customerId}`);
+            
+            const guests = await storage.getTableGuests(table.currentSessionId);
+            const linkedGuest = guests.find(g => g.customerId === validatedOrder.customerId);
+            
+            if (linkedGuest) {
+              detectedGuestId = linkedGuest.id;
+              console.log(`[GUEST AUTO-DETECT] Guest existente encontrado: ${linkedGuest.id}`);
+            } else {
+              // Criar guest para cliente autenticado
+              const customer = await storage.getCustomerById(validatedOrder.customerId);
+              if (customer) {
+                console.log(`[GUEST AUTO-DETECT] Criando guest para cliente: ${customer.name}`);
+                const newGuest = await storage.createTableGuest(validatedOrder.restaurantId, {
+                  sessionId: table.currentSessionId,
+                  tableId: table.id,
+                  customerId: validatedOrder.customerId,
+                  name: customer.name,
+                  token: guestToken, // Salvar token também
+                });
+                detectedGuestId = newGuest.id;
+                console.log(`[GUEST AUTO-DETECT] Guest criado: ${newGuest.id}`);
+                
+                broadcastToClients({ 
+                  type: 'guest_joined', 
+                  data: { tableId: table.id, guest: newGuest } 
+                });
+              }
+            }
+          }
+          // OPÇÃO 2: Convidado anônimo via token (TODOS os planos - inclusive Básico)
+          else if (guestToken) {
+            console.log(`[GUEST TOKEN] Procurando guest com token: ${guestToken.substring(0, 8)}...`);
+            
+            const guests = await storage.getTableGuests(table.currentSessionId);
+            const tokenGuest = guests.find(g => g.token === guestToken);
+            
+            if (tokenGuest) {
+              detectedGuestId = tokenGuest.id;
+              console.log(`[GUEST TOKEN] Guest encontrado: ${tokenGuest.id}`);
+            } else {
+              // Criar novo convidado anônimo com token
+              const existingGuests = await storage.getTableGuests(table.currentSessionId);
+              const anonymousCount = existingGuests.filter(g => !g.customerId).length;
+              const guestNumber = anonymousCount + 1;
+              
+              console.log(`[GUEST TOKEN] Criando convidado anônimo #${guestNumber}`);
+              const newGuest = await storage.createTableGuest(validatedOrder.restaurantId, {
+                sessionId: table.currentSessionId,
+                tableId: table.id,
+                customerId: null,
+                name: `Convidado ${guestNumber}`,
+                guestNumber: guestNumber,
+                token: guestToken,
+              });
+              detectedGuestId = newGuest.id;
+              console.log(`[GUEST TOKEN] Convidado anônimo criado: ${newGuest.id}`);
+              
+              broadcastToClients({ 
+                type: 'guest_joined', 
+                data: { tableId: table.id, guest: newGuest } 
+              });
+            }
+          }
+          // OPÇÃO 3: Fallback - criar convidado anônimo sem token (última opção)
+          else {
+            console.log(`[GUEST FALLBACK] Criando convidado sem token`);
+            const existingGuests = await storage.getTableGuests(table.currentSessionId);
+            const anonymousCount = existingGuests.filter(g => !g.customerId).length;
+            const guestNumber = anonymousCount + 1;
+            
+            const newGuest = await storage.createTableGuest(validatedOrder.restaurantId, {
+              sessionId: table.currentSessionId,
+              tableId: table.id,
+              customerId: null,
+              name: `Convidado ${guestNumber}`,
+              guestNumber: guestNumber,
+            });
+            detectedGuestId = newGuest.id;
+            console.log(`[GUEST FALLBACK] Convidado criado: ${newGuest.id}`);
+          }
+        }
+      }
 
       if (validatedOrder.orderType === 'delivery') {
         if (!validatedOrder.deliveryAddress) {
@@ -2875,10 +2970,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const itemTotal = parseFloat(verifiedItemPrice) * item.quantity;
         orderTotal += itemTotal;
         
+        // ✅ NOVO: Aplicar guestId ao item
+        // Prioridade: guestId do item > guestId detectado automaticamente
+        const finalGuestId = item.guestId || detectedGuestId;
+        
         // Store verified item with server-calculated price
         verifiedItems.push({
           ...item,
           price: verifiedItemPrice, // Override with verified price
+          guestId: finalGuestId, // ← Vincula item ao guest
         });
       }
 
@@ -3748,6 +3848,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!table || !table.currentSessionId) {
         return res.status(400).json({ message: "Mesa não possui sessão ativa" });
       }
+      
+      // ✅ NOVO: Validar antes de fechar
+      const validation = await storage.validateSessionClosure(table.currentSessionId);
+      
+      if (!validation.canClose && !req.body.forceClose) {
+        return res.status(400).json({
+          message: "Mesa possui valores pendentes de pagamento",
+          pendingAmount: validation.totalPending,
+          unpaidGuests: validation.unpaidGuests,
+          warnings: validation.warnings,
+          canForceClose: currentUser.role === 'admin' || currentUser.role === 'manager' || currentUser.role === 'superadmin'
+        });
+      }
+      
+      if (!validation.canClose && req.body.forceClose) {
+        console.log(`⚠️ [FORCE CLOSE] Mesa ${table.number} fechada com ${validation.totalPending} Kz pendente por ${currentUser.name}`);
+      }
 
       // Get all guests with linked customers to award loyalty points
       const guests = await storage.getTableGuests(table.currentSessionId);
@@ -4146,10 +4263,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json([]);
       }
       
+      console.log(`[GET GUESTS] Buscando guests para sessionId: ${table.currentSessionId}`);
       const guests = await storage.getTableGuests(table.currentSessionId);
+      console.log(`[GET GUESTS] Retornando ${guests.length} guests`);
       res.json(guests);
-    } catch (error) {
-      res.status(500).json({ message: "Erro ao buscar clientes da mesa" });
+    } catch (error: any) {
+      console.error('[GET GUESTS] ERRO:', error.message);
+      console.error('[GET GUESTS] Stack:', error.stack);
+      res.status(500).json({ message: "Erro ao buscar clientes da mesa", error: error.message });
     }
   });
 
@@ -4171,12 +4292,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Mesa não possui sessão ativa" });
       }
       
-      const { name, seatNumber } = req.body;
+      const { customerId, name, seatNumber } = req.body;
+      
+      // If customerId provided, fetch customer info
+      let guestName = name;
+      if (customerId) {
+        const customer = await storage.getCustomerById(customerId);
+        if (customer) {
+          guestName = customer.name;
+        }
+      }
+      
+      // Auto-assign guest number for anonymous guests
+      const existingGuests = await storage.getTableGuests(table.currentSessionId);
+      const anonymousGuestsCount = existingGuests.filter(g => !g.customerId).length;
+      const guestNumber = customerId ? undefined : anonymousGuestsCount + 1;
       
       const guest = await storage.createTableGuest(restaurantId, {
         sessionId: table.currentSessionId,
         tableId: table.id,
-        name,
+        customerId,
+        name: guestName || (guestNumber ? `Convidado ${guestNumber}` : undefined),
+        guestNumber,
         seatNumber,
       });
       
@@ -4202,9 +4339,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Cliente não encontrado" });
       }
       
-      const { name, seatNumber, status } = req.body;
+      const { customerId, name, seatNumber, status } = req.body;
       
       const updatedGuest = await storage.updateTableGuest(req.params.guestId, { 
+        customerId,
         name, 
         seatNumber, 
         status 
@@ -4233,6 +4371,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Erro ao remover cliente" });
+    }
+  });
+
+  // Individual guest checkout with loyalty points
+  app.post("/api/tables/:id/guests/:guestId/checkout", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      const table = await storage.getTableById(req.params.id);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+      
+      const guest = await storage.getTableGuestById(req.params.guestId);
+      if (!guest) {
+        return res.status(404).json({ message: "Convidado não encontrado" });
+      }
+      
+      const { paymentMethod, amount, redeemPoints } = req.body;
+      
+      if (!paymentMethod || !amount) {
+        return res.status(400).json({ message: "Método de pagamento e valor são obrigatórios" });
+      }
+      
+      const paymentAmount = parseFloat(amount);
+      if (isNaN(paymentAmount) || paymentAmount <= 0) {
+        return res.status(400).json({ message: "Valor de pagamento inválido" });
+      }
+      
+      let pointsAwarded = 0;
+      
+      // Process loyalty points redemption if applicable
+      if (redeemPoints && guest.customerId) {
+        const customer = await storage.getCustomerById(guest.customerId);
+        if (customer && customer.loyaltyPoints >= redeemPoints) {
+          await storage.updateCustomer(guest.customerId, {
+            loyaltyPoints: customer.loyaltyPoints - redeemPoints,
+          });
+          
+          await storage.createLoyaltyTransaction(restaurantId, {
+            customerId: guest.customerId,
+            type: 'resgate',
+            points: -redeemPoints,
+            description: `Resgate de pontos - Mesa ${table.number}`,
+          });
+        }
+      }
+      
+      // Record payment
+      const payment = await storage.createGuestPayment(restaurantId, {
+        guestId: guest.id,
+        sessionId: guest.sessionId,
+        amount: paymentAmount.toFixed(2),
+        paymentMethod,
+      });
+      
+      // Update guest paid amount
+      const newPaidAmount = parseFloat(guest.paidAmount || '0') + paymentAmount;
+      await storage.updateTableGuest(guest.id, {
+        paidAmount: newPaidAmount.toFixed(2),
+        status: newPaidAmount >= parseFloat(guest.subtotal || '0') ? 'pago' : 'ativo',
+      });
+      
+      // Award loyalty points if customer
+      if (guest.customerId && paymentAmount > 0) {
+        const loyaltyProgram = await storage.getLoyaltyProgramByRestaurant(restaurantId);
+        if (loyaltyProgram && loyaltyProgram.isActive) {
+          pointsAwarded = Math.floor(paymentAmount * parseFloat(loyaltyProgram.pointsPerCurrency || '0'));
+          
+          if (pointsAwarded > 0) {
+            const customer = await storage.getCustomerById(guest.customerId);
+            await storage.updateCustomer(guest.customerId, {
+              loyaltyPoints: (customer.loyaltyPoints || 0) + pointsAwarded,
+            });
+            
+            await storage.createLoyaltyTransaction(restaurantId, {
+              customerId: guest.customerId,
+              type: 'ganho',
+              points: pointsAwarded,
+              description: `Pagamento - Mesa ${table.number}`,
+            });
+          }
+        }
+      }
+      
+      broadcastToClients({ 
+        type: 'guest_payment', 
+        data: { tableId: table.id, guestId: guest.id, payment } 
+      });
+      
+      res.json({ 
+        success: true, 
+        payment,
+        pointsAwarded,
+      });
+    } catch (error: any) {
+      console.error('Guest checkout error:', error);
+      res.status(500).json({ message: error.message || "Erro ao processar pagamento" });
     }
   });
 
@@ -4298,6 +4538,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== BILL SPLIT ROUTES =====
+  
+  // ✅ NOVO: Sugestão automática de divisão de conta baseada em consumo
+  app.get("/api/tables/:id/suggest-split", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const table = await storage.getTableById(req.params.id);
+      if (!table?.currentSessionId) {
+        return res.status(400).json({ message: "Mesa sem sessão ativa" });
+      }
+      
+      const guests = await storage.getTableGuests(table.currentSessionId);
+      const session = await storage.getSessionById(table.currentSessionId);
+      
+      if (!session) {
+        return res.status(404).json({ message: "Sessão não encontrada" });
+      }
+      
+      const totalSession = parseFloat(session.totalAmount || '0');
+      
+      const suggestion = {
+        splitType: 'por_pessoa' as const,
+        totalAmount: totalSession,
+        allocations: guests.map(g => {
+          const subtotal = parseFloat(g.subtotal || '0');
+          const paid = parseFloat(g.paidAmount || '0');
+          const pending = subtotal - paid;
+          
+          return {
+            guestId: g.id,
+            guestName: g.name || `Convidado ${g.guestNumber || ''}`,
+            isCustomer: !!g.customerId,
+            amount: subtotal,
+            paidAmount: paid,
+            pendingAmount: pending,
+            percentage: totalSession > 0 ? (subtotal / totalSession) * 100 : 0,
+            isPaid: paid >= subtotal - 0.01
+          };
+        }).sort((a, b) => b.amount - a.amount),
+        summary: {
+          totalGuests: guests.length,
+          totalPaid: guests.reduce((sum, g) => sum + parseFloat(g.paidAmount || '0'), 0),
+          totalPending: guests.reduce((sum, g) => {
+            const subtotal = parseFloat(g.subtotal || '0');
+            const paid = parseFloat(g.paidAmount || '0');
+            return sum + (subtotal - paid);
+          }, 0),
+          guestsPaid: guests.filter(g => {
+            const subtotal = parseFloat(g.subtotal || '0');
+            const paid = parseFloat(g.paidAmount || '0');
+            return paid >= subtotal - 0.01;
+          }).length
+        }
+      };
+      
+      res.json(suggestion);
+    } catch (error: any) {
+      console.error('[SUGGEST SPLIT] Erro:', error);
+      res.status(500).json({ message: error.message || "Erro ao gerar sugestão de divisão" });
+    }
+  });
   
   // Get bill splits for a table session
   app.get("/api/tables/:id/bill-splits", isCashierOrAbove, async (req, res) => {

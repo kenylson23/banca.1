@@ -26,12 +26,14 @@ import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest, queryClient } from '@/lib/queryClient';
+import { apiRequestWithToken } from '@/lib/apiRequest';
 import { formatKwanza } from '@/lib/formatters';
 import type { MenuItem, Category, Order, OrderItem, Restaurant, OptionGroup, Option } from '@shared/schema';
 import type { SelectedOption } from '@/contexts/CartContext';
 import { CustomerMenuItemOptionsDialog } from '@/components/CustomerMenuItemOptionsDialog';
 import { ShareOrderDialog } from '@/components/ShareOrderDialog';
 import { Heart } from 'lucide-react';
+import { useGuestToken } from '@/hooks/useGuestToken';
 
 type MenuItemWithOptions = MenuItem & { 
   category: Category; 
@@ -162,6 +164,9 @@ export default function CustomerMenu() {
   const tableId = currentTable?.id;
   const restaurantId = currentTable?.restaurantId;
 
+  // ✅ NOVO: Hook de guest token (funciona em TODOS os planos)
+  const { guestToken, isReady: isGuestTokenReady } = useGuestToken(tableId, restaurantId);
+
   const { data: menuItems, isLoading: menuLoading } = useQuery<Array<MenuItemWithOptions>>({
     queryKey: ['/api/public/menu-items', restaurantId],
     enabled: !!restaurantId,
@@ -211,6 +216,9 @@ export default function CustomerMenu() {
       });
     }
   }, [restaurant]);
+
+  // ✅ Loading state: Aguardar token estar pronto antes de permitir pedidos
+  const isSystemReady = isGuestTokenReady && !tableLoading && !menuLoading;
 
   useEffect(() => {
     if (!tableId || typeof window === 'undefined') return;
@@ -498,6 +506,7 @@ export default function CustomerMenu() {
         restaurantId: orderData.restaurantId,
         tableId: orderData.tableId,
         orderType: 'mesa',
+        customerId: authCustomer?.id, // Incluir customerId se cliente autenticado (Plano Profissional+)
         customerName: orderData.customerName,
         customerPhone: orderData.customerPhone,
         orderNotes: orderData.orderNotes || undefined,
@@ -508,7 +517,13 @@ export default function CustomerMenu() {
         items: orderData.items,
       };
       
-      const response = await apiRequest('POST', '/api/public/orders', requestBody);
+      // ✅ NOVO: Usar apiRequestWithToken para enviar guest token no header
+      const response = await apiRequestWithToken(
+        'POST', 
+        '/api/public/orders', 
+        requestBody,
+        { guestToken: guestToken || undefined } // Envia token (funciona em TODOS os planos)
+      );
       return await response.json();
     },
     onSuccess: (data) => {
@@ -700,7 +715,8 @@ export default function CustomerMenu() {
     );
   }
 
-  if (menuLoading || tableLoading) {
+  // ✅ Loading: Aguardar dados da mesa, menu E token estarem prontos
+  if (menuLoading || tableLoading || !isGuestTokenReady) {
     return (
       <div className="min-h-screen bg-white">
         <div className="border-b border-gray-100">

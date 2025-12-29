@@ -190,6 +190,16 @@ export async function ensureTablesExist() {
         ALTER TABLE tables ADD COLUMN status table_status NOT NULL DEFAULT 'livre'; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
+      // Create table_status_enum if it doesn't exist
+      await db.execute(sql`DO $$ BEGIN
+        CREATE TYPE table_status_enum AS ENUM ('disponivel', 'aguardando_pedido', 'em_consumo', 'aguardando_pgto', 'pagamento_parcial', 'reservada');
+      EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      
+      // Add table_status column (snake_case version for granular status)
+      await db.execute(sql`DO $$ BEGIN 
+        ALTER TABLE tables ADD COLUMN table_status table_status_enum DEFAULT 'disponivel'; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      
       // Add current_session_id to tables
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN current_session_id VARCHAR; 

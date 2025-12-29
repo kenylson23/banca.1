@@ -27,7 +27,7 @@ import {
 import { formatKwanza } from '@/lib/formatters';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { TableDetailsDialogNew as TableDetailsDialog } from './TableDetailsDialogNew';
+import { TableDetailsDialogPro as TableDetailsDialog } from './TableDetailsDialogPro';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -1705,6 +1705,8 @@ export function RestaurantFloorPlan({ className }: RestaurantFloorPlanProps) {
             setDetailsDialogOpen(open);
             if (!open) setSelectedTable(null);
           }}
+          allTables={filteredTables}
+          onNavigate={(table) => setSelectedTable(table)}
         />
       )}
     </div>

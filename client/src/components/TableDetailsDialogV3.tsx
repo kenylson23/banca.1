@@ -28,6 +28,9 @@ import {
 } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import type { Table } from '@shared/schema';
+import { AddGuestDialog } from './AddGuestDialog';
+import { GuestsList } from './GuestsList';
+import { GuestCheckoutDialog } from './GuestCheckoutDialog';
 
 interface TableDetailsDialogV3Props {
   open: boolean;
@@ -57,6 +60,10 @@ export function TableDetailsDialogV3({
 }: TableDetailsDialogV3Props) {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  
+  // ✅ Estados para controlar os diálogos
+  const [addGuestOpen, setAddGuestOpen] = useState(false);
+  const [checkoutGuestId, setCheckoutGuestId] = useState<string | null>(null);
 
   if (!table) return null;
 
@@ -294,42 +301,13 @@ export function TableDetailsDialogV3({
               transition={{ delay: 0.3 }}
               className="lg:col-span-3 space-y-2"
             >
-              {/* Convidados */}
-              <Card className="border">
-                <CardHeader className="pb-2 px-3 pt-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-xs flex items-center gap-2">
-                      <Users className="h-3 w-3" />
-                      Pessoas ({guests.length})
-                    </CardTitle>
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="px-3 pb-3">
-                  {guests.length > 0 ? (
-                    <div className="space-y-1">
-                      {guests.slice(0, 5).map((guest: any, i: number) => (
-                        <div key={guest.id} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                            {i + 1}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium truncate">
-                              {guest.name || `Convidado ${i + 1}`}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground text-center py-2">
-                      Nenhum convidado
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+              {/* ✅ NOVO: GuestsList Component */}
+              <GuestsList
+                guests={guests}
+                tableId={table.id}
+                onAddGuest={() => setAddGuestOpen(true)}
+                onCheckoutGuest={(guestId) => setCheckoutGuestId(guestId)}
+              />
 
               {/* Timeline */}
               <Card className="border">
@@ -412,6 +390,24 @@ export function TableDetailsDialogV3({
           </div>
         </div>
       </DialogContent>
+
+      {/* ✅ NOVO: Diálogos de Gestão de Guests */}
+      <AddGuestDialog
+        open={addGuestOpen}
+        onOpenChange={setAddGuestOpen}
+        tableId={table.id}
+        sessionId={table.currentSessionId || ''}
+      />
+
+      {checkoutGuestId && (
+        <GuestCheckoutDialog
+          open={!!checkoutGuestId}
+          onOpenChange={(open) => !open && setCheckoutGuestId(null)}
+          guest={guests.find((g: any) => g.id === checkoutGuestId)!}
+          tableId={table.id}
+          sessionId={table.currentSessionId || ''}
+        />
+      )}
     </Dialog>
   );
 }

@@ -922,7 +922,11 @@ var init_schema = __esm({
       sessionId: varchar("session_id").notNull().references(() => tableSessions.id, { onDelete: "cascade" }),
       tableId: varchar("table_id").notNull().references(() => tables.id, { onDelete: "cascade" }),
       restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: "cascade" }),
+      customerId: varchar("customer_id").references(() => customers.id, { onDelete: "set null" }),
+      // Vincula a cliente registrado (null = convidado anônimo)
       name: varchar("name", { length: 200 }),
+      guestNumber: integer("guest_number"),
+      // Número sequencial para convidados anônimos (1, 2, 3...)
       seatNumber: integer("seat_number"),
       status: guestStatusEnum("status").notNull().default("ativo"),
       subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default("0"),
@@ -943,13 +947,17 @@ var init_schema = __esm({
     }).extend({
       sessionId: z.string().min(1, "Sess\xE3o \xE9 obrigat\xF3ria"),
       tableId: z.string().min(1, "Mesa \xE9 obrigat\xF3ria"),
+      customerId: z.string().optional().nullable(),
       name: z.string().optional(),
+      guestNumber: z.number().int().positive().optional(),
       seatNumber: z.number().int().positive().optional(),
       token: z.string().optional(),
       deviceInfo: z.string().optional()
     });
     updateTableGuestSchema = z.object({
+      customerId: z.string().optional().nullable(),
       name: z.string().optional(),
+      guestNumber: z.number().int().positive().optional(),
       seatNumber: z.number().int().positive().optional(),
       status: z.enum(["ativo", "aguardando_conta", "pago", "saiu"]).optional()
     });
@@ -1466,6 +1474,8 @@ var init_schema = __esm({
       orderId: true,
       createdAt: true
     }).extend({
+      guestId: z.string().optional(),
+      // Vinculação ao guest que fez o pedido
       selectedOptions: z.array(z.object({
         optionId: z.string(),
         optionName: z.string(),
@@ -3573,6 +3583,12 @@ async function ensureTablesExist() {
       await db.execute(sql2`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN status table_status NOT NULL DEFAULT 'livre'; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql2`DO $$ BEGIN
+        CREATE TYPE table_status_enum AS ENUM ('disponivel', 'aguardando_pedido', 'em_consumo', 'aguardando_pgto', 'pagamento_parcial', 'reservada');
+      EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql2`DO $$ BEGIN 
+        ALTER TABLE tables ADD COLUMN table_status table_status_enum DEFAULT 'disponivel'; 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       await db.execute(sql2`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN current_session_id VARCHAR; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
@@ -5499,6 +5515,53 @@ var init_storage = __esm({
         }
         return session2;
       }
+      // ✅ NOVO: Validar se a sessão pode ser fechada (todos pagaram)
+      async validateSessionClosure(sessionId) {
+        try {
+          const guests = await this.getTableGuests(sessionId);
+          const session2 = await db.select().from(tableSessions).where(eq(tableSessions.id, sessionId)).then((rows) => rows[0]);
+          let totalPending = 0;
+          const unpaidGuests = [];
+          const warnings = [];
+          for (const guest of guests) {
+            const subtotal = parseFloat(guest.subtotal || "0");
+            const paid = parseFloat(guest.paidAmount || "0");
+            const pending = subtotal - paid;
+            if (pending > 0.01) {
+              totalPending += pending;
+              unpaidGuests.push({
+                id: guest.id,
+                name: guest.name || `Convidado ${guest.guestNumber || "?"}`,
+                pending: parseFloat(pending.toFixed(2))
+              });
+            }
+          }
+          if (session2) {
+            const sessionTotal = parseFloat(session2.totalAmount || "0");
+            const sessionPaid = parseFloat(session2.paidAmount || "0");
+            const sessionPending = sessionTotal - sessionPaid;
+            if (Math.abs(sessionPending - totalPending) > 0.1) {
+              warnings.push(
+                `Diferen\xE7a de reconcilia\xE7\xE3o: ${Math.abs(sessionPending - totalPending).toFixed(2)} Kz entre sess\xE3o e guests`
+              );
+            }
+          }
+          return {
+            canClose: totalPending <= 0,
+            totalPending: parseFloat(totalPending.toFixed(2)),
+            unpaidGuests,
+            warnings
+          };
+        } catch (error) {
+          console.error("[VALIDATE CLOSURE] Erro:", error);
+          return {
+            canClose: false,
+            totalPending: 0,
+            unpaidGuests: [],
+            warnings: ["Erro ao validar fechamento"]
+          };
+        }
+      }
       async endTableSession(restaurantId, tableId) {
         const table = await this.getTableById(tableId);
         if (!table || !table.currentSessionId) {
@@ -5556,6 +5619,51 @@ var init_storage = __esm({
           conditions.push(eq(tablePayments.sessionId, sessionId));
         }
         return await db.select().from(tablePayments).where(and(...conditions)).orderBy(desc(tablePayments.createdAt));
+      }
+      // ✅ NOVO: Atualizar subtotal de um guest específico
+      async updateGuestSubtotal(guestId) {
+        try {
+          const items = await db.select({
+            orderItem: orderItems,
+            order: orders
+          }).from(orderItems).leftJoin(orders, eq(orderItems.orderId, orders.id)).where(
+            and(
+              eq(orderItems.guestId, guestId),
+              // Apenas pedidos ativos (não cancelados)
+              or(
+                eq(orders.status, "pendente"),
+                eq(orders.status, "em_preparo"),
+                eq(orders.status, "pronto"),
+                eq(orders.status, "servido")
+              )
+            )
+          );
+          const subtotal = items.reduce((sum, row) => {
+            if (row.orderItem) {
+              const itemTotal = parseFloat(row.orderItem.price) * row.orderItem.quantity;
+              return sum + itemTotal;
+            }
+            return sum;
+          }, 0);
+          await db.update(tableGuests).set({
+            subtotal: subtotal.toFixed(2)
+          }).where(eq(tableGuests.id, guestId));
+          console.log(`\u2705 [GUEST SUBTOTAL] Guest ${guestId} atualizado: ${subtotal.toFixed(2)} Kz`);
+        } catch (error) {
+          console.error(`\u274C [GUEST SUBTOTAL] Erro ao atualizar guest ${guestId}:`, error);
+        }
+      }
+      // ✅ NOVO: Recalcular subtotais de todos os guests de uma sessão
+      async recalculateSessionSubtotals(sessionId) {
+        try {
+          const guests = await this.getTableGuests(sessionId);
+          for (const guest of guests) {
+            await this.updateGuestSubtotal(guest.id);
+          }
+          console.log(`\u2705 [SESSION SUBTOTALS] ${guests.length} guests atualizados na sess\xE3o ${sessionId}`);
+        } catch (error) {
+          console.error(`\u274C [SESSION SUBTOTALS] Erro ao recalcular sess\xE3o ${sessionId}:`, error);
+        }
       }
       async calculateTableTotal(restaurantId, tableId) {
         const tableOrders = await db.select().from(orders).where(and(
@@ -5915,6 +6023,18 @@ var init_storage = __esm({
             }
           }
         }
+        const guestsToUpdate = /* @__PURE__ */ new Set();
+        for (const item of insertedItems) {
+          if (item.guestId) {
+            guestsToUpdate.add(item.guestId);
+          }
+        }
+        if (guestsToUpdate.size > 0) {
+          console.log(`[ORDER CREATED] Atualizando subtotais de ${guestsToUpdate.size} guests`);
+          for (const guestId of guestsToUpdate) {
+            await this.updateGuestSubtotal(guestId);
+          }
+        }
         if (order.orderType === "mesa" && order.tableId) {
           await this.updateTableOccupancy(restaurantId, order.tableId, true);
           await this.calculateTableTotal(restaurantId, order.tableId);
@@ -5973,6 +6093,13 @@ var init_storage = __esm({
         if (orderData.orders.paymentStatus === "pago") {
           throw new Error("Cannot delete paid orders");
         }
+        const affectedItems = await db.select().from(orderItems).where(eq(orderItems.orderId, id));
+        const guestsToUpdate = /* @__PURE__ */ new Set();
+        for (const item of affectedItems) {
+          if (item.guestId) {
+            guestsToUpdate.add(item.guestId);
+          }
+        }
         await db.delete(orderItemOptions).where(
           eq(
             orderItemOptions.orderItemId,
@@ -5981,6 +6108,12 @@ var init_storage = __esm({
         );
         await db.delete(orderItems).where(eq(orderItems.orderId, id));
         await db.delete(orders).where(eq(orders.id, id));
+        if (guestsToUpdate.size > 0) {
+          console.log(`[ORDER DELETED] Atualizando subtotais de ${guestsToUpdate.size} guests`);
+          for (const guestId of guestsToUpdate) {
+            await this.updateGuestSubtotal(guestId);
+          }
+        }
         if (orderData.orders.tableId) {
           const remainingOrders = await db.select().from(orders).where(eq(orders.tableId, orderData.orders.tableId));
           if (remainingOrders.length === 0) {
@@ -10214,7 +10347,14 @@ var init_storage = __esm({
       }
       // ===== TABLE GUEST OPERATIONS =====
       async getTableGuests(sessionId) {
-        return await db.select().from(tableGuests).where(eq(tableGuests.sessionId, sessionId)).orderBy(tableGuests.seatNumber);
+        const results = await db.select({
+          guest: tableGuests,
+          customer: customers
+        }).from(tableGuests).leftJoin(customers, eq(tableGuests.customerId, customers.id)).where(eq(tableGuests.sessionId, sessionId)).orderBy(tableGuests.seatNumber);
+        return results.map((row) => ({
+          ...row.guest,
+          customer: row.customer || void 0
+        }));
       }
       async getTableGuestById(id) {
         const [guest] = await db.select().from(tableGuests).where(eq(tableGuests.id, id));
@@ -13207,6 +13347,82 @@ async function registerRoutes(app2) {
           console.log(`[TABLE] Mesa ${table.number} aberta automaticamente via QR Code`);
         }
       }
+      let detectedGuestId = null;
+      if (validatedOrder.orderType === "mesa" && validatedOrder.tableId) {
+        const table = await storage.getTableById(validatedOrder.tableId);
+        if (table?.currentSessionId) {
+          const guestToken = req.headers["x-guest-token"];
+          if (validatedOrder.customerId) {
+            console.log(`[GUEST AUTO-DETECT] Procurando guest para customerId: ${validatedOrder.customerId}`);
+            const guests = await storage.getTableGuests(table.currentSessionId);
+            const linkedGuest = guests.find((g) => g.customerId === validatedOrder.customerId);
+            if (linkedGuest) {
+              detectedGuestId = linkedGuest.id;
+              console.log(`[GUEST AUTO-DETECT] Guest existente encontrado: ${linkedGuest.id}`);
+            } else {
+              const customer = await storage.getCustomerById(validatedOrder.customerId);
+              if (customer) {
+                console.log(`[GUEST AUTO-DETECT] Criando guest para cliente: ${customer.name}`);
+                const newGuest = await storage.createTableGuest(validatedOrder.restaurantId, {
+                  sessionId: table.currentSessionId,
+                  tableId: table.id,
+                  customerId: validatedOrder.customerId,
+                  name: customer.name,
+                  token: guestToken
+                  // Salvar token também
+                });
+                detectedGuestId = newGuest.id;
+                console.log(`[GUEST AUTO-DETECT] Guest criado: ${newGuest.id}`);
+                broadcastToClients({
+                  type: "guest_joined",
+                  data: { tableId: table.id, guest: newGuest }
+                });
+              }
+            }
+          } else if (guestToken) {
+            console.log(`[GUEST TOKEN] Procurando guest com token: ${guestToken.substring(0, 8)}...`);
+            const guests = await storage.getTableGuests(table.currentSessionId);
+            const tokenGuest = guests.find((g) => g.token === guestToken);
+            if (tokenGuest) {
+              detectedGuestId = tokenGuest.id;
+              console.log(`[GUEST TOKEN] Guest encontrado: ${tokenGuest.id}`);
+            } else {
+              const existingGuests = await storage.getTableGuests(table.currentSessionId);
+              const anonymousCount = existingGuests.filter((g) => !g.customerId).length;
+              const guestNumber = anonymousCount + 1;
+              console.log(`[GUEST TOKEN] Criando convidado an\xF4nimo #${guestNumber}`);
+              const newGuest = await storage.createTableGuest(validatedOrder.restaurantId, {
+                sessionId: table.currentSessionId,
+                tableId: table.id,
+                customerId: null,
+                name: `Convidado ${guestNumber}`,
+                guestNumber,
+                token: guestToken
+              });
+              detectedGuestId = newGuest.id;
+              console.log(`[GUEST TOKEN] Convidado an\xF4nimo criado: ${newGuest.id}`);
+              broadcastToClients({
+                type: "guest_joined",
+                data: { tableId: table.id, guest: newGuest }
+              });
+            }
+          } else {
+            console.log(`[GUEST FALLBACK] Criando convidado sem token`);
+            const existingGuests = await storage.getTableGuests(table.currentSessionId);
+            const anonymousCount = existingGuests.filter((g) => !g.customerId).length;
+            const guestNumber = anonymousCount + 1;
+            const newGuest = await storage.createTableGuest(validatedOrder.restaurantId, {
+              sessionId: table.currentSessionId,
+              tableId: table.id,
+              customerId: null,
+              name: `Convidado ${guestNumber}`,
+              guestNumber
+            });
+            detectedGuestId = newGuest.id;
+            console.log(`[GUEST FALLBACK] Convidado criado: ${newGuest.id}`);
+          }
+        }
+      }
       if (validatedOrder.orderType === "delivery") {
         if (!validatedOrder.deliveryAddress) {
           return res.status(400).json({ message: "Endere\xE7o de entrega \xE9 obrigat\xF3rio para delivery" });
@@ -13264,10 +13480,13 @@ async function registerRoutes(app2) {
         const verifiedItemPrice = (serverPrice + optionsPrice).toFixed(2);
         const itemTotal = parseFloat(verifiedItemPrice) * item.quantity;
         orderTotal += itemTotal;
+        const finalGuestId = item.guestId || detectedGuestId;
         verifiedItems.push({
           ...item,
-          price: verifiedItemPrice
+          price: verifiedItemPrice,
           // Override with verified price
+          guestId: finalGuestId
+          // ← Vincula item ao guest
         });
       }
       let couponDiscount = 0;
@@ -13941,6 +14160,19 @@ async function registerRoutes(app2) {
       if (!table || !table.currentSessionId) {
         return res.status(400).json({ message: "Mesa n\xE3o possui sess\xE3o ativa" });
       }
+      const validation = await storage.validateSessionClosure(table.currentSessionId);
+      if (!validation.canClose && !req.body.forceClose) {
+        return res.status(400).json({
+          message: "Mesa possui valores pendentes de pagamento",
+          pendingAmount: validation.totalPending,
+          unpaidGuests: validation.unpaidGuests,
+          warnings: validation.warnings,
+          canForceClose: currentUser.role === "admin" || currentUser.role === "manager" || currentUser.role === "superadmin"
+        });
+      }
+      if (!validation.canClose && req.body.forceClose) {
+        console.log(`\u26A0\uFE0F [FORCE CLOSE] Mesa ${table.number} fechada com ${validation.totalPending} Kz pendente por ${currentUser.name}`);
+      }
       const guests = await storage.getTableGuests(table.currentSessionId);
       const loyaltyProgram = await storage.getLoyaltyProgramByRestaurantId(restaurantId);
       if (loyaltyProgram && loyaltyProgram.isActive) {
@@ -14278,11 +14510,23 @@ async function registerRoutes(app2) {
       if (!table.currentSessionId) {
         return res.status(400).json({ message: "Mesa n\xE3o possui sess\xE3o ativa" });
       }
-      const { name, seatNumber } = req.body;
+      const { customerId, name, seatNumber } = req.body;
+      let guestName = name;
+      if (customerId) {
+        const customer = await storage.getCustomerById(customerId);
+        if (customer) {
+          guestName = customer.name;
+        }
+      }
+      const existingGuests = await storage.getTableGuests(table.currentSessionId);
+      const anonymousGuestsCount = existingGuests.filter((g) => !g.customerId).length;
+      const guestNumber = customerId ? void 0 : anonymousGuestsCount + 1;
       const guest = await storage.createTableGuest(restaurantId, {
         sessionId: table.currentSessionId,
         tableId: table.id,
-        name,
+        customerId,
+        name: guestName || (guestNumber ? `Convidado ${guestNumber}` : void 0),
+        guestNumber,
         seatNumber
       });
       broadcastToClients({ type: "guest_joined", data: { tableId: table.id, guest } });
@@ -14302,8 +14546,9 @@ async function registerRoutes(app2) {
       if (!guest) {
         return res.status(404).json({ message: "Cliente n\xE3o encontrado" });
       }
-      const { name, seatNumber, status } = req.body;
+      const { customerId, name, seatNumber, status } = req.body;
       const updatedGuest = await storage.updateTableGuest(req.params.guestId, {
+        customerId,
         name,
         seatNumber,
         status
@@ -14325,6 +14570,87 @@ async function registerRoutes(app2) {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Erro ao remover cliente" });
+    }
+  });
+  app2.post("/api/tables/:id/guests/:guestId/checkout", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      if (!currentUser.restaurantId && currentUser.role !== "superadmin") {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      const restaurantId = currentUser.restaurantId;
+      const table = await storage.getTableById(req.params.id);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
+      }
+      const guest = await storage.getTableGuestById(req.params.guestId);
+      if (!guest) {
+        return res.status(404).json({ message: "Convidado n\xE3o encontrado" });
+      }
+      const { paymentMethod, amount, redeemPoints } = req.body;
+      if (!paymentMethod || !amount) {
+        return res.status(400).json({ message: "M\xE9todo de pagamento e valor s\xE3o obrigat\xF3rios" });
+      }
+      const paymentAmount = parseFloat(amount);
+      if (isNaN(paymentAmount) || paymentAmount <= 0) {
+        return res.status(400).json({ message: "Valor de pagamento inv\xE1lido" });
+      }
+      let pointsAwarded = 0;
+      if (redeemPoints && guest.customerId) {
+        const customer = await storage.getCustomerById(guest.customerId);
+        if (customer && customer.loyaltyPoints >= redeemPoints) {
+          await storage.updateCustomer(guest.customerId, {
+            loyaltyPoints: customer.loyaltyPoints - redeemPoints
+          });
+          await storage.createLoyaltyTransaction(restaurantId, {
+            customerId: guest.customerId,
+            type: "resgate",
+            points: -redeemPoints,
+            description: `Resgate de pontos - Mesa ${table.number}`
+          });
+        }
+      }
+      const payment = await storage.createGuestPayment(restaurantId, {
+        guestId: guest.id,
+        sessionId: guest.sessionId,
+        amount: paymentAmount.toFixed(2),
+        paymentMethod
+      });
+      const newPaidAmount = parseFloat(guest.paidAmount || "0") + paymentAmount;
+      await storage.updateTableGuest(guest.id, {
+        paidAmount: newPaidAmount.toFixed(2),
+        status: newPaidAmount >= parseFloat(guest.subtotal || "0") ? "pago" : "ativo"
+      });
+      if (guest.customerId && paymentAmount > 0) {
+        const loyaltyProgram = await storage.getLoyaltyProgramByRestaurant(restaurantId);
+        if (loyaltyProgram && loyaltyProgram.isActive) {
+          pointsAwarded = Math.floor(paymentAmount * parseFloat(loyaltyProgram.pointsPerCurrency || "0"));
+          if (pointsAwarded > 0) {
+            const customer = await storage.getCustomerById(guest.customerId);
+            await storage.updateCustomer(guest.customerId, {
+              loyaltyPoints: (customer.loyaltyPoints || 0) + pointsAwarded
+            });
+            await storage.createLoyaltyTransaction(restaurantId, {
+              customerId: guest.customerId,
+              type: "ganho",
+              points: pointsAwarded,
+              description: `Pagamento - Mesa ${table.number}`
+            });
+          }
+        }
+      }
+      broadcastToClients({
+        type: "guest_payment",
+        data: { tableId: table.id, guestId: guest.id, payment }
+      });
+      res.json({
+        success: true,
+        payment,
+        pointsAwarded
+      });
+    } catch (error) {
+      console.error("Guest checkout error:", error);
+      res.status(500).json({ message: error.message || "Erro ao processar pagamento" });
     }
   });
   app2.get("/api/tables/:id/orders-by-guest", isCashierOrAbove, async (req, res) => {
@@ -14363,6 +14689,61 @@ async function registerRoutes(app2) {
       });
     } catch (error) {
       res.status(500).json({ message: "Erro ao buscar pedidos por cliente" });
+    }
+  });
+  app2.get("/api/tables/:id/suggest-split", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      if (!currentUser.restaurantId && currentUser.role !== "superadmin") {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      const table = await storage.getTableById(req.params.id);
+      if (!table?.currentSessionId) {
+        return res.status(400).json({ message: "Mesa sem sess\xE3o ativa" });
+      }
+      const guests = await storage.getTableGuests(table.currentSessionId);
+      const session2 = await storage.getSessionById(table.currentSessionId);
+      if (!session2) {
+        return res.status(404).json({ message: "Sess\xE3o n\xE3o encontrada" });
+      }
+      const totalSession = parseFloat(session2.totalAmount || "0");
+      const suggestion = {
+        splitType: "por_pessoa",
+        totalAmount: totalSession,
+        allocations: guests.map((g) => {
+          const subtotal = parseFloat(g.subtotal || "0");
+          const paid = parseFloat(g.paidAmount || "0");
+          const pending = subtotal - paid;
+          return {
+            guestId: g.id,
+            guestName: g.name || `Convidado ${g.guestNumber || ""}`,
+            isCustomer: !!g.customerId,
+            amount: subtotal,
+            paidAmount: paid,
+            pendingAmount: pending,
+            percentage: totalSession > 0 ? subtotal / totalSession * 100 : 0,
+            isPaid: paid >= subtotal - 0.01
+          };
+        }).sort((a, b) => b.amount - a.amount),
+        summary: {
+          totalGuests: guests.length,
+          totalPaid: guests.reduce((sum, g) => sum + parseFloat(g.paidAmount || "0"), 0),
+          totalPending: guests.reduce((sum, g) => {
+            const subtotal = parseFloat(g.subtotal || "0");
+            const paid = parseFloat(g.paidAmount || "0");
+            return sum + (subtotal - paid);
+          }, 0),
+          guestsPaid: guests.filter((g) => {
+            const subtotal = parseFloat(g.subtotal || "0");
+            const paid = parseFloat(g.paidAmount || "0");
+            return paid >= subtotal - 0.01;
+          }).length
+        }
+      };
+      res.json(suggestion);
+    } catch (error) {
+      console.error("[SUGGEST SPLIT] Erro:", error);
+      res.status(500).json({ message: error.message || "Erro ao gerar sugest\xE3o de divis\xE3o" });
     }
   });
   app2.get("/api/tables/:id/bill-splits", isCashierOrAbove, async (req, res) => {
