@@ -15,7 +15,6 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         return cache.addAll(urlsToCache).catch((err) => {
-          console.log('Cache addAll error:', err);
         });
       })
   );
@@ -30,13 +29,11 @@ self.addEventListener('activate', (event) => {
           if (cacheName !== CACHE_NAME && 
               cacheName !== DYNAMIC_CACHE && 
               cacheName !== API_CACHE) {
-            console.log('Deletando cache antigo:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
     }).then(() => {
-      console.log('Service Worker ativado. Versão:', APP_VERSION);
       return self.clients.claim();
     })
   );

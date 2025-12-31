@@ -1,3 +1,4 @@
+import { fixOrderSessionIds } from "./fix-orders-endpoint";
 // Blueprint: javascript_log_in_with_replit - Auth routes
 // Blueprint: javascript_websocket - WebSocket implementation
 import type { Express } from "express";
@@ -40,7 +41,6 @@ const TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || '';
 
 async function sendWhatsAppOTP(phoneNumber: string, otpCode: string, restaurantName: string): Promise<boolean> {
   if (!twilioClient) {
-    console.log('[WHATSAPP] Twilio not configured, skipping WhatsApp message');
     return false;
   }
 
@@ -69,7 +69,6 @@ async function sendWhatsAppOTP(phoneNumber: string, otpCode: string, restaurantN
       to: `whatsapp:${formattedPhone}`,
     });
 
-    console.log(`[WHATSAPP] OTP sent successfully to ${formattedPhone}, SID: ${message.sid}`);
     return true;
   } catch (error: any) {
     console.error('[WHATSAPP] Error sending OTP:', error.message);
@@ -91,13 +90,11 @@ async function sendWhatsAppOrderStatus(
   status: string
 ): Promise<boolean> {
   if (!twilioClient) {
-    console.log('[WHATSAPP] Twilio not configured, skipping order status message');
     return false;
   }
 
   const statusInfo = orderStatusMessages[status];
   if (!statusInfo) {
-    console.log(`[WHATSAPP] Unknown status: ${status}, skipping message`);
     return false;
   }
 
@@ -123,7 +120,6 @@ async function sendWhatsAppOrderStatus(
       to: `whatsapp:${formattedPhone}`,
     });
 
-    console.log(`[WHATSAPP] Order status sent to ${formattedPhone}, SID: ${message.sid}`);
     return true;
   } catch (error: any) {
     console.error('[WHATSAPP] Error sending order status:', error.message);
@@ -317,7 +313,6 @@ async function deleteOldImage(imageUrl: string | null | undefined, type: 'restau
     await fs.unlink(filePath);
   } catch (error) {
     // Ignore errors (file might not exist)
-    console.log('Could not delete old image:', error);
   }
 }
 
@@ -397,7 +392,6 @@ async function checkSubscriptionStatus(req: any, res: any, next: any) {
     const { cache, CacheKeys, CacheTTL, getOrSet } = await import('./cache.ts');
     const cacheKey = CacheKeys.subscription(user.restaurantId);
     
-    console.log('🔒 checkSubscriptionStatus - RestaurantId:', user.restaurantId);
     
     // Try to get from cache first (1 minute TTL)
     const subscription = await getOrSet(
@@ -405,17 +399,10 @@ async function checkSubscriptionStatus(req: any, res: any, next: any) {
       CacheTTL.subscription,
       () => storage.getSubscriptionByRestaurantId(user.restaurantId)
     );
-    
-    console.log('🔒 checkSubscriptionStatus - Subscription:', subscription ? { 
-      id: subscription.id, 
-      status: subscription.status, 
-      planId: subscription.planId,
-      planName: subscription.plan?.name 
-    } : 'NOT FOUND');
+    // Subscription check
     
     // If no subscription exists, block access
     if (!subscription) {
-      console.log('❌ checkSubscriptionStatus - NO_SUBSCRIPTION');
       return res.status(402).json({ 
         message: "Subscrição não encontrada. Entre em contato com o suporte.",
         code: 'NO_SUBSCRIPTION'
@@ -538,14 +525,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           cancelAtPeriodEnd: 0,
         });
 
-        console.log(`✅ Subscription created for restaurant ${restaurant.id} with ${trialDays} days trial`);
       } catch (subscriptionError) {
         console.error('❌ Error creating subscription for new restaurant:', subscriptionError);
         // Rollback: delete admin user and restaurant if subscription creation fails
         try {
           await storage.deleteUser(restaurant.id, adminUser.id);
           await storage.deleteRestaurant(restaurant.id);
-          console.log(`🔄 Rolled back restaurant ${restaurant.id} creation due to subscription error`);
         } catch (rollbackError) {
           console.error('❌ CRITICAL: Error during rollback:', rollbackError);
         }
@@ -603,7 +588,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const sql = fs.readFileSync(migrationPath, 'utf8');
       
-      console.log(`🔄 Running migration: ${migrationName}.sql`);
       
       // Split by semicolon and execute each statement
       const statements = sql
@@ -629,7 +613,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      console.log(`✅ Migration completed: ${executed} statements executed`);
       
       res.json({
         success: true,
@@ -775,7 +758,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: new Date().toISOString()
       });
 
-      console.log(`📥 Sync: Sent ${orders.length} orders, ${tables.length} tables, ${menuItems.length} menu items to client`);
     } catch (error) {
       console.error('❌ Sync error:', error);
       res.status(500).json({ message: 'Sync failed', error: error instanceof Error ? error.message : 'Unknown error' });
@@ -844,7 +826,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json({ results });
-      console.log(`📤 Sync: Processed ${operations.length} operations (${results.filter(r => r.success).length} succeeded)`);
 
     } catch (error) {
       console.error('❌ Sync operations error:', error);
@@ -866,7 +847,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      console.log('\n🔔 Cron job triggered: Checking subscriptions...');
       
       const { checkExpiredSubscriptions, checkExpiringSubscriptions } = await import('../scripts/check-subscriptions.js');
       
@@ -1107,11 +1087,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PUBLIC DEBUG ROUTE: Check and fix missing subscriptions (temporary - remove after fix)
   app.post('/api/debug/fix-subscriptions', async (req, res) => {
     try {
-      console.log('🔧 Starting subscription fix...');
       
       // Get all restaurants
       const allRestaurants = await storage.getRestaurants();
-      console.log(`📊 Total restaurants: ${allRestaurants.length}`);
       
       let fixed = 0;
       const fixedRestaurants = [];
@@ -1124,14 +1102,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: "Base plan not found. Please seed subscription plans first." });
       }
       
-      console.log(`📦 Using plan: ${basePlan.name} (ID: ${basePlan.id})`);
       
       // Check each restaurant
       for (const restaurant of allRestaurants) {
         const subscription = await storage.getSubscriptionByRestaurantId(restaurant.id);
         
         if (!subscription) {
-          console.log(`  ❌ ${restaurant.name} - NO SUBSCRIPTION, creating...`);
           
           const now = new Date();
           const trialEnd = new Date(now);
@@ -1155,11 +1131,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             email: restaurant.email
           });
         } else {
-          console.log(`  ✅ ${restaurant.name} - Has subscription (${subscription.status})`);
         }
       }
       
-      console.log(`✅ Fixed ${fixed} restaurants!`);
       
       res.json({ 
         message: fixed === 0 ? "All restaurants have subscriptions" : `Fixed ${fixed} restaurants`,
@@ -1175,11 +1149,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PUBLIC DEBUG ROUTE: Fix table status (temporary - remove after fix)
   app.post('/api/debug/fix-table-status', async (req, res) => {
     try {
-      console.log('🔧 Starting table status fix...');
       
       // Get all tables from database
       const allTables = await db.select().from(tables);
-      console.log(`📊 Total tables found: ${allTables.length}`);
       
       let fixed = 0;
       const fixedTables = [];
@@ -1237,9 +1209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             hasActiveSession: !!activeSession,
           });
           
-          console.log(`  ✅ Fixed Table ${table.number}: ${table.status} → ${correctStatus}`);
         } else {
-          console.log(`  ✓ Table ${table.number}: ${table.status} (OK)`);
         }
       }
       
@@ -1253,8 +1223,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         aguardando_pagamento: updatedTables.filter(t => t.status === 'aguardando_pagamento').length,
       };
       
-      console.log(`✅ Fixed ${fixed} tables!`);
-      console.log(`📊 Stats: ${stats.livre} livres, ${stats.ocupada} ocupadas, ${stats.em_andamento} em andamento, ${stats.aguardando_pagamento} aguardando pagamento`);
       
       res.json({ 
         success: true,
@@ -1411,7 +1379,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       cache.deletePattern(`restaurant:${req.params.id}*`);
       cache.deletePattern('superadmin:*');
       
-      console.log(`✅ Restaurant ${restaurant.name} status updated to: ${status}`);
       
       res.json(restaurant);
     } catch (error) {
@@ -2090,23 +2057,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== USER MANAGEMENT ROUTES (Admin Only) =====
   app.get("/api/users", async (req, res) => {
-    console.log('\n🔍 ===== GET /api/users REQUEST =====');
-    console.log('📌 Headers:', req.headers.cookie ? 'Has cookie' : 'No cookie');
-    console.log('📌 Session:', req.session ? 'Has session' : 'No session');
-    console.log('📌 User:', req.user ? JSON.stringify(req.user) : 'Not authenticated');
     
     // Manual isAdmin check with detailed logging
     if (!req.isAuthenticated || !req.isAuthenticated()) {
-      console.log('❌ Not authenticated');
       return res.status(401).json({ message: "Não autenticado" });
     }
     
     const currentUser = req.user as User;
-    console.log('👤 User:', { id: currentUser.id, email: currentUser.email, role: currentUser.role, restaurantId: currentUser.restaurantId });
     
     // Check if user is admin/manager
     if (!['admin', 'superadmin', 'manager'].includes(currentUser.role)) {
-      console.log(`❌ Access denied - role is ${currentUser.role}`);
       return res.status(403).json({ 
         message: "Acesso negado. Apenas administradores e gerentes podem acessar esta funcionalidade.",
         currentRole: currentUser.role,
@@ -2114,19 +2074,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
     
-    console.log('✅ Role check passed');
     
     // Check restaurant association
     if (currentUser.role !== 'superadmin' && !currentUser.restaurantId) {
-      console.log('❌ User has no restaurantId');
       return res.status(403).json({ message: "Usuário não associado a nenhum restaurante" });
     }
     
-    console.log('✅ Restaurant check passed');
     
     // Check subscription if not superadmin
     if (currentUser.role !== 'superadmin') {
-      console.log('🔒 Checking subscription...');
       try {
         const { cache, CacheKeys, CacheTTL, getOrSet } = await import('./cache.ts');
         const cacheKey = CacheKeys.subscription(currentUser.restaurantId);
@@ -2137,15 +2093,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           () => storage.getSubscriptionByRestaurantId(currentUser.restaurantId)
         );
         
-        console.log('🔒 Subscription:', subscription ? { 
-          id: subscription.id, 
-          status: subscription.status, 
-          planId: subscription.planId,
-          planName: subscription.plan?.name 
-        } : 'NOT FOUND');
-        
         if (!subscription) {
-          console.log('❌ No subscription found');
           return res.status(402).json({ 
             message: "Subscrição não encontrada. Entre em contato com o suporte.",
             code: 'NO_SUBSCRIPTION'
@@ -2153,14 +2101,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         if (!subscription.plan) {
-          console.log('❌ Subscription plan data missing');
           return res.status(402).json({ 
             message: "Erro na configuração do plano. Entre em contato com o suporte.",
             code: 'PLAN_DATA_MISSING'
           });
         }
         
-        console.log('✅ Subscription check passed');
       } catch (error) {
         console.error('❌ Error checking subscription:', error);
         return res.status(500).json({ message: "Erro ao verificar subscrição" });
@@ -2176,12 +2122,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const search = req.query.search as string | undefined;
       const role = req.query.role as string | undefined;
       
-      console.log('🔍 Query params:', { page, limit, search, role });
-      console.log('🔍 Fetching users for restaurantId:', restaurantId);
       
       const result = await storage.getUsersPaginated(restaurantId, { page, limit, search, role });
       
-      console.log('✅ Users fetched:', { total: result.total, usersCount: result.users.length });
       
       const usersWithoutPassword = result.users.map(user => ({
         id: user.id,
@@ -2194,8 +2137,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: user.updatedAt,
       }));
       
-      console.log('✅ Sending response');
-      console.log('===== END GET /api/users =====\n');
       
       res.json({
         users: usersWithoutPassword,
@@ -2797,7 +2738,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // ✅ ABRIR MESA AUTOMATICAMENTE se estiver livre
         if (table.status === 'livre') {
           await storage.openTable(validatedOrder.tableId, validatedOrder.customerCount);
-          console.log(`[TABLE] Mesa ${table.number} aberta automaticamente via QR Code`);
         }
       }
       
@@ -2812,19 +2752,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // OPÇÃO 1: Cliente autenticado (Plano Profissional+)
           if (validatedOrder.customerId) {
-            console.log(`[GUEST AUTO-DETECT] Procurando guest para customerId: ${validatedOrder.customerId}`);
             
             const guests = await storage.getTableGuests(table.currentSessionId);
             const linkedGuest = guests.find(g => g.customerId === validatedOrder.customerId);
             
             if (linkedGuest) {
               detectedGuestId = linkedGuest.id;
-              console.log(`[GUEST AUTO-DETECT] Guest existente encontrado: ${linkedGuest.id}`);
             } else {
               // Criar guest para cliente autenticado
               const customer = await storage.getCustomerById(validatedOrder.customerId);
               if (customer) {
-                console.log(`[GUEST AUTO-DETECT] Criando guest para cliente: ${customer.name}`);
                 const newGuest = await storage.createTableGuest(validatedOrder.restaurantId, {
                   sessionId: table.currentSessionId,
                   tableId: table.id,
@@ -2833,7 +2770,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   token: guestToken, // Salvar token também
                 });
                 detectedGuestId = newGuest.id;
-                console.log(`[GUEST AUTO-DETECT] Guest criado: ${newGuest.id}`);
                 
                 broadcastToClients({ 
                   type: 'guest_joined', 
@@ -2844,21 +2780,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           // OPÇÃO 2: Convidado anônimo via token (TODOS os planos - inclusive Básico)
           else if (guestToken) {
-            console.log(`[GUEST TOKEN] Procurando guest com token: ${guestToken.substring(0, 8)}...`);
             
             const guests = await storage.getTableGuests(table.currentSessionId);
             const tokenGuest = guests.find(g => g.token === guestToken);
             
             if (tokenGuest) {
               detectedGuestId = tokenGuest.id;
-              console.log(`[GUEST TOKEN] Guest encontrado: ${tokenGuest.id}`);
             } else {
               // Criar novo convidado anônimo com token
               const existingGuests = await storage.getTableGuests(table.currentSessionId);
               const anonymousCount = existingGuests.filter(g => !g.customerId).length;
               const guestNumber = anonymousCount + 1;
               
-              console.log(`[GUEST TOKEN] Criando convidado anônimo #${guestNumber}`);
               const newGuest = await storage.createTableGuest(validatedOrder.restaurantId, {
                 sessionId: table.currentSessionId,
                 tableId: table.id,
@@ -2868,7 +2801,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 token: guestToken,
               });
               detectedGuestId = newGuest.id;
-              console.log(`[GUEST TOKEN] Convidado anônimo criado: ${newGuest.id}`);
               
               broadcastToClients({ 
                 type: 'guest_joined', 
@@ -2878,7 +2810,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           // OPÇÃO 3: Fallback - criar convidado anônimo sem token (última opção)
           else {
-            console.log(`[GUEST FALLBACK] Criando convidado sem token`);
             const existingGuests = await storage.getTableGuests(table.currentSessionId);
             const anonymousCount = existingGuests.filter(g => !g.customerId).length;
             const guestNumber = anonymousCount + 1;
@@ -2891,7 +2822,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               guestNumber: guestNumber,
             });
             detectedGuestId = newGuest.id;
-            console.log(`[GUEST FALLBACK] Convidado criado: ${newGuest.id}`);
           }
         }
       }
@@ -3267,7 +3197,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const otpCode = session.otpCode || '';
       const whatsappSent = otpCode ? await sendWhatsAppOTP(phone, otpCode, restaurant.name) : false;
       
-      console.log(`[CUSTOMER AUTH] OTP for ${phone}: ${otpCode}, WhatsApp sent: ${whatsappSent}`);
       
       res.json({
         success: true,
@@ -3806,29 +3735,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tables/:id/end-session", isAdmin, async (req, res) => {
-    try {
-      const currentUser = req.user as User;
-      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
-        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
-      }
-      
-      const restaurantId = currentUser.restaurantId!;
-      
-      await storage.endTableSession(restaurantId, req.params.id);
-      
-      // Auto-update table status
-      await storage.autoUpdateTableStatusOnSessionEnd(req.params.id);
-      
-      const updatedTable = await storage.getTableById(req.params.id);
-      broadcastToClients({ type: 'table_session_ended', data: updatedTable });
-      
-      res.json({ success: true, table: updatedTable });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to end table session" });
-    }
-  });
-
   // Close session route for operational staff (cashier, waiter, manager, admin)
   app.post("/api/tables/:id/close-session", isOperational, async (req, res) => {
     try {
@@ -3863,7 +3769,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (!validation.canClose && req.body.forceClose) {
-        console.log(`⚠️ [FORCE CLOSE] Mesa ${table.number} fechada com ${validation.totalPending} Kz pendente por ${currentUser.name}`);
       }
 
       // Get all guests with linked customers to award loyalty points
@@ -3893,7 +3798,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     createdBy: currentUser.id,
                   });
                   
-                  console.log(`✅ Awarded ${pointsEarned} loyalty points to customer ${customer.name} (ID: ${customer.id})`);
                 }
               }
             } catch (error) {
@@ -4263,11 +4167,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json([]);
       }
       
-      console.log(`[GET GUESTS] Buscando guests para sessionId: ${table.currentSessionId}`);
       const guests = await storage.getTableGuests(table.currentSessionId);
-      console.log(`[GET GUESTS] Retornando ${guests.length} guests`);
       res.json(guests);
     } catch (error: any) {
+      console.error('[GET GUESTS] Erro ao buscar guests:', error.message);
+      console.error('[GET GUESTS] Stack:', error.stack);
       console.error('[GET GUESTS] ERRO:', error.message);
       console.error('[GET GUESTS] Stack:', error.stack);
       res.status(500).json({ message: "Erro ao buscar clientes da mesa", error: error.message });
@@ -4489,51 +4393,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Mesa não encontrada" });
       }
       
-      // Get all orders for this table
-      const orders = await storage.getOrdersByTableId(table.restaurantId, table.id);
-      
       // Get guests for current session
       const guests = table.currentSessionId 
         ? await storage.getTableGuests(table.currentSessionId)
         : [];
       
-      // Group orders by guestId
+      // 🔧 FIX: Get ONLY orders from CURRENT SESSION, not all table orders
+      // This prevents including orders from previous sessions in the total
+      const allTableOrders = await storage.getOrdersByTableId(table.restaurantId, table.id);
+      
+      // Filter to only orders from current session
+      // Method 1: Check sessionId field (most reliable)
+      // Method 2: Check if guestId belongs to current session guests
+      const currentGuestIds = guests.map(g => g.id);
+      const orders = allTableOrders.filter((order: any) => {
+        // Priority 1: Check if order has sessionId matching current session
+        if (order.sessionId === table.currentSessionId) {
+          return true;
+        }
+        // Priority 2: Check if order belongs to a guest in current session
+        if (order.guestId && currentGuestIds.includes(order.guestId)) {
+          return true;
+        }
+        // Exclude all others (old sessions, other tables)
+        return false;
+      });
+      
+      // Helper function to calculate order total from items
+      const calculateOrderTotal = (order: any) => {
+        if (order.totalAmount && parseFloat(order.totalAmount) > 0) {
+          return parseFloat(order.totalAmount);
+        }
+        // Calculate from items if totalAmount is missing or zero
+        const itemsTotal = (order.orderItems || []).reduce((sum: number, item: any) => {
+          // Price can be in item.price (direct) or item.menuItem.price (joined)
+          const itemPrice = parseFloat(item.price || item.menuItem?.price || 0);
+          const itemQty = item.quantity || 0;
+          return sum + (itemPrice * itemQty);
+        }, 0);
+        return itemsTotal;
+      };
+
+      // Group orders by guestId - ALWAYS include all guests, even without orders
       const ordersByGuest = guests.map(guest => {
         const guestOrders = orders.filter((order: any) => order.guestId === guest.id && order.status !== 'cancelado');
-        const subtotal = guestOrders.reduce((sum: number, order: any) => sum + parseFloat(order.totalAmount), 0);
-        
-        console.log(`[DEBUG] Guest ${guest.name || guest.guestNumber} (${guest.id}):`, {
-          orderCount: guestOrders.length,
-          subtotal: subtotal,
-          orders: guestOrders.map(o => ({id: o.id, amount: o.totalAmount}))
+        const subtotal = guestOrders.reduce((sum: number, order: any) => sum + calculateOrderTotal(order), 0);
+
+        guestOrders.forEach((order: any) => {
+          const orderTotal = calculateOrderTotal(order);
         });
 
         return {
           guest,
-          orders: guestOrders,
+          orders: guestOrders.map((order: any) => {
+            const orderTotal = calculateOrderTotal(order);
+            // Map orderItems to items with proper price field
+            const items = (order.orderItems || []).map((item: any) => ({
+              ...item,
+              price: item.price || item.menuItem?.price || '0',
+              name: item.name || item.menuItem?.name || 'Item',
+            }));
+            
+            return {
+              ...order,
+              items, // Rename orderItems to items with proper fields
+              totalPrice: orderTotal.toString()
+            };
+          }),
           subtotal: subtotal.toFixed(2),
         };
       });
       
-      // Orders without guest (anonymous)
-      const anonymousOrders = orders.filter((order: any) => !order.guestId);
+      // 🔧 FIX: Ensure we return ALL guests, not filtering out those without orders
+      // This ensures the guest count in the UI is always accurate
+      
+      // Orders without guest (anonymous) - also include items
+      const anonymousOrders = orders
+        .filter((order: any) => !order.guestId && order.status !== 'cancelado')
+        .map((order: any) => {
+          const orderTotal = calculateOrderTotal(order);
+          // Map orderItems to items with proper price field
+          const items = (order.orderItems || []).map((item: any) => ({
+            ...item,
+            price: item.price || item.menuItem?.price || '0',
+            name: item.name || item.menuItem?.name || 'Item',
+          }));
+          
+          return {
+            ...order,
+            items, // Rename orderItems to items with proper fields
+            totalPrice: orderTotal.toString()
+          };
+        });
       
       // Buscar valor já pago na sessão para precisão total
       const session = table.currentSessionId 
         ? (await db.select().from(tableSessions).where(eq(tableSessions.id, table.currentSessionId)).limit(1))[0]
         : null;
 
+      // Calculate total using the same helper function
+      const totalAmount = orders
+        .filter((o: any) => o.status !== 'cancelado')
+        .reduce((sum: number, o: any) => sum + calculateOrderTotal(o), 0);
+
+
       res.json({
         ordersByGuest,
         anonymousOrders,
-        totalAmount: orders
-          .filter((o: any) => o.status !== 'cancelado')
-          .reduce((sum: number, o: any) => sum + parseFloat(o.totalAmount), 0)
-          .toFixed(2),
+        totalAmount: totalAmount.toFixed(2),
         paidAmount: session?.paidAmount || '0.00',
+        currentSessionId: table.currentSessionId, // 🔧 FIX: Return sessionId for frontend queries
       });
     } catch (error) {
+      console.error('Error in orders-by-guest:', error);
       res.status(500).json({ message: "Erro ao buscar pedidos por cliente" });
+    }
+  });
+
+  // 🔧 FIX: Get all guests from a table session (including those without orders)
+  app.get("/api/table-sessions/:sessionId/guests", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      const sessionId = req.params.sessionId;
+      if (!sessionId) {
+        return res.status(400).json({ message: "ID da sessão é obrigatório" });
+      }
+      
+      // Get all guests for this session
+      const guests = await storage.getTableGuests(sessionId);
+      
+      res.json(guests);
+    } catch (error) {
+      console.error('Error fetching session guests:', error);
+      res.status(500).json({ message: "Erro ao buscar convidados da sessão" });
     }
   });
 
@@ -5599,7 +5595,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentUser = req.user as User;
       let { items, ...orderData } = req.body;
       
-      console.log('Creating order with data:', JSON.stringify({ orderData, items }, null, 2));
       
       // Check subscription limits for orders (only for non-superadmin users)
       if (currentUser.role !== 'superadmin' && currentUser.restaurantId) {
@@ -5678,7 +5673,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             },
           });
           
-          console.log(`[AUTO-PRINT] Triggered for order ${orderNumber} on ${autoPrintPrinters.length} printer(s)`);
         }
       } catch (printError) {
         console.error('[AUTO-PRINT] Error checking printers:', printError);
@@ -8569,25 +8563,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const currentUser = req.user as User;
       
-      console.log('📝 Creating customer - User:', {
-        id: currentUser.id,
-        restaurantId: currentUser.restaurantId,
-        role: currentUser.role
-      });
-      
       if (!currentUser.restaurantId) {
         console.error('❌ User not associated with restaurant');
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
       // Check plan limits and features
-      console.log('🔍 Checking plan limits and features...');
       try {
         await checkCanAddCustomer(storage, currentUser.restaurantId);
-        console.log('✅ Plan limits OK');
       } catch (limitError: any) {
         if (limitError.name === 'PlanFeatureError') {
-          console.log('⚠️ Feature not available in current plan');
           return res.status(403).json({ 
             message: limitError.message,
             code: 'FEATURE_NOT_AVAILABLE',
@@ -8596,7 +8581,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         if (limitError.name === 'PlanLimitError') {
-          console.log('⚠️ Customer limit reached');
           return res.status(403).json({ 
             message: limitError.message,
             code: 'LIMIT_REACHED',
@@ -8608,27 +8592,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw limitError;
       }
 
-      console.log('📋 Validating customer data:', req.body);
       const validatedData = insertCustomerSchema.parse(req.body);
-      console.log('✅ Data validated:', validatedData);
 
       if (validatedData.phone) {
         const existing = await storage.getCustomerByPhone(currentUser.restaurantId, validatedData.phone);
         if (existing) {
-          console.log('❌ Phone already exists:', validatedData.phone);
           return res.status(400).json({ message: "Já existe um cliente com este telefone" });
         }
       }
 
 
-      console.log('💾 Creating customer in database...');
       const customer = await storage.createCustomer(
         currentUser.restaurantId,
         currentUser.activeBranchId || null,
         validatedData
       );
       
-      console.log('✅ Customer created successfully:', customer.id);
       res.status(201).json(customer);
     } catch (error: any) {
       console.error('❌ Customer creation error:', error);
@@ -9164,6 +9143,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(applicableServices);
     } catch (error: any) {
       console.error('Applicable services fetch error:', error);
+      // Se a tabela não existe, retorna array vazio ao invés de erro
+      if (error.code === '42P01') {
+        console.warn('⚠️ Tabela services não existe - retornando array vazio');
+        return res.json([]);
+      }
       res.status(500).json({ message: "Erro ao buscar serviços aplicáveis" });
     }
   });
@@ -9179,10 +9163,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Auto-seed plans if they don't exist
       if (plans.length === 0) {
-        console.log('⚠️  No subscription plans found. Auto-seeding...');
         await storage.seedSubscriptionPlans();
         plans = await storage.getSubscriptionPlans();
-        console.log(`✅ Auto-seeded ${plans.length} subscription plans`);
       }
       
       res.json(plans);
@@ -9764,6 +9746,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
+
       const data = insertPrintHistorySchema.parse(req.body);
       const history = await storage.createPrintHistory(restaurantId, {
         ...data,
@@ -9802,7 +9785,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
 
-  // Setup WebSocket server with Redis Pub/Sub for horizontal scaling
+  // Setup WebSocket server
   const { setupWebSocket } = await import('./websocket.js');
   await setupWebSocket(httpServer);
 

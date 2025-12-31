@@ -20,7 +20,7 @@ import {
 import { TablesIcon } from '@/components/custom-icons';
 import { formatKwanza } from '@/lib/formatters';
 import { TableCheckoutDialog } from '@/components/tables/TableCheckoutDialog';
-import { TableDetailsDialogPro as TableDetailsDialog } from '@/components/TableDetailsDialogPro';
+import { TableDialogSplitPanel } from '@/components/table-dialog/TableDialogSplitPanel';
 import type { Table, Order, TableSession } from '@shared/schema';
 
 interface TableWithDetails extends Table {
@@ -340,10 +340,12 @@ export default function OpenTables() {
       </div>
 
       {selectedTable && (
-        <TableDetailsDialog
+        <TableDialogSplitPanel
           open={detailsDialogOpen}
           onOpenChange={setDetailsDialogOpen}
           table={selectedTable}
+          allTables={openTables}
+          onNavigate={setSelectedTable}
         />
       )}
 

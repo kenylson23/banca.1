@@ -45,7 +45,6 @@ export function useCustomersOffline() {
       });
     },
     onError: (error: any) => {
-      console.error('Customer creation error:', error);
       
       // Handle specific error codes from backend
       if (error.code === 'FEATURE_NOT_AVAILABLE') {

@@ -305,7 +305,6 @@ export default function CustomerMenu() {
           }
         }
       } catch (error) {
-        console.error('Customer lookup error:', error);
       } finally {
         setIsLookingUpCustomer(false);
       }

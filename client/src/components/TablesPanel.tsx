@@ -34,7 +34,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { TableCard } from "@/components/TableCard";
-import { TableDetailsDialogPro as TableDetailsDialog } from '@/components/TableDetailsDialogPro';
+import { TableDialogSplitPanel } from '@/components/table-dialog/TableDialogSplitPanel';
 import type { Table } from "@shared/schema";
 
 export function TablesPanel() {
@@ -556,7 +556,9 @@ export function TablesPanel() {
                     <TableCard
                       key={table.id}
                       table={table}
-                      onClick={() => setSelectedTable(table)}
+                      onClick={() => {
+                        setSelectedTable(table);
+                      }}
                       onShowQrCode={setQrDialogTable}
                     />
                   ))}
@@ -750,11 +752,11 @@ export function TablesPanel() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <TableDetailsDialog
+      {/* Usando APENAS TableDialogSplitPanel */}
+      <TableDialogSplitPanel
         open={!!selectedTable}
         onOpenChange={(open) => !open && setSelectedTable(null)}
         table={selectedTable}
-        onDelete={setDeleteTableId}
         allTables={filteredTables}
         onNavigate={setSelectedTable}
       />

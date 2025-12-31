@@ -173,7 +173,6 @@ export function QRCodeGenerator({ url, restaurantName }: QRCodeGeneratorProps) {
         }
       }
     } catch (err) {
-      console.error('Error generating QR code:', err);
     }
   };
 
@@ -235,7 +234,6 @@ export function QRCodeGenerator({ url, restaurantName }: QRCodeGeneratorProps) {
         }
       });
     } catch (err) {
-      console.error('Error copying to clipboard:', err);
     }
   };
   

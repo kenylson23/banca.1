@@ -53,12 +53,35 @@ app.use((req, res, next) => {
   try {
     const { ensureTablesExist } = await import('./initDb');
     await ensureTablesExist();
-    console.log('Database initialized successfully');
   } catch (error) {
     console.error('Failed to initialize database:', error instanceof Error ? error.message : error);
     console.error('The application requires a database connection to run.');
     console.error('Please ensure DATABASE_URL environment variable is set with your PostgreSQL connection string.');
     process.exit(1);
+  }
+
+  // 🔧 AUTO-FIX: Corrigir pedidos sem sessionId
+  try {
+    console.log('🔧 Corrigindo pedidos sem sessionId...');
+    const { db, sql } = await import('./storage');
+    await db.execute(sql`
+      UPDATE orders 
+      SET "sessionId" = (
+        SELECT tg."sessionId" 
+        FROM table_guests tg 
+        WHERE tg.id = orders."guestId"
+      )
+      WHERE orders."sessionId" IS NULL 
+        AND orders."guestId" IS NOT NULL 
+        AND EXISTS (
+          SELECT 1 FROM table_guests tg 
+          WHERE tg.id = orders."guestId"
+        )
+    `);
+    console.log('✅ Pedidos corrigidos automaticamente!');
+  } catch (fixError) {
+    console.log('⚠️ Aviso: Não foi possível corrigir pedidos automaticamente');
+    console.log('   Isso é normal se não houver pedidos para corrigir.');
   }
 
   const server = await registerRoutes(app);

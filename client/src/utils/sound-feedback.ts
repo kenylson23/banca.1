@@ -45,7 +45,6 @@ function getAudioContext(): AudioContext | null {
     try {
       audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     } catch (e) {
-      console.warn('AudioContext não suportado:', e);
       return null;
     }
   }
@@ -82,7 +81,6 @@ function playTone(frequency: number, duration: number, volume: number = 0.1) {
     oscillator.start(now);
     oscillator.stop(now + duration / 1000);
   } catch (e) {
-    console.warn('Erro ao tocar som:', e);
   }
 }
 

@@ -161,7 +161,6 @@ export function PrintGuestBill({
         }
       });
     } catch (error) {
-      console.error('Erro ao gerar QR Code:', error);
     }
     
     return `

@@ -3319,7 +3319,6 @@ function getSession() {
   if (!sessionSecret) {
     console.error("\u26A0\uFE0F  SESSION_SECRET is not set!");
     console.error("\u{1F527} Please set SESSION_SECRET in your environment variables.");
-    console.error(`\u{1F4A1} Generate a secure secret with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`);
     throw new Error("SESSION_SECRET must be set");
   }
   if (sessionSecret.length < 32) {
@@ -3360,23 +3359,16 @@ function setupAuth(app2) {
       },
       async (email, password, done) => {
         try {
-          console.log("[AUTH] Login attempt for email:", email);
           const user = await storage.getUserByEmail(email);
-          console.log("[AUTH] User found:", !!user, user ? `role: ${user.role}` : "no user");
           if (!user) {
-            console.log("[AUTH] Login failed: User not found");
             return done(null, false, { message: "Email ou senha incorretos" });
           }
           const isValidPassword = await verifyPassword(password, user.password);
-          console.log("[AUTH] Password valid:", isValidPassword);
           if (!isValidPassword) {
-            console.log("[AUTH] Login failed: Invalid password");
             return done(null, false, { message: "Email ou senha incorretos" });
           }
-          console.log("[AUTH] Login successful for user:", user.id);
           return done(null, user);
         } catch (error) {
-          console.error("[AUTH] Login error:", error);
           return done(error);
         }
       }
@@ -3388,14 +3380,6 @@ function setupAuth(app2) {
   passport.deserializeUser(async (id, cb) => {
     try {
       const user = await storage.getUser(id);
-      if (false) {
-        console.log("[AUTH] Deserializing user:", {
-          userId: id,
-          userFound: !!user,
-          userRole: user?.role,
-          hasRole: user ? "role" in user : false
-        });
-      }
       if (user && !user.role) {
         console.error("[AUTH] CRITICAL: User loaded from database missing role field!", {
           userId: user.id,
@@ -3423,14 +3407,6 @@ var init_auth = __esm({
       if (req.isAuthenticated()) {
         return next();
       }
-      if (false) {
-        console.log("[AUTH] isAuthenticated check failed:", {
-          hasSession: !!req.session,
-          sessionID: req.sessionID,
-          authenticated: req.isAuthenticated(),
-          path: req.path
-        });
-      }
       res.status(401).json({ message: "N\xE3o autenticado" });
     };
   }
@@ -3452,7 +3428,6 @@ async function ensureTablesExist() {
   initPromise2 = (async () => {
     try {
       await initializeConnection();
-      console.log("Ensuring database tables exist...");
       await db.execute(sql2`DO $$ BEGIN CREATE TYPE restaurant_status AS ENUM ('pendente', 'ativo', 'suspenso'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql2`DO $$ BEGIN CREATE TYPE user_role AS ENUM ('superadmin', 'admin', 'manager', 'cashier', 'waiter', 'kitchen'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql2`DO $$ BEGIN CREATE TYPE order_status AS ENUM ('pendente', 'em_preparo', 'pronto', 'servido', 'cancelado'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
@@ -4497,22 +4472,16 @@ async function ensureTablesExist() {
       const superAdminEmail = "superadmin@nabancada.com";
       const checkSuperAdmin = await db.execute(sql2`SELECT id FROM users WHERE email = ${superAdminEmail} AND role = 'superadmin'`);
       if (checkSuperAdmin.rows.length === 0) {
-        console.log("Creating initial super admin user...");
         const defaultPassword = "SuperAdmin123!";
         const hashedPassword = await hashPassword(defaultPassword);
         await db.execute(sql2`
           INSERT INTO users (email, password, first_name, last_name, role, restaurant_id)
           VALUES (${superAdminEmail}, ${hashedPassword}, 'Super', 'Admin', 'superadmin', NULL)
         `);
-        console.log("Super admin user created successfully!");
-        console.log("Email: superadmin@nabancada.com");
-        console.log("Password: SuperAdmin123!");
-        console.log("IMPORTANT: Please change this password after first login!");
       }
       const checkPlans = await db.execute(sql2`SELECT COUNT(*) as count FROM subscription_plans`);
       const planCount = parseInt(checkPlans.rows[0].count);
       if (planCount === 0) {
-        console.log("Seeding subscription plans...");
         const plans = [
           {
             name: "B\xE1sico",
@@ -4710,14 +4679,8 @@ async function ensureTablesExist() {
             )
           `);
         }
-        console.log("\u2705 Subscription plans seeded successfully!");
-        console.log("  \u{1F949} B\xE1sico: 15.000 Kz/m\xEAs");
-        console.log("  \u{1F948} Profissional: 35.000 Kz/m\xEAs");
-        console.log("  \u{1F947} Empresarial: 70.000 Kz/m\xEAs");
-        console.log("  \u{1F48E} Enterprise: 150.000 Kz/m\xEAs");
       }
       isInitialized = true;
-      console.log("Database tables ensured successfully!");
       try {
         await db.execute(sql2`
           ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_number VARCHAR(20);
@@ -4728,9 +4691,7 @@ async function ensureTablesExist() {
         await db.execute(sql2`
           CREATE INDEX IF NOT EXISTS idx_orders_created_restaurant ON orders(restaurant_id, created_at DESC);
         `);
-        console.log("\u2705 Migration: order_number column added successfully!");
       } catch (migrationError) {
-        console.log("\u26A0\uFE0F Migration note:", migrationError instanceof Error ? migrationError.message : String(migrationError));
       }
     } catch (error) {
       console.error("Error ensuring tables exist:", error);
@@ -4787,7 +4748,6 @@ async function getRedisClient() {
       console.error("\u274C Redis connection error:", err.message);
     });
     redisClient.on("connect", () => {
-      console.log("\u2705 Redis connected successfully");
     });
     return redisClient;
   } catch (error) {
@@ -4818,9 +4778,7 @@ var init_cache = __esm({
         getRedisClient().then((client) => {
           if (client) {
             this.useRedis = true;
-            console.log("\u{1F680} Cache: Using Redis (distributed)");
           } else {
-            console.log("\u{1F4BE} Cache: Using in-memory (single instance only)");
           }
         });
         this.cleanupInterval = setInterval(() => {
@@ -4945,7 +4903,6 @@ var init_cache = __esm({
           }
         }
         if (cleaned > 0) {
-          console.log(`\u{1F9F9} Cache cleanup: removed ${cleaned} expired entries`);
         }
       }
       /**
@@ -5019,11 +4976,9 @@ var init_cache = __esm({
       // 30 seconds (changes frequently)
     };
     process.on("SIGTERM", () => {
-      console.log("\u{1F6D1} Destroying cache on SIGTERM...");
       cache.destroy();
     });
     process.on("SIGINT", () => {
-      console.log("\u{1F6D1} Destroying cache on SIGINT...");
       cache.destroy();
     });
   }
@@ -5143,10 +5098,8 @@ var init_storage = __esm({
             counter++;
           }
           await db.update(restaurants).set({ slug, updatedAt: /* @__PURE__ */ new Date() }).where(eq(restaurants.id, restaurant.id));
-          console.log(`\u2705 Generated slug "${slug}" for restaurant "${restaurant.name}"`);
         }
         if (restaurantsWithoutSlug.length > 0) {
-          console.log(`\u{1F4DD} Generated ${restaurantsWithoutSlug.length} missing slug(s)`);
         }
       }
       // Branch operations
@@ -5462,11 +5415,18 @@ var init_storage = __esm({
             allTables.map(async (table) => {
               try {
                 const orders2 = await this.getOrdersByTableId(restaurantId, table.id);
+                let currentSession = null;
+                if (table.currentSessionId) {
+                  const sessionResult = await db.select().from(tableSessions).where(eq(tableSessions.id, table.currentSessionId)).limit(1);
+                  currentSession = sessionResult[0] || null;
+                }
                 return {
                   ...table,
                   orders: orders2 || [],
                   guestsAwaitingBill: 0,
-                  guestCount: 0
+                  guestCount: 0,
+                  currentSession
+                  // Include session with startedAt
                 };
               } catch (error) {
                 console.warn(`Failed to fetch orders for table ${table.id}:`, error);
@@ -5474,7 +5434,8 @@ var init_storage = __esm({
                   ...table,
                   orders: [],
                   guestsAwaitingBill: 0,
-                  guestCount: 0
+                  guestCount: 0,
+                  currentSession: null
                 };
               }
             })
@@ -5648,7 +5609,6 @@ var init_storage = __esm({
           await db.update(tableGuests).set({
             subtotal: subtotal.toFixed(2)
           }).where(eq(tableGuests.id, guestId));
-          console.log(`\u2705 [GUEST SUBTOTAL] Guest ${guestId} atualizado: ${subtotal.toFixed(2)} Kz`);
         } catch (error) {
           console.error(`\u274C [GUEST SUBTOTAL] Erro ao atualizar guest ${guestId}:`, error);
         }
@@ -5660,7 +5620,6 @@ var init_storage = __esm({
           for (const guest of guests) {
             await this.updateGuestSubtotal(guest.id);
           }
-          console.log(`\u2705 [SESSION SUBTOTALS] ${guests.length} guests atualizados na sess\xE3o ${sessionId}`);
         } catch (error) {
           console.error(`\u274C [SESSION SUBTOTALS] Erro ao recalcular sess\xE3o ${sessionId}:`, error);
         }
@@ -6024,13 +5983,12 @@ var init_storage = __esm({
           }
         }
         const guestsToUpdate = /* @__PURE__ */ new Set();
-        for (const item of insertedItems) {
-          if (item.guestId) {
-            guestsToUpdate.add(item.guestId);
+        for (const itemData of items) {
+          if (itemData.guestId) {
+            guestsToUpdate.add(itemData.guestId);
           }
         }
         if (guestsToUpdate.size > 0) {
-          console.log(`[ORDER CREATED] Atualizando subtotais de ${guestsToUpdate.size} guests`);
           for (const guestId of guestsToUpdate) {
             await this.updateGuestSubtotal(guestId);
           }
@@ -6061,7 +6019,6 @@ var init_storage = __esm({
             throw new Error("User ID is required when marking order as served");
           }
           if (!orderData.orders.branchId) {
-            console.log("[STOCK] Order has no branchId, skipping stock deduction");
           }
         }
         const needsStockDeduction = status === "servido" && previousStatus !== "servido" && orderData.orders.branchId && userId;
@@ -6109,7 +6066,6 @@ var init_storage = __esm({
         await db.delete(orderItems).where(eq(orderItems.orderId, id));
         await db.delete(orders).where(eq(orders.id, id));
         if (guestsToUpdate.size > 0) {
-          console.log(`[ORDER DELETED] Atualizando subtotais de ${guestsToUpdate.size} guests`);
           for (const guestId of guestsToUpdate) {
             await this.updateGuestSubtotal(guestId);
           }
@@ -9091,7 +9047,6 @@ var init_storage = __esm({
           for (const orderItem of order.orderItems) {
             const ingredients = await this.getRecipeIngredients(restaurantId, orderItem.menuItemId, tx);
             if (ingredients.length === 0) {
-              console.log(`Prato ${orderItem.menuItemId} n\xE3o possui receita cadastrada, pulando baixa de estoque`);
               continue;
             }
             for (const ingredient of ingredients) {
@@ -9131,7 +9086,6 @@ var init_storage = __esm({
           for (const orderItem of order.orderItems) {
             const ingredients = await this.getRecipeIngredients(restaurantId, orderItem.menuItemId);
             if (ingredients.length === 0) {
-              console.log(`Prato ${orderItem.menuItemId} n\xE3o possui receita cadastrada, pulando baixa de estoque`);
               continue;
             }
             for (const ingredient of ingredients) {
@@ -9155,7 +9109,6 @@ var init_storage = __esm({
         for (const orderItem of order.orderItems) {
           const ingredients = await this.getRecipeIngredients(restaurantId, orderItem.menuItemId, tx);
           if (ingredients.length === 0) {
-            console.log(`Prato ${orderItem.menuItemId} n\xE3o possui receita cadastrada, pulando devolu\xE7\xE3o de estoque`);
             continue;
           }
           for (const ingredient of ingredients) {
@@ -10347,14 +10300,30 @@ var init_storage = __esm({
       }
       // ===== TABLE GUEST OPERATIONS =====
       async getTableGuests(sessionId) {
-        const results = await db.select({
-          guest: tableGuests,
-          customer: customers
-        }).from(tableGuests).leftJoin(customers, eq(tableGuests.customerId, customers.id)).where(eq(tableGuests.sessionId, sessionId)).orderBy(tableGuests.seatNumber);
-        return results.map((row) => ({
-          ...row.guest,
-          customer: row.customer || void 0
-        }));
+        try {
+          const results = await db.select({
+            guest: tableGuests,
+            customer: customers
+          }).from(tableGuests).leftJoin(customers, eq(tableGuests.customerId, customers.id)).where(eq(tableGuests.sessionId, sessionId)).orderBy(tableGuests.seatNumber);
+          return results.map((row) => ({
+            ...row.guest,
+            customer: row.customer || void 0
+          }));
+        } catch (error) {
+          console.error("[getTableGuests] LEFT JOIN falhou:", error.message);
+          console.error("[getTableGuests] Stack:", error.stack);
+          try {
+            const guests = await db.select().from(tableGuests).where(eq(tableGuests.sessionId, sessionId)).orderBy(tableGuests.seatNumber);
+            return guests.map((guest) => ({
+              ...guest,
+              customer: void 0
+              // Sem dados de customer
+            }));
+          } catch (fallbackError) {
+            console.error("[getTableGuests] Fallback tamb\xE9m falhou:", fallbackError.message);
+            throw fallbackError;
+          }
+        }
       }
       async getTableGuestById(id) {
         const [guest] = await db.select().from(tableGuests).where(eq(tableGuests.id, id));
@@ -10366,17 +10335,10 @@ var init_storage = __esm({
       }
       async createTableGuest(restaurantId, data) {
         try {
-          console.log("Creating guest:", {
-            restaurantId,
-            sessionId: data.sessionId,
-            tableId: data.tableId,
-            name: data.name
-          });
           const [guest] = await db.insert(tableGuests).values({
             ...data,
             restaurantId
           }).returning();
-          console.log("Guest created successfully:", guest.id);
           return guest;
         } catch (error) {
           console.error("Error creating guest:", error);
@@ -10795,7 +10757,6 @@ async function getRedisClients() {
     pubClient = new IORedis(redisUrl, { lazyConnect: true });
     subClient = new IORedis(redisUrl, { lazyConnect: true });
     await Promise.all([pubClient.connect(), subClient.connect()]);
-    console.log("\u2705 Redis Pub/Sub connected for WebSocket");
     return { pub: pubClient, sub: subClient };
   } catch (error) {
     console.error("\u274C Failed to initialize Redis Pub/Sub:", error);
@@ -10810,7 +10771,6 @@ async function setupWebSocket(httpServer) {
   const redis = await getRedisClients();
   const useRedis = redis !== null;
   if (useRedis) {
-    console.log("\u{1F680} WebSocket: Using Redis Pub/Sub (distributed)");
     redis.sub.subscribe("ws:broadcast", "ws:restaurant", (err) => {
       if (err) {
         console.error("\u274C Redis subscribe error:", err);
@@ -10831,7 +10791,6 @@ async function setupWebSocket(httpServer) {
       }
     });
   } else {
-    console.log("\u{1F4BE} WebSocket: Using local only (single instance)");
   }
   wss.on("connection", (ws) => {
     clients.add(ws);
@@ -11188,7 +11147,6 @@ var twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOK
 var TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || "";
 async function sendWhatsAppOTP(phoneNumber, otpCode, restaurantName) {
   if (!twilioClient) {
-    console.log("[WHATSAPP] Twilio not configured, skipping WhatsApp message");
     return false;
   }
   try {
@@ -11215,7 +11173,6 @@ Se voc\xEA n\xE3o solicitou este c\xF3digo, ignore esta mensagem.`,
       from: fromNumber,
       to: `whatsapp:${formattedPhone}`
     });
-    console.log(`[WHATSAPP] OTP sent successfully to ${formattedPhone}, SID: ${message.sid}`);
     return true;
   } catch (error) {
     console.error("[WHATSAPP] Error sending OTP:", error.message);
@@ -11230,12 +11187,10 @@ var orderStatusMessages = {
 };
 async function sendWhatsAppOrderStatus(phoneNumber, restaurantName, orderNumber, status) {
   if (!twilioClient) {
-    console.log("[WHATSAPP] Twilio not configured, skipping order status message");
     return false;
   }
   const statusInfo = orderStatusMessages[status];
   if (!statusInfo) {
-    console.log(`[WHATSAPP] Unknown status: ${status}, skipping message`);
     return false;
   }
   try {
@@ -11261,7 +11216,6 @@ Obrigado pela prefer\xEAncia!`,
       from: fromNumber,
       to: `whatsapp:${formattedPhone}`
     });
-    console.log(`[WHATSAPP] Order status sent to ${formattedPhone}, SID: ${message.sid}`);
     return true;
   } catch (error) {
     console.error("[WHATSAPP] Error sending order status:", error.message);
@@ -11366,7 +11320,6 @@ async function deleteOldImage(imageUrl, type = "restaurants") {
     const filePath = path2.join(`client/public/uploads/${type}`, filename);
     await fs2.unlink(filePath);
   } catch (error) {
-    console.log("Could not delete old image:", error);
   }
 }
 function isAdmin(req, res, next) {
@@ -11431,20 +11384,12 @@ async function checkSubscriptionStatus(req, res, next) {
   try {
     const { cache: cache2, CacheKeys: CacheKeys2, CacheTTL: CacheTTL2, getOrSet: getOrSet2 } = await Promise.resolve().then(() => (init_cache(), cache_exports));
     const cacheKey = CacheKeys2.subscription(user.restaurantId);
-    console.log("\u{1F512} checkSubscriptionStatus - RestaurantId:", user.restaurantId);
     const subscription = await getOrSet2(
       cacheKey,
       CacheTTL2.subscription,
       () => storage.getSubscriptionByRestaurantId(user.restaurantId)
     );
-    console.log("\u{1F512} checkSubscriptionStatus - Subscription:", subscription ? {
-      id: subscription.id,
-      status: subscription.status,
-      planId: subscription.planId,
-      planName: subscription.plan?.name
-    } : "NOT FOUND");
     if (!subscription) {
-      console.log("\u274C checkSubscriptionStatus - NO_SUBSCRIPTION");
       return res.status(402).json({
         message: "Subscri\xE7\xE3o n\xE3o encontrada. Entre em contato com o suporte.",
         code: "NO_SUBSCRIPTION"
@@ -11535,13 +11480,11 @@ async function registerRoutes(app2) {
           autoRenew: 1,
           cancelAtPeriodEnd: 0
         });
-        console.log(`\u2705 Subscription created for restaurant ${restaurant.id} with ${trialDays} days trial`);
       } catch (subscriptionError) {
         console.error("\u274C Error creating subscription for new restaurant:", subscriptionError);
         try {
           await storage.deleteUser(restaurant.id, adminUser.id);
           await storage.deleteRestaurant(restaurant.id);
-          console.log(`\u{1F504} Rolled back restaurant ${restaurant.id} creation due to subscription error`);
         } catch (rollbackError) {
           console.error("\u274C CRITICAL: Error during rollback:", rollbackError);
         }
@@ -11589,7 +11532,6 @@ async function registerRoutes(app2) {
         });
       }
       const sql7 = fs4.readFileSync(migrationPath, "utf8");
-      console.log(`\u{1F504} Running migration: ${migrationName}.sql`);
       const statements = sql7.split(";").map((s) => s.trim()).filter((s) => s.length > 0 && !s.startsWith("--"));
       let executed = 0;
       const errors = [];
@@ -11606,7 +11548,6 @@ async function registerRoutes(app2) {
           }
         }
       }
-      console.log(`\u2705 Migration completed: ${executed} statements executed`);
       res.json({
         success: true,
         migration: migrationName,
@@ -11715,7 +11656,6 @@ async function registerRoutes(app2) {
         })),
         timestamp: (/* @__PURE__ */ new Date()).toISOString()
       });
-      console.log(`\u{1F4E5} Sync: Sent ${orders2.length} orders, ${tables2.length} tables, ${menuItems2.length} menu items to client`);
     } catch (error) {
       console.error("\u274C Sync error:", error);
       res.status(500).json({ message: "Sync failed", error: error instanceof Error ? error.message : "Unknown error" });
@@ -11767,7 +11707,6 @@ async function registerRoutes(app2) {
         }
       }
       res.json({ results });
-      console.log(`\u{1F4E4} Sync: Processed ${operations.length} operations (${results.filter((r) => r.success).length} succeeded)`);
     } catch (error) {
       console.error("\u274C Sync operations error:", error);
       res.status(500).json({ message: "Sync operations failed" });
@@ -11782,7 +11721,6 @@ async function registerRoutes(app2) {
       });
     }
     try {
-      console.log("\n\u{1F514} Cron job triggered: Checking subscriptions...");
       const { checkExpiredSubscriptions: checkExpiredSubscriptions2, checkExpiringSubscriptions: checkExpiringSubscriptions2 } = await Promise.resolve().then(() => (init_check_subscriptions(), check_subscriptions_exports));
       const expiredResults = await checkExpiredSubscriptions2();
       const expiringResults = await checkExpiringSubscriptions2();
@@ -11985,9 +11923,7 @@ async function registerRoutes(app2) {
   });
   app2.post("/api/debug/fix-subscriptions", async (req, res) => {
     try {
-      console.log("\u{1F527} Starting subscription fix...");
       const allRestaurants = await storage.getRestaurants();
-      console.log(`\u{1F4CA} Total restaurants: ${allRestaurants.length}`);
       let fixed = 0;
       const fixedRestaurants = [];
       const basePlan = await storage.getSubscriptionPlanBySlug("basico");
@@ -11995,11 +11931,9 @@ async function registerRoutes(app2) {
         console.error("\u274C Base plan not found!");
         return res.status(500).json({ message: "Base plan not found. Please seed subscription plans first." });
       }
-      console.log(`\u{1F4E6} Using plan: ${basePlan.name} (ID: ${basePlan.id})`);
       for (const restaurant of allRestaurants) {
         const subscription = await storage.getSubscriptionByRestaurantId(restaurant.id);
         if (!subscription) {
-          console.log(`  \u274C ${restaurant.name} - NO SUBSCRIPTION, creating...`);
           const now = /* @__PURE__ */ new Date();
           const trialEnd = new Date(now);
           trialEnd.setDate(trialEnd.getDate() + 30);
@@ -12020,10 +11954,8 @@ async function registerRoutes(app2) {
             email: restaurant.email
           });
         } else {
-          console.log(`  \u2705 ${restaurant.name} - Has subscription (${subscription.status})`);
         }
       }
-      console.log(`\u2705 Fixed ${fixed} restaurants!`);
       res.json({
         message: fixed === 0 ? "All restaurants have subscriptions" : `Fixed ${fixed} restaurants`,
         fixed,
@@ -12036,9 +11968,7 @@ async function registerRoutes(app2) {
   });
   app2.post("/api/debug/fix-table-status", async (req, res) => {
     try {
-      console.log("\u{1F527} Starting table status fix...");
       const allTables = await db.select().from(tables);
-      console.log(`\u{1F4CA} Total tables found: ${allTables.length}`);
       let fixed = 0;
       const fixedTables = [];
       for (const table of allTables) {
@@ -12080,9 +12010,7 @@ async function registerRoutes(app2) {
             newStatus: correctStatus,
             hasActiveSession: !!activeSession
           });
-          console.log(`  \u2705 Fixed Table ${table.number}: ${table.status} \u2192 ${correctStatus}`);
         } else {
-          console.log(`  \u2713 Table ${table.number}: ${table.status} (OK)`);
         }
       }
       const updatedTables = await db.select().from(tables);
@@ -12093,8 +12021,6 @@ async function registerRoutes(app2) {
         em_andamento: updatedTables.filter((t) => t.status === "em_andamento").length,
         aguardando_pagamento: updatedTables.filter((t) => t.status === "aguardando_pagamento").length
       };
-      console.log(`\u2705 Fixed ${fixed} tables!`);
-      console.log(`\u{1F4CA} Stats: ${stats.livre} livres, ${stats.ocupada} ocupadas, ${stats.em_andamento} em andamento, ${stats.aguardando_pagamento} aguardando pagamento`);
       res.json({
         success: true,
         message: fixed === 0 ? "All tables have correct status" : `Fixed ${fixed} tables`,
@@ -12228,7 +12154,6 @@ async function registerRoutes(app2) {
       const { cache: cache2, CacheKeys: CacheKeys2 } = await Promise.resolve().then(() => (init_cache(), cache_exports));
       cache2.deletePattern(`restaurant:${req.params.id}*`);
       cache2.deletePattern("superadmin:*");
-      console.log(`\u2705 Restaurant ${restaurant.name} status updated to: ${status}`);
       res.json(restaurant);
     } catch (error) {
       console.error("\u274C Error updating restaurant status:", error);
@@ -12789,32 +12714,21 @@ async function registerRoutes(app2) {
     }
   });
   app2.get("/api/users", async (req, res) => {
-    console.log("\n\u{1F50D} ===== GET /api/users REQUEST =====");
-    console.log("\u{1F4CC} Headers:", req.headers.cookie ? "Has cookie" : "No cookie");
-    console.log("\u{1F4CC} Session:", req.session ? "Has session" : "No session");
-    console.log("\u{1F4CC} User:", req.user ? JSON.stringify(req.user) : "Not authenticated");
     if (!req.isAuthenticated || !req.isAuthenticated()) {
-      console.log("\u274C Not authenticated");
       return res.status(401).json({ message: "N\xE3o autenticado" });
     }
     const currentUser = req.user;
-    console.log("\u{1F464} User:", { id: currentUser.id, email: currentUser.email, role: currentUser.role, restaurantId: currentUser.restaurantId });
     if (!["admin", "superadmin", "manager"].includes(currentUser.role)) {
-      console.log(`\u274C Access denied - role is ${currentUser.role}`);
       return res.status(403).json({
         message: "Acesso negado. Apenas administradores e gerentes podem acessar esta funcionalidade.",
         currentRole: currentUser.role,
         requiredRoles: ["admin", "superadmin", "manager"]
       });
     }
-    console.log("\u2705 Role check passed");
     if (currentUser.role !== "superadmin" && !currentUser.restaurantId) {
-      console.log("\u274C User has no restaurantId");
       return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a nenhum restaurante" });
     }
-    console.log("\u2705 Restaurant check passed");
     if (currentUser.role !== "superadmin") {
-      console.log("\u{1F512} Checking subscription...");
       try {
         const { cache: cache2, CacheKeys: CacheKeys2, CacheTTL: CacheTTL2, getOrSet: getOrSet2 } = await Promise.resolve().then(() => (init_cache(), cache_exports));
         const cacheKey = CacheKeys2.subscription(currentUser.restaurantId);
@@ -12823,27 +12737,18 @@ async function registerRoutes(app2) {
           CacheTTL2.subscription,
           () => storage.getSubscriptionByRestaurantId(currentUser.restaurantId)
         );
-        console.log("\u{1F512} Subscription:", subscription ? {
-          id: subscription.id,
-          status: subscription.status,
-          planId: subscription.planId,
-          planName: subscription.plan?.name
-        } : "NOT FOUND");
         if (!subscription) {
-          console.log("\u274C No subscription found");
           return res.status(402).json({
             message: "Subscri\xE7\xE3o n\xE3o encontrada. Entre em contato com o suporte.",
             code: "NO_SUBSCRIPTION"
           });
         }
         if (!subscription.plan) {
-          console.log("\u274C Subscription plan data missing");
           return res.status(402).json({
             message: "Erro na configura\xE7\xE3o do plano. Entre em contato com o suporte.",
             code: "PLAN_DATA_MISSING"
           });
         }
-        console.log("\u2705 Subscription check passed");
       } catch (error) {
         console.error("\u274C Error checking subscription:", error);
         return res.status(500).json({ message: "Erro ao verificar subscri\xE7\xE3o" });
@@ -12855,10 +12760,7 @@ async function registerRoutes(app2) {
       const limit = Math.min(parseInt(req.query.limit) || 20, 100);
       const search = req.query.search;
       const role = req.query.role;
-      console.log("\u{1F50D} Query params:", { page, limit, search, role });
-      console.log("\u{1F50D} Fetching users for restaurantId:", restaurantId);
       const result = await storage.getUsersPaginated(restaurantId, { page, limit, search, role });
-      console.log("\u2705 Users fetched:", { total: result.total, usersCount: result.users.length });
       const usersWithoutPassword = result.users.map((user) => ({
         id: user.id,
         email: user.email,
@@ -12869,8 +12771,6 @@ async function registerRoutes(app2) {
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
       }));
-      console.log("\u2705 Sending response");
-      console.log("===== END GET /api/users =====\n");
       res.json({
         users: usersWithoutPassword,
         pagination: {
@@ -13344,7 +13244,6 @@ async function registerRoutes(app2) {
         }
         if (table.status === "livre") {
           await storage.openTable(validatedOrder.tableId, validatedOrder.customerCount);
-          console.log(`[TABLE] Mesa ${table.number} aberta automaticamente via QR Code`);
         }
       }
       let detectedGuestId = null;
@@ -13353,16 +13252,13 @@ async function registerRoutes(app2) {
         if (table?.currentSessionId) {
           const guestToken = req.headers["x-guest-token"];
           if (validatedOrder.customerId) {
-            console.log(`[GUEST AUTO-DETECT] Procurando guest para customerId: ${validatedOrder.customerId}`);
             const guests = await storage.getTableGuests(table.currentSessionId);
             const linkedGuest = guests.find((g) => g.customerId === validatedOrder.customerId);
             if (linkedGuest) {
               detectedGuestId = linkedGuest.id;
-              console.log(`[GUEST AUTO-DETECT] Guest existente encontrado: ${linkedGuest.id}`);
             } else {
               const customer = await storage.getCustomerById(validatedOrder.customerId);
               if (customer) {
-                console.log(`[GUEST AUTO-DETECT] Criando guest para cliente: ${customer.name}`);
                 const newGuest = await storage.createTableGuest(validatedOrder.restaurantId, {
                   sessionId: table.currentSessionId,
                   tableId: table.id,
@@ -13372,7 +13268,6 @@ async function registerRoutes(app2) {
                   // Salvar token também
                 });
                 detectedGuestId = newGuest.id;
-                console.log(`[GUEST AUTO-DETECT] Guest criado: ${newGuest.id}`);
                 broadcastToClients({
                   type: "guest_joined",
                   data: { tableId: table.id, guest: newGuest }
@@ -13380,17 +13275,14 @@ async function registerRoutes(app2) {
               }
             }
           } else if (guestToken) {
-            console.log(`[GUEST TOKEN] Procurando guest com token: ${guestToken.substring(0, 8)}...`);
             const guests = await storage.getTableGuests(table.currentSessionId);
             const tokenGuest = guests.find((g) => g.token === guestToken);
             if (tokenGuest) {
               detectedGuestId = tokenGuest.id;
-              console.log(`[GUEST TOKEN] Guest encontrado: ${tokenGuest.id}`);
             } else {
               const existingGuests = await storage.getTableGuests(table.currentSessionId);
               const anonymousCount = existingGuests.filter((g) => !g.customerId).length;
               const guestNumber = anonymousCount + 1;
-              console.log(`[GUEST TOKEN] Criando convidado an\xF4nimo #${guestNumber}`);
               const newGuest = await storage.createTableGuest(validatedOrder.restaurantId, {
                 sessionId: table.currentSessionId,
                 tableId: table.id,
@@ -13400,14 +13292,12 @@ async function registerRoutes(app2) {
                 token: guestToken
               });
               detectedGuestId = newGuest.id;
-              console.log(`[GUEST TOKEN] Convidado an\xF4nimo criado: ${newGuest.id}`);
               broadcastToClients({
                 type: "guest_joined",
                 data: { tableId: table.id, guest: newGuest }
               });
             }
           } else {
-            console.log(`[GUEST FALLBACK] Criando convidado sem token`);
             const existingGuests = await storage.getTableGuests(table.currentSessionId);
             const anonymousCount = existingGuests.filter((g) => !g.customerId).length;
             const guestNumber = anonymousCount + 1;
@@ -13419,7 +13309,6 @@ async function registerRoutes(app2) {
               guestNumber
             });
             detectedGuestId = newGuest.id;
-            console.log(`[GUEST FALLBACK] Convidado criado: ${newGuest.id}`);
           }
         }
       }
@@ -13706,7 +13595,6 @@ async function registerRoutes(app2) {
       );
       const otpCode = session2.otpCode || "";
       const whatsappSent = otpCode ? await sendWhatsAppOTP(phone, otpCode, restaurant.name) : false;
-      console.log(`[CUSTOMER AUTH] OTP for ${phone}: ${otpCode}, WhatsApp sent: ${whatsappSent}`);
       res.json({
         success: true,
         message: whatsappSent ? "C\xF3digo de verifica\xE7\xE3o enviado para o seu WhatsApp" : "C\xF3digo de verifica\xE7\xE3o enviado",
@@ -14130,22 +14018,6 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: error.message || "Failed to start table session" });
     }
   });
-  app2.post("/api/tables/:id/end-session", isAdmin, async (req, res) => {
-    try {
-      const currentUser = req.user;
-      if (!currentUser.restaurantId && currentUser.role !== "superadmin") {
-        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
-      }
-      const restaurantId = currentUser.restaurantId;
-      await storage.endTableSession(restaurantId, req.params.id);
-      await storage.autoUpdateTableStatusOnSessionEnd(req.params.id);
-      const updatedTable = await storage.getTableById(req.params.id);
-      broadcastToClients({ type: "table_session_ended", data: updatedTable });
-      res.json({ success: true, table: updatedTable });
-    } catch (error) {
-      res.status(500).json({ message: error.message || "Failed to end table session" });
-    }
-  });
   app2.post("/api/tables/:id/close-session", isOperational, async (req, res) => {
     try {
       const currentUser = req.user;
@@ -14171,7 +14043,6 @@ async function registerRoutes(app2) {
         });
       }
       if (!validation.canClose && req.body.forceClose) {
-        console.log(`\u26A0\uFE0F [FORCE CLOSE] Mesa ${table.number} fechada com ${validation.totalPending} Kz pendente por ${currentUser.name}`);
       }
       const guests = await storage.getTableGuests(table.currentSessionId);
       const loyaltyProgram = await storage.getLoyaltyProgramByRestaurantId(restaurantId);
@@ -14193,7 +14064,6 @@ async function registerRoutes(app2) {
                     description: `Pontos ganhos na Mesa ${table.number} - ${guest.name || "Cliente"}`,
                     createdBy: currentUser.id
                   });
-                  console.log(`\u2705 Awarded ${pointsEarned} loyalty points to customer ${customer.name} (ID: ${customer.id})`);
                 }
               }
             } catch (error) {
@@ -14493,7 +14363,11 @@ async function registerRoutes(app2) {
       const guests = await storage.getTableGuests(table.currentSessionId);
       res.json(guests);
     } catch (error) {
-      res.status(500).json({ message: "Erro ao buscar clientes da mesa" });
+      console.error("[GET GUESTS] Erro ao buscar guests:", error.message);
+      console.error("[GET GUESTS] Stack:", error.stack);
+      console.error("[GET GUESTS] ERRO:", error.message);
+      console.error("[GET GUESTS] Stack:", error.stack);
+      res.status(500).json({ message: "Erro ao buscar clientes da mesa", error: error.message });
     }
   });
   app2.post("/api/tables/:id/guests", isCashierOrAbove, async (req, res) => {
@@ -14663,32 +14537,106 @@ async function registerRoutes(app2) {
       if (!table) {
         return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
       }
-      const orders2 = await storage.getOrdersByTableId(table.restaurantId, table.id);
       const guests = table.currentSessionId ? await storage.getTableGuests(table.currentSessionId) : [];
+      const allTableOrders = await storage.getOrdersByTableId(table.restaurantId, table.id);
+      const currentGuestIds = guests.map((g) => g.id);
+      const orders2 = allTableOrders.filter((order) => {
+        if (order.sessionId === table.currentSessionId) {
+          return true;
+        }
+        if (order.guestId && currentGuestIds.includes(order.guestId)) {
+          return true;
+        }
+        return false;
+      });
+      const calculateOrderTotal = (order) => {
+        if (order.totalAmount && parseFloat(order.totalAmount) > 0) {
+          return parseFloat(order.totalAmount);
+        }
+        const itemsTotal = (order.orderItems || []).reduce((sum, item) => {
+          const itemPrice = parseFloat(item.price || item.menuItem?.price || 0);
+          const itemQty = item.quantity || 0;
+          return sum + itemPrice * itemQty;
+        }, 0);
+        return itemsTotal;
+      };
+      console.log("\u{1F50D} [BEFORE GROUP] Total guests:", guests.length, "Total orders:", orders2.length);
+      console.log("\u{1F50D} [GUESTS IDS]:", guests.map((g) => ({ name: g.name, id: g.id })));
+      console.log("\u{1F50D} [ORDERS]:", orders2.map((o) => ({ id: o.id, guestId: o.guestId, sessionId: o.sessionId })));
       const ordersByGuest = guests.map((guest) => {
         const guestOrders = orders2.filter((order) => order.guestId === guest.id && order.status !== "cancelado");
-        const subtotal = guestOrders.reduce((sum, order) => sum + parseFloat(order.totalAmount), 0);
-        console.log(`[DEBUG] Guest ${guest.name || guest.guestNumber} (${guest.id}):`, {
-          orderCount: guestOrders.length,
-          subtotal,
-          orders: guestOrders.map((o) => ({ id: o.id, amount: o.totalAmount }))
+        const subtotal = guestOrders.reduce((sum, order) => sum + calculateOrderTotal(order), 0);
+        console.log(`\u{1F50D} [GUEST] ${guest.name || "Unnamed"} (ID: ${guest.id}):`, {
+          ordersCount: guestOrders.length,
+          subtotal: subtotal.toFixed(2),
+          orderIds: guestOrders.map((o) => o.id)
+        });
+        guestOrders.forEach((order) => {
+          const orderTotal = calculateOrderTotal(order);
         });
         return {
           guest,
-          orders: guestOrders,
+          orders: guestOrders.map((order) => {
+            const orderTotal = calculateOrderTotal(order);
+            const items = (order.orderItems || []).map((item) => ({
+              ...item,
+              price: item.price || item.menuItem?.price || "0",
+              name: item.name || item.menuItem?.name || "Item"
+            }));
+            return {
+              ...order,
+              items,
+              // Rename orderItems to items with proper fields
+              totalPrice: orderTotal.toString()
+            };
+          }),
           subtotal: subtotal.toFixed(2)
         };
       });
-      const anonymousOrders = orders2.filter((order) => !order.guestId);
+      const anonymousOrders = orders2.filter((order) => !order.guestId && order.status !== "cancelado").map((order) => {
+        const orderTotal = calculateOrderTotal(order);
+        const items = (order.orderItems || []).map((item) => ({
+          ...item,
+          price: item.price || item.menuItem?.price || "0",
+          name: item.name || item.menuItem?.name || "Item"
+        }));
+        return {
+          ...order,
+          items,
+          // Rename orderItems to items with proper fields
+          totalPrice: orderTotal.toString()
+        };
+      });
       const session2 = table.currentSessionId ? (await db.select().from(tableSessions).where(eq2(tableSessions.id, table.currentSessionId)).limit(1))[0] : null;
+      const totalAmount = orders2.filter((o) => o.status !== "cancelado").reduce((sum, o) => sum + calculateOrderTotal(o), 0);
       res.json({
         ordersByGuest,
         anonymousOrders,
-        totalAmount: orders2.filter((o) => o.status !== "cancelado").reduce((sum, o) => sum + parseFloat(o.totalAmount), 0).toFixed(2),
-        paidAmount: session2?.paidAmount || "0.00"
+        totalAmount: totalAmount.toFixed(2),
+        paidAmount: session2?.paidAmount || "0.00",
+        currentSessionId: table.currentSessionId
+        // 🔧 FIX: Return sessionId for frontend queries
       });
     } catch (error) {
+      console.error("Error in orders-by-guest:", error);
       res.status(500).json({ message: "Erro ao buscar pedidos por cliente" });
+    }
+  });
+  app2.get("/api/table-sessions/:sessionId/guests", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      if (!currentUser.restaurantId && currentUser.role !== "superadmin") {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      const sessionId = req.params.sessionId;
+      if (!sessionId) {
+        return res.status(400).json({ message: "ID da sess\xE3o \xE9 obrigat\xF3rio" });
+      }
+      const guests = await storage.getTableGuests(sessionId);
+      res.json(guests);
+    } catch (error) {
+      console.error("Error fetching session guests:", error);
+      res.status(500).json({ message: "Erro ao buscar convidados da sess\xE3o" });
     }
   });
   app2.get("/api/tables/:id/suggest-split", isCashierOrAbove, async (req, res) => {
@@ -15528,7 +15476,6 @@ async function registerRoutes(app2) {
     try {
       const currentUser = req.user;
       let { items, ...orderData } = req.body;
-      console.log("Creating order with data:", JSON.stringify({ orderData, items }, null, 2));
       if (currentUser.role !== "superadmin" && currentUser.restaurantId) {
         try {
           await checkCanCreateOrder(storage, currentUser.restaurantId);
@@ -15587,7 +15534,6 @@ async function registerRoutes(app2) {
               printers: autoPrintPrinters
             }
           });
-          console.log(`[AUTO-PRINT] Triggered for order ${orderNumber} on ${autoPrintPrinters.length} printer(s)`);
         }
       } catch (printError) {
         console.error("[AUTO-PRINT] Error checking printers:", printError);
@@ -17976,22 +17922,14 @@ async function registerRoutes(app2) {
   app2.post("/api/customers", isAuthenticated, async (req, res) => {
     try {
       const currentUser = req.user;
-      console.log("\u{1F4DD} Creating customer - User:", {
-        id: currentUser.id,
-        restaurantId: currentUser.restaurantId,
-        role: currentUser.role
-      });
       if (!currentUser.restaurantId) {
         console.error("\u274C User not associated with restaurant");
         return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
       }
-      console.log("\u{1F50D} Checking plan limits and features...");
       try {
         await checkCanAddCustomer(storage, currentUser.restaurantId);
-        console.log("\u2705 Plan limits OK");
       } catch (limitError) {
         if (limitError.name === "PlanFeatureError") {
-          console.log("\u26A0\uFE0F Feature not available in current plan");
           return res.status(403).json({
             message: limitError.message,
             code: "FEATURE_NOT_AVAILABLE",
@@ -18000,7 +17938,6 @@ async function registerRoutes(app2) {
           });
         }
         if (limitError.name === "PlanLimitError") {
-          console.log("\u26A0\uFE0F Customer limit reached");
           return res.status(403).json({
             message: limitError.message,
             code: "LIMIT_REACHED",
@@ -18011,23 +17948,18 @@ async function registerRoutes(app2) {
         }
         throw limitError;
       }
-      console.log("\u{1F4CB} Validating customer data:", req.body);
       const validatedData = insertCustomerSchema.parse(req.body);
-      console.log("\u2705 Data validated:", validatedData);
       if (validatedData.phone) {
         const existing = await storage.getCustomerByPhone(currentUser.restaurantId, validatedData.phone);
         if (existing) {
-          console.log("\u274C Phone already exists:", validatedData.phone);
           return res.status(400).json({ message: "J\xE1 existe um cliente com este telefone" });
         }
       }
-      console.log("\u{1F4BE} Creating customer in database...");
       const customer = await storage.createCustomer(
         currentUser.restaurantId,
         currentUser.activeBranchId || null,
         validatedData
       );
-      console.log("\u2705 Customer created successfully:", customer.id);
       res.status(201).json(customer);
     } catch (error) {
       console.error("\u274C Customer creation error:", error);
@@ -18475,6 +18407,10 @@ async function registerRoutes(app2) {
       res.json(applicableServices);
     } catch (error) {
       console.error("Applicable services fetch error:", error);
+      if (error.code === "42P01") {
+        console.warn("\u26A0\uFE0F Tabela services n\xE3o existe - retornando array vazio");
+        return res.json([]);
+      }
       res.status(500).json({ message: "Erro ao buscar servi\xE7os aplic\xE1veis" });
     }
   });
@@ -18482,10 +18418,8 @@ async function registerRoutes(app2) {
     try {
       let plans = await storage.getSubscriptionPlans();
       if (plans.length === 0) {
-        console.log("\u26A0\uFE0F  No subscription plans found. Auto-seeding...");
         await storage.seedSubscriptionPlans();
         plans = await storage.getSubscriptionPlans();
-        console.log(`\u2705 Auto-seeded ${plans.length} subscription plans`);
       }
       res.json(plans);
     } catch (error) {
@@ -19069,7 +19003,6 @@ function log(message, source = "express") {
     second: "2-digit",
     hour12: true
   });
-  console.log(`${formattedTime} [${source}] ${message}`);
 }
 async function setupVite(app2, server) {
   const serverOptions = {
@@ -19168,7 +19101,6 @@ app.use((req, res, next) => {
   try {
     const { ensureTablesExist: ensureTablesExist2 } = await Promise.resolve().then(() => (init_initDb(), initDb_exports));
     await ensureTablesExist2();
-    console.log("Database initialized successfully");
   } catch (error) {
     console.error("Failed to initialize database:", error instanceof Error ? error.message : error);
     console.error("The application requires a database connection to run.");

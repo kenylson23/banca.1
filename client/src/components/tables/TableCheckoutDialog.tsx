@@ -204,7 +204,6 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
         });
       }
     } catch (error) {
-      console.error('Payment error:', error);
     }
   };
 
@@ -256,7 +255,6 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
         description: `${guestData.guest.name || `Cliente ${guestData.guest.guestNumber}`} marcado como pago.`,
       });
     } catch (error) {
-      console.error('Guest payment error:', error);
     }
   };
 

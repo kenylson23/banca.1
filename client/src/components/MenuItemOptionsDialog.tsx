@@ -102,7 +102,6 @@ export function MenuItemOptionsDialog({ menuItemId, menuItemName }: MenuItemOpti
     },
     onError: (error: any) => {
       const errorMessage = error?.message || error?.error || "Erro ao criar grupo de opções.";
-      console.error('Error creating option group:', error);
       toast({ title: "Erro", description: errorMessage, variant: "destructive" });
     },
   });

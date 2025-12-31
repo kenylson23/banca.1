@@ -91,7 +91,6 @@ export function BusinessHoursManager({ restaurantId }: BusinessHoursManagerProps
         const parsed = JSON.parse(restaurant.businessHours);
         setHours(parsed);
       } catch (e) {
-        console.error('Error parsing business hours:', e);
       }
     }
     if (restaurant?.isOpen !== undefined) {

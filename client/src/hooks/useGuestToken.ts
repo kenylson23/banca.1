@@ -40,7 +40,6 @@ export function useGuestToken(tableId: string | undefined, restaurantId: string 
 
     // Se cliente está autenticado (Plano Profissional+)
     if (isAuthenticated && customer) {
-      console.log('[GUEST TOKEN] Cliente autenticado, usando customerId');
       // Ainda assim manter um token como backup
       let existingToken = localStorage.getItem(storageKey);
       if (!existingToken) {
@@ -59,9 +58,7 @@ export function useGuestToken(tableId: string | undefined, restaurantId: string 
       // Gerar novo token
       existingToken = generateToken();
       localStorage.setItem(storageKey, existingToken);
-      console.log('[GUEST TOKEN] Novo token gerado:', existingToken.substring(0, 20) + '...');
     } else {
-      console.log('[GUEST TOKEN] Token existente recuperado:', existingToken.substring(0, 20) + '...');
     }
 
     setGuestToken(existingToken);
@@ -74,7 +71,6 @@ export function useGuestToken(tableId: string | undefined, restaurantId: string 
     if (storageKey) {
       localStorage.removeItem(storageKey);
       setGuestToken(null);
-      console.log('[GUEST TOKEN] Token removido');
     }
   };
 
@@ -85,7 +81,6 @@ export function useGuestToken(tableId: string | undefined, restaurantId: string 
     if (storageKey) {
       localStorage.setItem(storageKey, newToken);
       setGuestToken(newToken);
-      console.log('[GUEST TOKEN] Token regenerado:', newToken.substring(0, 20) + '...');
     }
     return newToken;
   };

@@ -10,12 +10,10 @@ export async function initializeDatabase(): Promise<void> {
   return new Promise((resolve, reject) => {
     // Only run db:push if DATABASE_URL is set
     if (!process.env.DATABASE_URL) {
-      console.log('DATABASE_URL not set, skipping database initialization');
       resolve();
       return;
     }
 
-    console.log('Initializing database...');
     
     const drizzleKit = spawn('npx', ['drizzle-kit', 'push', '--', '--force'], {
       stdio: 'inherit',
@@ -24,7 +22,6 @@ export async function initializeDatabase(): Promise<void> {
 
     drizzleKit.on('close', (code) => {
       if (code === 0) {
-        console.log('Database initialization completed successfully');
         resolve();
       } else {
         console.error(`Database initialization failed with code ${code}`);

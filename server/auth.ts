@@ -25,7 +25,6 @@ export function getSession() {
   if (!sessionSecret) {
     console.error("⚠️  SESSION_SECRET is not set!");
     console.error("🔧 Please set SESSION_SECRET in your environment variables.");
-    console.error("💡 Generate a secure secret with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"");
     throw new Error("SESSION_SECRET must be set");
   }
 
@@ -79,27 +78,20 @@ export function setupAuth(app: Express) {
       },
       async (email, password, done) => {
         try {
-          console.log('[AUTH] Login attempt for email:', email);
           const user = await storage.getUserByEmail(email);
-          console.log('[AUTH] User found:', !!user, user ? `role: ${user.role}` : 'no user');
           
           if (!user) {
-            console.log('[AUTH] Login failed: User not found');
             return done(null, false, { message: "Email ou senha incorretos" });
           }
 
           const isValidPassword = await verifyPassword(password, user.password);
-          console.log('[AUTH] Password valid:', isValidPassword);
           
           if (!isValidPassword) {
-            console.log('[AUTH] Login failed: Invalid password');
             return done(null, false, { message: "Email ou senha incorretos" });
           }
 
-          console.log('[AUTH] Login successful for user:', user.id);
           return done(null, user);
         } catch (error) {
-          console.error('[AUTH] Login error:', error);
           return done(error);
         }
       }
@@ -115,14 +107,6 @@ export function setupAuth(app: Express) {
       const user = await storage.getUser(id);
       
       // Enhanced logging for debugging session/authentication issues (disabled for performance)
-      if (false) {
-        console.log('[AUTH] Deserializing user:', {
-          userId: id,
-          userFound: !!user,
-          userRole: user?.role,
-          hasRole: user ? 'role' in user : false,
-        });
-      }
       
       // Critical validation: ensure role is present
       if (user && !user.role) {
@@ -155,14 +139,6 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
   }
   
   // Enhanced logging for debugging authentication issues (disabled for performance)
-  if (false) {
-    console.log('[AUTH] isAuthenticated check failed:', {
-      hasSession: !!req.session,
-      sessionID: req.sessionID,
-      authenticated: req.isAuthenticated(),
-      path: req.path,
-    });
-  }
   
   res.status(401).json({ message: "Não autenticado" });
 };

@@ -58,7 +58,6 @@ class PrinterService {
         this.printHistory = JSON.parse(saved);
       }
     } catch (error) {
-      console.error('Failed to load print history:', error);
     }
   }
 
@@ -71,7 +70,6 @@ class PrinterService {
       }
       localStorage.setItem('print-history', JSON.stringify(this.printHistory));
     } catch (error) {
-      console.error('Failed to save print history:', error);
     }
   }
 
@@ -167,12 +165,10 @@ class PrinterService {
           try {
             await this.reconnectDevice(device, savedPrinter);
           } catch (error) {
-            console.error('Failed to reconnect printer:', error);
           }
         }
       }
     } catch (error) {
-      console.error('Failed to load saved printers:', error);
     }
   }
 
@@ -205,7 +201,6 @@ class PrinterService {
       this.savePrinters(); // Salvar endpoint atualizado
       this.notifyListeners();
     } catch (error) {
-      console.error('Failed to reconnect device:', error);
       throw error;
     }
   }
@@ -238,7 +233,6 @@ class PrinterService {
           this.printerConfigs.set(type as PrinterType, config as PrinterConfig);
         });
       } catch (error) {
-        console.error('Failed to load printer configs:', error);
       }
     }
   }
@@ -334,7 +328,6 @@ class PrinterService {
 
       return printer;
     } catch (error) {
-      console.error('Failed to connect printer:', error);
       throw new Error('Falha ao conectar impressora. Verifique se está conectada e tente novamente.');
     }
   }
@@ -352,7 +345,6 @@ class PrinterService {
         }
       }
     } catch (error) {
-      console.error('Error detecting endpoint:', error);
     }
     return undefined; // Não fazer fallback - falhar claramente
   }
@@ -371,7 +363,6 @@ class PrinterService {
       try {
         await printer.device.close();
       } catch (error) {
-        console.error('Error closing device:', error);
       }
     }
     this.connectedPrinters.delete(printerId);
@@ -436,7 +427,6 @@ class PrinterService {
         await printer.device.claimInterface(0);
       }
     } catch (error) {
-      console.error('Error preparing device:', error);
       const errorMsg = 'Impressora desconectada. Reconecte a impressora.';
       this.addToHistory({
         printerType: printer.type,
@@ -495,7 +485,6 @@ class PrinterService {
         this.playPrintSound();
       }
     } catch (error) {
-      console.error('Error sending to printer:', error);
       const errorMsg = 'Falha ao enviar dados para impressora. Verifique a conexão.';
       this.addToHistory({
         printerType: printer.type,
@@ -817,7 +806,6 @@ class PrinterService {
         encoder.image(imageDataUrl, 200, 200, 'atkinson');
         encoder.newline();
       } catch (error) {
-        console.error('Erro ao carregar logo:', error);
         // Continuar sem logo se houver erro
       }
     }
@@ -956,7 +944,6 @@ class PrinterService {
       encoder.qrcode(trackingUrl, 1, 8, 'h');
       encoder.newline();
     } catch (error) {
-      console.error('Erro ao gerar QR Code:', error);
       // Se falhar, apenas mostrar o ID
     }
     

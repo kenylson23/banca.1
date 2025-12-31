@@ -113,10 +113,15 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        slide: {
+          "0%": { backgroundPosition: "0px 0px" },
+          "100%": { backgroundPosition: "32px 32px" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        slide: "slide 20s linear infinite",
       },
     },
   },

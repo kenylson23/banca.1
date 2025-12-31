@@ -364,7 +364,6 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
             });
           }
         } catch (error) {
-          console.error('Erro ao imprimir pedido:', error);
           // Não mostrar erro ao usuário para não interromper o fluxo
         }
       }

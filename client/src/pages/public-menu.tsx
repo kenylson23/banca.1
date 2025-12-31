@@ -174,7 +174,6 @@ export default function PublicMenu() {
       setTableIdFromUrl(tableId);
       setOrderType('mesa');
       
-      console.log('[QR CODE] Mesa detectada:', tableId);
       
       toast({
         title: "🎉 Bem-vindo!",
@@ -285,7 +284,6 @@ export default function PublicMenu() {
           }
         }
       } catch (error) {
-        console.error('Error looking up customer:', error);
       } finally {
         setIsLookingUpCustomer(false);
       }
@@ -328,7 +326,6 @@ export default function PublicMenu() {
         });
       }
     } catch (error) {
-      console.error('Error validating coupon:', error);
       setCouponValidation({ valid: false, message: 'Erro ao validar cupom' });
     } finally {
       setIsValidatingCoupon(false);
@@ -497,9 +494,7 @@ export default function PublicMenu() {
         
         // Track conversion for analytics
         if (restaurant?.id) {
-          trackConversion(restaurant.id).catch(err => 
-            console.error('Error tracking conversion:', err)
-          );
+          trackConversion(restaurant.id).catch(() => {});
         }
         
         // Show loyalty info in success message
@@ -756,7 +751,6 @@ export default function PublicMenu() {
             setLiveStatus(data.status);
           }
         } catch (error) {
-          console.error('Error polling order status:', error);
         } finally {
           setIsPolling(false);
         }

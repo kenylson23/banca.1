@@ -85,7 +85,6 @@ export function PaymentSuccessDialog({
 
   const handleDownloadPDF = () => {
     // TODO: Implementar download de PDF
-    console.log('Download PDF requested');
   };
 
   const getPaymentMethodLabel = (method: string) => {

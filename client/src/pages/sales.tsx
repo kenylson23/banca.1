@@ -219,7 +219,6 @@ export default function Sales() {
 
   const exportSalesCSV = () => {
     if (!salesReport?.salesByDay || !startDate || !endDate) {
-      console.error('Dados de vendas não disponíveis para exportação');
       return;
     }
     

@@ -45,7 +45,6 @@ export function PrintPayment({
 
   const handlePrintThermal = async () => {
     if (!transaction || !transaction.id) {
-      console.error('Cannot print payment: transaction or transaction.id is undefined');
       return;
     }
 
@@ -103,7 +102,6 @@ export function PrintPayment({
 
   const handlePrintBrowser = () => {
     if (!transaction || !transaction.id) {
-      console.error('Cannot print payment: transaction or transaction.id is undefined');
       return;
     }
 

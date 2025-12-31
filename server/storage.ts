@@ -953,11 +953,9 @@ export class DatabaseStorage implements IStorage {
         .set({ slug, updatedAt: new Date() })
         .where(eq(restaurants.id, restaurant.id));
       
-      console.log(`✅ Generated slug "${slug}" for restaurant "${restaurant.name}"`);
     }
     
     if (restaurantsWithoutSlug.length > 0) {
-      console.log(`📝 Generated ${restaurantsWithoutSlug.length} missing slug(s)`);
     }
   }
 
@@ -1423,20 +1421,32 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async getTablesWithOrders(restaurantId: string, branchId?: string | null): Promise<Array<Table & { orders: any[]; guestsAwaitingBill?: number; guestCount?: number }>> {
+  async getTablesWithOrders(restaurantId: string, branchId?: string | null): Promise<Array<Table & { orders: any[]; guestsAwaitingBill?: number; guestCount?: number; currentSession?: any }>> {
     try {
       const allTables = await this.getTables(restaurantId, branchId);
       
-      // Fetch orders for each table
+      // Fetch orders and current session for each table
       const result = await Promise.all(
         allTables.map(async (table) => {
           try {
             const orders = await this.getOrdersByTableId(restaurantId, table.id);
+            
+            // 🔧 FIX: Fetch current session if exists
+            let currentSession = null;
+            if (table.currentSessionId) {
+              const sessionResult = await db.select()
+                .from(tableSessions)
+                .where(eq(tableSessions.id, table.currentSessionId))
+                .limit(1);
+              currentSession = sessionResult[0] || null;
+            }
+            
             return {
               ...table,
               orders: orders || [],
               guestsAwaitingBill: 0,
               guestCount: 0,
+              currentSession, // Include session with startedAt
             };
           } catch (error) {
             console.warn(`Failed to fetch orders for table ${table.id}:`, error);
@@ -1445,6 +1455,7 @@ export class DatabaseStorage implements IStorage {
               orders: [],
               guestsAwaitingBill: 0,
               guestCount: 0,
+              currentSession: null,
             };
           }
         })
@@ -1613,6 +1624,16 @@ export class DatabaseStorage implements IStorage {
     return newPayment;
   }
 
+  async getSessionById(sessionId: string): Promise<any | null> {
+    const [session] = await db
+      .select()
+      .from(tableSessions)
+      .where(eq(tableSessions.id, sessionId))
+      .limit(1);
+    
+    return session || null;
+  }
+
   async getTableSessions(restaurantId: string, tableId?: string): Promise<any[]> {
     let query = db.select().from(tableSessions)
       .where(eq(tableSessions.restaurantId, restaurantId));
@@ -1681,7 +1702,6 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(tableGuests.id, guestId));
       
-      console.log(`✅ [GUEST SUBTOTAL] Guest ${guestId} atualizado: ${subtotal.toFixed(2)} Kz`);
     } catch (error) {
       console.error(`❌ [GUEST SUBTOTAL] Erro ao atualizar guest ${guestId}:`, error);
     }
@@ -1696,7 +1716,6 @@ export class DatabaseStorage implements IStorage {
         await this.updateGuestSubtotal(guest.id);
       }
       
-      console.log(`✅ [SESSION SUBTOTALS] ${guests.length} guests atualizados na sessão ${sessionId}`);
     } catch (error) {
       console.error(`❌ [SESSION SUBTOTALS] Erro ao recalcular sessão ${sessionId}:`, error);
     }
@@ -2087,6 +2106,49 @@ export class DatabaseStorage implements IStorage {
     return ordersWithItems;
   }
 
+  async getOrdersBySessionId(restaurantId: string, sessionId: string): Promise<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>> {
+    const sessionOrders = await db
+      .select()
+      .from(orders)
+      .where(and(
+        eq(orders.restaurantId, restaurantId),
+        eq(orders.tableSessionId, sessionId)
+      ))
+      .orderBy(desc(orders.createdAt));
+
+    const ordersWithItems = await Promise.all(
+      sessionOrders.map(async (order: Order) => {
+        const items = await db
+          .select()
+          .from(orderItems)
+          .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
+          .where(eq(orderItems.orderId, order.id));
+
+        const itemsWithOptions = await Promise.all(
+          items.map(async (item: { order_items: OrderItem; menu_items: MenuItem | null }) => {
+            const options = await db
+              .select()
+              .from(orderItemOptions)
+              .where(eq(orderItemOptions.orderItemId, item.order_items.id));
+            
+            return {
+              ...item.order_items,
+              menuItem: item.menu_items!,
+              options,
+            };
+          })
+        );
+
+        return {
+          ...order,
+          orderItems: itemsWithOptions,
+        };
+      })
+    );
+
+    return ordersWithItems;
+  }
+
   async searchOrders(restaurantId: string, searchTerm: string): Promise<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem }> }>> {
     const trimmedSearch = searchTerm.trim();
     
@@ -2240,14 +2302,13 @@ export class DatabaseStorage implements IStorage {
 
     // ✅ NOVO: Atualizar subtotais dos guests envolvidos no pedido
     const guestsToUpdate = new Set<string>();
-    for (const item of insertedItems) {
-      if (item.guestId) {
-        guestsToUpdate.add(item.guestId);
+    for (const itemData of items) {
+      if (itemData.guestId) {
+        guestsToUpdate.add(itemData.guestId);
       }
     }
     
     if (guestsToUpdate.size > 0) {
-      console.log(`[ORDER CREATED] Atualizando subtotais de ${guestsToUpdate.size} guests`);
       for (const guestId of guestsToUpdate) {
         await this.updateGuestSubtotal(guestId);
       }
@@ -2296,7 +2357,6 @@ export class DatabaseStorage implements IStorage {
       }
       // Branch ID is optional - if not present, skip stock deduction
       if (!orderData.orders.branchId) {
-        console.log('[STOCK] Order has no branchId, skipping stock deduction');
       }
     }
     
@@ -2377,7 +2437,6 @@ export class DatabaseStorage implements IStorage {
 
     // ✅ NOVO: Atualizar subtotais dos guests afetados
     if (guestsToUpdate.size > 0) {
-      console.log(`[ORDER DELETED] Atualizando subtotais de ${guestsToUpdate.size} guests`);
       for (const guestId of guestsToUpdate) {
         await this.updateGuestSubtotal(guestId);
       }
@@ -7090,7 +7149,6 @@ export class DatabaseStorage implements IStorage {
         const ingredients = await this.getRecipeIngredients(restaurantId, orderItem.menuItemId, tx);
         
         if (ingredients.length === 0) {
-          console.log(`Prato ${orderItem.menuItemId} não possui receita cadastrada, pulando baixa de estoque`);
           continue;
         }
         
@@ -7146,7 +7204,6 @@ export class DatabaseStorage implements IStorage {
         const ingredients = await this.getRecipeIngredients(restaurantId, orderItem.menuItemId);
         
         if (ingredients.length === 0) {
-          console.log(`Prato ${orderItem.menuItemId} não possui receita cadastrada, pulando baixa de estoque`);
           continue;
         }
         
@@ -7181,7 +7238,6 @@ export class DatabaseStorage implements IStorage {
       const ingredients = await this.getRecipeIngredients(restaurantId, orderItem.menuItemId, tx);
       
       if (ingredients.length === 0) {
-        console.log(`Prato ${orderItem.menuItemId} não possui receita cadastrada, pulando devolução de estoque`);
         continue;
       }
       
@@ -9199,17 +9255,24 @@ export class DatabaseStorage implements IStorage {
       }));
     } catch (error: any) {
       // Fallback: se der erro (colunas não existem), retornar sem JOIN
-      console.warn('[getTableGuests] LEFT JOIN falhou, usando fallback:', error.message);
-      const guests = await db
-        .select()
-        .from(tableGuests)
-        .where(eq(tableGuests.sessionId, sessionId))
-        .orderBy(tableGuests.seatNumber);
+      console.error('[getTableGuests] LEFT JOIN falhou:', error.message);
+      console.error('[getTableGuests] Stack:', error.stack);
       
-      return guests.map(guest => ({
-        ...guest,
-        customer: undefined, // Sem dados de customer
-      }));
+      try {
+        const guests = await db
+          .select()
+          .from(tableGuests)
+          .where(eq(tableGuests.sessionId, sessionId))
+          .orderBy(tableGuests.seatNumber);
+        
+        return guests.map(guest => ({
+          ...guest,
+          customer: undefined, // Sem dados de customer
+        }));
+      } catch (fallbackError: any) {
+        console.error('[getTableGuests] Fallback também falhou:', fallbackError.message);
+        throw fallbackError;
+      }
     }
   }
 
@@ -9231,12 +9294,7 @@ export class DatabaseStorage implements IStorage {
 
   async createTableGuest(restaurantId: string, data: InsertTableGuest): Promise<TableGuest> {
     try {
-      console.log('Creating guest:', {
-        restaurantId,
-        sessionId: data.sessionId,
-        tableId: data.tableId,
-        name: data.name,
-      });
+      // Creating table guest
       
       const [guest] = await db
         .insert(tableGuests)
@@ -9246,7 +9304,6 @@ export class DatabaseStorage implements IStorage {
         })
         .returning();
       
-      console.log('Guest created successfully:', guest.id);
       return guest;
     } catch (error: any) {
       console.error('Error creating guest:', error);

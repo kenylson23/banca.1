@@ -14,5 +14,4 @@ if (import.meta.env.PROD) {
 // Cache busting não é necessário em desenvolvimento
 // O Vite HMR já cuida das atualizações automaticamente
 if (import.meta.env.DEV) {
-  console.log('🔧 Modo desenvolvimento - HMR ativado');
 }

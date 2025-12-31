@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import type { OrdersByGuestData } from "@shared/types";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -60,12 +61,22 @@ export default function TableCheckoutV2() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Wizard state
-  const [currentStep, setCurrentStep] = useState(1);
-  
   // Get query params
   const searchParams = new URLSearchParams(window.location.search);
   const fromParam = searchParams.get('from') || 'tables';
+  const stepParam = parseInt(searchParams.get('step') || '1', 10);
+  
+  // Wizard state - inicializa com o step da URL se válido
+  const [currentStep, setCurrentStep] = useState(
+    stepParam >= 1 && stepParam <= 4 ? stepParam : 1
+  );
+  
+  // 🔧 FIX: Atualizar URL quando step muda para persistir ao recarregar
+  useEffect(() => {
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.set('step', currentStep.toString());
+    window.history.replaceState({}, '', currentUrl.toString());
+  }, [currentStep]);
   
   // Step 1: Items & Guests
   const [selectedGuestIds, setSelectedGuestIds] = useState<string[]>([]);
@@ -100,10 +111,18 @@ export default function TableCheckoutV2() {
   
   const table = tablesData?.find((t: any) => t.id === id);
   
-  const { data: ordersByGuestData, isLoading: loadingOrders } = useQuery({
+  // Debug logs
+  useEffect(() => {
+    if (table) {
+      // Table data loaded
+    }
+  }, [table]);
+  
+  const { data: ordersByGuestData, isLoading: loadingOrders } = useQuery<OrdersByGuestData>({
     queryKey: [`/api/tables/${id}/orders-by-guest`],
     enabled: !!id && !!table?.currentSessionId,
   });
+  
   
   const { data: customers = [] } = useQuery<any[]>({
     queryKey: ['/api/customers'],
@@ -174,31 +193,18 @@ export default function TableCheckoutV2() {
   
   const processPaymentMutation = useMutation({
     mutationFn: async () => {
-      console.log('🔵 Iniciando processamento de pagamento...');
       
       if (!table) {
-        console.error('❌ Mesa não encontrada');
         throw new Error('Mesa não encontrada');
       }
       
       if (!table.currentSessionId) {
-        console.error('❌ Nenhuma sessão ativa na mesa');
         throw new Error('Nenhuma sessão ativa na mesa');
       }
       
       if (!paymentMethod) {
-        console.error('❌ Método de pagamento não selecionado');
         throw new Error('Selecione um método de pagamento');
       }
-      
-      console.log('📊 Dados do pagamento:', {
-        tableId: id,
-        sessionId: table.currentSessionId,
-        totalAmount: calculateTotals.finalTotal,
-        paymentMethod,
-        hasDiscount: !!discountValue,
-        servicesCount: availableServices.length
-      });
       
       // Build services array
       const services: any[] = [];
@@ -268,24 +274,23 @@ export default function TableCheckoutV2() {
         receivedAmount: receivedAmount ? parseFloat(receivedAmount) : undefined,
       };
       
-      console.log('📤 Enviando payload:', payload);
-      console.log('📦 Serviços incluídos:', services);
       
       const res = await apiRequest('POST', `/api/tables/${id}/payment`, payload);
       
-      console.log('✅ Resposta recebida:', res);
       return res.json();
     },
     onSuccess: (data) => {
-      console.log('🎉 Pagamento processado com sucesso!', data);
       setPaymentData(data);
       setShowSuccessDialog(true);
+      // Invalidar múltiplas queries para sincronizar tudo
       queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tables', id, 'payments'] });
       queryClient.invalidateQueries({ queryKey: ['/api/table-sessions'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${id}/orders-by-guest`] }); // Para TableDetailsDialog e QuickOrder
+      queryClient.invalidateQueries({ queryKey: ['tables'] }); // Lista de mesas
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${id}/guests`] }); // Guests
     },
     onError: (error: any) => {
-      console.error('❌ Erro ao processar pagamento:', error);
       toast({
         title: "Erro ao processar pagamento",
         description: error.message || "Não foi possível processar o pagamento",
@@ -298,30 +303,52 @@ export default function TableCheckoutV2() {
   const ordersByGuest = ordersByGuestData?.ordersByGuest || [];
   const anonymousOrders = ordersByGuestData?.anonymousOrders || [];
   
+  
   // Filter guests based on selection (if any selected, show only those)
-  const filteredOrdersByGuest = selectedGuestIds.length > 0
-    ? ordersByGuest.filter((og: any) => selectedGuestIds.includes(og.guest.id))
-    : ordersByGuest;
+  const filteredOrdersByGuest = useMemo(() => 
+    selectedGuestIds.length > 0
+      ? ordersByGuest.filter((og: any) => selectedGuestIds.includes(og.guest.id))
+      : ordersByGuest,
+    [ordersByGuest, selectedGuestIds]
+  );
 
   // Get all items from filtered orders
-  const allItems = filteredOrdersByGuest.flatMap((og: any) => 
-    (og.orders || []).flatMap((order: any) => 
-      (order.orderItems || []).map((item: any) => ({
-        ...item,
-        menuItemName: item.menuItem?.name || 'Item',
-        totalPrice: (parseFloat(item.price) * item.quantity).toString(),
-        guestName: og.guest.name || `Cliente ${og.guest.guestNumber}`,
-        guestId: og.guest.id
-      }))
-    )
+  const allItems = useMemo(() =>
+    filteredOrdersByGuest.flatMap((og: any) => 
+      (og.orders || []).flatMap((order: any) => 
+        (order.items || []).map((item: any) => ({
+          ...item,
+          menuItemName: item.menuItem?.name || item.name || 'Item',
+          totalPrice: (parseFloat(item.price || 0) * (item.quantity || 0)).toString(),
+          guestName: og.guest.name || `Cliente ${og.guest.guestNumber}`,
+          guestId: og.guest.id
+        }))
+      )
+    ),
+    [filteredOrdersByGuest]
   );
   
   // Calculate totals based on filtered selection
   const totalAmount = selectedGuestIds.length > 0
-    ? filteredOrdersByGuest.reduce((sum: number, og: any) => sum + parseFloat(og.subtotal || 0), 0)
-    : (ordersByGuestData?.totalAmount 
-        ? Number(ordersByGuestData.totalAmount)
-        : allItems.reduce((sum: number, item: any) => sum + parseFloat(item.totalPrice || 0), 0));
+    ? (() => {
+        const total = filteredOrdersByGuest.reduce((sum: number, og: any) => {
+          console.log(`🔍 Guest "${og.guest?.name || 'Unknown'}": subtotal ${og.subtotal}`);
+          return sum + parseFloat(og.subtotal || 0);
+        }, 0);
+        console.log(`🔍 TOTAL FILTRADO: ${total}`);
+        return total;
+      })()
+    : (() => {
+        console.log('🔍 USANDO TOTAL GERAL');
+        console.log('🔍 Backend totalAmount:', ordersByGuestData?.totalAmount);
+        console.log('🔍 Número de guests:', ordersByGuest?.length);
+        ordersByGuest?.forEach((og: any) => {
+          console.log(`🔍 Guest "${og.guest?.name}": subtotal ${og.subtotal}, orders: ${og.orders?.length}`);
+        });
+        return ordersByGuestData?.totalAmount 
+          ? Number(ordersByGuestData.totalAmount)
+          : allItems.reduce((sum: number, item: any) => sum + parseFloat(item.totalPrice || 0), 0);
+      })();
   
   const paidAmount = ordersByGuestData?.paidAmount 
     ? Number(ordersByGuestData.paidAmount)
@@ -443,6 +470,38 @@ export default function TableCheckoutV2() {
       breakdown
     };
   }, [totalAmount, discountValue, discountType, appliedCoupon, loyaltyPointsToRedeem, selectedServices, manualServiceName, manualServiceValue, manualServiceType, availableServices, loyaltyProgram]);
+
+  // Loading state
+  if (loadingTables) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-lg font-medium text-slate-700 dark:text-slate-300">Carregando mesa...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Table not found
+  if (!table) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        <div className="text-center space-y-4 p-8">
+          <AlertCircle className="h-16 w-16 mx-auto text-red-500" />
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Mesa não encontrada</h2>
+          <p className="text-slate-600 dark:text-slate-400">A mesa com ID "{id}" não existe ou foi removida.</p>
+          <Button
+            onClick={() => setLocation(`/${fromParam}`)}
+            className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar para {fromParam === 'open-tables' ? 'Mesas Abertas' : 'Mesas'}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
@@ -682,11 +741,11 @@ export default function TableCheckoutV2() {
                             })
                             .map((guestOrder: any) => {
                             const guestItems = (guestOrder.orders || []).flatMap((order: any) => 
-                              (order.orderItems || []).map((item: any) => ({
+                              (order.items || []).map((item: any) => ({
                                 ...item,
-                                menuItemName: item.menuItem?.name || 'Item',
+                                menuItemName: item.menuItem?.name || item.name || 'Item',
                                 unitPrice: item.price,
-                                totalPrice: (parseFloat(item.price) * item.quantity).toString(),
+                                totalPrice: (parseFloat(item.price || 0) * (item.quantity || 0)).toString(),
                                 notes: item.notes,
                                 options: item.options || []
                               }))
@@ -830,15 +889,12 @@ export default function TableCheckoutV2() {
                               <Button
                                 size="sm"
                                 onClick={() => {
-                                  toast({
-                                    title: "Checkout Individual",
-                                    description: `Processando pagamento de ${selectedGuestIds.length} ${selectedGuestIds.length === 1 ? 'cliente' : 'clientes'} selecionados...`,
-                                  });
-                                  // Aqui você pode implementar a lógica de checkout individual
+                                  // Checkout individual: continuar com os clientes selecionados
+                                  setCurrentStep(2);
                                 }}
                                 className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600"
                               >
-                                Checkout Selecionados
+                                Continuar com Selecionados
                               </Button>
                               <Button
                                 variant="outline"
@@ -846,7 +902,7 @@ export default function TableCheckoutV2() {
                                 onClick={() => setSelectedGuestIds([])}
                                 className="text-purple-600 border-purple-500/30 hover:bg-purple-500/10"
                               >
-                                Limpar
+                                Limpar Seleção
                               </Button>
                             </div>
                           </div>

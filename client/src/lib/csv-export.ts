@@ -97,7 +97,6 @@ export function exportToCSV(options: ExportCSVOptions): void {
   } = options;
 
   if (!data || data.length === 0) {
-    console.warn('Nenhum dado para exportar');
     return;
   }
 
@@ -134,7 +133,6 @@ export function exportToCSV(options: ExportCSVOptions): void {
     // Liberar URL do blob
     URL.revokeObjectURL(link.href);
   } catch (error) {
-    console.error('Erro ao exportar CSV:', error);
     throw new Error('Falha ao exportar arquivo CSV');
   }
 }

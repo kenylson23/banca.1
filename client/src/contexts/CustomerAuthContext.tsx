@@ -68,7 +68,6 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
       setToken(null);
       return false;
     } catch (error) {
-      console.error('Auth check error:', error);
       localStorage.removeItem(STORAGE_KEY);
       setIsAuthenticated(false);
       setCustomer(null);
@@ -97,7 +96,6 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Request OTP error:', error);
       return { success: false, message: 'Erro ao solicitar código' };
     }
   };
@@ -123,7 +121,6 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
       
       return false;
     } catch (error) {
-      console.error('Verify OTP error:', error);
       return false;
     }
   };
@@ -139,7 +136,6 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
         });
       }
     } catch (error) {
-      console.error('Logout error:', error);
     } finally {
       localStorage.removeItem(STORAGE_KEY);
       setIsAuthenticated(false);
@@ -167,7 +163,6 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
       await logout();
       return false;
     } catch (error) {
-      console.error('Refresh session error:', error);
       await logout();
       return false;
     }

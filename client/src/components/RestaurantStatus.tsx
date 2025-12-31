@@ -42,7 +42,6 @@ export function RestaurantStatus({ isOpen, businessHours, compact = false }: Res
       hours = JSON.parse(businessHours);
     }
   } catch (e) {
-    console.error('Error parsing business hours:', e);
   }
 
   // Get current day

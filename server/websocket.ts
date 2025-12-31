@@ -32,7 +32,6 @@ async function getRedisClients(): Promise<{ pub: Redis; sub: Redis } | null> {
 
     await Promise.all([pubClient.connect(), subClient.connect()]);
 
-    console.log('✅ Redis Pub/Sub connected for WebSocket');
     
     return { pub: pubClient, sub: subClient };
   } catch (error) {
@@ -54,7 +53,6 @@ export async function setupWebSocket(httpServer: Server) {
   const useRedis = redis !== null;
 
   if (useRedis) {
-    console.log('🚀 WebSocket: Using Redis Pub/Sub (distributed)');
     
     // Subscribe to broadcasts from other instances
     redis!.sub.subscribe('ws:broadcast', 'ws:restaurant', (err) => {
@@ -82,7 +80,6 @@ export async function setupWebSocket(httpServer: Server) {
       }
     });
   } else {
-    console.log('💾 WebSocket: Using local only (single instance)');
   }
 
   wss.on('connection', (ws) => {

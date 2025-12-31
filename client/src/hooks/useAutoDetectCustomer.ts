@@ -46,7 +46,6 @@ export function useAutoDetectCustomer(tableId: string | undefined, sessionId: st
     },
     onError: () => {
       // Silently fail - não queremos interromper a experiência do usuário
-      console.log('Auto-link failed, user can still use the menu');
     },
   });
 

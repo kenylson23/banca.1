@@ -48,7 +48,6 @@ async function getRedisClient(): Promise<Redis | null> {
     });
 
     redisClient.on('connect', () => {
-      console.log('✅ Redis connected successfully');
     });
 
     return redisClient;
@@ -70,9 +69,7 @@ class SimpleCache {
     getRedisClient().then(client => {
       if (client) {
         this.useRedis = true;
-        console.log('🚀 Cache: Using Redis (distributed)');
       } else {
-        console.log('💾 Cache: Using in-memory (single instance only)');
       }
     });
 
@@ -229,7 +226,6 @@ class SimpleCache {
     }
 
     if (cleaned > 0) {
-      console.log(`🧹 Cache cleanup: removed ${cleaned} expired entries`);
     }
   }
 
@@ -333,11 +329,9 @@ export async function getOrSet<T>(
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('🛑 Destroying cache on SIGTERM...');
   cache.destroy();
 });
 
 process.on('SIGINT', () => {
-  console.log('🛑 Destroying cache on SIGINT...');
   cache.destroy();
 });

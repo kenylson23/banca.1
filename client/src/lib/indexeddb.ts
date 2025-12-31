@@ -309,7 +309,6 @@ export async function syncOfflineOrders(): Promise<{ success: number; failed: nu
         failed++;
       }
     } catch (error) {
-      console.error("Error syncing item:", error);
       if (item.retries < 3) {
         await indexedDB.updateSyncItemRetries(item.id, item.retries + 1);
       } else {

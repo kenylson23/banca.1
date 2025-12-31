@@ -17,7 +17,6 @@ export async function ensureTablesExist() {
   initPromise = (async () => {
     try {
       await initializeConnection();
-      console.log('Ensuring database tables exist...');
       
       // Create enums
       await db.execute(sql`DO $$ BEGIN CREATE TYPE restaurant_status AS ENUM ('pendente', 'ativo', 'suspenso'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
@@ -1341,7 +1340,6 @@ export async function ensureTablesExist() {
       const checkSuperAdmin = await db.execute(sql`SELECT id FROM users WHERE email = ${superAdminEmail} AND role = 'superadmin'`);
       
       if (checkSuperAdmin.rows.length === 0) {
-        console.log('Creating initial super admin user...');
         const defaultPassword = 'SuperAdmin123!';
         const hashedPassword = await hashPassword(defaultPassword);
         
@@ -1350,10 +1348,6 @@ export async function ensureTablesExist() {
           VALUES (${superAdminEmail}, ${hashedPassword}, 'Super', 'Admin', 'superadmin', NULL)
         `);
         
-        console.log('Super admin user created successfully!');
-        console.log('Email: superadmin@nabancada.com');
-        console.log('Password: SuperAdmin123!');
-        console.log('IMPORTANT: Please change this password after first login!');
       }
       
       // Seed subscription plans if they don't exist
@@ -1361,7 +1355,6 @@ export async function ensureTablesExist() {
       const planCount = parseInt((checkPlans.rows[0] as any).count);
       
       if (planCount === 0) {
-        console.log('Seeding subscription plans...');
         
         const plans = [
           {
@@ -1526,15 +1519,9 @@ export async function ensureTablesExist() {
           `);
         }
         
-        console.log('✅ Subscription plans seeded successfully!');
-        console.log('  🥉 Básico: 15.000 Kz/mês');
-        console.log('  🥈 Profissional: 35.000 Kz/mês');
-        console.log('  🥇 Empresarial: 70.000 Kz/mês');
-        console.log('  💎 Enterprise: 150.000 Kz/mês');
       }
       
       isInitialized = true;
-      console.log('Database tables ensured successfully!');
       
       // Executar migração para adicionar order_number
       try {
@@ -1547,9 +1534,7 @@ export async function ensureTablesExist() {
         await db.execute(sql`
           CREATE INDEX IF NOT EXISTS idx_orders_created_restaurant ON orders(restaurant_id, created_at DESC);
         `);
-        console.log('✅ Migration: order_number column added successfully!');
       } catch (migrationError) {
-        console.log('⚠️ Migration note:', migrationError instanceof Error ? migrationError.message : String(migrationError));
       }
     } catch (error) {
       console.error('Error ensuring tables exist:', error);

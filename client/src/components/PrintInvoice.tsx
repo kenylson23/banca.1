@@ -54,7 +54,6 @@ export function PrintInvoice({
 
   const handlePrintThermal = async () => {
     if (!order || !order.id) {
-      console.error('Cannot print invoice: order or order.id is undefined');
       return;
     }
 
@@ -108,7 +107,6 @@ export function PrintInvoice({
 
   const handlePrintBrowser = () => {
     if (!order || !order.id) {
-      console.error('Cannot print invoice: order or order.id is undefined');
       return;
     }
 

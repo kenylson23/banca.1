@@ -18,7 +18,6 @@ export function PrintOrder({ order, restaurantName = 'NaBancada', variant = 'out
 
   const handlePrint = () => {
     if (!order || !order.id) {
-      console.error('Cannot print: order or order.id is undefined');
       return;
     }
 

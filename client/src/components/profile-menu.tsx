@@ -27,7 +27,6 @@ export function ProfileMenu() {
       await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
       window.location.href = "/login";
     } catch (error) {
-      console.error("Logout failed:", error);
       // Even if logout fails, clear cache and redirect
       queryClient.clear();
       await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });

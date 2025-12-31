@@ -57,7 +57,6 @@ export function usePageTracking(restaurantId: number | string | undefined) {
           sessionId,
         });
       } catch (error) {
-        console.error('Error tracking page visit:', error);
       }
     };
 
@@ -76,7 +75,6 @@ export function useConversionTracking() {
         sessionId,
       });
     } catch (error) {
-      console.error('Error tracking conversion:', error);
     }
   };
 

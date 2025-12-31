@@ -39,7 +39,6 @@ export async function clearAllCache() {
     }
   });
   
-  console.log('✅ Cache limpo completamente!');
 }
 
 // Adiciona botão de debug no canto inferior direito (apenas dev)

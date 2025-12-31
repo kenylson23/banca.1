@@ -418,7 +418,6 @@ export default function OrderDetail() {
             description: "Recibo enviado para impressora",
           });
         } catch (error) {
-          console.error('Erro ao imprimir recibo:', error);
           // Não mostrar erro para não interromper o fluxo
         }
       }

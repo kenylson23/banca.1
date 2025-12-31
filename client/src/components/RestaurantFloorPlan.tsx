@@ -27,7 +27,7 @@ import {
 import { formatKwanza } from '@/lib/formatters';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { TableDetailsDialogPro as TableDetailsDialog } from './TableDetailsDialogPro';
+import { TableDialogSplitPanel } from './table-dialog/TableDialogSplitPanel';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -1483,7 +1483,6 @@ export function RestaurantFloorPlan({ className }: RestaurantFloorPlanProps) {
                     
                     // Validar que são números válidos e dentro dos limites
                     if (isNaN(x) || isNaN(y) || x < 0 || x > 100 || y < 0 || y > 100) {
-                      console.warn(`Mesa ${table.number} (ID: ${table.id}) tem posição inválida (x: ${x}, y: ${y}), usando posição padrão`);
                       const defaultPos = getDefaultPosition(table.id, index, filteredTables.length);
                       x = defaultPos.x;
                       y = defaultPos.y;
@@ -1698,7 +1697,7 @@ export function RestaurantFloorPlan({ className }: RestaurantFloorPlanProps) {
 
       {/* Table details dialog */}
       {selectedTable && (
-        <TableDetailsDialog
+        <TableDialogSplitPanel
           table={selectedTable}
           open={detailsDialogOpen}
           onOpenChange={(open) => {

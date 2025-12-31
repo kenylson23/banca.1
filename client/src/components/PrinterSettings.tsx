@@ -179,7 +179,6 @@ export function PrinterSettings() {
         isActive: 1,
       });
     } catch (error) {
-      console.error('Connection error:', error);
     } finally {
       setConnecting(false);
     }
