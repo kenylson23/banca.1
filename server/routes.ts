@@ -4492,9 +4492,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : null;
 
       // Calculate total using the same helper function
+      console.log('🔍 [BACKEND] Calculando total da mesa:', table.number);
+      console.log('  - Total de orders (filtrados por sessão):', orders.length);
+      orders.forEach((o: any) => {
+        const orderTotal = calculateOrderTotal(o);
+        console.log(`  - Order ${o.id?.substring(0, 8)}: status=${o.status}, items=${o.orderItems?.length}, total=${orderTotal}`);
+      });
+      
       const totalAmount = orders
         .filter((o: any) => o.status !== 'cancelado')
         .reduce((sum: number, o: any) => sum + calculateOrderTotal(o), 0);
+      
+      console.log('  - Total final calculado:', totalAmount.toFixed(2));
 
 
       res.json({

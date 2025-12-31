@@ -5561,6 +5561,10 @@ var init_storage = __esm({
         }
         return newPayment;
       }
+      async getSessionById(sessionId) {
+        const [session2] = await db.select().from(tableSessions).where(eq(tableSessions.id, sessionId)).limit(1);
+        return session2 || null;
+      }
       async getTableSessions(restaurantId, tableId) {
         let query = db.select().from(tableSessions).where(eq(tableSessions.restaurantId, restaurantId));
         if (tableId) {
@@ -5857,6 +5861,32 @@ var init_storage = __esm({
         const tableOrders = await db.select().from(orders).where(eq(orders.tableId, tableId)).orderBy(desc(orders.createdAt));
         const ordersWithItems = await Promise.all(
           tableOrders.map(async (order) => {
+            const items = await db.select().from(orderItems).leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id)).where(eq(orderItems.orderId, order.id));
+            const itemsWithOptions = await Promise.all(
+              items.map(async (item) => {
+                const options2 = await db.select().from(orderItemOptions).where(eq(orderItemOptions.orderItemId, item.order_items.id));
+                return {
+                  ...item.order_items,
+                  menuItem: item.menu_items,
+                  options: options2
+                };
+              })
+            );
+            return {
+              ...order,
+              orderItems: itemsWithOptions
+            };
+          })
+        );
+        return ordersWithItems;
+      }
+      async getOrdersBySessionId(restaurantId, sessionId) {
+        const sessionOrders = await db.select().from(orders).where(and(
+          eq(orders.restaurantId, restaurantId),
+          eq(orders.tableSessionId, sessionId)
+        )).orderBy(desc(orders.createdAt));
+        const ordersWithItems = await Promise.all(
+          sessionOrders.map(async (order) => {
             const items = await db.select().from(orderItems).leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id)).where(eq(orderItems.orderId, order.id));
             const itemsWithOptions = await Promise.all(
               items.map(async (item) => {
@@ -14560,17 +14590,9 @@ async function registerRoutes(app2) {
         }, 0);
         return itemsTotal;
       };
-      console.log("\u{1F50D} [BEFORE GROUP] Total guests:", guests.length, "Total orders:", orders2.length);
-      console.log("\u{1F50D} [GUESTS IDS]:", guests.map((g) => ({ name: g.name, id: g.id })));
-      console.log("\u{1F50D} [ORDERS]:", orders2.map((o) => ({ id: o.id, guestId: o.guestId, sessionId: o.sessionId })));
       const ordersByGuest = guests.map((guest) => {
         const guestOrders = orders2.filter((order) => order.guestId === guest.id && order.status !== "cancelado");
         const subtotal = guestOrders.reduce((sum, order) => sum + calculateOrderTotal(order), 0);
-        console.log(`\u{1F50D} [GUEST] ${guest.name || "Unnamed"} (ID: ${guest.id}):`, {
-          ordersCount: guestOrders.length,
-          subtotal: subtotal.toFixed(2),
-          orderIds: guestOrders.map((o) => o.id)
-        });
         guestOrders.forEach((order) => {
           const orderTotal = calculateOrderTotal(order);
         });
@@ -19106,6 +19128,28 @@ app.use((req, res, next) => {
     console.error("The application requires a database connection to run.");
     console.error("Please ensure DATABASE_URL environment variable is set with your PostgreSQL connection string.");
     process.exit(1);
+  }
+  try {
+    console.log("\u{1F527} Corrigindo pedidos sem sessionId...");
+    const { db: db2, sql: sql7 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
+    await db2.execute(sql7`
+      UPDATE orders 
+      SET "sessionId" = (
+        SELECT tg."sessionId" 
+        FROM table_guests tg 
+        WHERE tg.id = orders."guestId"
+      )
+      WHERE orders."sessionId" IS NULL 
+        AND orders."guestId" IS NOT NULL 
+        AND EXISTS (
+          SELECT 1 FROM table_guests tg 
+          WHERE tg.id = orders."guestId"
+        )
+    `);
+    console.log("\u2705 Pedidos corrigidos automaticamente!");
+  } catch (fixError) {
+    console.log("\u26A0\uFE0F Aviso: N\xE3o foi poss\xEDvel corrigir pedidos automaticamente");
+    console.log("   Isso \xE9 normal se n\xE3o houver pedidos para corrigir.");
   }
   const server = await registerRoutes(app);
   try {
