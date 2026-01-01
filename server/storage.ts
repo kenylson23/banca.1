@@ -811,6 +811,12 @@ export interface IStorage {
   updateTableGuest(id: string, data: UpdateTableGuest): Promise<TableGuest>;
   removeTableGuest(id: string): Promise<void>;
   calculateGuestSubtotal(guestId: string): Promise<string>;
+  updateSessionAdjustments(sessionId: string, adjustments: {
+    discount?: string;
+    discountType?: 'valor' | 'percentual';
+    serviceCharge?: string;
+    serviceChargeType?: 'valor' | 'percentual';
+  }): Promise<void>;
   
   // Bill Split operations
   getBillSplits(sessionId: string): Promise<TableBillSplit[]>;
@@ -819,6 +825,18 @@ export interface IStorage {
   updateBillSplit(id: string, data: UpdateTableBillSplit): Promise<TableBillSplit>;
   finalizeBillSplit(id: string): Promise<TableBillSplit>;
   deleteBillSplit(id: string): Promise<void>;
+  suggestBillSplit(sessionId: string): Promise<{
+    splitType: 'por_pessoa' | 'igual';
+    allocations: Array<{
+      guestId: string;
+      guestName: string;
+      amount: string;
+      percentage: number;
+      itemCount: number;
+    }>;
+    totalAmount: string;
+    recommendation: string;
+  }>;
   
   // Guest Payment operations
   getGuestPayments(sessionId: string): Promise<GuestPayment[]>;
@@ -1506,6 +1524,92 @@ export class DatabaseStorage implements IStorage {
     return session;
   }
 
+  // ✅ NOVO: Sugerir divisão automática de conta baseada no consumo
+  async suggestBillSplit(sessionId: string): Promise<{
+    splitType: 'por_pessoa' | 'igual';
+    allocations: Array<{
+      guestId: string;
+      guestName: string;
+      amount: string;
+      percentage: number;
+      itemCount: number;
+    }>;
+    totalAmount: string;
+    recommendation: string;
+  }> {
+    try {
+      const guests = await this.getTableGuests(sessionId);
+      const session = await db.select()
+        .from(tableSessions)
+        .where(eq(tableSessions.id, sessionId))
+        .then(rows => rows[0]);
+      
+      if (!session) {
+        throw new Error('Sessão não encontrada');
+      }
+      
+      const totalSession = parseFloat(session.totalAmount || '0');
+      
+      // Verificar se há guests com subtotais definidos
+      const guestsWithOrders = guests.filter(g => parseFloat(g.subtotal || '0') > 0);
+      
+      if (guestsWithOrders.length === 0) {
+        // Nenhum guest com pedidos - sugerir divisão igual
+        const amountPerGuest = totalSession / (guests.length || 1);
+        
+        return {
+          splitType: 'igual',
+          allocations: guests.map(g => ({
+            guestId: g.id,
+            guestName: g.name || `Convidado ${g.guestNumber || ''}`,
+            amount: amountPerGuest.toFixed(2),
+            percentage: (100 / guests.length),
+            itemCount: 0,
+          })),
+          totalAmount: totalSession.toFixed(2),
+          recommendation: 'Divisão igual recomendada: nenhum pedido individual identificado.',
+        };
+      }
+      
+      // Calcular quantos itens cada guest pediu
+      const guestItemCounts = await Promise.all(
+        guests.map(async (guest) => {
+          const items = await this.getGuestOrderItems(guest.id);
+          return {
+            guestId: guest.id,
+            count: items.reduce((sum, item) => sum + item.quantity, 0),
+          };
+        })
+      );
+      
+      // Há guests com subtotais - sugerir divisão por pessoa (baseada no consumo)
+      const allocations = guests.map(g => {
+        const subtotal = parseFloat(g.subtotal || '0');
+        const percentage = totalSession > 0 ? (subtotal / totalSession) * 100 : 0;
+        const itemCount = guestItemCounts.find(ic => ic.guestId === g.id)?.count || 0;
+        
+        return {
+          guestId: g.id,
+          guestName: g.name || `Convidado ${g.guestNumber || ''}`,
+          amount: subtotal.toFixed(2),
+          percentage: parseFloat(percentage.toFixed(2)),
+          itemCount,
+        };
+      });
+      
+      return {
+        splitType: 'por_pessoa',
+        allocations,
+        totalAmount: totalSession.toFixed(2),
+        recommendation: 'Divisão baseada no consumo individual de cada pessoa.',
+      };
+      
+    } catch (error) {
+      console.error('[SUGGEST BILL SPLIT] Erro:', error);
+      throw error;
+    }
+  }
+
   // ✅ NOVO: Validar se a sessão pode ser fechada (todos pagaram)
   async validateSessionClosure(sessionId: string): Promise<{
     canClose: boolean;
@@ -1718,6 +1822,41 @@ export class DatabaseStorage implements IStorage {
       
     } catch (error) {
       console.error(`❌ [SESSION SUBTOTALS] Erro ao recalcular sessão ${sessionId}:`, error);
+    }
+  }
+
+  // ✅ NOVO: Atualizar desconto e taxa de serviço da sessão
+  async updateSessionAdjustments(sessionId: string, adjustments: {
+    discount?: string;
+    discountType?: 'valor' | 'percentual';
+    serviceCharge?: string;
+    serviceChargeType?: 'valor' | 'percentual';
+  }): Promise<void> {
+    try {
+      const updateData: any = {};
+      
+      if (adjustments.discount !== undefined) {
+        updateData.discount = adjustments.discount;
+      }
+      if (adjustments.discountType !== undefined) {
+        updateData.discountType = adjustments.discountType;
+      }
+      if (adjustments.serviceCharge !== undefined) {
+        updateData.serviceCharge = adjustments.serviceCharge;
+      }
+      if (adjustments.serviceChargeType !== undefined) {
+        updateData.serviceChargeType = adjustments.serviceChargeType;
+      }
+      
+      await db.update(tableSessions)
+        .set(updateData)
+        .where(eq(tableSessions.id, sessionId));
+      
+      console.log(`✅ [SESSION ADJUSTMENTS] Ajustes salvos na sessão ${sessionId}:`, adjustments);
+      
+    } catch (error) {
+      console.error(`❌ [SESSION ADJUSTMENTS] Erro ao salvar ajustes da sessão ${sessionId}:`, error);
+      throw error;
     }
   }
 
@@ -9246,7 +9385,7 @@ export class DatabaseStorage implements IStorage {
         .from(tableGuests)
         .leftJoin(customers, eq(tableGuests.customerId, customers.id))
         .where(eq(tableGuests.sessionId, sessionId))
-        .orderBy(tableGuests.seatNumber);
+        .orderBy(tableGuests.seatNumber, tableGuests.joinedAt);
       
       // Flatten structure: merge customer data into guest object
       return results.map(row => ({
@@ -9263,7 +9402,7 @@ export class DatabaseStorage implements IStorage {
           .select()
           .from(tableGuests)
           .where(eq(tableGuests.sessionId, sessionId))
-          .orderBy(tableGuests.seatNumber);
+          .orderBy(tableGuests.seatNumber, tableGuests.joinedAt);
         
         return guests.map(guest => ({
           ...guest,

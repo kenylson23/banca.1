@@ -3974,7 +3974,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get all orders from the current session to apply services and discounts
-      if (table.currentSessionId && (services || discount)) {
+      // 🔧 TEMP: Services functionality disabled until table is created
+      if (table.currentSessionId && discount) {
         const orders = await storage.getOrdersBySessionId(restaurantId, table.currentSessionId);
         
         for (const order of orders) {
@@ -3983,24 +3984,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.applyDiscount(restaurantId, order.id, discount, discountType || 'valor');
           }
           
-          // Apply services if provided
-          if (services && services.length > 0) {
-            for (const service of services) {
-              await storage.createOrderService(
-                order.id,
-                service.serviceId || null,
-                restaurantId,
-                service.serviceName,
-                service.chargeType,
-                service.value,
-                service.calculatedAmount,
-                currentUser.id
-              );
-            }
-          }
+          // Services temporariamente desabilitado - tabela order_services não existe
+          // TODO: Criar migration para order_services se necessário
         }
         
-        // Recalculate table total after applying discounts and services
+        // Recalculate table total after applying discounts
         await storage.calculateTableTotal(restaurantId, req.params.id);
       }
       
@@ -4279,6 +4267,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Individual guest checkout with loyalty points
+  // ✅ NOVO: Sugerir divisão automática de conta
+  app.get("/api/tables/:id/suggest-bill-split", isCashierOrAbove, async (req, res) => {
+    try {
+      const table = await storage.getTableById(req.params.id);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+      
+      if (!table.currentSessionId) {
+        return res.status(400).json({ message: "Mesa não possui sessão ativa" });
+      }
+      
+      const suggestion = await storage.suggestBillSplit(table.currentSessionId);
+      res.json(suggestion);
+    } catch (error) {
+      console.error('Erro ao sugerir divisão de conta:', error);
+      res.status(500).json({ message: "Erro ao sugerir divisão de conta" });
+    }
+  });
+
+  // ✅ NOVO: Salvar ajustes (desconto/taxa) na sessão
+  app.post("/api/tables/:id/session-adjustments", isCashierOrAbove, async (req, res) => {
+    try {
+      const table = await storage.getTableById(req.params.id);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+      
+      if (!table.currentSessionId) {
+        return res.status(400).json({ message: "Mesa não possui sessão ativa" });
+      }
+      
+      const { discount, discountType, serviceCharge, serviceChargeType } = req.body;
+      
+      await storage.updateSessionAdjustments(table.currentSessionId, {
+        discount,
+        discountType,
+        serviceCharge,
+        serviceChargeType,
+      });
+      
+      res.json({ 
+        message: "Ajustes salvos com sucesso",
+        sessionId: table.currentSessionId 
+      });
+    } catch (error) {
+      console.error('Erro ao salvar ajustes da sessão:', error);
+      res.status(500).json({ message: "Erro ao salvar ajustes da sessão" });
+    }
+  });
+
   app.post("/api/tables/:id/guests/:guestId/checkout", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user as User;
@@ -4492,18 +4531,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : null;
 
       // Calculate total using the same helper function
-      console.log('🔍 [BACKEND] Calculando total da mesa:', table.number);
-      console.log('  - Total de orders (filtrados por sessão):', orders.length);
-      orders.forEach((o: any) => {
-        const orderTotal = calculateOrderTotal(o);
-        console.log(`  - Order ${o.id?.substring(0, 8)}: status=${o.status}, items=${o.orderItems?.length}, total=${orderTotal}`);
-      });
-      
       const totalAmount = orders
         .filter((o: any) => o.status !== 'cancelado')
         .reduce((sum: number, o: any) => sum + calculateOrderTotal(o), 0);
-      
-      console.log('  - Total final calculado:', totalAmount.toFixed(2));
 
 
       res.json({

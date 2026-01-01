@@ -875,6 +875,10 @@ var init_schema = __esm({
       customerCount: integer("customer_count"),
       totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull().default("0"),
       paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default("0"),
+      discount: decimal("discount", { precision: 10, scale: 2 }).default("0"),
+      discountType: varchar("discount_type", { length: 20 }).default("valor"),
+      serviceCharge: decimal("service_charge", { precision: 10, scale: 2 }).default("0"),
+      serviceChargeType: varchar("service_charge_type", { length: 20 }).default("percentual"),
       sessionTotals: jsonb("session_totals"),
       closingSnapshot: jsonb("closing_snapshot"),
       status: tableStatusEnum("status").notNull().default("ocupada"),
@@ -5476,6 +5480,63 @@ var init_storage = __esm({
         }
         return session2;
       }
+      // ✅ NOVO: Sugerir divisão automática de conta baseada no consumo
+      async suggestBillSplit(sessionId) {
+        try {
+          const guests = await this.getTableGuests(sessionId);
+          const session2 = await db.select().from(tableSessions).where(eq(tableSessions.id, sessionId)).then((rows) => rows[0]);
+          if (!session2) {
+            throw new Error("Sess\xE3o n\xE3o encontrada");
+          }
+          const totalSession = parseFloat(session2.totalAmount || "0");
+          const guestsWithOrders = guests.filter((g) => parseFloat(g.subtotal || "0") > 0);
+          if (guestsWithOrders.length === 0) {
+            const amountPerGuest = totalSession / (guests.length || 1);
+            return {
+              splitType: "igual",
+              allocations: guests.map((g) => ({
+                guestId: g.id,
+                guestName: g.name || `Convidado ${g.guestNumber || ""}`,
+                amount: amountPerGuest.toFixed(2),
+                percentage: 100 / guests.length,
+                itemCount: 0
+              })),
+              totalAmount: totalSession.toFixed(2),
+              recommendation: "Divis\xE3o igual recomendada: nenhum pedido individual identificado."
+            };
+          }
+          const guestItemCounts = await Promise.all(
+            guests.map(async (guest) => {
+              const items = await this.getGuestOrderItems(guest.id);
+              return {
+                guestId: guest.id,
+                count: items.reduce((sum, item) => sum + item.quantity, 0)
+              };
+            })
+          );
+          const allocations = guests.map((g) => {
+            const subtotal = parseFloat(g.subtotal || "0");
+            const percentage = totalSession > 0 ? subtotal / totalSession * 100 : 0;
+            const itemCount = guestItemCounts.find((ic) => ic.guestId === g.id)?.count || 0;
+            return {
+              guestId: g.id,
+              guestName: g.name || `Convidado ${g.guestNumber || ""}`,
+              amount: subtotal.toFixed(2),
+              percentage: parseFloat(percentage.toFixed(2)),
+              itemCount
+            };
+          });
+          return {
+            splitType: "por_pessoa",
+            allocations,
+            totalAmount: totalSession.toFixed(2),
+            recommendation: "Divis\xE3o baseada no consumo individual de cada pessoa."
+          };
+        } catch (error) {
+          console.error("[SUGGEST BILL SPLIT] Erro:", error);
+          throw error;
+        }
+      }
       // ✅ NOVO: Validar se a sessão pode ser fechada (todos pagaram)
       async validateSessionClosure(sessionId) {
         try {
@@ -5626,6 +5687,29 @@ var init_storage = __esm({
           }
         } catch (error) {
           console.error(`\u274C [SESSION SUBTOTALS] Erro ao recalcular sess\xE3o ${sessionId}:`, error);
+        }
+      }
+      // ✅ NOVO: Atualizar desconto e taxa de serviço da sessão
+      async updateSessionAdjustments(sessionId, adjustments) {
+        try {
+          const updateData = {};
+          if (adjustments.discount !== void 0) {
+            updateData.discount = adjustments.discount;
+          }
+          if (adjustments.discountType !== void 0) {
+            updateData.discountType = adjustments.discountType;
+          }
+          if (adjustments.serviceCharge !== void 0) {
+            updateData.serviceCharge = adjustments.serviceCharge;
+          }
+          if (adjustments.serviceChargeType !== void 0) {
+            updateData.serviceChargeType = adjustments.serviceChargeType;
+          }
+          await db.update(tableSessions).set(updateData).where(eq(tableSessions.id, sessionId));
+          console.log(`\u2705 [SESSION ADJUSTMENTS] Ajustes salvos na sess\xE3o ${sessionId}:`, adjustments);
+        } catch (error) {
+          console.error(`\u274C [SESSION ADJUSTMENTS] Erro ao salvar ajustes da sess\xE3o ${sessionId}:`, error);
+          throw error;
         }
       }
       async calculateTableTotal(restaurantId, tableId) {
@@ -14233,25 +14317,11 @@ async function registerRoutes(app2) {
       if (!table) {
         return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
       }
-      if (table.currentSessionId && (services2 || discount)) {
+      if (table.currentSessionId && discount) {
         const orders2 = await storage.getOrdersBySessionId(restaurantId, table.currentSessionId);
         for (const order of orders2) {
           if (discount && parseFloat(discount) > 0) {
             await storage.applyDiscount(restaurantId, order.id, discount, discountType || "valor");
-          }
-          if (services2 && services2.length > 0) {
-            for (const service of services2) {
-              await storage.createOrderService(
-                order.id,
-                service.serviceId || null,
-                restaurantId,
-                service.serviceName,
-                service.chargeType,
-                service.value,
-                service.calculatedAmount,
-                currentUser.id
-              );
-            }
           }
         }
         await storage.calculateTableTotal(restaurantId, req.params.id);
@@ -14474,6 +14544,47 @@ async function registerRoutes(app2) {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Erro ao remover cliente" });
+    }
+  });
+  app2.get("/api/tables/:id/suggest-bill-split", isCashierOrAbove, async (req, res) => {
+    try {
+      const table = await storage.getTableById(req.params.id);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
+      }
+      if (!table.currentSessionId) {
+        return res.status(400).json({ message: "Mesa n\xE3o possui sess\xE3o ativa" });
+      }
+      const suggestion = await storage.suggestBillSplit(table.currentSessionId);
+      res.json(suggestion);
+    } catch (error) {
+      console.error("Erro ao sugerir divis\xE3o de conta:", error);
+      res.status(500).json({ message: "Erro ao sugerir divis\xE3o de conta" });
+    }
+  });
+  app2.post("/api/tables/:id/session-adjustments", isCashierOrAbove, async (req, res) => {
+    try {
+      const table = await storage.getTableById(req.params.id);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
+      }
+      if (!table.currentSessionId) {
+        return res.status(400).json({ message: "Mesa n\xE3o possui sess\xE3o ativa" });
+      }
+      const { discount, discountType, serviceCharge, serviceChargeType } = req.body;
+      await storage.updateSessionAdjustments(table.currentSessionId, {
+        discount,
+        discountType,
+        serviceCharge,
+        serviceChargeType
+      });
+      res.json({
+        message: "Ajustes salvos com sucesso",
+        sessionId: table.currentSessionId
+      });
+    } catch (error) {
+      console.error("Erro ao salvar ajustes da sess\xE3o:", error);
+      res.status(500).json({ message: "Erro ao salvar ajustes da sess\xE3o" });
     }
   });
   app2.post("/api/tables/:id/guests/:guestId/checkout", isCashierOrAbove, async (req, res) => {

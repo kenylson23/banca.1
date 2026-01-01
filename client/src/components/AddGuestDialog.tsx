@@ -12,6 +12,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Customer } from '@shared/schema';
+import { QUERY_KEYS } from '@/lib/queryKeys';
+import { invalidateAfterGuestAdded } from '@/lib/tableInvalidations';
 
 interface AddGuestDialogProps {
   open: boolean;
@@ -54,7 +56,7 @@ export function AddGuestDialog({ open, onOpenChange, tableId, sessionId }: AddGu
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/guests`] });
+      invalidateAfterGuestAdded(queryClient, tableId);
       toast({
         title: 'Pessoa adicionada',
         description: 'A pessoa foi adicionada à mesa com sucesso.',
@@ -85,8 +87,8 @@ export function AddGuestDialog({ open, onOpenChange, tableId, sessionId }: AddGu
       return guestResponse.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/guests`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+      invalidateAfterGuestAdded(queryClient, tableId);
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.customers.all() });
       toast({
         title: 'Cliente cadastrado',
         description: 'O cliente foi cadastrado e adicionado à mesa.',

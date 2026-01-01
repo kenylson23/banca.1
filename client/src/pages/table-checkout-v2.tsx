@@ -29,11 +29,13 @@ import {
   TrendingUp,
   CheckCircle2,
   AlertCircle,
+  X,
   Percent,
   Calculator,
   Banknote,
   Smartphone,
-  Building
+  Building,
+  Receipt
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -46,6 +48,7 @@ import { formatKwanza } from "@/lib/formatters";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { PaymentSuccessDialog } from "@/components/PaymentSuccessDialog";
+import { CheckoutSummaryPanel } from "@/components/CheckoutSummaryPanel";
 
 // Step definitions
 const STEPS = [
@@ -66,17 +69,42 @@ export default function TableCheckoutV2() {
   const fromParam = searchParams.get('from') || 'tables';
   const stepParam = parseInt(searchParams.get('step') || '1', 10);
   
+  // 🎯 MELHORIA 8: Persistir desconto/taxa na URL
+  const discountParam = searchParams.get('discount') || '';
+  const discountTypeParam = searchParams.get('discountType') || 'valor';
+  const serviceFeeParam = searchParams.get('serviceFee') || '';
+  const serviceFeeTypeParam = searchParams.get('serviceFeeType') || 'percentual';
+  
   // Wizard state - inicializa com o step da URL se válido
   const [currentStep, setCurrentStep] = useState(
     stepParam >= 1 && stepParam <= 4 ? stepParam : 1
   );
   
-  // 🔧 FIX: Atualizar URL quando step muda para persistir ao recarregar
-  useEffect(() => {
+  // Helper para atualizar URL com todos os parâmetros
+  const updateURL = (step: number, discount: string, discType: string, serviceFee: string, serviceFeeType: string) => {
     const currentUrl = new URL(window.location.href);
-    currentUrl.searchParams.set('step', currentStep.toString());
+    currentUrl.searchParams.set('step', step.toString());
+    
+    // Persistir desconto se houver
+    if (discount && parseFloat(discount) > 0) {
+      currentUrl.searchParams.set('discount', discount);
+      currentUrl.searchParams.set('discountType', discType);
+    } else {
+      currentUrl.searchParams.delete('discount');
+      currentUrl.searchParams.delete('discountType');
+    }
+    
+    // Persistir taxa de serviço se houver
+    if (serviceFee && parseFloat(serviceFee) > 0) {
+      currentUrl.searchParams.set('serviceFee', serviceFee);
+      currentUrl.searchParams.set('serviceFeeType', serviceFeeType);
+    } else {
+      currentUrl.searchParams.delete('serviceFee');
+      currentUrl.searchParams.delete('serviceFeeType');
+    }
+    
     window.history.replaceState({}, '', currentUrl.toString());
-  }, [currentStep]);
+  };
   
   // Step 1: Items & Guests
   const [selectedGuestIds, setSelectedGuestIds] = useState<string[]>([]);
@@ -89,13 +117,18 @@ export default function TableCheckoutV2() {
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState('');
   
-  // Step 3: Adjustments
-  const [discountValue, setDiscountValue] = useState('');
-  const [discountType, setDiscountType] = useState<'valor' | 'percentual'>('valor');
+  // Step 3: Adjustments - Initialize from URL params for persistence
+  const [discountValue, setDiscountValue] = useState(discountParam || '');
+  const [discountType, setDiscountType] = useState<'valor' | 'percentual'>((discountTypeParam as any) || 'valor');
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [manualServiceName, setManualServiceName] = useState('');
-  const [manualServiceValue, setManualServiceValue] = useState('');
-  const [manualServiceType, setManualServiceType] = useState<'valor' | 'percentual'>('percentual');
+  const [manualServiceValue, setManualServiceValue] = useState(serviceFeeParam || '');
+  const [manualServiceType, setManualServiceType] = useState<'valor' | 'percentual'>((serviceFeeTypeParam as any) || 'percentual');
+  
+  // Update URL when step or adjustments change
+  useEffect(() => {
+    updateURL(currentStep, discountValue, discountType, manualServiceValue, manualServiceType);
+  }, [currentStep, discountValue, discountType, manualServiceValue, manualServiceType, updateURL]);
   
   // Step 4: Payment
   const [paymentMethod, setPaymentMethod] = useState<string>('');
@@ -104,6 +137,25 @@ export default function TableCheckoutV2() {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
   
+  // 🎯 MELHORIA 13: Confirmação ao recarregar página (somente se houver mudanças)
+  useEffect(() => {
+    const hasChanges = 
+      selectedGuestIds.length > 0 ||
+      (discountValue && parseFloat(discountValue) > 0) ||
+      (manualServiceValue && parseFloat(manualServiceValue) > 0) ||
+      paymentMethod !== '';
+    
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasChanges && !showSuccessDialog) {
+        e.preventDefault();
+        e.returnValue = 'Você tem alterações não salvas. Deseja realmente sair?';
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [selectedGuestIds, discountValue, manualServiceValue, paymentMethod, showSuccessDialog]);
+  
   // Fetch data
   const { data: tablesData, isLoading: loadingTables } = useQuery({
     queryKey: ['/api/tables/with-orders'],
@@ -111,12 +163,51 @@ export default function TableCheckoutV2() {
   
   const table = tablesData?.find((t: any) => t.id === id);
   
-  // Debug logs
+  // 🎯 SOLUÇÃO: Restaurar ajustes da sessão ao carregar
   useEffect(() => {
-    if (table) {
-      // Table data loaded
+    if (table?.currentSessionId && tablesData) {
+      // Buscar sessão para obter os ajustes salvos
+      fetch(`/api/tables/${id}/sessions`)
+        .then(res => res.json())
+        .then((sessions: any[]) => {
+          const currentSession = sessions.find((s: any) => s.id === table.currentSessionId);
+          if (currentSession) {
+            // Restaurar desconto
+            if (currentSession.discount && parseFloat(currentSession.discount) > 0) {
+              setDiscountValue(currentSession.discount);
+              setDiscountType(currentSession.discountType || 'valor');
+            }
+            // Restaurar taxa de serviço
+            if (currentSession.serviceCharge && parseFloat(currentSession.serviceCharge) > 0) {
+              setManualServiceValue(currentSession.serviceCharge);
+              setManualServiceType(currentSession.serviceChargeType || 'percentual');
+            }
+          }
+        })
+        .catch(err => console.error('Erro ao restaurar ajustes da sessão:', err));
     }
-  }, [table]);
+  }, [table?.currentSessionId, id, tablesData]);
+  
+  // 🎯 SOLUÇÃO: Salvar ajustes automaticamente quando mudarem
+  useEffect(() => {
+    if (table?.currentSessionId && (discountValue || manualServiceValue)) {
+      const timeoutId = setTimeout(() => {
+        // Debounce para não salvar a cada tecla
+        fetch(`/api/tables/${id}/session-adjustments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            discount: discountValue || '0',
+            discountType,
+            serviceCharge: manualServiceValue || '0',
+            serviceChargeType: manualServiceType,
+          }),
+        }).catch(err => console.error('Erro ao salvar ajustes:', err));
+      }, 1000); // Espera 1 segundo após a última mudança
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [discountValue, discountType, manualServiceValue, manualServiceType, table?.currentSessionId, id]);
   
   const { data: ordersByGuestData, isLoading: loadingOrders } = useQuery<OrdersByGuestData>({
     queryKey: [`/api/tables/${id}/orders-by-guest`],
@@ -330,25 +421,10 @@ export default function TableCheckoutV2() {
   
   // Calculate totals based on filtered selection
   const totalAmount = selectedGuestIds.length > 0
-    ? (() => {
-        const total = filteredOrdersByGuest.reduce((sum: number, og: any) => {
-          console.log(`🔍 Guest "${og.guest?.name || 'Unknown'}": subtotal ${og.subtotal}`);
-          return sum + parseFloat(og.subtotal || 0);
-        }, 0);
-        console.log(`🔍 TOTAL FILTRADO: ${total}`);
-        return total;
-      })()
-    : (() => {
-        console.log('🔍 USANDO TOTAL GERAL');
-        console.log('🔍 Backend totalAmount:', ordersByGuestData?.totalAmount);
-        console.log('🔍 Número de guests:', ordersByGuest?.length);
-        ordersByGuest?.forEach((og: any) => {
-          console.log(`🔍 Guest "${og.guest?.name}": subtotal ${og.subtotal}, orders: ${og.orders?.length}`);
-        });
-        return ordersByGuestData?.totalAmount 
-          ? Number(ordersByGuestData.totalAmount)
-          : allItems.reduce((sum: number, item: any) => sum + parseFloat(item.totalPrice || 0), 0);
-      })();
+    ? filteredOrdersByGuest.reduce((sum: number, og: any) => sum + parseFloat(og.subtotal || 0), 0)
+    : (ordersByGuestData?.totalAmount 
+        ? Number(ordersByGuestData.totalAmount)
+        : allItems.reduce((sum: number, item: any) => sum + parseFloat(item.totalPrice || 0), 0));
   
   const paidAmount = ordersByGuestData?.paidAmount 
     ? Number(ordersByGuestData.paidAmount)
@@ -1208,6 +1284,65 @@ export default function TableCheckoutV2() {
                 {/* Step 3: Adjustments */}
                 {currentStep === 3 && (
                   <div className="space-y-6">
+                    {/* 🎯 MELHORIA: Alerta Visual de Ajustes Salvos */}
+                    {((discountValue && parseFloat(discountValue) > 0) || (manualServiceValue && parseFloat(manualServiceValue) > 0)) && (
+                      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border-2 border-yellow-500/30 p-4 shadow-lg">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 rounded-lg bg-yellow-500/20">
+                            <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-bold text-yellow-900 dark:text-yellow-100 mb-1">
+                              ⚡ Ajustes Ativos na Conta
+                            </div>
+                            <div className="text-sm text-yellow-800 dark:text-yellow-300 space-y-1">
+                              {discountValue && parseFloat(discountValue) > 0 && (
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="bg-green-500/10 border-green-500 text-green-700 dark:text-green-300">
+                                    Desconto: {discountType === 'percentual' ? `${discountValue}%` : `${formatKwanza(parseFloat(discountValue))}`}
+                                  </Badge>
+                                  <span>= -{formatKwanza(
+                                    discountType === 'percentual'
+                                      ? totalAmount * (parseFloat(discountValue) / 100)
+                                      : parseFloat(discountValue)
+                                  )}</span>
+                                </div>
+                              )}
+                              {manualServiceValue && parseFloat(manualServiceValue) > 0 && (
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="bg-orange-500/10 border-orange-500 text-orange-700 dark:text-orange-300">
+                                    Taxa: {manualServiceType === 'percentual' ? `${manualServiceValue}%` : `${formatKwanza(parseFloat(manualServiceValue))}`}
+                                  </Badge>
+                                  <span>= +{formatKwanza(
+                                    manualServiceType === 'percentual'
+                                      ? totalAmount * (parseFloat(manualServiceValue) / 100)
+                                      : parseFloat(manualServiceValue)
+                                  )}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {/* 🎯 MELHORIA: Botão Limpar Ajustes */}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setDiscountValue('');
+                              setManualServiceValue('');
+                              toast({
+                                title: "Ajustes removidos",
+                                description: "Todos os descontos e taxas foram limpos",
+                              });
+                            }}
+                            className="border-red-500/50 text-red-600 hover:bg-red-500/10"
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Limpar Tudo
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    
                     {/* Selection Banner */}
                     {selectedGuestIds.length > 0 && (
                       <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 p-4">
@@ -1275,20 +1410,39 @@ export default function TableCheckoutV2() {
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Valor do Desconto</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={discountValue}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0;
-                                const max = discountType === 'percentual' ? 100 : totalAmount;
-                                if (val <= max) {
-                                  setDiscountValue(e.target.value);
-                                }
-                              }}
-                              placeholder="0.00"
-                              className="h-12 text-lg font-semibold"
-                            />
+                            <div className="relative">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={discountValue}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  const max = discountType === 'percentual' ? 100 : totalAmount;
+                                  if (val <= max) {
+                                    setDiscountValue(e.target.value);
+                                  }
+                                }}
+                                placeholder="0.00"
+                                className="h-12 text-lg font-semibold pr-10"
+                              />
+                              {/* 🎯 MELHORIA: Botão de Remoção Rápida */}
+                              {discountValue && parseFloat(discountValue) > 0 && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setDiscountValue('');
+                                    toast({
+                                      title: "Desconto removido",
+                                      description: "O desconto foi limpo",
+                                    });
+                                  }}
+                                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 hover:bg-red-100 hover:text-red-600"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
                           </div>
                           <div className="space-y-2">
                             <Label>Tipo</Label>
@@ -1304,13 +1458,19 @@ export default function TableCheckoutV2() {
                           </div>
                         </div>
 
+                        {/* 🎯 MELHORIA: Card de Confirmação Visual Melhorado */}
                         {discountValue && parseFloat(discountValue) > 0 && (
-                          <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 p-4">
+                          <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-2 border-green-500/30 p-4 shadow-md">
                             <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                                Desconto Aplicado:
-                              </span>
-                              <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                              <div className="flex items-center gap-2">
+                                <div className="p-2 rounded-lg bg-green-500/20">
+                                  <TrendingUp className="h-4 w-4 text-green-600 rotate-180" />
+                                </div>
+                                <span className="text-sm font-semibold text-green-700 dark:text-green-300">
+                                  Desconto Ativo:
+                                </span>
+                              </div>
+                              <span className="text-2xl font-black text-green-600 dark:text-green-400">
                                 -{formatKwanza(
                                   discountType === 'percentual'
                                     ? totalAmount * (parseFloat(discountValue) / 100)
@@ -1551,6 +1711,77 @@ export default function TableCheckoutV2() {
                 {/* Step 4: Payment Method */}
                 {currentStep === 4 && (
                   <div className="space-y-6">
+                    {/* 🎯 MELHORIA 10: Resumo Detalhado no Step 4 */}
+                    <Card className="border-2 border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20">
+                      <CardHeader className="pb-3 border-b border-indigo-200 dark:border-indigo-800">
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                          <Receipt className="h-5 w-5 text-indigo-600" />
+                          Revisão Final do Pedido
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-4 space-y-3">
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="flex items-center gap-2">
+                            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">Total de Itens:</span>
+                            <span className="font-bold">{allItems.length}</span>
+                          </div>
+                          {selectedGuestIds.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              <Users className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-muted-foreground">Clientes:</span>
+                              <span className="font-bold">{selectedGuestIds.length}</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <Separator />
+                        
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Subtotal</span>
+                            <span className="font-medium">{formatKwanza(calculateTotals.subtotal)}</span>
+                          </div>
+                          
+                          {/* 🎯 MELHORIA 12: Badge de Ajustes Aplicados */}
+                          {calculateTotals.breakdown.length > 0 && (
+                            <div className="space-y-1.5 pl-2 border-l-2 border-indigo-300 dark:border-indigo-700">
+                              {calculateTotals.breakdown.map((item, idx) => (
+                                <div key={idx} className={cn(
+                                  "flex justify-between text-xs",
+                                  item.type === 'discount' && "text-green-600 dark:text-green-400",
+                                  item.type === 'addition' && "text-orange-600 dark:text-orange-400"
+                                )}>
+                                  <span className="flex items-center gap-1">
+                                    {item.type === 'discount' ? '↓' : '↑'} {item.label}
+                                  </span>
+                                  <span className="font-medium">
+                                    {item.value < 0 ? '-' : '+'}{formatKwanza(Math.abs(item.value))}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          <Separator />
+                          
+                          <div className="flex justify-between items-center pt-1">
+                            <span className="font-bold text-base">TOTAL A PAGAR</span>
+                            <span className="font-black text-2xl text-indigo-600 dark:text-indigo-400">
+                              {formatKwanza(calculateTotals.finalTotal)}
+                            </span>
+                          </div>
+                          
+                          {calculateTotals.totalDiscounts > 0 && (
+                            <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/20 p-2 rounded">
+                              <Sparkles className="h-3 w-3" />
+                              <span>Você economizou {formatKwanza(calculateTotals.totalDiscounts)} neste pedido!</span>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                    
                     {/* Selection Banner */}
                     {selectedGuestIds.length > 0 && (
                       <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 p-4">
@@ -1904,35 +2135,50 @@ export default function TableCheckoutV2() {
                         )}
                       </div>
                       
-                      {/* Step Indicators */}
+                      {/* 🎯 MELHORIA 11: Barra de Progresso Visual */}
                       <Separator className="bg-white/10" />
                       
-                      <div className="space-y-2">
-                        <div className="text-xs text-white/60 mb-3">Progresso</div>
-                        {STEPS.map((step) => {
-                          const Icon = step.icon;
-                          const isCompleted = currentStep > step.id;
-                          const isActive = currentStep === step.id;
-                          
-                          return (
-                            <div 
-                              key={step.id}
-                              className={cn(
-                                "flex items-center gap-3 text-sm transition-all",
-                                isActive && "text-white font-semibold",
-                                isCompleted && "text-green-400",
-                                !isActive && !isCompleted && "text-white/40"
-                              )}
-                            >
-                              {isCompleted ? (
-                                <Check className="h-4 w-4" />
-                              ) : (
-                                <Icon className="h-4 w-4" />
-                              )}
-                              <span>{step.name}</span>
-                            </div>
-                          );
-                        })}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-xs text-white/60">
+                          <span>Progresso do Checkout</span>
+                          <span className="font-bold">{currentStep}/{STEPS.length}</span>
+                        </div>
+                        
+                        {/* Progress Bar */}
+                        <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div 
+                            className="absolute inset-y-0 left-0 bg-gradient-to-r from-green-400 to-emerald-400 transition-all duration-500 ease-out"
+                            style={{ width: `${(currentStep / STEPS.length) * 100}%` }}
+                          />
+                        </div>
+                        
+                        {/* Step Indicators */}
+                        <div className="space-y-2">
+                          {STEPS.map((step) => {
+                            const Icon = step.icon;
+                            const isCompleted = currentStep > step.id;
+                            const isActive = currentStep === step.id;
+                            
+                            return (
+                              <div 
+                                key={step.id}
+                                className={cn(
+                                  "flex items-center gap-3 text-sm transition-all",
+                                  isActive && "text-white font-semibold",
+                                  isCompleted && "text-green-400",
+                                  !isActive && !isCompleted && "text-white/40"
+                                )}
+                              >
+                                {isCompleted ? (
+                                  <Check className="h-4 w-4" />
+                                ) : (
+                                  <Icon className="h-4 w-4" />
+                                )}
+                                <span>{step.name}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     </>
                   )}
