@@ -528,7 +528,7 @@ export default function Kitchen() {
             {activeOrder && (
               <div className="bg-card border rounded-lg p-3 shadow-lg opacity-90 w-[280px]">
                 <span className="font-semibold text-sm">
-                  {activeOrder.orderType === 'mesa' && activeOrder.table ? `Mesa ${activeOrder.table.number}` : 
+                  {activeOrder.table ? `Mesa ${activeOrder.table.number}` : 
                    activeOrder.orderType === 'delivery' ? 'Delivery' : 'Balcão'}
                 </span>
               </div>
