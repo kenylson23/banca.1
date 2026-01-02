@@ -2467,6 +2467,7 @@ export class DatabaseStorage implements IStorage {
       if (!first) return null;
       
       for (let idx = 1; idx < items.length; idx++) {
+        // Only derive if all items have the same guestId
         if (items[idx].guestId !== first) return null;
       }
       return first;
@@ -2478,6 +2479,15 @@ export class DatabaseStorage implements IStorage {
       order.orderType === 'mesa' && order.tableId
         ? (order.tableSessionId ?? (await this.getTableById(order.tableId))?.currentSessionId ?? null)
         : (order.tableSessionId ?? null);
+
+    console.log('[DEBUG] createOrder derived values:', {
+      orderId: order.id,
+      tableId: order.tableId,
+      derivedTableSessionId,
+      derivedGuestId,
+      originalGuestId: order.guestId,
+      itemGuestIds: items.map(i => i.guestId)
+    });
 
     const [newOrder] = await db.insert(orders).values({
       ...order,

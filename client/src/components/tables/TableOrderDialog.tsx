@@ -258,8 +258,8 @@ export function TableOrderDialog({ open, onOpenChange, table, onOrderCreated }: 
         restaurantId: currentUser?.restaurantId || table.restaurantId,
         tableId: table.id,
         orderType: 'mesa',
-        // ❌ REMOVED: guestId at order level doesn't work
-        // guestId: selectedGuest,
+        // Associate with guest if selected, otherwise it's a general table order
+        guestId: selectedGuest || undefined,
         items: orderItems,
       });
     },
