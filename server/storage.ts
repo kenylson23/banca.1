@@ -2207,7 +2207,50 @@ export class DatabaseStorage implements IStorage {
     }
     
     const tableOrders = await db
-      .select()
+      .select({
+        id: orders.id,
+        restaurantId: orders.restaurantId,
+        tableId: orders.tableId,
+        tableSessionId: orders.tableSessionId,
+        guestId: orders.guestId,
+        branchId: orders.branchId,
+        customerId: orders.customerId,
+        couponId: orders.couponId,
+        orderType: orders.orderType,
+        customerName: orders.customerName,
+        customerPhone: orders.customerPhone,
+        deliveryAddress: orders.deliveryAddress,
+        deliveryNotes: orders.deliveryNotes,
+        orderNotes: orders.orderNotes,
+        orderNumber: orders.orderNumber,
+        orderTitle: orders.orderTitle,
+        status: orders.status,
+        subtotal: orders.subtotal,
+        discount: orders.discount,
+        discountType: orders.discountType,
+        couponDiscount: orders.couponDiscount,
+        serviceCharge: orders.serviceCharge,
+        serviceName: orders.serviceName,
+        deliveryFee: orders.deliveryFee,
+        packagingFee: orders.packagingFee,
+        loyaltyPointsEarned: orders.loyaltyPointsEarned,
+        loyaltyPointsRedeemed: orders.loyaltyPointsRedeemed,
+        loyaltyDiscountAmount: orders.loyaltyDiscountAmount,
+        totalAmount: orders.totalAmount,
+        paymentStatus: orders.paymentStatus,
+        paymentMethod: orders.paymentMethod,
+        paidAmount: orders.paidAmount,
+        changeAmount: orders.changeAmount,
+        refundAmount: orders.refundAmount,
+        cancellationReason: orders.cancellationReason,
+        cancelledAt: orders.cancelledAt,
+        cancelledBy: orders.cancelledBy,
+        isSynced: orders.isSynced,
+        createdBy: orders.createdBy,
+        closedBy: orders.closedBy,
+        createdAt: orders.createdAt,
+        updatedAt: orders.updatedAt,
+      })
       .from(orders)
       .where(eq(orders.tableId, tableId))
       .orderBy(desc(orders.createdAt));
@@ -2407,10 +2450,40 @@ export class DatabaseStorage implements IStorage {
     
     // Ensure totalAmount is not negative
     totalAmount = Math.max(0, totalAmount);
-    
+
+    // ✅ If guestId wasn't provided at order level, derive it from items.
+    // This is critical because UI groups orders by orders.guestId.
+    // Rule: only propagate when ALL items belong to the same guest.
+    const itemGuestIds = items
+      .map(i => i.guestId)
+      .filter((g): g is string => typeof g === 'string' && g.length > 0);
+
+    // Avoid Set iteration to keep compatibility with current TS target.
+    const derivedGuestId = (() => {
+      if (order.guestId) return order.guestId;
+      if (!items || items.length === 0) return null;
+      
+      const first = items[0].guestId;
+      if (!first) return null;
+      
+      for (let idx = 1; idx < items.length; idx++) {
+        if (items[idx].guestId !== first) return null;
+      }
+      return first;
+    })();
+
+    // ✅ Ensure tableSessionId is set for table orders whenever possible
+    // so session-based filtering works reliably.
+    const derivedTableSessionId =
+      order.orderType === 'mesa' && order.tableId
+        ? (order.tableSessionId ?? (await this.getTableById(order.tableId))?.currentSessionId ?? null)
+        : (order.tableSessionId ?? null);
+
     const [newOrder] = await db.insert(orders).values({
       ...order,
       tableId: order.tableId || null,
+      tableSessionId: derivedTableSessionId,
+      guestId: derivedGuestId,
       subtotal: subtotal.toFixed(2),
       totalAmount: totalAmount.toFixed(2),
     }).returning();

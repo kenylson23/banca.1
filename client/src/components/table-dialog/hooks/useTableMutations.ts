@@ -1,21 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
-// Using fetch directly since apiRequest doesn't have a default export
-async function apiRequest(method: string, url: string, body?: any) {
-  const response = await fetch(url, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-    credentials: 'include',
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw error;
-  }
-  
-  return response;
-}
+import { apiRequest } from '@/lib/queryClient';
 
 interface UseTableMutationsProps {
   tableId: string | undefined;
@@ -27,10 +12,20 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
 
   // Helper to invalidate queries
   const invalidateTableQueries = () => {
+    // Dados principais da mesa e pedidos
     queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });
-    queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/guests`] });
     queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
     queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+
+    // Garantir atualização da lista de pessoas da sessão atual
+    // Observação: useTableData usa /api/table-sessions/{sessionId}/guests
+    queryClient.invalidateQueries({
+      predicate: (q) => {
+        const key = q.queryKey?.[0];
+        return typeof key === 'string' && key.startsWith('/api/table-sessions/');
+      },
+    });
   };
 
   // Cancel Order

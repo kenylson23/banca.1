@@ -296,9 +296,23 @@ export function QuickOrderDialog({
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
       
+      // ⭐ CRITICAL: Invalidar também a query de guests da sessão (usado pelo novo diálogo)
+      const currentSessionId = tableData?.currentSessionId;
+      if (currentSessionId) {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/table-sessions/${currentSessionId}/guests`] 
+        });
+      }
+      
       // Force refetch after a small delay to ensure DB is updated
       setTimeout(() => {
         queryClient.refetchQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });
+        // Refetch guests também
+        if (currentSessionId) {
+          queryClient.refetchQueries({ 
+            queryKey: [`/api/table-sessions/${currentSessionId}/guests`] 
+          });
+        }
       }, 300);
       
       setCart([]);

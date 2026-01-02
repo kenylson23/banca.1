@@ -65,7 +65,8 @@ export function TableDialogSplitPanel({
 
   if (!table) return null;
 
-  // Debug: verificar se versão correta está carregando
+  // Prefer session state over table.status (status may be inconsistent across endpoints)
+  const hasActiveSession = !!table.currentSessionId;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -77,7 +78,7 @@ export function TableDialogSplitPanel({
               Mesa {table.number}
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              {table.status === 'livre' ? 'Livre' : `${activeGuests} pessoas • ${totalOrders} pedidos`}
+              {!hasActiveSession ? 'Sessão não iniciada' : `${activeGuests} pessoas • ${totalOrders} pedidos`}
             </p>
           </div>
           <div className="text-right">
@@ -208,7 +209,7 @@ export function TableDialogSplitPanel({
 
             {/* Quick Actions (Bottom) */}
             <div className="p-4 border-t bg-white dark:bg-slate-800 space-y-2">
-              {table?.status === 'livre' ? (
+              {!hasActiveSession ? (
                 // Botão para iniciar sessão quando mesa está livre
                 <button 
                   className="w-full p-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all"

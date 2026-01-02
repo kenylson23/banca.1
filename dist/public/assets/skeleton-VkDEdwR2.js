@@ -1,0 +1,1 @@
+import{j as s,k as o}from"./index-Cn0-3_fj.js";function m({className:e,...n}){return s.jsxDEV("div",{className:o("animate-pulse rounded-md bg-muted",e),...n},void 0,!1,{fileName:"/home/runner/workspace/client/src/components/ui/skeleton.tsx",lineNumber:8,columnNumber:5},this)}export{m as S};

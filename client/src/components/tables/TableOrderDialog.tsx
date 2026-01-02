@@ -242,6 +242,8 @@ export function TableOrderDialog({ open, onOpenChange, table, onOrderCreated }: 
           menuItemId: item.menuItem.id,
           quantity: item.quantity,
           price: totalPrice,
+          // ✅ FIX: guestId must be inside each item, not at order level
+          guestId: selectedGuest || undefined,
           selectedOptions: item.selectedOptions.map(opt => ({
             optionId: opt.optionId,
             optionName: opt.optionName,
@@ -256,7 +258,8 @@ export function TableOrderDialog({ open, onOpenChange, table, onOrderCreated }: 
         restaurantId: currentUser?.restaurantId || table.restaurantId,
         tableId: table.id,
         orderType: 'mesa',
-        guestId: selectedGuest,
+        // ❌ REMOVED: guestId at order level doesn't work
+        // guestId: selectedGuest,
         items: orderItems,
       });
     },
@@ -265,6 +268,8 @@ export function TableOrderDialog({ open, onOpenChange, table, onOrderCreated }: 
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tables/open'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
+      // ✅ FIX: Invalidate orders-by-guest to show new order immediately in TableDetailsDialog
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/orders-by-guest`] });
       
       toast({
         title: 'Pedido criado',

@@ -34,7 +34,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { TableCard } from "@/components/TableCard";
-import { TableDialogSplitPanel } from '@/components/table-dialog/TableDialogSplitPanel';
+import { TableDialogWrapper } from '@/components/table-dialog/TableDialogWrapper';
 import type { Table } from "@shared/schema";
 
 export function TablesPanel() {
@@ -752,8 +752,8 @@ export function TablesPanel() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Usando APENAS TableDialogSplitPanel */}
-      <TableDialogSplitPanel
+      {/* Usando TableDialogWrapper (auto-detecta mobile/desktop) */}
+      <TableDialogWrapper
         open={!!selectedTable}
         onOpenChange={(open) => !open && setSelectedTable(null)}
         table={selectedTable}

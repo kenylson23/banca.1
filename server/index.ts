@@ -60,28 +60,44 @@ app.use((req, res, next) => {
     process.exit(1);
   }
 
+  // 🚀 AUTO-MIGRATIONS: Executar migrações pendentes automaticamente
+  try {
+    const { runAutoMigrationsSafe } = await import('./auto-migrate');
+    await runAutoMigrationsSafe();
+  } catch (error) {
+    console.warn('⚠️  Sistema de auto-migrações não disponível');
+  }
+
   // 🔧 AUTO-FIX: Corrigir pedidos sem sessionId
   try {
-    console.log('🔧 Corrigindo pedidos sem sessionId...');
+    console.log('🔧 Corrigindo pedidos sem tableSessionId...');
     const { db, sql } = await import('./storage');
     await db.execute(sql`
-      UPDATE orders 
-      SET "sessionId" = (
-        SELECT tg."sessionId" 
-        FROM table_guests tg 
-        WHERE tg.id = orders."guestId"
+      UPDATE orders
+      SET table_session_id = (
+        SELECT tg.session_id
+        FROM table_guests tg
+        WHERE tg.id = orders.guest_id
       )
-      WHERE orders."sessionId" IS NULL 
-        AND orders."guestId" IS NOT NULL 
+      WHERE orders.table_session_id IS NULL
+        AND orders.guest_id IS NOT NULL
         AND EXISTS (
-          SELECT 1 FROM table_guests tg 
-          WHERE tg.id = orders."guestId"
+          SELECT 1 FROM table_guests tg
+          WHERE tg.id = orders.guest_id
         )
     `);
-    console.log('✅ Pedidos corrigidos automaticamente!');
+    console.log('✅ Pedidos corrigidos automaticamente (tableSessionId)!');
   } catch (fixError) {
     console.log('⚠️ Aviso: Não foi possível corrigir pedidos automaticamente');
     console.log('   Isso é normal se não houver pedidos para corrigir.');
+  }
+
+  // 🔧 Setup migration endpoints (before other routes)
+  try {
+    const { setupMigrationEndpoint } = await import('./migration-endpoint');
+    setupMigrationEndpoint(app);
+  } catch (error) {
+    console.warn('⚠️  Endpoint de migrações não disponível');
   }
 
   const server = await registerRoutes(app);

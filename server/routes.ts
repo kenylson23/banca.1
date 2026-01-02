@@ -3773,7 +3773,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get all guests with linked customers to award loyalty points
       const guests = await storage.getTableGuests(table.currentSessionId);
-      const loyaltyProgram = await storage.getLoyaltyProgramByRestaurantId(restaurantId);
+      const loyaltyProgram = await storage.getLoyaltyProgram(restaurantId);
       
       // Award loyalty points to linked customers
       if (loyaltyProgram && loyaltyProgram.isActive) {

@@ -3220,6 +3220,12 @@ var init_schema = __esm({
 });
 
 // server/db.ts
+var db_exports = {};
+__export(db_exports, {
+  db: () => db,
+  initializeConnection: () => initializeConnection,
+  pool: () => pool
+});
 async function initializeConnection() {
   if (poolInstance && dbInstance) {
     return;
@@ -5942,7 +5948,50 @@ var init_storage = __esm({
         if (table.restaurantId !== restaurantId) {
           throw new Error("Unauthorized: Table does not belong to your restaurant");
         }
-        const tableOrders = await db.select().from(orders).where(eq(orders.tableId, tableId)).orderBy(desc(orders.createdAt));
+        const tableOrders = await db.select({
+          id: orders.id,
+          restaurantId: orders.restaurantId,
+          tableId: orders.tableId,
+          tableSessionId: orders.tableSessionId,
+          guestId: orders.guestId,
+          branchId: orders.branchId,
+          customerId: orders.customerId,
+          couponId: orders.couponId,
+          orderType: orders.orderType,
+          customerName: orders.customerName,
+          customerPhone: orders.customerPhone,
+          deliveryAddress: orders.deliveryAddress,
+          deliveryNotes: orders.deliveryNotes,
+          orderNotes: orders.orderNotes,
+          orderNumber: orders.orderNumber,
+          orderTitle: orders.orderTitle,
+          status: orders.status,
+          subtotal: orders.subtotal,
+          discount: orders.discount,
+          discountType: orders.discountType,
+          couponDiscount: orders.couponDiscount,
+          serviceCharge: orders.serviceCharge,
+          serviceName: orders.serviceName,
+          deliveryFee: orders.deliveryFee,
+          packagingFee: orders.packagingFee,
+          loyaltyPointsEarned: orders.loyaltyPointsEarned,
+          loyaltyPointsRedeemed: orders.loyaltyPointsRedeemed,
+          loyaltyDiscountAmount: orders.loyaltyDiscountAmount,
+          totalAmount: orders.totalAmount,
+          paymentStatus: orders.paymentStatus,
+          paymentMethod: orders.paymentMethod,
+          paidAmount: orders.paidAmount,
+          changeAmount: orders.changeAmount,
+          refundAmount: orders.refundAmount,
+          cancellationReason: orders.cancellationReason,
+          cancelledAt: orders.cancelledAt,
+          cancelledBy: orders.cancelledBy,
+          isSynced: orders.isSynced,
+          createdBy: orders.createdBy,
+          closedBy: orders.closedBy,
+          createdAt: orders.createdAt,
+          updatedAt: orders.updatedAt
+        }).from(orders).where(eq(orders.tableId, tableId)).orderBy(desc(orders.createdAt));
         const ordersWithItems = await Promise.all(
           tableOrders.map(async (order) => {
             const items = await db.select().from(orderItems).leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id)).where(eq(orderItems.orderId, order.id));
@@ -6070,9 +6119,15 @@ var init_storage = __esm({
         }
         totalAmount += serviceCharge + deliveryFee;
         totalAmount = Math.max(0, totalAmount);
+        const itemGuestIds = items.map((i) => i.guestId).filter((g) => typeof g === "string" && g.length > 0);
+        const uniqueGuestIds = new Set(itemGuestIds);
+        const derivedGuestId = !order.guestId && uniqueGuestIds.size === 1 ? Array.from(uniqueGuestIds)[0] : order.guestId ?? null;
+        const derivedTableSessionId = order.orderType === "mesa" && order.tableId ? order.tableSessionId ?? (await this.getTableById(order.tableId))?.currentSessionId ?? null : order.tableSessionId ?? null;
         const [newOrder] = await db.insert(orders).values({
           ...order,
           tableId: order.tableId || null,
+          tableSessionId: derivedTableSessionId,
+          guestId: derivedGuestId,
           subtotal: subtotal.toFixed(2),
           totalAmount: totalAmount.toFixed(2)
         }).returning();
@@ -10418,7 +10473,7 @@ var init_storage = __esm({
           const results = await db.select({
             guest: tableGuests,
             customer: customers
-          }).from(tableGuests).leftJoin(customers, eq(tableGuests.customerId, customers.id)).where(eq(tableGuests.sessionId, sessionId)).orderBy(tableGuests.seatNumber);
+          }).from(tableGuests).leftJoin(customers, eq(tableGuests.customerId, customers.id)).where(eq(tableGuests.sessionId, sessionId)).orderBy(tableGuests.seatNumber, tableGuests.joinedAt);
           return results.map((row) => ({
             ...row.guest,
             customer: row.customer || void 0
@@ -10427,7 +10482,7 @@ var init_storage = __esm({
           console.error("[getTableGuests] LEFT JOIN falhou:", error.message);
           console.error("[getTableGuests] Stack:", error.stack);
           try {
-            const guests = await db.select().from(tableGuests).where(eq(tableGuests.sessionId, sessionId)).orderBy(tableGuests.seatNumber);
+            const guests = await db.select().from(tableGuests).where(eq(tableGuests.sessionId, sessionId)).orderBy(tableGuests.seatNumber, tableGuests.joinedAt);
             return guests.map((guest) => ({
               ...guest,
               customer: void 0
@@ -10999,6 +11054,214 @@ var init_websocket = __esm({
     "use strict";
     pubClient = null;
     subClient = null;
+  }
+});
+
+// server/auto-migrate.ts
+var auto_migrate_exports = {};
+__export(auto_migrate_exports, {
+  runAutoMigrations: () => runAutoMigrations,
+  runAutoMigrationsSafe: () => runAutoMigrationsSafe
+});
+import { sql as sql7 } from "drizzle-orm";
+import fs4 from "fs";
+import path5 from "path";
+import { fileURLToPath as fileURLToPath2 } from "url";
+async function ensureMigrationsTable() {
+  try {
+    await db.execute(sql7`
+      CREATE TABLE IF NOT EXISTS migrations (
+        id SERIAL PRIMARY KEY,
+        filename VARCHAR(255) UNIQUE NOT NULL,
+        applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        checksum VARCHAR(64)
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_migrations_filename ON migrations(filename);
+    `);
+  } catch (error) {
+    console.error("\u26A0\uFE0F  Erro ao criar tabela de migra\xE7\xF5es:", error);
+    throw error;
+  }
+}
+async function getAppliedMigrations() {
+  try {
+    const result = await db.execute(sql7`
+      SELECT filename FROM migrations ORDER BY applied_at
+    `);
+    return new Set((result.rows || []).map((row) => row.filename));
+  } catch (error) {
+    console.error("\u26A0\uFE0F  Erro ao buscar migra\xE7\xF5es aplicadas:", error);
+    return /* @__PURE__ */ new Set();
+  }
+}
+async function recordMigration(filename) {
+  await db.execute(sql7`
+    INSERT INTO migrations (filename) 
+    VALUES (${filename})
+    ON CONFLICT (filename) DO NOTHING
+  `);
+}
+async function executeMigration(filename, migrationSQL) {
+  console.log(`   \u{1F504} Aplicando: ${filename}`);
+  try {
+    await db.execute(sql7.raw(migrationSQL));
+    await recordMigration(filename);
+    console.log(`   \u2705 Aplicada: ${filename}`);
+  } catch (error) {
+    if (error.message?.includes("already exists") || error.message?.includes("duplicate") || error.code === "42P07" || // relation already exists
+    error.code === "42701" || // column already exists
+    error.code === "42710") {
+      console.log(`   \u2139\uFE0F  Ignorado (j\xE1 existe): ${filename}`);
+      try {
+        await recordMigration(filename);
+      } catch (recordError) {
+      }
+      return;
+    }
+    throw error;
+  }
+}
+async function runAutoMigrations() {
+  const result = {
+    success: true,
+    migrationsRun: [],
+    errors: []
+  };
+  try {
+    console.log("\n\u{1F504} Verificando migra\xE7\xF5es pendentes...");
+    await ensureMigrationsTable();
+    const appliedMigrations = await getAppliedMigrations();
+    const migrationsDir = path5.join(__dirname2, "migrations");
+    if (!fs4.existsSync(migrationsDir)) {
+      console.log("   \u2139\uFE0F  Nenhuma pasta de migra\xE7\xF5es encontrada");
+      return result;
+    }
+    const migrationFiles = fs4.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
+    const pendingMigrations = migrationFiles.filter((f) => !appliedMigrations.has(f));
+    if (pendingMigrations.length === 0) {
+      console.log("   \u2705 Todas as migra\xE7\xF5es j\xE1 aplicadas");
+      return result;
+    }
+    console.log(`   \u{1F4CB} ${pendingMigrations.length} migra\xE7\xE3o(\xF5es) pendente(s):`);
+    pendingMigrations.forEach((f) => console.log(`      - ${f}`));
+    console.log("");
+    for (const filename of pendingMigrations) {
+      try {
+        const migrationPath = path5.join(migrationsDir, filename);
+        const migrationSQL = fs4.readFileSync(migrationPath, "utf8");
+        await executeMigration(filename, migrationSQL);
+        result.migrationsRun.push(filename);
+      } catch (error) {
+        const errorMsg = `${filename}: ${error.message}`;
+        result.errors.push(errorMsg);
+        result.success = false;
+        console.error(`   \u274C Erro em ${filename}:`, error.message);
+      }
+    }
+    if (result.migrationsRun.length > 0) {
+      console.log(`
+\u2705 ${result.migrationsRun.length} migra\xE7\xE3o(\xF5es) aplicada(s) com sucesso!`);
+    }
+    if (result.errors.length > 0) {
+      console.warn(`
+\u26A0\uFE0F  ${result.errors.length} erro(s) encontrado(s)`);
+    }
+  } catch (error) {
+    console.error("\n\u274C Erro fatal no sistema de migra\xE7\xF5es:", error.message);
+    result.success = false;
+    result.errors.push(error.message);
+  }
+  return result;
+}
+async function runAutoMigrationsSafe() {
+  try {
+    await runAutoMigrations();
+  } catch (error) {
+    console.error("\u26A0\uFE0F  Erro ao executar migra\xE7\xF5es autom\xE1ticas");
+    console.error("   A aplica\xE7\xE3o continuar\xE1 a funcionar, mas pode ter problemas de BD");
+    console.error("   Execute manualmente: npm run db:migrate");
+  }
+}
+var __filename, __dirname2;
+var init_auto_migrate = __esm({
+  "server/auto-migrate.ts"() {
+    "use strict";
+    init_db();
+    __filename = fileURLToPath2(import.meta.url);
+    __dirname2 = path5.dirname(__filename);
+  }
+});
+
+// server/migration-endpoint.ts
+var migration_endpoint_exports = {};
+__export(migration_endpoint_exports, {
+  setupMigrationEndpoint: () => setupMigrationEndpoint
+});
+function setupMigrationEndpoint(app2) {
+  app2.post("/api/internal/run-migrations", async (req, res) => {
+    try {
+      console.log("\n\u{1F504} Executando migra\xE7\xF5es via endpoint...");
+      const result = await runAutoMigrations();
+      res.json({
+        success: result.success,
+        message: result.success ? "Migra\xE7\xF5es executadas com sucesso" : "Algumas migra\xE7\xF5es falharam",
+        migrationsRun: result.migrationsRun,
+        errors: result.errors,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao executar migra\xE7\xF5es:", error);
+      res.status(500).json({
+        success: false,
+        message: "Erro ao executar migra\xE7\xF5es",
+        error: error.message,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    }
+  });
+  app2.get("/api/internal/migrations/status", async (req, res) => {
+    try {
+      const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { sql: sql8 } = await import("drizzle-orm");
+      const fs5 = await import("fs");
+      const path6 = await import("path");
+      const { fileURLToPath: fileURLToPath3 } = await import("url");
+      const __filename2 = fileURLToPath3(import.meta.url);
+      const __dirname3 = path6.dirname(__filename2);
+      const appliedResult = await db2.execute(sql8`
+        SELECT filename, applied_at 
+        FROM migrations 
+        ORDER BY applied_at DESC
+      `);
+      const applied = (appliedResult.rows || []).map((row) => ({
+        filename: row.filename,
+        appliedAt: row.applied_at
+      }));
+      const migrationsDir = path6.join(__dirname3, "migrations");
+      const allMigrations = fs5.existsSync(migrationsDir) ? fs5.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort() : [];
+      const appliedFilenames = new Set(applied.map((m) => m.filename));
+      const pending = allMigrations.filter((f) => !appliedFilenames.has(f));
+      res.json({
+        total: allMigrations.length,
+        applied: applied.length,
+        pending: pending.length,
+        appliedMigrations: applied,
+        pendingMigrations: pending,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        error: error.message,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    }
+  });
+}
+var init_migration_endpoint = __esm({
+  "server/migration-endpoint.ts"() {
+    "use strict";
+    init_auto_migrate();
   }
 });
 
@@ -11636,17 +11899,17 @@ async function registerRoutes(app2) {
           example: { migrationName: "add_performance_indexes" }
         });
       }
-      const fs4 = await import("fs");
-      const path5 = await import("path");
-      const migrationPath = path5.join(process.cwd(), "server", "migrations", `${migrationName}.sql`);
-      if (!fs4.existsSync(migrationPath)) {
+      const fs5 = await import("fs");
+      const path6 = await import("path");
+      const migrationPath = path6.join(process.cwd(), "server", "migrations", `${migrationName}.sql`);
+      if (!fs5.existsSync(migrationPath)) {
         return res.status(404).json({
           message: `Migration file not found: ${migrationName}.sql`,
           path: migrationPath
         });
       }
-      const sql7 = fs4.readFileSync(migrationPath, "utf8");
-      const statements = sql7.split(";").map((s) => s.trim()).filter((s) => s.length > 0 && !s.startsWith("--"));
+      const sql8 = fs5.readFileSync(migrationPath, "utf8");
+      const statements = sql8.split(";").map((s) => s.trim()).filter((s) => s.length > 0 && !s.startsWith("--"));
       let executed = 0;
       const errors = [];
       for (const statement of statements) {
@@ -19208,7 +19471,7 @@ app.use((req, res, next) => {
 });
 app.use((req, res, next) => {
   const start = Date.now();
-  const path5 = req.path;
+  const path6 = req.path;
   let capturedJsonResponse = void 0;
   const originalResJson = res.json;
   res.json = function(bodyJson, ...args) {
@@ -19217,8 +19480,8 @@ app.use((req, res, next) => {
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path5.startsWith("/api")) {
-      let logLine = `${req.method} ${path5} ${res.statusCode} in ${duration}ms`;
+    if (path6.startsWith("/api")) {
+      let logLine = `${req.method} ${path6} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -19241,26 +19504,38 @@ app.use((req, res, next) => {
     process.exit(1);
   }
   try {
-    console.log("\u{1F527} Corrigindo pedidos sem sessionId...");
-    const { db: db2, sql: sql7 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
-    await db2.execute(sql7`
-      UPDATE orders 
-      SET "sessionId" = (
-        SELECT tg."sessionId" 
-        FROM table_guests tg 
-        WHERE tg.id = orders."guestId"
+    const { runAutoMigrationsSafe: runAutoMigrationsSafe2 } = await Promise.resolve().then(() => (init_auto_migrate(), auto_migrate_exports));
+    await runAutoMigrationsSafe2();
+  } catch (error) {
+    console.warn("\u26A0\uFE0F  Sistema de auto-migra\xE7\xF5es n\xE3o dispon\xEDvel");
+  }
+  try {
+    console.log("\u{1F527} Corrigindo pedidos sem tableSessionId...");
+    const { db: db2, sql: sql8 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
+    await db2.execute(sql8`
+      UPDATE orders
+      SET table_session_id = (
+        SELECT tg.session_id
+        FROM table_guests tg
+        WHERE tg.id = orders.guest_id
       )
-      WHERE orders."sessionId" IS NULL 
-        AND orders."guestId" IS NOT NULL 
+      WHERE orders.table_session_id IS NULL
+        AND orders.guest_id IS NOT NULL
         AND EXISTS (
-          SELECT 1 FROM table_guests tg 
-          WHERE tg.id = orders."guestId"
+          SELECT 1 FROM table_guests tg
+          WHERE tg.id = orders.guest_id
         )
     `);
-    console.log("\u2705 Pedidos corrigidos automaticamente!");
+    console.log("\u2705 Pedidos corrigidos automaticamente (tableSessionId)!");
   } catch (fixError) {
     console.log("\u26A0\uFE0F Aviso: N\xE3o foi poss\xEDvel corrigir pedidos automaticamente");
     console.log("   Isso \xE9 normal se n\xE3o houver pedidos para corrigir.");
+  }
+  try {
+    const { setupMigrationEndpoint: setupMigrationEndpoint2 } = await Promise.resolve().then(() => (init_migration_endpoint(), migration_endpoint_exports));
+    setupMigrationEndpoint2(app);
+  } catch (error) {
+    console.warn("\u26A0\uFE0F  Endpoint de migra\xE7\xF5es n\xE3o dispon\xEDvel");
   }
   const server = await registerRoutes(app);
   try {

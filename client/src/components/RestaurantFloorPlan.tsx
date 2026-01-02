@@ -27,7 +27,7 @@ import {
 import { formatKwanza } from '@/lib/formatters';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { TableDialogSplitPanel } from './table-dialog/TableDialogSplitPanel';
+import { TableDialogWrapper } from './table-dialog/TableDialogWrapper';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -1697,7 +1697,7 @@ export function RestaurantFloorPlan({ className }: RestaurantFloorPlanProps) {
 
       {/* Table details dialog */}
       {selectedTable && (
-        <TableDialogSplitPanel
+        <TableDialogWrapper
           table={selectedTable}
           open={detailsDialogOpen}
           onOpenChange={(open) => {

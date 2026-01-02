@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Pedido</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        button { padding: 10px; margin: 5px; cursor: pointer; }
+        pre { background: #f4f4f4; padding: 10px; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug: Pedido Não Contabilizado</h1>
+    
+    <div>
+        <label>Table ID:</label>
+        <input id="tableId" type="text" placeholder="cole o ID da mesa aqui" style="width: 300px;">
+        <button onclick="debugTable()">Verificar Mesa</button>
+    </div>
+    
+    <hr>
+    
+    <div id="result"></div>
+    
+    <script>
+        async function debugTable() {
+            const tableId = document.getElementById('tableId').value;
+            if (!tableId) {
+                alert('Cole o ID da mesa primeiro!');
+                return;
+            }
+            
+            const result = document.getElementById('result');
+            result.innerHTML = '<p>Carregando...</p>';
+            
+            try {
+                // 1. Buscar dados da mesa
+                console.log('1. Buscando dados da mesa...');
+                const tableRes = await fetch(`/api/tables/${tableId}`);
+                const table = await tableRes.json();
+                
+                // 2. Buscar pedidos por guest
+                console.log('2. Buscando pedidos por guest...');
+                const ordersRes = await fetch(`/api/tables/${tableId}/orders-by-guest`);
+                const ordersData = await ordersRes.json();
+                
+                // 3. Buscar guests da sessão
+                console.log('3. Buscando guests da sessão...');
+                let sessionGuests = [];
+                if (table.currentSessionId) {
+                    const guestsRes = await fetch(`/api/table-sessions/${table.currentSessionId}/guests`);
+                    sessionGuests = await guestsRes.json();
+                }
+                
+                // 4. Análise
+                const allOrders = [
+                    ...(ordersData.ordersByGuest || []).flatMap(og => og.orders || []),
+                    ...(ordersData.anonymousOrders || [])
+                ];
+                
+                const totalCalculadoFrontend = allOrders
+                    .filter(o => o.status !== 'cancelado')
+                    .reduce((sum, o) => sum + parseFloat(o.totalPrice || 0), 0);
+                
+                // Mostrar resultados
+                result.innerHTML = `
+                    <h2>📊 Resultados:</h2>
+                    
+                    <h3>Mesa:</h3>
+                    <pre>${JSON.stringify({
+                        id: table.id,
+                        number: table.number,
+                        status: table.status,
+                        currentSessionId: table.currentSessionId
+                    }, null, 2)}</pre>
+                    
+                    <h3>Pedidos:</h3>
+                    <p><strong>Total de pedidos:</strong> ${allOrders.length}</p>
+                    <p><strong>Total do Backend:</strong> ${ordersData.totalAmount} AOA</p>
+                    <p><strong>Total Calculado Frontend:</strong> ${totalCalculadoFrontend.toFixed(2)} AOA</p>
+                    <p class="${ordersData.totalAmount == totalCalculadoFrontend.toFixed(2) ? 'success' : 'error'}">
+                        ${ordersData.totalAmount == totalCalculadoFrontend.toFixed(2) 
+                            ? '✅ Valores BATEM!' 
+                            : '❌ DIVERGÊNCIA! Backend vs Frontend'
+                        }
+                    </p>
+                    
+                    <h3>Detalhes dos Pedidos:</h3>
+                    <table border="1" cellpadding="5">
+                        <tr>
+                            <th>ID</th>
+                            <th>Guest</th>
+                            <th>Status</th>
+                            <th>Total</th>
+                            <th>Items</th>
+                        </tr>
+                        ${allOrders.map(o => `
+                            <tr>
+                                <td>${o.id.slice(0, 8)}...</td>
+                                <td>${o.guestId ? 'Guest' : 'Anônimo'}</td>
+                                <td class="${o.status === 'cancelado' ? 'error' : 'success'}">${o.status}</td>
+                                <td>${parseFloat(o.totalPrice || 0).toFixed(2)} AOA</td>
+                                <td>${o.items?.length || 0} itens</td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                    
+                    <h3>Guests na Sessão:</h3>
+                    <p><strong>Total:</strong> ${sessionGuests.length}</p>
+                    <pre>${JSON.stringify(sessionGuests.map(g => ({
+                        id: g.id,
+                        name: g.name,
+                        guestNumber: g.guestNumber
+                    })), null, 2)}</pre>
+                    
+                    <h3>Possíveis Problemas:</h3>
+                    <ul>
+                        ${allOrders.some(o => o.status === 'cancelado') 
+                            ? '<li class="error">⚠️ Há pedidos CANCELADOS que não contam no total</li>' 
+                            : '<li class="success">✅ Nenhum pedido cancelado</li>'
+                        }
+                        ${allOrders.some(o => !o.totalPrice || parseFloat(o.totalPrice) === 0) 
+                            ? '<li class="error">⚠️ Há pedidos com totalPrice = 0</li>' 
+                            : '<li class="success">✅ Todos os pedidos têm preço</li>'
+                        }
+                        ${ordersData.totalAmount != totalCalculadoFrontend.toFixed(2)
+                            ? '<li class="error">⚠️ DIVERGÊNCIA entre backend e frontend!</li>'
+                            : '<li class="success">✅ Valores estão consistentes</li>'
+                        }
+                    </ul>
+                    
+                    <h3>🔍 Último Pedido Criado:</h3>
+                    ${allOrders.length > 0 ? `
+                        <pre>${JSON.stringify(allOrders[allOrders.length - 1], null, 2)}</pre>
+                    ` : '<p>Nenhum pedido encontrado</p>'}
+                `;
+                
+            } catch (error) {
+                result.innerHTML = `
+                    <h2 class="error">❌ Erro:</h2>
+                    <pre>${error.message}\n\n${error.stack}</pre>
+                `;
+            }
+        }
+        
+        // Auto-preencher se tiver tableId na URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const tableIdFromUrl = urlParams.get('tableId');
+        if (tableIdFromUrl) {
+            document.getElementById('tableId').value = tableIdFromUrl;
+            debugTable();
+        }
+    </script>
+</body>
+</html>

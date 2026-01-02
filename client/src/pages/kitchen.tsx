@@ -418,7 +418,7 @@ export default function Kitchen() {
       >
         <div className="flex items-center justify-between gap-2">
           <span className="font-semibold text-sm">
-            {order.orderType === 'mesa' && order.table ? `Mesa ${order.table.number}` : 
+            {order.table ? `Mesa ${order.table.number}` : 
              order.orderType === 'delivery' ? 'Delivery' : 'Balcão'}
           </span>
           <Badge variant="outline" className="text-[10px]">
@@ -571,7 +571,7 @@ export default function Kitchen() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <CardTitle className="text-xl sm:text-2xl font-mono">
-                        {order.orderType === 'mesa' && order.table ? `Mesa ${order.table.number}` : 
+                        {order.table ? `Mesa ${order.table.number}` : 
                          order.orderType === 'delivery' ? 'Delivery' : 
                          order.orderType === 'takeout' ? 'Balcão' : 'Pedido'}
                       </CardTitle>
