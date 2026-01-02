@@ -5629,53 +5629,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Professional order creation route (for POS/PDV - Admin only)
   // This route requires admin authentication and automatically sets createdBy
   // Admins have access to advanced controls (discounts, service charges, payment methods, etc.)
-  app.post("/api/orders", isAdmin, async (req, res) => {
+  app.post("/api/orders", isAuthenticated, async (req, res) => {
     try {
       const currentUser = req.user as User;
+      console.log('[DEBUG] Incoming order request body:', JSON.stringify(req.body, null, 2));
       let { items, ...orderData } = req.body;
       
-      
+      const restaurantId = currentUser.restaurantId || orderData.restaurantId;
+      if (!restaurantId) {
+        return res.status(400).json({ message: "Restaurant ID is required" });
+      }
+
       // Check subscription limits for orders (only for non-superadmin users)
-      if (currentUser.role !== 'superadmin' && currentUser.restaurantId) {
+      if (currentUser.role !== 'superadmin' && restaurantId) {
         try {
-          await checkCanCreateOrder(storage, currentUser.restaurantId);
+          await checkCanCreateOrder(storage, restaurantId);
         } catch (error: any) {
           return res.status(403).json({ 
             message: error.message || "Limite de pedidos atingido" 
           });
         }
       }
-      
-      // Apply customer default settings if customerId is provided and no overrides are set
-      if (orderData.customerId) {
-        const customer = await storage.getCustomer(orderData.customerId);
-        if (customer) {
-          // Apply defaults only if not already set in the order
-          if (!orderData.discount && customer.defaultDiscount && parseFloat(customer.defaultDiscount as any) > 0) {
-            orderData.discount = customer.defaultDiscount;
-            orderData.discountType = customer.defaultDiscountType || 'valor';
-          }
-          if (!orderData.serviceCharge && customer.defaultServiceCharge && parseFloat(customer.defaultServiceCharge as any) > 0) {
-            orderData.serviceCharge = customer.defaultServiceCharge;
-            orderData.serviceName = customer.defaultServiceName || 'Taxa de Serviço';
-          }
-          if (!orderData.packagingFee && customer.defaultPackagingFee && parseFloat(customer.defaultPackagingFee as any) > 0) {
-            orderData.packagingFee = customer.defaultPackagingFee;
-          }
-        }
-      }
-      
+
       // Automatically set createdBy and branchId to track which admin created the order
       const validatedOrder = insertOrderSchema.parse({
         ...orderData,
         createdBy: currentUser.id,
-        branchId: currentUser.activeBranchId || null,
+        branchId: currentUser.activeBranchId || orderData.branchId || null,
+        restaurantId: restaurantId,
       });
       const validatedItems = z.array(publicOrderItemSchema).parse(items);
 
       // Generate order number based on type and shift
       const orderNumber = await generateOrderNumber(
-        currentUser.restaurantId!,
+        restaurantId,
         validatedOrder.orderType as "mesa" | "delivery" | "balcao"
       );
 
@@ -5695,7 +5682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check for auto-print enabled printers
       try {
         const kitchenPrinters = await storage.getActivePrintersByType(
-          currentUser.restaurantId!,
+          restaurantId,
           'kitchen',
           currentUser.activeBranchId || undefined
         );

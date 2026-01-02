@@ -2473,6 +2473,15 @@ export class DatabaseStorage implements IStorage {
       return first;
     })();
 
+    // For professional/admin dashboard orders, ensure we have a valid session
+    if (order.orderType === 'mesa' && order.tableId) {
+      const table = await this.getTableById(order.tableId);
+      if (table && !table.currentSessionId) {
+        console.log('[DEBUG] Table has no active session, opening one for order');
+        await this.openTableSession(restaurantId, order.tableId, order.createdBy || 'system');
+      }
+    }
+
     // ✅ Ensure tableSessionId is set for table orders whenever possible
     // so session-based filtering works reliably.
     const derivedTableSessionId =
@@ -2491,9 +2500,13 @@ export class DatabaseStorage implements IStorage {
 
     const [newOrder] = await db.insert(orders).values({
       ...order,
+      restaurantId: order.restaurantId || restaurantId,
+      branchId: order.branchId || null,
       tableId: order.tableId || null,
       tableSessionId: derivedTableSessionId,
       guestId: derivedGuestId,
+      status: 'pendente',
+      paymentStatus: 'pendente',
       subtotal: subtotal.toFixed(2),
       totalAmount: totalAmount.toFixed(2),
     }).returning();
