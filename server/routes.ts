@@ -5630,11 +5630,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // This route requires admin authentication and automatically sets createdBy
   // Admins have access to advanced controls (discounts, service charges, payment methods, etc.)
   app.post("/api/orders", isAuthenticated, async (req, res) => {
+    console.log('[DEBUG] POST /api/orders hit');
     try {
       const currentUser = req.user as User;
       console.log('[DEBUG] Incoming order request body:', JSON.stringify(req.body, null, 2));
       let { items, ...orderData } = req.body;
       
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        console.error('[DEBUG] Order creation failed: No items provided');
+        return res.status(400).json({ message: "No items provided" });
+      }
+
       const restaurantId = currentUser.restaurantId || orderData.restaurantId;
       if (!restaurantId) {
         return res.status(400).json({ message: "Restaurant ID is required" });

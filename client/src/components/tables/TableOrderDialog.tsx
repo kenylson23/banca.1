@@ -291,6 +291,20 @@ export function TableOrderDialog({ open, onOpenChange, table, onOrderCreated }: 
   });
 
   const handleCreateOrder = () => {
+    console.log('[DEBUG] Button Create Order clicked');
+    console.log('[DEBUG] table:', table);
+    console.log('[DEBUG] cartItems:', cartItems);
+    console.log('[DEBUG] selectedGuest:', selectedGuest);
+    
+    if (!table) {
+      console.error('[DEBUG] Table is missing');
+      return;
+    }
+    if (cartItems.length === 0) {
+      console.error('[DEBUG] Cart is empty');
+      return;
+    }
+    
     createOrderMutation.mutate();
   };
 
