@@ -4,7 +4,10 @@ import { fixOrderSessionIds } from "./fix-orders-endpoint";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { storage, db, eq, orderItems, orderItemAuditLogs, sql } from "./storage";
+import { storage } from "./storage";
+import { db } from "./db";
+import { orderItems, orderItemAuditLogs, tableSessions } from "@shared/schema";
+import { eq, sql } from "drizzle-orm";
 import { and, isNull } from 'drizzle-orm';
 import { tables, tableSessions, tablePayments } from '@shared/schema';
 import { generateOrderNumber, formatOrderDisplay } from './orderNumberGenerator';
@@ -4323,51 +4326,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         payment
       });
-    } catch (error: any) {
-            sessionDiscount: sessionDiscount.toFixed(2),
-            sessionDiscountType,
-            sessionServiceCharge: sessionServiceCharge.toFixed(2),
-            sessionServiceChargeType,
-            totalAmountAjustado: totalAmountAjustado.toFixed(2),
-            currentPaidAmount: session?.paidAmount || '0', // Já foi atualizado por addTablePayment
-            pendente: (totalAmountAjustado - parseFloat(session?.paidAmount || '0')).toFixed(2)
-          });
-          
-          // ✅ P0 CORREÇÃO: NÃO atualizar paidAmount aqui!
-          // A transação atômica em addTablePayment já atualizou session.paidAmount
-          // Atualizar totalAmount apenas (sem paidAmount para evitar sobrescrever)
-          await db.update(tableSessions)
-            .set({ 
-              totalAmount: totalAmountAjustado.toFixed(2)
-              // paidAmount: já foi atualizado atomicamente em addTablePayment
-            })
-            .where(eq(tableSessions.id, table.currentSessionId));
-        } else {
-          // ✅ P0 CORREÇÃO: NÃO atualizar paidAmount aqui!
-          // A transação atômica em addTablePayment já fez isso
-          // Este fallback pode ser removido
-          console.log('[Payment] ⚠️ Fallback não necessário - paidAmount já atualizado na transação');
-        }
-      }
-      
-      // Auto-update table status based on payment
-      await storage.autoUpdateTableStatusOnPayment(req.params.id);
-      
-      // ✅ CORREÇÃO CONFLITO #21: Broadcast completo para invalidar cache
-      broadcastToClients({ 
-        type: 'table_payment_added', 
-        data: payment,
-        tableId: req.params.id,
-        sessionId: table.currentSessionId
-      });
-      
-      // Broadcast atualização da mesa
-      broadcastToClients({ 
-        type: 'table_updated', 
-        data: { tableId: req.params.id }
-      });
-      
-      res.json(payment);
     } catch (error: any) {
       console.error('Payment processing error:', error);
       res.status(500).json({ message: error.message || "Failed to record payment" });
