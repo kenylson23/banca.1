@@ -4289,9 +4289,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           
+          await db.update(tableSessions)
+            .set({ totalAmount: totalAmountAjustado.toFixed(2) })
+            .where(eq(tableSessions.id, table.currentSessionId));
+
           console.log('💰 [TABLE PAYMENT] Atualizando sessão com ajustes:', {
             sessionId: table.currentSessionId,
             subtotalBeforeAdjustments: subtotalBeforeAdjustments.toFixed(2),
+            totalAmountAjustado: totalAmountAjustado.toFixed(2),
+          });
+
+          // ✅ AUTOMATIZAÇÃO: Tentar fechar a sessão se o pagamento for total
+          const validation = await storage.validateSessionClosure(table.currentSessionId);
+          
+          if (validation.canClose) {
+            console.log(`[TablePayment] ✅ Pagamento total detectado. Encerrando sessão ${table.currentSessionId} automaticamente.`);
+            await storage.endTableSession(restaurantId, table.id);
+            
+            broadcastToClients({ 
+              type: 'table_session_ended', 
+              data: { id: table.id, status: 'livre' } 
+            });
+          }
+        }
+      }
+      
+      broadcastToClients({ 
+        type: 'table_payment_recorded', 
+        data: { tableId: req.params.id, payment } 
+      });
+
+      res.json({
+        success: true,
+        payment
+      });
+    } catch (error: any) {
             sessionDiscount: sessionDiscount.toFixed(2),
             sessionDiscountType,
             sessionServiceCharge: sessionServiceCharge.toFixed(2),

@@ -1646,6 +1646,34 @@ export class DatabaseStorage implements IStorage {
       // Calcular subtotal total para distribuição proporcional
       const totalGuestSubtotal = guests.reduce((sum, g) => sum + parseFloat(g.subtotal || '0'), 0);
       
+      // ✅ CALCULAR TOTAL DA SESSÃO CONSIDERANDO TAXAS/DESCONTOS
+      let sessionCalculatedTotal = totalGuestSubtotal;
+      if (sessionDiscount > 0) {
+        if (sessionDiscountType === 'percentual') {
+          sessionCalculatedTotal = sessionCalculatedTotal * (1 - Math.min(sessionDiscount, 100) / 100);
+        } else {
+          sessionCalculatedTotal = Math.max(0, sessionCalculatedTotal - sessionDiscount);
+        }
+      }
+      if (sessionServiceCharge > 0) {
+        if (sessionServiceChargeType === 'percentual') {
+          sessionCalculatedTotal = sessionCalculatedTotal * (1 + sessionServiceCharge / 100);
+        } else {
+          sessionCalculatedTotal = sessionCalculatedTotal + sessionServiceCharge;
+        }
+      }
+
+      // Se o saldo pago for maior ou igual ao total calculado da sessão (ajustado), consideramos paga
+      const sessionPaidAmount = parseFloat(session.paidAmount || '0');
+      if (sessionPaidAmount >= sessionCalculatedTotal - 0.01) {
+        return {
+          canClose: true,
+          totalPending: 0,
+          unpaidGuests: [],
+          warnings: []
+        };
+      }
+      
       for (const guest of guests) {
         let guestSubtotalOriginal = parseFloat(guest.subtotal || '0');
         let guestSubtotalAjustado = guestSubtotalOriginal;
