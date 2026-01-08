@@ -6,7 +6,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { db } from "./db";
-import { orderItems, orderItemAuditLogs, tableSessions } from "@shared/schema";
+import { orderItems, orderItemAuditLogs } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { and, isNull } from 'drizzle-orm';
 import { tables, tableSessions, tablePayments } from '@shared/schema';

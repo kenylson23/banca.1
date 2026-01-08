@@ -624,7 +624,14 @@ export class DatabaseStorage implements IStorage {
     const [order] = await db.select().from(orders).where(and(eq(orders.id, id), eq(orders.restaurantId, restaurantId)));
     return order;
   }
-  // ... many more methods omitted for brevity, but they should be there in the real file
+
+  async getDashboardStats(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date, orderType?: string): Promise<any> {
+    return { orders: [] };
+  }
+
+  async generateMissingSlugs(): Promise<void> {
+    return;
+  }
 }
 
 export const storage = new DatabaseStorage();
