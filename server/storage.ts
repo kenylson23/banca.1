@@ -29,7 +29,8 @@ import {
   auditLogs,
   optionGroups, type OptionGroup, type InsertOptionGroup, type UpdateOptionGroup,
   options, type Option, type InsertOption, type UpdateOption,
-  orderItemOptions, type OrderItemOption, type InsertOrderItemOption
+  orderItemOption, type OrderItemOption, type InsertOrderItemOption,
+  subscriptionPlans, subscriptions, subscriptionPayments
 } from "@shared/schema";
 import { eq, and, desc, asc, sql, or, ne, inArray, isNull, alias, type PgTransaction } from "drizzle-orm";
 import session from "express-session";
@@ -160,6 +161,24 @@ export interface IStorage {
   getCouponById(id: string): Promise<Coupon | undefined>;
   createCoupon(restaurantId: string, branchId: string | null, coupon: Omit<InsertCoupon, 'restaurantId' | 'branchId'>): Promise<Coupon>;
   validateCoupon(restaurantId: string, code: string, orderAmount: number, orderType: string, customerId?: string): Promise<{ valid: boolean; coupon?: Coupon; discountAmount?: number; message?: string }>;
+
+  // Subscription Plan operations
+  getSubscriptionPlans(): Promise<any[]>;
+  getSubscriptionPlanById(id: string): Promise<any | undefined>;
+  getAllSubscriptionPlans(): Promise<any[]>;
+  updateSubscriptionPlan(id: string, data: any): Promise<any>;
+  seedSubscriptionPlans(): Promise<void>;
+
+  // Subscription operations
+  getSubscriptionByRestaurantId(restaurantId: string): Promise<any | undefined>;
+  createSubscription(restaurantId: string, data: any): Promise<any>;
+  updateSubscription(id: string, data: any): Promise<any>;
+  cancelSubscription(restaurantId: string): Promise<any>;
+  checkSubscriptionLimits(restaurantId: string): Promise<any>;
+
+  // Subscription Payment operations
+  getSubscriptionPayments(restaurantId: string): Promise<any[]>;
+  createSubscriptionPayment(restaurantId: string, data: any): Promise<any>;
 
   // Stats/Reporting
   getTodayStats(restaurantId: string, branchId: string | null): Promise<any>;

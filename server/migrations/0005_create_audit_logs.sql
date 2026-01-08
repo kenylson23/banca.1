@@ -4,8 +4,8 @@
 
 CREATE TABLE IF NOT EXISTS audit_logs (
   id SERIAL PRIMARY KEY,
-  restaurant_id INTEGER NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
-  actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  restaurant_id VARCHAR(255) NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+  actor_id VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
   action VARCHAR(100) NOT NULL,
   entity_type VARCHAR(50) NOT NULL,
   entity_id VARCHAR(255) NOT NULL,
