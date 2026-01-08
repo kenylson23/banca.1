@@ -38,6 +38,7 @@ import { ptBR } from 'date-fns/locale';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { PrintGuestBill } from '@/components/PrintGuestBill';
+import { GuestCheckoutDialog } from '@/components/GuestCheckoutDialog';
 import { MoveItemDialog } from '@/components/MoveItemDialog';
 import { DraggableOrderItem } from '@/components/DraggableOrderItem';
 import { DroppableGuestZone } from '@/components/DroppableGuestZone';
@@ -75,6 +76,7 @@ interface OrdersByGuest {
   guest: TableGuest;
   orders: GuestOrder[];
   totalAmount: number;
+  subtotal?: string;  // API retorna como subtotal
 }
 
 interface BillSplit {
@@ -123,6 +125,10 @@ const getGuestStatusColor = (status: string) => {
 
 export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId }: BillSplitPanelProps) {
   const { toast } = useToast();
+  
+  // Garantir que totalAmount é número
+  const numericTotalAmount = typeof totalAmount === 'number' ? totalAmount : parseFloat(totalAmount || '0');
+  
   const [splitType, setSplitType] = useState<'igual' | 'por_pessoa' | 'personalizado'>('por_pessoa');
   const [splitCount, setSplitCount] = useState(2);
   const [selectedGuest, setSelectedGuest] = useState<string | null>(initialGuestId || null);
@@ -147,6 +153,14 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
     targetGuestId: string;
     targetGuestName: string;
   } | null>(null);
+  
+  // ✅ SOLUÇÃO 3: Estado para checkout individual
+  const [guestCheckoutDialog, setGuestCheckoutDialog] = useState<{
+    open: boolean;
+    guestId: string;
+    guestName: string;
+    amount: number;
+  } | null>(null);
 
   const { data: ordersData, isLoading: loadingOrders } = useQuery<{ 
     ordersByGuest: OrdersByGuest[]; 
@@ -160,7 +174,9 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
   
   const ordersByGuest = ordersData?.ordersByGuest || [];
   const tablePaidAmount = parseFloat(ordersData?.paidAmount || '0');
-  const remainingAmount = totalAmount - tablePaidAmount;
+  const remainingAmount = numericTotalAmount - tablePaidAmount;
+  
+  // Dados já validados - debug removido
 
   const { data: billSplits = [], isLoading: loadingSplits } = useQuery<BillSplit[]>({
     queryKey: [`/api/tables/${tableId}/bill-splits`],
@@ -172,7 +188,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
       const res = await apiRequest('POST', `/api/tables/${tableId}/bill-splits`, {
         splitType: data.splitType,
         splitCount: data.splitCount,
-        totalAmount: totalAmount.toFixed(2),
+        totalAmount: numericTotalAmount.toFixed(2),
         allocations: data.allocations,
       });
       return await res.json();
@@ -306,7 +322,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
       const allocations = ordersByGuest.map(og => ({
         guestId: og.guest.id,
         guestName: og.guest.name || `Cliente ${og.guest.guestNumber}`,
-        amount: Number(og.totalAmount).toFixed(2),
+        amount: Number(og.subtotal || og.totalAmount || 0).toFixed(2),
         isPaid: og.guest.status === 'pago',
       }));
       createSplitMutation.mutate({ 
@@ -391,7 +407,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
             <CardTitle className="text-sm font-medium text-muted-foreground">Total da Mesa</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatKwanza(totalAmount.toFixed(2))}</div>
+            <div className="text-2xl font-bold">{formatKwanza(numericTotalAmount.toFixed(2))}</div>
           </CardContent>
         </Card>
         <Card>
@@ -429,7 +445,14 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                   <Card 
                     key={guestData.guest.id} 
                     className={`hover-elevate cursor-pointer ${selectedGuest === guestData.guest.id ? 'ring-2 ring-primary' : ''}`}
-                    onClick={() => setSelectedGuest(selectedGuest === guestData.guest.id ? null : guestData.guest.id)}
+                    onClick={(e) => {
+                      // Não expandir se clicar nos botões
+                      if ((e.target as HTMLElement).closest('button')) {
+                        return;
+                      }
+                      console.log('🖱️ Card clicado:', guestData.guest.name, 'Current:', selectedGuest, 'New:', guestData.guest.id);
+                      setSelectedGuest(selectedGuest === guestData.guest.id ? null : guestData.guest.id);
+                    }}
                     data-testid={`card-guest-${guestData.guest.id}`}
                   >
                     <CardContent className="p-4">
@@ -452,7 +475,10 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                                 </Badge>
                               )}
                               <Badge variant="outline" className="text-xs text-primary font-bold">
-                                Consumo: {formatKwanza(guestData.subtotal)}
+                                Consumo: {guestData.subtotal 
+                                  ? formatKwanza(guestData.subtotal)
+                                  : '0,00 Kz'
+                                }
                               </Badge>
                             </div>
                             <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
@@ -466,33 +492,66 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                             </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold">
-                            {formatKwanza(Number(guestData.totalAmount).toFixed(2))}
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="text-2xl font-bold text-primary">
+                            {formatKwanza(guestData.subtotal || guestData.totalAmount || 0)}
                           </div>
                           <div className="flex gap-2 mt-2">
                             <PrintGuestBill
                               guest={guestData.guest}
                               orders={guestData.orders}
-                              totalAmount={Number(guestData.totalAmount)}
+                              totalAmount={Number(guestData.subtotal || guestData.totalAmount || 0) || parseFloat(guestData.subtotal || '0')}
                               tableName={`Mesa ${tableId}`}
                               variant="outline"
                               size="sm"
                             />
                             {guestData.guest.status !== 'pago' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleMarkAsPaid(guestData.guest.id);
-                                }}
-                                disabled={updateGuestStatusMutation.isPending}
-                                data-testid={`button-mark-paid-${guestData.guest.id}`}
-                              >
-                                <Check className="h-3 w-3 mr-1" />
-                                Marcar Pago
-                              </Button>
+                              <>
+                                {/* ✅ SOLUÇÃO 3: Botão de checkout individual */}
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const guestTotal = parseFloat(guestData.subtotal || '0');
+                                    const guestPaid = parseFloat(guestData.guest.paidAmount || '0');
+                                    const remaining = guestTotal - guestPaid;
+                                    
+                                    if (remaining <= 0) {
+                                      toast({
+                                        title: "Já pago",
+                                        description: "Este convidado já pagou sua conta completa",
+                                      });
+                                      return;
+                                    }
+                                    
+                                    setGuestCheckoutDialog({
+                                      open: true,
+                                      guestId: guestData.guest.id,
+                                      guestName: guestData.guest.name || `Cliente ${guestData.guest.guestNumber}`,
+                                      amount: remaining,
+                                    });
+                                  }}
+                                  data-testid={`button-checkout-${guestData.guest.id}`}
+                                >
+                                  <CreditCard className="h-3 w-3 mr-1" />
+                                  Checkout
+                                </Button>
+                                
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMarkAsPaid(guestData.guest.id);
+                                  }}
+                                  disabled={updateGuestStatusMutation.isPending}
+                                  data-testid={`button-mark-paid-${guestData.guest.id}`}
+                                >
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Marcar Pago
+                                </Button>
+                              </>
                             )}
                           </div>
                         </div>
@@ -519,9 +578,9 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                                     <DraggableOrderItem
                                       key={item.id}
                                       id={item.id}
-                                      menuItemName={item.menuItemName}
+                                      menuItemName={item.menuItemName || item.name || item.menuItem?.name}
                                       quantity={item.quantity}
-                                      totalPrice={item.totalPrice}
+                                      totalPrice={item.totalPrice || item.price || item.total}
                                       guestId={guestData.guest.id}
                                       disabled={guestData.guest.status === 'pago' || ordersByGuest.length === 1}
                                     />
@@ -585,7 +644,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                   {ordersByGuest.map((og) => (
                     <div key={og.guest.id} className="flex justify-between">
                       <span>{og.guest.name || `Cliente ${og.guest.guestNumber}`}</span>
-                      <span className="font-medium">{formatKwanza(Number(og.totalAmount).toFixed(2))}</span>
+                      <span className="font-medium">{formatKwanza(Number(og.subtotal || og.totalAmount || 0).toFixed(2))}</span>
                     </div>
                   ))}
                 </div>
@@ -692,6 +751,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
           currentGuest={moveItemDialog.currentGuest}
           availableGuests={ordersByGuest.map((og) => og.guest)}
           sessionId={sessionId || ''}
+          tableId={tableId}
         />
       )}
 
@@ -724,6 +784,30 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
           }}
           onCancel={() => {
             setReasonDialog(null);
+          }}
+        />
+      )}
+
+      {/* ✅ SOLUÇÃO 3: Guest Checkout Dialog */}
+      {guestCheckoutDialog && (
+        <GuestCheckoutDialog
+          open={guestCheckoutDialog.open}
+          onOpenChange={(open) => {
+            if (!open) {
+              setGuestCheckoutDialog(null);
+            }
+          }}
+          guestId={guestCheckoutDialog.guestId}
+          guestName={guestCheckoutDialog.guestName}
+          amount={guestCheckoutDialog.amount}
+          tableId={tableId}
+          onSuccess={() => {
+            setGuestCheckoutDialog(null);
+            queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });
+            toast({
+              title: "Pagamento registrado",
+              description: `Pagamento de ${guestCheckoutDialog.guestName} processado com sucesso`,
+            });
           }}
         />
       )}

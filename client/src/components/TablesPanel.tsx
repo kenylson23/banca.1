@@ -281,69 +281,161 @@ export function TablesPanel() {
             <DialogTrigger asChild>
               <Button 
                 data-testid="button-create-table" 
-                className="w-full sm:w-auto shadow-md" 
-                variant="default" 
+                className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-lg shadow-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/60 transition-all duration-300 font-semibold" 
                 size="lg"
               >
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="h-5 w-5 mr-2" />
                 Nova Mesa
               </Button>
             </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[600px]">
             <form onSubmit={handleCreate}>
               <DialogHeader>
-                <DialogTitle>Criar Nova Mesa</DialogTitle>
-                <DialogDescription>
-                  Digite o número da mesa e a capacidade. Um QR code único será gerado automaticamente.
-                </DialogDescription>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center">
+                    <Plus className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-2xl">Criar Nova Mesa</DialogTitle>
+                    <DialogDescription>
+                      Configure os detalhes da mesa para o seu restaurante
+                    </DialogDescription>
+                  </div>
+                </div>
               </DialogHeader>
-              <div className="py-4 space-y-4">
-                <div>
-                  <Label htmlFor="tableNumber">Número da Mesa</Label>
+              
+              <div className="py-6 space-y-6">
+                {/* Número da Mesa */}
+                <div className="space-y-3">
+                  <Label htmlFor="tableNumber" className="text-base font-semibold flex items-center gap-2">
+                    <div className="h-6 w-6 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                      1
+                    </div>
+                    Número da Mesa
+                  </Label>
                   <Input
                     id="tableNumber"
                     type="number"
                     min="1"
-                    placeholder="Ex: 1"
+                    placeholder="Digite o número da mesa..."
                     value={tableNumber}
                     onChange={(e) => setTableNumber(e.target.value)}
                     data-testid="input-table-number"
-                    className="mt-2"
+                    className="h-12 text-lg"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Escolha um número único para identificar a mesa
+                  </p>
                 </div>
-                <div>
-                  <Label htmlFor="tableCapacity">Capacidade (Pessoas)</Label>
+
+                {/* Capacidade com botões rápidos */}
+                <div className="space-y-3">
+                  <Label htmlFor="tableCapacity" className="text-base font-semibold flex items-center gap-2">
+                    <div className="h-6 w-6 rounded-full bg-violet-100 dark:bg-violet-900 flex items-center justify-center text-xs font-bold text-violet-600 dark:text-violet-400">
+                      2
+                    </div>
+                    Capacidade
+                  </Label>
+                  <div className="grid grid-cols-4 gap-2 mb-3">
+                    {[2, 4, 6, 8].map((capacity) => (
+                      <button
+                        key={capacity}
+                        type="button"
+                        onClick={() => setTableCapacity(String(capacity))}
+                        className={`h-12 rounded-lg border-2 font-semibold transition-all hover:scale-105 ${
+                          tableCapacity === String(capacity)
+                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950 text-indigo-600'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+                        }`}
+                      >
+                        {capacity} pessoas
+                      </button>
+                    ))}
+                  </div>
                   <Input
                     id="tableCapacity"
                     type="number"
                     min="1"
-                    placeholder="Ex: 4"
+                    placeholder="Ou digite um valor personalizado..."
                     value={tableCapacity}
                     onChange={(e) => setTableCapacity(e.target.value)}
                     data-testid="input-table-capacity"
-                    className="mt-2"
+                    className="h-12"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="tableArea">Área (Opcional)</Label>
+
+                {/* Área */}
+                <div className="space-y-3">
+                  <Label htmlFor="tableArea" className="text-base font-semibold flex items-center gap-2">
+                    <div className="h-6 w-6 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      3
+                    </div>
+                    Área (Opcional)
+                  </Label>
                   <Input
                     id="tableArea"
                     type="text"
-                    placeholder="Ex: Salão Principal, Terraço, VIP"
+                    placeholder="Ex: Salão Principal, Terraço, VIP..."
                     value={tableArea}
                     onChange={(e) => setTableArea(e.target.value)}
                     data-testid="input-table-area"
-                    className="mt-2"
+                    className="h-12"
                   />
                 </div>
+
+                {/* Info Card */}
+                <div className="rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-full bg-indigo-500 flex items-center justify-center flex-shrink-0">
+                      <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="text-sm">
+                      <p className="font-medium text-indigo-900 dark:text-indigo-100 mb-1">
+                        QR Code Automático
+                      </p>
+                      <p className="text-indigo-700 dark:text-indigo-300">
+                        Um QR code único será gerado automaticamente para esta mesa, permitindo que clientes façam pedidos diretamente.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <DialogFooter>
+
+              <DialogFooter className="gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setTableNumber("");
+                    setTableCapacity("");
+                    setTableArea("");
+                  }}
+                  disabled={createMutation.isPending}
+                >
+                  Limpar
+                </Button>
                 <Button
                   type="submit"
-                  disabled={createMutation.isPending}
+                  disabled={createMutation.isPending || !tableNumber || !tableCapacity}
                   data-testid="button-submit-table"
+                  className="bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600"
                 >
-                  {createMutation.isPending ? "Criando..." : "Criar Mesa"}
+                  {createMutation.isPending ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Criando Mesa...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Criar Mesa
+                    </>
+                  )}
                 </Button>
               </DialogFooter>
             </form>

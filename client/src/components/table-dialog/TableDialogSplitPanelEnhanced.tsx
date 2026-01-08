@@ -102,7 +102,22 @@ export function TableDialogSplitPanelEnhanced({
           setShowCheckout(true);
         }
       },
-      onAddGuest: () => setShowAddPerson(true),
+      onAddGuest: () => {
+        // ✅ Check capacity before allowing to add guest
+        const tableCapacity = table?.capacity || 4;
+        const currentGuestsCount = guests?.length || 0;
+        
+        if (currentGuestsCount >= tableCapacity) {
+          toast({
+            title: "❌ Capacidade máxima atingida",
+            description: `Esta mesa tem capacidade para ${tableCapacity} ${tableCapacity === 1 ? 'pessoa' : 'pessoas'} e já está completa.`,
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        setShowAddPerson(true);
+      },
       onShowQR: () => setShowQRCode(true),
       onEndSession: () => {
         if (table?.status === 'ocupada') {
@@ -225,6 +240,30 @@ export function TableDialogSplitPanelEnhanced({
               transition={{ type: 'spring', stiffness: 200, damping: 20 }}
               className="w-72 lg:w-80 border-r bg-slate-50 dark:bg-slate-900 flex flex-col"
             >
+              {/* Capacity Indicator */}
+              <div className="p-4 border-b bg-white dark:bg-slate-800">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                    Ocupação da Mesa
+                  </span>
+                  <span className={`text-sm font-bold ${guests.length >= (table?.capacity || 4) ? 'text-red-600' : 'text-green-600'}`}>
+                    {guests.length} / {table?.capacity || 4}
+                  </span>
+                </div>
+                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      guests.length >= (table?.capacity || 4) 
+                        ? 'bg-red-500' 
+                        : guests.length >= (table?.capacity || 4) * 0.8
+                        ? 'bg-yellow-500'
+                        : 'bg-green-500'
+                    }`}
+                    style={{ width: `${Math.min((guests.length / (table?.capacity || 4)) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+
               {/* Guest List */}
               <div className="flex-1 overflow-y-auto p-4 space-y-2">
                 {guests.length > 0 ? (

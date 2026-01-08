@@ -47,6 +47,7 @@ interface MoveItemDialogProps {
   currentGuest: Guest;
   availableGuests: Guest[];
   sessionId: string;
+  tableId?: string; // Adicionar tableId para invalidação completa
 }
 
 export function MoveItemDialog({
@@ -56,6 +57,7 @@ export function MoveItemDialog({
   currentGuest,
   availableGuests,
   sessionId,
+  tableId,
 }: MoveItemDialogProps) {
   const [selectedGuestId, setSelectedGuestId] = useState<string>('');
   const [reasonType, setReasonType] = useState<string>('predefined');
@@ -72,7 +74,7 @@ export function MoveItemDialog({
   ];
 
   const moveItemMutation = useMutation({
-    mutationFn: async (data: { itemId: string; newGuestId: string; reason?: string }) => {
+    mutationFn: async (data: { itemId: string; newGuestId: string; reason?: string; tableId?: string }) => {
       const response = await apiRequest(
         'PATCH',
         `/api/order-items/${data.itemId}/reassign`,
@@ -83,17 +85,37 @@ export function MoveItemDialog({
       );
       return response;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tables/sessions', sessionId, 'guests'] });
+    onSuccess: async (_, variables) => {
+      // Invalidar TODAS as queries relacionadas
+      queryClient.invalidateQueries({ queryKey: [`/api/table-sessions/${sessionId}/guests`] });
+      
+      // Se tableId foi passado, invalidar queries da mesa também
+      if (variables.tableId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/tables/${variables.tableId}/orders-by-guest`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/tables/${variables.tableId}`] });
+        queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
+        
+        // Forçar refetch imediato das queries ativas
+        await queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${variables.tableId}/orders-by-guest`],
+          type: 'active'
+        });
+      }
+      
       toast({
         title: 'Item movido',
         description: 'O item foi movido com sucesso para outro cliente',
       });
-      onOpenChange(false);
-      setSelectedGuestId('');
-      setPredefinedReason('');
-      setCustomReason('');
-      setReasonType('predefined');
+      
+      // Delay para garantir UI atualizada antes de fechar
+      setTimeout(() => {
+        onOpenChange(false);
+        setSelectedGuestId('');
+        setPredefinedReason('');
+        setCustomReason('');
+        setReasonType('predefined');
+      }, 300);
     },
     onError: (error: Error) => {
       toast({
@@ -127,6 +149,7 @@ export function MoveItemDialog({
       itemId: item.id,
       newGuestId: selectedGuestId,
       reason: reason || undefined,
+      tableId, // Passar tableId para invalidação
     });
   };
 

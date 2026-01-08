@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import type { OrdersByGuestData } from "@shared/types";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -35,7 +35,8 @@ import {
   Banknote,
   Smartphone,
   Building,
-  Receipt
+  Receipt,
+  BadgePercent
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -80,8 +81,8 @@ export default function TableCheckoutV2() {
     stepParam >= 1 && stepParam <= 4 ? stepParam : 1
   );
   
-  // Helper para atualizar URL com todos os parâmetros
-  const updateURL = (step: number, discount: string, discType: string, serviceFee: string, serviceFeeType: string) => {
+  // ✅ CORREÇÃO ERRO 1: Memoizar updateURL para evitar loop infinito
+  const updateURL = useCallback((step: number, discount: string, discType: string, serviceFee: string, serviceFeeType: string) => {
     const currentUrl = new URL(window.location.href);
     currentUrl.searchParams.set('step', step.toString());
     
@@ -104,7 +105,7 @@ export default function TableCheckoutV2() {
     }
     
     window.history.replaceState({}, '', currentUrl.toString());
-  };
+  }, []); // ✅ Sem dependências - função estável
   
   // Step 1: Items & Guests
   const [selectedGuestIds, setSelectedGuestIds] = useState<string[]>([]);
@@ -128,6 +129,10 @@ export default function TableCheckoutV2() {
   // Update URL when step or adjustments change
   useEffect(() => {
     updateURL(currentStep, discountValue, discountType, manualServiceValue, manualServiceType);
+    
+    // 🔧 CORREÇÃO UX: NÃO limpar ajustes ao voltar ao Step 1
+    // Descontos devem ser persistentes em todos os steps
+    // Step 1 serve como "modo revisão" onde o usuário vê os ajustes aplicados
   }, [currentStep, discountValue, discountType, manualServiceValue, manualServiceType, updateURL]);
   
   // Step 4: Payment
@@ -136,6 +141,9 @@ export default function TableCheckoutV2() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
+  
+  // ✅ SOLUÇÃO #2: Estado para feedback visual de salvamento
+  const [isSavingAdjustments, setIsSavingAdjustments] = useState(false);
   
   // 🎯 MELHORIA 13: Confirmação ao recarregar página (somente se houver mudanças)
   useEffect(() => {
@@ -156,44 +164,77 @@ export default function TableCheckoutV2() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [selectedGuestIds, discountValue, manualServiceValue, paymentMethod, showSuccessDialog]);
   
-  // Fetch data
+  // Fetch data - Otimizado para carregar em paralelo
   const { data: tablesData, isLoading: loadingTables } = useQuery({
     queryKey: ['/api/tables/with-orders'],
+    staleTime: 30000, // Cache por 30s para evitar recarregamentos desnecessários
   });
   
   const table = tablesData?.find((t: any) => t.id === id);
   
-  // 🎯 SOLUÇÃO: Restaurar ajustes da sessão ao carregar
-  useEffect(() => {
-    if (table?.currentSessionId && tablesData) {
-      // Buscar sessão para obter os ajustes salvos
-      fetch(`/api/tables/${id}/sessions`)
-        .then(res => res.json())
-        .then((sessions: any[]) => {
-          const currentSession = sessions.find((s: any) => s.id === table.currentSessionId);
-          if (currentSession) {
-            // Restaurar desconto
-            if (currentSession.discount && parseFloat(currentSession.discount) > 0) {
-              setDiscountValue(currentSession.discount);
-              setDiscountType(currentSession.discountType || 'valor');
-            }
-            // Restaurar taxa de serviço
-            if (currentSession.serviceCharge && parseFloat(currentSession.serviceCharge) > 0) {
-              setManualServiceValue(currentSession.serviceCharge);
-              setManualServiceType(currentSession.serviceChargeType || 'percentual');
-            }
-          }
-        })
-        .catch(err => console.error('Erro ao restaurar ajustes da sessão:', err));
+  // ✅ OTIMIZAÇÃO: Usar React Query em vez de fetch direto
+  const { data: sessionData } = useQuery({
+    queryKey: [`/api/tables/${id}/sessions`, table?.currentSessionId],
+    queryFn: async () => {
+      const res = await fetch(`/api/tables/${id}/sessions`);
+      const sessions = await res.json();
+      return sessions.find((s: any) => s.id === table?.currentSessionId);
+    },
+    enabled: !!table?.currentSessionId && !!id,
+    staleTime: 30000, // Cache por 30s
+  });
+
+  // Fetch restaurant data
+  const { data: restaurant } = useQuery({
+    queryKey: [`/api/restaurants/${table?.restaurantId}`],
+    queryFn: async () => {
+      if (!table?.restaurantId) return null;
+      const res = await fetch(`/api/restaurants/${table.restaurantId}`);
+      return res.json();
+    },
+    enabled: !!table?.restaurantId,
+    staleTime: 300000, // Cache por 5min
+  });
+
+  // Calculate session duration
+  const sessionDuration = useMemo(() => {
+    if (!sessionData?.startedAt) return undefined;
+    
+    const start = new Date(sessionData.startedAt);
+    const now = new Date();
+    const diffMs = now.getTime() - start.getTime();
+    
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}min`;
     }
-  }, [table?.currentSessionId, id, tablesData]);
-  
-  // 🎯 SOLUÇÃO: Salvar ajustes automaticamente quando mudarem
+    return `${minutes}min`;
+  }, [sessionData]);
+
+  // Restaurar ajustes da sessão quando dados estiverem disponíveis
   useEffect(() => {
-    if (table?.currentSessionId && (discountValue || manualServiceValue)) {
-      const timeoutId = setTimeout(() => {
-        // Debounce para não salvar a cada tecla
-        fetch(`/api/tables/${id}/session-adjustments`, {
+    if (sessionData) {
+      // Restaurar desconto (somente se não houver valor no estado local)
+      if (sessionData.discount && parseFloat(sessionData.discount) > 0 && !discountValue) {
+        setDiscountValue(sessionData.discount);
+        setDiscountType(sessionData.discountType || 'valor');
+      }
+      // Restaurar taxa de serviço (somente se não houver valor no estado local)
+      if (sessionData.serviceCharge && parseFloat(sessionData.serviceCharge) > 0 && !manualServiceValue) {
+        setManualServiceValue(sessionData.serviceCharge);
+        setManualServiceType(sessionData.serviceChargeType || 'percentual');
+      }
+    }
+  }, [sessionData]);
+  
+  // 🔧 CORREÇÃO UX: Salvar ajustes com debounce (auto-save)
+  const saveAdjustmentsToSession = useCallback(async () => {
+    if (table?.currentSessionId) {
+      setIsSavingAdjustments(true);
+      try {
+        await fetch(`/api/tables/${id}/session-adjustments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -202,33 +243,77 @@ export default function TableCheckoutV2() {
             serviceCharge: manualServiceValue || '0',
             serviceChargeType: manualServiceType,
           }),
-        }).catch(err => console.error('Erro ao salvar ajustes:', err));
+        });
+      } catch (err) {
+        console.error('Erro ao salvar ajustes:', err);
+      } finally {
+        setIsSavingAdjustments(false);
+      }
+    }
+  }, [table?.currentSessionId, id, discountValue, discountType, manualServiceValue, manualServiceType]);
+
+  // Auto-save com debounce (mudanças nos campos)
+  useEffect(() => {
+    if (table?.currentSessionId && (discountValue || manualServiceValue)) {
+      const timeoutId = setTimeout(() => {
+        saveAdjustmentsToSession();
       }, 1000); // Espera 1 segundo após a última mudança
       
       return () => clearTimeout(timeoutId);
     }
-  }, [discountValue, discountType, manualServiceValue, manualServiceType, table?.currentSessionId, id]);
+  }, [discountValue, discountType, manualServiceValue, manualServiceType, table?.currentSessionId, saveAdjustmentsToSession]);
   
+  // ✅ OTIMIZAÇÃO: Carregar orders em paralelo, não esperar pela table
   const { data: ordersByGuestData, isLoading: loadingOrders } = useQuery<OrdersByGuestData>({
     queryKey: [`/api/tables/${id}/orders-by-guest`],
-    enabled: !!id && !!table?.currentSessionId,
+    enabled: !!id, // Remover dependência de table?.currentSessionId
+    staleTime: 10000, // Cache por 10s
   });
   
   
+  // ✅ OTIMIZAÇÃO: Lazy load apenas quando necessário (Step 2)
   const { data: customers = [] } = useQuery<any[]>({
     queryKey: ['/api/customers'],
+    enabled: currentStep >= 2, // Só carregar no Step 2+
+    staleTime: 60000, // Cache por 1min
   });
   
   const { data: loyaltyProgram } = useQuery<any>({
     queryKey: ['/api/loyalty-program'],
+    enabled: currentStep >= 2, // Só carregar no Step 2+
+    staleTime: 60000,
   });
   
   const { data: availableCoupons = [] } = useQuery<any[]>({
     queryKey: ['/api/coupons/available', table?.restaurantId],
-    enabled: !!table?.restaurantId,
+    enabled: currentStep >= 2 && !!table?.restaurantId, // Só carregar no Step 2+
+    staleTime: 60000,
   });
   
   const selectedCustomer = customers.find((c: any) => c.id === selectedCustomerId);
+  
+  // ✅ OTIMIZAÇÃO: Prefetch do Step 2 enquanto usuário está no Step 1
+  useEffect(() => {
+    if (currentStep === 1 && table?.restaurantId) {
+      // Prefetch em background após 2s (usuário provavelmente vai revisar primeiro)
+      const timer = setTimeout(() => {
+        queryClient.prefetchQuery({
+          queryKey: ['/api/customers'],
+          staleTime: 60000,
+        });
+        queryClient.prefetchQuery({
+          queryKey: ['/api/loyalty-program'],
+          staleTime: 60000,
+        });
+        queryClient.prefetchQuery({
+          queryKey: ['/api/coupons/available', table.restaurantId],
+          staleTime: 60000,
+        });
+      }, 2000); // Espera 2s para não impactar carregamento inicial
+      
+      return () => clearTimeout(timer);
+    }
+  }, [currentStep, table?.restaurantId, queryClient]);
   
   // Mutations
   const applyCouponMutation = useMutation({
@@ -297,6 +382,20 @@ export default function TableCheckoutV2() {
         throw new Error('Selecione um método de pagamento');
       }
       
+      // ✅ SOLUÇÃO #2: Garantir que ajustes foram salvos antes de processar pagamento
+      if (table?.currentSessionId && (discountValue || manualServiceValue)) {
+        console.log('🔄 [CHECKOUT] Salvando ajustes antes de processar pagamento...');
+        try {
+          await saveAdjustmentsToSession();
+          console.log('✅ [CHECKOUT] Ajustes salvos com sucesso antes do pagamento');
+          // Pequeno delay para garantir propagação
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (error) {
+          console.error('❌ [CHECKOUT] Erro ao salvar ajustes:', error);
+          // Continuar mesmo se falhar, pois agora também enviamos no payload
+        }
+      }
+      
       // Build services array
       const services: any[] = [];
       
@@ -353,6 +452,54 @@ export default function TableCheckoutV2() {
         });
       }
       
+      // ✅ NEW: Se apenas 1 convidado selecionado, usar rota de pagamento específico
+      if (selectedGuestIds.length === 1) {
+        const guestId = selectedGuestIds[0];
+        
+        // ✅ SOLUÇÃO #1: Incluir ajustes no payload do pagamento individual
+        const guestPayload: any = {
+          amount: calculateTotals.finalTotal.toFixed(2),
+          paymentMethod,
+          notes: receivedAmount ? `Valor recebido: ${parseFloat(receivedAmount).toFixed(2)}` : 'Pagamento individual',
+          receivedAmount: receivedAmount ? parseFloat(receivedAmount) : undefined,
+        };
+        
+        // Adicionar desconto se fornecido
+        if (discountValue && parseFloat(discountValue) > 0) {
+          guestPayload.discount = discountValue;
+          guestPayload.discountType = discountType;
+        }
+        
+        // Adicionar taxa de serviço se fornecida
+        if (manualServiceValue && parseFloat(manualServiceValue) > 0) {
+          guestPayload.serviceCharge = manualServiceValue;
+          guestPayload.serviceChargeType = manualServiceType;
+        }
+        
+        console.log('🎯 [CHECKOUT] Usando rota de pagamento INDIVIDUAL com ajustes:', {
+          guestId,
+          route: `/api/table-guests/${guestId}/payment`,
+          payload: guestPayload,
+          breakdown: {
+            subtotal: totalAmount,
+            discount: guestPayload.discount,
+            discountType: guestPayload.discountType,
+            serviceCharge: guestPayload.serviceCharge,
+            serviceChargeType: guestPayload.serviceChargeType,
+            finalAmount: guestPayload.amount
+          }
+        });
+        
+        const res = await apiRequest('POST', `/api/table-guests/${guestId}/payment`, guestPayload);
+        return res.json();
+      }
+      
+      console.log('🎯 [CHECKOUT] Usando rota de pagamento GERAL da mesa:', {
+        selectedGuestCount: selectedGuestIds.length,
+        route: `/api/tables/${id}/payment`
+      });
+      
+      // Pagamento geral da mesa (todos os convidados ou múltiplos)
       const payload = {
         tableId: id,
         sessionId: table.currentSessionId,
@@ -361,9 +508,20 @@ export default function TableCheckoutV2() {
         services: services.length > 0 ? services : undefined,
         discount: discountValue ? discountValue : undefined,
         discountType: discountValue ? discountType : undefined,
+        // ✅ CORREÇÃO: Usar serviceCharge (campo correto do schema)
+        serviceCharge: manualServiceValue ? manualServiceValue : undefined,
+        serviceChargeType: manualServiceValue ? manualServiceType : undefined,
         notes: receivedAmount ? `Valor recebido: ${parseFloat(receivedAmount).toFixed(2)}` : undefined,
         receivedAmount: receivedAmount ? parseFloat(receivedAmount) : undefined,
       };
+      
+      console.log('🎯 [CHECKOUT] Payload com desconto e taxa:', {
+        amount: calculateTotals.finalTotal.toFixed(2),
+        discount: discountValue,
+        discountType,
+        serviceFee: manualServiceValue,
+        serviceFeeType: manualServiceType
+      });
       
       
       const res = await apiRequest('POST', `/api/tables/${id}/payment`, payload);
@@ -371,15 +529,20 @@ export default function TableCheckoutV2() {
       return res.json();
     },
     onSuccess: (data) => {
+      console.log('🔍 [CHECKOUT] Pagamento processado com sucesso:', data);
       setPaymentData(data);
       setShowSuccessDialog(true);
+      
       // Invalidar múltiplas queries para sincronizar tudo
+      console.log('🔍 [CHECKOUT] Invalidando queries para mesa:', id);
       queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tables', id, 'payments'] });
       queryClient.invalidateQueries({ queryKey: ['/api/table-sessions'] });
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${id}/orders-by-guest`] }); // Para TableDetailsDialog e QuickOrder
       queryClient.invalidateQueries({ queryKey: ['tables'] }); // Lista de mesas
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${id}/guests`] }); // Guests
+      
+      console.log('🔍 [CHECKOUT] Queries invalidadas. TableDetailsDialog deve refetch agora.');
     },
     onError: (error: any) => {
       toast({
@@ -394,6 +557,14 @@ export default function TableCheckoutV2() {
   const ordersByGuest = ordersByGuestData?.ordersByGuest || [];
   const anonymousOrders = ordersByGuestData?.anonymousOrders || [];
   
+  // ✅ CORREÇÃO ERRO 2: Remover selectedGuestIds das dependências para evitar re-execução
+  useEffect(() => {
+    if (ordersByGuest.length > 0 && selectedGuestIds.length === 0) {
+      const allGuestIds = ordersByGuest.map((og: any) => og.guest.id);
+      setSelectedGuestIds(allGuestIds);
+      console.log('🎯 [CHECKOUT] Auto-selecionando todos os convidados:', allGuestIds.length);
+    }
+  }, [ordersByGuest]); // ✅ Só quando ordersByGuest muda
   
   // Filter guests based on selection (if any selected, show only those)
   const filteredOrdersByGuest = useMemo(() => 
@@ -403,9 +574,9 @@ export default function TableCheckoutV2() {
     [ordersByGuest, selectedGuestIds]
   );
 
-  // Get all items from filtered orders
-  const allItems = useMemo(() =>
-    filteredOrdersByGuest.flatMap((og: any) => 
+  // ✅ CORREÇÃO ERRO 3: Calcular allItems sempre (usado no Step 4 para mostrar total de itens)
+  const allItems = useMemo(() => {
+    return filteredOrdersByGuest.flatMap((og: any) => 
       (og.orders || []).flatMap((order: any) => 
         (order.items || []).map((item: any) => ({
           ...item,
@@ -415,23 +586,36 @@ export default function TableCheckoutV2() {
           guestId: og.guest.id
         }))
       )
-    ),
-    [filteredOrdersByGuest]
-  );
+    );
+  }, [filteredOrdersByGuest]); // ✅ Sempre calculado, não apenas no Step 1
   
-  // Calculate totals based on filtered selection
-  const totalAmount = selectedGuestIds.length > 0
-    ? filteredOrdersByGuest.reduce((sum: number, og: any) => sum + parseFloat(og.subtotal || 0), 0)
-    : (ordersByGuestData?.totalAmount 
-        ? Number(ordersByGuestData.totalAmount)
-        : allItems.reduce((sum: number, item: any) => sum + parseFloat(item.totalPrice || 0), 0));
+  // ✅ CORREÇÃO ERRO 4: Cálculo de totalAmount mais robusto
+  const totalAmount = useMemo(() => {
+    // Prioridade 1: Se há guests selecionados, usar subtotal deles
+    if (selectedGuestIds.length > 0) {
+      return filteredOrdersByGuest.reduce((sum: number, og: any) => sum + parseFloat(og.subtotal || 0), 0);
+    }
+    
+    // Prioridade 2: Se há totalAmount do backend, usar
+    if (ordersByGuestData?.totalAmount && Number(ordersByGuestData.totalAmount) > 0) {
+      return Number(ordersByGuestData.totalAmount);
+    }
+    
+    // Prioridade 3: Calcular de todos os guests (sem filtro)
+    if (ordersByGuest.length > 0) {
+      return ordersByGuest.reduce((sum: number, og: any) => sum + parseFloat(og.subtotal || 0), 0);
+    }
+    
+    // Fallback: Calcular de allItems (última opção)
+    return allItems.reduce((sum: number, item: any) => sum + parseFloat(item.totalPrice || 0), 0);
+  }, [selectedGuestIds, filteredOrdersByGuest, ordersByGuestData, ordersByGuest, allItems]);
   
   const paidAmount = ordersByGuestData?.paidAmount 
     ? Number(ordersByGuestData.paidAmount)
     : 0;
   const hasGuests = ordersByGuest.length > 0;
 
-  // Fetch applicable services based on order type and value (after totalAmount is calculated)
+  // ✅ OTIMIZAÇÃO CRÍTICA: Só carregar services no Step 3+ (não no Step 1)
   const { data: availableServices = [] } = useQuery<any[]>({
     queryKey: ['/api/services/applicable', totalAmount],
     queryFn: async () => {
@@ -441,10 +625,23 @@ export default function TableCheckoutV2() {
       });
       return response.json();
     },
-    enabled: totalAmount > 0,
+    enabled: currentStep >= 3 && totalAmount > 0, // ✅ Só no Step 3+
+    staleTime: 60000, // Cache por 1min
   });
   
+  // ✅ OTIMIZAÇÃO: Cálculo detalhado só quando há ajustes ou Step 3+
   const calculateTotals = useMemo(() => {
+    // Cálculo simplificado para Steps iniciais
+    if (currentStep < 3 && !discountValue && !appliedCoupon && !loyaltyPointsToRedeem) {
+      return {
+        subtotal: totalAmount,
+        totalDiscounts: 0,
+        totalAdditions: 0,
+        finalTotal: totalAmount,
+        breakdown: []
+      };
+    }
+    
     let subtotal = totalAmount;
     let discounts = 0;
     let additions = 0;
@@ -547,13 +744,15 @@ export default function TableCheckoutV2() {
     };
   }, [totalAmount, discountValue, discountType, appliedCoupon, loyaltyPointsToRedeem, selectedServices, manualServiceName, manualServiceValue, manualServiceType, availableServices, loyaltyProgram]);
 
-  // Loading state
-  if (loadingTables) {
+  // ✅ OTIMIZAÇÃO: Mostrar layout imediatamente com skeleton
+  const isInitialLoading = loadingTables && !table;
+  
+  if (isInitialLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-lg font-medium text-slate-700 dark:text-slate-300">Carregando mesa...</p>
+          <p className="text-lg font-medium text-slate-700 dark:text-slate-300">Carregando checkout...</p>
         </div>
       </div>
     );
@@ -676,22 +875,86 @@ export default function TableCheckoutV2() {
           <div className="lg:col-span-2">
             <Card className="bg-white/90 dark:bg-slate-900/90 backdrop-blur border-slate-200/50 dark:border-slate-800/50 shadow-2xl">
               <CardHeader className="border-b border-slate-200 dark:border-slate-800">
-                <CardTitle className="text-2xl flex items-center gap-3">
-                  {(() => {
-                    const StepIcon = STEPS[currentStep - 1].icon;
-                    return (
-                      <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-500">
-                        <StepIcon className="h-6 w-6 text-white" />
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-2xl flex items-center gap-3">
+                    {(() => {
+                      const StepIcon = STEPS[currentStep - 1].icon;
+                      return (
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-500">
+                          <StepIcon className="h-6 w-6 text-white" />
+                        </div>
+                      );
+                    })()}
+                    {STEPS[currentStep - 1].name}
+                  </CardTitle>
+                  
+                  {/* 🔧 INDICADOR VISUAL: Mostrar ajustes aplicados com opção de remover */}
+                  <div className="flex gap-2">
+                    {/* ✅ SOLUÇÃO #2: Indicador de salvamento */}
+                    {isSavingAdjustments && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 animate-pulse">
+                        <div className="h-3 w-3 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                          Salvando...
+                        </span>
                       </div>
-                    );
-                  })()}
-                  {STEPS[currentStep - 1].name}
-                </CardTitle>
+                    )}
+                    
+                    {discountValue && parseFloat(discountValue) > 0 && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 group hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors">
+                        <BadgePercent className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <span className="text-xs font-semibold text-green-700 dark:text-green-300">
+                          Desconto: {discountType === 'percentual' ? `${discountValue}%` : `${discountValue} Kz`}
+                        </span>
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            setDiscountValue('');
+                            setDiscountType('valor');
+                            await saveAdjustmentsToSession();
+                            toast({
+                              title: "Desconto removido",
+                              description: "O desconto foi removido com sucesso",
+                            });
+                          }}
+                          className="ml-1 p-0.5 rounded-full hover:bg-green-300 dark:hover:bg-green-800 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Remover desconto"
+                        >
+                          <X className="h-3 w-3 text-green-700 dark:text-green-300" />
+                        </button>
+                      </div>
+                    )}
+                    {manualServiceValue && parseFloat(manualServiceValue) > 0 && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 group hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors">
+                        <Percent className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                          Taxa: {manualServiceType === 'percentual' ? `${manualServiceValue}%` : `${manualServiceValue} Kz`}
+                        </span>
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            setManualServiceValue('');
+                            setManualServiceType('percentual');
+                            await saveAdjustmentsToSession();
+                            toast({
+                              title: "Taxa removida",
+                              description: "A taxa de serviço foi removida com sucesso",
+                            });
+                          }}
+                          className="ml-1 p-0.5 rounded-full hover:bg-blue-300 dark:hover:bg-blue-800 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Remover taxa"
+                        >
+                          <X className="h-3 w-3 text-blue-700 dark:text-blue-300" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="p-8">
                 {/* Step 1: Review Items & Guests */}
                 {currentStep === 1 && (
-                  <div className="space-y-6">
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
                     {/* Info Banner */}
                     <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/20 p-4">
                       <div className="flex items-start gap-3">
@@ -1816,105 +2079,157 @@ export default function TableCheckoutV2() {
                       </div>
                     </div>
 
-                    {/* Payment Methods */}
-                    <Card className="border-2 border-slate-200 dark:border-slate-800">
-                      <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-b">
-                        <CardTitle className="text-lg">Método de Pagamento</CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-6">
-                        <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-                          <div className="space-y-3">
-                            {/* Dinheiro */}
+                    {/* Payment Methods - REDESIGNED */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="h-1 w-12 bg-primary rounded-full" />
+                        <h3 className="text-xl font-bold">Escolha o Método de Pagamento</h3>
+                      </div>
+                      
+                      <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Dinheiro - REDESIGNED */}
                             <label className={cn(
-                              "flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                              "relative flex flex-col gap-3 p-5 rounded-2xl border-2 cursor-pointer transition-all group overflow-hidden",
                               paymentMethod === 'dinheiro' 
-                                ? "border-green-500 bg-green-500/10" 
-                                : "border-slate-200 dark:border-slate-800 hover:border-slate-300"
+                                ? "border-primary bg-primary/10 shadow-lg shadow-primary/20 scale-[1.02]" 
+                                : "border-border bg-card hover:border-primary/50 hover:shadow-md"
                             )}>
-                              <RadioGroupItem value="dinheiro" id="dinheiro" />
-                              <div className="flex items-center gap-3 flex-1">
-                                <div className="p-2 rounded-lg bg-green-500/20">
-                                  <Banknote className="h-6 w-6 text-green-600" />
+                              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary/20 to-transparent rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
+                              
+                              <div className="flex items-start justify-between relative z-10">
+                                <div className="flex items-center gap-3">
+                                  <div className={cn(
+                                    "p-3 rounded-xl transition-all",
+                                    paymentMethod === 'dinheiro'
+                                      ? "bg-primary text-primary-foreground shadow-lg"
+                                      : "bg-primary/20 text-primary"
+                                  )}>
+                                    <Banknote className="h-7 w-7" />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-lg">Dinheiro</div>
+                                    <div className="text-sm text-muted-foreground">Pagamento em espécie</div>
+                                  </div>
                                 </div>
-                                <div>
-                                  <div className="font-bold">Dinheiro</div>
-                                  <div className="text-sm text-slate-500">Pagamento em espécie</div>
-                                </div>
+                                <RadioGroupItem value="dinheiro" id="dinheiro" className="mt-1" />
                               </div>
+                              
                               {paymentMethod === 'dinheiro' && (
-                                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                <div className="flex items-center gap-2 text-sm text-primary font-medium relative z-10">
+                                  <CheckCircle2 className="h-4 w-4" />
+                                  <span>Selecionado</span>
+                                </div>
                               )}
                             </label>
 
-                            {/* Multicaixa */}
+                            {/* Multicaixa - REDESIGNED */}
                             <label className={cn(
-                              "flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                              "relative flex flex-col gap-3 p-5 rounded-2xl border-2 cursor-pointer transition-all group overflow-hidden",
                               paymentMethod === 'multicaixa' 
-                                ? "border-green-500 bg-green-500/10" 
-                                : "border-slate-200 dark:border-slate-800 hover:border-slate-300"
+                                ? "border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-500/20 scale-[1.02]" 
+                                : "border-border bg-card hover:border-blue-500/50 hover:shadow-md"
                             )}>
-                              <RadioGroupItem value="multicaixa" id="multicaixa" />
-                              <div className="flex items-center gap-3 flex-1">
-                                <div className="p-2 rounded-lg bg-blue-500/20">
-                                  <CreditCard className="h-6 w-6 text-blue-600" />
+                              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/20 to-transparent rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
+                              
+                              <div className="flex items-start justify-between relative z-10">
+                                <div className="flex items-center gap-3">
+                                  <div className={cn(
+                                    "p-3 rounded-xl transition-all",
+                                    paymentMethod === 'multicaixa'
+                                      ? "bg-blue-500 text-white shadow-lg"
+                                      : "bg-blue-500/20 text-blue-600"
+                                  )}>
+                                    <CreditCard className="h-7 w-7" />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-lg">Multicaixa</div>
+                                    <div className="text-sm text-muted-foreground">Pagamento por ATM</div>
+                                  </div>
                                 </div>
-                                <div>
-                                  <div className="font-bold">Multicaixa</div>
-                                  <div className="text-sm text-slate-500">Pagamento por ATM</div>
-                                </div>
+                                <RadioGroupItem value="multicaixa" id="multicaixa" className="mt-1" />
                               </div>
+                              
                               {paymentMethod === 'multicaixa' && (
-                                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                <div className="flex items-center gap-2 text-sm text-blue-600 font-medium relative z-10">
+                                  <CheckCircle2 className="h-4 w-4" />
+                                  <span>Selecionado</span>
+                                </div>
                               )}
                             </label>
 
-                            {/* Transferência */}
+                            {/* Transferência - REDESIGNED */}
                             <label className={cn(
-                              "flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                              "relative flex flex-col gap-3 p-5 rounded-2xl border-2 cursor-pointer transition-all group overflow-hidden",
                               paymentMethod === 'transferencia' 
-                                ? "border-green-500 bg-green-500/10" 
-                                : "border-slate-200 dark:border-slate-800 hover:border-slate-300"
+                                ? "border-purple-500 bg-purple-500/10 shadow-lg shadow-purple-500/20 scale-[1.02]" 
+                                : "border-border bg-card hover:border-purple-500/50 hover:shadow-md"
                             )}>
-                              <RadioGroupItem value="transferencia" id="transferencia" />
-                              <div className="flex items-center gap-3 flex-1">
-                                <div className="p-2 rounded-lg bg-purple-500/20">
-                                  <Building className="h-6 w-6 text-purple-600" />
+                              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-500/20 to-transparent rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
+                              
+                              <div className="flex items-start justify-between relative z-10">
+                                <div className="flex items-center gap-3">
+                                  <div className={cn(
+                                    "p-3 rounded-xl transition-all",
+                                    paymentMethod === 'transferencia'
+                                      ? "bg-purple-500 text-white shadow-lg"
+                                      : "bg-purple-500/20 text-purple-600"
+                                  )}>
+                                    <Building className="h-7 w-7" />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-lg">Transferência Bancária</div>
+                                    <div className="text-sm text-muted-foreground">Pagamento por transferência</div>
+                                  </div>
                                 </div>
-                                <div>
-                                  <div className="font-bold">Transferência Bancária</div>
-                                  <div className="text-sm text-slate-500">Pagamento por transferência</div>
-                                </div>
+                                <RadioGroupItem value="transferencia" id="transferencia" className="mt-1" />
                               </div>
+                              
                               {paymentMethod === 'transferencia' && (
-                                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                <div className="flex items-center gap-2 text-sm text-purple-600 font-medium relative z-10">
+                                  <CheckCircle2 className="h-4 w-4" />
+                                  <span>Selecionado</span>
+                                </div>
                               )}
                             </label>
 
-                            {/* Cartão */}
+                            {/* Cartão - REDESIGNED */}
                             <label className={cn(
-                              "flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                              "relative flex flex-col gap-3 p-5 rounded-2xl border-2 cursor-pointer transition-all group overflow-hidden",
                               paymentMethod === 'cartao' 
-                                ? "border-green-500 bg-green-500/10" 
-                                : "border-slate-200 dark:border-slate-800 hover:border-slate-300"
+                                ? "border-orange-500 bg-orange-500/10 shadow-lg shadow-orange-500/20 scale-[1.02]" 
+                                : "border-border bg-card hover:border-orange-500/50 hover:shadow-md"
                             )}>
-                              <RadioGroupItem value="cartao" id="cartao" />
-                              <div className="flex items-center gap-3 flex-1">
-                                <div className="p-2 rounded-lg bg-orange-500/20">
-                                  <Smartphone className="h-6 w-6 text-orange-600" />
+                              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-500/20 to-transparent rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
+                              
+                              <div className="flex items-start justify-between relative z-10">
+                                <div className="flex items-center gap-3">
+                                  <div className={cn(
+                                    "p-3 rounded-xl transition-all",
+                                    paymentMethod === 'cartao'
+                                      ? "bg-orange-500 text-white shadow-lg"
+                                      : "bg-orange-500/20 text-orange-600"
+                                  )}>
+                                    <Smartphone className="h-7 w-7" />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-lg">Cartão</div>
+                                    <div className="text-sm text-muted-foreground">Pagamento por cartão</div>
+                                  </div>
                                 </div>
-                                <div>
-                                  <div className="font-bold">Cartão</div>
-                                  <div className="text-sm text-slate-500">Pagamento por cartão</div>
-                                </div>
+                                <RadioGroupItem value="cartao" id="cartao" className="mt-1" />
                               </div>
+                              
                               {paymentMethod === 'cartao' && (
-                                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                <div className="flex items-center gap-2 text-sm text-orange-600 font-medium relative z-10">
+                                  <CheckCircle2 className="h-4 w-4" />
+                                  <span>Selecionado</span>
+                                </div>
                               )}
                             </label>
                           </div>
                         </RadioGroup>
-                      </CardContent>
-                    </Card>
+                      </div>
 
                     {/* Input de Troco (se Dinheiro) */}
                     {paymentMethod === 'dinheiro' && (
@@ -1999,7 +2314,11 @@ export default function TableCheckoutV2() {
               <Button
                 variant="outline"
                 size="lg"
-                onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
+                onClick={async () => {
+                  // 🔧 CORREÇÃO UX: Salvar ANTES de navegar
+                  await saveAdjustmentsToSession();
+                  setCurrentStep(Math.max(1, currentStep - 1));
+                }}
                 disabled={currentStep === 1}
                 className="rounded-xl transition-all"
               >
@@ -2010,7 +2329,11 @@ export default function TableCheckoutV2() {
               {currentStep < STEPS.length ? (
                 <Button
                   size="lg"
-                  onClick={() => setCurrentStep(Math.min(STEPS.length, currentStep + 1))}
+                  onClick={async () => {
+                    // 🔧 CORREÇÃO UX: Salvar ANTES de navegar
+                    await saveAdjustmentsToSession();
+                    setCurrentStep(Math.min(STEPS.length, currentStep + 1));
+                  }}
                   className="rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 shadow-lg shadow-purple-500/30 transition-all hover:scale-105"
                 >
                   Continuar
@@ -2254,12 +2577,16 @@ export default function TableCheckoutV2() {
         <PaymentSuccessDialog
           open={showSuccessDialog}
           onClose={() => {
+            console.log('🔘 [Checkout] onClose chamado, fechando diálogo e redirecionando...');
             setShowSuccessDialog(false);
             setLocation(`/${fromParam}`);
           }}
           table={table}
           payment={paymentData}
-          guests={ordersByGuest}
+          ordersByGuest={filteredOrdersByGuest}
+          calculateTotals={calculateTotals}
+          restaurant={restaurant}
+          sessionDuration={sessionDuration}
           totalAmount={calculateTotals.finalTotal}
           onPrintComplete={() => {
             toast({

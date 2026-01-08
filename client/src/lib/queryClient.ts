@@ -14,8 +14,11 @@ async function throwIfResNotOk(res: Response) {
         window.dispatchEvent(event);
       }
       
-      const error = new Error(errorData.message || res.statusText);
-      Object.assign(error, errorData);
+      const error = new Error(errorData.message || res.statusText) as Error & {
+        status?: number;
+        [key: string]: any;
+      };
+      Object.assign(error, { status: res.status, ...errorData });
       throw error;
     } catch (e) {
       if (e instanceof Error && e.message) {

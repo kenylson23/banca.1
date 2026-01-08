@@ -48,6 +48,8 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  AlertTriangle,
+  UserPlus,
   X,
   Plus,
   CreditCard,
@@ -253,6 +255,7 @@ export function TableDetailsDialog({
   
   const { toast } = useToast();
   
+  
   // Estados de UI
   const [showGuestSplit, setShowGuestSplit] = useState(false);
   const [addingGuest, setAddingGuest] = useState(false);
@@ -325,23 +328,58 @@ export function TableDetailsDialog({
     };
   }, []);
 
+  // 🔧 FIX: Query independente para buscar dados atualizados da mesa
+  const { data: tableData } = useQuery<any>({
+    queryKey: [`/api/tables/${table?.id}`],
+    enabled: open && !!table?.id,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+  
+  // Usar tableData atualizado ou fallback para prop table
+  const currentTable = tableData || table;
+  
+  console.log('[DEBUG TableDetailsDialog] table (prop):', table);
+  console.log('[DEBUG TableDetailsDialog] tableData (query):', tableData);
+  console.log('[DEBUG TableDetailsDialog] currentTable (used):', currentTable);
+  
   // Usar a mesma query do checkout que retorna orders-by-guest com items
   const { data: ordersByGuestData } = useQuery<OrdersByGuestData>({
-    queryKey: [`/api/tables/${table?.id}/orders-by-guest`],
-    enabled: open && !!table?.id && table?.status !== 'livre',
+    queryKey: [`/api/tables/${currentTable?.id}/orders-by-guest`],
+    enabled: open && !!currentTable?.id && currentTable?.status !== 'livre',
+    refetchOnMount: true, // 🔧 FIX: Sempre buscar dados frescos ao abrir o diálogo
+    refetchOnWindowFocus: true, // 🔧 FIX: Refetch quando a janela recebe foco
+    staleTime: 0, // 🔧 FIX: Dados sempre considerados "stale" para forçar refetch após invalidações
   });
   
   // 🔧 FIX: Buscar TODOS os guests da sessão atual, independente de terem pedidos
   // Esta query garante que sempre mostramos o número correto de pessoas na mesa
   const { data: allSessionGuests = [], isLoading: isLoadingGuests } = useQuery<any[]>({
-    queryKey: [`/api/tables/${table?.id}/guests`],
-    enabled: open && !!table?.id && !!table?.currentSessionId,
+    queryKey: [`/api/tables/${currentTable?.id}/guests`],
+    enabled: open && !!currentTable?.id && !!currentTable?.currentSessionId,
+    refetchOnMount: true, // 🔧 FIX: Refetch on mount to ensure fresh data
+    refetchOnWindowFocus: true, // 🔧 FIX: Refetch when window regains focus
     queryFn: async () => {
-      if (!table?.currentSessionId) return [];
-      const response = await apiRequest('GET', `/api/table-sessions/${table.currentSessionId}/guests`);
-      return response.json();
+      if (!currentTable?.currentSessionId) {
+        console.log('[DEBUG TableDetailsDialog] No currentSessionId, returning empty guests');
+        return [];
+      }
+      console.log('[DEBUG TableDetailsDialog] Fetching guests for session:', currentTable.currentSessionId);
+      const response = await apiRequest('GET', `/api/table-sessions/${currentTable.currentSessionId}/guests`);
+      const guests = await response.json();
+      console.log('[DEBUG TableDetailsDialog] Guests fetched:', guests);
+      return guests;
     },
   });
+  
+  console.log('[DEBUG TableDetailsDialog] allSessionGuests:', allSessionGuests);
+  console.log('[DEBUG TableDetailsDialog] isLoadingGuests:', isLoadingGuests);
+  console.log('[DEBUG TableDetailsDialog] ===== PAYMENT DEBUG =====');
+  console.log('[DEBUG TableDetailsDialog] ordersByGuestData:', ordersByGuestData);
+  console.log('[DEBUG TableDetailsDialog] paidAmount from data:', ordersByGuestData?.paidAmount);
+  console.log('[DEBUG TableDetailsDialog] totalAmount from data:', ordersByGuestData?.totalAmount);
+  console.log('[DEBUG TableDetailsDialog] currentSessionId:', ordersByGuestData?.currentSessionId);
+  console.log('[DEBUG TableDetailsDialog] ========================');
   
   // Flatten orders from ordersByGuest structure
   const tableOrders = useMemo(() => {
@@ -377,7 +415,7 @@ export function TableDetailsDialog({
       if (!table?.id) throw new Error('Mesa não encontrada');
       const peopleCount = selectedPeopleCount || parseInt(customPeopleCount) || 1;
       
-      const response = await apiRequest('POST', `/api/tables/${table.id}/start-session`, {
+      const response = await apiRequest('POST', `/api/tables/${currentTable.id}/start-session`, {
         customerCount: peopleCount,
         customerName: null, // Opcional: pode ser adicionado no futuro
       });
@@ -406,7 +444,7 @@ export function TableDetailsDialog({
   const endSessionMutation = useMutation({
     mutationFn: async (forceClose: boolean = false) => {
       if (!table?.id) throw new Error('Mesa não encontrada');
-      const response = await apiRequest('POST', `/api/tables/${table.id}/close-session`, {
+      const response = await apiRequest('POST', `/api/tables/${currentTable.id}/close-session`, {
         forceClose,
       });
       return response.json();
@@ -475,7 +513,7 @@ export function TableDetailsDialog({
       }
       
       // Add guest to table
-      const response = await apiRequest('POST', `/api/tables/${table.id}/guests`, {
+      const response = await apiRequest('POST', `/api/tables/${currentTable.id}/guests`, {
         name: type === 'anonymous' ? (name || null) : undefined,
         customerId: finalCustomerId,
       });
@@ -658,7 +696,7 @@ export function TableDetailsDialog({
   const removeGuestMutation = useMutation({
     mutationFn: async (guestId: string) => {
       if (!table?.id) throw new Error('Mesa não encontrada');
-      const response = await apiRequest('DELETE', `/api/tables/${table.id}/guests/${guestId}`);
+      const response = await apiRequest('DELETE', `/api/tables/${currentTable.id}/guests/${guestId}`);
       return response.json();
     },
     onMutate: async (guestId) => {
@@ -720,14 +758,14 @@ export function TableDetailsDialog({
       }
       
       // Additional validation: don't allow transition to 'livre' if there's an active session
-      if (newStatus === 'livre' && table.currentSessionId) {
+      if (newStatus === 'livre' && currentTable.currentSessionId) {
         throw new Error(
           'Não é possível marcar a mesa como livre. Existe uma sessão ativa. ' +
           'Primeiro encerre a sessão.'
         );
       }
       
-      const response = await apiRequest('PATCH', `/api/tables/${table.id}`, {
+      const response = await apiRequest('PATCH', `/api/tables/${currentTable.id}`, {
         status: newStatus,
       });
       return response.json();
@@ -777,7 +815,7 @@ export function TableDetailsDialog({
       
       // Atualizar guest com customerId
       if (!table?.id) throw new Error('Mesa não encontrada');
-      const guestResponse = await apiRequest('PATCH', `/api/tables/${table.id}/guests/${guestId}`, {
+      const guestResponse = await apiRequest('PATCH', `/api/tables/${currentTable.id}/guests/${guestId}`, {
         customerId: customer.id,
       });
       return guestResponse.json();
@@ -920,7 +958,7 @@ export function TableDetailsDialog({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [open, table, allTables, onNavigate, onOpenChange, navigate, showGuestSplit, showQRCode, 
       showEndSessionDialog, showStartSessionDialog, addingGuest, showAddPersonModal, 
-      showCustomerSearch, showForceCloseDialog, totalOrders]); // 🔧 FIX: Adicionar totalOrders
+      showCustomerSearch, showForceCloseDialog, tableOrders]); // 🔧 FIX: Use tableOrders instead of totalOrders
 
   // Reset states when navigating between tables
   useEffect(() => {
@@ -967,6 +1005,17 @@ export function TableDetailsDialog({
       return sum + orderTotal;
     }, 0);
   }, [ordersByGuestData, tableOrders]);
+
+  // 🔧 FIX: Get paid amount from ordersByGuestData
+  const paidAmount = useMemo(() => {
+    if (ordersByGuestData?.paidAmount) {
+      const paid = parseFloat(ordersByGuestData.paidAmount);
+      console.log('[DEBUG TableDetailsDialog] Calculated paidAmount:', paid);
+      return paid;
+    }
+    console.log('[DEBUG TableDetailsDialog] No paidAmount in data, returning 0');
+    return 0;
+  }, [ordersByGuestData]);
 
   // Usar a query de guests ao invés de table.orders
   const activeGuests = guests.length;
@@ -1202,6 +1251,36 @@ export function TableDetailsDialog({
               }} />
               
               <div className="p-6 relative z-10">
+                {/* ⚠️ Aviso: Mesa sem convidados */}
+                {currentTable?.status === 'ocupada' && guests.length === 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-4 p-4 bg-amber-500/10 border-2 border-amber-500/30 rounded-xl backdrop-blur-sm"
+                  >
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <h3 className="text-sm font-semibold text-amber-300">
+                          Mesa Ocupada sem Convidados
+                        </h3>
+                        <p className="text-xs text-amber-200/80 mt-1">
+                          Esta mesa está marcada como ocupada mas não tem nenhum convidado. 
+                          Adicione pelo menos uma pessoa para poder fazer pedidos.
+                        </p>
+                        <Button
+                          onClick={() => setShowAddPersonModal(true)}
+                          size="sm"
+                          className="mt-3 bg-amber-500 hover:bg-amber-600 text-white"
+                        >
+                          <UserPlus className="h-4 w-4 mr-2" />
+                          Adicionar Pessoa Agora
+                        </Button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+                
                 {totalOrders > 0 ? (
                   <div className="space-y-4">
                     {/* Orders Header */}
@@ -1650,6 +1729,29 @@ export function TableDetailsDialog({
                 >
                   {formatKwanza(totalAmount)}
                 </motion.p>
+                
+                {/* 🔧 FIX: Show paid amount and remaining */}
+                {(() => {
+                  console.log('[DEBUG TableDetailsDialog] Rendering payment section. paidAmount:', paidAmount, 'totalAmount:', totalAmount);
+                  return paidAmount > 0 && (
+                    <div className="mt-3 space-y-2 p-3 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-white/60">Pago</span>
+                        <span className="text-green-400 font-semibold">{formatKwanza(paidAmount)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-white/80 font-medium">Restante</span>
+                        <span className={cn(
+                          "font-bold",
+                          totalAmount - paidAmount > 0 ? "text-orange-400" : "text-green-400"
+                        )}>
+                          {formatKwanza(totalAmount - paidAmount)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+                
                 <div className="flex items-center justify-between mt-2">
                   {totalOrders > 0 && (
                     <p className="text-sm text-white/60">
@@ -2791,7 +2893,7 @@ export function TableDetailsDialog({
             tableId={table.id}
             tableNumber={table.number}
             onOrderCreated={() => {
-              queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/orders-by-guest`] });
+              queryClient.invalidateQueries({ queryKey: [`/api/tables/${currentTable.id}/orders-by-guest`] });
               queryClient.invalidateQueries({ queryKey: ['tables'] });
             }}
           />

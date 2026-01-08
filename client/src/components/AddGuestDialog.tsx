@@ -55,12 +55,45 @@ export function AddGuestDialog({ open, onOpenChange, tableId, sessionId }: AddGu
       });
       return response.json();
     },
-    onSuccess: () => {
-      invalidateAfterGuestAdded(queryClient, tableId);
+    onSuccess: async () => {
+      console.log('🎉 [AddGuest] Pessoa adicionada com sucesso, invalidando queries...');
+      
+      // 1. Invalidar TODAS as queries relacionadas à mesa
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0] as string;
+          return key?.includes(`/api/tables/${tableId}`) || 
+                 key === '/api/tables' || 
+                 key === '/api/tables/with-orders' ||
+                 key?.includes('/api/table-sessions/');
+        }
+      });
+      
+      // 2. Forçar refetch imediato de queries específicas
+      console.log('🔄 [AddGuest] Refazendo queries...');
+      await Promise.all([
+        queryClient.refetchQueries({ 
+          predicate: (query) => {
+            const key = query.queryKey[0] as string;
+            return key?.includes(`/api/tables/${tableId}`);
+          }
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables'],
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables/with-orders'],
+        }),
+      ]);
+      
+      console.log('✅ [AddGuest] Queries atualizadas!');
+      
       toast({
         title: 'Pessoa adicionada',
         description: 'A pessoa foi adicionada à mesa com sucesso.',
       });
+      
+      // Fechar o diálogo imediatamente (queries já foram atualizadas)
       onOpenChange(false);
       resetForm();
     },
@@ -86,15 +119,33 @@ export function AddGuestDialog({ open, onOpenChange, tableId, sessionId }: AddGu
       });
       return guestResponse.json();
     },
-    onSuccess: () => {
-      invalidateAfterGuestAdded(queryClient, tableId);
+    onSuccess: async () => {
+      // Invalidar queries relacionadas
+      await invalidateAfterGuestAdded(queryClient, tableId);
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.customers.all() });
+      
+      // Forçar refetch imediato
+      await Promise.all([
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}/guests`],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}/orders-by-guest`],
+          type: 'active'
+        }),
+      ]);
+      
       toast({
         title: 'Cliente cadastrado',
         description: 'O cliente foi cadastrado e adicionado à mesa.',
       });
-      onOpenChange(false);
-      resetForm();
+      
+      // Delay antes de fechar
+      setTimeout(() => {
+        onOpenChange(false);
+        resetForm();
+      }, 300);
     },
     onError: (error: any) => {
       toast({

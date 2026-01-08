@@ -1624,14 +1624,66 @@ export class DatabaseStorage implements IStorage {
         .where(eq(tableSessions.id, sessionId))
         .then(rows => rows[0]);
       
+      if (!session) {
+        return {
+          canClose: false,
+          totalPending: 0,
+          unpaidGuests: [],
+          warnings: ['Sessão não encontrada']
+        };
+      }
+      
+      // ✅ CORREÇÃO CRÍTICA: Buscar ajustes da sessão
+      const sessionDiscount = parseFloat(session.discount || '0');
+      const sessionDiscountType = session.discountType || 'valor';
+      const sessionServiceCharge = parseFloat(session.serviceCharge || '0');
+      const sessionServiceChargeType = session.serviceChargeType || 'percentual';
+      
       let totalPending = 0;
       const unpaidGuests = [];
       const warnings = [];
       
+      // Calcular subtotal total para distribuição proporcional
+      const totalGuestSubtotal = guests.reduce((sum, g) => sum + parseFloat(g.subtotal || '0'), 0);
+      
       for (const guest of guests) {
-        const subtotal = parseFloat(guest.subtotal || '0');
+        let guestSubtotalOriginal = parseFloat(guest.subtotal || '0');
+        let guestSubtotalAjustado = guestSubtotalOriginal;
+        
+        // ✅ APLICAR DESCONTO
+        if (sessionDiscount > 0) {
+          if (sessionDiscountType === 'percentual') {
+            guestSubtotalAjustado = guestSubtotalAjustado * (1 - Math.min(sessionDiscount, 100) / 100);
+          } else {
+            // Desconto fixo: distribuir proporcionalmente
+            const guestProportion = totalGuestSubtotal > 0 ? guestSubtotalOriginal / totalGuestSubtotal : 0;
+            const guestDiscountShare = sessionDiscount * guestProportion;
+            guestSubtotalAjustado = Math.max(0, guestSubtotalAjustado - guestDiscountShare);
+          }
+        }
+        
+        // ✅ APLICAR TAXA DE SERVIÇO
+        if (sessionServiceCharge > 0) {
+          if (sessionServiceChargeType === 'percentual') {
+            guestSubtotalAjustado = guestSubtotalAjustado * (1 + sessionServiceCharge / 100);
+          } else {
+            // Taxa fixa: distribuir proporcionalmente
+            const guestProportion = totalGuestSubtotal > 0 ? guestSubtotalOriginal / totalGuestSubtotal : 0;
+            const guestChargeShare = sessionServiceCharge * guestProportion;
+            guestSubtotalAjustado = guestSubtotalAjustado + guestChargeShare;
+          }
+        }
+        
+        // ✅ COMPARAR COM VALOR AJUSTADO
         const paid = parseFloat(guest.paidAmount || '0');
-        const pending = subtotal - paid;
+        const pending = guestSubtotalAjustado - paid;
+        
+        console.log(`[validateSessionClosure] Convidado: ${guest.name}`, {
+          subtotalOriginal: guestSubtotalOriginal.toFixed(2),
+          subtotalAjustado: guestSubtotalAjustado.toFixed(2),
+          paid: paid.toFixed(2),
+          pending: pending.toFixed(2)
+        });
         
         if (pending > 0.01) { // Tolera 1 centavo de diferença
           totalPending += pending;
@@ -1700,6 +1752,45 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addTablePayment(restaurantId: string, payment: any): Promise<any> {
+    // ✅ P0 CORREÇÃO: Usar transação atômica para garantir consistência
+    return await db.transaction(async (tx) => {
+      // 1. Validar mesa dentro da transação
+      const [table] = await tx.select()
+        .from(tables)
+        .where(eq(tables.id, payment.tableId))
+        .limit(1);
+      
+      if (!table) {
+        throw new Error('Table not found');
+      }
+
+      // 2. Criar pagamento
+      const [newPayment] = await tx.insert(tablePayments).values({
+        ...payment,
+        restaurantId,
+      }).returning();
+
+      // 3. Atualizar session.paidAmount atomicamente usando SQL (previne race conditions)
+      if (table.currentSessionId) {
+        await tx.execute(sql`
+          UPDATE table_sessions 
+          SET paid_amount = COALESCE(paid_amount, 0) + ${payment.amount}::numeric,
+              updated_at = NOW()
+          WHERE id = ${table.currentSessionId}
+        `);
+        
+        console.log(`[addTablePayment] ✅ Session paidAmount atualizado atomicamente`, {
+          sessionId: table.currentSessionId,
+          paymentAmount: parseFloat(payment.amount).toFixed(2),
+        });
+      }
+      
+      return newPayment;
+    });
+  }
+
+  // ✅ CÓDIGO ANTIGO REMOVIDO - A transação acima substitui toda a lógica anterior
+  async _OLD_addTablePayment_REMOVED(restaurantId: string, payment: any): Promise<any> {
     const table = await this.getTableById(payment.tableId);
     if (!table) {
       throw new Error('Table not found');
@@ -2506,7 +2597,7 @@ export class DatabaseStorage implements IStorage {
       tableSessionId: derivedTableSessionId,
       guestId: derivedGuestId,
       status: 'pendente',
-      paymentStatus: 'pendente',
+      paymentStatus: 'nao_pago', // ✅ CORRIGIDO: usar 'nao_pago' em vez de 'pendente'
       subtotal: subtotal.toFixed(2),
       totalAmount: totalAmount.toFixed(2),
     }).returning();
@@ -9665,33 +9756,60 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createGuestPayment(restaurantId: string, data: InsertGuestPayment): Promise<GuestPayment> {
-    const [payment] = await db
-      .insert(guestPayments)
-      .values({
-        ...data,
-        restaurantId,
-      })
-      .returning();
+    // ✅ P0 CORREÇÃO: Usar transação atômica para pagamento de convidado
+    return await db.transaction(async (tx) => {
+      // 1. Criar pagamento do convidado
+      const [payment] = await tx
+        .insert(guestPayments)
+        .values({
+          ...data,
+          restaurantId,
+        })
+        .returning();
 
-    const guest = await this.getTableGuestById(data.guestId);
-    if (guest) {
-      const currentPaid = parseFloat(guest.paidAmount || '0');
-      const newPaid = currentPaid + parseFloat(data.amount);
-      await db
-        .update(tableGuests)
-        .set({ paidAmount: newPaid.toFixed(2) })
-        .where(eq(tableGuests.id, data.guestId));
+      // 2. Buscar guest para validar
+      const [guest] = await tx
+        .select()
+        .from(tableGuests)
+        .where(eq(tableGuests.id, data.guestId))
+        .limit(1);
 
-      const subtotal = parseFloat(guest.subtotal || '0');
-      if (newPaid >= subtotal) {
-        await db
-          .update(tableGuests)
-          .set({ status: 'pago' })
-          .where(eq(tableGuests.id, data.guestId));
+      if (guest) {
+        // 3. Atualizar guest.paidAmount atomicamente usando SQL (previne race conditions)
+        const currentPaid = parseFloat(guest.paidAmount || '0');
+        const newPaid = currentPaid + parseFloat(data.amount);
+        
+        await tx.execute(sql`
+          UPDATE table_guests 
+          SET paid_amount = COALESCE(paid_amount, 0) + ${data.amount}::numeric,
+              status = CASE 
+                WHEN COALESCE(paid_amount, 0) + ${data.amount}::numeric >= subtotal THEN 'pago'
+                ELSE status
+              END,
+              updated_at = NOW()
+          WHERE id = ${data.guestId}
+        `);
+        
+        // 4. Atualizar session.paidAmount atomicamente
+        if (data.sessionId) {
+          await tx.execute(sql`
+            UPDATE table_sessions 
+            SET paid_amount = COALESCE(paid_amount, 0) + ${data.amount}::numeric,
+                updated_at = NOW()
+            WHERE id = ${data.sessionId}
+          `);
+          
+          console.log(`[createGuestPayment] ✅ Guest e Session paidAmount atualizados atomicamente`, {
+            guestId: data.guestId,
+            sessionId: data.sessionId,
+            paymentAmount: parseFloat(data.amount).toFixed(2),
+            newPaidAmount: newPaid.toFixed(2),
+          });
+        }
       }
-    }
-
-    return payment;
+      
+      return payment;
+    });
   }
 
   // ===== ORDER-GUEST LINK OPERATIONS =====

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Printer, ChevronDown, Download, FileText } from 'lucide-react';
+import { Printer, ChevronDown, Download, FileText, Eye } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -15,9 +15,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
 
-interface GuestOrderItem {
+export interface GuestOrderItem {
   id: string;
   menuItemName: string;
   quantity: number;
@@ -25,7 +32,7 @@ interface GuestOrderItem {
   totalPrice: string;
 }
 
-interface GuestOrder {
+export interface GuestOrder {
   orderId: string;
   orderStatus: string;
   totalAmount: string;
@@ -33,7 +40,7 @@ interface GuestOrder {
   items: GuestOrderItem[];
 }
 
-interface TableGuest {
+export interface TableGuest {
   id: string;
   sessionId: string;
   name: string | null;
@@ -56,6 +63,35 @@ interface PrintGuestBillProps {
   paymentMethod?: string;
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg' | 'icon';
+  
+  // 🆕 MELHORIAS: Descontos e taxas individuais
+  discounts?: Array<{
+    description: string;
+    amount: number;
+    type: 'percentage' | 'fixed';
+  }>;
+  serviceCharges?: Array<{
+    description: string;
+    amount: number;
+    type: 'percentage' | 'fixed';
+  }>;
+  subtotal?: number;
+  
+  // 🆕 MELHORIAS: Itens compartilhados
+  sharedItems?: Array<{
+    itemId: string;
+    sharedWith: string[];  // Nomes dos outros convidados
+    originalQuantity: number;
+    sharePortion: number;
+  }>;
+  
+  // 🆕 MELHORIAS: Histórico de movimentações
+  itemMovements?: Array<{
+    timestamp: Date;
+    description: string;
+    fromGuest?: string;
+    toGuest?: string;
+  }>;
 }
 
 export function PrintGuestBill({ 
@@ -70,12 +106,19 @@ export function PrintGuestBill({
   restaurantLogoUrl,
   paymentMethod,
   variant = 'ghost',
-  size = 'sm'
+  size = 'sm',
+  discounts = [],
+  serviceCharges = [],
+  subtotal,
+  sharedItems = [],
+  itemMovements = []
 }: PrintGuestBillProps) {
   const isIconOnly = size === 'icon';
   const { getPrinterByType } = usePrinter();
   const { toast } = useToast();
   const [printing, setPrinting] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState('');
 
   const thermalPrinter = getPrinterByType('receipt');
 
@@ -94,8 +137,14 @@ export function PrintGuestBill({
       
       orders.forEach(order => {
         order.items.forEach(item => {
+          // Verificar se item é compartilhado
+          const sharedInfo = sharedItems.find(si => si.itemId === item.id);
+          const itemName = sharedInfo 
+            ? `${item.menuItemName} (${sharedInfo.sharePortion}/${sharedInfo.originalQuantity} - compartilhado com ${sharedInfo.sharedWith.join(', ')})`
+            : item.menuItemName;
+          
           allItems.push({
-            name: item.menuItemName,
+            name: itemName,
             quantity: item.quantity,
             price: formatKwanza(item.unitPrice),
             total: formatKwanza(item.totalPrice),
@@ -104,6 +153,25 @@ export function PrintGuestBill({
       });
 
       const guestDisplayName = guest.name || `Cliente ${guest.guestNumber}`;
+      
+      // Calcular subtotal (antes de ajustes)
+      const calculatedSubtotal = subtotal || totalAmount;
+      
+      // Calcular descontos totais
+      const totalDiscounts = discounts.reduce((sum, d) => {
+        const amount = d.type === 'percentage' 
+          ? (calculatedSubtotal * d.amount) / 100 
+          : d.amount;
+        return sum + amount;
+      }, 0);
+      
+      // Calcular taxas totais
+      const totalCharges = serviceCharges.reduce((sum, c) => {
+        const amount = c.type === 'percentage' 
+          ? (calculatedSubtotal * c.amount) / 100 
+          : c.amount;
+        return sum + amount;
+      }, 0);
       
       // Usar a função especializada printGuestBill com formato térmico detalhado
       await printerService.printGuestBill('receipt', {
@@ -117,9 +185,9 @@ export function PrintGuestBill({
         guestNumber: guest.guestNumber,
         entryTime: format(new Date(guest.joinedAt), "dd/MM/yyyy HH:mm", { locale: ptBR }),
         items: allItems,
-        subtotal: formatKwanza(totalAmount.toFixed(2)),
-        serviceCharge: undefined, // Pode ser calculado se aplicável
-        discount: undefined, // Pode ser calculado se aplicável
+        subtotal: formatKwanza(calculatedSubtotal.toFixed(2)),
+        serviceCharge: totalCharges > 0 ? formatKwanza(totalCharges.toFixed(2)) : undefined,
+        discount: totalDiscounts > 0 ? formatKwanza(totalDiscounts.toFixed(2)) : undefined,
         total: formatKwanza(totalAmount.toFixed(2)),
         paymentMethod: paymentMethod ? paymentMethodLabels[paymentMethod] || paymentMethod : undefined,
         isPaid: guest.status === 'pago',
@@ -478,19 +546,46 @@ export function PrintGuestBill({
               <span class="item-total">TOTAL</span>
             </div>
             ${orders.flatMap(order => 
-              order.items.map(item => `
-                <div class="item">
-                  <span class="item-name">${item.menuItemName}</span>
-                  <span class="item-qty">${item.quantity}</span>
-                  <span class="item-price">${formatKwanza(item.unitPrice)}</span>
-                  <span class="item-total">${formatKwanza(item.totalPrice)}</span>
-                </div>
-              `).join('')
+              order.items.map(item => {
+                const sharedInfo = sharedItems.find(si => si.itemId === item.id);
+                return `
+                  <div class="item${sharedInfo ? ' shared-item' : ''}">
+                    <span class="item-name">
+                      ${item.menuItemName}
+                      ${sharedInfo ? `<br><span style="font-size: 11px; color: #666;">↻ Compartilhado (${sharedInfo.sharePortion}/${sharedInfo.originalQuantity}) com ${sharedInfo.sharedWith.join(', ')}</span>` : ''}
+                    </span>
+                    <span class="item-qty">${item.quantity}</span>
+                    <span class="item-price">${formatKwanza(item.unitPrice)}</span>
+                    <span class="item-total">${formatKwanza(item.totalPrice)}</span>
+                  </div>
+                `;
+              }).join('')
             ).join('')}
           </div>
           
           <div class="total-section">
-            <div class="total-row">
+            ${subtotal && subtotal !== totalAmount ? `
+              <div class="total-row subtotal">
+                <span>Subtotal:</span>
+                <span>${formatKwanza(subtotal.toFixed(2))}</span>
+              </div>
+            ` : ''}
+            
+            ${discounts.length > 0 ? discounts.map(discount => `
+              <div class="total-row discount">
+                <span>${discount.description} ${discount.type === 'percentage' ? `(${discount.amount}%)` : ''}:</span>
+                <span>- ${formatKwanza((discount.type === 'percentage' ? (subtotal || totalAmount) * discount.amount / 100 : discount.amount).toFixed(2))}</span>
+              </div>
+            `).join('') : ''}
+            
+            ${serviceCharges.length > 0 ? serviceCharges.map(charge => `
+              <div class="total-row service-charge">
+                <span>${charge.description} ${charge.type === 'percentage' ? `(${charge.amount}%)` : ''}:</span>
+                <span>+ ${formatKwanza((charge.type === 'percentage' ? (subtotal || totalAmount) * charge.amount / 100 : charge.amount).toFixed(2))}</span>
+              </div>
+            `).join('') : ''}
+            
+            <div class="total-row final-total">
               <span>TOTAL A PAGAR:</span>
               <span>${formatKwanza(totalAmount.toFixed(2))}</span>
             </div>
@@ -640,6 +735,7 @@ export function PrintGuestBill({
 
   // Com impressora térmica, mostrar dropdown com todas as opções
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
@@ -655,6 +751,23 @@ export function PrintGuestBill({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>Opções de Impressão</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        
+        <DropdownMenuItem 
+          onClick={async () => {
+            const html = await generateReceiptHTML(true);
+            setPreviewHtml(html);
+            setShowPreview(true);
+          }} 
+          disabled={printing}
+        >
+          <Eye className="h-4 w-4 mr-2" />
+          <div className="flex flex-col">
+            <span>Visualizar Antes</span>
+            <span className="text-xs text-muted-foreground">Preview da conta</span>
+          </div>
+        </DropdownMenuItem>
+        
         <DropdownMenuSeparator />
         
         <DropdownMenuItem onClick={handlePrintThermal} disabled={printing}>
@@ -692,5 +805,34 @@ export function PrintGuestBill({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    
+    {/* Dialog de Preview */}
+    <Dialog open={showPreview} onOpenChange={setShowPreview}>
+      <DialogContent className="max-w-4xl max-h-[90vh]">
+        <DialogHeader>
+          <DialogTitle>Preview da Conta - {guest.name || `Cliente ${guest.guestNumber}`}</DialogTitle>
+        </DialogHeader>
+        <div className="overflow-auto max-h-[70vh] border rounded-lg">
+          <iframe 
+            srcDoc={previewHtml}
+            className="w-full h-[600px] border-0"
+            title="Preview da Conta"
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowPreview(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={() => {
+            setShowPreview(false);
+            handlePrintBrowser();
+          }}>
+            <Printer className="h-4 w-4 mr-2" />
+            Confirmar e Imprimir
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

@@ -1,3 +1,4 @@
+import React from "react";
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -62,14 +63,14 @@ const paymentStatusLabels = {
   nao_pago: "Não pago",
 };
 
-export function PDVOrderCard({
+export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(({
   order,
   index,
   onViewDetails,
   onCancel,
   onPay,
   onAccept,
-}: PDVOrderCardProps) {
+}, ref) => {
   const OrderTypeIcon =
     orderTypeIcons[order.orderType as keyof typeof orderTypeIcons] || ShoppingBag;
   const { toast } = useToast();
@@ -92,7 +93,7 @@ export function PDVOrderCard({
         orderNumber: order.orderNumber || order.id.slice(-6),
         orderType: order.orderType || 'balcao',
         customerName: order.customerName,
-        tableNumber: order.table?.number,
+        tableNumber: order.table?.number || undefined,
         items: order.orderItems?.map((item: any) => ({
           name: item.menuItem?.name || item.name || 'Item',
           quantity: item.quantity,
@@ -133,6 +134,7 @@ export function PDVOrderCard({
 
   return (
     <motion.div
+      ref={ref}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.05 }}
@@ -286,4 +288,5 @@ export function PDVOrderCard({
       </Card>
     </motion.div>
   );
-}
+})
+PDVOrderCard.displayName = "PDVOrderCard"

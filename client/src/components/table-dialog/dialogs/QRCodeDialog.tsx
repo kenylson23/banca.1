@@ -194,106 +194,133 @@ export function QRCodeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            📱 QR Code - Mesa {tableNumber}
-          </DialogTitle>
-          <DialogDescription>
-            Clientes podem escanear este código para ver o cardápio e fazer pedidos
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden border-0 bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-slate-950 dark:via-blue-950 dark:to-purple-950">
+        {/* Header Section */}
+        <div className="relative px-4 pt-4 pb-3 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white">
+          <div className="absolute inset-0 bg-black/10"></div>
+          <div className="relative">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <span className="text-lg">📱</span>
+              </div>
+              <div>
+                <h2 className="text-base font-bold">QR Code - Mesa {tableNumber}</h2>
+                <p className="text-white/80 text-[10px]">Escaneie para fazer pedidos</p>
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <div className="space-y-6">
-          {/* QR Code */}
-          <div className="flex justify-center">
-            {qrCodeUrl ? (
-              <div className="relative">
-                <img
-                  src={qrCodeUrl}
-                  alt={`QR Code Mesa ${tableNumber}`}
-                  className="w-64 h-64 border-4 border-slate-200 dark:border-slate-700 rounded-lg"
-                />
-                <Badge
-                  className="absolute -top-2 -right-2 bg-indigo-600 text-white"
-                >
-                  Mesa {tableNumber}
-                </Badge>
-              </div>
-            ) : (
-              <div className="w-64 h-64 flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-lg">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-              </div>
-            )}
+        <div className="p-4 space-y-3">
+          {/* QR Code Display - Compact */}
+          <div className="relative">
+            <div className="relative bg-white dark:bg-slate-900 rounded-lg shadow-lg p-4 border border-slate-200/50 dark:border-slate-700/50">
+              {qrCodeUrl ? (
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="relative bg-white p-3 rounded-lg shadow">
+                    <img 
+                      src={qrCodeUrl} 
+                      alt={`QR Code Mesa ${tableNumber}`}
+                      className="w-48 h-48"
+                    />
+                  </div>
+                  <Badge className="text-xs px-3 py-1 bg-gradient-to-r from-blue-600 to-purple-600">
+                    Mesa {tableNumber}
+                  </Badge>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-56">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="animate-spin rounded-full h-8 w-8 border-3 border-primary border-t-transparent"></div>
+                    <p className="text-[10px] text-muted-foreground">Gerando...</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* URL */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              Link Direto:
+          {/* URL Display - Compact */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
+              Link
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
               <input
                 type="text"
                 value={publicMenuUrl}
                 readOnly
-                className="flex-1 px-3 py-2 text-sm bg-slate-100 dark:bg-slate-800 rounded border border-slate-300 dark:border-slate-600"
+                className="flex-1 px-2 py-1.5 text-[10px] bg-white dark:bg-slate-900 rounded border border-slate-300 dark:border-slate-700"
               />
               <Button
-                size="sm"
                 variant="outline"
+                size="sm"
                 onClick={handleCopyUrl}
-                className="flex-shrink-0"
+                className="gap-1 px-2 hover:bg-blue-50 dark:hover:bg-blue-950"
               >
                 {copied ? (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
                 ) : (
-                  <Copy className="h-4 w-4" />
+                  <Copy className="h-3.5 w-3.5" />
                 )}
               </Button>
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Actions - Compact Buttons */}
+          <div className="grid grid-cols-3 gap-1.5">
             <Button
               variant="outline"
+              size="sm"
               onClick={handleDownload}
               disabled={!qrCodeUrl}
-              className="w-full"
+              className="gap-1 px-2 py-1 h-8 text-[10px] hover:bg-blue-50 dark:hover:bg-blue-950"
             >
-              <Download className="h-4 w-4 mr-2" />
+              <Download className="h-3.5 w-3.5" />
               Baixar
             </Button>
             <Button
               variant="outline"
-              onClick={handlePrint}
+              size="sm"
+              onClick={handleShare}
               disabled={!qrCodeUrl}
-              className="w-full"
+              className="gap-1 px-2 py-1 h-8 text-[10px] hover:bg-purple-50 dark:hover:bg-purple-950"
             >
-              <Printer className="h-4 w-4 mr-2" />
-              Imprimir
+              <Share2 className="h-3.5 w-3.5" />
+              Enviar
             </Button>
             <Button
               variant="outline"
-              onClick={handleShare}
+              size="sm"
+              onClick={handlePrint}
               disabled={!qrCodeUrl}
-              className="w-full col-span-2"
+              className="gap-1 px-2 py-1 h-8 text-[10px] hover:bg-pink-50 dark:hover:bg-pink-950"
             >
-              <Share2 className="h-4 w-4 mr-2" />
-              Compartilhar Link
+              <Printer className="h-3.5 w-3.5" />
+              Imprimir
             </Button>
           </div>
 
-          {/* Info */}
-          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm space-y-2">
-            <p className="font-medium text-blue-900 dark:text-blue-100">
-              💡 Dica:
-            </p>
-            <ul className="text-blue-800 dark:text-blue-200 space-y-1 text-xs">
-              <li>• Imprima e coloque o QR Code na mesa</li>
-              <li>• Clientes podem fazer pedidos pelo celular</li>
-              <li>• Pedidos aparecem automaticamente no sistema</li>
+          {/* Instructions - Compact Card */}
+          <div className="rounded-lg bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-200/50 dark:border-blue-700/50 p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="text-sm">💡</span>
+              <h4 className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                Como Funciona
+              </h4>
+            </div>
+            <ul className="space-y-1.5 text-[10px] text-slate-700 dark:text-slate-300">
+              <li className="flex items-start gap-1.5">
+                <span className="flex-shrink-0 w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center text-[9px] font-bold mt-0.5">1</span>
+                <span>Coloque o QR Code na mesa</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <span className="flex-shrink-0 w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center text-[9px] font-bold mt-0.5">2</span>
+                <span>Clientes escaneiam com a câmera</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <span className="flex-shrink-0 w-4 h-4 rounded-full bg-pink-500 text-white flex items-center justify-center text-[9px] font-bold mt-0.5">3</span>
+                <span>Pedidos aparecem no sistema</span>
+              </li>
             </ul>
           </div>
         </div>

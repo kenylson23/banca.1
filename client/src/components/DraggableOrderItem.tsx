@@ -20,6 +20,16 @@ export function DraggableOrderItem({
   guestId,
   disabled = false,
 }: DraggableOrderItemProps) {
+  
+  // 🔍 DEBUG: Ver dados do item
+  console.log('🎯 DraggableOrderItem:', { 
+    menuItemName, 
+    quantity, 
+    totalPrice, 
+    disabled,
+    formatted: formatKwanza(totalPrice)
+  });
+  
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: id,
     data: {

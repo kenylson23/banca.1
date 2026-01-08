@@ -15,6 +15,7 @@ import { BusinessHoursManager } from '@/components/BusinessHoursManager';
 import { QRCodeGenerator } from '@/components/QRCodeGenerator';
 import { LinkAnalytics } from '@/components/LinkAnalytics';
 import { MockMenuPreview } from '@/components/MockMenuPreview';
+import { RestaurantStatusControl } from '@/components/RestaurantStatusControl';
 
 type LinkSection = 'link' | 'qrcode' | 'preview' | 'analytics';
 
@@ -700,6 +701,15 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="hours" className="space-y-4">
+          {/* Status Control - Glassmorphism Dropdown */}
+          {restaurant && (
+            <RestaurantStatusControl 
+              currentStatus={restaurant.isOpen ?? 1}
+              restaurantId={restaurant.id}
+            />
+          )}
+          
+          {/* Business Hours Manager */}
           {restaurant?.id && <BusinessHoursManager restaurantId={restaurant.id} />}
         </TabsContent>
       </Tabs>

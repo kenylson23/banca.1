@@ -7,6 +7,16 @@ interface UseTableDataProps {
 }
 
 export function useTableData({ tableId, isOpen }: UseTableDataProps) {
+  // Query table data first to get currentSessionId
+  const { data: tableData } = useQuery<any>({
+    queryKey: [`/api/tables/${tableId}`],
+    enabled: isOpen && !!tableId,
+    refetchOnMount: 'always', // Sempre refetch ao montar
+    refetchOnWindowFocus: false,
+    staleTime: 0, // Sempre buscar dados frescos
+    refetchInterval: isOpen ? 3000 : false, // Auto-refresh a cada 3s quando aberto
+  });
+
   // Query: Orders by Guest (unified data)
   const { data: ordersByGuestData, isLoading: ordersLoading } = useQuery<{
     ordersByGuest: Array<{ guest: any; orders: any[]; subtotal: string }>;
@@ -17,12 +27,31 @@ export function useTableData({ tableId, isOpen }: UseTableDataProps) {
   }>({
     queryKey: [`/api/tables/${tableId}/orders-by-guest`],
     enabled: isOpen && !!tableId,
+    refetchOnMount: 'always', // Sempre refetch ao montar
+    refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchInterval: isOpen ? 3000 : false, // Auto-refresh a cada 3s quando aberto
   });
+
+  // Extract paidAmount from ordersByGuestData
+  const sessionPaidAmount = useMemo(() => {
+    if (ordersByGuestData?.paidAmount) {
+      return parseFloat(ordersByGuestData.paidAmount);
+    }
+    return 0;
+  }, [ordersByGuestData]);
+
+  // Use currentSessionId from table data (most reliable)
+  const currentSessionId = tableData?.currentSessionId || ordersByGuestData?.currentSessionId;
 
   // Query: All guests from session (including those without orders)
   const { data: allSessionGuests = [] } = useQuery<any[]>({
-    queryKey: [`/api/table-sessions/${ordersByGuestData?.currentSessionId}/guests`],
-    enabled: isOpen && !!ordersByGuestData?.currentSessionId,
+    queryKey: [`/api/table-sessions/${currentSessionId}/guests`],
+    enabled: isOpen && !!currentSessionId,
+    refetchOnMount: 'always', // Sempre refetch ao montar
+    refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchInterval: isOpen && currentSessionId ? 3000 : false, // Auto-refresh a cada 3s quando aberto
   });
 
   // Extract guests - prioritize allSessionGuests to show guests without orders
@@ -32,7 +61,9 @@ export function useTableData({ tableId, isOpen }: UseTableDataProps) {
       return allSessionGuests;
     }
     // Fallback to guests from orders (only guests with orders)
-    if (!ordersByGuestData?.ordersByGuest) return [];
+    if (!ordersByGuestData?.ordersByGuest) {
+      return [];
+    }
     return ordersByGuestData.ordersByGuest.map((og: any) => og.guest);
   }, [allSessionGuests, ordersByGuestData]);
 
@@ -64,10 +95,12 @@ export function useTableData({ tableId, isOpen }: UseTableDataProps) {
   const activeGuests = guests.length;
 
   return {
+    tableData,
     ordersByGuestData,
     guests,
     tableOrders,
     totalAmount,
+    sessionPaidAmount, // ✅ NEW: Return paidAmount from session
     totalOrders,
     activeGuests,
     isLoading: ordersLoading,

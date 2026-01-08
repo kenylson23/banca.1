@@ -142,8 +142,8 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
   });
 
   const closeSessionMutation = useMutation({
-    mutationFn: async (tableId: string) => {
-      return apiRequest('POST', `/api/tables/${tableId}/close-session`);
+    mutationFn: async ({ tableId, forceClose = false }: { tableId: string; forceClose?: boolean }) => {
+      return apiRequest('POST', `/api/tables/${tableId}/close-session`, { forceClose });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
@@ -157,11 +157,24 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
       onCheckoutComplete?.();
     },
     onError: (error: any) => {
-      toast({
-        title: 'Erro',
-        description: error.message || 'Não foi possível fechar a mesa.',
-        variant: 'destructive',
-      });
+      // Handle validation errors for pending payments
+      if (error.status === 400 && error.pendingAmount) {
+        const guestsList = error.unpaidGuests?.length > 0
+          ? `\n${error.unpaidGuests.map((g: any) => `• ${g.name}: ${g.pending} Kz`).join('\n')}`
+          : '';
+        
+        toast({
+          title: '⚠️ Valores Pendentes',
+          description: `Mesa possui ${error.pendingAmount} Kz pendente de pagamento.${guestsList}`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Erro',
+          description: error.message || 'Não foi possível fechar a mesa.',
+          variant: 'destructive',
+        });
+      }
     },
   });
 
@@ -196,7 +209,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
 
       // If not split and remaining is fully covered, close the session
       if (!splitEqually) {
-        await closeSessionMutation.mutateAsync(table.id);
+        await closeSessionMutation.mutateAsync({ tableId: table.id });
       } else {
         toast({
           title: 'Pagamento registrado',

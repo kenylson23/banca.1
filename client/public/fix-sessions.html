@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corrigir Sessões com Ajustes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+        
+        .step h2 {
+            color: #667eea;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        
+        .session-list {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        
+        .session-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .session-item strong {
+            color: #667eea;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .warning strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Corrigir Sessões com Ajustes</h1>
+        <p class="subtitle">Ferramenta para corrigir sessões antigas que tiveram pagamentos com descontos/taxas mas não foram salvos</p>
+        
+        <div class="warning">
+            <strong>⚠️ Importante:</strong>
+            Esta ferramenta é segura! Um backup será criado automaticamente antes de qualquer modificação.
+        </div>
+        
+        <div class="step">
+            <h2>Passo 1: Análise</h2>
+            <p>Primeiro, vamos analisar quantas sessões precisam de correção (sem modificar nada).</p>
+            <button id="analyzeBtn" onclick="analyze()">🔍 Analisar Sessões</button>
+        </div>
+        
+        <div class="step" style="display: none;" id="step2">
+            <h2>Passo 2: Aplicar Correções</h2>
+            <p>Após revisar a análise, clique aqui para aplicar as correções.</p>
+            <button id="fixBtn" onclick="fix()" disabled>✅ Aplicar Correções</button>
+        </div>
+        
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        let sessionsToFix = [];
+        
+        async function analyze() {
+            const btn = document.getElementById('analyzeBtn');
+            const result = document.getElementById('result');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Analisando...';
+            result.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/admin/fix-sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ execute: false })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                sessionsToFix = data.sessions || [];
+                
+                result.className = 'result info';
+                result.style.display = 'block';
+                
+                if (data.count === 0) {
+                    result.innerHTML = `
+                        <h3>✅ Nenhuma sessão precisa de correção!</h3>
+                        <p>Todas as sessões estão corretas. 🎉</p>
+                    `;
+                } else {
+                    let html = `
+                        <h3>📊 Análise Completa</h3>
+                        <p><strong>${data.count} sessões</strong> precisam de correção.</p>
+                        <div class="session-list">
+                    `;
+                    
+                    sessionsToFix.forEach((session, i) => {
+                        html += `
+                            <div class="session-item">
+                                <strong>${i + 1}. Sessão ${session.id.substring(0, 8)}...</strong><br>
+                                Mesa: ${session.tableId}<br>
+                                Total: R$ ${session.total} | Pago: R$ ${session.paid}<br>
+                                Diferença: R$ ${session.diff} (${session.type})<br>
+                                ${session.discountPercent !== '0' ? `Desconto calculado: ${session.discountPercent}%<br>` : ''}
+                                ${session.servicePercent !== '0' ? `Taxa calculada: ${session.servicePercent}%` : ''}
+                            </div>
+                        `;
+                    });
+                    
+                    html += `</div>`;
+                    result.innerHTML = html;
+                    
+                    // Habilitar botão de correção
+                    document.getElementById('step2').style.display = 'block';
+                    document.getElementById('fixBtn').disabled = false;
+                }
+                
+            } catch (error) {
+                result.className = 'result error';
+                result.style.display = 'block';
+                result.innerHTML = `
+                    <h3>❌ Erro na Análise</h3>
+                    <p>${error.message}</p>
+                    <p><small>Verifique se você está logado como admin.</small></p>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🔍 Analisar Sessões';
+            }
+        }
+        
+        async function fix() {
+            if (!confirm(`Tem certeza que deseja corrigir ${sessionsToFix.length} sessões?\n\nUm backup será criado automaticamente.`)) {
+                return;
+            }
+            
+            const btn = document.getElementById('fixBtn');
+            const result = document.getElementById('result');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Aplicando Correções...';
+            
+            try {
+                const response = await fetch('/api/admin/fix-sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ execute: true })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                result.className = 'result success';
+                result.style.display = 'block';
+                result.innerHTML = `
+                    <h3>🎉 Correção Concluída!</h3>
+                    <p><strong>${data.fixed}</strong> sessões foram corrigidas com sucesso!</p>
+                    <p><small>Backup criado: ${data.backup}</small></p>
+                    <br>
+                    <p>✅ Agora você pode fechar as mesas normalmente no Checkout V2!</p>
+                `;
+                
+                // Esconder botão de correção
+                document.getElementById('step2').style.display = 'none';
+                
+            } catch (error) {
+                result.className = 'result error';
+                result.style.display = 'block';
+                result.innerHTML = `
+                    <h3>❌ Erro ao Aplicar Correções</h3>
+                    <p>${error.message}</p>
+                    <p><small>Nenhuma modificação foi feita. Tente novamente.</small></p>
+                `;
+                btn.disabled = false;
+                btn.innerHTML = '✅ Aplicar Correções';
+            }
+        }
+    </script>
+</body>
+</html>

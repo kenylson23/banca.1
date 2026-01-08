@@ -590,7 +590,7 @@ export const tables = pgTable("tables", {
 export const insertTableSchema = z.object({
   number: z.number().int().positive("O número da mesa deve ser maior que zero"),
   capacity: z.number().int().positive("A capacidade deve ser maior que zero").optional(),
-  area: z.string().min(1, "A área não pode ser vazia").max(100, "Nome da área muito longo").optional(),
+  area: z.string().min(1, "A área não pode ser vazia").max(100, "Nome da área muito longo").optional().nullable(),
 });
 
 export const updateTableStatusSchema = z.object({
@@ -682,6 +682,8 @@ export const tableSessions = pgTable("table_sessions", {
   paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default('0'),
   discount: decimal("discount", { precision: 10, scale: 2 }).default('0'),
   discountType: varchar("discount_type", { length: 20 }).default('valor'),
+  serviceFee: varchar("service_fee"),
+  serviceFeeType: varchar("service_fee_type"),
   serviceCharge: decimal("service_charge", { precision: 10, scale: 2 }).default('0'),
   serviceChargeType: varchar("service_charge_type", { length: 20 }).default('percentual'),
   sessionTotals: jsonb("session_totals"),
@@ -3398,3 +3400,48 @@ export const insertLinkAnalyticsSchema = createInsertSchema(linkAnalytics).omit(
 
 export type InsertLinkAnalytics = z.infer<typeof insertLinkAnalyticsSchema>;
 export type LinkAnalytics = typeof linkAnalytics.$inferSelect;
+
+// ===== AUDIT LOGS =====
+// Audit Logs - Registro de ações críticas e administrativas
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  restaurantId: integer("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  actorId: varchar("actor_id").references(() => users.id, { onDelete: 'set null' }),
+  action: varchar("action", { length: 100 }).notNull(),
+  entityType: varchar("entity_type", { length: 50 }).notNull(),
+  entityId: varchar("entity_id", { length: 255 }).notNull(),
+  details: jsonb("details"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_audit_logs_restaurant").on(table.restaurantId),
+  index("idx_audit_logs_entity").on(table.entityType, table.entityId),
+  index("idx_audit_logs_action").on(table.action),
+  index("idx_audit_logs_created_at").on(table.createdAt),
+]);
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  restaurantId: z.string().min(1, "Restaurante é obrigatório"),
+  actorId: z.string().optional().nullable(),
+  action: z.string().min(1, "Ação é obrigatória"),
+  entityType: z.string().min(1, "Tipo de entidade é obrigatório"),
+  entityId: z.string().min(1, "ID da entidade é obrigatório"),
+  details: z.any().optional(),
+});
+
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+
+// Audit Logs Relations
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [auditLogs.restaurantId],
+    references: [restaurants.id],
+  }),
+  actor: one(users, {
+    fields: [auditLogs.actorId],
+    references: [users.id],
+  }),
+}));

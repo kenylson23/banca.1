@@ -37,6 +37,15 @@ export function GuestDetailPanel({
   onCancelOrder,
   onNewOrder,
 }: GuestDetailPanelProps) {
+  // 🔧 FIX: Safety check for undefined guest
+  if (!guest) {
+    return (
+      <div className="p-8 text-center text-slate-500">
+        <p>Selecione um convidado para ver os detalhes</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Guest Header */}

@@ -806,7 +806,7 @@ var init_schema = __esm({
     insertTableSchema = z.object({
       number: z.number().int().positive("O n\xFAmero da mesa deve ser maior que zero"),
       capacity: z.number().int().positive("A capacidade deve ser maior que zero").optional(),
-      area: z.string().min(1, "A \xE1rea n\xE3o pode ser vazia").max(100, "Nome da \xE1rea muito longo").optional()
+      area: z.string().min(1, "A \xE1rea n\xE3o pode ser vazia").max(100, "Nome da \xE1rea muito longo").optional().nullable()
     });
     updateTableStatusSchema = z.object({
       status: z.enum(["livre", "ocupada", "em_andamento", "aguardando_pagamento", "encerrada"]),
@@ -877,6 +877,8 @@ var init_schema = __esm({
       paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default("0"),
       discount: decimal("discount", { precision: 10, scale: 2 }).default("0"),
       discountType: varchar("discount_type", { length: 20 }).default("valor"),
+      serviceFee: varchar("service_fee"),
+      serviceFeeType: varchar("service_fee_type"),
       serviceCharge: decimal("service_charge", { precision: 10, scale: 2 }).default("0"),
       serviceChargeType: varchar("service_charge_type", { length: 20 }).default("percentual"),
       sessionTotals: jsonb("session_totals"),
@@ -5363,7 +5365,8 @@ var init_storage = __esm({
           branchId,
           number: table.number,
           capacity: table.capacity,
-          area: table.area,
+          area: table.area || null,
+          // ✅ FIX: Converter string vazia ou undefined para null
           qrCode: table.qrCode,
           status: "livre",
           // Garantir status inicial correto
@@ -5466,16 +5469,41 @@ var init_storage = __esm({
           restaurantId,
           customerName: sessionData.customerName,
           customerCount: sessionData.customerCount,
-          status: "ocupada"
+          status: "ocupada",
+          totalAmount: "0",
+          paidAmount: "0",
+          discount: "0",
+          discountType: "valor",
+          serviceCharge: "0",
+          serviceChargeType: "percentual"
         }).returning();
+        console.log("[startTableSession] Nova sess\xE3o criada:", {
+          sessionId: session2.id,
+          tableId,
+          customerName: sessionData.customerName,
+          initialValues: {
+            totalAmount: "0",
+            paidAmount: "0",
+            discount: "0",
+            serviceCharge: "0"
+          }
+        });
         await db.update(tables).set({
           status: "ocupada",
           currentSessionId: session2.id,
           customerName: sessionData.customerName,
           customerCount: sessionData.customerCount || 0,
+          totalAmount: "0",
+          // ✅ CRÍTICO: Zerar total ao criar nova sessão
           lastActivity: /* @__PURE__ */ new Date(),
           isOccupied: 1
         }).where(eq(tables.id, tableId));
+        console.log("[startTableSession] Mesa atualizada:", {
+          tableId,
+          status: "ocupada",
+          currentSessionId: session2.id,
+          totalAmount: "0"
+        });
         if (sessionData.customerName && sessionData.customerName.trim()) {
           await this.createTableGuest(restaurantId, {
             sessionId: session2.id,
@@ -5546,37 +5574,46 @@ var init_storage = __esm({
       // ✅ NOVO: Validar se a sessão pode ser fechada (todos pagaram)
       async validateSessionClosure(sessionId) {
         try {
-          const guests = await this.getTableGuests(sessionId);
           const session2 = await db.select().from(tableSessions).where(eq(tableSessions.id, sessionId)).then((rows) => rows[0]);
-          let totalPending = 0;
-          const unpaidGuests = [];
+          if (!session2) {
+            return {
+              canClose: false,
+              totalPending: 0,
+              unpaidGuests: [],
+              warnings: ["Sess\xE3o n\xE3o encontrada"]
+            };
+          }
+          const sessionTotal = parseFloat(session2.totalAmount || "0");
+          const sessionPaid = parseFloat(session2.paidAmount || "0");
+          const sessionPending = sessionTotal - sessionPaid;
           const warnings = [];
-          for (const guest of guests) {
-            const subtotal = parseFloat(guest.subtotal || "0");
-            const paid = parseFloat(guest.paidAmount || "0");
-            const pending = subtotal - paid;
-            if (pending > 0.01) {
-              totalPending += pending;
-              unpaidGuests.push({
-                id: guest.id,
-                name: guest.name || `Convidado ${guest.guestNumber || "?"}`,
-                pending: parseFloat(pending.toFixed(2))
-              });
+          const unpaidGuests = [];
+          if (sessionPending > 0.01) {
+            const guests = await this.getTableGuests(sessionId);
+            for (const guest of guests) {
+              const subtotal = parseFloat(guest.subtotal || "0");
+              const paid = parseFloat(guest.paidAmount || "0");
+              const pending = subtotal - paid;
+              if (pending > 0.01) {
+                unpaidGuests.push({
+                  id: guest.id,
+                  name: guest.name || `Convidado ${guest.guestNumber || "?"}`,
+                  pending: parseFloat(pending.toFixed(2))
+                });
+              }
             }
           }
-          if (session2) {
-            const sessionTotal = parseFloat(session2.totalAmount || "0");
-            const sessionPaid = parseFloat(session2.paidAmount || "0");
-            const sessionPending = sessionTotal - sessionPaid;
-            if (Math.abs(sessionPending - totalPending) > 0.1) {
-              warnings.push(
-                `Diferen\xE7a de reconcilia\xE7\xE3o: ${Math.abs(sessionPending - totalPending).toFixed(2)} Kz entre sess\xE3o e guests`
-              );
-            }
-          }
+          console.log("[validateSessionClosure]", {
+            sessionId,
+            sessionTotal,
+            sessionPaid,
+            sessionPending,
+            canClose: sessionPending <= 0.01
+          });
           return {
-            canClose: totalPending <= 0,
-            totalPending: parseFloat(totalPending.toFixed(2)),
+            canClose: sessionPending <= 0.01,
+            // Tolera 1 centavo de diferença
+            totalPending: parseFloat(sessionPending.toFixed(2)),
             unpaidGuests,
             warnings
           };
@@ -5621,9 +5658,56 @@ var init_storage = __esm({
         if (table.currentSessionId) {
           const session2 = await db.select().from(tableSessions).where(eq(tableSessions.id, table.currentSessionId)).limit(1);
           if (session2.length > 0) {
-            const currentPaid = parseFloat(session2[0].paidAmount || "0");
-            const newPaid = currentPaid + parseFloat(payment.amount);
-            await db.update(tableSessions).set({ paidAmount: newPaid.toFixed(2) }).where(eq(tableSessions.id, table.currentSessionId));
+            console.log(`[addTablePayment] \u26A0\uFE0F NOTA: paidAmount J\xC1 foi atualizado pelo endpoint /api/tables/:id/payment`, {
+              sessionId: table.currentSessionId,
+              sessionPaidAmount: session2[0].paidAmount,
+              newPaymentAmount: parseFloat(payment.amount).toFixed(2),
+              message: "N\xE3o soma novamente para evitar duplica\xE7\xE3o"
+            });
+            const guests = await this.getTableGuests(table.currentSessionId);
+            if (guests.length > 0) {
+              const subtotalBeforeAdjustments = guests.reduce((sum, g) => sum + parseFloat(g.subtotal || "0"), 0);
+              const sessionDiscount = parseFloat(session2[0].discount || "0");
+              const sessionDiscountType = session2[0].discountType || "valor";
+              const sessionServiceFee = parseFloat(session2[0].serviceCharge || "0");
+              const sessionServiceFeeType = session2[0].serviceChargeType || "percentual";
+              let totalAmount = subtotalBeforeAdjustments;
+              if (sessionDiscount > 0) {
+                if (sessionDiscountType === "percentual") {
+                  const discountPercent = Math.min(sessionDiscount, 100);
+                  totalAmount = totalAmount * (1 - discountPercent / 100);
+                } else {
+                  totalAmount = Math.max(0, totalAmount - sessionDiscount);
+                }
+              }
+              if (sessionServiceFee > 0) {
+                if (sessionServiceFeeType === "percentual") {
+                  totalAmount = totalAmount * (1 + sessionServiceFee / 100);
+                } else {
+                  totalAmount = totalAmount + sessionServiceFee;
+                }
+              }
+              console.log("[addTablePayment] C\xE1lculo com desconto E taxa:", {
+                subtotalBeforeAdjustments: subtotalBeforeAdjustments.toFixed(2),
+                sessionDiscount: sessionDiscount.toFixed(2),
+                sessionDiscountType,
+                sessionServiceFee: sessionServiceFee.toFixed(2),
+                sessionServiceFeeType,
+                totalAmount: totalAmount.toFixed(2)
+              });
+              console.log("[addTablePayment] \u26A0\uFE0F totalAmount N\xC3O ser\xE1 atualizado aqui (j\xE1 atualizado pelo endpoint)");
+              console.log("[addTablePayment] \u2705 totalAmount da sess\xE3o atualizado:", totalAmount.toFixed(2));
+              for (const guest of guests) {
+                const guestSubtotal = parseFloat(guest.subtotal || "0");
+                const guestCurrentPaid = parseFloat(guest.paidAmount || "0");
+                if (guestSubtotal > 0 && subtotalBeforeAdjustments > 0) {
+                  const proportion = guestSubtotal / subtotalBeforeAdjustments;
+                  const guestPaymentShare = parseFloat(payment.amount) * proportion;
+                  const guestNewPaid = guestCurrentPaid + guestPaymentShare;
+                  await db.update(tableGuests).set({ paidAmount: guestNewPaid.toFixed(2) }).where(eq(tableGuests.id, guest.id));
+                }
+              }
+            }
           }
         }
         return newPayment;
@@ -5718,6 +5802,16 @@ var init_storage = __esm({
           throw error;
         }
       }
+      // ✅ SOLUÇÃO 2: Atualizar sessão (para total pago)
+      async updateSession(sessionId, updates) {
+        try {
+          await db.update(tableSessions).set(updates).where(eq(tableSessions.id, sessionId));
+          console.log(`\u2705 [SESSION UPDATE] Sess\xE3o ${sessionId} atualizada:`, updates);
+        } catch (error) {
+          console.error(`\u274C [SESSION UPDATE] Erro ao atualizar sess\xE3o ${sessionId}:`, error);
+          throw error;
+        }
+      }
       async calculateTableTotal(restaurantId, tableId) {
         const tableOrders = await db.select().from(orders).where(and(
           eq(orders.tableId, tableId),
@@ -5728,17 +5822,56 @@ var init_storage = __esm({
             eq(orders.status, "pronto")
           )
         ));
-        const total = tableOrders.reduce((sum, order) => {
+        const subtotal = tableOrders.reduce((sum, order) => {
           return sum + parseFloat(order.totalAmount || "0");
         }, 0);
-        await db.update(tables).set({ totalAmount: total.toFixed(2) }).where(eq(tables.id, tableId));
-        if (tableOrders.length > 0) {
-          const table = await this.getTableById(tableId);
-          if (table?.currentSessionId) {
-            await db.update(tableSessions).set({ totalAmount: total.toFixed(2) }).where(eq(tableSessions.id, table.currentSessionId));
+        const table = await this.getTableById(tableId);
+        if (tableOrders.length === 0 && table?.currentSessionId) {
+          const [session2] = await db.select().from(tableSessions).where(eq(tableSessions.id, table.currentSessionId)).limit(1);
+          if (session2 && parseFloat(session2.totalAmount || "0") > 0) {
+            console.log("[calculateTableTotal] \u26A0\uFE0F Mesa sem pedidos mas com totalAmount na sess\xE3o. Preservando valor:", {
+              sessionTotalAmount: session2.totalAmount
+            });
+            return parseFloat(session2.totalAmount || "0");
           }
         }
-        return total;
+        let totalAmount = subtotal;
+        if (table?.currentSessionId) {
+          const [session2] = await db.select().from(tableSessions).where(eq(tableSessions.id, table.currentSessionId)).limit(1);
+          if (session2) {
+            const sessionDiscount = parseFloat(session2.discount || "0");
+            const sessionDiscountType = session2.discountType || "valor";
+            const sessionServiceCharge = parseFloat(session2.serviceCharge || "0");
+            const sessionServiceChargeType = session2.serviceChargeType || "percentual";
+            if (sessionDiscount > 0) {
+              if (sessionDiscountType === "percentual") {
+                totalAmount = totalAmount * (1 - Math.min(sessionDiscount, 100) / 100);
+              } else {
+                totalAmount = Math.max(0, totalAmount - sessionDiscount);
+              }
+            }
+            if (sessionServiceCharge > 0) {
+              if (sessionServiceChargeType === "percentual") {
+                totalAmount = totalAmount * (1 + sessionServiceCharge / 100);
+              } else {
+                totalAmount = totalAmount + sessionServiceCharge;
+              }
+            }
+            console.log("[calculateTableTotal] \u2705 Calculando COM ajustes da sess\xE3o:", {
+              tableId,
+              sessionId: table.currentSessionId,
+              subtotal: subtotal.toFixed(2),
+              sessionDiscount: sessionDiscount.toFixed(2),
+              sessionDiscountType,
+              sessionServiceCharge: sessionServiceCharge.toFixed(2),
+              sessionServiceChargeType,
+              totalAmount: totalAmount.toFixed(2)
+            });
+            await db.update(tableSessions).set({ totalAmount: totalAmount.toFixed(2) }).where(eq(tableSessions.id, table.currentSessionId));
+          }
+        }
+        await db.update(tables).set({ totalAmount: totalAmount.toFixed(2) }).where(eq(tables.id, tableId));
+        return totalAmount;
       }
       // Category operations
       async getCategories(restaurantId, branchId) {
@@ -6120,14 +6253,42 @@ var init_storage = __esm({
         totalAmount += serviceCharge + deliveryFee;
         totalAmount = Math.max(0, totalAmount);
         const itemGuestIds = items.map((i) => i.guestId).filter((g) => typeof g === "string" && g.length > 0);
-        const uniqueGuestIds = new Set(itemGuestIds);
-        const derivedGuestId = !order.guestId && uniqueGuestIds.size === 1 ? Array.from(uniqueGuestIds)[0] : order.guestId ?? null;
+        const derivedGuestId = (() => {
+          if (order.guestId) return order.guestId;
+          if (!items || items.length === 0) return null;
+          const first = items[0].guestId;
+          if (!first) return null;
+          for (let idx = 1; idx < items.length; idx++) {
+            if (items[idx].guestId !== first) return null;
+          }
+          return first;
+        })();
+        if (order.orderType === "mesa" && order.tableId) {
+          const table = await this.getTableById(order.tableId);
+          if (table && !table.currentSessionId) {
+            console.log("[DEBUG] Table has no active session, opening one for order");
+            await this.openTableSession(restaurantId, order.tableId, order.createdBy || "system");
+          }
+        }
         const derivedTableSessionId = order.orderType === "mesa" && order.tableId ? order.tableSessionId ?? (await this.getTableById(order.tableId))?.currentSessionId ?? null : order.tableSessionId ?? null;
+        console.log("[DEBUG] createOrder derived values:", {
+          orderId: order.id,
+          tableId: order.tableId,
+          derivedTableSessionId,
+          derivedGuestId,
+          originalGuestId: order.guestId,
+          itemGuestIds: items.map((i) => i.guestId)
+        });
         const [newOrder] = await db.insert(orders).values({
           ...order,
+          restaurantId: order.restaurantId || restaurantId,
+          branchId: order.branchId || null,
           tableId: order.tableId || null,
           tableSessionId: derivedTableSessionId,
           guestId: derivedGuestId,
+          status: "pendente",
+          paymentStatus: "nao_pago",
+          // 🔧 FIX: Changed from 'pendente' to 'nao_pago' (valid enum value)
           subtotal: subtotal.toFixed(2),
           totalAmount: totalAmount.toFixed(2)
         }).returning();
@@ -9715,9 +9876,33 @@ var init_storage = __esm({
         if (!session2) return;
         const totalAmount = parseFloat(session2.totalAmount || "0");
         const paidAmount = parseFloat(session2.paidAmount || "0");
-        if (paidAmount >= totalAmount && totalAmount > 0) {
-          await this.updateTableStatus(tableId, "disponivel");
+        console.log("\u{1F50D} [autoUpdateTableStatusOnPayment] Verificando status:", {
+          tableId,
+          sessionId: table.currentSessionId,
+          totalAmount: totalAmount.toFixed(2),
+          paidAmount: paidAmount.toFixed(2),
+          pendente: (totalAmount - paidAmount).toFixed(2),
+          isFullyPaid: paidAmount >= totalAmount && totalAmount > 0,
+          isDiscount100: totalAmount === 0 && paidAmount === 0
+        });
+        if (totalAmount === 0 || paidAmount >= totalAmount && totalAmount > 0) {
+          console.log("\u2705 [autoUpdateTableStatusOnPayment] Pagamento completo! Fechando sess\xE3o automaticamente...");
+          await db.update(tableSessions).set({
+            status: "encerrada",
+            endedAt: /* @__PURE__ */ new Date()
+          }).where(eq(tableSessions.id, table.currentSessionId));
+          await db.update(tables).set({
+            status: "livre",
+            currentSessionId: null,
+            totalAmount: "0",
+            customerName: null,
+            customerCount: 0,
+            lastActivity: /* @__PURE__ */ new Date(),
+            isOccupied: 0
+          }).where(eq(tables.id, tableId));
+          console.log("\u2705 [autoUpdateTableStatusOnPayment] Sess\xE3o fechada e mesa liberada com sucesso");
         } else if (paidAmount > 0 && paidAmount < totalAmount) {
+          console.log("\u23F3 [autoUpdateTableStatusOnPayment] Pagamento parcial - mantendo sess\xE3o aberta");
           await this.updateTableStatus(tableId, "pagamento_parcial");
         }
       }
@@ -12671,6 +12856,31 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Erro ao atualizar status do restaurante" });
     }
   });
+  app2.patch("/api/restaurant/status", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      const { isOpen } = req.body;
+      if (typeof isOpen !== "number" || ![0, 1, 2].includes(isOpen)) {
+        return res.status(400).json({ message: "Valor de status inv\xE1lido. Use 0 (fechado), 1 (aberto) ou 2 (pausado)" });
+      }
+      const restaurant = await storage.updateRestaurantAppearance(currentUser.restaurantId, { isOpen });
+      const statusMessages = {
+        0: "Restaurante fechado",
+        1: "Restaurante aberto",
+        2: "Restaurante pausado (n\xE3o aceita novos pedidos)"
+      };
+      res.json({
+        message: statusMessages[isOpen],
+        restaurant
+      });
+    } catch (error) {
+      console.error("Error updating restaurant status:", error);
+      res.status(500).json({ message: "Erro ao atualizar status do restaurante" });
+    }
+  });
   app2.post("/api/restaurants/upload-logo", isAdmin, uploadRestaurantImage.single("logo"), async (req, res) => {
     try {
       const currentUser = req.user;
@@ -14387,7 +14597,6 @@ async function registerRoutes(app2) {
         customerName,
         customerCount
       });
-      await storage.calculateTableTotal(restaurantId, req.params.id);
       await storage.autoUpdateTableStatusOnSessionStart(req.params.id);
       broadcastToClients({ type: "table_session_started", data: session2 });
       res.json(session2);
@@ -14410,9 +14619,17 @@ async function registerRoutes(app2) {
         return res.status(400).json({ message: "Mesa n\xE3o possui sess\xE3o ativa" });
       }
       const validation = await storage.validateSessionClosure(table.currentSessionId);
+      console.log("[CloseSession] Valida\xE7\xE3o:", {
+        canClose: validation.canClose,
+        totalPending: validation.totalPending,
+        unpaidGuests: validation.unpaidGuests.length,
+        forceClose: req.body.forceClose,
+        userRole: currentUser.role
+      });
       if (!validation.canClose && !req.body.forceClose) {
+        console.log("[CloseSession] \u274C Bloqueado - valores pendentes");
         return res.status(400).json({
-          message: "Mesa possui valores pendentes de pagamento",
+          message: validation.totalPending > 0 ? "Mesa possui valores pendentes de pagamento" : "N\xE3o \xE9 poss\xEDvel encerrar esta sess\xE3o",
           pendingAmount: validation.totalPending,
           unpaidGuests: validation.unpaidGuests,
           warnings: validation.warnings,
@@ -14420,9 +14637,12 @@ async function registerRoutes(app2) {
         });
       }
       if (!validation.canClose && req.body.forceClose) {
+        console.log("[CloseSession] \u26A0\uFE0F For\xE7ando fechamento com pend\xEAncias");
+      } else {
+        console.log("[CloseSession] \u2705 Fechamento permitido");
       }
       const guests = await storage.getTableGuests(table.currentSessionId);
-      const loyaltyProgram = await storage.getLoyaltyProgramByRestaurantId(restaurantId);
+      const loyaltyProgram = await storage.getLoyaltyProgram(restaurantId);
       if (loyaltyProgram && loyaltyProgram.isActive) {
         for (const guest of guests) {
           if (guest.customerId && guest.subtotal && parseFloat(guest.subtotal) > 0) {
@@ -14575,33 +14795,293 @@ async function registerRoutes(app2) {
         return res.status(403).json({ message: "Gar\xE7ons n\xE3o podem registrar pagamentos. Solicite ao caixa." });
       }
       const restaurantId = currentUser.restaurantId;
-      const { amount, paymentMethod, notes, receivedAmount, services: services2, discount, discountType } = req.body;
+      const { amount, paymentMethod, notes, receivedAmount, services: services2, discount, discountType, serviceCharge, serviceChargeType } = req.body;
       const table = await storage.getTableById(req.params.id);
       if (!table) {
         return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
       }
-      if (table.currentSessionId && discount) {
-        const orders2 = await storage.getOrdersBySessionId(restaurantId, table.currentSessionId);
-        for (const order of orders2) {
-          if (discount && parseFloat(discount) > 0) {
-            await storage.applyDiscount(restaurantId, order.id, discount, discountType || "valor");
-          }
+      if (table.restaurantId !== restaurantId) {
+        return res.status(403).json({
+          message: "Acesso negado: Mesa n\xE3o pertence ao seu restaurante"
+        });
+      }
+      if (table.currentSessionId) {
+        const updates = { updatedAt: /* @__PURE__ */ new Date() };
+        if (discount && parseFloat(discount) > 0) {
+          updates.discount = discount;
+          updates.discountType = discountType || "valor";
+          console.log("[Payment] Aplicando desconto \xE0 sess\xE3o:", {
+            sessionId: table.currentSessionId,
+            discount,
+            discountType: discountType || "valor"
+          });
         }
-        await storage.calculateTableTotal(restaurantId, req.params.id);
+        if (serviceCharge && parseFloat(serviceCharge) > 0) {
+          updates.serviceCharge = serviceCharge;
+          updates.serviceChargeType = serviceChargeType || "percentual";
+          console.log("[Payment] Aplicando taxa de servi\xE7o \xE0 sess\xE3o:", {
+            sessionId: table.currentSessionId,
+            serviceCharge,
+            serviceChargeType: serviceChargeType || "percentual"
+          });
+        }
+        if (Object.keys(updates).length > 1) {
+          await db.update(tableSessions).set(updates).where(eq2(tableSessions.id, table.currentSessionId));
+        }
       }
       const payment = await storage.addTablePayment(restaurantId, {
         tableId: req.params.id,
         sessionId: table.currentSessionId,
         amount,
+        // Valor já com desconto aplicado pelo frontend
         paymentMethod,
         notes: receivedAmount ? `Valor recebido: ${receivedAmount}. ${notes || ""}` : notes
       });
+      if (table.currentSessionId) {
+        const [session2] = await db.select().from(tableSessions).where(eq2(tableSessions.id, table.currentSessionId)).limit(1);
+        const currentPaid = parseFloat(session2?.paidAmount || "0");
+        const totalPaid = currentPaid + parseFloat(amount);
+        console.log("\u{1F4B0} [TABLE PAYMENT] Atualizando paidAmount:", {
+          sessionId: table.currentSessionId,
+          currentPaid: currentPaid.toFixed(2),
+          newPayment: parseFloat(amount).toFixed(2),
+          totalPaid: totalPaid.toFixed(2)
+        });
+        const allGuests = await storage.getTableGuests(table.currentSessionId);
+        if (session2) {
+          const sessionDiscount = parseFloat(session2.discount || "0");
+          const sessionDiscountType = session2.discountType || "valor";
+          const sessionServiceCharge = parseFloat(session2.serviceCharge || "0");
+          const sessionServiceChargeType = session2.serviceChargeType || "percentual";
+          const subtotalBeforeAdjustments = allGuests.reduce((sum, g) => sum + parseFloat(g.subtotal || "0"), 0);
+          let totalAmountAjustado = subtotalBeforeAdjustments;
+          if (sessionDiscount > 0) {
+            if (sessionDiscountType === "percentual") {
+              totalAmountAjustado = totalAmountAjustado * (1 - Math.min(sessionDiscount, 100) / 100);
+            } else {
+              totalAmountAjustado = Math.max(0, totalAmountAjustado - sessionDiscount);
+            }
+          }
+          if (sessionServiceCharge > 0) {
+            if (sessionServiceChargeType === "percentual") {
+              totalAmountAjustado = totalAmountAjustado * (1 + sessionServiceCharge / 100);
+            } else {
+              totalAmountAjustado = totalAmountAjustado + sessionServiceCharge;
+            }
+          }
+          console.log("\u{1F4B0} [TABLE PAYMENT] Atualizando sess\xE3o com ajustes:", {
+            sessionId: table.currentSessionId,
+            subtotalBeforeAdjustments: subtotalBeforeAdjustments.toFixed(2),
+            sessionDiscount: sessionDiscount.toFixed(2),
+            sessionDiscountType,
+            sessionServiceCharge: sessionServiceCharge.toFixed(2),
+            sessionServiceChargeType,
+            totalAmountAjustado: totalAmountAjustado.toFixed(2),
+            totalPaid: totalPaid.toFixed(2),
+            pendente: (totalAmountAjustado - totalPaid).toFixed(2)
+          });
+          await db.update(tableSessions).set({
+            totalAmount: totalAmountAjustado.toFixed(2),
+            paidAmount: totalPaid.toFixed(2)
+          }).where(eq2(tableSessions.id, table.currentSessionId));
+        } else {
+          await db.update(tableSessions).set({ paidAmount: totalPaid.toFixed(2) }).where(eq2(tableSessions.id, table.currentSessionId));
+        }
+      }
       await storage.autoUpdateTableStatusOnPayment(req.params.id);
-      broadcastToClients({ type: "table_payment_added", data: payment });
+      broadcastToClients({
+        type: "table_payment_added",
+        data: payment,
+        tableId: req.params.id,
+        sessionId: table.currentSessionId
+      });
+      broadcastToClients({
+        type: "table_updated",
+        data: { tableId: req.params.id }
+      });
       res.json(payment);
     } catch (error) {
       console.error("Payment processing error:", error);
       res.status(500).json({ message: error.message || "Failed to record payment" });
+    }
+  });
+  app2.post("/api/table-guests/:guestId/payment", isOperational, async (req, res) => {
+    try {
+      console.log("\u{1F3AF} [GUEST PAYMENT] Nova rota de pagamento individual chamada!");
+      console.log("\u{1F3AF} [GUEST PAYMENT] Guest ID:", req.params.guestId);
+      console.log("\u{1F3AF} [GUEST PAYMENT] Body:", req.body);
+      const currentUser = req.user;
+      if (!currentUser.restaurantId && currentUser.role !== "superadmin") {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      if (currentUser.role === "waiter") {
+        return res.status(403).json({ message: "Gar\xE7ons n\xE3o podem registrar pagamentos. Solicite ao caixa." });
+      }
+      const restaurantId = currentUser.restaurantId;
+      const { amount, paymentMethod, notes, receivedAmount } = req.body;
+      const guestId = req.params.guestId;
+      const guest = await storage.getTableGuestById(guestId);
+      if (!guest) {
+        return res.status(404).json({ message: "Convidado n\xE3o encontrado" });
+      }
+      const guestTable = await storage.getTableById(guest.tableId);
+      if (!guestTable || guestTable.restaurantId !== restaurantId) {
+        return res.status(403).json({
+          message: "Acesso negado: Convidado n\xE3o pertence ao seu restaurante"
+        });
+      }
+      const paymentAmount = parseFloat(amount);
+      if (isNaN(paymentAmount) || paymentAmount <= 0) {
+        return res.status(400).json({ message: "Valor de pagamento inv\xE1lido" });
+      }
+      const guestSubtotalOriginal = parseFloat(guest.subtotal || "0");
+      const guestPaid = parseFloat(guest.paidAmount || "0");
+      const session2 = await db.select().from(tableSessions).where(eq2(tableSessions.id, guest.sessionId)).limit(1);
+      let guestSubtotalAjustado = guestSubtotalOriginal;
+      if (session2.length > 0) {
+        const sessionDiscount = parseFloat(session2[0].discount || "0");
+        const sessionDiscountType = session2[0].discountType || "valor";
+        const sessionServiceCharge = parseFloat(session2[0].serviceCharge || "0");
+        const sessionServiceChargeType = session2[0].serviceChargeType || "percentual";
+        if (sessionDiscount > 0) {
+          if (sessionDiscountType === "percentual") {
+            guestSubtotalAjustado = guestSubtotalAjustado * (1 - Math.min(sessionDiscount, 100) / 100);
+          } else {
+            const allGuests2 = await storage.getTableGuests(guest.sessionId);
+            const totalSubtotal = allGuests2.reduce((sum, g) => sum + parseFloat(g.subtotal || "0"), 0);
+            const guestProportion = guestSubtotalOriginal / totalSubtotal;
+            const guestDiscountShare = sessionDiscount * guestProportion;
+            guestSubtotalAjustado = Math.max(0, guestSubtotalAjustado - guestDiscountShare);
+          }
+        }
+        if (sessionServiceCharge > 0) {
+          if (sessionServiceChargeType === "percentual") {
+            guestSubtotalAjustado = guestSubtotalAjustado * (1 + sessionServiceCharge / 100);
+          } else {
+            const allGuests2 = await storage.getTableGuests(guest.sessionId);
+            const totalSubtotal = allGuests2.reduce((sum, g) => sum + parseFloat(g.subtotal || "0"), 0);
+            const guestProportion = guestSubtotalOriginal / totalSubtotal;
+            const guestChargeShare = sessionServiceCharge * guestProportion;
+            guestSubtotalAjustado = guestSubtotalAjustado + guestChargeShare;
+          }
+        }
+        console.log("[GuestPayment] Ajustes da sess\xE3o:", {
+          subtotalOriginal: guestSubtotalOriginal.toFixed(2),
+          sessionDiscount: sessionDiscount.toFixed(2),
+          sessionDiscountType,
+          sessionServiceCharge: sessionServiceCharge.toFixed(2),
+          sessionServiceChargeType,
+          subtotalAjustado: guestSubtotalAjustado.toFixed(2)
+        });
+      }
+      const guestPending = guestSubtotalAjustado - guestPaid;
+      const minAllowed = guestSubtotalAjustado * 0.9;
+      const maxAllowed = guestSubtotalAjustado * 1.1;
+      if (paymentAmount < minAllowed || paymentAmount > maxAllowed) {
+        console.log("\u26A0\uFE0F [GuestPayment] Valor fora da margem esperada (aceito com aviso):", {
+          valorEsperado: guestSubtotalAjustado.toFixed(2),
+          valorRecebido: paymentAmount.toFixed(2),
+          diferenca: (paymentAmount - guestSubtotalAjustado).toFixed(2)
+        });
+      }
+      console.log("[GuestPayment] Valida\xE7\xE3o:", {
+        guestSubtotalOriginal: guestSubtotalOriginal.toFixed(2),
+        guestSubtotalAjustado: guestSubtotalAjustado.toFixed(2),
+        guestPaid: guestPaid.toFixed(2),
+        guestPending: guestPending.toFixed(2),
+        paymentAmount: paymentAmount.toFixed(2),
+        minAllowed: minAllowed.toFixed(2),
+        maxAllowed: maxAllowed.toFixed(2),
+        status: paymentAmount >= minAllowed && paymentAmount <= maxAllowed ? "OK" : "FORA_MARGEM_MAS_ACEITO"
+      });
+      const [tablePayment] = await db.insert(tablePayments).values({
+        restaurantId,
+        tableId: guest.tableId,
+        sessionId: guest.sessionId,
+        amount,
+        paymentMethod,
+        notes: receivedAmount ? `Pagamento de ${guest.name || "Convidado"} - Valor recebido: ${receivedAmount} Kz. ${notes || ""}` : `Pagamento de ${guest.name || "Convidado"}. ${notes || ""}`
+      }).returning();
+      const guestPayment = await storage.createGuestPayment(restaurantId, {
+        guestId,
+        sessionId: guest.sessionId,
+        tablePaymentId: tablePayment.id,
+        amount,
+        paymentMethod,
+        notes: notes || null
+      });
+      const allGuests = await storage.getTableGuests(guest.sessionId);
+      const totalPaid = allGuests.reduce((sum, g) => sum + parseFloat(g.paidAmount || "0"), 0);
+      if (session2.length > 0) {
+        const sessionDiscount = parseFloat(session2[0].discount || "0");
+        const sessionDiscountType = session2[0].discountType || "valor";
+        const sessionServiceCharge = parseFloat(session2[0].serviceCharge || "0");
+        const sessionServiceChargeType = session2[0].serviceChargeType || "percentual";
+        const subtotalBeforeAdjustments = allGuests.reduce((sum, g) => sum + parseFloat(g.subtotal || "0"), 0);
+        let totalAmountAjustado = subtotalBeforeAdjustments;
+        if (sessionDiscount > 0) {
+          if (sessionDiscountType === "percentual") {
+            totalAmountAjustado = totalAmountAjustado * (1 - Math.min(sessionDiscount, 100) / 100);
+          } else {
+            totalAmountAjustado = Math.max(0, totalAmountAjustado - sessionDiscount);
+          }
+        }
+        if (sessionServiceCharge > 0) {
+          if (sessionServiceChargeType === "percentual") {
+            totalAmountAjustado = totalAmountAjustado * (1 + sessionServiceCharge / 100);
+          } else {
+            totalAmountAjustado = totalAmountAjustado + sessionServiceCharge;
+          }
+        }
+        console.log("\u{1F3AF} [GUEST PAYMENT] Calculando totalAmount da sess\xE3o COM ajustes:", {
+          subtotalBeforeAdjustments: subtotalBeforeAdjustments.toFixed(2),
+          sessionDiscount: sessionDiscount.toFixed(2),
+          sessionServiceCharge: sessionServiceCharge.toFixed(2),
+          totalAmountAjustado: totalAmountAjustado.toFixed(2)
+        });
+        await db.update(tableSessions).set({
+          totalAmount: totalAmountAjustado.toFixed(2),
+          paidAmount: totalPaid.toFixed(2)
+        }).where(eq2(tableSessions.id, guest.sessionId));
+        console.log("\u{1F3AF} [GUEST PAYMENT] \u2705 Sess\xE3o atualizada:", {
+          totalAmount: totalAmountAjustado.toFixed(2),
+          paidAmount: totalPaid.toFixed(2),
+          pendente: (totalAmountAjustado - totalPaid).toFixed(2)
+        });
+      } else {
+        await db.update(tableSessions).set({ paidAmount: totalPaid.toFixed(2) }).where(eq2(tableSessions.id, guest.sessionId));
+      }
+      console.log("\u{1F3AF} [GUEST PAYMENT] \u2705 Session.paidAmount j\xE1 atualizado anteriormente");
+      console.log("\u{1F50D} [GUEST PAYMENT] Verificando se mesa deve fechar automaticamente...");
+      await storage.autoUpdateTableStatusOnPayment(guest.tableId);
+      const updatedGuest = await storage.getTableGuestById(guestId);
+      broadcastToClients({
+        type: "guest_payment_added",
+        data: {
+          guestPayment,
+          tablePayment,
+          guest: updatedGuest,
+          tableId: guest.tableId,
+          sessionId: guest.sessionId
+        }
+      });
+      broadcastToClients({
+        type: "table_updated",
+        data: { tableId: guest.tableId }
+      });
+      res.json({
+        success: true,
+        guestPayment,
+        tablePayment,
+        guest: updatedGuest
+      });
+    } catch (error) {
+      console.error("\u274C [GUEST PAYMENT] Erro ao processar pagamento:", error);
+      console.error("\u274C [GUEST PAYMENT] Stack:", error.stack);
+      res.status(500).json({
+        message: error.message || "Failed to record guest payment",
+        error: process.env.NODE_ENV === "development" ? error.toString() : void 0
+      });
     }
   });
   app2.post("/api/tables/:id/payments", isCashierOrAbove, async (req, res) => {
@@ -14612,17 +15092,65 @@ async function registerRoutes(app2) {
       }
       const restaurantId = currentUser.restaurantId;
       const { amount, paymentMethod, notes, sessionId } = req.body;
+      if (!amount || parseFloat(amount) <= 0) {
+        return res.status(400).json({ message: "Valor deve ser maior que 0" });
+      }
       const table = await storage.getTableById(req.params.id);
       if (!table) {
         return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
       }
+      if (table.restaurantId !== restaurantId) {
+        return res.status(403).json({
+          message: "Acesso negado: Mesa n\xE3o pertence ao seu restaurante"
+        });
+      }
+      const targetSessionId = sessionId || table.currentSessionId;
+      if (!targetSessionId) {
+        return res.status(400).json({ message: "Mesa n\xE3o possui sess\xE3o ativa" });
+      }
       const payment = await storage.addTablePayment(restaurantId, {
         tableId: req.params.id,
-        sessionId: sessionId || table.currentSessionId,
+        sessionId: targetSessionId,
         amount,
         paymentMethod,
         notes
       });
+      const [session2] = await db.select().from(tableSessions).where(eq2(tableSessions.id, targetSessionId)).limit(1);
+      if (session2) {
+        const allGuests = await storage.getTableGuests(targetSessionId);
+        const currentPaid = parseFloat(session2.paidAmount || "0");
+        const totalPaid = currentPaid + parseFloat(amount);
+        const subtotal = allGuests.reduce((sum, g) => sum + parseFloat(g.subtotal || "0"), 0);
+        const sessionDiscount = parseFloat(session2.discount || "0");
+        const sessionDiscountType = session2.discountType || "valor";
+        const sessionServiceCharge = parseFloat(session2.serviceCharge || "0");
+        const sessionServiceChargeType = session2.serviceChargeType || "percentual";
+        let totalAmount = subtotal;
+        if (sessionDiscount > 0) {
+          if (sessionDiscountType === "percentual") {
+            totalAmount = totalAmount * (1 - Math.min(sessionDiscount, 100) / 100);
+          } else {
+            totalAmount = Math.max(0, totalAmount - sessionDiscount);
+          }
+        }
+        if (sessionServiceCharge > 0) {
+          if (sessionServiceChargeType === "percentual") {
+            totalAmount = totalAmount * (1 + sessionServiceCharge / 100);
+          } else {
+            totalAmount = totalAmount + sessionServiceCharge;
+          }
+        }
+        console.log("\u{1F4B0} [LEGACY PAYMENTS ENDPOINT] Atualizando sess\xE3o:", {
+          sessionId: targetSessionId,
+          totalAmount: totalAmount.toFixed(2),
+          paidAmount: totalPaid.toFixed(2)
+        });
+        await db.update(tableSessions).set({
+          totalAmount: totalAmount.toFixed(2),
+          paidAmount: totalPaid.toFixed(2)
+        }).where(eq2(tableSessions.id, targetSessionId));
+        await storage.autoUpdateTableStatusOnPayment(req.params.id);
+      }
       broadcastToClients({ type: "table_payment_added", data: payment });
       res.json(payment);
     } catch (error) {
@@ -14744,8 +15272,16 @@ async function registerRoutes(app2) {
       if (!table) {
         return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
       }
-      if (!table.currentSessionId) {
-        return res.status(400).json({ message: "Mesa n\xE3o possui sess\xE3o ativa" });
+      let sessionId = table.currentSessionId;
+      if (!sessionId) {
+        console.log("[AddGuest] Nenhuma sess\xE3o ativa, criando sess\xE3o automaticamente...");
+        const session2 = await storage.startTableSession(restaurantId, {
+          tableId: table.id,
+          numberOfGuests: 1
+          // Será incrementado conforme adiciona mais guests
+        });
+        sessionId = session2.id;
+        console.log("[AddGuest] Sess\xE3o criada automaticamente:", sessionId);
       }
       const { customerId, name, seatNumber } = req.body;
       let guestName = name;
@@ -14755,19 +15291,37 @@ async function registerRoutes(app2) {
           guestName = customer.name;
         }
       }
-      const existingGuests = await storage.getTableGuests(table.currentSessionId);
+      const existingGuests = await storage.getTableGuests(sessionId);
+      const tableCapacity = table.capacity || 4;
+      if (existingGuests.length >= tableCapacity) {
+        return res.status(400).json({
+          message: `Mesa j\xE1 est\xE1 na capacidade m\xE1xima (${tableCapacity} ${tableCapacity === 1 ? "pessoa" : "pessoas"})`,
+          currentGuests: existingGuests.length,
+          capacity: tableCapacity
+        });
+      }
       const anonymousGuestsCount = existingGuests.filter((g) => !g.customerId).length;
       const guestNumber = customerId ? void 0 : anonymousGuestsCount + 1;
       const guest = await storage.createTableGuest(restaurantId, {
-        sessionId: table.currentSessionId,
+        sessionId,
         tableId: table.id,
         customerId,
         name: guestName || (guestNumber ? `Convidado ${guestNumber}` : void 0),
         guestNumber,
         seatNumber
       });
-      broadcastToClients({ type: "guest_joined", data: { tableId: table.id, guest } });
-      res.json(guest);
+      const updatedTable = await storage.getTableById(req.params.id);
+      broadcastToClients({ type: "guest_joined", data: {
+        tableId: table.id,
+        guest,
+        table: updatedTable
+        // ✅ Inclui mesa atualizada com sessionId
+      } });
+      res.json({
+        ...guest,
+        sessionId,
+        tableCurrentSessionId: updatedTable?.currentSessionId
+      });
     } catch (error) {
       res.status(500).json({ message: error.message || "Erro ao adicionar cliente" });
     }
@@ -14899,6 +15453,30 @@ async function registerRoutes(app2) {
         paidAmount: newPaidAmount.toFixed(2),
         status: newPaidAmount >= parseFloat(guest.subtotal || "0") ? "pago" : "ativo"
       });
+      if (table.currentSessionId) {
+        const session2 = await storage.getSessionById(table.currentSessionId);
+        if (session2) {
+          const currentSessionPaid = parseFloat(session2.totalPaid || "0");
+          await storage.updateSession(table.currentSessionId, {
+            totalPaid: (currentSessionPaid + paymentAmount).toFixed(2)
+          });
+        }
+        const allGuests = await storage.getTableGuests(table.currentSessionId);
+        const allPaid = allGuests.every((g) => {
+          const guestPaid = parseFloat(g.paidAmount || "0");
+          const guestTotal = parseFloat(g.subtotal || "0");
+          return guestPaid >= guestTotal;
+        });
+        if (allPaid && table.status !== "aguardando_pagamento") {
+          await storage.updateTable(table.id, {
+            status: "aguardando_pagamento"
+          });
+          broadcastToClients({
+            type: "table_fully_paid",
+            data: { tableId: table.id, sessionId: table.currentSessionId }
+          });
+        }
+      }
       if (guest.customerId && paymentAmount > 0) {
         const loyaltyProgram = await storage.getLoyaltyProgramByRestaurant(restaurantId);
         if (loyaltyProgram && loyaltyProgram.isActive) {
@@ -14944,15 +15522,15 @@ async function registerRoutes(app2) {
       const guests = table.currentSessionId ? await storage.getTableGuests(table.currentSessionId) : [];
       const allTableOrders = await storage.getOrdersByTableId(table.restaurantId, table.id);
       const currentGuestIds = guests.map((g) => g.id);
-      const orders2 = allTableOrders.filter((order) => {
-        if (order.sessionId === table.currentSessionId) {
+      const orders2 = table.currentSessionId ? allTableOrders.filter((order) => {
+        if (order.tableSessionId === table.currentSessionId) {
           return true;
         }
-        if (order.guestId && currentGuestIds.includes(order.guestId)) {
+        if (!order.tableSessionId && order.guestId && currentGuestIds.includes(order.guestId)) {
           return true;
         }
         return false;
-      });
+      }) : [];
       const calculateOrderTotal = (order) => {
         if (order.totalAmount && parseFloat(order.totalAmount) > 0) {
           return parseFloat(order.totalAmount);
@@ -15004,7 +15582,53 @@ async function registerRoutes(app2) {
         };
       });
       const session2 = table.currentSessionId ? (await db.select().from(tableSessions).where(eq2(tableSessions.id, table.currentSessionId)).limit(1))[0] : null;
-      const totalAmount = orders2.filter((o) => o.status !== "cancelado").reduce((sum, o) => sum + calculateOrderTotal(o), 0);
+      const subtotalBeforeAdjustments = orders2.filter((o) => o.status !== "cancelado").reduce((sum, o) => sum + calculateOrderTotal(o), 0);
+      const sessionDiscount = parseFloat(session2?.discount || "0");
+      const sessionDiscountType = session2?.discountType || "valor";
+      const sessionServiceCharge = parseFloat(session2?.serviceCharge || "0");
+      const sessionServiceChargeType = session2?.serviceChargeType || "percentual";
+      let totalAmount = subtotalBeforeAdjustments;
+      if (sessionDiscount > 0) {
+        if (sessionDiscountType === "percentual") {
+          const discountPercent = Math.min(sessionDiscount, 100);
+          totalAmount = totalAmount * (1 - discountPercent / 100);
+        } else {
+          totalAmount = Math.max(0, totalAmount - sessionDiscount);
+        }
+      }
+      if (sessionServiceCharge > 0) {
+        if (sessionServiceChargeType === "percentual") {
+          totalAmount = totalAmount * (1 + sessionServiceCharge / 100);
+        } else {
+          totalAmount = totalAmount + sessionServiceCharge;
+        }
+      }
+      console.log(`[orders-by-guest] Mesa ${req.params.id}:`, {
+        sessionId: table.currentSessionId,
+        allTableOrdersCount: allTableOrders.length,
+        filteredOrdersCount: orders2.length,
+        currentGuestIds,
+        ordersBreakdown: orders2.map((o) => ({
+          id: o.id,
+          tableSessionId: o.tableSessionId,
+          guestId: o.guestId,
+          status: o.status,
+          total: calculateOrderTotal(o).toFixed(2)
+        })),
+        subtotalBeforeAdjustments: subtotalBeforeAdjustments.toFixed(2),
+        sessionDiscount: sessionDiscount.toFixed(2),
+        sessionDiscountType,
+        sessionServiceCharge: sessionServiceCharge.toFixed(2),
+        sessionServiceChargeType,
+        totalAmount: totalAmount.toFixed(2),
+        paidAmount: session2?.paidAmount || "0.00",
+        sessionData: session2 ? {
+          id: session2.id,
+          discount: session2.discount,
+          serviceCharge: session2.serviceCharge,
+          paidAmount: session2.paidAmount
+        } : null
+      });
       res.json({
         ordersByGuest,
         anonymousOrders,
@@ -15868,43 +16492,36 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to fetch orders", error: error instanceof Error ? error.message : String(error) });
     }
   });
-  app2.post("/api/orders", isAdmin, async (req, res) => {
+  app2.post("/api/orders", isAuthenticated, async (req, res) => {
     try {
       const currentUser = req.user;
       let { items, ...orderData } = req.body;
-      if (currentUser.role !== "superadmin" && currentUser.restaurantId) {
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        console.error("[DEBUG] Order creation failed: No items provided");
+        return res.status(400).json({ message: "No items provided" });
+      }
+      const restaurantId = currentUser.restaurantId || orderData.restaurantId;
+      if (!restaurantId) {
+        return res.status(400).json({ message: "Restaurant ID is required" });
+      }
+      if (currentUser.role !== "superadmin" && restaurantId) {
         try {
-          await checkCanCreateOrder(storage, currentUser.restaurantId);
+          await checkCanCreateOrder(storage, restaurantId);
         } catch (error) {
           return res.status(403).json({
             message: error.message || "Limite de pedidos atingido"
           });
         }
       }
-      if (orderData.customerId) {
-        const customer = await storage.getCustomer(orderData.customerId);
-        if (customer) {
-          if (!orderData.discount && customer.defaultDiscount && parseFloat(customer.defaultDiscount) > 0) {
-            orderData.discount = customer.defaultDiscount;
-            orderData.discountType = customer.defaultDiscountType || "valor";
-          }
-          if (!orderData.serviceCharge && customer.defaultServiceCharge && parseFloat(customer.defaultServiceCharge) > 0) {
-            orderData.serviceCharge = customer.defaultServiceCharge;
-            orderData.serviceName = customer.defaultServiceName || "Taxa de Servi\xE7o";
-          }
-          if (!orderData.packagingFee && customer.defaultPackagingFee && parseFloat(customer.defaultPackagingFee) > 0) {
-            orderData.packagingFee = customer.defaultPackagingFee;
-          }
-        }
-      }
       const validatedOrder = insertOrderSchema.parse({
         ...orderData,
         createdBy: currentUser.id,
-        branchId: currentUser.activeBranchId || null
+        branchId: currentUser.activeBranchId || orderData.branchId || null,
+        restaurantId
       });
       const validatedItems = z2.array(publicOrderItemSchema).parse(items);
       const orderNumber = await generateOrderNumber(
-        currentUser.restaurantId,
+        restaurantId,
         validatedOrder.orderType
       );
       const order = await storage.createOrder({
@@ -15917,7 +16534,7 @@ async function registerRoutes(app2) {
       broadcastToClients({ type: "new_order", data: order });
       try {
         const kitchenPrinters = await storage.getActivePrintersByType(
-          currentUser.restaurantId,
+          restaurantId,
           "kitchen",
           currentUser.activeBranchId || void 0
         );
@@ -15946,7 +16563,12 @@ async function registerRoutes(app2) {
         });
       }
       console.error("Order creation error:", error);
-      res.status(500).json({ message: "Failed to create order" });
+      console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
+      console.error("Error message:", error instanceof Error ? error.message : String(error));
+      res.status(500).json({
+        message: "Failed to create order",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   app2.patch("/api/orders/:id/status", isAuthenticated, async (req, res) => {

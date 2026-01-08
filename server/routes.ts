@@ -6,7 +6,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage, db, eq, orderItems, orderItemAuditLogs, sql } from "./storage";
 import { and, isNull } from 'drizzle-orm';
-import { tables, tableSessions } from '@shared/schema';
+import { tables, tableSessions, tablePayments } from '@shared/schema';
 import { generateOrderNumber, formatOrderDisplay } from './orderNumberGenerator';
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import {
@@ -354,6 +354,7 @@ function isCashierOrAbove(req: any, res: any, next: any) {
   }
   const user = req.user as User;
   const allowedRoles = ['admin', 'superadmin', 'manager', 'cashier'];
+  
   if (!allowedRoles.includes(user.role)) {
     return res.status(403).json({ message: "Acesso negado. Você não tem permissão para esta ação." });
   }
@@ -677,6 +678,156 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // TEMPORARY: FIX SESSIONS WITH MISSING ADJUSTMENTS
+  // ============================================================================
+  
+  app.post("/api/admin/fix-sessions", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      // Apenas admin, manager ou superadmin podem executar
+      if (!['admin', 'manager', 'superadmin'].includes(currentUser.role)) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      
+      const { execute } = req.body;
+      
+      console.log('🔧 [FIX-SESSIONS] Iniciando análise de sessões problemáticas...');
+      
+      // Buscar sessões problemáticas
+      const sessions = await db.select().from(tableSessions).where(
+        and(
+          // Não tem ajustes salvos ou são zero
+          or(
+            eq(tableSessions.discount, '0'),
+            eq(tableSessions.discount, '0.00'),
+            sql`${tableSessions.discount} IS NULL`
+          ),
+          or(
+            eq(tableSessions.serviceCharge, '0'),
+            eq(tableSessions.serviceCharge, '0.00'),
+            sql`${tableSessions.serviceCharge} IS NULL`
+          ),
+          // Tem valor pago
+          sql`CAST(${tableSessions.paidAmount} AS NUMERIC) > 0`,
+          // Não está fechada
+          sql`${tableSessions.status} != 'fechada'`
+        )
+      );
+      
+      const toFix = [];
+      
+      for (const session of sessions) {
+        const total = parseFloat(session.totalAmount || '0');
+        const paid = parseFloat(session.paidAmount || '0');
+        const diff = total - paid;
+        
+        // Apenas se houver diferença significativa
+        if (Math.abs(diff) > 0.01) {
+          const item = {
+            id: session.id,
+            tableId: session.tableId,
+            total: total.toFixed(2),
+            paid: paid.toFixed(2),
+            diff: diff.toFixed(2),
+            discountPercent: diff > 0 ? ((diff / total) * 100).toFixed(2) : '0',
+            servicePercent: diff < 0 ? ((Math.abs(diff) / total) * 100).toFixed(2) : '0',
+            type: diff > 0 ? 'desconto' : diff < 0 ? 'taxa' : 'ok'
+          };
+          toFix.push(item);
+        }
+      }
+      
+      console.log(`🔍 [FIX-SESSIONS] Encontradas ${toFix.length} sessões com diferença`);
+      
+      // Se não for para executar, retornar apenas análise
+      if (!execute) {
+        return res.json({
+          analysis: true,
+          count: toFix.length,
+          sessions: toFix,
+          message: 'Análise completa. Envie {"execute": true} para aplicar correções.'
+        });
+      }
+      
+      console.log('💾 [FIX-SESSIONS] Criando backup...');
+      
+      // Criar backup
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const backupName = `table_sessions_backup_${timestamp.replace(/-/g, '_')}`;
+      
+      await db.execute(sql.raw(`
+        CREATE TABLE IF NOT EXISTS ${backupName} AS 
+        SELECT * FROM table_sessions
+      `));
+      
+      console.log('✅ [FIX-SESSIONS] Backup criado:', backupName);
+      console.log('🔧 [FIX-SESSIONS] Aplicando correções...');
+      
+      // Aplicar correções
+      let fixed = 0;
+      const results = [];
+      
+      for (const item of toFix) {
+        try {
+          const updates: any = { updatedAt: new Date() };
+          
+          if (parseFloat(item.discountPercent) > 0) {
+            updates.discount = item.discountPercent;
+            updates.discountType = 'percentual';
+          }
+          
+          if (parseFloat(item.servicePercent) > 0) {
+            updates.serviceCharge = item.servicePercent;
+            updates.serviceChargeType = 'percentual';
+          }
+          
+          if (Object.keys(updates).length > 1) {
+            await db.update(tableSessions)
+              .set(updates)
+              .where(eq(tableSessions.id, item.id));
+            
+            fixed++;
+            results.push({
+              id: item.id,
+              status: 'fixed',
+              discount: updates.discount,
+              serviceCharge: updates.serviceCharge
+            });
+            
+            console.log(`✅ [FIX-SESSIONS] Sessão ${item.id} corrigida`);
+          }
+        } catch (error) {
+          console.error(`❌ [FIX-SESSIONS] Erro ao corrigir sessão ${item.id}:`, error);
+          results.push({
+            id: item.id,
+            status: 'error',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      }
+      
+      console.log(`🎉 [FIX-SESSIONS] Concluído! ${fixed} sessões corrigidas`);
+      
+      res.json({
+        success: true,
+        fixed,
+        total: toFix.length,
+        results,
+        message: `${fixed} sessões corrigidas com sucesso!`,
+        backup: backupName
+      });
+      
+    } catch (error) {
+      console.error('❌ [FIX-SESSIONS] Erro fatal:', error);
+      res.status(500).json({ 
+        error: 'Erro ao corrigir sessões',
+        message: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
   // ============================================================================
   // OFFLINE SYNC API
   // ============================================================================
@@ -1543,6 +1694,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         restaurant 
       });
     } catch (error) {
+      res.status(500).json({ message: "Erro ao atualizar status do restaurante" });
+    }
+  });
+
+  // Update restaurant operational status (simplified for status control dropdown)
+  app.patch('/api/restaurant/status', isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const { isOpen } = req.body;
+      
+      // Validate isOpen value (0 = fechado, 1 = aberto, 2 = pausado)
+      if (typeof isOpen !== 'number' || ![0, 1, 2].includes(isOpen)) {
+        return res.status(400).json({ message: "Valor de status inválido. Use 0 (fechado), 1 (aberto) ou 2 (pausado)" });
+      }
+      
+      const restaurant = await storage.updateRestaurantAppearance(currentUser.restaurantId, { isOpen });
+      
+      const statusMessages = {
+        0: "Restaurante fechado",
+        1: "Restaurante aberto",
+        2: "Restaurante pausado (não aceita novos pedidos)"
+      };
+      
+      res.json({ 
+        message: statusMessages[isOpen as keyof typeof statusMessages],
+        restaurant 
+      });
+    } catch (error) {
+      console.error('Error updating restaurant status:', error);
       res.status(500).json({ message: "Erro ao atualizar status do restaurante" });
     }
   });
@@ -3722,7 +3907,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerCount,
       });
       
-      await storage.calculateTableTotal(restaurantId, req.params.id);
+      // ✅ REMOVIDO: calculateTableTotal não é necessário aqui
+      // A nova sessão já inicia com totalAmount='0' definido em startTableSession
+      // calculateTableTotal será chamado quando pedidos forem adicionados
       
       // Auto-update table status
       await storage.autoUpdateTableStatusOnSessionStart(req.params.id);
@@ -3758,9 +3945,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ✅ NOVO: Validar antes de fechar
       const validation = await storage.validateSessionClosure(table.currentSessionId);
       
+      console.log('[CloseSession] Validação:', {
+        canClose: validation.canClose,
+        totalPending: validation.totalPending,
+        unpaidGuests: validation.unpaidGuests.length,
+        forceClose: req.body.forceClose,
+        userRole: currentUser.role
+      });
+      
       if (!validation.canClose && !req.body.forceClose) {
+        console.log('[CloseSession] ❌ Bloqueado - valores pendentes');
         return res.status(400).json({
-          message: "Mesa possui valores pendentes de pagamento",
+          message: validation.totalPending > 0 
+            ? "Mesa possui valores pendentes de pagamento"
+            : "Não é possível encerrar esta sessão",
           pendingAmount: validation.totalPending,
           unpaidGuests: validation.unpaidGuests,
           warnings: validation.warnings,
@@ -3769,6 +3967,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (!validation.canClose && req.body.forceClose) {
+        console.log('[CloseSession] ⚠️ Forçando fechamento com pendências');
+        
+        // ✅ P0 CORREÇÃO: Registrar audit trail para forceClose
+        await db.insert(auditLogs).values({
+          restaurantId: String(restaurantId),
+          actorId: currentUser.id ? String(currentUser.id) : null,
+          action: 'session_force_closed',
+          entityType: 'table_session',
+          entityId: table.currentSessionId,
+          details: {
+            tableId: table.id,
+            tableName: table.number,
+            totalPending: validation.totalPending,
+            pendingOrders: validation.pendingOrders,
+            unpaidGuests: validation.unpaidGuests,
+            reasons: validation.warnings,
+            userRole: currentUser.role,
+            timestamp: new Date().toISOString(),
+          },
+        });
+        
+        console.log('[CloseSession] ✅ Auditoria registrada para forceClose');
+      } else {
+        console.log('[CloseSession] ✅ Fechamento permitido');
       }
 
       // Get all guests with linked customers to award loyalty points
@@ -3966,44 +4188,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const restaurantId = currentUser.restaurantId!;
-      const { amount, paymentMethod, notes, receivedAmount, services, discount, discountType } = req.body;
+      const { amount, paymentMethod, notes, receivedAmount, services, discount, discountType, serviceCharge, serviceChargeType } = req.body;
       
       const table = await storage.getTableById(req.params.id);
       if (!table) {
         return res.status(404).json({ message: "Mesa não encontrada" });
       }
+      
+      // ✅ CORREÇÃO CONFLITO #25: Validar que mesa pertence ao restaurante
+      if (table.restaurantId !== restaurantId) {
+        return res.status(403).json({ 
+          message: "Acesso negado: Mesa não pertence ao seu restaurante" 
+        });
+      }
 
-      // Get all orders from the current session to apply services and discounts
-      // 🔧 TEMP: Services functionality disabled until table is created
-      if (table.currentSessionId && discount) {
-        const orders = await storage.getOrdersBySessionId(restaurantId, table.currentSessionId);
+      // ✅ CORREÇÃO: Aplicar desconto e taxa de serviço à sessão se fornecido
+      if (table.currentSessionId) {
+        const updates: any = { updatedAt: new Date() };
         
-        for (const order of orders) {
-          // Apply discount if provided
-          if (discount && parseFloat(discount) > 0) {
-            await storage.applyDiscount(restaurantId, order.id, discount, discountType || 'valor');
-          }
-          
-          // Services temporariamente desabilitado - tabela order_services não existe
-          // TODO: Criar migration para order_services se necessário
+        // Salvar desconto
+        if (discount && parseFloat(discount) > 0) {
+          updates.discount = discount;
+          updates.discountType = discountType || 'valor';
+          console.log('[Payment] Aplicando desconto à sessão:', {
+            sessionId: table.currentSessionId,
+            discount,
+            discountType: discountType || 'valor'
+          });
         }
         
-        // Recalculate table total after applying discounts
-        await storage.calculateTableTotal(restaurantId, req.params.id);
+        // ✅ SINCRONIZAÇÃO: Salvar taxa de serviço (serviceCharge)
+        if (serviceCharge && parseFloat(serviceCharge) > 0) {
+          updates.serviceCharge = serviceCharge;
+          updates.serviceChargeType = serviceChargeType || 'percentual';
+          console.log('[Payment] Aplicando taxa de serviço à sessão:', {
+            sessionId: table.currentSessionId,
+            serviceCharge,
+            serviceChargeType: serviceChargeType || 'percentual'
+          });
+        }
+        
+        // Aplicar updates se houver
+        if (Object.keys(updates).length > 1) { // > 1 porque updatedAt sempre existe
+          await db.update(tableSessions)
+            .set(updates)
+            .where(eq(tableSessions.id, table.currentSessionId));
+        }
       }
       
       const payment = await storage.addTablePayment(restaurantId, {
         tableId: req.params.id,
         sessionId: table.currentSessionId,
-        amount,
+        amount, // Valor já com desconto aplicado pelo frontend
         paymentMethod,
         notes: receivedAmount ? `Valor recebido: ${receivedAmount}. ${notes || ''}` : notes,
       });
       
+      // ✅ CORREÇÃO CRÍTICA: addTablePayment JÁ atualiza session.paidAmount atomicamente
+      // Aqui só precisamos atualizar o totalAmount COM ajustes
+      if (table.currentSessionId) {
+        // ✅ IMPORTANTE: Buscar sessão APÓS addTablePayment para ter paidAmount atualizado
+        const [session] = await db.select().from(tableSessions)
+          .where(eq(tableSessions.id, table.currentSessionId))
+          .limit(1);
+        
+        console.log('💰 [TABLE PAYMENT] Pagamento registrado:', {
+          sessionId: table.currentSessionId,
+          paymentAmount: parseFloat(amount).toFixed(2),
+          sessionPaidAmount: session?.paidAmount || '0' // Já foi atualizado por addTablePayment
+        });
+        
+        // Buscar todos os convidados para calcular total
+        const allGuests = await storage.getTableGuests(table.currentSessionId);
+        
+        if (session) {
+          const sessionDiscount = parseFloat(session.discount || '0');
+          const sessionDiscountType = session.discountType || 'valor';
+          const sessionServiceCharge = parseFloat(session.serviceCharge || '0');
+          const sessionServiceChargeType = session.serviceChargeType || 'percentual';
+          
+          // Calcular totalAmount COM ajustes
+          const subtotalBeforeAdjustments = allGuests.reduce((sum, g) => sum + parseFloat(g.subtotal || '0'), 0);
+          let totalAmountAjustado = subtotalBeforeAdjustments;
+          
+          // Aplicar desconto
+          if (sessionDiscount > 0) {
+            if (sessionDiscountType === 'percentual') {
+              totalAmountAjustado = totalAmountAjustado * (1 - Math.min(sessionDiscount, 100) / 100);
+            } else {
+              totalAmountAjustado = Math.max(0, totalAmountAjustado - sessionDiscount);
+            }
+          }
+          
+          // Aplicar taxa de serviço
+          if (sessionServiceCharge > 0) {
+            if (sessionServiceChargeType === 'percentual') {
+              totalAmountAjustado = totalAmountAjustado * (1 + sessionServiceCharge / 100);
+            } else {
+              totalAmountAjustado = totalAmountAjustado + sessionServiceCharge;
+            }
+          }
+          
+          console.log('💰 [TABLE PAYMENT] Atualizando sessão com ajustes:', {
+            sessionId: table.currentSessionId,
+            subtotalBeforeAdjustments: subtotalBeforeAdjustments.toFixed(2),
+            sessionDiscount: sessionDiscount.toFixed(2),
+            sessionDiscountType,
+            sessionServiceCharge: sessionServiceCharge.toFixed(2),
+            sessionServiceChargeType,
+            totalAmountAjustado: totalAmountAjustado.toFixed(2),
+            currentPaidAmount: session?.paidAmount || '0', // Já foi atualizado por addTablePayment
+            pendente: (totalAmountAjustado - parseFloat(session?.paidAmount || '0')).toFixed(2)
+          });
+          
+          // ✅ P0 CORREÇÃO: NÃO atualizar paidAmount aqui!
+          // A transação atômica em addTablePayment já atualizou session.paidAmount
+          // Atualizar totalAmount apenas (sem paidAmount para evitar sobrescrever)
+          await db.update(tableSessions)
+            .set({ 
+              totalAmount: totalAmountAjustado.toFixed(2)
+              // paidAmount: já foi atualizado atomicamente em addTablePayment
+            })
+            .where(eq(tableSessions.id, table.currentSessionId));
+        } else {
+          // ✅ P0 CORREÇÃO: NÃO atualizar paidAmount aqui!
+          // A transação atômica em addTablePayment já fez isso
+          // Este fallback pode ser removido
+          console.log('[Payment] ⚠️ Fallback não necessário - paidAmount já atualizado na transação');
+        }
+      }
+      
       // Auto-update table status based on payment
       await storage.autoUpdateTableStatusOnPayment(req.params.id);
       
-      broadcastToClients({ type: 'table_payment_added', data: payment });
+      // ✅ CORREÇÃO CONFLITO #21: Broadcast completo para invalidar cache
+      broadcastToClients({ 
+        type: 'table_payment_added', 
+        data: payment,
+        tableId: req.params.id,
+        sessionId: table.currentSessionId
+      });
+      
+      // Broadcast atualização da mesa
+      broadcastToClients({ 
+        type: 'table_updated', 
+        data: { tableId: req.params.id }
+      });
       
       res.json(payment);
     } catch (error: any) {
@@ -4012,6 +4342,298 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ✅ NEW: Guest-specific payment endpoint
+  app.post("/api/table-guests/:guestId/payment", isOperational, async (req, res) => {
+    try {
+      console.log('🎯 [GUEST PAYMENT] Nova rota de pagamento individual chamada!');
+      console.log('🎯 [GUEST PAYMENT] Guest ID:', req.params.guestId);
+      console.log('🎯 [GUEST PAYMENT] Body:', req.body);
+      
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      
+      // Only admin, manager, and cashier can record payments
+      if (currentUser.role === 'waiter') {
+        return res.status(403).json({ message: "Garçons não podem registrar pagamentos. Solicite ao caixa." });
+      }
+      
+      const restaurantId = currentUser.restaurantId!;
+      // ✅ SOLUÇÃO #1: Aceitar parâmetros de ajustes no pagamento individual
+      const { amount, paymentMethod, notes, receivedAmount, 
+              discount, discountType, serviceCharge, serviceChargeType } = req.body;
+      const guestId = req.params.guestId;
+      
+      // Validate guest exists
+      const guest = await storage.getTableGuestById(guestId);
+      if (!guest) {
+        return res.status(404).json({ message: "Convidado não encontrado" });
+      }
+      
+      // ✅ CORREÇÃO CONFLITO #25: Validar restaurante do convidado
+      const guestTable = await storage.getTableById(guest.tableId);
+      if (!guestTable || guestTable.restaurantId !== restaurantId) {
+        return res.status(403).json({ 
+          message: "Acesso negado: Convidado não pertence ao seu restaurante" 
+        });
+      }
+      
+      // ✅ SOLUÇÃO #1: Salvar ajustes na sessão quando fornecidos
+      if (guest.sessionId && (discount || serviceCharge)) {
+        const updates: any = { updatedAt: new Date() };
+        
+        // Salvar desconto
+        if (discount && parseFloat(discount) > 0) {
+          updates.discount = discount;
+          updates.discountType = discountType || 'valor';
+          console.log('🎯 [GUEST PAYMENT] Salvando desconto na sessão:', {
+            sessionId: guest.sessionId,
+            discount,
+            discountType: discountType || 'valor'
+          });
+        }
+        
+        // Salvar taxa de serviço
+        if (serviceCharge && parseFloat(serviceCharge) > 0) {
+          updates.serviceCharge = serviceCharge;
+          updates.serviceChargeType = serviceChargeType || 'percentual';
+          console.log('🎯 [GUEST PAYMENT] Salvando taxa de serviço na sessão:', {
+            sessionId: guest.sessionId,
+            serviceCharge,
+            serviceChargeType: serviceChargeType || 'percentual'
+          });
+        }
+        
+        // Aplicar updates se houver
+        if (Object.keys(updates).length > 1) { // > 1 porque updatedAt sempre existe
+          await db.update(tableSessions)
+            .set(updates)
+            .where(eq(tableSessions.id, guest.sessionId));
+          
+          console.log('✅ [GUEST PAYMENT] Ajustes salvos na sessão com sucesso');
+        }
+      }
+      
+      // Validate amount
+      const paymentAmount = parseFloat(amount);
+      if (isNaN(paymentAmount) || paymentAmount <= 0) {
+        return res.status(400).json({ message: "Valor de pagamento inválido" });
+      }
+      
+      // ✅ CORREÇÃO: O frontend JÁ calcula e envia o valor com ajustes
+      // Aqui só precisamos validar se o valor não é absurdo
+      const guestSubtotalOriginal = parseFloat(guest.subtotal || '0');
+      const guestPaid = parseFloat(guest.paidAmount || '0');
+      
+      // Buscar ajustes da sessão para calcular o subtotal esperado
+      const session = await db.select().from(tableSessions)
+        .where(eq(tableSessions.id, guest.sessionId))
+        .limit(1);
+      
+      let guestSubtotalAjustado = guestSubtotalOriginal;
+      
+      if (session.length > 0) {
+        const sessionDiscount = parseFloat(session[0].discount || '0');
+        const sessionDiscountType = session[0].discountType || 'valor';
+        const sessionServiceCharge = parseFloat(session[0].serviceCharge || '0');
+        const sessionServiceChargeType = session[0].serviceChargeType || 'percentual';
+        
+        // Calcular subtotal esperado COM ajustes (para validação)
+        if (sessionDiscount > 0) {
+          if (sessionDiscountType === 'percentual') {
+            guestSubtotalAjustado = guestSubtotalAjustado * (1 - Math.min(sessionDiscount, 100) / 100);
+          } else {
+            // Desconto em valor: distribuir proporcionalmente
+            const allGuests = await storage.getTableGuests(guest.sessionId);
+            const totalSubtotal = allGuests.reduce((sum, g) => sum + parseFloat(g.subtotal || '0'), 0);
+            const guestProportion = guestSubtotalOriginal / totalSubtotal;
+            const guestDiscountShare = sessionDiscount * guestProportion;
+            guestSubtotalAjustado = Math.max(0, guestSubtotalAjustado - guestDiscountShare);
+          }
+        }
+        
+        // Aplicar taxa de serviço
+        if (sessionServiceCharge > 0) {
+          if (sessionServiceChargeType === 'percentual') {
+            guestSubtotalAjustado = guestSubtotalAjustado * (1 + sessionServiceCharge / 100);
+          } else {
+            // Taxa em valor: distribuir proporcionalmente
+            const allGuests = await storage.getTableGuests(guest.sessionId);
+            const totalSubtotal = allGuests.reduce((sum, g) => sum + parseFloat(g.subtotal || '0'), 0);
+            const guestProportion = guestSubtotalOriginal / totalSubtotal;
+            const guestChargeShare = sessionServiceCharge * guestProportion;
+            guestSubtotalAjustado = guestSubtotalAjustado + guestChargeShare;
+          }
+        }
+        
+        console.log('[GuestPayment] Ajustes da sessão:', {
+          subtotalOriginal: guestSubtotalOriginal.toFixed(2),
+          sessionDiscount: sessionDiscount.toFixed(2),
+          sessionDiscountType,
+          sessionServiceCharge: sessionServiceCharge.toFixed(2),
+          sessionServiceChargeType,
+          subtotalAjustado: guestSubtotalAjustado.toFixed(2)
+        });
+      }
+      
+      const guestPending = guestSubtotalAjustado - guestPaid;
+      
+      // ✅ Validação: aceitar valor próximo ao esperado (± 10% de margem)
+      const minAllowed = guestSubtotalAjustado * 0.9;
+      const maxAllowed = guestSubtotalAjustado * 1.1;
+      
+      // Se o valor estiver fora da margem, avisar mas aceitar (pode ser gorjeta ou arredondamento)
+      if (paymentAmount < minAllowed || paymentAmount > maxAllowed) {
+        console.log('⚠️ [GuestPayment] Valor fora da margem esperada (aceito com aviso):', {
+          valorEsperado: guestSubtotalAjustado.toFixed(2),
+          valorRecebido: paymentAmount.toFixed(2),
+          diferenca: (paymentAmount - guestSubtotalAjustado).toFixed(2)
+        });
+      }
+      
+      console.log('[GuestPayment] Validação:', {
+        guestSubtotalOriginal: guestSubtotalOriginal.toFixed(2),
+        guestSubtotalAjustado: guestSubtotalAjustado.toFixed(2),
+        guestPaid: guestPaid.toFixed(2),
+        guestPending: guestPending.toFixed(2),
+        paymentAmount: paymentAmount.toFixed(2),
+        minAllowed: minAllowed.toFixed(2),
+        maxAllowed: maxAllowed.toFixed(2),
+        status: paymentAmount >= minAllowed && paymentAmount <= maxAllowed ? 'OK' : 'FORA_MARGEM_MAS_ACEITO'
+      });
+      
+      // ✅ FIX: Create guest payment directly (without addTablePayment that distributes to all guests)
+      // First, create the table payment record for financial tracking (but don't use addTablePayment)
+      const [tablePayment] = await db.insert(tablePayments).values({
+        restaurantId,
+        tableId: guest.tableId,
+        sessionId: guest.sessionId,
+        amount: amount,
+        paymentMethod,
+        notes: receivedAmount 
+          ? `Pagamento de ${guest.name || 'Convidado'} - Valor recebido: ${receivedAmount} Kz. ${notes || ''}` 
+          : `Pagamento de ${guest.name || 'Convidado'}. ${notes || ''}`,
+      }).returning();
+      
+      // Create guest payment (links payment to specific guest and updates guest paidAmount)
+      const guestPayment = await storage.createGuestPayment(restaurantId, {
+        guestId: guestId,
+        sessionId: guest.sessionId,
+        tablePaymentId: tablePayment.id,
+        amount: amount,
+        paymentMethod,
+        notes: notes || null,
+      });
+      
+      // Update session paidAmount manually (sum of all guest payments)
+      const allGuests = await storage.getTableGuests(guest.sessionId);
+      const totalPaid = allGuests.reduce((sum, g) => sum + parseFloat(g.paidAmount || '0'), 0);
+      
+      // ✅ CORREÇÃO CRÍTICA: Atualizar totalAmount da sessão COM ajustes
+      if (session.length > 0) {
+        const sessionDiscount = parseFloat(session[0].discount || '0');
+        const sessionDiscountType = session[0].discountType || 'valor';
+        const sessionServiceCharge = parseFloat(session[0].serviceCharge || '0');
+        const sessionServiceChargeType = session[0].serviceChargeType || 'percentual';
+        
+        // Calcular totalAmount esperado COM ajustes
+        const subtotalBeforeAdjustments = allGuests.reduce((sum, g) => sum + parseFloat(g.subtotal || '0'), 0);
+        
+        let totalAmountAjustado = subtotalBeforeAdjustments;
+        
+        // Aplicar desconto
+        if (sessionDiscount > 0) {
+          if (sessionDiscountType === 'percentual') {
+            totalAmountAjustado = totalAmountAjustado * (1 - Math.min(sessionDiscount, 100) / 100);
+          } else {
+            totalAmountAjustado = Math.max(0, totalAmountAjustado - sessionDiscount);
+          }
+        }
+        
+        // Aplicar taxa
+        if (sessionServiceCharge > 0) {
+          if (sessionServiceChargeType === 'percentual') {
+            totalAmountAjustado = totalAmountAjustado * (1 + sessionServiceCharge / 100);
+          } else {
+            totalAmountAjustado = totalAmountAjustado + sessionServiceCharge;
+          }
+        }
+        
+        console.log('🎯 [GUEST PAYMENT] Calculando totalAmount da sessão COM ajustes:', {
+          subtotalBeforeAdjustments: subtotalBeforeAdjustments.toFixed(2),
+          sessionDiscount: sessionDiscount.toFixed(2),
+          sessionServiceCharge: sessionServiceCharge.toFixed(2),
+          totalAmountAjustado: totalAmountAjustado.toFixed(2)
+        });
+        
+        // Atualizar sessão com totalAmount E paidAmount
+        await db.update(tableSessions)
+          .set({ 
+            totalAmount: totalAmountAjustado.toFixed(2),
+            paidAmount: totalPaid.toFixed(2)
+          })
+          .where(eq(tableSessions.id, guest.sessionId));
+        
+        console.log('🎯 [GUEST PAYMENT] ✅ Sessão atualizada:', {
+          totalAmount: totalAmountAjustado.toFixed(2),
+          paidAmount: totalPaid.toFixed(2),
+          pendente: (totalAmountAjustado - totalPaid).toFixed(2)
+        });
+      } else {
+        // Fallback: atualizar apenas paidAmount
+        await db.update(tableSessions)
+          .set({ paidAmount: totalPaid.toFixed(2) })
+          .where(eq(tableSessions.id, guest.sessionId));
+      }
+      
+      // ✅ CORREÇÃO CONFLITO #2: A atualização de session já foi feita acima (linhas 4337-4342)
+      // NÃO duplicar atualização aqui
+      console.log('🎯 [GUEST PAYMENT] ✅ Session.paidAmount já atualizado anteriormente');
+      
+      // ✅ CORREÇÃO CONFLITO #12: Verificar auto-fechamento após pagamento individual
+      console.log('🔍 [GUEST PAYMENT] Verificando se mesa deve fechar automaticamente...');
+      await storage.autoUpdateTableStatusOnPayment(guest.tableId);
+      
+      // Get updated guest
+      const updatedGuest = await storage.getTableGuestById(guestId);
+      
+      // ✅ CORREÇÃO CONFLITO #21: Broadcast completo para invalidar cache
+      broadcastToClients({ 
+        type: 'guest_payment_added', 
+        data: { 
+          guestPayment, 
+          tablePayment,
+          guest: updatedGuest,
+          tableId: guest.tableId,
+          sessionId: guest.sessionId
+        } 
+      });
+      
+      // Broadcast atualização da mesa
+      broadcastToClients({ 
+        type: 'table_updated', 
+        data: { tableId: guest.tableId }
+      });
+      
+      res.json({ 
+        success: true, 
+        guestPayment, 
+        tablePayment,
+        guest: updatedGuest 
+      });
+    } catch (error: any) {
+      console.error('❌ [GUEST PAYMENT] Erro ao processar pagamento:', error);
+      console.error('❌ [GUEST PAYMENT] Stack:', error.stack);
+      res.status(500).json({ 
+        message: error.message || "Failed to record guest payment",
+        error: process.env.NODE_ENV === 'development' ? error.toString() : undefined
+      });
+    }
+  });
+
+  // ⚠️ DEPRECATED: Este endpoint está obsoleto. Use /api/tables/:id/payment (singular)
+  // Mantido apenas para compatibilidade retroativa
   app.post("/api/tables/:id/payments", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user as User;
@@ -4022,18 +4644,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const restaurantId = currentUser.restaurantId!;
       const { amount, paymentMethod, notes, sessionId } = req.body;
       
+      // ✅ CORREÇÃO CONFLITO #29: Validar amount
+      if (!amount || parseFloat(amount) <= 0) {
+        return res.status(400).json({ message: "Valor deve ser maior que 0" });
+      }
+      
       const table = await storage.getTableById(req.params.id);
       if (!table) {
         return res.status(404).json({ message: "Mesa não encontrada" });
       }
       
+      // ✅ CORREÇÃO CONFLITO #25: Validar restaurante
+      if (table.restaurantId !== restaurantId) {
+        return res.status(403).json({ 
+          message: "Acesso negado: Mesa não pertence ao seu restaurante" 
+        });
+      }
+      
+      const targetSessionId = sessionId || table.currentSessionId;
+      if (!targetSessionId) {
+        return res.status(400).json({ message: "Mesa não possui sessão ativa" });
+      }
+      
+      // ✅ CORREÇÃO CONFLITO #6: addTablePayment JÁ atualiza session.paidAmount atomicamente
       const payment = await storage.addTablePayment(restaurantId, {
         tableId: req.params.id,
-        sessionId: sessionId || table.currentSessionId,
+        sessionId: targetSessionId,
         amount,
         paymentMethod,
         notes,
       });
+      
+      // Buscar sessão atualizada
+      const [session] = await db.select().from(tableSessions)
+        .where(eq(tableSessions.id, targetSessionId))
+        .limit(1);
+      
+      if (session) {
+        const allGuests = await storage.getTableGuests(targetSessionId);
+        
+        // ✅ CORREÇÃO: NÃO somar novamente! addTablePayment já atualizou
+        console.log('💰 [LEGACY PAYMENTS] Pagamento registrado (paidAmount já atualizado):', {
+          sessionId: targetSessionId,
+          paymentAmount: parseFloat(amount).toFixed(2),
+          sessionPaidAmount: session.paidAmount // Já foi atualizado
+        });
+        
+        // Calcular totalAmount COM ajustes
+        const subtotal = allGuests.reduce((sum, g) => sum + parseFloat(g.subtotal || '0'), 0);
+        const sessionDiscount = parseFloat(session.discount || '0');
+        const sessionDiscountType = session.discountType || 'valor';
+        const sessionServiceCharge = parseFloat(session.serviceCharge || '0');
+        const sessionServiceChargeType = session.serviceChargeType || 'percentual';
+        
+        let totalAmount = subtotal;
+        
+        // Aplicar desconto
+        if (sessionDiscount > 0) {
+          if (sessionDiscountType === 'percentual') {
+            totalAmount = totalAmount * (1 - Math.min(sessionDiscount, 100) / 100);
+          } else {
+            totalAmount = Math.max(0, totalAmount - sessionDiscount);
+          }
+        }
+        
+        // Aplicar taxa
+        if (sessionServiceCharge > 0) {
+          if (sessionServiceChargeType === 'percentual') {
+            totalAmount = totalAmount * (1 + sessionServiceCharge / 100);
+          } else {
+            totalAmount = totalAmount + sessionServiceCharge;
+          }
+        }
+        
+        console.log('💰 [LEGACY PAYMENTS ENDPOINT] Atualizando sessão:', {
+          sessionId: targetSessionId,
+          totalAmount: totalAmount.toFixed(2),
+          paidAmount: session.paidAmount // Já foi atualizado por addTablePayment
+        });
+        
+        // ✅ CORREÇÃO: Atualizar apenas totalAmount (paidAmount já foi atualizado)
+        await db.update(tableSessions)
+          .set({ 
+            totalAmount: totalAmount.toFixed(2)
+            // paidAmount: NÃO atualizar aqui! addTablePayment já fez atomicamente
+          })
+          .where(eq(tableSessions.id, targetSessionId));
+        
+        // Auto-update table status
+        await storage.autoUpdateTableStatusOnPayment(req.params.id);
+      }
       
       broadcastToClients({ type: 'table_payment_added', data: payment });
       
@@ -4180,8 +4880,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Mesa não encontrada" });
       }
       
-      if (!table.currentSessionId) {
-        return res.status(400).json({ message: "Mesa não possui sessão ativa" });
+      // ✅ CORREÇÃO: Se não há sessão ativa, criar uma automaticamente
+      let sessionId = table.currentSessionId;
+      if (!sessionId) {
+        console.log('[AddGuest] Nenhuma sessão ativa, criando sessão automaticamente...');
+        
+        // Criar sessão automaticamente ao adicionar primeiro convidado
+        const session = await storage.startTableSession(restaurantId, {
+          tableId: table.id,
+          numberOfGuests: 1, // Será incrementado conforme adiciona mais guests
+        });
+        
+        sessionId = session.id;
+        console.log('[AddGuest] Sessão criada automaticamente:', sessionId);
       }
       
       const { customerId, name, seatNumber } = req.body;
@@ -4196,12 +4907,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Auto-assign guest number for anonymous guests
-      const existingGuests = await storage.getTableGuests(table.currentSessionId);
+      const existingGuests = await storage.getTableGuests(sessionId);
+      
+      // ✅ Validate table capacity before adding guest
+      const tableCapacity = table.capacity || 4; // Default to 4 if not set
+      if (existingGuests.length >= tableCapacity) {
+        return res.status(400).json({ 
+          message: `Mesa já está na capacidade máxima (${tableCapacity} ${tableCapacity === 1 ? 'pessoa' : 'pessoas'})`,
+          currentGuests: existingGuests.length,
+          capacity: tableCapacity
+        });
+      }
+      
       const anonymousGuestsCount = existingGuests.filter(g => !g.customerId).length;
       const guestNumber = customerId ? undefined : anonymousGuestsCount + 1;
       
       const guest = await storage.createTableGuest(restaurantId, {
-        sessionId: table.currentSessionId,
+        sessionId: sessionId,
         tableId: table.id,
         customerId,
         name: guestName || (guestNumber ? `Convidado ${guestNumber}` : undefined),
@@ -4209,9 +4931,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         seatNumber,
       });
       
-      broadcastToClients({ type: 'guest_joined', data: { tableId: table.id, guest } });
+      // ✅ Obter mesa atualizada para incluir sessionId no response
+      const updatedTable = await storage.getTableById(req.params.id);
       
-      res.json(guest);
+      broadcastToClients({ type: 'guest_joined', data: { 
+        tableId: table.id, 
+        guest,
+        table: updatedTable // ✅ Inclui mesa atualizada com sessionId
+      } });
+      
+      // ✅ Retornar guest + sessionId para frontend saber que sessão foi criada
+      res.json({
+        ...guest,
+        sessionId: sessionId,
+        tableCurrentSessionId: updatedTable?.currentSessionId
+      });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Erro ao adicionar cliente" });
     }
@@ -4381,6 +5115,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: newPaidAmount >= parseFloat(guest.subtotal || '0') ? 'pago' : 'ativo',
       });
       
+      // ✅ SOLUÇÃO 2: Sincronizar pagamento individual com total da mesa/sessão
+      if (table.currentSessionId) {
+        // Atualizar total pago da sessão
+        const session = await storage.getSessionById(table.currentSessionId);
+        if (session) {
+          const currentSessionPaid = parseFloat(session.totalPaid || '0');
+          await storage.updateSession(table.currentSessionId, {
+            totalPaid: (currentSessionPaid + paymentAmount).toFixed(2)
+          });
+        }
+        
+        // Verificar se todos os convidados pagaram
+        const allGuests = await storage.getTableGuests(table.currentSessionId);
+        const allPaid = allGuests.every(g => {
+          const guestPaid = parseFloat(g.paidAmount || '0');
+          const guestTotal = parseFloat(g.subtotal || '0');
+          return guestPaid >= guestTotal;
+        });
+        
+        // Atualizar status da mesa se todos pagaram
+        if (allPaid && table.status !== 'aguardando_pagamento') {
+          await storage.updateTable(table.id, {
+            status: 'aguardando_pagamento'
+          });
+          
+          broadcastToClients({
+            type: 'table_fully_paid',
+            data: { tableId: table.id, sessionId: table.currentSessionId }
+          });
+        }
+      }
+      
       // Award loyalty points if customer
       if (guest.customerId && paymentAmount > 0) {
         const loyaltyProgram = await storage.getLoyaltyProgramByRestaurant(restaurantId);
@@ -4441,22 +5207,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // This prevents including orders from previous sessions in the total
       const allTableOrders = await storage.getOrdersByTableId(table.restaurantId, table.id);
       
-      // Filter to only orders from current session
-      // Method 1: Check sessionId field (most reliable)
-      // Method 2: Check if guestId belongs to current session guests
+      // ✅ CORREÇÃO CRÍTICA: Filtrar ESTRITAMENTE por sessão atual
+      // NUNCA incluir pedidos de sessões antigas, mesmo que tenham guestId ou tableId correto
       const currentGuestIds = guests.map(g => g.id);
-      const orders = allTableOrders.filter((order: any) => {
-        // Priority 1: Check if order has sessionId matching current session
-        if (order.sessionId === table.currentSessionId) {
-          return true;
-        }
-        // Priority 2: Check if order belongs to a guest in current session
-        if (order.guestId && currentGuestIds.includes(order.guestId)) {
-          return true;
-        }
-        // Exclude all others (old sessions, other tables)
-        return false;
-      });
+      
+      const orders = table.currentSessionId 
+        ? allTableOrders.filter((order: any) => {
+            // ✅ REGRA 1: APENAS pedidos com tableSessionId da sessão atual
+            if (order.tableSessionId === table.currentSessionId) {
+              return true;
+            }
+            
+            // ✅ REGRA 2: APENAS pedidos de convidados da sessão atual
+            // E que NÃO tenham tableSessionId (pedidos legados)
+            if (!order.tableSessionId && order.guestId && currentGuestIds.includes(order.guestId)) {
+              return true;
+            }
+            
+            // ❌ EXCLUIR: Todos os outros (sessões antigas, pedidos órfãos, etc)
+            return false;
+          })
+        : []; // Se não há sessão ativa, retornar array vazio
       
       // Helper function to calculate order total from items
       const calculateOrderTotal = (order: any) => {
@@ -4530,11 +5301,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? (await db.select().from(tableSessions).where(eq(tableSessions.id, table.currentSessionId)).limit(1))[0]
         : null;
 
-      // Calculate total using the same helper function
-      const totalAmount = orders
+      // ✅ CORREÇÃO: Calculate total with session adjustments (discount + service fee)
+      // Step 1: Calculate subtotal from orders
+      const subtotalBeforeAdjustments = orders
         .filter((o: any) => o.status !== 'cancelado')
         .reduce((sum: number, o: any) => sum + calculateOrderTotal(o), 0);
 
+      // Step 2: Get session adjustments
+      const sessionDiscount = parseFloat(session?.discount || '0');
+      const sessionDiscountType = session?.discountType || 'valor';
+      const sessionServiceCharge = parseFloat(session?.serviceCharge || '0');
+      const sessionServiceChargeType = session?.serviceChargeType || 'percentual';
+
+      // Step 3: Apply discount
+      let totalAmount = subtotalBeforeAdjustments;
+      if (sessionDiscount > 0) {
+        if (sessionDiscountType === 'percentual') {
+          const discountPercent = Math.min(sessionDiscount, 100);
+          totalAmount = totalAmount * (1 - discountPercent / 100);
+        } else {
+          totalAmount = Math.max(0, totalAmount - sessionDiscount);
+        }
+      }
+
+      // Step 4: Apply service charge (on discounted amount)
+      if (sessionServiceCharge > 0) {
+        if (sessionServiceChargeType === 'percentual') {
+          totalAmount = totalAmount * (1 + sessionServiceCharge / 100);
+        } else {
+          totalAmount = totalAmount + sessionServiceCharge;
+        }
+      }
+
+      // 🔍 DEBUG: Log dos valores retornados COM ajustes e filtros
+      console.log(`[orders-by-guest] Mesa ${req.params.id}:`, {
+        sessionId: table.currentSessionId,
+        allTableOrdersCount: allTableOrders.length,
+        filteredOrdersCount: orders.length,
+        currentGuestIds,
+        ordersBreakdown: orders.map(o => ({
+          id: o.id,
+          tableSessionId: o.tableSessionId,
+          guestId: o.guestId,
+          status: o.status,
+          total: calculateOrderTotal(o).toFixed(2)
+        })),
+        subtotalBeforeAdjustments: subtotalBeforeAdjustments.toFixed(2),
+        sessionDiscount: sessionDiscount.toFixed(2),
+        sessionDiscountType,
+        sessionServiceCharge: sessionServiceCharge.toFixed(2),
+        sessionServiceChargeType,
+        totalAmount: totalAmount.toFixed(2),
+        paidAmount: session?.paidAmount || '0.00',
+        sessionData: session ? { 
+          id: session.id, 
+          discount: session.discount,
+          serviceCharge: session.serviceCharge,
+          paidAmount: session.paidAmount 
+        } : null
+      });
 
       res.json({
         ordersByGuest,
@@ -4553,6 +5378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/table-sessions/:sessionId/guests", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user as User;
+      
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
@@ -5630,10 +6456,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // This route requires admin authentication and automatically sets createdBy
   // Admins have access to advanced controls (discounts, service charges, payment methods, etc.)
   app.post("/api/orders", isAuthenticated, async (req, res) => {
-    console.log('[DEBUG] POST /api/orders hit');
     try {
       const currentUser = req.user as User;
-      console.log('[DEBUG] Incoming order request body:', JSON.stringify(req.body, null, 2));
       let { items, ...orderData } = req.body;
       
       if (!items || !Array.isArray(items) || items.length === 0) {
@@ -5722,8 +6546,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           errors: error.errors 
         });
       }
-      console.error('Order creation error:', error);
-      res.status(500).json({ message: "Failed to create order" });
+      console.error('❌ Order creation error:', error);
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      console.error('Request body:', JSON.stringify(req.body, null, 2));
+      res.status(500).json({ 
+        message: "Failed to create order",
+        error: error instanceof Error ? error.message : String(error),
+        details: error instanceof Error ? error.stack : undefined
+      });
     }
   });
 

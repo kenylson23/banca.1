@@ -14,6 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { queryClient } from '@/lib/queryClient';
 
 interface QuickOrderDialogProps {
   open: boolean;
@@ -79,27 +80,30 @@ function NumpadOverlay({ open, onOpenChange, quantity, onQuantityChange, onConfi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-slate-900 border-2 border-emerald-500/30">
+      <DialogContent className="max-w-md bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border-2 border-primary/40 shadow-2xl shadow-primary/20">
         <DialogHeader>
-          <DialogTitle className="text-emerald-400">Definir Quantidade e Convidado</DialogTitle>
+          <DialogTitle className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/70 font-bold text-xl">
+            Definir Quantidade e Convidado
+          </DialogTitle>
         </DialogHeader>
         
         {/* Guest Selection */}
         {guests.length > 0 && (
           <div className="mb-4">
-            <label className="text-sm text-slate-400 mb-2 block">Para qual convidado?</label>
+            <label className="text-sm text-muted-foreground mb-2 block font-medium">Para qual convidado?</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => onGuestChange(null)}
                 className={cn(
-                  "p-3 rounded-lg border-2 transition-all text-left",
+                  "p-3 rounded-lg border-2 transition-all text-left relative overflow-hidden group",
                   !selectedGuest
-                    ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
-                    : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
+                    ? "border-primary bg-primary/20 text-primary shadow-lg shadow-primary/30"
+                    : "border-border bg-card/50 text-muted-foreground hover:border-primary/50 hover:bg-card"
                 )}
               >
-                <div className="font-semibold text-sm">Mesa completa</div>
-                <div className="text-xs opacity-70">Todos os convidados</div>
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="font-semibold text-sm relative z-10">Mesa completa</div>
+                <div className="text-xs opacity-70 relative z-10">Todos os convidados</div>
               </button>
               
               {guests.map((guest) => (
@@ -107,23 +111,25 @@ function NumpadOverlay({ open, onOpenChange, quantity, onQuantityChange, onConfi
                   key={guest.id}
                   onClick={() => onGuestChange(guest.id)}
                   className={cn(
-                    "p-3 rounded-lg border-2 transition-all text-left",
+                    "p-3 rounded-lg border-2 transition-all text-left relative overflow-hidden group",
                     selectedGuest === guest.id
-                      ? "border-cyan-500 bg-cyan-500/20 text-cyan-400"
-                      : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
+                      ? "border-accent bg-accent/20 text-accent-foreground shadow-lg shadow-accent/30"
+                      : "border-border bg-card/50 text-muted-foreground hover:border-accent/50 hover:bg-card"
                   )}
                 >
-                  <div className="font-semibold text-sm truncate">{getGuestLabel(guest)}</div>
-                  <div className="text-xs opacity-70">#{guest.guestNumber}</div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="font-semibold text-sm truncate relative z-10">{getGuestLabel(guest)}</div>
+                  <div className="text-xs opacity-70 relative z-10">#{guest.guestNumber}</div>
                 </button>
               ))}
             </div>
           </div>
         )}
         
-        <div className="text-center mb-4">
-          <div className="text-sm text-emerald-400 mb-2 uppercase tracking-wider">Quantidade</div>
-          <div className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">
+        <div className="text-center mb-4 relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-primary/20 to-primary/10 blur-3xl animate-pulse" />
+          <div className="text-sm text-primary mb-2 uppercase tracking-wider font-semibold relative z-10">Quantidade</div>
+          <div className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary/80 to-primary/60 drop-shadow-2xl relative z-10 animate-in fade-in zoom-in duration-300">
             {quantity}
           </div>
         </div>
@@ -134,11 +140,11 @@ function NumpadOverlay({ open, onOpenChange, quantity, onQuantityChange, onConfi
               key={key}
               variant="outline"
               className={cn(
-                "h-12 font-bold text-lg transition-all",
-                key === '✓' && "col-span-2 bg-gradient-to-br from-emerald-500 to-cyan-500 border-transparent text-white",
-                key === 'C' && "border-red-500/50 text-red-400 hover:bg-red-500/20",
-                (key === '-' || key === '+') && "border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/20",
-                !['✓', 'C', '-', '+'].includes(key) && "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                "h-14 font-bold text-lg transition-all relative overflow-hidden group",
+                key === '✓' && "col-span-2 bg-gradient-to-br from-primary to-primary/80 border-primary text-primary-foreground shadow-lg shadow-primary/50 hover:shadow-primary/70 hover:scale-[1.02]",
+                key === 'C' && "border-destructive/50 text-destructive hover:bg-destructive/20 hover:border-destructive",
+                (key === '-' || key === '+') && "border-accent/50 text-accent-foreground hover:bg-accent/20 hover:border-accent",
+                !['✓', 'C', '-', '+'].includes(key) && "border-primary/30 text-primary hover:bg-primary/20 hover:border-primary/50"
               )}
               onClick={() => {
                 if (key === '+') onQuantityChange(Math.min(quantity + 1, 99));
@@ -146,7 +152,8 @@ function NumpadOverlay({ open, onOpenChange, quantity, onQuantityChange, onConfi
                 else handleNumpad(key);
               }}
             >
-              {key}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+              <span className="relative z-10">{key}</span>
             </Button>
           ))}
         </div>
@@ -184,22 +191,32 @@ export function QuickOrderDialog({
     enabled: open,
   });
 
-  // Fetch table data to get sessionId
-  const { data: tableData } = useQuery({
-    queryKey: ['table', tableId],
+  // 🔧 FIX: Instead of fetching table data (route doesn't exist), 
+  // fetch ordersByGuestData which already returns currentSessionId
+  const { data: ordersByGuestData } = useQuery({
+    queryKey: [`/api/tables/${tableId}/orders-by-guest`],
     queryFn: async () => {
-      const response = await fetch(`/api/tables/${tableId}`);
-      if (!response.ok) throw new Error('Erro ao carregar mesa');
+      const response = await fetch(`/api/tables/${tableId}/orders-by-guest`, {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Erro ao carregar pedidos');
       return response.json();
     },
     enabled: open && !!tableId,
   });
+  
+  // Extract currentSessionId from ordersByGuestData
+  const tableData = ordersByGuestData ? {
+    currentSessionId: ordersByGuestData.currentSessionId
+  } : undefined;
 
   // Fetch table guests
   const { data: guests = [] } = useQuery<Guest[]>({
     queryKey: ['table-guests', tableId],
     queryFn: async () => {
-      const response = await fetch(`/api/tables/${tableId}/guests`);
+      const response = await fetch(`/api/tables/${tableId}/guests`, {
+        credentials: 'include', // 🔧 FIX: Include credentials
+      });
       if (!response.ok) throw new Error('Erro ao carregar convidados');
       return response.json();
     },
@@ -234,21 +251,41 @@ export function QuickOrderDialog({
         throw new Error('RestaurantId não encontrado');
       }
 
-      // 🔧 FIX: Validate sessionId before creating order
-      if (!tableData?.currentSessionId) {
-        toast({
-          title: 'Erro ao criar pedido',
-          description: 'Mesa não tem sessão ativa. Por favor, inicie uma sessão primeiro.',
-          variant: 'destructive',
-        });
-        return;
-      }
+      // Use session from ordersByGuestData
+      let sessionId = tableData?.currentSessionId;
       
+      // If no session ID available, will create one below
+      
+      // Create new session if none exists
+      if (!sessionId) {
+        // Create session automatically
+        const sessionResponse = await fetch(`/api/tables/${tableId}/start-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            customerCount: guests.length || 1,
+            customerName: null,
+          }),
+        });
+        
+        if (!sessionResponse.ok) {
+          throw new Error('Não foi possível iniciar a sessão da mesa');
+        }
+        
+        const sessionData = await sessionResponse.json();
+        sessionId = sessionData.id;
+        
+        // Invalidate queries to update UI
+        queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}`] });
+        queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
+      }
+
       const orderData = {
         restaurantId: user.restaurantId,
         tableId,
-        type: 'dine-in',
-        sessionId: tableData.currentSessionId, // 🔧 FIX: Include sessionId from table
+        orderType: 'mesa', // ✅ Correto: campo aceito pelo schema
+        tableSessionId: sessionId, // ✅ Correto: campo aceito pelo schema
         items: cart.map(item => {
           const itemData: any = {
             menuItemId: item.productId,
@@ -269,55 +306,71 @@ export function QuickOrderDialog({
         notes: orderNotes,
       };
       
-      
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // 🔧 FIX: Include credentials for authentication
         body: JSON.stringify(orderData),
       });
       
       if (!response.ok) {
+        // Try to get the error details
         const error = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
         throw new Error(error.message || 'Erro ao criar pedido');
       }
       
       const result = await response.json();
-      return result;
+      return { ...result, usedSessionId: sessionId };
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
       toast({
         title: '✅ Pedido enviado!',
-        description: `Pedido criado para Mesa ${tableNumber}`,
+        description: `Pedido criado para Mesa ${tableNumber ?? 'sem número'}`,
       });
-      // Invalidate correct queries used by TableDetailsDialog
+      
+      // Use the sessionId that was actually used (may have been just created)
+      const usedSessionId = data?.usedSessionId || data?.tableSessionId;
+      
+      // Invalidate ALL queries used by TableDetailsDialog and related components
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/guests`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/table-sessions`] });
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
       
       // ⭐ CRITICAL: Invalidar também a query de guests da sessão (usado pelo novo diálogo)
-      const currentSessionId = tableData?.currentSessionId;
-      if (currentSessionId) {
+      if (usedSessionId) {
         queryClient.invalidateQueries({ 
-          queryKey: [`/api/table-sessions/${currentSessionId}/guests`] 
+          queryKey: [`/api/table-sessions/${usedSessionId}/guests`] 
         });
       }
       
-      // Force refetch after a small delay to ensure DB is updated
-      setTimeout(() => {
-        queryClient.refetchQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });
-        // Refetch guests também
-        if (currentSessionId) {
-          queryClient.refetchQueries({ 
-            queryKey: [`/api/table-sessions/${currentSessionId}/guests`] 
-          });
-        }
-      }, 300);
+      // Force immediate refetch of active queries
+      await Promise.all([
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}/orders-by-guest`],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}/guests`],
+          type: 'active'
+        }),
+        usedSessionId ? queryClient.refetchQueries({ 
+          queryKey: [`/api/table-sessions/${usedSessionId}/guests`],
+          type: 'active'
+        }) : Promise.resolve(),
+      ]);
       
+      // Clear form
       setCart([]);
       setOrderNotes('');
-      onOpenChange(false);
+      
+      // Delay before closing to ensure UI is updated
+      setTimeout(() => {
+        onOpenChange(false);
+      }, 300);
     },
     onError: (error: any) => {
       toast({
@@ -419,32 +472,32 @@ export function QuickOrderDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[90vh] w-[95vw] sm:w-[90vw] p-0 gap-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border-2 border-emerald-500/30 shadow-2xl shadow-emerald-500/20">
-        <DialogHeader className="px-6 py-4 border-b border-emerald-500/30 bg-gradient-to-r from-slate-900/80 to-slate-900/80 backdrop-blur-xl relative overflow-hidden">
+      <DialogContent className="max-w-6xl h-[90vh] w-[95vw] sm:w-[90vw] p-0 gap-0 bg-gradient-to-br from-background via-background/95 to-background border-2 border-primary/30 shadow-2xl shadow-primary/20">
+        <DialogHeader className="px-6 py-4 border-b border-primary/20 bg-gradient-to-r from-card/80 to-card backdrop-blur-xl relative overflow-hidden">
           {/* Animated background glow */}
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-emerald-500/10 animate-pulse" />
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 animate-pulse" />
           
           <DialogTitle className="text-2xl font-bold flex items-center gap-3 relative z-10">
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/50 animate-pulse">
-              <ShoppingCart className="h-6 w-6 text-white" />
+            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/50">
+              <ShoppingCart className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <div className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
-                ⚡ Quick POS
+              <div className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/70">
+                ⚡ Pedido Rápido
               </div>
-              <div className="text-sm font-normal text-slate-400">Mesa {tableNumber}</div>
+              <div className="text-sm font-normal text-muted-foreground">Mesa {tableNumber}</div>
             </div>
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
           {/* LEFT SIDE: Cart */}
-          <div className="w-full md:w-72 border-r md:border-r border-b md:border-b-0 border-emerald-500/20 bg-slate-900/50 backdrop-blur-xl flex flex-col relative max-h-[30vh] md:max-h-none">
+          <div className="w-full md:w-72 border-r md:border-r border-b md:border-b-0 border-primary/20 bg-card/50 backdrop-blur-xl flex flex-col relative max-h-[30vh] md:max-h-none">
             {/* Glow effect */}
-            <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-emerald-500 to-transparent" />
+            <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-primary to-transparent opacity-50" />
             
-            <div className="p-4 border-b border-emerald-500/20 bg-slate-800/50">
-              <h3 className="font-bold text-lg flex items-center gap-2 text-emerald-400">
+            <div className="p-4 border-b border-primary/20 bg-muted/50">
+              <h3 className="font-bold text-lg flex items-center gap-2 text-primary">
                 <ShoppingCart className="h-5 w-5" />
                 CARRINHO
               </h3>
@@ -452,40 +505,40 @@ export function QuickOrderDialog({
 
             <ScrollArea className="flex-1 p-4">
               {cart.length === 0 ? (
-                <div className="text-center py-12 text-slate-500">
+                <div className="text-center py-12 text-muted-foreground">
                   <div className="relative">
-                    <ShoppingCart className="h-12 w-12 mx-auto mb-3 text-slate-700" />
-                    <div className="absolute inset-0 h-12 w-12 mx-auto bg-emerald-500/20 blur-xl" />
+                    <ShoppingCart className="h-12 w-12 mx-auto mb-3 text-muted" />
+                    <div className="absolute inset-0 h-12 w-12 mx-auto bg-primary/20 blur-xl" />
                   </div>
-                  <p className="text-sm text-slate-400">Carrinho vazio</p>
-                  <p className="text-xs mt-1 text-slate-600">Adicione produtos</p>
+                  <p className="text-sm">Carrinho vazio</p>
+                  <p className="text-xs mt-1 opacity-70">Adicione produtos</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {cart.map((item) => (
                     <div
                       key={item.productId}
-                      className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-3 border border-emerald-500/20 shadow-lg hover:shadow-emerald-500/20 hover:border-emerald-500/40 transition-all relative overflow-hidden group"
+                      className="bg-card/50 backdrop-blur-sm rounded-xl p-3 border border-primary/20 shadow-lg hover:shadow-primary/20 hover:border-primary/40 transition-all relative overflow-hidden group"
                     >
                       {/* Glassmorphism glow */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                       <div className="flex items-start justify-between mb-2 relative z-10">
                         <div className="flex-1">
-                          <div className="font-semibold text-sm text-slate-200">{item.name}</div>
+                          <div className="font-semibold text-sm">{item.name}</div>
                           {item.guestName && (
-                            <div className="text-xs text-cyan-400 flex items-center gap-1 mt-0.5">
+                            <div className="text-xs text-accent-foreground flex items-center gap-1 mt-0.5">
                               <Users className="h-3 w-3" />
                               {item.guestName}
                             </div>
                           )}
-                          <div className="text-emerald-400 font-bold text-lg">
+                          <div className="text-primary font-bold text-lg">
                             {formatKwanza(item.price)}
                           </div>
                         </div>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/20"
+                          className="h-6 w-6 p-0 text-destructive hover:text-destructive/80 hover:bg-destructive/20"
                           onClick={() => removeFromCart(item.productId)}
                         >
                           <X className="h-4 w-4" />
@@ -496,25 +549,25 @@ export function QuickOrderDialog({
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-8 w-8 p-0 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500"
+                          className="h-8 w-8 p-0 border-primary/30 text-primary hover:bg-primary/20 hover:border-primary"
                           onClick={() => updateQuantity(item.productId, item.quantity - 1)}
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
-                        <div className="flex-1 text-center font-bold text-xl text-cyan-400">
+                        <div className="flex-1 text-center font-bold text-xl text-primary">
                           {item.quantity}
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-8 w-8 p-0 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500"
+                          className="h-8 w-8 p-0 border-primary/30 text-primary hover:bg-primary/20 hover:border-primary"
                           onClick={() => updateQuantity(item.productId, item.quantity + 1)}
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
                       </div>
 
-                      <div className="text-right text-sm font-bold text-cyan-300 mt-2 relative z-10">
+                      <div className="text-right text-sm font-bold text-accent-foreground mt-2 relative z-10">
                         = {formatKwanza(item.price * item.quantity)}
                       </div>
                     </div>
@@ -523,23 +576,23 @@ export function QuickOrderDialog({
               )}
             </ScrollArea>
 
-            <div className="p-3 md:p-4 border-t border-emerald-500/30 bg-slate-900/80 backdrop-blur-xl space-y-2 md:space-y-3 relative">
+            <div className="p-3 md:p-4 border-t border-primary/30 bg-card/80 backdrop-blur-xl space-y-2 md:space-y-3 relative">
               {/* Glow background */}
-              <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/10 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-primary/10 to-transparent pointer-events-none" />
               
               <div className="space-y-1 md:space-y-2 relative z-10">
                 <div className="flex justify-between text-xs md:text-sm">
-                  <span className="text-slate-400">Subtotal</span>
-                  <span className="font-semibold text-slate-300">{formatKwanza(subtotal)}</span>
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="font-semibold">{formatKwanza(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-lg md:text-2xl font-bold">
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">TOTAL</span>
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">{formatKwanza(total)}</span>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/70">TOTAL</span>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/70">{formatKwanza(total)}</span>
                 </div>
               </div>
 
               <Button
-                className="w-full h-12 md:h-14 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white font-bold text-base md:text-lg shadow-lg shadow-emerald-500/50 hover:shadow-emerald-500/70 transition-all relative overflow-hidden group"
+                className="w-full h-12 md:h-14 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground font-bold text-base md:text-lg shadow-lg shadow-primary/50 hover:shadow-primary/70 transition-all relative overflow-hidden group"
                 disabled={cart.length === 0 || createOrderMutation.isPending}
                 onClick={() => createOrderMutation.mutate()}
               >
@@ -550,7 +603,7 @@ export function QuickOrderDialog({
 
               <Button
                 variant="outline"
-                className="w-full border-red-500/30 text-red-400 hover:bg-red-500/20 hover:border-red-500 h-10 md:h-auto"
+                className="w-full border-destructive/30 text-destructive hover:bg-destructive/20 hover:border-destructive h-10 md:h-auto"
                 disabled={cart.length === 0}
                 onClick={() => setCart([])}
               >
@@ -561,24 +614,24 @@ export function QuickOrderDialog({
           </div>
 
           {/* RIGHT SIDE: Products */}
-          <div className="flex-1 flex flex-col bg-slate-950">
+          <div className="flex-1 flex flex-col bg-background">
             {/* Search and Categories */}
-            <div className="p-4 bg-slate-900/50 backdrop-blur-xl border-b border-emerald-500/20 space-y-3">
+            <div className="p-4 bg-card/50 backdrop-blur-xl border-b border-primary/20 space-y-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-emerald-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
                 <Input
                   placeholder="Buscar produtos..."
-                  className="pl-10 h-11 bg-slate-800/50 border-emerald-500/30 text-slate-200 placeholder:text-slate-500 focus:border-emerald-500 focus:ring-emerald-500/50"
+                  className="pl-10 h-11 bg-background/50 border-primary/30 placeholder:text-muted-foreground focus:border-primary focus:ring-primary/50"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
 
               <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-                <TabsList className="w-full justify-start overflow-x-auto bg-slate-800/50 border border-emerald-500/20">
+                <TabsList className="w-full justify-start overflow-x-auto bg-muted/50 border border-primary/20">
                   <TabsTrigger 
                     value="all"
-                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white text-slate-400"
+                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                   >
                     Todos
                   </TabsTrigger>
@@ -586,7 +639,7 @@ export function QuickOrderDialog({
                     <TabsTrigger 
                       key={category} 
                       value={category}
-                      className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white text-slate-400"
+                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                     >
                       {category}
                     </TabsTrigger>
@@ -598,8 +651,8 @@ export function QuickOrderDialog({
             {/* Products Grid */}
             <ScrollArea className="flex-1 p-4">
               {isLoading ? (
-                <div className="text-center py-12 text-emerald-400">
-                  <div className="h-12 w-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <div className="text-center py-12 text-primary">
+                  <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
                   Carregando produtos...
                 </div>
               ) : (
@@ -618,12 +671,12 @@ export function QuickOrderDialog({
                         }
                         setShowNumpad(true);
                       }}
-                      className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-3 border-2 border-emerald-500/20 hover:border-emerald-500 hover:shadow-xl hover:shadow-emerald-500/30 transition-all text-left group relative overflow-hidden"
+                      className="bg-card/50 backdrop-blur-sm rounded-lg p-3 border-2 border-primary/20 hover:border-primary hover:shadow-xl hover:shadow-primary/30 transition-all text-left group relative overflow-hidden"
                     >
                       {/* Glow effect on hover */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                       
-                      <div className="aspect-square bg-slate-900/50 border border-emerald-500/20 rounded-lg mb-2 flex items-center justify-center overflow-hidden relative">
+                      <div className="aspect-square bg-muted/50 border border-primary/20 rounded-lg mb-2 flex items-center justify-center overflow-hidden relative">
                         {product.image ? (
                           <img 
                             src={product.image} 
@@ -631,19 +684,19 @@ export function QuickOrderDialog({
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <Tag className="h-8 w-8 text-emerald-500/30" />
+                          <Tag className="h-8 w-8 text-primary/30" />
                         )}
                         {/* Plus icon overlay */}
-                        <div className="absolute inset-0 bg-emerald-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Calculator className="h-6 w-6 text-white" />
+                        <div className="absolute inset-0 bg-primary/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Calculator className="h-6 w-6 text-primary-foreground" />
                         </div>
                       </div>
                       
-                      <div className="font-semibold text-xs mb-1 line-clamp-2 text-slate-200 relative z-10">
+                      <div className="font-semibold text-xs mb-1 line-clamp-2 relative z-10">
                         {product.name}
                       </div>
                       
-                      <div className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 font-bold text-sm relative z-10">
+                      <div className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/70 font-bold text-sm relative z-10">
                         {formatKwanza(parseFloat(product.price))}
                       </div>
                     </button>

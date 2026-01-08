@@ -109,6 +109,13 @@ export function TableCard({ table, onClick, onShowQrCode }: TableCardProps) {
             {statusConfig.label}
           </Badge>
           <div className="flex items-center gap-1 flex-wrap">
+            {/* ✅ SOLUÇÃO 1: Badge para mesa pronta para fechar */}
+            {table.status === 'aguardando_pagamento' && (
+              <Badge className="bg-green-500 text-white animate-pulse" data-testid={`ready-to-close-${table.id}`}>
+                <CheckCircle className="h-3 w-3 mr-1" weight="fill" />
+                Pronta para Fechar
+              </Badge>
+            )}
             {showLongSessionAlert && (
               <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 animate-pulse" data-testid={`long-session-${table.id}`}>
                 <Warning className="h-3 w-3 mr-1" weight="fill" />

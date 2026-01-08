@@ -52,6 +52,7 @@ export function TableDialogSplitPanel({
 
   // Hooks
   const {
+    tableData,
     ordersByGuestData,
     guests,
     tableOrders,
@@ -65,8 +66,21 @@ export function TableDialogSplitPanel({
 
   if (!table) return null;
 
-  // Prefer session state over table.status (status may be inconsistent across endpoints)
-  const hasActiveSession = !!table.currentSessionId;
+  // ✅ Use tableData from useTableData (always fresh) instead of props
+  // This ensures UI updates immediately after startSession/endSession
+  const currentTable = tableData || table;
+  
+  // ✅ IMPORTANTE: Se há convidados, DEVE haver sessão ativa
+  // (pois agora criamos sessão automaticamente ao adicionar primeiro convidado)
+  const hasActiveSession = !!currentTable.currentSessionId || guests.length > 0;
+  
+  console.log('🔍 [TableDialog] Session check:', {
+    propTableSessionId: table.currentSessionId,
+    freshTableSessionId: tableData?.currentSessionId,
+    guestsCount: guests.length,
+    hasActiveSession,
+    totalOrders,
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -164,10 +178,10 @@ export function TableDialogSplitPanel({
 
                 <button
                   className="w-full mt-3 p-2 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:border-indigo-500 hover:text-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={!table?.currentSessionId}
+                  disabled={!hasActiveSession}
                   onClick={() => {
                     // Validar se há sessão ativa
-                    if (!table?.currentSessionId) {
+                    if (!hasActiveSession) {
                       toast({
                         title: 'Sessão não iniciada',
                         description: 'Por favor, inicie uma sessão primeiro para adicionar pessoas.',
@@ -222,9 +236,9 @@ export function TableDialogSplitPanel({
                 <>
                   <button 
                     className="w-full p-3 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg font-semibold hover:from-indigo-700 hover:to-indigo-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={!table?.currentSessionId}
+                    disabled={!hasActiveSession}
                     onClick={() => {
-                      if (!table?.currentSessionId) {
+                      if (!hasActiveSession) {
                         toast({
                           title: 'Sessão não iniciada',
                           description: 'Por favor, inicie uma sessão primeiro para fazer pedidos.',
@@ -373,14 +387,7 @@ export function TableDialogSplitPanel({
         open={showAddGuest}
         onOpenChange={setShowAddGuest}
         tableId={table?.id || ''}
-        onAddGuest={(guestData) => {
-          mutations.addGuestMutation.mutate({
-            type: guestData.customerId ? 'customer' : 'anonymous',
-            name: guestData.name,
-            customerId: guestData.customerId,
-          });
-          setShowAddGuest(false);
-        }}
+        sessionId={currentTable?.currentSessionId || ''}
       />
 
       {/* Quick Order Dialog */}
@@ -388,14 +395,7 @@ export function TableDialogSplitPanel({
         open={showQuickOrder}
         onOpenChange={setShowQuickOrder}
         tableId={table?.id || ''}
-        tableNumber={table?.number || 0}
-        onOrderCreated={() => {
-          setShowQuickOrder(false);
-          toast({
-            title: 'Pedido criado',
-            description: 'Pedido adicionado com sucesso.',
-          });
-        }}
+        tableNumber={table?.number ?? 0}
       />
 
       {/* Start Session Dialog */}

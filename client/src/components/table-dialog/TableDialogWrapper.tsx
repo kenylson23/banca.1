@@ -3,6 +3,7 @@
  * a versão apropriada do diálogo (Desktop ou Mobile)
  */
 
+import { TableDialogPOSModern } from './TableDialogPOSModern';
 import { TableDialogSplitPanelEnhanced } from './TableDialogSplitPanelEnhanced';
 import type { Table } from '@shared/schema';
 
@@ -19,11 +20,12 @@ interface TableDialogWrapperProps {
  * baseado no tamanho da tela
  */
 export function TableDialogWrapper(props: TableDialogWrapperProps) {
-  // NOTE:
-  // The mobile implementation currently lacks critical actions like "Iniciar Sessão".
-  // To keep behavior consistent across devices (and avoid hiding session controls),
-  // always render the full split panel version.
-  return <TableDialogSplitPanelEnhanced {...props} />;
+  // 🎨 NOVO: Design POS Moderno Híbrido Fullscreen
+  // Comentar a linha abaixo para voltar ao design antigo
+  return <TableDialogPOSModern {...props} />;
+  
+  // Design antigo (comentado temporariamente)
+  // return <TableDialogSplitPanelEnhanced {...props} />;
 }
 
 /**

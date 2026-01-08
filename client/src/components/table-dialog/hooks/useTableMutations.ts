@@ -117,8 +117,30 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
       });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      console.log('🎉 [AddGuest] Pessoa adicionada, atualizando dados...');
+      
+      // 1. Invalidar todas as queries relacionadas
       invalidateTableQueries();
+      
+      // 2. Forçar refetch imediato
+      await Promise.all([
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}/orders-by-guest`] 
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables'] 
+        }),
+        queryClient.refetchQueries({
+          predicate: (q) => {
+            const key = q.queryKey?.[0];
+            return typeof key === 'string' && key.startsWith('/api/table-sessions/');
+          },
+        }),
+      ]);
+      
+      console.log('✅ [AddGuest] Dados atualizados!');
+      
       toast({ title: 'Pessoa adicionada' });
     },
     onError: (error: any) => {
@@ -136,8 +158,30 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
       const response = await apiRequest('DELETE', `/api/table-guests/${guestId}`);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      console.log('🎉 [RemoveGuest] Pessoa removida, atualizando dados...');
+      
+      // 1. Invalidar todas as queries relacionadas
       invalidateTableQueries();
+      
+      // 2. Forçar refetch imediato
+      await Promise.all([
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}/orders-by-guest`] 
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables'] 
+        }),
+        queryClient.refetchQueries({
+          predicate: (q) => {
+            const key = q.queryKey?.[0];
+            return typeof key === 'string' && key.startsWith('/api/table-sessions/');
+          },
+        }),
+      ]);
+      
+      console.log('✅ [RemoveGuest] Dados atualizados!');
+      
       toast({ title: 'Pessoa removida' });
     },
     onError: (error: any) => {
@@ -157,8 +201,34 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
       });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      console.log('🎉 [StartSession] Sessão iniciada, atualizando dados...');
+      
+      // 1. Invalidar todas as queries relacionadas
       invalidateTableQueries();
+      
+      // 2. Forçar refetch imediato das queries críticas
+      await Promise.all([
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}/orders-by-guest`] 
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables'] 
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables/with-orders'] 
+        }),
+        // Refetch de todas as queries de sessões
+        queryClient.refetchQueries({
+          predicate: (q) => {
+            const key = q.queryKey?.[0];
+            return typeof key === 'string' && key.startsWith('/api/table-sessions/');
+          },
+        }),
+      ]);
+      
+      console.log('✅ [StartSession] Dados atualizados!');
+      
       toast({ 
         title: 'Sessão iniciada',
         description: 'Mesa aberta com sucesso.',
@@ -175,23 +245,66 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
 
   // End Session
   const endSessionMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest('POST', `/api/tables/${tableId}/close-session`, {});
+    mutationFn: async (forceClose: boolean = false) => {
+      const response = await apiRequest('POST', `/api/tables/${tableId}/close-session`, { forceClose });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      console.log('🎉 [EndSession] Sessão encerrada, atualizando dados...');
+      
+      // 1. Invalidar todas as queries relacionadas
       invalidateTableQueries();
+      
+      // 2. Forçar refetch imediato
+      await Promise.all([
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}/orders-by-guest`] 
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables'] 
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables/with-orders'] 
+        }),
+        queryClient.refetchQueries({
+          predicate: (q) => {
+            const key = q.queryKey?.[0];
+            return typeof key === 'string' && key.startsWith('/api/table-sessions/');
+          },
+        }),
+      ]);
+      
+      console.log('✅ [EndSession] Dados atualizados!');
+      
       toast({ 
         title: 'Sessão encerrada',
         description: 'Mesa fechada com sucesso.',
       });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Erro ao encerrar sessão',
-        description: error.message,
-        variant: 'destructive',
-      });
+      // Handle validation errors for pending payments
+      if (error.status === 400 && error.pendingAmount) {
+        const guestsList = error.unpaidGuests?.length > 0
+          ? error.unpaidGuests.map((g: any) => `${g.name}: ${g.pending} Kz`).join(', ')
+          : '';
+        
+        toast({
+          title: 'Atenção: Valores Pendentes',
+          description: `Mesa possui ${error.pendingAmount} Kz pendente de pagamento. ${guestsList}`,
+          variant: 'destructive',
+        });
+        
+        // If user can force close, show a follow-up message
+        if (error.canForceClose) {
+          console.warn('User can force close. Implement force close dialog if needed.');
+        }
+      } else {
+        toast({
+          title: 'Erro ao encerrar sessão',
+          description: error.message || 'Não foi possível encerrar a sessão.',
+          variant: 'destructive',
+        });
+      }
     },
   });
 

@@ -51,28 +51,41 @@ export function RestaurantStatus({ isOpen, businessHours, compact = false }: Res
   if (compact) {
     return (
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
+        initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full ${
-          isOpen 
-            ? 'bg-green-100 text-green-700 border border-green-200' 
-            : 'bg-red-100 text-red-700 border border-red-200'
-        }`}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className={`
+          inline-flex items-center gap-2.5 px-4 py-2 rounded-full
+          backdrop-blur-xl
+          shadow-lg
+          border border-white/30
+          transition-all duration-300
+          hover:shadow-xl hover:scale-105
+          ${
+            isOpen 
+              ? 'bg-gradient-to-r from-emerald-500/20 to-green-500/20 text-green-700 shadow-green-500/20' 
+              : 'bg-gradient-to-r from-red-500/20 to-rose-500/20 text-red-700 shadow-red-500/20'
+          }
+        `}
       >
         {isOpen ? (
           <>
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-xs font-bold">Aberto</span>
+            <motion.div
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              className="w-2.5 h-2.5 bg-green-500 rounded-full shadow-lg shadow-green-500/50"
+            />
+            <span className="text-sm font-bold">Aberto</span>
             {todayHours?.isOpen && (
-              <span className="text-xs font-normal">
+              <span className="text-xs font-medium opacity-90">
                 até {todayHours.closeTime}
               </span>
             )}
           </>
         ) : (
           <>
-            <div className="w-2 h-2 bg-red-500 rounded-full" />
-            <span className="text-xs font-bold">Fechado</span>
+            <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-lg shadow-red-500/50" />
+            <span className="text-sm font-bold">Fechado</span>
           </>
         )}
       </motion.div>

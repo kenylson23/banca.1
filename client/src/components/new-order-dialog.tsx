@@ -348,7 +348,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
               orderNumber: data.orderNumber || data.id.slice(-6),
               orderType: data.orderType || 'balcao',
               customerName: data.customerName,
-              tableNumber: data.table?.number,
+              tableNumber: data.table?.number || undefined,
               items: data.orderItems || cart.map(item => ({
                 name: item.name,
                 quantity: item.quantity,

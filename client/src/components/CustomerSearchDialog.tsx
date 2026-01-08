@@ -1,17 +1,15 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MagnifyingGlass, User, Phone, Star, X } from '@phosphor-icons/react';
+import { Search, User as UserIcon, Phone, Star, X, Users, ChevronRight, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Customer {
@@ -82,69 +80,126 @@ export function CustomerSearchDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <User className="w-5 h-5" />
-            Buscar Cliente
-          </DialogTitle>
-          <DialogDescription>
-            Selecione um cliente cadastrado para vincular à mesa
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden">
+        {/* Header Premium */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 px-6 pt-6 pb-4">
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iZ3JpZCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLW9wYWNpdHk9IjAuMSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-20" />
+          
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="relative z-10"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+                <Search className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg font-bold text-white">Buscar Cliente</h2>
+                <p className="text-white/80 text-xs truncate">
+                  Selecione um cliente cadastrado
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
 
-        <div className="space-y-4">
-          {/* Search Input */}
+        {/* Search Input */}
+        <div className="p-6 pb-4">
           <div className="relative">
-            <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nome, telefone ou email..."
+              placeholder="Digite nome, telefone ou email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-10"
+              className="pl-10 pr-10 h-11 focus-visible:ring-0 focus-visible:ring-offset-0"
               autoFocus
             />
-            {searchTerm && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                onClick={handleClear}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            )}
+            <AnimatePresence>
+              {searchTerm && (
+                <motion.button
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0 }}
+                  onClick={handleClear}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-muted hover:bg-muted-foreground/20 flex items-center justify-center transition-colors"
+                >
+                  <X className="w-4 h-4 text-muted-foreground" />
+                </motion.button>
+              )}
+            </AnimatePresence>
           </div>
+        </div>
 
-          {/* Results */}
-          <ScrollArea className="h-[400px] pr-4">
+        {/* Results */}
+        <ScrollArea className="h-[400px] px-6">
+          <AnimatePresence mode="wait">
             {isLoading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Carregando clientes...
-              </div>
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex flex-col items-center justify-center py-12"
+              >
+                <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+                <p className="text-muted-foreground">Buscando clientes...</p>
+              </motion.div>
             ) : filteredCustomers.length === 0 ? (
-              <div className="text-center py-8 space-y-4">
-                <div className="text-muted-foreground">
-                  {searchTerm
-                    ? 'Nenhum cliente encontrado com esse critério'
-                    : 'Nenhum cliente cadastrado'}
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="text-center py-12"
+              >
+                <div className="h-20 w-20 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-10 h-10 text-muted-foreground" />
                 </div>
+                <h3 className="font-semibold text-lg mb-2">
+                  {searchTerm ? 'Nenhum resultado' : 'Nenhum cliente'}
+                </h3>
+                <p className="text-muted-foreground text-sm mb-4">
+                  {searchTerm
+                    ? 'Tente buscar com outros termos'
+                    : 'Ainda não há clientes cadastrados'}
+                </p>
                 {onCreateNew && (
-                  <Button onClick={onCreateNew} variant="outline">
-                    <User className="w-4 h-4 mr-2" />
+                  <Button onClick={onCreateNew} className="gap-2">
+                    <UserIcon className="w-4 h-4" />
                     Cadastrar Novo Cliente
                   </Button>
                 )}
-              </div>
+              </motion.div>
             ) : (
-              <div className="space-y-2">
-                {filteredCustomers.map((customer) => (
-                  <button
+              <motion.div
+                key="results"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="space-y-2 pb-4"
+              >
+                {filteredCustomers.map((customer, index) => (
+                  <motion.button
                     key={customer.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
                     onClick={() => handleSelectCustomer(customer)}
-                    className="w-full text-left p-4 rounded-lg border border-border hover:border-primary hover:bg-accent transition-colors"
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    className="w-full text-left p-4 rounded-xl border-2 border-border hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all group"
                   >
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      {/* Avatar */}
+                      <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
+                        <span className="text-white font-bold text-lg">
+                          {customer.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+
+                      {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <h4 className="font-semibold text-base truncate">
@@ -153,11 +208,9 @@ export function CustomerSearchDialog({
                           {customer.tier && tierLabels[customer.tier] && (
                             <Badge
                               variant="outline"
-                              className={cn(
-                                'text-xs',
-                                tierColors[customer.tier]
-                              )}
+                              className={cn('text-xs', tierColors[customer.tier])}
                             >
+                              <Star className="w-3 h-3 mr-1 fill-current" />
                               {tierLabels[customer.tier]}
                             </Badge>
                           )}
@@ -171,47 +224,47 @@ export function CustomerSearchDialog({
                             </div>
                           )}
                           {customer.loyaltyPoints > 0 && (
+                            <div className="flex items-center gap-1 text-amber-600">
+                              <Star className="w-3.5 h-3.5 fill-current" />
+                              <span className="font-medium">{customer.loyaltyPoints} pts</span>
+                            </div>
+                          )}
+                          {customer.visitCount > 0 && (
                             <div className="flex items-center gap-1">
-                              <Star className="w-3.5 h-3.5" weight="fill" />
-                              <span>{customer.loyaltyPoints} pontos</span>
+                              <TrendingUp className="w-3.5 h-3.5" />
+                              <span>
+                                {customer.visitCount}{' '}
+                                {customer.visitCount === 1 ? 'visita' : 'visitas'}
+                              </span>
                             </div>
                           )}
                         </div>
-
-                        {customer.visitCount > 0 && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {customer.visitCount}{' '}
-                            {customer.visitCount === 1 ? 'visita' : 'visitas'}
-                          </div>
-                        )}
                       </div>
 
-                      <div className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8"
-                        >
-                          Selecionar
-                        </Button>
-                      </div>
+                      {/* Arrow */}
+                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-blue-600 transition-colors" />
                     </div>
-                  </button>
+                  </motion.button>
                 ))}
-              </div>
+              </motion.div>
             )}
-          </ScrollArea>
+          </AnimatePresence>
+        </ScrollArea>
 
-          {/* Actions */}
-          <div className="flex justify-between items-center pt-4 border-t">
+        {/* Footer */}
+        <div className="border-t bg-muted/30 px-6 py-4">
+          <div className="flex justify-between items-center">
             <div className="text-sm text-muted-foreground">
-              {filteredCustomers.length}{' '}
-              {filteredCustomers.length === 1
-                ? 'cliente encontrado'
-                : 'clientes encontrados'}
+              {!isLoading && (
+                <>
+                  <span className="font-semibold text-foreground">{filteredCustomers.length}</span>
+                  {' '}
+                  {filteredCustomers.length === 1 ? 'cliente' : 'clientes'}
+                </>
+              )}
             </div>
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancelar
+              Fechar
             </Button>
           </div>
         </div>

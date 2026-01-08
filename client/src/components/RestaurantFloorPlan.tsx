@@ -28,6 +28,7 @@ import { formatKwanza } from '@/lib/formatters';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { TableDialogWrapper } from './table-dialog/TableDialogWrapper';
+import { CreateTableDialogPremium } from './CreateTableDialogPremium';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -977,51 +978,11 @@ export function RestaurantFloorPlan({ className }: RestaurantFloorPlanProps) {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Nova Mesa Button */}
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="shadow-md">
-                <Plus className="h-4 w-4 mr-2" weight="bold" />
-                Nova Mesa
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Criar Nova Mesa</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="table-number">Número da Mesa</Label>
-                  <Input
-                    id="table-number"
-                    type="number"
-                    placeholder="Ex: 1"
-                    value={tableNumber}
-                    onChange={(e) => setTableNumber(e.target.value)}
-                    min="1"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="capacity">Capacidade (pessoas)</Label>
-                  <Input
-                    id="capacity"
-                    type="number"
-                    placeholder="Ex: 4"
-                    value={capacity}
-                    onChange={(e) => setCapacity(e.target.value)}
-                    min="1"
-                  />
-                </div>
-                <Button 
-                  onClick={handleCreateTable}
-                  disabled={createTableMutation.isPending}
-                  className="w-full"
-                >
-                  {createTableMutation.isPending ? 'Criando...' : 'Criar Mesa'}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          {/* Nova Mesa Button - Premium Version */}
+          <CreateTableDialogPremium onTableCreated={() => {
+            // Refresh tables after creation
+            queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
+          }} />
 
           {/* Search */}
           <div className="relative">
@@ -1463,7 +1424,7 @@ export function RestaurantFloorPlan({ className }: RestaurantFloorPlanProps) {
                 </>
               )}
 
-              <AnimatePresence>
+              <AnimatePresence mode="popLayout">
                 {filteredTables.map((table, index) => {
                   const status = getTableStatus(table);
                   // ✅ CORREÇÃO: Parse robusto e consistente de posições
