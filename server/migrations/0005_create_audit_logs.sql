@@ -4,14 +4,34 @@
 
 CREATE TABLE IF NOT EXISTS audit_logs (
   id SERIAL PRIMARY KEY,
-  restaurant_id VARCHAR(255) NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
-  actor_id VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+  restaurant_id VARCHAR(255) NOT NULL,
+  actor_id VARCHAR(255),
   action VARCHAR(100) NOT NULL,
   entity_type VARCHAR(50) NOT NULL,
   entity_id VARCHAR(255) NOT NULL,
   details JSONB,
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Adicionar foreign keys separadamente (mais seguro)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'audit_logs_restaurant_id_fkey'
+  ) THEN
+    ALTER TABLE audit_logs 
+    ADD CONSTRAINT audit_logs_restaurant_id_fkey 
+    FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'audit_logs_actor_id_fkey'
+  ) THEN
+    ALTER TABLE audit_logs 
+    ADD CONSTRAINT audit_logs_actor_id_fkey 
+    FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 
 -- Índices para performance
 CREATE INDEX IF NOT EXISTS idx_audit_logs_restaurant ON audit_logs(restaurant_id);

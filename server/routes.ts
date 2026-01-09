@@ -1,4 +1,3 @@
-import { fixOrderSessionIds } from "./fix-orders-endpoint";
 // Blueprint: javascript_log_in_with_replit - Auth routes
 // Blueprint: javascript_websocket - WebSocket implementation
 import type { Express } from "express";

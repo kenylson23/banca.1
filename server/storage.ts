@@ -32,7 +32,7 @@ import {
   orderItemOption, type OrderItemOption, type InsertOrderItemOption,
   subscriptionPlans, subscriptions, subscriptionPayments
 } from "@shared/schema";
-import { eq, and, desc, asc, sql, or, ne, inArray, isNull, alias, type PgTransaction } from "drizzle-orm";
+import { eq, and, desc, asc, sql, or, ne, inArray, isNull } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 
@@ -50,7 +50,7 @@ export interface IStorage {
   // Restaurant operations
   getRestaurant(id: string): Promise<Restaurant | undefined>;
   getRestaurantByDomain(domain: string): Promise<Restaurant | undefined>;
-  createRestaurant(restaurant: InsertRestaurant): Promise<Restaurant>;
+  createRestaurant(restaurant: InsertRestaurant): Promise<{ restaurant: Restaurant; adminUser: User }>;
   updateRestaurant(id: string, data: Partial<Restaurant>): Promise<Restaurant>;
 
   // Category operations
@@ -170,6 +170,7 @@ export interface IStorage {
   seedSubscriptionPlans(): Promise<void>;
 
   // Subscription operations
+  getAllSubscriptions(): Promise<any[]>;
   getSubscriptionByRestaurantId(restaurantId: string): Promise<any | undefined>;
   createSubscription(restaurantId: string, data: any): Promise<any>;
   updateSubscription(id: string, data: any): Promise<any>;
@@ -240,6 +241,16 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async getRestaurantByEmail(email: string): Promise<Restaurant | undefined> {
+    const [restaurant] = await db.select().from(restaurants).where(eq(restaurants.email, email));
+    return restaurant;
+  }
+
   async createUser(user: InsertUser): Promise<User> {
     const [newUser] = await db.insert(users).values(user).returning();
     return newUser;
@@ -269,14 +280,36 @@ export class DatabaseStorage implements IStorage {
     return restaurant;
   }
 
-  async createRestaurant(restaurant: InsertRestaurant): Promise<Restaurant> {
-    const [newRestaurant] = await db.insert(restaurants).values(restaurant).returning();
-    return newRestaurant;
+  async createRestaurant(data: InsertRestaurant): Promise<{ restaurant: Restaurant; adminUser: User }> {
+    // Extrair dados do usuário admin
+    const { password, ...restaurantData } = data;
+    
+    // Criar o restaurante
+    const [newRestaurant] = await db.insert(restaurants).values(restaurantData).returning();
+    
+    // Criar usuário administrador
+    const bcrypt = await import('bcrypt');
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const [adminUser] = await db.insert(users).values({
+      email: newRestaurant.email,
+      password: hashedPassword,
+      firstName: 'Admin',
+      lastName: newRestaurant.name,
+      role: 'admin',
+      restaurantId: newRestaurant.id,
+    }).returning();
+    
+    return { restaurant: newRestaurant, adminUser };
   }
 
   async updateRestaurant(id: string, data: Partial<Restaurant>): Promise<Restaurant> {
     const [updated] = await db.update(restaurants).set(data).where(eq(restaurants.id, id)).returning();
     return updated;
+  }
+
+  async deleteRestaurant(id: string): Promise<void> {
+    await db.delete(restaurants).where(eq(restaurants.id, id));
   }
 
   // ✅ NOVO: Validar se a sessão pode ser fechada (todos pagaram)
@@ -650,6 +683,232 @@ export class DatabaseStorage implements IStorage {
 
   async generateMissingSlugs(): Promise<void> {
     return;
+  }
+
+  // Subscription Plan operations
+  async getSubscriptionPlans(): Promise<any[]> {
+    try {
+      console.log('[getSubscriptionPlans] Executando query...');
+      const result = await db.select().from(subscriptionPlans).orderBy(asc(subscriptionPlans.displayOrder));
+      console.log('[getSubscriptionPlans] Resultado:', result.length, 'planos encontrados');
+      return result;
+    } catch (error: any) {
+      console.error('[getSubscriptionPlans] Erro SQL:', error);
+      throw error;
+    }
+  }
+
+  async getSubscriptionPlanById(id: string): Promise<any | undefined> {
+    const [plan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, id));
+    return plan;
+  }
+
+  async getAllSubscriptionPlans(): Promise<any[]> {
+    return await db.select().from(subscriptionPlans).orderBy(asc(subscriptionPlans.price));
+  }
+
+  async updateSubscriptionPlan(id: string, data: any): Promise<any> {
+    const [updated] = await db.update(subscriptionPlans)
+      .set(data)
+      .where(eq(subscriptionPlans.id, id))
+      .returning();
+    return updated;
+  }
+
+  async seedSubscriptionPlans(): Promise<void> {
+    // Verificar se já existem planos
+    const existing = await db.select().from(subscriptionPlans);
+    if (existing.length > 0) {
+      console.log('✅ Planos de subscrição já existem, pulando seed');
+      return;
+    }
+
+    console.log('🌱 Criando planos de subscrição padrão...');
+    
+    const plans = [
+      {
+        id: 'plan_base',
+        name: 'Base',
+        description: 'Ideal para começar',
+        price: '0',
+        interval: 'month' as const,
+        trialDays: 30,
+        maxUsers: 2,
+        maxTables: 5,
+        maxMenuItems: 20,
+        maxOrders: 100,
+        features: ['2 utilizadores', '5 mesas', '20 itens no menu', '100 pedidos/mês'],
+        isActive: 1,
+      },
+      {
+        id: 'plan_starter',
+        name: 'Starter',
+        description: 'Para pequenos negócios',
+        price: '15000',
+        interval: 'month' as const,
+        trialDays: 14,
+        maxUsers: 5,
+        maxTables: 15,
+        maxMenuItems: 100,
+        maxOrders: 500,
+        features: ['5 utilizadores', '15 mesas', '100 itens no menu', '500 pedidos/mês', 'Suporte por email'],
+        isActive: 1,
+      },
+      {
+        id: 'plan_professional',
+        name: 'Professional',
+        description: 'Para restaurantes em crescimento',
+        price: '35000',
+        interval: 'month' as const,
+        trialDays: 14,
+        maxUsers: 15,
+        maxTables: 50,
+        maxMenuItems: 500,
+        maxOrders: 2000,
+        features: ['15 utilizadores', '50 mesas', '500 itens no menu', '2000 pedidos/mês', 'Múltiplas filiais', 'Suporte prioritário'],
+        isActive: 1,
+      },
+      {
+        id: 'plan_enterprise',
+        name: 'Enterprise',
+        description: 'Solução completa sem limites',
+        price: '75000',
+        interval: 'month' as const,
+        trialDays: 14,
+        maxUsers: -1,
+        maxTables: -1,
+        maxMenuItems: -1,
+        maxOrders: -1,
+        features: ['Utilizadores ilimitados', 'Mesas ilimitadas', 'Menu ilimitado', 'Pedidos ilimitados', 'Múltiplas filiais', 'Suporte 24/7', 'API personalizada'],
+        isActive: 1,
+      },
+    ];
+
+    for (const plan of plans) {
+      await db.insert(subscriptionPlans).values(plan);
+    }
+
+    console.log('✅ Planos de subscrição criados com sucesso');
+  }
+
+  // Subscription operations
+  async getAllSubscriptions(): Promise<any[]> {
+    const results = await db.select({
+      id: subscriptions.id,
+      restaurantId: subscriptions.restaurantId,
+      planId: subscriptions.planId,
+      status: subscriptions.status,
+      billingInterval: subscriptions.billingInterval,
+      currency: subscriptions.currency,
+      currentPeriodStart: subscriptions.currentPeriodStart,
+      currentPeriodEnd: subscriptions.currentPeriodEnd,
+      trialStart: subscriptions.trialStart,
+      trialEnd: subscriptions.trialEnd,
+      canceledAt: subscriptions.canceledAt,
+      createdAt: subscriptions.createdAt,
+      updatedAt: subscriptions.updatedAt,
+      restaurant: {
+        id: restaurants.id,
+        name: restaurants.name,
+        email: restaurants.email,
+        phone: restaurants.phone,
+        status: restaurants.status,
+      },
+      plan: {
+        id: subscriptionPlans.id,
+        name: subscriptionPlans.name,
+        price: subscriptionPlans.price,
+      }
+    })
+      .from(subscriptions)
+      .leftJoin(restaurants, eq(subscriptions.restaurantId, restaurants.id))
+      .leftJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
+      .orderBy(desc(subscriptions.createdAt));
+    
+    return results;
+  }
+
+  async getSubscriptionByRestaurantId(restaurantId: string): Promise<any | undefined> {
+    const [subscription] = await db.select()
+      .from(subscriptions)
+      .where(eq(subscriptions.restaurantId, restaurantId))
+      .orderBy(desc(subscriptions.createdAt))
+      .limit(1);
+    return subscription;
+  }
+
+  async createSubscription(restaurantId: string, data: any): Promise<any> {
+    const [subscription] = await db.insert(subscriptions)
+      .values({ ...data, restaurantId })
+      .returning();
+    return subscription;
+  }
+
+  async updateSubscription(id: string, data: any): Promise<any> {
+    const [updated] = await db.update(subscriptions)
+      .set(data)
+      .where(eq(subscriptions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async cancelSubscription(restaurantId: string): Promise<any> {
+    const subscription = await this.getSubscriptionByRestaurantId(restaurantId);
+    if (!subscription) {
+      throw new Error('Subscrição não encontrada');
+    }
+
+    const [updated] = await db.update(subscriptions)
+      .set({ 
+        status: 'cancelada',
+        cancelledAt: new Date(),
+      })
+      .where(eq(subscriptions.id, subscription.id))
+      .returning();
+    return updated;
+  }
+
+  async checkSubscriptionLimits(restaurantId: string): Promise<any> {
+    const subscription = await this.getSubscriptionByRestaurantId(restaurantId);
+    if (!subscription) {
+      return { valid: false, message: 'Subscrição não encontrada' };
+    }
+
+    const plan = await this.getSubscriptionPlanById(subscription.planId);
+    if (!plan) {
+      return { valid: false, message: 'Plano não encontrado' };
+    }
+
+    // Verificar limites (implementação básica)
+    return {
+      valid: subscription.status === 'ativa',
+      plan,
+      subscription,
+      limits: {
+        maxUsers: plan.maxUsers,
+        maxTables: plan.maxTables,
+        maxMenuItems: plan.maxMenuItems,
+        maxOrders: plan.maxOrders,
+      }
+    };
+  }
+
+  // Subscription Payment operations
+  async getSubscriptionPayments(restaurantId: string): Promise<any[]> {
+    const subscription = await this.getSubscriptionByRestaurantId(restaurantId);
+    if (!subscription) return [];
+
+    return await db.select()
+      .from(subscriptionPayments)
+      .where(eq(subscriptionPayments.subscriptionId, subscription.id))
+      .orderBy(desc(subscriptionPayments.createdAt));
+  }
+
+  async createSubscriptionPayment(restaurantId: string, data: any): Promise<any> {
+    const [payment] = await db.insert(subscriptionPayments)
+      .values(data)
+      .returning();
+    return payment;
   }
 }
 
