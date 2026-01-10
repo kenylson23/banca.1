@@ -348,7 +348,13 @@ export function QuickOrderDialog({
       }
       
       // Force immediate refetch of active queries
+      console.log('🔄 [QuickOrder] Refazendo queries após criar pedido...');
       await Promise.all([
+        // CRÍTICO: Refetch da mesa principal para atualizar estado
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}`],
+          type: 'active'
+        }),
         queryClient.refetchQueries({ 
           queryKey: [`/api/tables/${tableId}/orders-by-guest`],
           type: 'active'
@@ -357,20 +363,27 @@ export function QuickOrderDialog({
           queryKey: [`/api/tables/${tableId}/guests`],
           type: 'active'
         }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables'],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables/with-orders'],
+          type: 'active'
+        }),
         usedSessionId ? queryClient.refetchQueries({ 
           queryKey: [`/api/table-sessions/${usedSessionId}/guests`],
           type: 'active'
         }) : Promise.resolve(),
       ]);
+      console.log('✅ [QuickOrder] Queries atualizadas!');
       
       // Clear form
       setCart([]);
       setOrderNotes('');
       
-      // Delay before closing to ensure UI is updated
-      setTimeout(() => {
-        onOpenChange(false);
-      }, 300);
+      // Close immediately (queries already updated)
+      onOpenChange(false);
     },
     onError: (error: any) => {
       toast({

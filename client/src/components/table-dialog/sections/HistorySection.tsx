@@ -17,6 +17,7 @@ import {
   Receipt,
   Calendar,
   BarChart3,
+  Printer,
 } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
@@ -24,12 +25,19 @@ import { ptBR } from 'date-fns/locale';
 import type { Table } from '@shared/schema';
 import { SessionCard } from './SessionCard';
 import { TableStatistics } from './TableStatistics';
+import { Button } from '@/components/ui/button';
+import { PrintTablePayment } from '@/components/PrintTablePayment';
 
 interface HistorySectionProps {
   table: Table;
 }
 
 const paymentMethodLabels: Record<string, string> = {
+  dinheiro: 'Dinheiro',
+  cartao: 'Cartão',
+  multicaixa: 'Multicaixa',
+  transferencia: 'Transferência',
+  // Manter compatibilidade com valores antigos se existirem
   cash: 'Dinheiro',
   card: 'Cartão',
   mbway: 'MBWay',
@@ -39,6 +47,7 @@ const paymentMethodLabels: Record<string, string> = {
 
 export function HistorySection({ table }: HistorySectionProps) {
   const [activeTab, setActiveTab] = useState('statistics');
+  const [printingPaymentId, setPrintingPaymentId] = useState<string | null>(null);
 
   // Buscar sessões da mesa
   const { data: sessions = [], isLoading: loadingSessions } = useQuery<any[]>({
@@ -54,9 +63,10 @@ export function HistorySection({ table }: HistorySectionProps) {
 
   const isLoading = loadingSessions || loadingPayments;
 
-  // Filtrar sessões completadas e ordenar por data (mais recente primeiro)
+  // Filtrar sessões encerradas (com endedAt preenchido)
+  // Status válidos do banco: 'livre', 'ocupada', 'em_andamento', 'aguardando_pagamento', 'encerrada'
   const completedSessions = sessions
-    .filter(s => s.status === 'completed')
+    .filter(s => s.endedAt !== null) // Sessões com data de término
     .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
 
   if (isLoading) {
@@ -187,7 +197,7 @@ export function HistorySection({ table }: HistorySectionProps) {
                       <div>
                         <div className="text-sm text-muted-foreground mb-1">Método</div>
                         <div className="font-semibold">
-                          {paymentMethodLabels[payment.method] || payment.method}
+                          {paymentMethodLabels[payment.paymentMethod] || payment.paymentMethod}
                         </div>
                       </div>
                     </div>
@@ -200,9 +210,46 @@ export function HistorySection({ table }: HistorySectionProps) {
                         </div>
                       </>
                     )}
+                    
+                    <Separator />
+                    
+                    {/* Botão de Reimprimir */}
+                    <div className="flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPrintingPaymentId(payment.id)}
+                        className="gap-2"
+                      >
+                        <Printer className="h-4 w-4" />
+                        Reimprimir Recibo
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
+              
+              {/* Componente de Impressão (invisível) */}
+              {printingPaymentId && (() => {
+                const paymentToPrint = payments.find(p => p.id === printingPaymentId);
+                if (!paymentToPrint) return null;
+                
+                return (
+                  <PrintTablePayment
+                    payment={{
+                      id: paymentToPrint.id,
+                      amount: paymentToPrint.amount,
+                      paymentMethod: paymentToPrint.paymentMethod,
+                      createdAt: paymentToPrint.createdAt,
+                      notes: paymentToPrint.notes,
+                      sessionId: paymentToPrint.sessionId,
+                    }}
+                    tableName={`Mesa ${table.number}`}
+                    onPrintComplete={() => setPrintingPaymentId(null)}
+                    autoPrint={true}
+                  />
+                );
+              })()}
             </div>
           )}
         </TabsContent>

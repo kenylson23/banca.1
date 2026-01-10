@@ -30,7 +30,7 @@ interface SessionCardProps {
     tableId: string;
     startedAt: string;
     endedAt: string | null;
-    peopleCount: number;
+    customerCount: number | null;
     totalAmount: string;
     status: string;
   };
@@ -97,9 +97,9 @@ export function SessionCard({ session, tableId }: SessionCardProps) {
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm">
-                  <span className="font-semibold">{session.peopleCount}</span>
+                  <span className="font-semibold">{session.customerCount || 0}</span>
                   <span className="text-muted-foreground ml-1">
-                    {session.peopleCount === 1 ? 'pessoa' : 'pessoas'}
+                    {(session.customerCount || 0) === 1 ? 'pessoa' : 'pessoas'}
                   </span>
                 </span>
               </div>

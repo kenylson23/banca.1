@@ -22,28 +22,30 @@ interface TableStatisticsProps {
     id: string;
     startedAt: string;
     endedAt: string | null;
-    peopleCount: number;
+    customerCount: number | null;
     totalAmount: string;
     status: string;
   }>;
   payments: Array<{
     id: string;
     amount: string;
-    method: string;
+    paymentMethod: string;
     createdAt: string;
   }>;
 }
 
 export function TableStatistics({ sessions, payments }: TableStatisticsProps) {
   const stats = useMemo(() => {
-    // Filtrar apenas sessões completadas
-    const completedSessions = sessions.filter(s => s.status === 'completed');
+    // Filtrar apenas sessões encerradas (com endedAt preenchido)
+    // Status válidos do banco: 'livre', 'ocupada', 'em_andamento', 'aguardando_pagamento', 'encerrada'
+    const completedSessions = sessions.filter(s => s.endedAt !== null);
     
-    // Total de sessões
-    const totalSessions = completedSessions.length;
+    // Total de sessões (usar completadas se existirem, senão todas)
+    const sessionsToAnalyze = completedSessions.length > 0 ? completedSessions : sessions;
+    const totalSessions = sessionsToAnalyze.length;
     
     // Receita total
-    const totalRevenue = completedSessions.reduce(
+    const totalRevenue = sessionsToAnalyze.reduce(
       (sum, s) => sum + parseFloat(s.totalAmount || '0'), 
       0
     );
@@ -52,7 +54,7 @@ export function TableStatistics({ sessions, payments }: TableStatisticsProps) {
     const avgTicket = totalSessions > 0 ? totalRevenue / totalSessions : 0;
     
     // Duração média das sessões
-    const totalDuration = completedSessions.reduce((sum, s) => {
+    const totalDuration = sessionsToAnalyze.reduce((sum, s) => {
       if (!s.endedAt) return sum;
       const duration = new Date(s.endedAt).getTime() - new Date(s.startedAt).getTime();
       return sum + duration;
@@ -64,19 +66,29 @@ export function TableStatistics({ sessions, payments }: TableStatisticsProps) {
     const avgDurationText = avgHours > 0 ? `${avgHours}h ${avgMinutes}min` : `${avgMinutes}min`;
     
     // Média de pessoas por sessão
-    const totalPeople = completedSessions.reduce((sum, s) => sum + s.peopleCount, 0);
+    const totalPeople = sessionsToAnalyze.reduce((sum, s) => {
+      return sum + (s.customerCount || 0);
+    }, 0);
     const avgPeopleCount = totalSessions > 0 ? (totalPeople / totalSessions).toFixed(1) : '0';
     
     // Método de pagamento mais usado
     const paymentMethods = payments.reduce((acc, p) => {
-      acc[p.method] = (acc[p.method] || 0) + 1;
+      if (p.paymentMethod) {
+        acc[p.paymentMethod] = (acc[p.paymentMethod] || 0) + 1;
+      }
       return acc;
     }, {} as Record<string, number>);
     
     const mostUsedMethod = Object.entries(paymentMethods)
       .sort(([, a], [, b]) => b - a)[0];
     
+    // Labels para os métodos de pagamento do banco de dados
     const methodLabels: Record<string, string> = {
+      dinheiro: 'Dinheiro',
+      cartao: 'Cartão',
+      multicaixa: 'Multicaixa',
+      transferencia: 'Transferência',
+      // Manter compatibilidade com valores antigos se existirem
       cash: 'Dinheiro',
       card: 'Cartão',
       mbway: 'MBWay',

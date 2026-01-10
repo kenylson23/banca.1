@@ -173,6 +173,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
   });
   
   const ordersByGuest = ordersData?.ordersByGuest || [];
+  const anonymousOrders = ordersData?.anonymousOrders || [];
   const tablePaidAmount = parseFloat(ordersData?.paidAmount || '0');
   const remainingAmount = numericTotalAmount - tablePaidAmount;
   
@@ -230,26 +231,58 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
 
   const moveItemMutation = useMutation({
     mutationFn: async (data: { itemId: string; newGuestId: string; reason?: string }) => {
-      const response = await apiRequest(
-        'PATCH',
-        `/api/order-items/${data.itemId}/reassign`,
-        { 
-          newGuestId: data.newGuestId,
-          reason: data.reason,
-        }
-      );
-      return response;
+      console.log('🚀 [MoveItem] Enviando requisição:', data);
+      
+      try {
+        const response = await apiRequest(
+          'PATCH',
+          `/api/order-items/${data.itemId}/reassign`,
+          { 
+            newGuestId: data.newGuestId,
+            reason: data.reason,
+          }
+        );
+        
+        console.log('✅ [MoveItem] Resposta recebida:', response);
+        return response;
+      } catch (error) {
+        console.error('❌ [MoveItem] Erro na requisição:', error);
+        throw error;
+      }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      console.log('🎉 [MoveItem] Sucesso! Invalidando queries...');
+      
+      // Invalidar todas as queries relacionadas
       queryClient.invalidateQueries({ queryKey: ['/api/tables/sessions', sessionId, 'guests'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
+      
+      // Forçar refetch imediato
+      await Promise.all([
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}`],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}/orders-by-guest`],
+          type: 'active'
+        }),
+      ]);
+      
+      console.log('✅ [MoveItem] Queries atualizadas!');
+      
       toast({
-        title: 'Item movido',
-        description: 'O item foi movido com sucesso',
+        title: 'Item atribuído',
+        description: 'O item foi atribuído ao cliente com sucesso',
       });
     },
     onError: (error: Error) => {
+      console.error('❌ [MoveItem] Erro na mutation:', error);
       toast({
-        title: 'Erro ao mover item',
+        title: 'Erro ao atribuir item',
         description: error.message,
         variant: 'destructive',
       });
@@ -258,21 +291,56 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    
+    console.log('🎯 [DragEnd] Evento:', {
+      activeId: active.id,
+      overId: over?.id,
+      sourceGuestId: active.data.current?.sourceGuestId,
+      itemName: active.data.current?.menuItemName,
+    });
+    
     setDraggedItem(null);
 
-    if (!over) return;
+    if (!over) {
+      console.log('⚠️ [DragEnd] Sem destino (over)');
+      return;
+    }
 
     const itemId = active.id as string;
     const sourceGuestId = active.data.current?.sourceGuestId;
     const targetGuestId = over.id as string;
     const menuItemName = active.data.current?.menuItemName;
 
-    // Don't move if dropped on same guest
-    if (sourceGuestId === targetGuestId) return;
+    console.log('🔄 [DragEnd] Tentando mover:', {
+      itemId,
+      sourceGuestId,
+      targetGuestId,
+      menuItemName,
+    });
+
+    // Don't move if dropped on same guest (exceto se vier de anonymous)
+    if (sourceGuestId === targetGuestId && sourceGuestId !== 'anonymous') {
+      console.log('⚠️ [DragEnd] Mesmo convidado, cancelando');
+      return;
+    }
 
     // Check if target guest is eligible
     const targetGuest = ordersByGuest.find(g => g.guest.id === targetGuestId)?.guest;
-    if (!targetGuest || targetGuest.status === 'pago' || targetGuest.status === 'saiu') {
+    
+    console.log('🔍 [DragEnd] Target guest:', targetGuest);
+    
+    if (!targetGuest) {
+      console.error('❌ [DragEnd] Target guest não encontrado!');
+      toast({
+        title: 'Cliente não encontrado',
+        description: 'O cliente de destino não foi encontrado',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (targetGuest.status === 'pago' || targetGuest.status === 'saiu') {
+      console.warn('⚠️ [DragEnd] Cliente já pagou ou saiu');
       toast({
         title: 'Cliente inválido',
         description: 'O cliente de destino já pagou ou saiu',
@@ -281,18 +349,43 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
       return;
     }
 
-    const sourceGuest = ordersByGuest.find(g => g.guest.id === sourceGuestId)?.guest;
+    // Determinar nome do cliente de origem
+    let sourceGuestName = 'Mesa (Pedido não atribuído)';
+    if (sourceGuestId && sourceGuestId !== 'anonymous') {
+      const sourceGuest = ordersByGuest.find(g => g.guest.id === sourceGuestId)?.guest;
+      sourceGuestName = sourceGuest?.name || `Cliente ${sourceGuest?.guestNumber}`;
+    }
     
-    // Open reason dialog
-    setReasonDialog({
-      open: true,
+    const targetGuestName = targetGuest.name || `Cliente ${targetGuest.guestNumber}`;
+    
+    console.log('✅ [DragEnd] Abrindo diálogo de motivo:', {
       itemId,
       itemName: menuItemName,
-      sourceGuestId,
-      sourceGuestName: sourceGuest?.name || `Cliente ${sourceGuest?.guestNumber}`,
+      sourceGuestId: sourceGuestId || 'anonymous',
+      sourceGuestName,
       targetGuestId,
-      targetGuestName: targetGuest.name || `Cliente ${targetGuest.guestNumber}`,
+      targetGuestName,
     });
+    
+    // Open reason dialog
+    try {
+      setReasonDialog({
+        open: true,
+        itemId,
+        itemName: menuItemName,
+        sourceGuestId: sourceGuestId || 'anonymous',
+        sourceGuestName,
+        targetGuestId,
+        targetGuestName,
+      });
+    } catch (error) {
+      console.error('❌ [DragEnd] Erro ao abrir diálogo:', error);
+      toast({
+        title: 'Erro ao abrir diálogo',
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+        variant: 'destructive',
+      });
+    }
   };
 
   const updateGuestStatusMutation = useMutation({
@@ -355,8 +448,22 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
       onDragStart={(event) => {
+        console.log('🚀 [DragStart] Evento iniciado:', {
+          activeId: event.active.id,
+          activeData: event.active.data.current,
+        });
         const item = event.active.data.current as GuestOrderItem;
         setDraggedItem(item);
+      }}
+      onDragOver={(event) => {
+        console.log('🔄 [DragOver] Sobre:', {
+          activeId: event.active.id,
+          overId: event.over?.id,
+        });
+      }}
+      onDragCancel={() => {
+        console.log('❌ [DragCancel] Drag cancelado');
+        setDraggedItem(null);
       }}
     >
       <div className="space-y-4">
@@ -442,20 +549,24 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
             <ScrollArea className="max-h-[400px] pr-4">
               <div className="space-y-3">
                 {ordersByGuest.map((guestData) => (
-                  <Card 
-                    key={guestData.guest.id} 
-                    className={`hover-elevate cursor-pointer ${selectedGuest === guestData.guest.id ? 'ring-2 ring-primary' : ''}`}
-                    onClick={(e) => {
-                      // Não expandir se clicar nos botões
-                      if ((e.target as HTMLElement).closest('button')) {
-                        return;
-                      }
-                      console.log('🖱️ Card clicado:', guestData.guest.name, 'Current:', selectedGuest, 'New:', guestData.guest.id);
-                      setSelectedGuest(selectedGuest === guestData.guest.id ? null : guestData.guest.id);
-                    }}
-                    data-testid={`card-guest-${guestData.guest.id}`}
+                  <DroppableGuestZone
+                    guestId={guestData.guest.id}
+                    disabled={guestData.guest.status === 'pago'}
                   >
-                    <CardContent className="p-4">
+                    <Card 
+                      key={guestData.guest.id} 
+                      className={`hover-elevate cursor-pointer ${selectedGuest === guestData.guest.id ? 'ring-2 ring-primary' : ''}`}
+                      onClick={(e) => {
+                        // Não expandir se clicar nos botões
+                        if ((e.target as HTMLElement).closest('button')) {
+                          return;
+                        }
+                        console.log('🖱️ Card clicado:', guestData.guest.name, 'Current:', selectedGuest, 'New:', guestData.guest.id);
+                        setSelectedGuest(selectedGuest === guestData.guest.id ? null : guestData.guest.id);
+                      }}
+                      data-testid={`card-guest-${guestData.guest.id}`}
+                    >
+                      <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3 flex-1">
                           <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -567,28 +678,91 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                               </span>
                             )}
                           </div>
-                          <DroppableGuestZone
-                            guestId={guestData.guest.id}
-                            disabled={guestData.guest.status === 'pago'}
-                          >
-                            <div className="space-y-1">
-                              {(guestData.orders || []).map((order) => (
-                                <div key={order.orderId}>
-                                  {(order.items || []).map((item) => (
-                                    <DraggableOrderItem
-                                      key={item.id}
-                                      id={item.id}
-                                      menuItemName={item.menuItemName || item.name || item.menuItem?.name}
-                                      quantity={item.quantity}
-                                      totalPrice={item.totalPrice || item.price || item.total}
-                                      guestId={guestData.guest.id}
-                                      disabled={guestData.guest.status === 'pago' || ordersByGuest.length === 1}
-                                    />
-                                  ))}
-                                </div>
-                              ))}
-                            </div>
-                          </DroppableGuestZone>
+                          <div className="space-y-1">
+                            {(guestData.orders || []).map((order) => (
+                              <div key={order.orderId}>
+                                {(order.items || []).map((item) => (
+                                  <DraggableOrderItem
+                                    key={item.id}
+                                    id={item.id}
+                                    menuItemName={item.menuItemName || item.name || item.menuItem?.name}
+                                    quantity={item.quantity}
+                                    totalPrice={item.totalPrice || item.price || item.total}
+                                    guestId={guestData.guest.id}
+                                    disabled={guestData.guest.status === 'pago' || (ordersByGuest.length === 1 && anonymousOrders.length === 0)}
+                                  />
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </DroppableGuestZone>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Seção de Pedidos Não Atribuídos */}
+      {anonymousOrders.length > 0 && (
+        <Card className="border-yellow-500/50 bg-yellow-500/5">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShoppingBag className="h-5 w-5 text-yellow-600" />
+              Pedidos da Mesa (Não Atribuídos)
+            </CardTitle>
+            <CardDescription>
+              {anonymousOrders.length} pedido(s) sem cliente específico - Arraste para atribuir
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-md border border-yellow-200 dark:border-yellow-800">
+              <div className="flex items-start gap-2 text-sm text-yellow-800 dark:text-yellow-200">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <p>
+                  Estes pedidos foram feitos para a mesa total. 
+                  <strong> Arraste os itens</strong> para atribuí-los a um cliente específico.
+                </p>
+              </div>
+            </div>
+
+            <ScrollArea className="max-h-[300px] pr-4">
+              <div className="space-y-3">
+                {anonymousOrders.map((order) => (
+                  <Card key={order.id} className="border-yellow-200 dark:border-yellow-800">
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Receipt className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">
+                            Pedido #{order.orderNumber || order.id.slice(0, 8)}
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {order.items?.length || 0} item(ns)
+                          </Badge>
+                        </div>
+                        <span className="text-sm font-bold">
+                          {formatKwanza(order.totalPrice || order.totalAmount || 0)}
+                        </span>
+                      </div>
+                      
+                      {order.items && order.items.length > 0 && (
+                        <div className="space-y-1 mt-2 pl-1 border-l-2 border-yellow-300 dark:border-yellow-700">
+                          {order.items.map((item: any) => (
+                            <DraggableOrderItem
+                              key={item.id}
+                              id={item.id}
+                              menuItemName={item.name || item.menuItem?.name || 'Item'}
+                              quantity={item.quantity}
+                              totalPrice={(parseFloat(item.price) * item.quantity).toString()}
+                              guestId="anonymous"
+                              disabled={false}
+                            />
+                          ))}
                         </div>
                       )}
                     </CardContent>
@@ -596,9 +770,9 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                 ))}
               </div>
             </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {ordersByGuest.length > 1 && (
         <Card>

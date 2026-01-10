@@ -68,6 +68,8 @@ __export(schema_exports, {
   applyDiscountSchema: () => applyDiscountSchema,
   applyPackagingFeeSchema: () => applyPackagingFeeSchema,
   applyServiceChargeSchema: () => applyServiceChargeSchema,
+  auditLogs: () => auditLogs2,
+  auditLogsRelations: () => auditLogsRelations,
   billSplitTypeEnum: () => billSplitTypeEnum,
   billingIntervalEnum: () => billingIntervalEnum,
   branchStock: () => branchStock,
@@ -113,6 +115,7 @@ __export(schema_exports, {
   financialTransactionsRelations: () => financialTransactionsRelations,
   guestPayments: () => guestPayments,
   guestStatusEnum: () => guestStatusEnum,
+  insertAuditLogSchema: () => insertAuditLogSchema,
   insertBranchSchema: () => insertBranchSchema,
   insertCashRegisterSchema: () => insertCashRegisterSchema,
   insertCashRegisterShiftSchema: () => insertCashRegisterShiftSchema,
@@ -256,7 +259,7 @@ __export(schema_exports, {
   superAdminCreateSubscriptionSchema: () => superAdminCreateSubscriptionSchema,
   superAdminUpdateSubscriptionSchema: () => superAdminUpdateSubscriptionSchema,
   tableBillSplits: () => tableBillSplits,
-  tableGuests: () => tableGuests,
+  tableGuests: () => tableGuests2,
   tablePayments: () => tablePayments,
   tablePaymentsRelations: () => tablePaymentsRelations,
   tableSessions: () => tableSessions,
@@ -319,7 +322,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-var sessions, restaurantStatusEnum, restaurants, insertRestaurantSchema, registerRestaurantSchema, updateRestaurantSlugSchema, updateRestaurantAppearanceSchema, branches, insertBranchSchema, updateBranchSchema, userRoleEnum, ROLE_PERMISSIONS, users, insertUserSchema, loginSchema, updateUserSchema, updateProfileSchema, updatePasswordSchema, adminResetPasswordSchema, resetRestaurantAdminCredentialsSchema, userAuditActionEnum, userAuditLogs, insertUserAuditLogSchema, printerTypeEnum, printerLanguageEnum, printerConfigurations, insertPrinterConfigurationSchema, updatePrinterConfigurationSchema, printHistory, insertPrintHistorySchema, tableStatusEnum, tableStatusGranularEnum, tables, insertTableSchema, updateTableStatusSchema, shiftStatusEnum, financialEventTypeEnum, eventSourceEnum, adjustmentTypeEnum, reportPeriodTypeEnum, paymentMethodEnum, financialShifts, insertFinancialShiftSchema, tableSessions, insertTableSessionSchema, tablePayments, insertTablePaymentSchema, guestStatusEnum, billSplitTypeEnum, tableGuests, insertTableGuestSchema, updateTableGuestSchema, tableBillSplits, insertTableBillSplitSchema, updateTableBillSplitSchema, guestPayments, insertGuestPaymentSchema, orderStatusEnum, orderTypeEnum, paymentStatusEnum, discountTypeEnum, customerTierEnum, loyaltyTransactionTypeEnum, customers, insertCustomerSchema, updateCustomerSchema, customerSessions, insertCustomerSessionSchema, customerAuthRequestSchema, customerAuthVerifySchema, loyaltyPrograms, insertLoyaltyProgramSchema, updateLoyaltyProgramSchema, loyaltyTransactions, insertLoyaltyTransactionSchema, coupons, insertCouponSchema, updateCouponSchema, validateCouponSchema, couponUsages, insertCouponUsageSchema, orders, insertOrderSchema, publicOrderSchema, updateOrderStatusSchema, updateOrderMetadataSchema, applyDiscountSchema, applyServiceChargeSchema, applyDeliveryFeeSchema, applyPackagingFeeSchema, recordPaymentSchema, updateOrderItemQuantitySchema, reassignOrderItemSchema, orderItemAuditActionEnum, orderItemAuditLogs, insertOrderItemAuditLogSchema, linkCustomerSchema, applyCouponSchema, redeemLoyaltyPointsSchema, cancelOrderSchema, orderItems, insertOrderItemSchema, publicOrderItemSchema, orderItemOptions, insertOrderItemOptionSchema, financialEvents, insertFinancialEventSchema, orderAdjustments, insertOrderAdjustmentSchema, serviceChargeTypeEnum, serviceContextEnum, services, insertServiceSchema, orderServices, insertOrderServiceSchema, paymentEvents, insertPaymentEventSchema, reportAggregations, insertReportAggregationSchema, categories, insertCategorySchema, updateCategorySchema, menuItems, insertMenuItemSchema, updateMenuItemSchema, optionGroupTypeEnum, optionGroups, insertOptionGroupSchema, updateOptionGroupSchema, options, insertOptionSchema, updateOptionSchema, messages, insertMessageSchema, menuVisits, insertMenuVisitSchema, customerReviews, insertCustomerReviewSchema, restaurantsRelations, branchesRelations, usersRelations, categoriesRelations, menuItemsRelations, tablesRelations, tableSessionsRelations, tablePaymentsRelations, ordersRelations, orderItemsRelations, orderItemAuditLogsRelations, optionGroupsRelations, optionsRelations, orderItemOptionsRelations, messagesRelations, menuVisitsRelations, customerReviewsRelations, financialShiftsRelations, financialEventsRelations, orderAdjustmentsRelations, paymentEventsRelations, reportAggregationsRelations, cashRegisters, insertCashRegisterSchema, updateCashRegisterSchema, cashRegisterShiftStatusEnum, cashRegisterShifts, insertCashRegisterShiftSchema, closeCashRegisterShiftSchema, transactionTypeEnum, transactionOriginEnum, financialCategories, insertFinancialCategorySchema, financialTransactions, insertFinancialTransactionSchema, expenses, insertExpenseSchema, updateExpenseSchema, cashRegistersRelations, cashRegisterShiftsRelations, financialCategoriesRelations, financialTransactionsRelations, expensesRelations, stockMovementTypeEnum, inventoryCategories, insertInventoryCategorySchema, updateInventoryCategorySchema, measurementUnits, insertMeasurementUnitSchema, updateMeasurementUnitSchema, inventoryItems, insertInventoryItemSchema, updateInventoryItemSchema, branchStock, stockMovements, insertStockMovementSchema, inventoryCategoriesRelations, measurementUnitsRelations, inventoryItemsRelations, branchStockRelations, stockMovementsRelations, recipeIngredients, insertRecipeIngredientSchema, updateRecipeIngredientSchema, recipeIngredientsRelations, customersRelations, customerSessionsRelations, loyaltyProgramsRelations, loyaltyTransactionsRelations, couponsRelations, couponUsagesRelations, subscriptionPlanEnum, subscriptionStatusEnum, subscriptionPaymentStatusEnum, billingIntervalEnum, subscriptionPlans, insertSubscriptionPlanSchema, updateSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, updateSubscriptionSchema, superAdminCreateSubscriptionSchema, superAdminUpdateSubscriptionSchema, subscriptionPayments, insertSubscriptionPaymentSchema, subscriptionUsage, insertSubscriptionUsageSchema, subscriptionPlansRelations, subscriptionsRelations, subscriptionPaymentsRelations, subscriptionUsageRelations, notificationTypeEnum, notificationChannelEnum, notifications, insertNotificationSchema, notificationPreferences, insertNotificationPreferencesSchema, updateNotificationPreferencesSchema, customerNotificationPreferences, updateCustomerNotificationPreferencesSchema, notificationsRelations, notificationPreferencesRelations, customerNotificationPreferencesRelations, linkAnalytics, insertLinkAnalyticsSchema;
+var sessions, restaurantStatusEnum, restaurants, insertRestaurantSchema, registerRestaurantSchema, updateRestaurantSlugSchema, updateRestaurantAppearanceSchema, branches, insertBranchSchema, updateBranchSchema, userRoleEnum, ROLE_PERMISSIONS, users, insertUserSchema, loginSchema, updateUserSchema, updateProfileSchema, updatePasswordSchema, adminResetPasswordSchema, resetRestaurantAdminCredentialsSchema, userAuditActionEnum, userAuditLogs, insertUserAuditLogSchema, printerTypeEnum, printerLanguageEnum, printerConfigurations, insertPrinterConfigurationSchema, updatePrinterConfigurationSchema, printHistory, insertPrintHistorySchema, tableStatusEnum, tableStatusGranularEnum, tables, insertTableSchema, updateTableStatusSchema, shiftStatusEnum, financialEventTypeEnum, eventSourceEnum, adjustmentTypeEnum, reportPeriodTypeEnum, paymentMethodEnum, financialShifts, insertFinancialShiftSchema, tableSessions, insertTableSessionSchema, tablePayments, insertTablePaymentSchema, guestStatusEnum, billSplitTypeEnum, tableGuests2, insertTableGuestSchema, updateTableGuestSchema, tableBillSplits, insertTableBillSplitSchema, updateTableBillSplitSchema, guestPayments, insertGuestPaymentSchema, orderStatusEnum, orderTypeEnum, paymentStatusEnum, discountTypeEnum, customerTierEnum, loyaltyTransactionTypeEnum, customers, insertCustomerSchema, updateCustomerSchema, customerSessions, insertCustomerSessionSchema, customerAuthRequestSchema, customerAuthVerifySchema, loyaltyPrograms, insertLoyaltyProgramSchema, updateLoyaltyProgramSchema, loyaltyTransactions, insertLoyaltyTransactionSchema, coupons, insertCouponSchema, updateCouponSchema, validateCouponSchema, couponUsages, insertCouponUsageSchema, orders, insertOrderSchema, publicOrderSchema, updateOrderStatusSchema, updateOrderMetadataSchema, applyDiscountSchema, applyServiceChargeSchema, applyDeliveryFeeSchema, applyPackagingFeeSchema, recordPaymentSchema, updateOrderItemQuantitySchema, reassignOrderItemSchema, orderItemAuditActionEnum, orderItemAuditLogs, insertOrderItemAuditLogSchema, linkCustomerSchema, applyCouponSchema, redeemLoyaltyPointsSchema, cancelOrderSchema, orderItems, insertOrderItemSchema, publicOrderItemSchema, orderItemOptions, insertOrderItemOptionSchema, financialEvents, insertFinancialEventSchema, orderAdjustments, insertOrderAdjustmentSchema, serviceChargeTypeEnum, serviceContextEnum, services, insertServiceSchema, orderServices, insertOrderServiceSchema, paymentEvents, insertPaymentEventSchema, reportAggregations, insertReportAggregationSchema, categories, insertCategorySchema, updateCategorySchema, menuItems, insertMenuItemSchema, updateMenuItemSchema, optionGroupTypeEnum, optionGroups, insertOptionGroupSchema, updateOptionGroupSchema, options, insertOptionSchema, updateOptionSchema, messages, insertMessageSchema, menuVisits, insertMenuVisitSchema, customerReviews, insertCustomerReviewSchema, restaurantsRelations, branchesRelations, usersRelations, categoriesRelations, menuItemsRelations, tablesRelations, tableSessionsRelations, tablePaymentsRelations, ordersRelations, orderItemsRelations, orderItemAuditLogsRelations, optionGroupsRelations, optionsRelations, orderItemOptionsRelations, messagesRelations, menuVisitsRelations, customerReviewsRelations, financialShiftsRelations, financialEventsRelations, orderAdjustmentsRelations, paymentEventsRelations, reportAggregationsRelations, cashRegisters, insertCashRegisterSchema, updateCashRegisterSchema, cashRegisterShiftStatusEnum, cashRegisterShifts, insertCashRegisterShiftSchema, closeCashRegisterShiftSchema, transactionTypeEnum, transactionOriginEnum, financialCategories, insertFinancialCategorySchema, financialTransactions, insertFinancialTransactionSchema, expenses, insertExpenseSchema, updateExpenseSchema, cashRegistersRelations, cashRegisterShiftsRelations, financialCategoriesRelations, financialTransactionsRelations, expensesRelations, stockMovementTypeEnum, inventoryCategories, insertInventoryCategorySchema, updateInventoryCategorySchema, measurementUnits, insertMeasurementUnitSchema, updateMeasurementUnitSchema, inventoryItems, insertInventoryItemSchema, updateInventoryItemSchema, branchStock, stockMovements, insertStockMovementSchema, inventoryCategoriesRelations, measurementUnitsRelations, inventoryItemsRelations, branchStockRelations, stockMovementsRelations, recipeIngredients, insertRecipeIngredientSchema, updateRecipeIngredientSchema, recipeIngredientsRelations, customersRelations, customerSessionsRelations, loyaltyProgramsRelations, loyaltyTransactionsRelations, couponsRelations, couponUsagesRelations, subscriptionPlanEnum, subscriptionStatusEnum, subscriptionPaymentStatusEnum, billingIntervalEnum, subscriptionPlans, insertSubscriptionPlanSchema, updateSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, updateSubscriptionSchema, superAdminCreateSubscriptionSchema, superAdminUpdateSubscriptionSchema, subscriptionPayments, insertSubscriptionPaymentSchema, subscriptionUsage, insertSubscriptionUsageSchema, subscriptionPlansRelations, subscriptionsRelations, subscriptionPaymentsRelations, subscriptionUsageRelations, notificationTypeEnum, notificationChannelEnum, notifications, insertNotificationSchema, notificationPreferences, insertNotificationPreferencesSchema, updateNotificationPreferencesSchema, customerNotificationPreferences, updateCustomerNotificationPreferencesSchema, notificationsRelations, notificationPreferencesRelations, customerNotificationPreferencesRelations, linkAnalytics, insertLinkAnalyticsSchema, auditLogs2, insertAuditLogSchema, auditLogsRelations;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -923,7 +926,7 @@ var init_schema = __esm({
     });
     guestStatusEnum = pgEnum("guest_status", ["ativo", "aguardando_conta", "pago", "saiu"]);
     billSplitTypeEnum = pgEnum("bill_split_type", ["igual", "por_pessoa", "personalizado"]);
-    tableGuests = pgTable("table_guests", {
+    tableGuests2 = pgTable("table_guests", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
       sessionId: varchar("session_id").notNull().references(() => tableSessions.id, { onDelete: "cascade" }),
       tableId: varchar("table_id").notNull().references(() => tables.id, { onDelete: "cascade" }),
@@ -942,7 +945,7 @@ var init_schema = __esm({
       joinedAt: timestamp("joined_at").defaultNow(),
       leftAt: timestamp("left_at")
     });
-    insertTableGuestSchema = createInsertSchema(tableGuests).omit({
+    insertTableGuestSchema = createInsertSchema(tableGuests2).omit({
       id: true,
       restaurantId: true,
       subtotal: true,
@@ -1013,7 +1016,7 @@ var init_schema = __esm({
     });
     guestPayments = pgTable("guest_payments", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-      guestId: varchar("guest_id").notNull().references(() => tableGuests.id, { onDelete: "cascade" }),
+      guestId: varchar("guest_id").notNull().references(() => tableGuests2.id, { onDelete: "cascade" }),
       sessionId: varchar("session_id").notNull().references(() => tableSessions.id, { onDelete: "cascade" }),
       tablePaymentId: varchar("table_payment_id").references(() => tablePayments.id, { onDelete: "set null" }),
       splitId: varchar("split_id").references(() => tableBillSplits.id, { onDelete: "set null" }),
@@ -1276,7 +1279,7 @@ var init_schema = __esm({
       restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: "cascade" }),
       tableId: varchar("table_id").references(() => tables.id, { onDelete: "cascade" }),
       tableSessionId: varchar("table_session_id").references(() => tableSessions.id, { onDelete: "set null" }),
-      guestId: varchar("guest_id").references(() => tableGuests.id, { onDelete: "set null" }),
+      guestId: varchar("guest_id").references(() => tableGuests2.id, { onDelete: "set null" }),
       branchId: varchar("branch_id").references(() => branches.id, { onDelete: "cascade" }),
       customerId: varchar("customer_id").references(() => customers.id, { onDelete: "set null" }),
       couponId: varchar("coupon_id").references(() => coupons.id, { onDelete: "set null" }),
@@ -1416,8 +1419,8 @@ var init_schema = __esm({
       sessionId: varchar("session_id").references(() => tableSessions.id, { onDelete: "set null" }),
       action: orderItemAuditActionEnum("action").notNull(),
       actorUserId: varchar("actor_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
-      sourceGuestId: varchar("source_guest_id").references(() => tableGuests.id, { onDelete: "set null" }),
-      targetGuestId: varchar("target_guest_id").references(() => tableGuests.id, { onDelete: "set null" }),
+      sourceGuestId: varchar("source_guest_id").references(() => tableGuests2.id, { onDelete: "set null" }),
+      targetGuestId: varchar("target_guest_id").references(() => tableGuests2.id, { onDelete: "set null" }),
       itemDetails: jsonb("item_details").notNull(),
       // Nome do item, quantidade, preço
       oldValue: jsonb("old_value"),
@@ -1465,7 +1468,7 @@ var init_schema = __esm({
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
       orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
       menuItemId: varchar("menu_item_id").notNull().references(() => menuItems.id),
-      guestId: varchar("guest_id").references(() => tableGuests.id, { onDelete: "set null" }),
+      guestId: varchar("guest_id").references(() => tableGuests2.id, { onDelete: "set null" }),
       quantity: integer("quantity").notNull(),
       price: decimal("price", { precision: 10, scale: 2 }).notNull(),
       notes: text("notes"),
@@ -2041,9 +2044,9 @@ var init_schema = __esm({
         fields: [orderItems.menuItemId],
         references: [menuItems.id]
       }),
-      guest: one(tableGuests, {
+      guest: one(tableGuests2, {
         fields: [orderItems.guestId],
-        references: [tableGuests.id]
+        references: [tableGuests2.id]
       }),
       orderItemOptions: many(orderItemOptions),
       auditLogs: many(orderItemAuditLogs)
@@ -2069,13 +2072,13 @@ var init_schema = __esm({
         fields: [orderItemAuditLogs.actorUserId],
         references: [users.id]
       }),
-      sourceGuest: one(tableGuests, {
+      sourceGuest: one(tableGuests2, {
         fields: [orderItemAuditLogs.sourceGuestId],
-        references: [tableGuests.id]
+        references: [tableGuests2.id]
       }),
-      targetGuest: one(tableGuests, {
+      targetGuest: one(tableGuests2, {
         fields: [orderItemAuditLogs.targetGuestId],
-        references: [tableGuests.id]
+        references: [tableGuests2.id]
       })
     }));
     optionGroupsRelations = relations(optionGroups, ({ one, many }) => ({
@@ -3218,6 +3221,42 @@ var init_schema = __esm({
       id: true,
       createdAt: true
     });
+    auditLogs2 = pgTable("audit_logs", {
+      id: serial("id").primaryKey(),
+      restaurantId: integer("restaurant_id").notNull().references(() => restaurants.id, { onDelete: "cascade" }),
+      actorId: varchar("actor_id").references(() => users.id, { onDelete: "set null" }),
+      action: varchar("action", { length: 100 }).notNull(),
+      entityType: varchar("entity_type", { length: 50 }).notNull(),
+      entityId: varchar("entity_id", { length: 255 }).notNull(),
+      details: jsonb("details"),
+      createdAt: timestamp("created_at").defaultNow()
+    }, (table) => [
+      index("idx_audit_logs_restaurant").on(table.restaurantId),
+      index("idx_audit_logs_entity").on(table.entityType, table.entityId),
+      index("idx_audit_logs_action").on(table.action),
+      index("idx_audit_logs_created_at").on(table.createdAt)
+    ]);
+    insertAuditLogSchema = createInsertSchema(auditLogs2).omit({
+      id: true,
+      createdAt: true
+    }).extend({
+      restaurantId: z.string().min(1, "Restaurante \xE9 obrigat\xF3rio"),
+      actorId: z.string().optional().nullable(),
+      action: z.string().min(1, "A\xE7\xE3o \xE9 obrigat\xF3ria"),
+      entityType: z.string().min(1, "Tipo de entidade \xE9 obrigat\xF3rio"),
+      entityId: z.string().min(1, "ID da entidade \xE9 obrigat\xF3rio"),
+      details: z.any().optional()
+    });
+    auditLogsRelations = relations(auditLogs2, ({ one }) => ({
+      restaurant: one(restaurants, {
+        fields: [auditLogs2.restaurantId],
+        references: [restaurants.id]
+      }),
+      actor: one(users, {
+        fields: [auditLogs2.actorId],
+        references: [users.id]
+      })
+    }));
   }
 });
 
@@ -5005,7 +5044,7 @@ __export(storage_exports, {
   desc: () => desc2,
   eq: () => eq2,
   menuItems: () => menuItems,
-  or: () => or2,
+  or: () => or3,
   orderItemAuditLogs: () => orderItemAuditLogs,
   orderItems: () => orderItems,
   orders: () => orders,
@@ -5013,11 +5052,11 @@ __export(storage_exports, {
   printerConfigurations: () => printerConfigurations,
   sql: () => sql4,
   storage: () => storage,
-  tableGuests: () => tableGuests
+  tableGuests: () => tableGuests2
 });
-import { eq, desc, sql as sql3, and, gte as gte2, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
+import { eq, desc, sql as sql3, and, gte as gte2, or as or2, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { eq as eq2, and as and2, or as or2, desc as desc2, sql as sql4 } from "drizzle-orm";
+import { eq as eq2, and as and2, or as or3, desc as desc2, sql as sql4 } from "drizzle-orm";
 function generateSlug(name) {
   return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
@@ -5274,7 +5313,7 @@ var init_storage = __esm({
         if (search && search.trim()) {
           const searchTerm = `%${search.trim().toLowerCase()}%`;
           conditions.push(
-            or(
+            or2(
               sql3`LOWER(${users.email}) LIKE ${searchTerm}`,
               sql3`LOWER(${users.firstName}) LIKE ${searchTerm}`,
               sql3`LOWER(${users.lastName}) LIKE ${searchTerm}`
@@ -5307,7 +5346,7 @@ var init_storage = __esm({
         }
         if (options2?.userId) {
           conditions.push(
-            or(
+            or2(
               eq(userAuditLogs.actorId, options2.userId),
               eq(userAuditLogs.targetUserId, options2.userId)
             )
@@ -5365,8 +5404,7 @@ var init_storage = __esm({
           branchId,
           number: table.number,
           capacity: table.capacity,
-          area: table.area || null,
-          // ✅ FIX: Converter string vazia ou undefined para null
+          area: table.area,
           qrCode: table.qrCode,
           status: "livre",
           // Garantir status inicial correto
@@ -5469,41 +5507,16 @@ var init_storage = __esm({
           restaurantId,
           customerName: sessionData.customerName,
           customerCount: sessionData.customerCount,
-          status: "ocupada",
-          totalAmount: "0",
-          paidAmount: "0",
-          discount: "0",
-          discountType: "valor",
-          serviceCharge: "0",
-          serviceChargeType: "percentual"
+          status: "ocupada"
         }).returning();
-        console.log("[startTableSession] Nova sess\xE3o criada:", {
-          sessionId: session2.id,
-          tableId,
-          customerName: sessionData.customerName,
-          initialValues: {
-            totalAmount: "0",
-            paidAmount: "0",
-            discount: "0",
-            serviceCharge: "0"
-          }
-        });
         await db.update(tables).set({
           status: "ocupada",
           currentSessionId: session2.id,
           customerName: sessionData.customerName,
           customerCount: sessionData.customerCount || 0,
-          totalAmount: "0",
-          // ✅ CRÍTICO: Zerar total ao criar nova sessão
           lastActivity: /* @__PURE__ */ new Date(),
           isOccupied: 1
         }).where(eq(tables.id, tableId));
-        console.log("[startTableSession] Mesa atualizada:", {
-          tableId,
-          status: "ocupada",
-          currentSessionId: session2.id,
-          totalAmount: "0"
-        });
         if (sessionData.customerName && sessionData.customerName.trim()) {
           await this.createTableGuest(restaurantId, {
             sessionId: session2.id,
@@ -5574,46 +5587,37 @@ var init_storage = __esm({
       // ✅ NOVO: Validar se a sessão pode ser fechada (todos pagaram)
       async validateSessionClosure(sessionId) {
         try {
+          const guests = await this.getTableGuests(sessionId);
           const session2 = await db.select().from(tableSessions).where(eq(tableSessions.id, sessionId)).then((rows) => rows[0]);
-          if (!session2) {
-            return {
-              canClose: false,
-              totalPending: 0,
-              unpaidGuests: [],
-              warnings: ["Sess\xE3o n\xE3o encontrada"]
-            };
-          }
-          const sessionTotal = parseFloat(session2.totalAmount || "0");
-          const sessionPaid = parseFloat(session2.paidAmount || "0");
-          const sessionPending = sessionTotal - sessionPaid;
-          const warnings = [];
+          let totalPending = 0;
           const unpaidGuests = [];
-          if (sessionPending > 0.01) {
-            const guests = await this.getTableGuests(sessionId);
-            for (const guest of guests) {
-              const subtotal = parseFloat(guest.subtotal || "0");
-              const paid = parseFloat(guest.paidAmount || "0");
-              const pending = subtotal - paid;
-              if (pending > 0.01) {
-                unpaidGuests.push({
-                  id: guest.id,
-                  name: guest.name || `Convidado ${guest.guestNumber || "?"}`,
-                  pending: parseFloat(pending.toFixed(2))
-                });
-              }
+          const warnings = [];
+          for (const guest of guests) {
+            const subtotal = parseFloat(guest.subtotal || "0");
+            const paid = parseFloat(guest.paidAmount || "0");
+            const pending = subtotal - paid;
+            if (pending > 0.01) {
+              totalPending += pending;
+              unpaidGuests.push({
+                id: guest.id,
+                name: guest.name || `Convidado ${guest.guestNumber || "?"}`,
+                pending: parseFloat(pending.toFixed(2))
+              });
             }
           }
-          console.log("[validateSessionClosure]", {
-            sessionId,
-            sessionTotal,
-            sessionPaid,
-            sessionPending,
-            canClose: sessionPending <= 0.01
-          });
+          if (session2) {
+            const sessionTotal = parseFloat(session2.totalAmount || "0");
+            const sessionPaid = parseFloat(session2.paidAmount || "0");
+            const sessionPending = sessionTotal - sessionPaid;
+            if (Math.abs(sessionPending - totalPending) > 0.1) {
+              warnings.push(
+                `Diferen\xE7a de reconcilia\xE7\xE3o: ${Math.abs(sessionPending - totalPending).toFixed(2)} Kz entre sess\xE3o e guests`
+              );
+            }
+          }
           return {
-            canClose: sessionPending <= 0.01,
-            // Tolera 1 centavo de diferença
-            totalPending: parseFloat(sessionPending.toFixed(2)),
+            canClose: totalPending <= 0,
+            totalPending: parseFloat(totalPending.toFixed(2)),
             unpaidGuests,
             warnings
           };
@@ -5658,53 +5662,36 @@ var init_storage = __esm({
         if (table.currentSessionId) {
           const session2 = await db.select().from(tableSessions).where(eq(tableSessions.id, table.currentSessionId)).limit(1);
           if (session2.length > 0) {
-            console.log(`[addTablePayment] \u26A0\uFE0F NOTA: paidAmount J\xC1 foi atualizado pelo endpoint /api/tables/:id/payment`, {
-              sessionId: table.currentSessionId,
-              sessionPaidAmount: session2[0].paidAmount,
-              newPaymentAmount: parseFloat(payment.amount).toFixed(2),
-              message: "N\xE3o soma novamente para evitar duplica\xE7\xE3o"
-            });
-            const guests = await this.getTableGuests(table.currentSessionId);
-            if (guests.length > 0) {
-              const subtotalBeforeAdjustments = guests.reduce((sum, g) => sum + parseFloat(g.subtotal || "0"), 0);
-              const sessionDiscount = parseFloat(session2[0].discount || "0");
-              const sessionDiscountType = session2[0].discountType || "valor";
-              const sessionServiceFee = parseFloat(session2[0].serviceCharge || "0");
-              const sessionServiceFeeType = session2[0].serviceChargeType || "percentual";
-              let totalAmount = subtotalBeforeAdjustments;
-              if (sessionDiscount > 0) {
-                if (sessionDiscountType === "percentual") {
-                  const discountPercent = Math.min(sessionDiscount, 100);
-                  totalAmount = totalAmount * (1 - discountPercent / 100);
-                } else {
-                  totalAmount = Math.max(0, totalAmount - sessionDiscount);
-                }
-              }
-              if (sessionServiceFee > 0) {
-                if (sessionServiceFeeType === "percentual") {
-                  totalAmount = totalAmount * (1 + sessionServiceFee / 100);
-                } else {
-                  totalAmount = totalAmount + sessionServiceFee;
-                }
-              }
-              console.log("[addTablePayment] C\xE1lculo com desconto E taxa:", {
-                subtotalBeforeAdjustments: subtotalBeforeAdjustments.toFixed(2),
-                sessionDiscount: sessionDiscount.toFixed(2),
-                sessionDiscountType,
-                sessionServiceFee: sessionServiceFee.toFixed(2),
-                sessionServiceFeeType,
-                totalAmount: totalAmount.toFixed(2)
+            const currentPaid = parseFloat(session2[0].paidAmount || "0");
+            const sessionTotal = parseFloat(session2[0].totalAmount || "0");
+            const paymentAmount = parseFloat(payment.amount);
+            const remainingToPay = Math.max(0, sessionTotal - currentPaid);
+            const actualPayment = Math.min(paymentAmount, remainingToPay);
+            const newPaid = currentPaid + actualPayment;
+            if (actualPayment < paymentAmount) {
+              console.warn(`\u26A0\uFE0F [PAYMENT WARNING] Tentativa de pagamento duplicado detectada!`, {
+                sessionId: table.currentSessionId,
+                sessionTotal: sessionTotal.toFixed(2),
+                currentPaid: currentPaid.toFixed(2),
+                requestedPayment: paymentAmount.toFixed(2),
+                actualPayment: actualPayment.toFixed(2),
+                excess: (paymentAmount - actualPayment).toFixed(2)
               });
-              console.log("[addTablePayment] \u26A0\uFE0F totalAmount N\xC3O ser\xE1 atualizado aqui (j\xE1 atualizado pelo endpoint)");
-              console.log("[addTablePayment] \u2705 totalAmount da sess\xE3o atualizado:", totalAmount.toFixed(2));
-              for (const guest of guests) {
-                const guestSubtotal = parseFloat(guest.subtotal || "0");
-                const guestCurrentPaid = parseFloat(guest.paidAmount || "0");
-                if (guestSubtotal > 0 && subtotalBeforeAdjustments > 0) {
-                  const proportion = guestSubtotal / subtotalBeforeAdjustments;
-                  const guestPaymentShare = parseFloat(payment.amount) * proportion;
-                  const guestNewPaid = guestCurrentPaid + guestPaymentShare;
-                  await db.update(tableGuests).set({ paidAmount: guestNewPaid.toFixed(2) }).where(eq(tableGuests.id, guest.id));
+            }
+            await db.update(tableSessions).set({ paidAmount: newPaid.toFixed(2) }).where(eq(tableSessions.id, table.currentSessionId));
+            const guests = await this.getTableGuests(table.currentSessionId);
+            if (guests.length > 0 && actualPayment > 0) {
+              const totalSubtotal = guests.reduce((sum, g) => sum + parseFloat(g.subtotal || "0"), 0);
+              if (totalSubtotal > 0) {
+                for (const guest of guests) {
+                  const guestSubtotal = parseFloat(guest.subtotal || "0");
+                  const guestProportion = guestSubtotal / totalSubtotal;
+                  const guestPayment = actualPayment * guestProportion;
+                  const currentGuestPaid = parseFloat(guest.paidAmount || "0");
+                  const newGuestPaid = currentGuestPaid + guestPayment;
+                  const maxGuestPaid = Math.min(newGuestPaid, guestSubtotal);
+                  await db.update(tableGuests2).set({ paidAmount: maxGuestPaid.toFixed(2) }).where(eq(tableGuests2.id, guest.id));
+                  console.log(`[PAYMENT DISTRIBUTION] Convidado ${guest.name}: ${guestPayment.toFixed(2)} Kz (${(guestProportion * 100).toFixed(1)}%)`);
                 }
               }
             }
@@ -5746,7 +5733,7 @@ var init_storage = __esm({
             and(
               eq(orderItems.guestId, guestId),
               // Apenas pedidos ativos (não cancelados)
-              or(
+              or2(
                 eq(orders.status, "pendente"),
                 eq(orders.status, "em_preparo"),
                 eq(orders.status, "pronto"),
@@ -5761,9 +5748,9 @@ var init_storage = __esm({
             }
             return sum;
           }, 0);
-          await db.update(tableGuests).set({
+          await db.update(tableGuests2).set({
             subtotal: subtotal.toFixed(2)
-          }).where(eq(tableGuests.id, guestId));
+          }).where(eq(tableGuests2.id, guestId));
         } catch (error) {
           console.error(`\u274C [GUEST SUBTOTAL] Erro ao atualizar guest ${guestId}:`, error);
         }
@@ -5802,76 +5789,27 @@ var init_storage = __esm({
           throw error;
         }
       }
-      // ✅ SOLUÇÃO 2: Atualizar sessão (para total pago)
-      async updateSession(sessionId, updates) {
-        try {
-          await db.update(tableSessions).set(updates).where(eq(tableSessions.id, sessionId));
-          console.log(`\u2705 [SESSION UPDATE] Sess\xE3o ${sessionId} atualizada:`, updates);
-        } catch (error) {
-          console.error(`\u274C [SESSION UPDATE] Erro ao atualizar sess\xE3o ${sessionId}:`, error);
-          throw error;
-        }
-      }
       async calculateTableTotal(restaurantId, tableId) {
         const tableOrders = await db.select().from(orders).where(and(
           eq(orders.tableId, tableId),
           eq(orders.restaurantId, restaurantId),
-          or(
+          or2(
             eq(orders.status, "pendente"),
             eq(orders.status, "em_preparo"),
             eq(orders.status, "pronto")
           )
         ));
-        const subtotal = tableOrders.reduce((sum, order) => {
+        const total = tableOrders.reduce((sum, order) => {
           return sum + parseFloat(order.totalAmount || "0");
         }, 0);
-        const table = await this.getTableById(tableId);
-        if (tableOrders.length === 0 && table?.currentSessionId) {
-          const [session2] = await db.select().from(tableSessions).where(eq(tableSessions.id, table.currentSessionId)).limit(1);
-          if (session2 && parseFloat(session2.totalAmount || "0") > 0) {
-            console.log("[calculateTableTotal] \u26A0\uFE0F Mesa sem pedidos mas com totalAmount na sess\xE3o. Preservando valor:", {
-              sessionTotalAmount: session2.totalAmount
-            });
-            return parseFloat(session2.totalAmount || "0");
+        await db.update(tables).set({ totalAmount: total.toFixed(2) }).where(eq(tables.id, tableId));
+        if (tableOrders.length > 0) {
+          const table = await this.getTableById(tableId);
+          if (table?.currentSessionId) {
+            await db.update(tableSessions).set({ totalAmount: total.toFixed(2) }).where(eq(tableSessions.id, table.currentSessionId));
           }
         }
-        let totalAmount = subtotal;
-        if (table?.currentSessionId) {
-          const [session2] = await db.select().from(tableSessions).where(eq(tableSessions.id, table.currentSessionId)).limit(1);
-          if (session2) {
-            const sessionDiscount = parseFloat(session2.discount || "0");
-            const sessionDiscountType = session2.discountType || "valor";
-            const sessionServiceCharge = parseFloat(session2.serviceCharge || "0");
-            const sessionServiceChargeType = session2.serviceChargeType || "percentual";
-            if (sessionDiscount > 0) {
-              if (sessionDiscountType === "percentual") {
-                totalAmount = totalAmount * (1 - Math.min(sessionDiscount, 100) / 100);
-              } else {
-                totalAmount = Math.max(0, totalAmount - sessionDiscount);
-              }
-            }
-            if (sessionServiceCharge > 0) {
-              if (sessionServiceChargeType === "percentual") {
-                totalAmount = totalAmount * (1 + sessionServiceCharge / 100);
-              } else {
-                totalAmount = totalAmount + sessionServiceCharge;
-              }
-            }
-            console.log("[calculateTableTotal] \u2705 Calculando COM ajustes da sess\xE3o:", {
-              tableId,
-              sessionId: table.currentSessionId,
-              subtotal: subtotal.toFixed(2),
-              sessionDiscount: sessionDiscount.toFixed(2),
-              sessionDiscountType,
-              sessionServiceCharge: sessionServiceCharge.toFixed(2),
-              sessionServiceChargeType,
-              totalAmount: totalAmount.toFixed(2)
-            });
-            await db.update(tableSessions).set({ totalAmount: totalAmount.toFixed(2) }).where(eq(tableSessions.id, table.currentSessionId));
-          }
-        }
-        await db.update(tables).set({ totalAmount: totalAmount.toFixed(2) }).where(eq(tables.id, tableId));
-        return totalAmount;
+        return total;
       }
       // Category operations
       async getCategories(restaurantId, branchId) {
@@ -5879,7 +5817,7 @@ var init_storage = __esm({
           return await db.select().from(categories).where(
             and(
               eq(categories.restaurantId, restaurantId),
-              or(
+              or2(
                 isNull(categories.branchId),
                 eq(categories.branchId, branchId)
               )
@@ -5928,7 +5866,7 @@ var init_storage = __esm({
           results = await db.select().from(menuItems).leftJoin(categories, eq(menuItems.categoryId, categories.id)).where(
             and(
               eq(menuItems.restaurantId, restaurantId),
-              or(
+              or2(
                 isNull(menuItems.branchId),
                 eq(menuItems.branchId, branchId)
               )
@@ -6017,8 +5955,8 @@ var init_storage = __esm({
         if (branchId) {
           const branchTables = await this.getTables(restaurantId, branchId);
           const tableIds = branchTables.map((t) => t.id);
-          const branchCondition = or(eq(orders.branchId, branchId), isNull(orders.branchId));
-          const tableCondition = tableIds.length > 0 ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId)) : sql3`true`;
+          const branchCondition = or2(eq(orders.branchId, branchId), isNull(orders.branchId));
+          const tableCondition = tableIds.length > 0 ? or2(inArray(orders.tableId, tableIds), isNull(orders.tableId)) : sql3`true`;
           allOrders = await db.select().from(orders).leftJoin(customers, eq(orders.customerId, customers.id)).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             branchCondition,
@@ -6056,8 +5994,8 @@ var init_storage = __esm({
         if (branchId) {
           const branchTables = await this.getTables(restaurantId, branchId);
           const tableIds = branchTables.map((t) => t.id);
-          const branchCondition = or(eq(orders.branchId, branchId), isNull(orders.branchId));
-          const tableCondition = tableIds.length > 0 ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId)) : sql3`true`;
+          const branchCondition = or2(eq(orders.branchId, branchId), isNull(orders.branchId));
+          const tableCondition = tableIds.length > 0 ? or2(inArray(orders.tableId, tableIds), isNull(orders.tableId)) : sql3`true`;
           results = await db.select().from(orders).leftJoin(customers, eq(orders.customerId, customers.id)).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             branchCondition,
@@ -6177,7 +6115,7 @@ var init_storage = __esm({
         const foundOrders = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(
           and(
             eq(orders.restaurantId, restaurantId),
-            or(
+            or2(
               eq(orders.id, trimmedSearch),
               sql3`LOWER(${orders.customerName}) LIKE LOWER(${`%${trimmedSearch}%`})`,
               sql3`${orders.customerPhone} LIKE ${`%${trimmedSearch}%`}`
@@ -6288,7 +6226,6 @@ var init_storage = __esm({
           guestId: derivedGuestId,
           status: "pendente",
           paymentStatus: "nao_pago",
-          // 🔧 FIX: Changed from 'pendente' to 'nao_pago' (valid enum value)
           subtotal: subtotal.toFixed(2),
           totalAmount: totalAmount.toFixed(2)
         }).returning();
@@ -6651,15 +6588,15 @@ var init_storage = __esm({
             }
           }
           if (updated.guestId) {
-            const [guest] = await tx.select().from(tableGuests).where(eq(tableGuests.id, updated.guestId)).for("update");
+            const [guest] = await tx.select().from(tableGuests2).where(eq(tableGuests2.id, updated.guestId)).for("update");
             if (guest) {
               const guestPaid = parseFloat(guest.paidAmount || "0");
               const newGuestPaid = guestPaid + paymentAmount;
               const guestSubtotal = parseFloat(guest.subtotal || "0");
-              await tx.update(tableGuests).set({
+              await tx.update(tableGuests2).set({
                 paidAmount: newGuestPaid.toFixed(2),
                 status: newGuestPaid >= guestSubtotal - 0.01 ? "pago" : guest.status
-              }).where(eq(tableGuests.id, updated.guestId));
+              }).where(eq(tableGuests2.id, updated.guestId));
             }
           }
           if (userId) {
@@ -6987,7 +6924,7 @@ var init_storage = __esm({
             cancelledRevenue: sql3`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
           }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+            or2(eq(tables.branchId, branchId), isNull(orders.tableId)),
             gte2(orders.createdAt, today)
           ));
         } else {
@@ -7013,7 +6950,7 @@ var init_storage = __esm({
             completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
           }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+            or2(eq(tables.branchId, branchId), isNull(orders.tableId)),
             gte2(orders.createdAt, yesterday),
             sql3`${orders.createdAt} < ${today}`
           ));
@@ -7053,7 +6990,7 @@ var init_storage = __esm({
         if (branchId) {
           todayOrderIdsQuery = await db.select({ id: orders.id }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+            or2(eq(tables.branchId, branchId), isNull(orders.tableId)),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, today)
           ));
@@ -7109,7 +7046,7 @@ var init_storage = __esm({
             cancelledRevenue: sql3`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
           }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+            or2(eq(tables.branchId, branchId), isNull(orders.tableId)),
             gte2(orders.createdAt, periodStart),
             sql3`${orders.createdAt} <= ${periodEnd}`
           ));
@@ -7137,7 +7074,7 @@ var init_storage = __esm({
         if (branchId) {
           orderIdsQuery = await db.select({ id: orders.id }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+            or2(eq(tables.branchId, branchId), isNull(orders.tableId)),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, periodStart),
             sql3`${orders.createdAt} <= ${periodEnd}`
@@ -7196,7 +7133,7 @@ var init_storage = __esm({
           if (branchId) {
             dayOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
               eq(orders.restaurantId, restaurantId),
-              or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+              or2(eq(tables.branchId, branchId), isNull(orders.tableId)),
               sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
               gte2(orders.createdAt, dayStart),
               sql3`${orders.createdAt} <= ${dayEnd}`
@@ -7232,7 +7169,7 @@ var init_storage = __esm({
         if (branchId) {
           ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+            or2(eq(tables.branchId, branchId), isNull(orders.tableId)),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${today}`
@@ -7295,7 +7232,7 @@ var init_storage = __esm({
         if (branchId) {
           periodOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+            or2(eq(tables.branchId, branchId), isNull(orders.tableId)),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, periodStart),
             sql3`${orders.createdAt} <= ${periodEnd}`
@@ -7623,7 +7560,7 @@ var init_storage = __esm({
         if (branchId) {
           periodOrders = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
+            or2(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
             sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${endDate}`
@@ -7684,7 +7621,7 @@ var init_storage = __esm({
         if (branchId) {
           cancelledOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
+            or2(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
             eq(orders.status, "cancelado"),
             gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${endDate}`
@@ -7742,7 +7679,7 @@ var init_storage = __esm({
         if (branchId) {
           ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             ...baseConditions,
-            or(
+            or2(
               and(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NOT NULL`),
               sql3`${orders.tableId} IS NULL`
             )
@@ -7770,7 +7707,7 @@ var init_storage = __esm({
         if (branchId) {
           periodOrdersRaw = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
+            or2(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
             gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${endDate}`
           ));
@@ -7835,7 +7772,7 @@ var init_storage = __esm({
         if (branchId) {
           periodOrdersRaw = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
+            or2(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
             gte2(orders.createdAt, startDate),
             sql3`${orders.createdAt} <= ${endDate}`
           ));
@@ -7911,7 +7848,7 @@ var init_storage = __esm({
         }
         if (branchId) {
           conditions.push(
-            or(
+            or2(
               eq(tables.branchId, branchId),
               sql3`${orders.tableId} IS NULL`
             )
@@ -7955,7 +7892,7 @@ var init_storage = __esm({
         }
         if (branchId) {
           baseConditions.push(
-            or(
+            or2(
               eq(tables.branchId, branchId),
               sql3`${orders.tableId} IS NULL`
             )
@@ -8258,7 +8195,7 @@ var init_storage = __esm({
           sql3`${menuVisits.createdAt} <= ${endDate}`
         ];
         if (branchId !== null) {
-          const branchCondition = or(
+          const branchCondition = or2(
             eq(menuVisits.branchId, branchId),
             isNull(menuVisits.branchId)
           );
@@ -8327,19 +8264,19 @@ var init_storage = __esm({
           sql3`${orders.createdAt} <= ${endDate}`
         ];
         if (branchId !== null) {
-          orderConditions.push(or(
+          orderConditions.push(or2(
             eq(orders.branchId, branchId),
             sql3`${orders.branchId} IS NULL`
           ));
         }
         if (orderType && orderType !== "all") {
           if (orderType === "pdv") {
-            orderConditions.push(or(
+            orderConditions.push(or2(
               eq(orders.orderType, "pdv"),
               eq(orders.orderType, "balcao")
             ));
           } else if (orderType === "web") {
-            orderConditions.push(or(
+            orderConditions.push(or2(
               eq(orders.orderType, "mesa"),
               eq(orders.orderType, "delivery"),
               eq(orders.orderType, "takeout")
@@ -8459,7 +8396,7 @@ var init_storage = __esm({
         ];
         if (branchId !== null) {
           conditions.push(
-            or(
+            or2(
               eq(financialCategories.branchId, branchId),
               isNull(financialCategories.branchId)
             )
@@ -8537,7 +8474,7 @@ var init_storage = __esm({
         let conditions = [eq(financialTransactions.restaurantId, restaurantId)];
         if (branchId !== null) {
           conditions.push(
-            or(
+            or2(
               eq(financialTransactions.branchId, branchId),
               isNull(financialTransactions.branchId)
             )
@@ -8610,7 +8547,7 @@ var init_storage = __esm({
         let transactionConditions = [eq(financialTransactions.restaurantId, restaurantId)];
         if (branchId !== null) {
           transactionConditions.push(
-            or(
+            or2(
               eq(financialTransactions.branchId, branchId),
               isNull(financialTransactions.branchId)
             )
@@ -8642,7 +8579,7 @@ var init_storage = __esm({
         let conditions = [eq(cashRegisterShifts.restaurantId, restaurantId)];
         if (branchId !== null) {
           conditions.push(
-            or(
+            or2(
               eq(cashRegisterShifts.branchId, branchId),
               isNull(cashRegisterShifts.branchId)
             )
@@ -8794,7 +8731,7 @@ var init_storage = __esm({
         let conditions = [eq(expenses.restaurantId, restaurantId)];
         if (branchId !== null) {
           conditions.push(
-            or(
+            or2(
               eq(expenses.branchId, branchId),
               isNull(expenses.branchId)
             )
@@ -8922,7 +8859,7 @@ var init_storage = __esm({
         conditions.push(sql3`${financialTransactions.occurredAt} <= ${endOfDay}`);
         if (branchId !== null) {
           conditions.push(
-            or(
+            or2(
               eq(financialTransactions.branchId, branchId),
               isNull(financialTransactions.branchId)
             )
@@ -9479,7 +9416,7 @@ var init_storage = __esm({
       async getCustomers(restaurantId, branchId, filters) {
         let conditions = [eq(customers.restaurantId, restaurantId)];
         if (branchId !== void 0 && branchId !== null) {
-          conditions.push(or(eq(customers.branchId, branchId), isNull(customers.branchId)));
+          conditions.push(or2(eq(customers.branchId, branchId), isNull(customers.branchId)));
         }
         if (filters?.isActive !== void 0) {
           conditions.push(eq(customers.isActive, filters.isActive));
@@ -9548,7 +9485,7 @@ var init_storage = __esm({
       async getCustomerStats(restaurantId, branchId) {
         let conditions = [eq(customers.restaurantId, restaurantId)];
         if (branchId) {
-          conditions.push(or(eq(customers.branchId, branchId), isNull(customers.branchId)));
+          conditions.push(or2(eq(customers.branchId, branchId), isNull(customers.branchId)));
         }
         const allCustomers = await db.select().from(customers).where(and(...conditions));
         const now = /* @__PURE__ */ new Date();
@@ -9776,7 +9713,7 @@ var init_storage = __esm({
       async getCoupons(restaurantId, branchId, filters) {
         let conditions = [eq(coupons.restaurantId, restaurantId)];
         if (branchId !== void 0 && branchId !== null) {
-          conditions.push(or(eq(coupons.branchId, branchId), isNull(coupons.branchId)));
+          conditions.push(or2(eq(coupons.branchId, branchId), isNull(coupons.branchId)));
         }
         if (filters?.isActive !== void 0) {
           conditions.push(eq(coupons.isActive, filters.isActive));
@@ -9829,7 +9766,7 @@ var init_storage = __esm({
       async getServices(restaurantId, branchId) {
         let conditions = [eq(services.restaurantId, restaurantId)];
         if (branchId !== void 0 && branchId !== null) {
-          conditions.push(or(eq(services.branchId, branchId), isNull(services.branchId)));
+          conditions.push(or2(eq(services.branchId, branchId), isNull(services.branchId)));
         }
         return await db.select().from(services).where(and(...conditions)).orderBy(services.displayOrder, desc(services.createdAt));
       }
@@ -9876,33 +9813,9 @@ var init_storage = __esm({
         if (!session2) return;
         const totalAmount = parseFloat(session2.totalAmount || "0");
         const paidAmount = parseFloat(session2.paidAmount || "0");
-        console.log("\u{1F50D} [autoUpdateTableStatusOnPayment] Verificando status:", {
-          tableId,
-          sessionId: table.currentSessionId,
-          totalAmount: totalAmount.toFixed(2),
-          paidAmount: paidAmount.toFixed(2),
-          pendente: (totalAmount - paidAmount).toFixed(2),
-          isFullyPaid: paidAmount >= totalAmount && totalAmount > 0,
-          isDiscount100: totalAmount === 0 && paidAmount === 0
-        });
-        if (totalAmount === 0 || paidAmount >= totalAmount && totalAmount > 0) {
-          console.log("\u2705 [autoUpdateTableStatusOnPayment] Pagamento completo! Fechando sess\xE3o automaticamente...");
-          await db.update(tableSessions).set({
-            status: "encerrada",
-            endedAt: /* @__PURE__ */ new Date()
-          }).where(eq(tableSessions.id, table.currentSessionId));
-          await db.update(tables).set({
-            status: "livre",
-            currentSessionId: null,
-            totalAmount: "0",
-            customerName: null,
-            customerCount: 0,
-            lastActivity: /* @__PURE__ */ new Date(),
-            isOccupied: 0
-          }).where(eq(tables.id, tableId));
-          console.log("\u2705 [autoUpdateTableStatusOnPayment] Sess\xE3o fechada e mesa liberada com sucesso");
+        if (paidAmount >= totalAmount && totalAmount > 0) {
+          await this.updateTableStatus(tableId, "disponivel");
         } else if (paidAmount > 0 && paidAmount < totalAmount) {
-          console.log("\u23F3 [autoUpdateTableStatusOnPayment] Pagamento parcial - mantendo sess\xE3o aberta");
           await this.updateTableStatus(tableId, "pagamento_parcial");
         }
       }
@@ -9921,7 +9834,7 @@ var init_storage = __esm({
           eq(services.active, 1)
         ];
         if (branchId !== void 0 && branchId !== null) {
-          conditions.push(or(eq(services.branchId, branchId), isNull(services.branchId)));
+          conditions.push(or2(eq(services.branchId, branchId), isNull(services.branchId)));
         }
         const allServices = await db.select().from(services).where(and(...conditions)).orderBy(services.displayOrder);
         return allServices.filter((service) => {
@@ -10038,7 +9951,7 @@ var init_storage = __esm({
       async getCouponStats(restaurantId, branchId) {
         let conditions = [eq(coupons.restaurantId, restaurantId)];
         if (branchId) {
-          conditions.push(or(eq(coupons.branchId, branchId), isNull(coupons.branchId)));
+          conditions.push(or2(eq(coupons.branchId, branchId), isNull(coupons.branchId)));
         }
         const allCoupons = await db.select().from(coupons).where(and(...conditions));
         const now = /* @__PURE__ */ new Date();
@@ -10520,7 +10433,7 @@ var init_storage = __esm({
         const conditions = [eq(notifications.restaurantId, restaurantId)];
         if (userId) {
           conditions.push(
-            or(
+            or2(
               eq(notifications.userId, userId),
               isNull(notifications.userId)
             )
@@ -10535,7 +10448,7 @@ var init_storage = __esm({
         ];
         if (userId) {
           conditions.push(
-            or(
+            or2(
               eq(notifications.userId, userId),
               isNull(notifications.userId)
             )
@@ -10573,7 +10486,7 @@ var init_storage = __esm({
         ];
         if (userId) {
           conditions.push(
-            or(
+            or2(
               eq(notifications.userId, userId),
               isNull(notifications.userId)
             )
@@ -10656,9 +10569,9 @@ var init_storage = __esm({
       async getTableGuests(sessionId) {
         try {
           const results = await db.select({
-            guest: tableGuests,
+            guest: tableGuests2,
             customer: customers
-          }).from(tableGuests).leftJoin(customers, eq(tableGuests.customerId, customers.id)).where(eq(tableGuests.sessionId, sessionId)).orderBy(tableGuests.seatNumber, tableGuests.joinedAt);
+          }).from(tableGuests2).leftJoin(customers, eq(tableGuests2.customerId, customers.id)).where(eq(tableGuests2.sessionId, sessionId)).orderBy(tableGuests2.seatNumber, tableGuests2.joinedAt);
           return results.map((row) => ({
             ...row.guest,
             customer: row.customer || void 0
@@ -10667,7 +10580,7 @@ var init_storage = __esm({
           console.error("[getTableGuests] LEFT JOIN falhou:", error.message);
           console.error("[getTableGuests] Stack:", error.stack);
           try {
-            const guests = await db.select().from(tableGuests).where(eq(tableGuests.sessionId, sessionId)).orderBy(tableGuests.seatNumber, tableGuests.joinedAt);
+            const guests = await db.select().from(tableGuests2).where(eq(tableGuests2.sessionId, sessionId)).orderBy(tableGuests2.seatNumber, tableGuests2.joinedAt);
             return guests.map((guest) => ({
               ...guest,
               customer: void 0
@@ -10680,16 +10593,16 @@ var init_storage = __esm({
         }
       }
       async getTableGuestById(id) {
-        const [guest] = await db.select().from(tableGuests).where(eq(tableGuests.id, id));
+        const [guest] = await db.select().from(tableGuests2).where(eq(tableGuests2.id, id));
         return guest;
       }
       async getTableGuestByToken(token) {
-        const [guest] = await db.select().from(tableGuests).where(eq(tableGuests.token, token));
+        const [guest] = await db.select().from(tableGuests2).where(eq(tableGuests2.token, token));
         return guest;
       }
       async createTableGuest(restaurantId, data) {
         try {
-          const [guest] = await db.insert(tableGuests).values({
+          const [guest] = await db.insert(tableGuests2).values({
             ...data,
             restaurantId
           }).returning();
@@ -10704,11 +10617,11 @@ var init_storage = __esm({
         if (data.status === "saiu") {
           updateData.leftAt = /* @__PURE__ */ new Date();
         }
-        const [updated] = await db.update(tableGuests).set(updateData).where(eq(tableGuests.id, id)).returning();
+        const [updated] = await db.update(tableGuests2).set(updateData).where(eq(tableGuests2.id, id)).returning();
         return updated;
       }
       async removeTableGuest(id) {
-        await db.delete(tableGuests).where(eq(tableGuests.id, id));
+        await db.delete(tableGuests2).where(eq(tableGuests2.id, id));
       }
       async calculateGuestSubtotal(guestId) {
         const items = await this.getGuestOrderItems(guestId);
@@ -10717,7 +10630,7 @@ var init_storage = __esm({
           const itemPrice = parseFloat(item.menuItem.price || "0");
           subtotal += itemPrice * item.quantity;
         }
-        await db.update(tableGuests).set({ subtotal: subtotal.toFixed(2) }).where(eq(tableGuests.id, guestId));
+        await db.update(tableGuests2).set({ subtotal: subtotal.toFixed(2) }).where(eq(tableGuests2.id, guestId));
         return subtotal.toFixed(2);
       }
       async recalculateGuestTotal(restaurantId, guestId) {
@@ -10772,10 +10685,10 @@ var init_storage = __esm({
         if (guest) {
           const currentPaid = parseFloat(guest.paidAmount || "0");
           const newPaid = currentPaid + parseFloat(data.amount);
-          await db.update(tableGuests).set({ paidAmount: newPaid.toFixed(2) }).where(eq(tableGuests.id, data.guestId));
+          await db.update(tableGuests2).set({ paidAmount: newPaid.toFixed(2) }).where(eq(tableGuests2.id, data.guestId));
           const subtotal = parseFloat(guest.subtotal || "0");
           if (newPaid >= subtotal) {
-            await db.update(tableGuests).set({ status: "pago" }).where(eq(tableGuests.id, data.guestId));
+            await db.update(tableGuests2).set({ status: "pago" }).where(eq(tableGuests2.id, data.guestId));
           }
         }
         return payment;
@@ -10808,7 +10721,7 @@ var init_storage = __esm({
         let query = db.select().from(printerConfigurations).where(eq(printerConfigurations.restaurantId, restaurantId));
         if (branchId) {
           query = query.where(
-            or(
+            or2(
               eq(printerConfigurations.branchId, branchId),
               isNull(printerConfigurations.branchId)
             )
@@ -10865,7 +10778,7 @@ var init_storage = __esm({
         );
         if (branchId) {
           query = query.where(
-            or(
+            or2(
               eq(printerConfigurations.branchId, branchId),
               isNull(printerConfigurations.branchId)
             )
@@ -11248,13 +11161,13 @@ __export(auto_migrate_exports, {
   runAutoMigrations: () => runAutoMigrations,
   runAutoMigrationsSafe: () => runAutoMigrationsSafe
 });
-import { sql as sql7 } from "drizzle-orm";
+import { sql as sql8 } from "drizzle-orm";
 import fs4 from "fs";
 import path5 from "path";
 import { fileURLToPath as fileURLToPath2 } from "url";
 async function ensureMigrationsTable() {
   try {
-    await db.execute(sql7`
+    await db.execute(sql8`
       CREATE TABLE IF NOT EXISTS migrations (
         id SERIAL PRIMARY KEY,
         filename VARCHAR(255) UNIQUE NOT NULL,
@@ -11271,7 +11184,7 @@ async function ensureMigrationsTable() {
 }
 async function getAppliedMigrations() {
   try {
-    const result = await db.execute(sql7`
+    const result = await db.execute(sql8`
       SELECT filename FROM migrations ORDER BY applied_at
     `);
     return new Set((result.rows || []).map((row) => row.filename));
@@ -11281,7 +11194,7 @@ async function getAppliedMigrations() {
   }
 }
 async function recordMigration(filename) {
-  await db.execute(sql7`
+  await db.execute(sql8`
     INSERT INTO migrations (filename) 
     VALUES (${filename})
     ON CONFLICT (filename) DO NOTHING
@@ -11290,7 +11203,7 @@ async function recordMigration(filename) {
 async function executeMigration(filename, migrationSQL) {
   console.log(`   \u{1F504} Aplicando: ${filename}`);
   try {
-    await db.execute(sql7.raw(migrationSQL));
+    await db.execute(sql8.raw(migrationSQL));
     await recordMigration(filename);
     console.log(`   \u2705 Aplicada: ${filename}`);
   } catch (error) {
@@ -11408,13 +11321,13 @@ function setupMigrationEndpoint(app2) {
   app2.get("/api/internal/migrations/status", async (req, res) => {
     try {
       const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      const { sql: sql8 } = await import("drizzle-orm");
+      const { sql: sql9 } = await import("drizzle-orm");
       const fs5 = await import("fs");
       const path6 = await import("path");
       const { fileURLToPath: fileURLToPath3 } = await import("url");
       const __filename2 = fileURLToPath3(import.meta.url);
       const __dirname3 = path6.dirname(__filename2);
-      const appliedResult = await db2.execute(sql8`
+      const appliedResult = await db2.execute(sql9`
         SELECT filename, applied_at 
         FROM migrations 
         ORDER BY applied_at DESC
@@ -11456,8 +11369,11 @@ import express2 from "express";
 
 // server/routes.ts
 init_storage();
+init_db();
+init_schema();
 init_schema();
 import { createServer } from "http";
+import { eq as eq5, sql as sql7 } from "drizzle-orm";
 import { and as and5, isNull as isNull2 } from "drizzle-orm";
 
 // server/orderNumberGenerator.ts
@@ -12093,8 +12009,8 @@ async function registerRoutes(app2) {
           path: migrationPath
         });
       }
-      const sql8 = fs5.readFileSync(migrationPath, "utf8");
-      const statements = sql8.split(";").map((s) => s.trim()).filter((s) => s.length > 0 && !s.startsWith("--"));
+      const sql9 = fs5.readFileSync(migrationPath, "utf8");
+      const statements = sql9.split(";").map((s) => s.trim()).filter((s) => s.length > 0 && !s.startsWith("--"));
       let executed = 0;
       const errors = [];
       for (const statement of statements) {
@@ -12166,6 +12082,120 @@ async function registerRoutes(app2) {
       });
     }
   });
+  app2.post("/api/admin/fix-sessions", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      if (!["admin", "manager", "superadmin"].includes(currentUser.role)) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      const { execute } = req.body;
+      console.log("\u{1F527} [FIX-SESSIONS] Iniciando an\xE1lise de sess\xF5es problem\xE1ticas...");
+      const sessions2 = await db.select().from(tableSessions).where(
+        and5(
+          // Não tem ajustes salvos ou são zero
+          or(
+            eq5(tableSessions.discount, "0"),
+            eq5(tableSessions.discount, "0.00"),
+            sql7`${tableSessions.discount} IS NULL`
+          ),
+          or(
+            eq5(tableSessions.serviceCharge, "0"),
+            eq5(tableSessions.serviceCharge, "0.00"),
+            sql7`${tableSessions.serviceCharge} IS NULL`
+          ),
+          // Tem valor pago
+          sql7`CAST(${tableSessions.paidAmount} AS NUMERIC) > 0`,
+          // Não está fechada
+          sql7`${tableSessions.status} != 'fechada'`
+        )
+      );
+      const toFix = [];
+      for (const session2 of sessions2) {
+        const total = parseFloat(session2.totalAmount || "0");
+        const paid = parseFloat(session2.paidAmount || "0");
+        const diff = total - paid;
+        if (Math.abs(diff) > 0.01) {
+          const item = {
+            id: session2.id,
+            tableId: session2.tableId,
+            total: total.toFixed(2),
+            paid: paid.toFixed(2),
+            diff: diff.toFixed(2),
+            discountPercent: diff > 0 ? (diff / total * 100).toFixed(2) : "0",
+            servicePercent: diff < 0 ? (Math.abs(diff) / total * 100).toFixed(2) : "0",
+            type: diff > 0 ? "desconto" : diff < 0 ? "taxa" : "ok"
+          };
+          toFix.push(item);
+        }
+      }
+      console.log(`\u{1F50D} [FIX-SESSIONS] Encontradas ${toFix.length} sess\xF5es com diferen\xE7a`);
+      if (!execute) {
+        return res.json({
+          analysis: true,
+          count: toFix.length,
+          sessions: toFix,
+          message: 'An\xE1lise completa. Envie {"execute": true} para aplicar corre\xE7\xF5es.'
+        });
+      }
+      console.log("\u{1F4BE} [FIX-SESSIONS] Criando backup...");
+      const timestamp2 = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const backupName = `table_sessions_backup_${timestamp2.replace(/-/g, "_")}`;
+      await db.execute(sql7.raw(`
+        CREATE TABLE IF NOT EXISTS ${backupName} AS 
+        SELECT * FROM table_sessions
+      `));
+      console.log("\u2705 [FIX-SESSIONS] Backup criado:", backupName);
+      console.log("\u{1F527} [FIX-SESSIONS] Aplicando corre\xE7\xF5es...");
+      let fixed = 0;
+      const results = [];
+      for (const item of toFix) {
+        try {
+          const updates = { updatedAt: /* @__PURE__ */ new Date() };
+          if (parseFloat(item.discountPercent) > 0) {
+            updates.discount = item.discountPercent;
+            updates.discountType = "percentual";
+          }
+          if (parseFloat(item.servicePercent) > 0) {
+            updates.serviceCharge = item.servicePercent;
+            updates.serviceChargeType = "percentual";
+          }
+          if (Object.keys(updates).length > 1) {
+            await db.update(tableSessions).set(updates).where(eq5(tableSessions.id, item.id));
+            fixed++;
+            results.push({
+              id: item.id,
+              status: "fixed",
+              discount: updates.discount,
+              serviceCharge: updates.serviceCharge
+            });
+            console.log(`\u2705 [FIX-SESSIONS] Sess\xE3o ${item.id} corrigida`);
+          }
+        } catch (error) {
+          console.error(`\u274C [FIX-SESSIONS] Erro ao corrigir sess\xE3o ${item.id}:`, error);
+          results.push({
+            id: item.id,
+            status: "error",
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      }
+      console.log(`\u{1F389} [FIX-SESSIONS] Conclu\xEDdo! ${fixed} sess\xF5es corrigidas`);
+      res.json({
+        success: true,
+        fixed,
+        total: toFix.length,
+        results,
+        message: `${fixed} sess\xF5es corrigidas com sucesso!`,
+        backup: backupName
+      });
+    } catch (error) {
+      console.error("\u274C [FIX-SESSIONS] Erro fatal:", error);
+      res.status(500).json({
+        error: "Erro ao corrigir sess\xF5es",
+        message: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
   app2.get("/api/sync/changes", isAuthenticated, async (req, res) => {
     try {
       const { since } = req.query;
@@ -12179,21 +12209,21 @@ async function registerRoutes(app2) {
         // Orders updated/created since
         db.select().from(ordersTable).where(
           and5(
-            eq2(ordersTable.restaurantId, restaurantId),
+            eq5(ordersTable.restaurantId, restaurantId),
             gte(ordersTable.updatedAt, sinceDate)
           )
         ).limit(500),
         // Tables updated since
         db.select().from(tablesTable).where(
           and5(
-            eq2(tablesTable.restaurantId, restaurantId),
+            eq5(tablesTable.restaurantId, restaurantId),
             gte(tablesTable.updatedAt, sinceDate)
           )
         ).limit(100),
         // Menu items (always sync all for offline availability)
-        db.select().from(menuItemsTable).where(eq2(menuItemsTable.restaurantId, restaurantId)).limit(500),
+        db.select().from(menuItemsTable).where(eq5(menuItemsTable.restaurantId, restaurantId)).limit(500),
         // Customers
-        db.select().from(customersTable).where(eq2(customersTable.restaurantId, restaurantId)).limit(1e3)
+        db.select().from(customersTable).where(eq5(customersTable.restaurantId, restaurantId)).limit(1e3)
       ]);
       res.json({
         orders: orders2.map((o) => ({
@@ -12537,7 +12567,7 @@ async function registerRoutes(app2) {
         let activeSession = null;
         if (table.currentSessionId) {
           const [session2] = await db.select().from(tableSessions).where(and5(
-            eq2(tableSessions.id, table.currentSessionId),
+            eq5(tableSessions.id, table.currentSessionId),
             isNull2(tableSessions.endedAt)
           ));
           activeSession = session2;
@@ -12563,7 +12593,7 @@ async function registerRoutes(app2) {
             customerCount: activeSession ? table.customerCount : 0,
             lastActivity: activeSession ? table.lastActivity : null,
             isOccupied: correctStatus !== "livre" ? 1 : 0
-          }).where(eq2(tables.id, table.id));
+          }).where(eq5(tables.id, table.id));
           fixed++;
           fixedTables.push({
             id: table.id,
@@ -12667,7 +12697,9 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/superadmin/restaurants", isSuperAdmin, async (req, res) => {
     try {
+      console.log("\u{1F50D} [SUPERADMIN] Buscando restaurantes...");
       const restaurants2 = await storage.getRestaurants();
+      console.log(`\u{1F4CA} [SUPERADMIN] Encontrados ${restaurants2.length} restaurantes`);
       const enrichedRestaurants = await Promise.all(
         restaurants2.map(async (restaurant) => {
           const subscription = await storage.getSubscriptionByRestaurantId(restaurant.id);
@@ -12698,8 +12730,10 @@ async function registerRoutes(app2) {
           };
         })
       );
+      console.log(`\u2705 [SUPERADMIN] Retornando ${enrichedRestaurants.length} restaurantes enriquecidos`);
       res.json(enrichedRestaurants);
     } catch (error) {
+      console.error("\u274C [SUPERADMIN] Erro ao buscar restaurantes:", error);
       res.status(500).json({ message: "Erro ao buscar restaurantes" });
     }
   });
@@ -12971,7 +13005,7 @@ async function registerRoutes(app2) {
           if (!restaurantId) {
             return res2.status(400).json({ error: "Restaurant ID inv\xE1lido" });
           }
-          const summaryResult = await db.execute(sql4`
+          const summaryResult = await db.execute(sql7`
         SELECT 
           COUNT(*) as total_clicks,
           COUNT(DISTINCT session_id) as unique_visitors,
@@ -12986,7 +13020,7 @@ async function registerRoutes(app2) {
         FROM link_analytics
         WHERE restaurant_id = ${restaurantId}
       `);
-          const sourcesResult = await db.execute(sql4`
+          const sourcesResult = await db.execute(sql7`
         SELECT 
           COALESCE(source, 'Direto') as source,
           COUNT(*) as clicks
@@ -13055,7 +13089,7 @@ async function registerRoutes(app2) {
           if (!sessionId || !restaurantId) {
             return res2.status(400).json({ error: "Session ID e Restaurant ID obrigat\xF3rios" });
           }
-          await db.execute(sql4`
+          await db.execute(sql7`
         UPDATE link_analytics 
         SET converted = 1
         WHERE session_id = ${sessionId} 
@@ -14319,9 +14353,9 @@ async function registerRoutes(app2) {
         return res.status(404).json({ message: "Cliente n\xE3o encontrado" });
       }
       const orders2 = await db.query.orders.findMany({
-        where: (orders3, { eq: eq5, and: and6 }) => and6(
-          eq5(orders3.restaurantId, restaurantId),
-          eq5(orders3.customerId, customerId)
+        where: (orders3, { eq: eq6, and: and6 }) => and6(
+          eq6(orders3.restaurantId, restaurantId),
+          eq6(orders3.customerId, customerId)
         ),
         with: {
           orderItems: {
@@ -14363,7 +14397,7 @@ async function registerRoutes(app2) {
     try {
       const { orderId } = req.params;
       const order = await db.query.orders.findFirst({
-        where: (orders2, { eq: eq5 }) => eq5(orders2.id, orderId),
+        where: (orders2, { eq: eq6 }) => eq6(orders2.id, orderId),
         with: {
           orderItems: {
             with: {
@@ -14571,10 +14605,10 @@ async function registerRoutes(app2) {
         return res.status(400).json({ message: "Coordenadas devem estar entre 0 e 100" });
       }
       await db.execute(
-        sql4`UPDATE tables SET position_x = ${x}, position_y = ${y} WHERE id = ${id}`
+        sql7`UPDATE tables SET position_x = ${x}, position_y = ${y} WHERE id = ${id}`
       );
       const checkResult = await db.execute(
-        sql4`SELECT id FROM tables WHERE id = ${id}`
+        sql7`SELECT id FROM tables WHERE id = ${id}`
       );
       if (checkResult.rows.length === 0) {
         return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
@@ -14638,6 +14672,24 @@ async function registerRoutes(app2) {
       }
       if (!validation.canClose && req.body.forceClose) {
         console.log("[CloseSession] \u26A0\uFE0F For\xE7ando fechamento com pend\xEAncias");
+        await db.insert(auditLogs).values({
+          restaurantId: String(restaurantId),
+          actorId: currentUser.id ? String(currentUser.id) : null,
+          action: "session_force_closed",
+          entityType: "table_session",
+          entityId: table.currentSessionId,
+          details: {
+            tableId: table.id,
+            tableName: table.number,
+            totalPending: validation.totalPending,
+            pendingOrders: validation.pendingOrders,
+            unpaidGuests: validation.unpaidGuests,
+            reasons: validation.warnings,
+            userRole: currentUser.role,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          }
+        });
+        console.log("[CloseSession] \u2705 Auditoria registrada para forceClose");
       } else {
         console.log("[CloseSession] \u2705 Fechamento permitido");
       }
@@ -14826,7 +14878,7 @@ async function registerRoutes(app2) {
           });
         }
         if (Object.keys(updates).length > 1) {
-          await db.update(tableSessions).set(updates).where(eq2(tableSessions.id, table.currentSessionId));
+          await db.update(tableSessions).set(updates).where(eq5(tableSessions.id, table.currentSessionId));
         }
       }
       const payment = await storage.addTablePayment(restaurantId, {
@@ -14838,14 +14890,12 @@ async function registerRoutes(app2) {
         notes: receivedAmount ? `Valor recebido: ${receivedAmount}. ${notes || ""}` : notes
       });
       if (table.currentSessionId) {
-        const [session2] = await db.select().from(tableSessions).where(eq2(tableSessions.id, table.currentSessionId)).limit(1);
-        const currentPaid = parseFloat(session2?.paidAmount || "0");
-        const totalPaid = currentPaid + parseFloat(amount);
-        console.log("\u{1F4B0} [TABLE PAYMENT] Atualizando paidAmount:", {
+        const [session2] = await db.select().from(tableSessions).where(eq5(tableSessions.id, table.currentSessionId)).limit(1);
+        console.log("\u{1F4B0} [TABLE PAYMENT] Pagamento registrado:", {
           sessionId: table.currentSessionId,
-          currentPaid: currentPaid.toFixed(2),
-          newPayment: parseFloat(amount).toFixed(2),
-          totalPaid: totalPaid.toFixed(2)
+          paymentAmount: parseFloat(amount).toFixed(2),
+          sessionPaidAmount: session2?.paidAmount || "0"
+          // Já foi atualizado por addTablePayment
         });
         const allGuests = await storage.getTableGuests(table.currentSessionId);
         if (session2) {
@@ -14869,37 +14919,35 @@ async function registerRoutes(app2) {
               totalAmountAjustado = totalAmountAjustado + sessionServiceCharge;
             }
           }
+          await db.update(tableSessions).set({ totalAmount: totalAmountAjustado.toFixed(2) }).where(eq5(tableSessions.id, table.currentSessionId));
           console.log("\u{1F4B0} [TABLE PAYMENT] Atualizando sess\xE3o com ajustes:", {
             sessionId: table.currentSessionId,
             subtotalBeforeAdjustments: subtotalBeforeAdjustments.toFixed(2),
-            sessionDiscount: sessionDiscount.toFixed(2),
-            sessionDiscountType,
-            sessionServiceCharge: sessionServiceCharge.toFixed(2),
-            sessionServiceChargeType,
-            totalAmountAjustado: totalAmountAjustado.toFixed(2),
-            totalPaid: totalPaid.toFixed(2),
-            pendente: (totalAmountAjustado - totalPaid).toFixed(2)
+            totalAmountAjustado: totalAmountAjustado.toFixed(2)
           });
-          await db.update(tableSessions).set({
-            totalAmount: totalAmountAjustado.toFixed(2),
-            paidAmount: totalPaid.toFixed(2)
-          }).where(eq2(tableSessions.id, table.currentSessionId));
-        } else {
-          await db.update(tableSessions).set({ paidAmount: totalPaid.toFixed(2) }).where(eq2(tableSessions.id, table.currentSessionId));
+          const validation = await storage.validateSessionClosure(table.currentSessionId);
+          if (validation.canClose) {
+            console.log(`[TablePayment] \u2705 Pagamento completo detectado. Mesa pode ser fechada manualmente.`);
+            broadcastToClients({
+              type: "table_payment_complete",
+              data: {
+                tableId: table.id,
+                sessionId: table.currentSessionId,
+                canClose: true,
+                message: "Pagamento completo. Mesa pronta para fechamento manual."
+              }
+            });
+          }
         }
       }
-      await storage.autoUpdateTableStatusOnPayment(req.params.id);
       broadcastToClients({
-        type: "table_payment_added",
-        data: payment,
-        tableId: req.params.id,
-        sessionId: table.currentSessionId
+        type: "table_payment_recorded",
+        data: { tableId: req.params.id, payment }
       });
-      broadcastToClients({
-        type: "table_updated",
-        data: { tableId: req.params.id }
+      res.json({
+        success: true,
+        payment
       });
-      res.json(payment);
     } catch (error) {
       console.error("Payment processing error:", error);
       res.status(500).json({ message: error.message || "Failed to record payment" });
@@ -14918,7 +14966,16 @@ async function registerRoutes(app2) {
         return res.status(403).json({ message: "Gar\xE7ons n\xE3o podem registrar pagamentos. Solicite ao caixa." });
       }
       const restaurantId = currentUser.restaurantId;
-      const { amount, paymentMethod, notes, receivedAmount } = req.body;
+      const {
+        amount,
+        paymentMethod,
+        notes,
+        receivedAmount,
+        discount,
+        discountType,
+        serviceCharge,
+        serviceChargeType
+      } = req.body;
       const guestId = req.params.guestId;
       const guest = await storage.getTableGuestById(guestId);
       if (!guest) {
@@ -14930,13 +14987,38 @@ async function registerRoutes(app2) {
           message: "Acesso negado: Convidado n\xE3o pertence ao seu restaurante"
         });
       }
+      if (guest.sessionId && (discount || serviceCharge)) {
+        const updates = { updatedAt: /* @__PURE__ */ new Date() };
+        if (discount && parseFloat(discount) > 0) {
+          updates.discount = discount;
+          updates.discountType = discountType || "valor";
+          console.log("\u{1F3AF} [GUEST PAYMENT] Salvando desconto na sess\xE3o:", {
+            sessionId: guest.sessionId,
+            discount,
+            discountType: discountType || "valor"
+          });
+        }
+        if (serviceCharge && parseFloat(serviceCharge) > 0) {
+          updates.serviceCharge = serviceCharge;
+          updates.serviceChargeType = serviceChargeType || "percentual";
+          console.log("\u{1F3AF} [GUEST PAYMENT] Salvando taxa de servi\xE7o na sess\xE3o:", {
+            sessionId: guest.sessionId,
+            serviceCharge,
+            serviceChargeType: serviceChargeType || "percentual"
+          });
+        }
+        if (Object.keys(updates).length > 1) {
+          await db.update(tableSessions).set(updates).where(eq5(tableSessions.id, guest.sessionId));
+          console.log("\u2705 [GUEST PAYMENT] Ajustes salvos na sess\xE3o com sucesso");
+        }
+      }
       const paymentAmount = parseFloat(amount);
       if (isNaN(paymentAmount) || paymentAmount <= 0) {
         return res.status(400).json({ message: "Valor de pagamento inv\xE1lido" });
       }
       const guestSubtotalOriginal = parseFloat(guest.subtotal || "0");
       const guestPaid = parseFloat(guest.paidAmount || "0");
-      const session2 = await db.select().from(tableSessions).where(eq2(tableSessions.id, guest.sessionId)).limit(1);
+      const session2 = await db.select().from(tableSessions).where(eq5(tableSessions.id, guest.sessionId)).limit(1);
       let guestSubtotalAjustado = guestSubtotalOriginal;
       if (session2.length > 0) {
         const sessionDiscount = parseFloat(session2[0].discount || "0");
@@ -15010,8 +15092,20 @@ async function registerRoutes(app2) {
         paymentMethod,
         notes: notes || null
       });
+      const allPaymentsInSession = await db.select().from(tablePayments).where(eq5(tablePayments.sessionId, guest.sessionId));
+      const totalPaidFromPayments = allPaymentsInSession.reduce((sum, p) => sum + parseFloat(p.amount || "0"), 0);
+      console.log("\u{1F3AF} [GUEST PAYMENT] Calculando totalPaid da sess\xE3o:", {
+        sessionId: guest.sessionId,
+        paymentsCount: allPaymentsInSession.length,
+        totalPaidFromPayments: totalPaidFromPayments.toFixed(2),
+        payments: allPaymentsInSession.map((p) => ({
+          id: p.id,
+          amount: p.amount,
+          method: p.paymentMethod,
+          createdAt: p.createdAt
+        }))
+      });
       const allGuests = await storage.getTableGuests(guest.sessionId);
-      const totalPaid = allGuests.reduce((sum, g) => sum + parseFloat(g.paidAmount || "0"), 0);
       if (session2.length > 0) {
         const sessionDiscount = parseFloat(session2[0].discount || "0");
         const sessionDiscountType = session2[0].discountType || "valor";
@@ -15041,15 +15135,15 @@ async function registerRoutes(app2) {
         });
         await db.update(tableSessions).set({
           totalAmount: totalAmountAjustado.toFixed(2),
-          paidAmount: totalPaid.toFixed(2)
-        }).where(eq2(tableSessions.id, guest.sessionId));
+          paidAmount: totalPaidFromPayments.toFixed(2)
+        }).where(eq5(tableSessions.id, guest.sessionId));
         console.log("\u{1F3AF} [GUEST PAYMENT] \u2705 Sess\xE3o atualizada:", {
           totalAmount: totalAmountAjustado.toFixed(2),
-          paidAmount: totalPaid.toFixed(2),
-          pendente: (totalAmountAjustado - totalPaid).toFixed(2)
+          paidAmount: totalPaidFromPayments.toFixed(2),
+          pendente: (totalAmountAjustado - totalPaidFromPayments).toFixed(2)
         });
       } else {
-        await db.update(tableSessions).set({ paidAmount: totalPaid.toFixed(2) }).where(eq2(tableSessions.id, guest.sessionId));
+        await db.update(tableSessions).set({ paidAmount: totalPaidFromPayments.toFixed(2) }).where(eq5(tableSessions.id, guest.sessionId));
       }
       console.log("\u{1F3AF} [GUEST PAYMENT] \u2705 Session.paidAmount j\xE1 atualizado anteriormente");
       console.log("\u{1F50D} [GUEST PAYMENT] Verificando se mesa deve fechar automaticamente...");
@@ -15115,11 +15209,15 @@ async function registerRoutes(app2) {
         paymentMethod,
         notes
       });
-      const [session2] = await db.select().from(tableSessions).where(eq2(tableSessions.id, targetSessionId)).limit(1);
+      const [session2] = await db.select().from(tableSessions).where(eq5(tableSessions.id, targetSessionId)).limit(1);
       if (session2) {
         const allGuests = await storage.getTableGuests(targetSessionId);
-        const currentPaid = parseFloat(session2.paidAmount || "0");
-        const totalPaid = currentPaid + parseFloat(amount);
+        console.log("\u{1F4B0} [LEGACY PAYMENTS] Pagamento registrado (paidAmount j\xE1 atualizado):", {
+          sessionId: targetSessionId,
+          paymentAmount: parseFloat(amount).toFixed(2),
+          sessionPaidAmount: session2.paidAmount
+          // Já foi atualizado
+        });
         const subtotal = allGuests.reduce((sum, g) => sum + parseFloat(g.subtotal || "0"), 0);
         const sessionDiscount = parseFloat(session2.discount || "0");
         const sessionDiscountType = session2.discountType || "valor";
@@ -15143,12 +15241,13 @@ async function registerRoutes(app2) {
         console.log("\u{1F4B0} [LEGACY PAYMENTS ENDPOINT] Atualizando sess\xE3o:", {
           sessionId: targetSessionId,
           totalAmount: totalAmount.toFixed(2),
-          paidAmount: totalPaid.toFixed(2)
+          paidAmount: session2.paidAmount
+          // Já foi atualizado por addTablePayment
         });
         await db.update(tableSessions).set({
-          totalAmount: totalAmount.toFixed(2),
-          paidAmount: totalPaid.toFixed(2)
-        }).where(eq2(tableSessions.id, targetSessionId));
+          totalAmount: totalAmount.toFixed(2)
+          // paidAmount: NÃO atualizar aqui! addTablePayment já fez atomicamente
+        }).where(eq5(tableSessions.id, targetSessionId));
         await storage.autoUpdateTableStatusOnPayment(req.params.id);
       }
       broadcastToClients({ type: "table_payment_added", data: payment });
@@ -15166,9 +15265,9 @@ async function registerRoutes(app2) {
       const restaurantId = currentUser.restaurantId;
       const { sessionId } = req.params;
       const logs = await db.query.orderItemAuditLogs.findMany({
-        where: (logs2, { eq: eq5, and: and6 }) => and6(
-          eq5(logs2.sessionId, sessionId),
-          eq5(logs2.restaurantId, restaurantId)
+        where: (logs2, { eq: eq6, and: and6 }) => and6(
+          eq6(logs2.sessionId, sessionId),
+          eq6(logs2.restaurantId, restaurantId)
         ),
         with: {
           actor: {
@@ -15581,7 +15680,7 @@ async function registerRoutes(app2) {
           totalPrice: orderTotal.toString()
         };
       });
-      const session2 = table.currentSessionId ? (await db.select().from(tableSessions).where(eq2(tableSessions.id, table.currentSessionId)).limit(1))[0] : null;
+      const session2 = table.currentSessionId ? (await db.select().from(tableSessions).where(eq5(tableSessions.id, table.currentSessionId)).limit(1))[0] : null;
       const subtotalBeforeAdjustments = orders2.filter((o) => o.status !== "cancelado").reduce((sum, o) => sum + calculateOrderTotal(o), 0);
       const sessionDiscount = parseFloat(session2?.discount || "0");
       const sessionDiscountType = session2?.discountType || "valor";
@@ -15603,7 +15702,8 @@ async function registerRoutes(app2) {
           totalAmount = totalAmount + sessionServiceCharge;
         }
       }
-      console.log(`[orders-by-guest] Mesa ${req.params.id}:`, {
+      console.log(`
+\u{1F50D} [orders-by-guest] Mesa ${req.params.id}:`, {
         sessionId: table.currentSessionId,
         allTableOrdersCount: allTableOrders.length,
         filteredOrdersCount: orders2.length,
@@ -15628,6 +15728,12 @@ async function registerRoutes(app2) {
           serviceCharge: session2.serviceCharge,
           paidAmount: session2.paidAmount
         } : null
+      });
+      console.log(`\u{1F4CA} [orders-by-guest] RESUMO FINAL:`, {
+        "Total (com ajustes)": totalAmount.toFixed(2),
+        "Pago (da sess\xE3o)": session2?.paidAmount || "0.00",
+        "Pendente": (totalAmount - parseFloat(session2?.paidAmount || "0")).toFixed(2),
+        "Status": totalAmount - parseFloat(session2?.paidAmount || "0") <= 0 ? "\u2705 PAGO" : "\u26A0\uFE0F PENDENTE"
       });
       res.json({
         ordersByGuest,
@@ -16562,12 +16668,14 @@ async function registerRoutes(app2) {
           errors: error.errors
         });
       }
-      console.error("Order creation error:", error);
+      console.error("\u274C Order creation error:", error);
       console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
       console.error("Error message:", error instanceof Error ? error.message : String(error));
+      console.error("Request body:", JSON.stringify(req.body, null, 2));
       res.status(500).json({
         message: "Failed to create order",
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
+        details: error instanceof Error ? error.stack : void 0
       });
     }
   });
@@ -16756,7 +16864,7 @@ async function registerRoutes(app2) {
       const restaurantId = currentUser.restaurantId;
       const { newGuestId, reason } = reassignOrderItemSchema.parse(req.body);
       const orderItem = await db.query.orderItems.findFirst({
-        where: (items, { eq: eq5 }) => eq5(items.id, req.params.itemId),
+        where: (items, { eq: eq6 }) => eq6(items.id, req.params.itemId),
         with: {
           order: true
         }
@@ -16774,9 +16882,9 @@ async function registerRoutes(app2) {
         return res.status(400).json({ message: "N\xE3o \xE9 poss\xEDvel mover itens de pedido j\xE1 pago" });
       }
       const newGuest = await db.query.tableGuests.findFirst({
-        where: (guests, { eq: eq5, and: and6 }) => and6(
-          eq5(guests.id, newGuestId),
-          eq5(guests.restaurantId, restaurantId)
+        where: (guests, { eq: eq6, and: and6 }) => and6(
+          eq6(guests.id, newGuestId),
+          eq6(guests.restaurantId, restaurantId)
         )
       });
       if (!newGuest) {
@@ -16789,9 +16897,9 @@ async function registerRoutes(app2) {
         return res.status(400).json({ message: "Cliente destino j\xE1 pagou ou saiu" });
       }
       const oldGuestId = orderItem.guestId;
-      await db.update(orderItems).set({ guestId: newGuestId }).where(eq2(orderItems.id, req.params.itemId));
+      await db.update(orderItems).set({ guestId: newGuestId }).where(eq5(orderItems.id, req.params.itemId));
       const menuItem = await db.query.menuItems.findFirst({
-        where: (items, { eq: eq5 }) => eq5(items.id, orderItem.menuItemId)
+        where: (items, { eq: eq6 }) => eq6(items.id, orderItem.menuItemId)
       });
       if (oldGuestId) {
         await storage.recalculateGuestTotal(restaurantId, oldGuestId);
@@ -16814,7 +16922,7 @@ async function registerRoutes(app2) {
         oldValue: {
           guestId: oldGuestId,
           guestNumber: oldGuestId ? (await db.query.tableGuests.findFirst({
-            where: (guests, { eq: eq5 }) => eq5(guests.id, oldGuestId)
+            where: (guests, { eq: eq6 }) => eq6(guests.id, oldGuestId)
           }))?.guestNumber : null
         },
         newValue: {
@@ -19948,6 +20056,86 @@ async function registerRoutes(app2) {
   const httpServer = createServer(app2);
   const { setupWebSocket: setupWebSocket2 } = await Promise.resolve().then(() => (init_websocket(), websocket_exports));
   await setupWebSocket2(httpServer);
+  app2.post("/api/debug/fix-all-sessions", isCashierOrAbove, async (req, res) => {
+    try {
+      const activeSessions = await db.select().from(tableSessions).where(isNull2(tableSessions.endedAt));
+      const results = [];
+      for (const session2 of activeSessions) {
+        const payments = await db.select().from(tablePayments).where(eq5(tablePayments.sessionId, session2.id));
+        const correctPaidAmount = payments.reduce((sum, p) => sum + parseFloat(p.amount || "0"), 0);
+        const currentPaidAmount = parseFloat(session2.paidAmount || "0");
+        const difference = Math.abs(correctPaidAmount - currentPaidAmount);
+        if (difference > 0.01) {
+          await db.update(tableSessions).set({ paidAmount: correctPaidAmount.toFixed(2) }).where(eq5(tableSessions.id, session2.id));
+          results.push({
+            sessionId: session2.id,
+            before: currentPaidAmount.toFixed(2),
+            after: correctPaidAmount.toFixed(2),
+            difference: difference.toFixed(2),
+            fixed: true
+          });
+        }
+      }
+      res.json({
+        success: true,
+        totalSessions: activeSessions.length,
+        fixed: results.length,
+        results
+      });
+    } catch (error) {
+      console.error("Fix sessions error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  app2.get("/api/debug/session/:sessionId", isCashierOrAbove, async (req, res) => {
+    try {
+      const sessionId = req.params.sessionId;
+      const [session2] = await db.select().from(tableSessions).where(eq5(tableSessions.id, sessionId)).limit(1);
+      if (!session2) {
+        return res.status(404).json({ error: "Sess\xE3o n\xE3o encontrada" });
+      }
+      const payments = await db.select().from(tablePayments).where(eq5(tablePayments.sessionId, sessionId));
+      const totalFromPayments = payments.reduce((sum, p) => sum + parseFloat(p.amount || "0"), 0);
+      const guests = await db.select().from(tableGuests).where(eq5(tableGuests.sessionId, sessionId));
+      const totalFromGuests = guests.reduce((sum, g) => sum + parseFloat(g.paidAmount || "0"), 0);
+      res.json({
+        session: {
+          id: session2.id,
+          totalAmount: session2.totalAmount,
+          paidAmount: session2.paidAmount,
+          discount: session2.discount,
+          serviceCharge: session2.serviceCharge
+        },
+        payments: {
+          count: payments.length,
+          total: totalFromPayments.toFixed(2),
+          list: payments.map((p) => ({
+            amount: p.amount,
+            method: p.paymentMethod,
+            createdAt: p.createdAt
+          }))
+        },
+        guests: {
+          count: guests.length,
+          totalPaidAmount: totalFromGuests.toFixed(2),
+          list: guests.map((g) => ({
+            name: g.name,
+            subtotal: g.subtotal,
+            paidAmount: g.paidAmount
+          }))
+        },
+        discrepancy: {
+          sessionPaidAmount: parseFloat(session2.paidAmount || "0"),
+          calculatedFromPayments: totalFromPayments,
+          calculatedFromGuests: totalFromGuests,
+          difference: parseFloat(session2.paidAmount || "0") - totalFromPayments
+        }
+      });
+    } catch (error) {
+      console.error("Debug session error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
   return httpServer;
 }
 
@@ -20133,8 +20321,8 @@ app.use((req, res, next) => {
   }
   try {
     console.log("\u{1F527} Corrigindo pedidos sem tableSessionId...");
-    const { db: db2, sql: sql8 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
-    await db2.execute(sql8`
+    const { db: db2, sql: sql9 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
+    await db2.execute(sql9`
       UPDATE orders
       SET table_session_id = (
         SELECT tg.session_id

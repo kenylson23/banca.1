@@ -212,15 +212,22 @@ export function PaymentSection({
   const totalPaid = sessionPaidAmount;
   const totalUnpaid = totalAmount - totalPaid;
   
+  // ✅ NOVO: Verificar se pagamento está completo (tolerância de 1 Kz)
+  // 🔧 FIX: Apenas considerar completo se há valor total E foi pago
+  const isPaymentComplete = totalAmount > 0 && totalPaid > 0 && totalUnpaid <= 1.0;
+  
   console.log('totalPaid (da sessão):', totalPaid);
   console.log('totalUnpaid:', totalUnpaid);
+  console.log('isPaymentComplete:', isPaymentComplete);
   console.log('======================');
   
   // Contar convidados pagos baseado em paidAmount (não em status)
+  // 🔧 FIX: Só considerar pago se há subtotal E foi pago
   const paidGuests = ordersByGuest?.filter((og: any) => {
     const paid = parseFloat(og.guest.paidAmount || '0');
     const subtotal = parseFloat(og.subtotal || '0');
-    return paid >= subtotal - 0.01; // Tolerância de 1 centavo
+    // Só considerar pago se há valor E foi pago
+    return subtotal > 0 && paid > 0 && paid >= subtotal - 0.01; // Tolerância de 1 centavo
   }).length || 0;
   const unpaidGuests = (ordersByGuest?.length || 0) - paidGuests;
 
@@ -233,6 +240,31 @@ export function PaymentSection({
           Finalize o pagamento da mesa ou divida a conta entre os convidados
         </p>
       </div>
+
+      {/* ✅ NOVO: Alerta de Pagamento Completo */}
+      {isPaymentComplete && (
+        <Card className="border-2 border-green-500 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className="p-2 rounded-full bg-green-100 dark:bg-green-900">
+                <CheckCircle2 className="w-6 h-6 text-green-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-1">
+                  Pagamento Completo! ✅
+                </h3>
+                <p className="text-sm text-green-700 dark:text-green-300 mb-3">
+                  A conta desta mesa foi totalmente paga. A mesa está pronta para ser fechada manualmente quando os clientes saírem.
+                </p>
+                <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                  <Receipt className="w-4 h-4" />
+                  <span>Os clientes podem continuar fazendo pedidos adicionais se desejarem</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Status do Pagamento */}
       <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
@@ -253,11 +285,27 @@ export function PaymentSection({
             </div>
 
             {/* Total Pendente */}
-            <div className="text-center p-4 rounded-lg bg-background border">
-              <div className="text-sm text-muted-foreground mb-2">Pendente</div>
-              <div className="text-3xl font-bold text-orange-600">
+            <div className={cn(
+              "text-center p-4 rounded-lg border",
+              isPaymentComplete 
+                ? "bg-green-50 dark:bg-green-950 border-green-500" 
+                : "bg-background"
+            )}>
+              <div className="text-sm text-muted-foreground mb-2">
+                {isPaymentComplete ? "Pendente (Pago)" : "Pendente"}
+              </div>
+              <div className={cn(
+                "text-3xl font-bold",
+                isPaymentComplete ? "text-green-600" : "text-orange-600"
+              )}>
                 {formatKwanza(totalUnpaid)}
               </div>
+              {isPaymentComplete && (
+                <div className="mt-2 flex items-center justify-center gap-1 text-xs text-green-600">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>Totalmente Pago</span>
+                </div>
+              )}
             </div>
           </div>
 

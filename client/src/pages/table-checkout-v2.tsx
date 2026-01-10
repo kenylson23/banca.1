@@ -541,6 +541,8 @@ export default function TableCheckoutV2() {
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${id}/orders-by-guest`] }); // Para TableDetailsDialog e QuickOrder
       queryClient.invalidateQueries({ queryKey: ['tables'] }); // Lista de mesas
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${id}/guests`] }); // Guests
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${id}`] }); // 🔧 FIX: Invalidar dados da mesa específica
+      queryClient.invalidateQueries({ queryKey: [`/api/table-sessions/${table.currentSessionId}/guests`] }); // 🔧 FIX: Convidados da sessão
       
       console.log('🔍 [CHECKOUT] Queries invalidadas. TableDetailsDialog deve refetch agora.');
     },

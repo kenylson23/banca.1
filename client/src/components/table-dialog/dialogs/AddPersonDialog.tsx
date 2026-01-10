@@ -81,12 +81,44 @@ export function AddPersonDialog({
 
       if (!res.ok) throw new Error('Erro ao adicionar cliente');
 
+      // ✅ Ler resposta do backend (pode conter sessionId criado automaticamente)
+      const responseData = await res.json();
+      console.log('🎉 [AddPerson] Cliente adicionado, resposta do servidor:', responseData);
+      console.log('🔄 [AddPerson] Invalidando e refazendo queries...');
+
       // Invalidar queries para atualizar UI
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/guests`] });
       queryClient.invalidateQueries({ queryKey: [`/api/table-sessions/${sessionId}/guests`] });
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
+
+      // 🔧 FIX: Forçar refetch imediato para atualizar UI instantaneamente
+      await Promise.all([
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}`],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}/orders-by-guest`],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/table-sessions/${sessionId}/guests`],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables'],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables/with-orders'],
+          type: 'active'
+        }),
+      ]);
+
+      console.log('✅ [AddPerson] Queries atualizadas!');
 
       handleClose();
     } catch (error) {
@@ -130,12 +162,44 @@ export function AddPersonDialog({
 
       if (!guestRes.ok) throw new Error('Erro ao adicionar à mesa');
 
+      // ✅ Ler resposta do backend (pode conter sessionId criado automaticamente)
+      const guestData = await guestRes.json();
+      console.log('🎉 [QuickCreate] Cliente criado e adicionado, resposta do servidor:', guestData);
+      console.log('🔄 [QuickCreate] Invalidando e refazendo queries...');
+
       // Invalidar queries para atualizar UI
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/guests`] });
       queryClient.invalidateQueries({ queryKey: [`/api/table-sessions/${sessionId}/guests`] });
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
+
+      // 🔧 FIX: Forçar refetch imediato para atualizar UI instantaneamente
+      await Promise.all([
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}`],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}/orders-by-guest`],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/table-sessions/${sessionId}/guests`],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables'],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables/with-orders'],
+          type: 'active'
+        }),
+      ]);
+
+      console.log('✅ [QuickCreate] Queries atualizadas!');
 
       handleClose();
     } catch (error) {
@@ -163,12 +227,44 @@ export function AddPersonDialog({
         throw new Error(errorData.message || 'Erro ao adicionar convidado');
       }
 
+      // ✅ Ler resposta do backend (pode conter sessionId criado automaticamente)
+      const guestData = await res.json();
+      console.log('🎉 [AnonymousAdd] Convidado adicionado, resposta do servidor:', guestData);
+      console.log('🔄 [AnonymousAdd] Invalidando e refazendo queries...');
+
       // Invalidar queries para atualizar UI
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/guests`] });
       queryClient.invalidateQueries({ queryKey: [`/api/table-sessions/${sessionId}/guests`] });
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
+
+      // 🔧 FIX: Forçar refetch imediato para atualizar UI instantaneamente
+      await Promise.all([
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}`],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}/orders-by-guest`],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/table-sessions/${sessionId}/guests`],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables'],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables/with-orders'],
+          type: 'active'
+        }),
+      ]);
+
+      console.log('✅ [AnonymousAdd] Queries atualizadas!');
 
       handleClose();
     } catch (error) {

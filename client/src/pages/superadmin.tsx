@@ -99,6 +99,13 @@ export default function SuperAdmin() {
 
   const { data: restaurants, isLoading: restaurantsLoading } = useQuery<RestaurantWithPlan[]>({
     queryKey: ["/api/superadmin/restaurants"],
+    onSuccess: (data) => {
+      console.log('🔍 [SUPERADMIN] Restaurantes carregados:', data);
+      console.log('📊 [SUPERADMIN] Total:', data?.length || 0);
+    },
+    onError: (error: any) => {
+      console.error('❌ [SUPERADMIN] Erro ao carregar restaurantes:', error);
+    }
   });
 
   const { data: messages, isLoading: messagesLoading } = useQuery<Array<Message & { restaurant: Restaurant }>>({

@@ -42,6 +42,14 @@ export function DraggableOrderItem({
     disabled,
   });
 
+  console.log('🔵 [Draggable] Item renderizado:', { 
+    id, 
+    menuItemName, 
+    guestId, 
+    disabled,
+    isDragging 
+  });
+
   const style = {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0.5 : 1,

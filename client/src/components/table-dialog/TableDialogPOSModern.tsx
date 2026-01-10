@@ -124,6 +124,18 @@ export function TableDialogPOSModern({
   const mutations = useTableMutations({ tableId: table?.id });
   const queryClient = useQueryClient();
   
+  // 🔧 FIX: Forçar refetch imediato quando diálogo abre (para sincronizar após pagamento)
+  useEffect(() => {
+    if (open && table?.id) {
+      console.log('🔍 [TableDialogPOSModern] Diálogo aberto, forçando refetch imediato');
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/orders-by-guest`] });
+      if (table.currentSessionId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/table-sessions/${table.currentSessionId}/guests`] });
+      }
+    }
+  }, [open, table?.id, table?.currentSessionId, queryClient]);
+  
   // ✅ SOLUÇÃO 3: Mutation para fechar mesa
   const closeTableMutation = useMutation({
     mutationFn: async (forceClose: boolean = false) => {

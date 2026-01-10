@@ -1474,7 +1474,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===== SUPER ADMIN RESTAURANT MANAGEMENT ROUTES =====
   app.get('/api/superadmin/restaurants', isSuperAdmin, async (req, res) => {
     try {
+      console.log('🔍 [SUPERADMIN] Buscando restaurantes...');
       const restaurants = await storage.getRestaurants();
+      console.log(`📊 [SUPERADMIN] Encontrados ${restaurants.length} restaurantes`);
       
       // Enrich with subscription and plan information
       const enrichedRestaurants = await Promise.all(
@@ -1508,8 +1510,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
       
+      console.log(`✅ [SUPERADMIN] Retornando ${enrichedRestaurants.length} restaurantes enriquecidos`);
       res.json(enrichedRestaurants);
     } catch (error) {
+      console.error('❌ [SUPERADMIN] Erro ao buscar restaurantes:', error);
       res.status(500).json({ message: "Erro ao buscar restaurantes" });
     }
   });
@@ -4301,16 +4305,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             totalAmountAjustado: totalAmountAjustado.toFixed(2),
           });
 
-          // ✅ AUTOMATIZAÇÃO: Tentar fechar a sessão se o pagamento for total
+          // ✅ DESATIVADO: Não fechar automaticamente após pagamento
+          // Cliente pode querer fazer mais pedidos (sobremesa, café, etc)
+          // O fechamento deve ser sempre manual através do botão "Fechar Mesa"
           const validation = await storage.validateSessionClosure(table.currentSessionId);
           
           if (validation.canClose) {
-            console.log(`[TablePayment] ✅ Pagamento total detectado. Encerrando sessão ${table.currentSessionId} automaticamente.`);
-            await storage.endTableSession(restaurantId, table.id);
-            
+            console.log(`[TablePayment] ✅ Pagamento completo detectado. Mesa pode ser fechada manualmente.`);
+            // Broadcast para frontend saber que pode mostrar o botão de fechar mesa
             broadcastToClients({ 
-              type: 'table_session_ended', 
-              data: { id: table.id, status: 'livre' } 
+              type: 'table_payment_complete', 
+              data: { 
+                tableId: table.id, 
+                sessionId: table.currentSessionId,
+                canClose: true,
+                message: 'Pagamento completo. Mesa pronta para fechamento manual.' 
+              } 
             });
           }
         }
@@ -4515,9 +4525,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: notes || null,
       });
       
-      // Update session paidAmount manually (sum of all guest payments)
+      // ✅ FIX: Update session paidAmount from actual payments, not guest.paidAmount
+      // This prevents double-counting if guest.paidAmount was already updated
+      const allPaymentsInSession = await db.select()
+        .from(tablePayments)
+        .where(eq(tablePayments.sessionId, guest.sessionId));
+      
+      const totalPaidFromPayments = allPaymentsInSession.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0);
+      
+      console.log('🎯 [GUEST PAYMENT] Calculando totalPaid da sessão:', {
+        sessionId: guest.sessionId,
+        paymentsCount: allPaymentsInSession.length,
+        totalPaidFromPayments: totalPaidFromPayments.toFixed(2),
+        payments: allPaymentsInSession.map(p => ({
+          id: p.id,
+          amount: p.amount,
+          method: p.paymentMethod,
+          createdAt: p.createdAt
+        }))
+      });
+      
+      // Get all guests for total calculation
       const allGuests = await storage.getTableGuests(guest.sessionId);
-      const totalPaid = allGuests.reduce((sum, g) => sum + parseFloat(g.paidAmount || '0'), 0);
       
       // ✅ CORREÇÃO CRÍTICA: Atualizar totalAmount da sessão COM ajustes
       if (session.length > 0) {
@@ -4560,19 +4589,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await db.update(tableSessions)
           .set({ 
             totalAmount: totalAmountAjustado.toFixed(2),
-            paidAmount: totalPaid.toFixed(2)
+            paidAmount: totalPaidFromPayments.toFixed(2)
           })
           .where(eq(tableSessions.id, guest.sessionId));
         
         console.log('🎯 [GUEST PAYMENT] ✅ Sessão atualizada:', {
           totalAmount: totalAmountAjustado.toFixed(2),
-          paidAmount: totalPaid.toFixed(2),
-          pendente: (totalAmountAjustado - totalPaid).toFixed(2)
+          paidAmount: totalPaidFromPayments.toFixed(2),
+          pendente: (totalAmountAjustado - totalPaidFromPayments).toFixed(2)
         });
       } else {
         // Fallback: atualizar apenas paidAmount
         await db.update(tableSessions)
-          .set({ paidAmount: totalPaid.toFixed(2) })
+          .set({ paidAmount: totalPaidFromPayments.toFixed(2) })
           .where(eq(tableSessions.id, guest.sessionId));
       }
       
@@ -5323,7 +5352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // 🔍 DEBUG: Log dos valores retornados COM ajustes e filtros
-      console.log(`[orders-by-guest] Mesa ${req.params.id}:`, {
+      console.log(`\n🔍 [orders-by-guest] Mesa ${req.params.id}:`, {
         sessionId: table.currentSessionId,
         allTableOrdersCount: allTableOrders.length,
         filteredOrdersCount: orders.length,
@@ -5348,6 +5377,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           serviceCharge: session.serviceCharge,
           paidAmount: session.paidAmount 
         } : null
+      });
+      
+      console.log(`📊 [orders-by-guest] RESUMO FINAL:`, {
+        'Total (com ajustes)': totalAmount.toFixed(2),
+        'Pago (da sessão)': session?.paidAmount || '0.00',
+        'Pendente': (totalAmount - parseFloat(session?.paidAmount || '0')).toFixed(2),
+        'Status': (totalAmount - parseFloat(session?.paidAmount || '0')) <= 0 ? '✅ PAGO' : '⚠️ PENDENTE'
       });
 
       res.json({
@@ -6767,13 +6803,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Reassign order item to different guest
   app.patch("/api/order-items/:itemId/reassign", isAuthenticated, async (req, res) => {
     try {
+      console.log('🔧 [Reassign] Recebida requisição:', {
+        itemId: req.params.itemId,
+        body: req.body,
+      });
+      
       const currentUser = req.user as User;
       if (!currentUser.restaurantId) {
+        console.error('❌ [Reassign] Usuário sem restaurante');
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
       
       const restaurantId = currentUser.restaurantId;
       const { newGuestId, reason } = reassignOrderItemSchema.parse(req.body);
+      
+      console.log('📝 [Reassign] Dados parseados:', { newGuestId, reason, restaurantId });
       
       // Get the order item to verify it exists and get its order
       const orderItem = await db.query.orderItems.findFirst({
@@ -6889,11 +6933,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newGuestId,
       });
     } catch (error) {
+      console.error('❌ [Reassign] Erro capturado:', error);
+      
       if (error instanceof z.ZodError) {
+        console.error('❌ [Reassign] Erro de validação Zod:', error.errors);
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error('Error reassigning order item:', error);
-      res.status(500).json({ message: "Erro ao mover item do pedido" });
+      
+      console.error('❌ [Reassign] Erro completo:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        error,
+      });
+      
+      res.status(500).json({ 
+        message: "Erro ao mover item do pedido",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
@@ -10640,6 +10696,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup WebSocket server
   const { setupWebSocket } = await import('./websocket.js');
   await setupWebSocket(httpServer);
+
+
+  // 🔧 FIX: Endpoint para corrigir session.paidAmount de todas as sessões ativas
+  app.post("/api/debug/fix-all-sessions", isCashierOrAbove, async (req, res) => {
+    try {
+      const activeSessions = await db.select()
+        .from(tableSessions)
+        .where(isNull(tableSessions.endedAt));
+      
+      const results = [];
+      
+      for (const session of activeSessions) {
+        const payments = await db.select()
+          .from(tablePayments)
+          .where(eq(tablePayments.sessionId, session.id));
+        
+        const correctPaidAmount = payments.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0);
+        const currentPaidAmount = parseFloat(session.paidAmount || '0');
+        const difference = Math.abs(correctPaidAmount - currentPaidAmount);
+        
+        if (difference > 0.01) {
+          await db.update(tableSessions)
+            .set({ paidAmount: correctPaidAmount.toFixed(2) })
+            .where(eq(tableSessions.id, session.id));
+          
+          results.push({
+            sessionId: session.id,
+            before: currentPaidAmount.toFixed(2),
+            after: correctPaidAmount.toFixed(2),
+            difference: difference.toFixed(2),
+            fixed: true
+          });
+        }
+      }
+      
+      res.json({
+        success: true,
+        totalSessions: activeSessions.length,
+        fixed: results.length,
+        results
+      });
+    } catch (error: any) {
+      console.error('Fix sessions error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 🔍 DEBUG: Endpoint para verificar dados da sessão
+  app.get("/api/debug/session/:sessionId", isCashierOrAbove, async (req, res) => {
+    try {
+      const sessionId = req.params.sessionId;
+      
+      const [session] = await db.select().from(tableSessions)
+        .where(eq(tableSessions.id, sessionId))
+        .limit(1);
+      
+      if (!session) {
+        return res.status(404).json({ error: "Sessão não encontrada" });
+      }
+      
+      const payments = await db.select().from(tablePayments)
+        .where(eq(tablePayments.sessionId, sessionId));
+      
+      const totalFromPayments = payments.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0);
+      
+      const guests = await db.select().from(tableGuests)
+        .where(eq(tableGuests.sessionId, sessionId));
+      
+      const totalFromGuests = guests.reduce((sum, g) => sum + parseFloat(g.paidAmount || '0'), 0);
+      
+      res.json({
+        session: {
+          id: session.id,
+          totalAmount: session.totalAmount,
+          paidAmount: session.paidAmount,
+          discount: session.discount,
+          serviceCharge: session.serviceCharge,
+        },
+        payments: {
+          count: payments.length,
+          total: totalFromPayments.toFixed(2),
+          list: payments.map(p => ({
+            amount: p.amount,
+            method: p.paymentMethod,
+            createdAt: p.createdAt,
+          }))
+        },
+        guests: {
+          count: guests.length,
+          totalPaidAmount: totalFromGuests.toFixed(2),
+          list: guests.map(g => ({
+            name: g.name,
+            subtotal: g.subtotal,
+            paidAmount: g.paidAmount,
+          }))
+        },
+        discrepancy: {
+          sessionPaidAmount: parseFloat(session.paidAmount || '0'),
+          calculatedFromPayments: totalFromPayments,
+          calculatedFromGuests: totalFromGuests,
+          difference: parseFloat(session.paidAmount || '0') - totalFromPayments,
+        }
+      });
+    } catch (error: any) {
+      console.error('Debug session error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   return httpServer;
 }

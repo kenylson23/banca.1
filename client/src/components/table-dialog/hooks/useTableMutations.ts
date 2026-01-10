@@ -207,16 +207,24 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
       // 1. Invalidar todas as queries relacionadas
       invalidateTableQueries();
       
-      // 2. Forçar refetch imediato das queries críticas
+      // 2. Forçar refetch imediato das queries críticas (incluindo a mesa principal!)
       await Promise.all([
+        // CRÍTICO: Refetch da query da mesa específica para atualizar currentSessionId
         queryClient.refetchQueries({ 
-          queryKey: [`/api/tables/${tableId}/orders-by-guest`] 
+          queryKey: [`/api/tables/${tableId}`],
+          type: 'active'
         }),
         queryClient.refetchQueries({ 
-          queryKey: ['/api/tables'] 
+          queryKey: [`/api/tables/${tableId}/orders-by-guest`],
+          type: 'active'
         }),
         queryClient.refetchQueries({ 
-          queryKey: ['/api/tables/with-orders'] 
+          queryKey: ['/api/tables'],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables/with-orders'],
+          type: 'active'
         }),
         // Refetch de todas as queries de sessões
         queryClient.refetchQueries({

@@ -51,8 +51,8 @@ export function SuperAdminAnalyticsCard({ data, isLoading }: SuperAdminAnalytics
 
   if (!data) return null;
 
-  const growthColor = data.revenueGrowth >= 0 ? "text-green-500" : "text-red-500";
-  const GrowthIcon = data.revenueGrowth >= 0 ? TrendingUp : TrendingDown;
+  const growthColor = (data.revenueGrowth || 0) >= 0 ? "text-green-500" : "text-red-500";
+  const GrowthIcon = (data.revenueGrowth || 0) >= 0 ? TrendingUp : TrendingDown;
 
   return (
     <div className="space-y-4">
@@ -66,7 +66,7 @@ export function SuperAdminAnalyticsCard({ data, isLoading }: SuperAdminAnalytics
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold" data-testid="text-total-orders">
-              {data.totalOrders.toLocaleString('pt-BR')}
+              {(data.totalOrders || 0).toLocaleString('pt-BR')}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Todos os restaurantes
@@ -100,11 +100,11 @@ export function SuperAdminAnalyticsCard({ data, isLoading }: SuperAdminAnalytics
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold" data-testid="text-total-customers">
-              {data.totalCustomers.toLocaleString('pt-BR')}
+              {(data.totalCustomers || 0).toLocaleString('pt-BR')}
             </div>
             <div className={`flex items-center gap-1 text-sm mt-1 ${growthColor}`}>
               <GrowthIcon className="h-4 w-4" />
-              <span>{Math.abs(data.revenueGrowth).toFixed(1)}%</span>
+              <span>{Math.abs(data.revenueGrowth || 0).toFixed(1)}%</span>
               <span className="text-muted-foreground text-xs">vs mês anterior</span>
             </div>
           </CardContent>
@@ -117,7 +117,7 @@ export function SuperAdminAnalyticsCard({ data, isLoading }: SuperAdminAnalytics
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={data.monthlyRevenue}>
+            <AreaChart data={data.monthlyRevenue || []}>
               <defs>
                 <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#0891B2" stopOpacity={0.3}/>

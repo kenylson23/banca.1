@@ -73,7 +73,9 @@ export function StartSessionDialog({
 
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      console.log('🎉 [StartSession] Sessão iniciada, invalidando e refazendo queries...');
+
       toast({
         title: 'Sessão Iniciada',
         description: `A sessão da Mesa ${table.number} foi iniciada com sucesso.`,
@@ -82,21 +84,45 @@ export function StartSessionDialog({
       // Invalidar queries relacionadas - FORÇAR REFETCH
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}`] });
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/orders-by-guest`] });
       
-      // Aguardar refetch antes de fechar o diálogo
-      Promise.all([
-        queryClient.refetchQueries({ queryKey: [`/api/tables/${table.id}`] }),
-        queryClient.refetchQueries({ queryKey: [`/api/tables/${table.id}/orders-by-guest`] }),
-      ]).then(() => {
-        // Reset form
-        setExpectedGuests('');
-        setNotes('');
+      // 🔧 FIX: Aguardar refetch de TODAS as queries críticas antes de fechar o diálogo
+      await Promise.all([
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${table.id}`],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${table.id}/orders-by-guest`],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables'],
+          type: 'active'
+        }),
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/tables/with-orders'],
+          type: 'active'
+        }),
+        // Refetch de todas as queries de sessões
+        queryClient.refetchQueries({
+          predicate: (query) => {
+            const key = query.queryKey[0];
+            return typeof key === 'string' && key.startsWith('/api/table-sessions/');
+          }
+        }),
+      ]);
 
-        // Callback
-        onSuccess?.();
-        onOpenChange(false);
-      });
+      console.log('✅ [StartSession] Queries atualizadas!');
+
+      // Reset form
+      setExpectedGuests('');
+      setNotes('');
+
+      // Callback
+      onSuccess?.();
+      onOpenChange(false);
     },
     onError: (error: Error) => {
       toast({
