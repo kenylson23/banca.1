@@ -1317,6 +1317,7 @@ export const updateOrderItemQuantitySchema = z.object({
 export const reassignOrderItemSchema = z.object({
   newGuestId: z.string().uuid("ID de cliente inválido"),
   reason: z.string().max(500).optional(),
+  quantity: z.number().int().positive().optional(), // Quantidade a mover (opcional, move tudo se não especificado)
 });
 
 // Order Item Audit Action Enum

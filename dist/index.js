@@ -1399,7 +1399,9 @@ var init_schema = __esm({
     });
     reassignOrderItemSchema = z.object({
       newGuestId: z.string().uuid("ID de cliente inv\xE1lido"),
-      reason: z.string().max(500).optional()
+      reason: z.string().max(500).optional(),
+      quantity: z.number().int().positive().optional()
+      // Quantidade a mover (opcional, move tudo se não especificado)
     });
     orderItemAuditActionEnum = pgEnum("order_item_audit_action", [
       "item_reassigned",
@@ -15610,6 +15612,7 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/tables/:id/orders-by-guest", isCashierOrAbove, async (req, res) => {
     try {
+      console.log("\u{1F50D} [orders-by-guest] Requisi\xE7\xE3o recebida para mesa:", req.params.id);
       const currentUser = req.user;
       if (!currentUser.restaurantId && currentUser.role !== "superadmin") {
         return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
@@ -15621,15 +15624,33 @@ async function registerRoutes(app2) {
       const guests = table.currentSessionId ? await storage.getTableGuests(table.currentSessionId) : [];
       const allTableOrders = await storage.getOrdersByTableId(table.restaurantId, table.id);
       const currentGuestIds = guests.map((g) => g.id);
+      console.log("\u{1F4CA} [orders-by-guest] Pedidos antes do filtro:", {
+        totalOrders: allTableOrders.length,
+        currentSessionId: table.currentSessionId,
+        currentGuestIds
+      });
       const orders2 = table.currentSessionId ? allTableOrders.filter((order) => {
         if (order.tableSessionId === table.currentSessionId) {
+          console.log("\u2705 [orders-by-guest] Inclu\xEDdo (REGRA 1):", {
+            orderId: order.id,
+            tableSessionId: order.tableSessionId,
+            guestId: order.guestId || "NULL"
+          });
           return true;
         }
         if (!order.tableSessionId && order.guestId && currentGuestIds.includes(order.guestId)) {
+          console.log("\u2705 [orders-by-guest] Inclu\xEDdo (REGRA 2):", { orderId: order.id, guestId: order.guestId });
           return true;
         }
+        console.log("\u274C [orders-by-guest] Exclu\xEDdo:", {
+          orderId: order.id,
+          tableSessionId: order.tableSessionId,
+          guestId: order.guestId,
+          reason: !order.tableSessionId ? "Sem tableSessionId e sem guestId v\xE1lido" : "Sess\xE3o diferente"
+        });
         return false;
       }) : [];
+      console.log("\u{1F4CA} [orders-by-guest] Pedidos ap\xF3s filtro:", orders2.length);
       const calculateOrderTotal = (order) => {
         if (order.totalAmount && parseFloat(order.totalAmount) > 0) {
           return parseFloat(order.totalAmount);
@@ -16857,12 +16878,18 @@ async function registerRoutes(app2) {
   });
   app2.patch("/api/order-items/:itemId/reassign", isAuthenticated, async (req, res) => {
     try {
+      console.log("\u{1F527} [Reassign] Recebida requisi\xE7\xE3o:", {
+        itemId: req.params.itemId,
+        body: req.body
+      });
       const currentUser = req.user;
       if (!currentUser.restaurantId) {
+        console.error("\u274C [Reassign] Usu\xE1rio sem restaurante");
         return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
       }
       const restaurantId = currentUser.restaurantId;
-      const { newGuestId, reason } = reassignOrderItemSchema.parse(req.body);
+      const { newGuestId, reason, quantity } = reassignOrderItemSchema.parse(req.body);
+      console.log("\u{1F4DD} [Reassign] Dados parseados:", { newGuestId, reason, quantity, restaurantId });
       const orderItem = await db.query.orderItems.findFirst({
         where: (items, { eq: eq6 }) => eq6(items.id, req.params.itemId),
         with: {
@@ -16897,7 +16924,29 @@ async function registerRoutes(app2) {
         return res.status(400).json({ message: "Cliente destino j\xE1 pagou ou saiu" });
       }
       const oldGuestId = orderItem.guestId;
-      await db.update(orderItems).set({ guestId: newGuestId }).where(eq5(orderItems.id, req.params.itemId));
+      if (quantity && quantity < orderItem.quantity) {
+        console.log(`\u{1F4CA} [Reassign] Dividindo item: movendo ${quantity} de ${orderItem.quantity} unidades`);
+        const newItemId = crypto.randomUUID();
+        await db.insert(orderItems).values({
+          id: newItemId,
+          orderId: orderItem.orderId,
+          menuItemId: orderItem.menuItemId,
+          name: orderItem.name,
+          quantity,
+          price: orderItem.price,
+          totalPrice: (parseFloat(orderItem.price) * quantity).toString(),
+          guestId: newGuestId
+        });
+        const remainingQuantity = orderItem.quantity - quantity;
+        await db.update(orderItems).set({
+          quantity: remainingQuantity,
+          totalPrice: (parseFloat(orderItem.price) * remainingQuantity).toString()
+        }).where(eq5(orderItems.id, req.params.itemId));
+        console.log(`\u2705 [Reassign] Item dividido: ${quantity} unidades movidas, ${remainingQuantity} permaneceram`);
+      } else {
+        console.log(`\u{1F4E6} [Reassign] Movendo item completo (${orderItem.quantity} unidades)`);
+        await db.update(orderItems).set({ guestId: newGuestId }).where(eq5(orderItems.id, req.params.itemId));
+      }
       const menuItem = await db.query.menuItems.findFirst({
         where: (items, { eq: eq6 }) => eq6(items.id, orderItem.menuItemId)
       });
@@ -16905,6 +16954,7 @@ async function registerRoutes(app2) {
         await storage.recalculateGuestTotal(restaurantId, oldGuestId);
       }
       await storage.recalculateGuestTotal(restaurantId, newGuestId);
+      console.log("\u{1F4DD} [Reassign] Criando audit log...");
       await db.insert(orderItemAuditLogs).values({
         restaurantId,
         orderItemId: orderItem.id,
@@ -16912,19 +16962,16 @@ async function registerRoutes(app2) {
         sessionId: orderItem.order.tableSessionId,
         action: "item_reassigned",
         actorUserId: currentUser.id,
-        sourceGuestId: oldGuestId,
+        sourceGuestId: oldGuestId || null,
         targetGuestId: newGuestId,
         itemDetails: {
           menuItemName: menuItem?.name || "Item desconhecido",
           quantity: orderItem.quantity,
           price: orderItem.price
         },
-        oldValue: {
-          guestId: oldGuestId,
-          guestNumber: oldGuestId ? (await db.query.tableGuests.findFirst({
-            where: (guests, { eq: eq6 }) => eq6(guests.id, oldGuestId)
-          }))?.guestNumber : null
-        },
+        oldValue: oldGuestId ? {
+          guestId: oldGuestId
+        } : null,
         newValue: {
           guestId: newGuestId,
           guestNumber: newGuest.guestNumber
@@ -16933,6 +16980,7 @@ async function registerRoutes(app2) {
         ipAddress: req.ip,
         userAgent: req.get("user-agent")
       });
+      console.log("\u2705 [Reassign] Audit log criado!");
       broadcastToClients({
         type: "order_items_changed",
         data: {
@@ -16949,11 +16997,33 @@ async function registerRoutes(app2) {
         newGuestId
       });
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      const errorStack = error instanceof Error ? error.stack : void 0;
+      console.error("\u274C [Reassign] Erro capturado:", error);
+      console.error("\u274C [Reassign] Message:", errorMsg);
+      console.error("\u274C [Reassign] Stack:", errorStack);
+      try {
+        const fs5 = await import("fs");
+        fs5.appendFileSync(
+          "/tmp/reassign_errors.log",
+          `
+[${(/* @__PURE__ */ new Date()).toISOString()}] Reassign Error:
+Message: ${errorMsg}
+Stack: ${errorStack}
+---
+`
+        );
+      } catch (fsError) {
+        console.error("Erro ao escrever log:", fsError);
+      }
       if (error instanceof z2.ZodError) {
+        console.error("\u274C [Reassign] Erro de valida\xE7\xE3o Zod:", error.errors);
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error("Error reassigning order item:", error);
-      res.status(500).json({ message: "Erro ao mover item do pedido" });
+      res.status(500).json({
+        message: "Erro ao mover item do pedido",
+        details: errorMsg
+      });
     }
   });
   app2.put("/api/orders/:id/discount", isAuthenticated, async (req, res) => {

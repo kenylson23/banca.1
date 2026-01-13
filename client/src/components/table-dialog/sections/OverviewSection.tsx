@@ -61,6 +61,10 @@ export function OverviewSection({
   const preparingOrders = ordersByGuest?.flatMap(og => og.orders || []).filter((o: any) => o.status === 'em_preparo').length || 0;
   const completedOrders = ordersByGuest?.flatMap(og => og.orders || []).filter((o: any) => o.status === 'pronto' || o.status === 'servido').length || 0;
 
+  // Calcular total real somando todos os pedidos (incluindo Mesa Completa)
+  const realTotalAmount = ordersByGuest?.reduce((sum, og) => sum + parseFloat(og.subtotal || '0'), 0) || 0;
+  const realOrdersCount = ordersByGuest?.reduce((sum, og) => sum + (og.orders?.length || 0), 0) || 0;
+
   return (
     <div className="space-y-6">
       {/* Header Card - Mesa Info */}
@@ -140,11 +144,11 @@ export function OverviewSection({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-green-600">
-                  {formatKwanza(totalAmount)}
+                  {formatKwanza(realTotalAmount)}
                 </div>
                 {guestsCount > 0 && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    {formatKwanza(avgPerGuest)} por pessoa
+                    {formatKwanza(realTotalAmount / guestsCount)} por pessoa
                   </p>
                 )}
               </CardContent>
@@ -184,9 +188,9 @@ export function OverviewSection({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-purple-600">
-                  {ordersCount}
+                  {realOrdersCount}
                 </div>
-                {ordersCount > 0 && (
+                {realOrdersCount > 0 && (
                   <p className="text-xs text-muted-foreground mt-1">
                     {completedOrders} concluídos
                   </p>
@@ -206,7 +210,7 @@ export function OverviewSection({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-amber-600">
-                  {formatKwanza(avgPerGuest)}
+                  {formatKwanza(guestsCount > 0 ? realTotalAmount / guestsCount : 0)}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   por pessoa
@@ -216,7 +220,7 @@ export function OverviewSection({
           </div>
 
           {/* Status dos Pedidos */}
-          {ordersCount > 0 && (
+          {realOrdersCount > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

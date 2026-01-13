@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -29,7 +30,8 @@ interface MoveItemReasonDialogProps {
   itemName: string;
   sourceGuestName: string;
   targetGuestName: string;
-  onConfirm: (reason?: string) => void;
+  maxQuantity?: number; // Quantidade máxima disponível
+  onConfirm: (reason: string, quantity?: number) => void;
   onCancel: () => void;
 }
 
@@ -39,12 +41,14 @@ export function MoveItemReasonDialog({
   itemName,
   sourceGuestName,
   targetGuestName,
+  maxQuantity = 1,
   onConfirm,
   onCancel,
 }: MoveItemReasonDialogProps) {
   const [reasonType, setReasonType] = useState<string>('predefined');
   const [predefinedReason, setPredefinedReason] = useState<string>('');
   const [customReason, setCustomReason] = useState<string>('');
+  const [quantity, setQuantity] = useState(maxQuantity);
 
   const predefinedReasons = [
     { value: 'erro_pedido', label: 'Erro ao anotar o pedido' },
@@ -63,12 +67,13 @@ export function MoveItemReasonDialog({
       reason = customReason.trim();
     }
     
-    onConfirm(reason || undefined);
+    // Passar quantidade apenas se for menor que o máximo (mover parcial)
+    onConfirm(reason || 'Sem motivo especificado', quantity < maxQuantity ? quantity : undefined);
     handleClose();
   };
 
   const handleSkip = () => {
-    onConfirm(undefined);
+    onConfirm('Sem motivo especificado', quantity < maxQuantity ? quantity : undefined);
     handleClose();
   };
 
@@ -76,6 +81,7 @@ export function MoveItemReasonDialog({
     setPredefinedReason('');
     setCustomReason('');
     setReasonType('predefined');
+    setQuantity(maxQuantity);
     onOpenChange(false);
   };
 
@@ -102,6 +108,35 @@ export function MoveItemReasonDialog({
               <span>{targetGuestName}</span>
             </div>
           </div>
+
+          {/* Quantity selector (se houver mais de 1) */}
+          {maxQuantity > 1 && (
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantidade a mover</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="quantity"
+                  type="number"
+                  min="1"
+                  max={maxQuantity}
+                  value={quantity}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 1;
+                    setQuantity(Math.min(Math.max(val, 1), maxQuantity));
+                  }}
+                  className="w-24"
+                />
+                <span className="text-sm text-muted-foreground">
+                  de {maxQuantity} {maxQuantity === 1 ? 'unidade' : 'unidades'}
+                </span>
+              </div>
+              {quantity < maxQuantity && (
+                <p className="text-xs text-orange-500">
+                  ⚠️ Movendo parcialmente. {maxQuantity - quantity} {maxQuantity - quantity === 1 ? 'unidade ficará' : 'unidades ficarão'} com {sourceGuestName}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Reason Section */}
           <div className="space-y-3">

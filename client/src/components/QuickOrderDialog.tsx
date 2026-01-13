@@ -306,6 +306,17 @@ export function QuickOrderDialog({
         notes: orderNotes,
       };
       
+      console.log('📤 [QuickOrder] Enviando pedido:', {
+        tableId: orderData.tableId,
+        tableSessionId: orderData.tableSessionId,
+        itemsCount: orderData.items.length,
+        items: orderData.items.map(i => ({ 
+          menuItemId: i.menuItemId, 
+          guestId: i.guestId || 'NULL (para toda mesa)',
+          quantity: i.quantity 
+        }))
+      });
+      
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -320,6 +331,12 @@ export function QuickOrderDialog({
       }
       
       const result = await response.json();
+      console.log('📥 [QuickOrder] Resposta do servidor:', {
+        success: true,
+        orderId: result.id,
+        tableSessionId: result.tableSessionId,
+        itemsCount: result.items?.length
+      });
       return { ...result, usedSessionId: sessionId };
     },
     onSuccess: async (data) => {

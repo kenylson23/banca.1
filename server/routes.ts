@@ -5206,6 +5206,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get orders by guest for a table
   app.get("/api/tables/:id/orders-by-guest", isCashierOrAbove, async (req, res) => {
     try {
+      console.log('🔍 [orders-by-guest] Requisição recebida para mesa:', req.params.id);
+      
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
@@ -5229,23 +5231,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // NUNCA incluir pedidos de sessões antigas, mesmo que tenham guestId ou tableId correto
       const currentGuestIds = guests.map(g => g.id);
       
+      console.log('📊 [orders-by-guest] Pedidos antes do filtro:', {
+        totalOrders: allTableOrders.length,
+        currentSessionId: table.currentSessionId,
+        currentGuestIds,
+      });
+      
       const orders = table.currentSessionId 
         ? allTableOrders.filter((order: any) => {
             // ✅ REGRA 1: APENAS pedidos com tableSessionId da sessão atual
             if (order.tableSessionId === table.currentSessionId) {
+              console.log('✅ [orders-by-guest] Incluído (REGRA 1):', { 
+                orderId: order.id, 
+                tableSessionId: order.tableSessionId,
+                guestId: order.guestId || 'NULL' 
+              });
               return true;
             }
             
             // ✅ REGRA 2: APENAS pedidos de convidados da sessão atual
             // E que NÃO tenham tableSessionId (pedidos legados)
             if (!order.tableSessionId && order.guestId && currentGuestIds.includes(order.guestId)) {
+              console.log('✅ [orders-by-guest] Incluído (REGRA 2):', { orderId: order.id, guestId: order.guestId });
               return true;
             }
             
             // ❌ EXCLUIR: Todos os outros (sessões antigas, pedidos órfãos, etc)
+            console.log('❌ [orders-by-guest] Excluído:', { 
+              orderId: order.id, 
+              tableSessionId: order.tableSessionId,
+              guestId: order.guestId,
+              reason: !order.tableSessionId ? 'Sem tableSessionId e sem guestId válido' : 'Sessão diferente'
+            });
             return false;
           })
         : []; // Se não há sessão ativa, retornar array vazio
+      
+      console.log('📊 [orders-by-guest] Pedidos após filtro:', orders.length);
       
       // Helper function to calculate order total from items
       const calculateOrderTotal = (order: any) => {
@@ -5267,10 +5289,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const guestOrders = orders.filter((order: any) => order.guestId === guest.id && order.status !== 'cancelado');
         const subtotal = guestOrders.reduce((sum: number, order: any) => sum + calculateOrderTotal(order), 0);
 
-        guestOrders.forEach((order: any) => {
-          const orderTotal = calculateOrderTotal(order);
-        });
-
         return {
           guest,
           orders: guestOrders.map((order: any) => {
@@ -5291,9 +5309,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           subtotal: subtotal.toFixed(2),
         };
       });
-      
-      // 🔧 FIX: Ensure we return ALL guests, not filtering out those without orders
-      // This ensures the guest count in the UI is always accurate
+
+      // 🔧 FIX: Check if there's a "Mesa Completa" guest to attribute anonymous orders to
+      // or keep them separate. The UI expect them inside ordersByGuest if they belong to a guest.
       
       // Orders without guest (anonymous) - also include items
       const anonymousOrders = orders
@@ -5313,6 +5331,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             totalPrice: orderTotal.toString()
           };
         });
+
+      // 🔧 NEW: Se houver apenas um guest ou se quisermos mostrar pedidos sem guest como um "Convidado Especial"
+      if (anonymousOrders.length > 0) {
+        // Verificar se já existe um entry 'anonymous' em ordersByGuest
+        const hasAnonymous = ordersByGuest.some(og => og.guest.id === 'anonymous');
+        if (!hasAnonymous) {
+          ordersByGuest.push({
+            guest: { id: 'anonymous', name: 'Mesa Completa', guestNumber: 0 },
+            orders: anonymousOrders,
+            subtotal: anonymousOrders.reduce((sum, o) => sum + parseFloat(o.totalPrice), 0).toFixed(2)
+          });
+        }
+      }
       
       // Buscar valor já pago na sessão para precisão total
       const session = table.currentSessionId 
@@ -6815,9 +6846,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const restaurantId = currentUser.restaurantId;
-      const { newGuestId, reason } = reassignOrderItemSchema.parse(req.body);
+      const { newGuestId, reason, quantity } = reassignOrderItemSchema.parse(req.body);
       
-      console.log('📝 [Reassign] Dados parseados:', { newGuestId, reason, restaurantId });
+      console.log('📝 [Reassign] Dados parseados:', { newGuestId, reason, quantity, restaurantId });
       
       // Get the order item to verify it exists and get its order
       const orderItem = await db.query.orderItems.findFirst({
@@ -6869,10 +6900,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const oldGuestId = orderItem.guestId;
       
-      // Update order item guest
-      await db.update(orderItems)
-        .set({ guestId: newGuestId })
-        .where(eq(orderItems.id, req.params.itemId));
+      // Se quantidade especificada e menor que total, dividir o item
+      if (quantity && quantity < orderItem.quantity) {
+        console.log(`📊 [Reassign] Dividindo item: movendo ${quantity} de ${orderItem.quantity} unidades`);
+        
+        // 1. Criar novo item com a quantidade a mover
+        const newItemId = crypto.randomUUID();
+        await db.insert(orderItems).values({
+          id: newItemId,
+          orderId: orderItem.orderId,
+          menuItemId: orderItem.menuItemId,
+          name: orderItem.name,
+          quantity: quantity,
+          price: orderItem.price,
+          totalPrice: (parseFloat(orderItem.price) * quantity).toString(),
+          guestId: newGuestId,
+        });
+        
+        // 2. Reduzir quantidade do item original
+        const remainingQuantity = orderItem.quantity - quantity;
+        await db.update(orderItems)
+          .set({ 
+            quantity: remainingQuantity,
+            totalPrice: (parseFloat(orderItem.price) * remainingQuantity).toString()
+          })
+          .where(eq(orderItems.id, req.params.itemId));
+        
+        console.log(`✅ [Reassign] Item dividido: ${quantity} unidades movidas, ${remainingQuantity} permaneceram`);
+      } else {
+        // Mover o item inteiro
+        console.log(`📦 [Reassign] Movendo item completo (${orderItem.quantity} unidades)`);
+        await db.update(orderItems)
+          .set({ guestId: newGuestId })
+          .where(eq(orderItems.id, req.params.itemId));
+      }
       
       // Get menu item details for audit log
       const menuItem = await db.query.menuItems.findFirst({
@@ -6886,6 +6947,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.recalculateGuestTotal(restaurantId, newGuestId);
       
       // Create audit log
+      console.log('📝 [Reassign] Criando audit log...');
       await db.insert(orderItemAuditLogs).values({
         restaurantId,
         orderItemId: orderItem.id,
@@ -6893,19 +6955,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionId: orderItem.order.tableSessionId,
         action: 'item_reassigned',
         actorUserId: currentUser.id,
-        sourceGuestId: oldGuestId,
+        sourceGuestId: oldGuestId || null,
         targetGuestId: newGuestId,
         itemDetails: {
           menuItemName: menuItem?.name || 'Item desconhecido',
           quantity: orderItem.quantity,
           price: orderItem.price,
         },
-        oldValue: {
+        oldValue: oldGuestId ? {
           guestId: oldGuestId,
-          guestNumber: oldGuestId ? (await db.query.tableGuests.findFirst({
-            where: (guests, { eq }) => eq(guests.id, oldGuestId),
-          }))?.guestNumber : null,
-        },
+        } : null,
         newValue: {
           guestId: newGuestId,
           guestNumber: newGuest.guestNumber,
@@ -6914,6 +6973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       });
+      console.log('✅ [Reassign] Audit log criado!');
       
       // Broadcast changes
       broadcastToClients({ 
@@ -6933,22 +6993,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newGuestId,
       });
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      
       console.error('❌ [Reassign] Erro capturado:', error);
+      console.error('❌ [Reassign] Message:', errorMsg);
+      console.error('❌ [Reassign] Stack:', errorStack);
+      
+      // Escrever em arquivo para debug (usando import em vez de require)
+      try {
+        const fs = await import('fs');
+        fs.appendFileSync('/tmp/reassign_errors.log', 
+          `\n[${new Date().toISOString()}] Reassign Error:\n` +
+          `Message: ${errorMsg}\n` +
+          `Stack: ${errorStack}\n` +
+          `---\n`
+        );
+      } catch (fsError) {
+        console.error('Erro ao escrever log:', fsError);
+      }
       
       if (error instanceof z.ZodError) {
         console.error('❌ [Reassign] Erro de validação Zod:', error.errors);
         return res.status(400).json({ message: error.errors[0].message });
       }
       
-      console.error('❌ [Reassign] Erro completo:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        error,
-      });
-      
       res.status(500).json({ 
         message: "Erro ao mover item do pedido",
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: errorMsg
       });
     }
   });
@@ -10807,3 +10879,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   return httpServer;
 }
+

@@ -152,6 +152,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
     sourceGuestName: string;
     targetGuestId: string;
     targetGuestName: string;
+    maxQuantity: number; // Adicionar quantidade máxima
   } | null>(null);
   
   // ✅ SOLUÇÃO 3: Estado para checkout individual
@@ -177,7 +178,19 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
   const tablePaidAmount = parseFloat(ordersData?.paidAmount || '0');
   const remainingAmount = numericTotalAmount - tablePaidAmount;
   
-  // Dados já validados - debug removido
+  // 🔧 DEBUG: Ver o que está vindo da API
+  console.log('📊 [BillSplitPanel] Dados recebidos:', {
+    hasOrdersData: !!ordersData,
+    ordersByGuestCount: ordersByGuest.length,
+    anonymousOrdersCount: anonymousOrders.length,
+    anonymousOrders: anonymousOrders.map(o => ({ 
+      id: o.id, 
+      guestId: o.guestId, 
+      itemsCount: o.items?.length 
+    })),
+    totalAmount: ordersData?.totalAmount,
+    paidAmount: ordersData?.paidAmount,
+  });
 
   const { data: billSplits = [], isLoading: loadingSplits } = useQuery<BillSplit[]>({
     queryKey: [`/api/tables/${tableId}/bill-splits`],
@@ -230,7 +243,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
   });
 
   const moveItemMutation = useMutation({
-    mutationFn: async (data: { itemId: string; newGuestId: string; reason?: string }) => {
+    mutationFn: async (data: { itemId: string; newGuestId: string; reason?: string; quantity?: number }) => {
       console.log('🚀 [MoveItem] Enviando requisição:', data);
       
       try {
@@ -240,6 +253,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
           { 
             newGuestId: data.newGuestId,
             reason: data.reason,
+            quantity: data.quantity, // Adicionar quantidade
           }
         );
         
@@ -260,7 +274,11 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
       queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
       
-      // Forçar refetch imediato
+      // Forçar refetch imediato com delay para garantir que o backend processou
+      console.log('🔄 [MoveItem] Aguardando 500ms antes de refetch...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log('🔄 [MoveItem] Executando refetch forçado...');
       await Promise.all([
         queryClient.refetchQueries({ 
           queryKey: [`/api/tables/${tableId}`],
@@ -270,14 +288,28 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
           queryKey: [`/api/tables/${tableId}/orders-by-guest`],
           type: 'active'
         }),
+        queryClient.refetchQueries({ 
+          queryKey: [`/api/table-sessions/${sessionId}/guests`],
+          type: 'active'
+        }),
       ]);
       
       console.log('✅ [MoveItem] Queries atualizadas!');
       
       toast({
         title: 'Item atribuído',
-        description: 'O item foi atribuído ao cliente com sucesso',
+        description: 'O item foi atribuído ao cliente com sucesso. Atualizando interface...',
       });
+      
+      // Refetch adicional após 1 segundo para garantir
+      setTimeout(async () => {
+        console.log('🔄 [MoveItem] Refetch adicional de segurança...');
+        await queryClient.refetchQueries({ 
+          queryKey: [`/api/tables/${tableId}/orders-by-guest`],
+          type: 'active'
+        });
+        console.log('✅ [MoveItem] Refetch adicional concluído!');
+      }, 1000);
     },
     onError: (error: Error) => {
       console.error('❌ [MoveItem] Erro na mutation:', error);
@@ -310,12 +342,14 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
     const sourceGuestId = active.data.current?.sourceGuestId;
     const targetGuestId = over.id as string;
     const menuItemName = active.data.current?.menuItemName;
+    const itemQuantity = active.data.current?.quantity || 1; // Pegar quantidade
 
     console.log('🔄 [DragEnd] Tentando mover:', {
       itemId,
       sourceGuestId,
       targetGuestId,
       menuItemName,
+      itemQuantity,
     });
 
     // Don't move if dropped on same guest (exceto se vier de anonymous)
@@ -365,6 +399,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
       sourceGuestName,
       targetGuestId,
       targetGuestName,
+      maxQuantity: itemQuantity,
     });
     
     // Open reason dialog
@@ -377,6 +412,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
         sourceGuestName,
         targetGuestId,
         targetGuestName,
+        maxQuantity: itemQuantity, // Passar quantidade máxima
       });
     } catch (error) {
       console.error('❌ [DragEnd] Erro ao abrir diálogo:', error);
@@ -948,11 +984,13 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
           itemName={reasonDialog.itemName}
           sourceGuestName={reasonDialog.sourceGuestName}
           targetGuestName={reasonDialog.targetGuestName}
-          onConfirm={(reason) => {
+          maxQuantity={reasonDialog.maxQuantity}
+          onConfirm={(reason, quantity) => {
             moveItemMutation.mutate({
               itemId: reasonDialog.itemId,
               newGuestId: reasonDialog.targetGuestId,
               reason,
+              quantity,
             });
             setReasonDialog(null);
           }}

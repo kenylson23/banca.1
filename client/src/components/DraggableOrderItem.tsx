@@ -47,13 +47,31 @@ export function DraggableOrderItem({
     menuItemName, 
     guestId, 
     disabled,
-    isDragging 
+    isDragging,
+    hasListeners: !!listeners,
+    listenersKeys: listeners ? Object.keys(listeners) : []
   });
+
+  // Criar listeners customizados com log
+  const customListeners = listeners ? {
+    ...listeners,
+    onPointerDown: (e: React.PointerEvent) => {
+      console.log('👆 [Draggable] onPointerDown capturado!', { 
+        id, 
+        menuItemName,
+        target: e.target 
+      });
+      if (listeners.onPointerDown) {
+        listeners.onPointerDown(e as any);
+      }
+    },
+  } : undefined;
 
   const style = {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0.5 : 1,
     cursor: disabled ? 'default' : 'grab',
+    touchAction: 'none', // Importante para touch devices
   };
 
   return (
@@ -67,7 +85,7 @@ export function DraggableOrderItem({
         transition-colors
       `}
       {...attributes}
-      {...listeners}
+      {...customListeners}
     >
       <div className="flex items-center gap-2 flex-1">
         {!disabled && (

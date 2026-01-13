@@ -235,11 +235,15 @@ export function OrdersSection({
                 <CardHeader>
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Users className="w-5 h-5 text-primary" />
+                      {og.guest.id === 'anonymous' ? (
+                        <AlertCircle className="w-5 h-5 text-primary" />
+                      ) : (
+                        <Users className="w-5 h-5 text-primary" />
+                      )}
                     </div>
                     <div className="flex-1">
                       <CardTitle className="text-lg">
-                        {og.guest.name || `Cliente ${og.guest.guestNumber}`}
+                        {og.guest.name || (og.guest.id === 'anonymous' ? 'Mesa Completa' : `Cliente ${og.guest.guestNumber}`)}
                       </CardTitle>
                       <p className="text-sm text-muted-foreground">
                         {orders.length} {orders.length === 1 ? 'pedido' : 'pedidos'} • {formatKwanza(og.subtotal || 0)}
@@ -412,24 +416,6 @@ export function OrdersSection({
               </Card>
             );
           })}
-
-          {/* Pedidos Anônimos (sem convidado) */}
-          {ordersByGuest?.some((og: any) => og.guest.id === 'anonymous') && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-yellow-600" />
-                  Pedidos Sem Convidado
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Estes pedidos não foram atribuídos a nenhuma pessoa específica.
-                </p>
-                {/* Renderizar pedidos anônimos aqui */}
-              </CardContent>
-            </Card>
-          )}
         </div>
       )}
     </div>
