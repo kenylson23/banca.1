@@ -5271,16 +5271,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Helper function to calculate order total from items
       const calculateOrderTotal = (order: any) => {
+        console.log('🧮 [calculateOrderTotal] Calculando:', {
+          orderId: order.id,
+          totalAmount: order.totalAmount,
+          totalAmountType: typeof order.totalAmount,
+          orderItemsCount: order.orderItems?.length || 0,
+          orderItemsExist: !!order.orderItems
+        });
+        
         if (order.totalAmount && parseFloat(order.totalAmount) > 0) {
-          return parseFloat(order.totalAmount);
+          const total = parseFloat(order.totalAmount);
+          console.log('✅ [calculateOrderTotal] Usando totalAmount:', total);
+          return total;
         }
+        
         // Calculate from items if totalAmount is missing or zero
         const itemsTotal = (order.orderItems || []).reduce((sum: number, item: any) => {
           // Price can be in item.price (direct) or item.menuItem.price (joined)
           const itemPrice = parseFloat(item.price || item.menuItem?.price || 0);
           const itemQty = item.quantity || 0;
-          return sum + (itemPrice * itemQty);
+          const itemTotal = itemPrice * itemQty;
+          console.log('  📦 [Item]:', {
+            itemId: item.id,
+            name: item.name || item.menuItem?.name,
+            price: itemPrice,
+            qty: itemQty,
+            total: itemTotal
+          });
+          return sum + itemTotal;
         }, 0);
+        
+        console.log('✅ [calculateOrderTotal] Calculado dos itens:', itemsTotal);
         return itemsTotal;
       };
 
@@ -5288,6 +5309,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ordersByGuest = guests.map(guest => {
         const guestOrders = orders.filter((order: any) => order.guestId === guest.id && order.status !== 'cancelado');
         const subtotal = guestOrders.reduce((sum: number, order: any) => sum + calculateOrderTotal(order), 0);
+        
+        console.log(`👤 [Guest: ${guest.name || guest.guestNumber}] Pedidos encontrados:`, {
+          guestId: guest.id,
+          ordersCount: guestOrders.length,
+          orderIds: guestOrders.map(o => o.id),
+          subtotal: subtotal.toFixed(2)
+        });
 
         return {
           guest,
@@ -5325,6 +5353,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             name: item.name || item.menuItem?.name || 'Item',
           }));
           
+          console.log('🔍 [Anonymous Order] Calculando:', {
+            orderId: order.id,
+            orderTotalAmount: order.totalAmount,
+            calculatedTotal: orderTotal,
+            itemsCount: items.length,
+            itemsDetail: items.map(i => ({ name: i.name, price: i.price, qty: i.quantity }))
+          });
+          
           return {
             ...order,
             items, // Rename orderItems to items with proper fields
@@ -5337,10 +5373,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Verificar se já existe um entry 'anonymous' em ordersByGuest
         const hasAnonymous = ordersByGuest.some(og => og.guest.id === 'anonymous');
         if (!hasAnonymous) {
+          const anonymousSubtotal = anonymousOrders.reduce((sum, o) => {
+            const orderTotal = parseFloat(o.totalPrice || '0');
+            console.log('💰 [Mesa Completa] Pedido:', { 
+              orderId: o.id, 
+              totalPrice: o.totalPrice,
+              parsed: orderTotal,
+              items: o.items?.length || 0
+            });
+            return sum + orderTotal;
+          }, 0);
+          
+          console.log('💰 [Mesa Completa] TOTAL:', {
+            ordersCount: anonymousOrders.length,
+            subtotal: anonymousSubtotal.toFixed(2)
+          });
+          
           ordersByGuest.push({
-            guest: { id: 'anonymous', name: 'Mesa Completa', guestNumber: 0 },
+            guest: { 
+              id: 'anonymous', 
+              name: 'Mesa Completa', 
+              guestNumber: 0,
+              status: 'ativo',
+              totalSpent: anonymousSubtotal.toFixed(2),
+              paidAmount: '0.00',  // ✅ Mesa Completa nunca tem valor pago individualmente
+              sessionId: table.currentSessionId,
+              joinedAt: null
+            },
             orders: anonymousOrders,
-            subtotal: anonymousOrders.reduce((sum, o) => sum + parseFloat(o.totalPrice), 0).toFixed(2)
+            subtotal: anonymousSubtotal.toFixed(2)
           });
         }
       }

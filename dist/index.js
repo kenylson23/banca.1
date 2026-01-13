@@ -15652,21 +15652,42 @@ async function registerRoutes(app2) {
       }) : [];
       console.log("\u{1F4CA} [orders-by-guest] Pedidos ap\xF3s filtro:", orders2.length);
       const calculateOrderTotal = (order) => {
+        console.log("\u{1F9EE} [calculateOrderTotal] Calculando:", {
+          orderId: order.id,
+          totalAmount: order.totalAmount,
+          totalAmountType: typeof order.totalAmount,
+          orderItemsCount: order.orderItems?.length || 0,
+          orderItemsExist: !!order.orderItems
+        });
         if (order.totalAmount && parseFloat(order.totalAmount) > 0) {
-          return parseFloat(order.totalAmount);
+          const total = parseFloat(order.totalAmount);
+          console.log("\u2705 [calculateOrderTotal] Usando totalAmount:", total);
+          return total;
         }
         const itemsTotal = (order.orderItems || []).reduce((sum, item) => {
           const itemPrice = parseFloat(item.price || item.menuItem?.price || 0);
           const itemQty = item.quantity || 0;
-          return sum + itemPrice * itemQty;
+          const itemTotal = itemPrice * itemQty;
+          console.log("  \u{1F4E6} [Item]:", {
+            itemId: item.id,
+            name: item.name || item.menuItem?.name,
+            price: itemPrice,
+            qty: itemQty,
+            total: itemTotal
+          });
+          return sum + itemTotal;
         }, 0);
+        console.log("\u2705 [calculateOrderTotal] Calculado dos itens:", itemsTotal);
         return itemsTotal;
       };
       const ordersByGuest = guests.map((guest) => {
         const guestOrders = orders2.filter((order) => order.guestId === guest.id && order.status !== "cancelado");
         const subtotal = guestOrders.reduce((sum, order) => sum + calculateOrderTotal(order), 0);
-        guestOrders.forEach((order) => {
-          const orderTotal = calculateOrderTotal(order);
+        console.log(`\u{1F464} [Guest: ${guest.name || guest.guestNumber}] Pedidos encontrados:`, {
+          guestId: guest.id,
+          ordersCount: guestOrders.length,
+          orderIds: guestOrders.map((o) => o.id),
+          subtotal: subtotal.toFixed(2)
         });
         return {
           guest,
@@ -15694,6 +15715,13 @@ async function registerRoutes(app2) {
           price: item.price || item.menuItem?.price || "0",
           name: item.name || item.menuItem?.name || "Item"
         }));
+        console.log("\u{1F50D} [Anonymous Order] Calculando:", {
+          orderId: order.id,
+          orderTotalAmount: order.totalAmount,
+          calculatedTotal: orderTotal,
+          itemsCount: items.length,
+          itemsDetail: items.map((i) => ({ name: i.name, price: i.price, qty: i.quantity }))
+        });
         return {
           ...order,
           items,
@@ -15701,6 +15729,40 @@ async function registerRoutes(app2) {
           totalPrice: orderTotal.toString()
         };
       });
+      if (anonymousOrders.length > 0) {
+        const hasAnonymous = ordersByGuest.some((og) => og.guest.id === "anonymous");
+        if (!hasAnonymous) {
+          const anonymousSubtotal = anonymousOrders.reduce((sum, o) => {
+            const orderTotal = parseFloat(o.totalPrice || "0");
+            console.log("\u{1F4B0} [Mesa Completa] Pedido:", {
+              orderId: o.id,
+              totalPrice: o.totalPrice,
+              parsed: orderTotal,
+              items: o.items?.length || 0
+            });
+            return sum + orderTotal;
+          }, 0);
+          console.log("\u{1F4B0} [Mesa Completa] TOTAL:", {
+            ordersCount: anonymousOrders.length,
+            subtotal: anonymousSubtotal.toFixed(2)
+          });
+          ordersByGuest.push({
+            guest: {
+              id: "anonymous",
+              name: "Mesa Completa",
+              guestNumber: 0,
+              status: "ativo",
+              totalSpent: anonymousSubtotal.toFixed(2),
+              paidAmount: "0.00",
+              // ✅ Mesa Completa nunca tem valor pago individualmente
+              sessionId: table.currentSessionId,
+              joinedAt: null
+            },
+            orders: anonymousOrders,
+            subtotal: anonymousSubtotal.toFixed(2)
+          });
+        }
+      }
       const session2 = table.currentSessionId ? (await db.select().from(tableSessions).where(eq5(tableSessions.id, table.currentSessionId)).limit(1))[0] : null;
       const subtotalBeforeAdjustments = orders2.filter((o) => o.status !== "cancelado").reduce((sum, o) => sum + calculateOrderTotal(o), 0);
       const sessionDiscount = parseFloat(session2?.discount || "0");

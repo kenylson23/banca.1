@@ -52,7 +52,7 @@ interface TableGuest {
   guestNumber: number;
   status: string;
   totalSpent: string;
-  joinedAt: Date;
+  joinedAt: Date | null;
 }
 
 interface GuestOrderItem {
@@ -75,8 +75,8 @@ interface GuestOrder {
 interface OrdersByGuest {
   guest: TableGuest;
   orders: GuestOrder[];
-  totalAmount: number;
-  subtotal?: string;  // API retorna como subtotal
+  totalAmount?: number;  // Pode não existir para alguns guests
+  subtotal?: string;  // API retorna como subtotal (string)
 }
 
 interface BillSplit {
@@ -129,6 +129,18 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
   // Garantir que totalAmount é número
   const numericTotalAmount = typeof totalAmount === 'number' ? totalAmount : parseFloat(totalAmount || '0');
   
+  // Helper function to get guest total amount consistently
+  const getGuestTotal = (guestData: OrdersByGuest): number => {
+    // Priority: subtotal (string from API) -> totalAmount (number) -> 0
+    if (guestData.subtotal) {
+      return parseFloat(guestData.subtotal);
+    }
+    if (guestData.totalAmount !== undefined) {
+      return guestData.totalAmount;
+    }
+    return 0;
+  };
+  
   const [splitType, setSplitType] = useState<'igual' | 'por_pessoa' | 'personalizado'>('por_pessoa');
   const [splitCount, setSplitCount] = useState(2);
   const [selectedGuest, setSelectedGuest] = useState<string | null>(initialGuestId || null);
@@ -177,6 +189,19 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
   const anonymousOrders = ordersData?.anonymousOrders || [];
   const tablePaidAmount = parseFloat(ordersData?.paidAmount || '0');
   const remainingAmount = numericTotalAmount - tablePaidAmount;
+  
+  // Debug: Log guest data to verify structure
+  console.log('📊 [BillSplitPanel] Orders by guest:', ordersByGuest.map(g => ({
+    name: g.guest.name,
+    id: g.guest.id,
+    subtotal: g.subtotal,
+    subtotalType: typeof g.subtotal,
+    totalAmount: g.totalAmount,
+    totalAmountType: typeof g.totalAmount,
+    calculated: getGuestTotal(g),
+    calculatedType: typeof getGuestTotal(g),
+    formatted: formatKwanza(getGuestTotal(g))
+  })));
   
   // 🔧 DEBUG: Ver o que está vindo da API
   console.log('📊 [BillSplitPanel] Dados recebidos:', {
@@ -622,32 +647,43 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                                 </Badge>
                               )}
                               <Badge variant="outline" className="text-xs text-primary font-bold">
-                                Consumo: {guestData.subtotal 
-                                  ? formatKwanza(guestData.subtotal)
-                                  : '0,00 Kz'
-                                }
+                                Consumo: {formatKwanza(getGuestTotal(guestData))}
                               </Badge>
                             </div>
                             <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
                               <ShoppingBag className="h-3 w-3" />
                               <span>{guestData.orders.length} pedido(s)</span>
-                              <span>-</span>
-                              <Clock className="h-3 w-3" />
-                              <span>
-                                {format(new Date(guestData.guest.joinedAt), "HH:mm", { locale: ptBR })}
-                              </span>
+                              {guestData.guest.joinedAt && (
+                                <>
+                                  <span>-</span>
+                                  <Clock className="h-3 w-3" />
+                                  <span>
+                                    {format(new Date(guestData.guest.joinedAt), "HH:mm", { locale: ptBR })}
+                                  </span>
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-2">
                           <div className="text-2xl font-bold text-primary">
-                            {formatKwanza(guestData.subtotal || guestData.totalAmount || 0)}
+                            {(() => {
+                              const total = getGuestTotal(guestData);
+                              const formatted = formatKwanza(total);
+                              console.log('🎨 [RENDER] Formatando valor para', guestData.guest.name, {
+                                guestId: guestData.guest.id,
+                                subtotal: guestData.subtotal,
+                                total: total,
+                                formatted: formatted
+                              });
+                              return formatted;
+                            })()}
                           </div>
                           <div className="flex gap-2 mt-2">
                             <PrintGuestBill
                               guest={guestData.guest}
                               orders={guestData.orders}
-                              totalAmount={Number(guestData.subtotal || guestData.totalAmount || 0) || parseFloat(guestData.subtotal || '0')}
+                              totalAmount={getGuestTotal(guestData)}
                               tableName={`Mesa ${tableId}`}
                               variant="outline"
                               size="sm"
@@ -660,7 +696,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                                   variant="default"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    const guestTotal = parseFloat(guestData.subtotal || '0');
+                                    const guestTotal = getGuestTotal(guestData);
                                     const guestPaid = parseFloat(guestData.guest.paidAmount || '0');
                                     const remaining = guestTotal - guestPaid;
                                     
