@@ -5,10 +5,26 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { db } from "./db";
-import { orderItems, orderItemAuditLogs } from "@shared/schema";
-import { eq, sql } from "drizzle-orm";
-import { and, isNull } from 'drizzle-orm';
-import { tables, tableSessions, tablePayments } from '@shared/schema';
+import { eq, sql, and, isNull, or, desc, asc } from "drizzle-orm";
+import * as schema from "@shared/schema";
+import { 
+  orderItems, 
+  orderItemAuditLogs,
+  tables,
+  tableSessions,
+  tablePayments,
+  tableGuests,
+  guestPayments,
+  users,
+  restaurants,
+  branches,
+  categories,
+  menuItems,
+  options,
+  optionGroups,
+  orderItemOptions,
+  notifications
+} from "@shared/schema";
 import { generateOrderNumber, formatOrderDisplay } from './orderNumberGenerator';
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import {
@@ -4393,9 +4409,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         if (Object.keys(guestUpdates).length > 1) {
-          await db.update(schema.tableGuests)
+          await db.update(tableGuests)
             .set(guestUpdates)
-            .where(eq(schema.tableGuests.id, guestId));
+            .where(eq(tableGuests.id, guestId));
         }
       }
       
@@ -4464,7 +4480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // ✅ FIX: Create guest payment directly (without addTablePayment that distributes to all guests)
       // First, create the table payment record for financial tracking (but don't use addTablePayment)
-      const [tablePayment] = await db.insert(tablePayments).values({
+      const [tablePayment] = await db.insert(schema.tablePayments).values({
         restaurantId,
         tableId: guest.tableId,
         sessionId: guest.sessionId,
@@ -4488,8 +4504,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ✅ FIX: Update session paidAmount from actual payments, not guest.paidAmount
       // This prevents double-counting if guest.paidAmount was already updated
       const allPaymentsInSession = await db.select()
-        .from(tablePayments)
-        .where(eq(tablePayments.sessionId, guest.sessionId));
+        .from(schema.tablePayments)
+        .where(eq(schema.tablePayments.sessionId, guest.sessionId));
       
       const totalPaidFromPayments = allPaymentsInSession.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0);
       
@@ -4546,12 +4562,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         // Atualizar sessão com totalAmount E paidAmount
-        await db.update(tableSessions)
+        await db.update(schema.tableSessions)
           .set({ 
             totalAmount: totalAmountAjustado.toFixed(2),
             paidAmount: totalPaidFromPayments.toFixed(2)
           })
-          .where(eq(tableSessions.id, guest.sessionId));
+          .where(eq(schema.tableSessions.id, guest.sessionId));
         
         console.log('🎯 [GUEST PAYMENT] ✅ Sessão atualizada:', {
           totalAmount: totalAmountAjustado.toFixed(2),
@@ -4560,9 +4576,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } else {
         // Fallback: atualizar apenas paidAmount
-        await db.update(tableSessions)
+        await db.update(schema.tableSessions)
           .set({ paidAmount: totalPaidFromPayments.toFixed(2) })
-          .where(eq(tableSessions.id, guest.sessionId));
+          .where(eq(schema.tableSessions.id, guest.sessionId));
       }
       
       // ✅ CORREÇÃO CONFLITO #2: A atualização de session já foi feita acima (linhas 4337-4342)
