@@ -17,6 +17,13 @@ export interface OrdersByGuestData {
       status: string;
       subtotal: string;
       paidAmount: string;
+      // Ajustes individuais (por convidado)
+      discount?: string;
+      discountType?: 'valor' | 'percentual';
+      serviceCharge?: string;
+      serviceChargeType?: 'valor' | 'percentual';
+      /** Total final do convidado (subtotal + taxa - desconto), calculado no backend */
+      guestTotal?: string;
       joinedAt: Date;
       createdAt: Date;
       updatedAt: Date;

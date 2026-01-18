@@ -20,16 +20,7 @@ export function DraggableOrderItem({
   guestId,
   disabled = false,
 }: DraggableOrderItemProps) {
-  
-  // 🔍 DEBUG: Ver dados do item
-  console.log('🎯 DraggableOrderItem:', { 
-    menuItemName, 
-    quantity, 
-    totalPrice, 
-    disabled,
-    formatted: formatKwanza(totalPrice)
-  });
-  
+
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: id,
     data: {
@@ -42,30 +33,7 @@ export function DraggableOrderItem({
     disabled,
   });
 
-  console.log('🔵 [Draggable] Item renderizado:', { 
-    id, 
-    menuItemName, 
-    guestId, 
-    disabled,
-    isDragging,
-    hasListeners: !!listeners,
-    listenersKeys: listeners ? Object.keys(listeners) : []
-  });
-
-  // Criar listeners customizados com log
-  const customListeners = listeners ? {
-    ...listeners,
-    onPointerDown: (e: React.PointerEvent) => {
-      console.log('👆 [Draggable] onPointerDown capturado!', { 
-        id, 
-        menuItemName,
-        target: e.target 
-      });
-      if (listeners.onPointerDown) {
-        listeners.onPointerDown(e as any);
-      }
-    },
-  } : undefined;
+  const customListeners = listeners;
 
   const style = {
     transform: CSS.Translate.toString(transform),

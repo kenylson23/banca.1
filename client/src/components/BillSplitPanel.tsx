@@ -190,33 +190,6 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
   const tablePaidAmount = parseFloat(ordersData?.paidAmount || '0');
   const remainingAmount = numericTotalAmount - tablePaidAmount;
   
-  // Debug: Log guest data to verify structure
-  console.log('📊 [BillSplitPanel] Orders by guest:', ordersByGuest.map(g => ({
-    name: g.guest.name,
-    id: g.guest.id,
-    subtotal: g.subtotal,
-    subtotalType: typeof g.subtotal,
-    totalAmount: g.totalAmount,
-    totalAmountType: typeof g.totalAmount,
-    calculated: getGuestTotal(g),
-    calculatedType: typeof getGuestTotal(g),
-    formatted: formatKwanza(getGuestTotal(g))
-  })));
-  
-  // 🔧 DEBUG: Ver o que está vindo da API
-  console.log('📊 [BillSplitPanel] Dados recebidos:', {
-    hasOrdersData: !!ordersData,
-    ordersByGuestCount: ordersByGuest.length,
-    anonymousOrdersCount: anonymousOrders.length,
-    anonymousOrders: anonymousOrders.map(o => ({ 
-      id: o.id, 
-      guestId: o.guestId, 
-      itemsCount: o.items?.length 
-    })),
-    totalAmount: ordersData?.totalAmount,
-    paidAmount: ordersData?.paidAmount,
-  });
-
   const { data: billSplits = [], isLoading: loadingSplits } = useQuery<BillSplit[]>({
     queryKey: [`/api/tables/${tableId}/bill-splits`],
     enabled: !!tableId,
@@ -269,74 +242,138 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
 
   const moveItemMutation = useMutation({
     mutationFn: async (data: { itemId: string; newGuestId: string; reason?: string; quantity?: number }) => {
-      console.log('🚀 [MoveItem] Enviando requisição:', data);
-      
-      try {
-        const response = await apiRequest(
-          'PATCH',
-          `/api/order-items/${data.itemId}/reassign`,
-          { 
-            newGuestId: data.newGuestId,
-            reason: data.reason,
-            quantity: data.quantity, // Adicionar quantidade
-          }
-        );
-        
-        console.log('✅ [MoveItem] Resposta recebida:', response);
-        return response;
-      } catch (error) {
-        console.error('❌ [MoveItem] Erro na requisição:', error);
-        throw error;
+      const response = await apiRequest(
+        'PATCH',
+        `/api/order-items/${data.itemId}/reassign`,
+        {
+          newGuestId: data.newGuestId,
+          reason: data.reason,
+          quantity: data.quantity,
+        }
+      );
+
+      const json = await response.json().catch(() => null);
+
+      // ✅ Fail-fast: só considerar sucesso se a API afirmar success:true
+      if (!json || json.success !== true) {
+        const message = (json && (json.message || json.details)) || 'Falha ao mover item';
+        throw new Error(message);
       }
+
+      return json as {
+        success: true;
+        message?: string;
+        oldGuestId?: string | null;
+        newGuestId: string;
+        movedItemId?: string;
+        movedQuantity?: number;
+      };
     },
-    onSuccess: async () => {
-      console.log('🎉 [MoveItem] Sucesso! Invalidando queries...');
-      
-      // Invalidar todas as queries relacionadas
-      queryClient.invalidateQueries({ queryKey: ['/api/tables/sessions', sessionId, 'guests'] });
-      queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
-      
-      // Forçar refetch imediato com delay para garantir que o backend processou
-      console.log('🔄 [MoveItem] Aguardando 500ms antes de refetch...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      console.log('🔄 [MoveItem] Executando refetch forçado...');
-      await Promise.all([
-        queryClient.refetchQueries({ 
-          queryKey: [`/api/tables/${tableId}`],
-          type: 'active'
-        }),
-        queryClient.refetchQueries({ 
-          queryKey: [`/api/tables/${tableId}/orders-by-guest`],
-          type: 'active'
-        }),
-        queryClient.refetchQueries({ 
-          queryKey: [`/api/table-sessions/${sessionId}/guests`],
-          type: 'active'
-        }),
-      ]);
-      
-      console.log('✅ [MoveItem] Queries atualizadas!');
-      
-      toast({
-        title: 'Item atribuído',
-        description: 'O item foi atribuído ao cliente com sucesso. Atualizando interface...',
-      });
-      
-      // Refetch adicional após 1 segundo para garantir
-      setTimeout(async () => {
-        console.log('🔄 [MoveItem] Refetch adicional de segurança...');
-        await queryClient.refetchQueries({ 
-          queryKey: [`/api/tables/${tableId}/orders-by-guest`],
-          type: 'active'
-        });
-        console.log('✅ [MoveItem] Refetch adicional concluído!');
-      }, 1000);
+
+    // ✅ Atualização otimista: aplicar mudança no cache imediatamente
+    onMutate: async (vars) => {
+      const queryKey = [`/api/tables/${tableId}/orders-by-guest`];
+
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<any>(queryKey);
+
+      if (!previous) {
+        return { previous };
+      }
+
+      const moveQty = Math.max(1, vars.quantity || 1);
+      const optimisticId = `optimistic-${vars.itemId}-${Date.now()}`;
+
+      const clone = (obj: any) => JSON.parse(JSON.stringify(obj));
+      const next = clone(previous);
+
+      const removeOrSplitItem = (items: any[]) => {
+        const idx = (items || []).findIndex((it: any) => it.id === vars.itemId);
+        if (idx === -1) return { removed: null as any, items };
+
+        const found = items[idx];
+        const availableQty = Math.max(1, Number(found.quantity || 1));
+        const qtyToMove = Math.min(moveQty, availableQty);
+
+        // se mover parcial, reduz a quantidade no source
+        if (qtyToMove < availableQty) {
+          const remainingQty = availableQty - qtyToMove;
+          items[idx] = { ...found, quantity: remainingQty };
+          return { removed: { ...found, id: optimisticId, quantity: qtyToMove }, items };
+        }
+
+        // se mover tudo, remove do source
+        items.splice(idx, 1);
+        return { removed: { ...found, id: optimisticId, quantity: qtyToMove }, items };
+      };
+
+      const upsertIntoGuest = (guestId: string, item: any) => {
+        const og = (next.ordersByGuest || []).find((g: any) => g?.guest?.id === guestId);
+        if (!og) return;
+
+        // colocar no primeiro pedido, ou criar um "pedido" virtual se não existir
+        if (!og.orders || og.orders.length === 0) {
+          og.orders = [
+            {
+              id: `virtual-${guestId}`,
+              originalOrderId: null,
+              orderNumber: null,
+              items: [],
+              totalPrice: '0',
+            },
+          ];
+        }
+
+        og.orders[0].items = og.orders[0].items || [];
+        og.orders[0].items.unshift({ ...item, guestId });
+      };
+
+      // 1) tentar remover de anonymousOrders (Mesa Completa)
+      let movedItem: any = null;
+      for (const ord of next.anonymousOrders || []) {
+        if (!ord?.items?.length) continue;
+        const result = removeOrSplitItem(ord.items);
+        ord.items = result.items;
+        if (result.removed) {
+          movedItem = result.removed;
+          break;
+        }
+      }
+
+      // 2) se não estava na Mesa Completa, tentar remover de algum guest
+      if (!movedItem) {
+        for (const og of next.ordersByGuest || []) {
+          for (const ord of og.orders || []) {
+            if (!ord?.items?.length) continue;
+            const result = removeOrSplitItem(ord.items);
+            ord.items = result.items;
+            if (result.removed) {
+              movedItem = result.removed;
+              break;
+            }
+          }
+          if (movedItem) break;
+        }
+      }
+
+      // 3) inserir no guest alvo
+      if (movedItem) {
+        upsertIntoGuest(vars.newGuestId, movedItem);
+      }
+
+      // 4) limpar pedidos vazios da Mesa Completa (só UI)
+      next.anonymousOrders = (next.anonymousOrders || []).filter((o: any) => (o.items || []).length > 0);
+
+      queryClient.setQueryData(queryKey, next);
+
+      return { previous };
     },
-    onError: (error: Error) => {
+
+    onError: (error: Error, _vars, context) => {
+      // rollback
+      if (context?.previous) {
+        queryClient.setQueryData([`/api/tables/${tableId}/orders-by-guest`], context.previous);
+      }
       console.error('❌ [MoveItem] Erro na mutation:', error);
       toast({
         title: 'Erro ao atribuir item',
@@ -344,22 +381,28 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
         variant: 'destructive',
       });
     },
+
+    onSuccess: async () => {
+      // ✅ Refetch final para reconciliar IDs reais/quantidades
+      await queryClient.refetchQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });
+
+      toast({
+        title: 'Item atribuído',
+        description: 'O item foi atribuído ao cliente com sucesso.',
+      });
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });
+    },
   });
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     
-    console.log('🎯 [DragEnd] Evento:', {
-      activeId: active.id,
-      overId: over?.id,
-      sourceGuestId: active.data.current?.sourceGuestId,
-      itemName: active.data.current?.menuItemName,
-    });
-    
     setDraggedItem(null);
 
     if (!over) {
-      console.log('⚠️ [DragEnd] Sem destino (over)');
       return;
     }
 
@@ -369,24 +412,14 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
     const menuItemName = active.data.current?.menuItemName;
     const itemQuantity = active.data.current?.quantity || 1; // Pegar quantidade
 
-    console.log('🔄 [DragEnd] Tentando mover:', {
-      itemId,
-      sourceGuestId,
-      targetGuestId,
-      menuItemName,
-      itemQuantity,
-    });
-
     // Don't move if dropped on same guest (exceto se vier de anonymous)
     if (sourceGuestId === targetGuestId && sourceGuestId !== 'anonymous') {
-      console.log('⚠️ [DragEnd] Mesmo convidado, cancelando');
       return;
     }
 
     // Check if target guest is eligible
     const targetGuest = ordersByGuest.find(g => g.guest.id === targetGuestId)?.guest;
     
-    console.log('🔍 [DragEnd] Target guest:', targetGuest);
     
     if (!targetGuest) {
       console.error('❌ [DragEnd] Target guest não encontrado!');
@@ -399,7 +432,6 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
     }
     
     if (targetGuest.status === 'pago' || targetGuest.status === 'saiu') {
-      console.warn('⚠️ [DragEnd] Cliente já pagou ou saiu');
       toast({
         title: 'Cliente inválido',
         description: 'O cliente de destino já pagou ou saiu',
@@ -416,16 +448,6 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
     }
     
     const targetGuestName = targetGuest.name || `Cliente ${targetGuest.guestNumber}`;
-    
-    console.log('✅ [DragEnd] Abrindo diálogo de motivo:', {
-      itemId,
-      itemName: menuItemName,
-      sourceGuestId: sourceGuestId || 'anonymous',
-      sourceGuestName,
-      targetGuestId,
-      targetGuestName,
-      maxQuantity: itemQuantity,
-    });
     
     // Open reason dialog
     try {
@@ -509,21 +531,12 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
       onDragStart={(event) => {
-        console.log('🚀 [DragStart] Evento iniciado:', {
-          activeId: event.active.id,
-          activeData: event.active.data.current,
-        });
         const item = event.active.data.current as GuestOrderItem;
         setDraggedItem(item);
       }}
       onDragOver={(event) => {
-        console.log('🔄 [DragOver] Sobre:', {
-          activeId: event.active.id,
-          overId: event.over?.id,
-        });
       }}
       onDragCancel={() => {
-        console.log('❌ [DragCancel] Drag cancelado');
         setDraggedItem(null);
       }}
     >
@@ -622,7 +635,6 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                         if ((e.target as HTMLElement).closest('button')) {
                           return;
                         }
-                        console.log('🖱️ Card clicado:', guestData.guest.name, 'Current:', selectedGuest, 'New:', guestData.guest.id);
                         setSelectedGuest(selectedGuest === guestData.guest.id ? null : guestData.guest.id);
                       }}
                       data-testid={`card-guest-${guestData.guest.id}`}
@@ -670,12 +682,6 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                             {(() => {
                               const total = getGuestTotal(guestData);
                               const formatted = formatKwanza(total);
-                              console.log('🎨 [RENDER] Formatando valor para', guestData.guest.name, {
-                                guestId: guestData.guest.id,
-                                subtotal: guestData.subtotal,
-                                total: total,
-                                formatted: formatted
-                              });
                               return formatted;
                             })()}
                           </div>
@@ -751,21 +757,47 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                             )}
                           </div>
                           <div className="space-y-1">
-                            {(guestData.orders || []).map((order) => (
-                              <div key={order.orderId}>
-                                {(order.items || []).map((item) => (
-                                  <DraggableOrderItem
-                                    key={item.id}
-                                    id={item.id}
-                                    menuItemName={item.menuItemName || item.name || item.menuItem?.name}
-                                    quantity={item.quantity}
-                                    totalPrice={item.totalPrice || item.price || item.total}
-                                    guestId={guestData.guest.id}
-                                    disabled={guestData.guest.status === 'pago' || (ordersByGuest.length === 1 && anonymousOrders.length === 0)}
-                                  />
-                                ))}
-                              </div>
-                            ))}
+                            {(guestData.orders || []).map((order: any) => {
+                              const originalOrderId = order.originalOrderId || order.id;
+                              const orderLabel = order.orderNumber || String(originalOrderId).slice(0, 8);
+                              const isVirtualOrder = !!order.originalOrderId;
+
+                              return (
+                                <div key={order.id} className="mb-3 last:mb-0">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      <Receipt className="h-3.5 w-3.5" />
+                                      <span>
+                                        Pedido #{orderLabel}
+                                        {isVirtualOrder ? ' (itens reatribuídos)' : ''}
+                                      </span>
+                                    </div>
+                                    {isVirtualOrder && (
+                                      <Badge variant="secondary" className="text-[10px] px-2 py-0">
+                                        Reatribuído
+                                      </Badge>
+                                    )}
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    {(order.items || []).map((item: any) => (
+                                      <DraggableOrderItem
+                                        key={item.id}
+                                        id={item.id}
+                                        menuItemName={item.menuItemName || item.name || item.menuItem?.name}
+                                        quantity={item.quantity}
+                                        totalPrice={item.totalPrice || item.price || item.total}
+                                        guestId={guestData.guest.id}
+                                        disabled={
+                                          guestData.guest.status === 'pago' ||
+                                          (ordersByGuest.length === 1 && anonymousOrders.length === 0)
+                                        }
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -788,7 +820,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
               Pedidos da Mesa (Não Atribuídos)
             </CardTitle>
             <CardDescription>
-              {anonymousOrders.length} pedido(s) sem cliente específico - Arraste para atribuir
+              {anonymousOrders.length} pedido(s) sem cliente específico — arraste para atribuir. Pedidos “Parcial” significam que alguns itens já foram atribuídos a clientes.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -811,11 +843,20 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                         <div className="flex items-center gap-2">
                           <Receipt className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm font-medium">
-                            Pedido #{order.orderNumber || order.id.slice(0, 8)}
+                            Pedido #{order.orderNumber || String(order.id).slice(0, 8)}
                           </span>
+
                           <Badge variant="outline" className="text-xs">
                             {order.items?.length || 0} item(ns)
                           </Badge>
+
+                          {typeof order.totalItemsCount === 'number' &&
+                            typeof order.unassignedItemsCount === 'number' &&
+                            order.unassignedItemsCount < order.totalItemsCount && (
+                              <Badge variant="secondary" className="text-xs">
+                                Parcial ({order.unassignedItemsCount}/{order.totalItemsCount})
+                              </Badge>
+                            )}
                         </div>
                         <span className="text-sm font-bold">
                           {formatKwanza(order.totalPrice || order.totalAmount || 0)}
@@ -830,7 +871,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                               id={item.id}
                               menuItemName={item.name || item.menuItem?.name || 'Item'}
                               quantity={item.quantity}
-                              totalPrice={(parseFloat(item.price) * item.quantity).toString()}
+                              totalPrice={(item.totalPrice || (parseFloat(item.price || '0') * item.quantity).toFixed(2)).toString()}
                               guestId="anonymous"
                               disabled={false}
                             />

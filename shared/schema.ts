@@ -745,6 +745,10 @@ export const guestStatusEnum = pgEnum('guest_status', ['ativo', 'aguardando_cont
 // Bill Split Type Enum - Tipos de divisão de conta
 export const billSplitTypeEnum = pgEnum('bill_split_type', ['igual', 'por_pessoa', 'personalizado']);
 
+// ✅ Enums reutilizados em vários módulos (precisam vir ANTES das tabelas que os usam)
+export const discountTypeEnum = pgEnum('discount_type', ['valor', 'percentual']);
+export const serviceChargeTypeEnum = pgEnum('service_charge_type', ['valor', 'percentual']);
+
 // Table Guests - Clientes individuais em cada sessão de mesa
 export const tableGuests = pgTable("table_guests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -758,6 +762,11 @@ export const tableGuests = pgTable("table_guests", {
   status: guestStatusEnum("status").notNull().default('ativo'),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default('0'),
   paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default('0'),
+  // ✅ Ajustes individuais (por convidado)
+  discount: decimal("discount", { precision: 10, scale: 2 }).default('0'),
+  discountType: discountTypeEnum("discount_type").default('valor'),
+  serviceCharge: decimal("service_charge", { precision: 10, scale: 2 }).default('0'),
+  serviceChargeType: serviceChargeTypeEnum("service_charge_type").default('valor'),
   token: varchar("token", { length: 100 }).unique(),
   deviceInfo: text("device_info"),
   joinedAt: timestamp("joined_at").defaultNow(),
@@ -789,6 +798,10 @@ export const updateTableGuestSchema = z.object({
   guestNumber: z.number().int().positive().optional(),
   seatNumber: z.number().int().positive().optional(),
   status: z.enum(['ativo', 'aguardando_conta', 'pago', 'saiu']).optional(),
+  discount: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Desconto inválido').optional(),
+  discountType: z.enum(['valor', 'percentual']).optional(),
+  serviceCharge: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Taxa de serviço inválida').optional(),
+  serviceChargeType: z.enum(['valor', 'percentual']).optional(),
 });
 
 export type InsertTableGuest = z.infer<typeof insertTableGuestSchema>;
@@ -886,7 +899,7 @@ export const orderTypeEnum = pgEnum('order_type', ['mesa', 'delivery', 'takeout'
 export const paymentStatusEnum = pgEnum('payment_status', ['nao_pago', 'parcial', 'pago']);
 
 // Discount Type Enum
-export const discountTypeEnum = pgEnum('discount_type', ['valor', 'percentual']);
+// (definido mais acima para ser reutilizado por tableGuests/orders)
 
 // ===== CUSTOMER MANAGEMENT SECTION =====
 
@@ -1516,7 +1529,7 @@ export type InsertOrderAdjustment = z.infer<typeof insertOrderAdjustmentSchema>;
 export type OrderAdjustment = typeof orderAdjustments.$inferSelect;
 
 // Service Charge Type Enum
-export const serviceChargeTypeEnum = pgEnum('service_charge_type', ['valor', 'percentual']);
+// (definido mais acima para ser reutilizado por tableGuests/services)
 
 // Service Context Enum (onde o serviço pode ser aplicado)
 export const serviceContextEnum = pgEnum('service_context', ['todos', 'mesa', 'delivery', 'takeout', 'balcao', 'pdv']);

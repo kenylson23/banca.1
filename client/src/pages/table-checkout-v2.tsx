@@ -165,12 +165,14 @@ export default function TableCheckoutV2() {
   }, [selectedGuestIds, discountValue, manualServiceValue, paymentMethod, showSuccessDialog]);
   
   // Fetch data - Otimizado para carregar em paralelo
-  const { data: tablesData, isLoading: loadingTables } = useQuery({
+  const { data: tablesData, isLoading: loadingTables } = useQuery<any[]>({
     queryKey: ['/api/tables/with-orders'],
     staleTime: 30000, // Cache por 30s para evitar recarregamentos desnecessários
   });
   
   const table = tablesData?.find((t: any) => t.id === id);
+
+  const isIndividualCheckout = selectedGuestIds.length === 1;
   
   // ✅ OTIMIZAÇÃO: Usar React Query em vez de fetch direto
   const { data: sessionData } = useQuery({
@@ -183,6 +185,13 @@ export default function TableCheckoutV2() {
     enabled: !!table?.currentSessionId && !!id,
     staleTime: 30000, // Cache por 30s
   });
+
+  // ✅ Ajustes globais existentes na sessão
+  const hasSessionLevelAdjustments = useMemo(() => {
+    const d = parseFloat(sessionData?.discount || '0');
+    const s = parseFloat(sessionData?.serviceCharge || '0');
+    return (Number.isFinite(d) && d > 0) || (Number.isFinite(s) && s > 0);
+  }, [sessionData]);
 
   // Fetch restaurant data
   const { data: restaurant } = useQuery({
@@ -215,19 +224,23 @@ export default function TableCheckoutV2() {
 
   // Restaurar ajustes da sessão quando dados estiverem disponíveis
   useEffect(() => {
-    if (sessionData) {
-      // Restaurar desconto (somente se não houver valor no estado local)
-      if (sessionData.discount && parseFloat(sessionData.discount) > 0 && !discountValue) {
-        setDiscountValue(sessionData.discount);
-        setDiscountType(sessionData.discountType || 'valor');
-      }
-      // Restaurar taxa de serviço (somente se não houver valor no estado local)
-      if (sessionData.serviceCharge && parseFloat(sessionData.serviceCharge) > 0 && !manualServiceValue) {
-        setManualServiceValue(sessionData.serviceCharge);
-        setManualServiceType(sessionData.serviceChargeType || 'percentual');
-      }
+    if (!sessionData) return;
+
+    // ✅ Em checkout individual, NÃO puxar ajustes globais da sessão para estes campos
+    if (isIndividualCheckout) return;
+
+    // Restaurar desconto (somente se não houver valor no estado local)
+    if (sessionData.discount && parseFloat(sessionData.discount) > 0 && !discountValue) {
+      setDiscountValue(sessionData.discount);
+      setDiscountType(sessionData.discountType || 'valor');
     }
-  }, [sessionData]);
+
+    // Restaurar taxa de serviço (somente se não houver valor no estado local)
+    if (sessionData.serviceCharge && parseFloat(sessionData.serviceCharge) > 0 && !manualServiceValue) {
+      setManualServiceValue(sessionData.serviceCharge);
+      setManualServiceType(sessionData.serviceChargeType || 'percentual');
+    }
+  }, [sessionData, isIndividualCheckout]);
   
   // 🔧 CORREÇÃO UX: Salvar ajustes com debounce (auto-save)
   const saveAdjustmentsToSession = useCallback(async () => {
@@ -252,16 +265,41 @@ export default function TableCheckoutV2() {
     }
   }, [table?.currentSessionId, id, discountValue, discountType, manualServiceValue, manualServiceType]);
 
-  // Auto-save com debounce (mudanças nos campos)
-  useEffect(() => {
-    if (table?.currentSessionId && (discountValue || manualServiceValue)) {
-      const timeoutId = setTimeout(() => {
-        saveAdjustmentsToSession();
-      }, 1000); // Espera 1 segundo após a última mudança
-      
-      return () => clearTimeout(timeoutId);
+  // ✅ UX: permitir limpar ajustes globais da sessão sem precisar "selecionar todos"
+  const clearSessionAdjustments = useCallback(async () => {
+    if (!table?.currentSessionId) return;
+
+    setIsSavingAdjustments(true);
+    try {
+      await fetch(`/api/tables/${id}/session-adjustments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          discount: '0',
+          discountType: 'valor',
+          serviceCharge: '0',
+          serviceChargeType: 'valor',
+        }),
+      });
+
+      await queryClient.invalidateQueries({ queryKey: [`/api/tables/${id}/sessions`, table?.currentSessionId] });
+      await queryClient.refetchQueries({ queryKey: [`/api/tables/${id}/sessions`, table?.currentSessionId] });
+
+      toast({
+        title: 'Ajustes globais removidos',
+        description: 'Desconto e taxa globais da mesa foram zerados. Agora você pode aplicar ajustes individuais.',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao limpar ajustes globais',
+        description: err?.message || 'Não foi possível zerar os ajustes da sessão.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingAdjustments(false);
     }
-  }, [discountValue, discountType, manualServiceValue, manualServiceType, table?.currentSessionId, saveAdjustmentsToSession]);
+  }, [table?.currentSessionId, id, queryClient, toast]);
+
   
   // ✅ OTIMIZAÇÃO: Carregar orders em paralelo, não esperar pela table
   const { data: ordersByGuestData, isLoading: loadingOrders } = useQuery<OrdersByGuestData>({
@@ -269,6 +307,57 @@ export default function TableCheckoutV2() {
     enabled: !!id, // Remover dependência de table?.currentSessionId
     staleTime: 10000, // Cache por 10s
   });
+
+  // ✅ Modo de ajustes (interpretação automática)
+  // - Se existir Mesa Completa (itens não atribuídos) => modo GLOBAL (sessão)
+  // - Se tudo estiver atribuído a clientes => modo INDIVIDUAL (por cliente)
+  const adjustmentsMode: 'session' | 'guest' =
+    (ordersByGuestData?.anonymousOrders?.length || 0) > 0 ? 'session' : 'guest';
+
+
+  // ✅ Ajustes individuais existentes em convidados
+  const hasGuestLevelAdjustments = useMemo(() => {
+    return (ordersByGuestData?.ordersByGuest || []).some((og: any) => {
+      const d = parseFloat(og?.guest?.discount || '0');
+      const s = parseFloat(og?.guest?.serviceCharge || '0');
+      return (Number.isFinite(d) && d > 0) || (Number.isFinite(s) && s > 0);
+    });
+  }, [ordersByGuestData]);
+
+  // ✅ Desabilitar ajustes globais no Step 3 quando estiver em checkout individual ou existirem ajustes individuais
+  // ✅ Bloqueio (opção 3):
+  // - Ajustes GLOBAIS bloqueados se já existirem ajustes individuais
+  // - Ajustes INDIVIDUAIS bloqueados se já existirem ajustes globais na sessão
+  const globalAdjustmentsDisabled = hasGuestLevelAdjustments;
+  const individualAdjustmentsDisabled = hasSessionLevelAdjustments;
+
+  // Auto-save com debounce (mudanças nos campos)
+  useEffect(() => {
+    // ✅ Bloqueio: não salvar ajustes globais na sessão quando:
+    // - checkout é individual (1 convidado)
+    // - já existem ajustes individuais em convidados
+    if (
+      table?.currentSessionId &&
+      !isIndividualCheckout &&
+      !hasGuestLevelAdjustments &&
+      (discountValue || manualServiceValue)
+    ) {
+      const timeoutId = setTimeout(() => {
+        saveAdjustmentsToSession();
+      }, 1000);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [
+    discountValue,
+    discountType,
+    manualServiceValue,
+    manualServiceType,
+    table?.currentSessionId,
+    saveAdjustmentsToSession,
+    isIndividualCheckout,
+    hasGuestLevelAdjustments,
+  ]);
   
   
   // ✅ OTIMIZAÇÃO: Lazy load apenas quando necessário (Step 2)
@@ -452,8 +541,105 @@ export default function TableCheckoutV2() {
         });
       }
       
+      // ✅ MODO INDIVIDUAL (por cliente): pagar via rota de guest (em massa se necessário)
+      if (adjustmentsMode === 'guest' && selectedGuestIds.length > 0) {
+        // ✅ Bloqueio: não permitir ajustes individuais se já existir ajuste global na sessão
+        if (
+          hasSessionLevelAdjustments &&
+          ((discountValue && parseFloat(discountValue) > 0) || (manualServiceValue && parseFloat(manualServiceValue) > 0))
+        ) {
+          throw new Error('Existem ajustes globais na mesa. Remova-os antes de aplicar descontos/taxas individuais por convidado.');
+        }
+
+        const selectedGuests = ordersByGuest
+          .filter((og: any) => selectedGuestIds.includes(og.guest.id))
+          .filter((og: any) => og.guest?.status !== 'pago');
+
+        if (selectedGuests.length === 0) {
+          throw new Error('Nenhum convidado válido selecionado para pagamento.');
+        }
+
+        const getGuestSubtotalBase = (og: any) => parseFloat(og.subtotal || '0');
+        const getGuestTotalSaved = (og: any) => parseFloat(og.guest?.guestTotal ?? og.subtotal ?? '0');
+
+        const hasInlineAdjustments =
+          (discountValue && parseFloat(discountValue) > 0) ||
+          (manualServiceValue && parseFloat(manualServiceValue) > 0);
+
+        const applyGuestAdjustments = (base: number) => {
+          let discount = 0;
+          let additions = 0;
+
+          if (discountValue && parseFloat(discountValue) > 0) {
+            discount = discountType === 'percentual'
+              ? base * (parseFloat(discountValue) / 100)
+              : parseFloat(discountValue);
+            discount = Math.min(discount, base);
+          }
+
+          const afterDiscount = Math.max(0, base - discount);
+
+          if (manualServiceValue && parseFloat(manualServiceValue) > 0) {
+            const charge = manualServiceType === 'percentual'
+              ? afterDiscount * (parseFloat(manualServiceValue) / 100)
+              : parseFloat(manualServiceValue);
+            additions += charge;
+          }
+
+          const final = Math.max(0, afterDiscount + additions);
+          return { discount, additions, final };
+        };
+
+        // Pagamento individual em massa: taxa/desconto EXATO por convidado (não dividir)
+        const results: any[] = [];
+        for (const og of selectedGuests) {
+          const guestId = og.guest.id;
+          const guestSubtotalBase = getGuestSubtotalBase(og);
+          const guestTotalSaved = getGuestTotalSaved(og);
+          const { final } = applyGuestAdjustments(guestSubtotalBase);
+
+          const amountToCharge = hasInlineAdjustments ? final : guestTotalSaved;
+
+          const guestPayload: any = {
+            amount: amountToCharge.toFixed(2),
+            paymentMethod,
+            notes: receivedAmount
+              ? `Valor recebido: ${parseFloat(receivedAmount).toFixed(2)}`
+              : selectedGuests.length > 1
+                ? 'Pagamento individual (em massa)'
+                : 'Pagamento individual',
+          };
+
+          if (discountValue && parseFloat(discountValue) > 0) {
+            guestPayload.discount = discountValue;
+            guestPayload.discountType = discountType;
+          }
+          if (manualServiceValue && parseFloat(manualServiceValue) > 0) {
+            guestPayload.serviceCharge = manualServiceValue;
+            guestPayload.serviceChargeType = manualServiceType;
+          }
+
+          const res = await apiRequest('POST', `/api/table-guests/${guestId}/payment`, guestPayload);
+          results.push(await res.json());
+        }
+
+        return {
+          success: true,
+          mode: 'guest',
+          guestCount: selectedGuests.length,
+          results,
+        };
+      }
+
+      // ✅ MODO GLOBAL (mesa completa / sessão)
       // ✅ NEW: Se apenas 1 convidado selecionado, usar rota de pagamento específico
       if (selectedGuestIds.length === 1) {
+        // ✅ Bloqueio: não permitir aplicar ajuste individual se já existir ajuste global na sessão
+        if (hasSessionLevelAdjustments && ((discountValue && parseFloat(discountValue) > 0) || (manualServiceValue && parseFloat(manualServiceValue) > 0))) {
+          throw new Error('Existem ajustes globais na mesa. Remova-os antes de aplicar ajustes individuais por convidado.');
+        }
+      
+
         const guestId = selectedGuestIds[0];
         
         // ✅ SOLUÇÃO #1: Incluir ajustes no payload do pagamento individual
@@ -498,6 +684,12 @@ export default function TableCheckoutV2() {
         selectedGuestCount: selectedGuestIds.length,
         route: `/api/tables/${id}/payment`
       });
+
+      // ✅ Bloqueio: não permitir aplicar ajustes globais se já existirem ajustes individuais
+      if (hasGuestLevelAdjustments && ((discountValue && parseFloat(discountValue) > 0) || (manualServiceValue && parseFloat(manualServiceValue) > 0))) {
+        throw new Error('Existem ajustes individuais em convidados. Remova-os antes de aplicar ajustes globais na mesa.');
+      }
+
       
       // Pagamento geral da mesa (todos os convidados ou múltiplos)
       const payload = {
@@ -558,15 +750,32 @@ export default function TableCheckoutV2() {
   // Calculate totals (EXACT same structure as old checkout)
   const ordersByGuest = ordersByGuestData?.ordersByGuest || [];
   const anonymousOrders = ordersByGuestData?.anonymousOrders || [];
+
   
   // ✅ CORREÇÃO ERRO 2: Remover selectedGuestIds das dependências para evitar re-execução
   useEffect(() => {
     if (ordersByGuest.length > 0 && selectedGuestIds.length === 0) {
-      const allGuestIds = ordersByGuest.map((og: any) => og.guest.id);
-      setSelectedGuestIds(allGuestIds);
-      console.log('🎯 [CHECKOUT] Auto-selecionando todos os convidados:', allGuestIds.length);
+      // ✅ Por padrão, só selecionar convidados ainda não pagos
+      const unpaidGuestIds = ordersByGuest
+        .filter((og: any) => og.guest?.status !== 'pago')
+        .map((og: any) => og.guest.id);
+
+      setSelectedGuestIds(unpaidGuestIds);
+      console.log('🎯 [CHECKOUT] Auto-selecionando convidados não pagos:', unpaidGuestIds.length);
     }
   }, [ordersByGuest]); // ✅ Só quando ordersByGuest muda
+
+  // ✅ Garantir que convidados pagos não permaneçam selecionados após atualizações
+  useEffect(() => {
+    if (!ordersByGuest.length) return;
+
+    setSelectedGuestIds((prev) =>
+      prev.filter((id) => {
+        const og = ordersByGuest.find((g: any) => g.guest?.id === id);
+        return og && og.guest?.status !== 'pago';
+      })
+    );
+  }, [ordersByGuest]);
   
   // Filter guests based on selection (if any selected, show only those)
   const filteredOrdersByGuest = useMemo(() => 
@@ -593,9 +802,27 @@ export default function TableCheckoutV2() {
   
   // ✅ CORREÇÃO ERRO 4: Cálculo de totalAmount mais robusto
   const totalAmount = useMemo(() => {
+    // ✅ Modo GLOBAL (Mesa Completa): ignorar seleção e usar sempre o total da mesa
+    if (adjustmentsMode === 'session') {
+      if (ordersByGuestData?.totalAmount && Number(ordersByGuestData.totalAmount) > 0) {
+        return Number(ordersByGuestData.totalAmount);
+      }
+
+      if (ordersByGuest.length > 0) {
+        return ordersByGuest
+          .filter((og: any) => og.guest?.status !== 'pago')
+          .reduce((sum: number, og: any) => sum + parseFloat(og.subtotal || 0), 0);
+      }
+
+      return allItems.reduce((sum: number, item: any) => sum + parseFloat(item.totalPrice || 0), 0);
+    }
+
     // Prioridade 1: Se há guests selecionados, usar subtotal deles
     if (selectedGuestIds.length > 0) {
-      return filteredOrdersByGuest.reduce((sum: number, og: any) => sum + parseFloat(og.subtotal || 0), 0);
+      // ✅ Nunca incluir convidados já pagos no total do checkout
+      return filteredOrdersByGuest
+        .filter((og: any) => og.guest?.status !== 'pago')
+        .reduce((sum: number, og: any) => sum + parseFloat(og.subtotal || 0), 0);
     }
     
     // Prioridade 2: Se há totalAmount do backend, usar
@@ -605,12 +832,14 @@ export default function TableCheckoutV2() {
     
     // Prioridade 3: Calcular de todos os guests (sem filtro)
     if (ordersByGuest.length > 0) {
-      return ordersByGuest.reduce((sum: number, og: any) => sum + parseFloat(og.subtotal || 0), 0);
+      return ordersByGuest
+        .filter((og: any) => og.guest?.status !== 'pago')
+        .reduce((sum: number, og: any) => sum + parseFloat(og.subtotal || 0), 0);
     }
     
     // Fallback: Calcular de allItems (última opção)
     return allItems.reduce((sum: number, item: any) => sum + parseFloat(item.totalPrice || 0), 0);
-  }, [selectedGuestIds, filteredOrdersByGuest, ordersByGuestData, ordersByGuest, allItems]);
+  }, [adjustmentsMode, selectedGuestIds, filteredOrdersByGuest, ordersByGuestData, ordersByGuest, allItems]);
   
   const paidAmount = ordersByGuestData?.paidAmount 
     ? Number(ordersByGuestData.paidAmount)
@@ -633,6 +862,107 @@ export default function TableCheckoutV2() {
   
   // ✅ OTIMIZAÇÃO: Cálculo detalhado só quando há ajustes ou Step 3+
   const calculateTotals = useMemo(() => {
+    // ✅ Modo INDIVIDUAL: aplicar descontos/taxas por convidado (valor exato por convidado)
+    if (adjustmentsMode === 'guest') {
+      const selected = selectedGuestIds.length > 0
+        ? ordersByGuest.filter((og: any) => selectedGuestIds.includes(og.guest.id))
+        : ordersByGuest;
+
+      const unpaid = selected.filter((og: any) => og.guest?.status !== 'pago');
+
+      const getGuestSubtotalBase = (og: any) => parseFloat(og.subtotal || '0');
+      const getGuestTotalSaved = (og: any) => parseFloat(og.guest?.guestTotal ?? og.subtotal ?? '0');
+      const hasInlineAdjustments =
+        (discountValue && parseFloat(discountValue) > 0) ||
+        (manualServiceValue && parseFloat(manualServiceValue) > 0);
+
+      const applyOne = (base: number) => {
+        let discount = 0;
+        let additions = 0;
+
+        if (discountValue && parseFloat(discountValue) > 0) {
+          discount = discountType === 'percentual'
+            ? base * (parseFloat(discountValue) / 100)
+            : parseFloat(discountValue);
+          discount = Math.min(discount, base);
+        }
+
+        const afterDiscount = Math.max(0, base - discount);
+
+        if (manualServiceValue && parseFloat(manualServiceValue) > 0) {
+          const charge = manualServiceType === 'percentual'
+            ? afterDiscount * (parseFloat(manualServiceValue) / 100)
+            : parseFloat(manualServiceValue);
+          additions += charge;
+        }
+
+        return { final: Math.max(0, afterDiscount + additions), discount, additions };
+      };
+
+      let subtotal = 0;
+      let discounts = 0;
+      let additions = 0;
+
+      unpaid.forEach((og: any) => {
+        const base = getGuestSubtotalBase(og);
+        const savedTotal = getGuestTotalSaved(og);
+
+        subtotal += base;
+
+        if (hasInlineAdjustments) {
+          const applied = applyOne(base);
+          discounts += applied.discount;
+          additions += applied.additions;
+        } else {
+          // ✅ Sem ajustes digitados agora: usar ajustes já gravados no convidado (para manter breakdown correto)
+          const gDiscountRaw = parseFloat(og.guest?.discount || '0');
+          const gDiscountType = og.guest?.discountType || 'valor';
+          const gServiceRaw = parseFloat(og.guest?.serviceCharge || '0');
+          const gServiceType = og.guest?.serviceChargeType || 'valor';
+
+          let dVal = 0;
+          if (Number.isFinite(gDiscountRaw) && gDiscountRaw > 0) {
+            dVal = gDiscountType === 'percentual' ? base * (Math.min(gDiscountRaw, 100) / 100) : gDiscountRaw;
+            dVal = Math.min(dVal, base);
+          }
+
+          const afterD = Math.max(0, base - dVal);
+
+          let sVal = 0;
+          if (Number.isFinite(gServiceRaw) && gServiceRaw > 0) {
+            sVal = gServiceType === 'percentual' ? afterD * (gServiceRaw / 100) : gServiceRaw;
+          }
+
+          discounts += dVal;
+          additions += sVal;
+        }
+      });
+
+      const breakdown: any[] = [];
+      if (discountValue && parseFloat(discountValue) > 0) {
+        breakdown.push({
+          type: 'discount',
+          label: `Desconto individual (${unpaid.length} cliente${unpaid.length === 1 ? '' : 's'})`,
+          value: -discounts,
+        });
+      }
+      if (manualServiceValue && parseFloat(manualServiceValue) > 0) {
+        breakdown.push({
+          type: 'addition',
+          label: `Taxa individual (${unpaid.length} cliente${unpaid.length === 1 ? '' : 's'})`,
+          value: additions,
+        });
+      }
+
+      return {
+        subtotal,
+        totalDiscounts: discounts,
+        totalAdditions: additions,
+        finalTotal: Math.max(0, subtotal - discounts + additions),
+        breakdown,
+      };
+    }
+
     // Cálculo simplificado para Steps iniciais
     if (currentStep < 3 && !discountValue && !appliedCoupon && !loyaltyPointsToRedeem) {
       return {
@@ -888,6 +1218,20 @@ export default function TableCheckoutV2() {
                       );
                     })()}
                     {STEPS[currentStep - 1].name}
+
+                    {[1, 3, 4].includes(currentStep) && (
+                      <Badge
+                        variant={adjustmentsMode === 'session' ? 'default' : 'secondary'}
+                        className="ml-2"
+                        title={
+                          adjustmentsMode === 'session'
+                            ? 'Modo Global: há itens na Mesa Completa (não atribuídos)'
+                            : 'Modo Individual: todos os itens estão atribuídos a clientes'
+                        }
+                      >
+                        {adjustmentsMode === 'session' ? 'Mesa Completa (Global)' : 'Por Cliente (Individual)'}
+                      </Badge>
+                    )}
                   </CardTitle>
                   
                   {/* 🔧 INDICADOR VISUAL: Mostrar ajustes aplicados com opção de remover */}
@@ -913,10 +1257,14 @@ export default function TableCheckoutV2() {
                             e.stopPropagation();
                             setDiscountValue('');
                             setDiscountType('valor');
-                            await saveAdjustmentsToSession();
+                            if (!isIndividualCheckout) {
+                              await saveAdjustmentsToSession();
+                            }
                             toast({
                               title: "Desconto removido",
-                              description: "O desconto foi removido com sucesso",
+                              description: isIndividualCheckout
+                                ? "O desconto individual foi limpo"
+                                : "O desconto foi removido com sucesso",
                             });
                           }}
                           className="ml-1 p-0.5 rounded-full hover:bg-green-300 dark:hover:bg-green-800 transition-colors opacity-0 group-hover:opacity-100"
@@ -937,10 +1285,14 @@ export default function TableCheckoutV2() {
                             e.stopPropagation();
                             setManualServiceValue('');
                             setManualServiceType('percentual');
-                            await saveAdjustmentsToSession();
+                            if (!isIndividualCheckout) {
+                              await saveAdjustmentsToSession();
+                            }
                             toast({
                               title: "Taxa removida",
-                              description: "A taxa de serviço foi removida com sucesso",
+                              description: isIndividualCheckout
+                                ? "A taxa individual foi limpa"
+                                : "A taxa de serviço foi removida com sucesso",
                             });
                           }}
                           className="ml-1 p-0.5 rounded-full hover:bg-blue-300 dark:hover:bg-blue-800 transition-colors opacity-0 group-hover:opacity-100"
@@ -957,6 +1309,32 @@ export default function TableCheckoutV2() {
                 {/* Step 1: Review Items & Guests */}
                 {currentStep === 1 && (
                   <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                    {(globalAdjustmentsDisabled || (isIndividualCheckout && individualAdjustmentsDisabled)) && (
+                      <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                        <div className="font-semibold">
+                          {isIndividualCheckout ? 'Ajustes individuais bloqueados' : 'Ajustes globais bloqueados'}
+                        </div>
+                        <div className="text-sm mt-1">
+                          {isIndividualCheckout
+                            ? 'Esta mesa já tem ajustes globais (sessão). Remova-os antes de aplicar descontos/taxas individuais por convidado.'
+                            : 'Existem ajustes individuais em convidados. Remova-os antes de aplicar descontos/taxas globais na mesa.'}
+                        </div>
+
+                        {isIndividualCheckout && individualAdjustmentsDisabled && (
+                          <div className="mt-3">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={clearSessionAdjustments}
+                              disabled={isSavingAdjustments}
+                              className="border-amber-400 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/30"
+                            >
+                              Limpar ajustes globais da mesa
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {/* Info Banner */}
                     <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/20 p-4">
                       <div className="flex items-start gap-3">
@@ -1002,7 +1380,11 @@ export default function TableCheckoutV2() {
                               if (selectedGuestIds.length === ordersByGuest.length) {
                                 setSelectedGuestIds([]);
                               } else {
-                                setSelectedGuestIds(ordersByGuest.map((og: any) => og.guest.id));
+                                setSelectedGuestIds(
+                                  ordersByGuest
+                                    .filter((og: any) => og.guest?.status !== 'pago')
+                                    .map((og: any) => og.guest.id)
+                                );
                               }
                             }}
                           >
@@ -1092,12 +1474,24 @@ export default function TableCheckoutV2() {
                               }))
                             );
                             
-                            // Use subtotal from API if available, otherwise calculate
-                            const guestTotal = guestOrder.subtotal 
+                            // Subtotal bruto do convidado (sem ajustes)
+                            const guestSubtotal = guestOrder.subtotal
                               ? parseFloat(guestOrder.subtotal)
-                              : guestItems.reduce((sum: number, item: any) => 
-                                  sum + parseFloat(item.totalPrice || 0), 0
+                              : guestItems.reduce((sum: number, item: any) =>
+                                  sum + parseFloat(item.totalPrice || 0),
+                                  0
                                 );
+
+                            // Total final do convidado (com ajustes individuais), vindo do backend
+                            const guestTotalWithAdjustments = guestOrder.guest?.guestTotal
+                              ? parseFloat(guestOrder.guest.guestTotal)
+                              : null;
+
+                            const guestTotal = guestTotalWithAdjustments ?? guestSubtotal;
+                            const hasGuestAdjustments =
+                              guestTotalWithAdjustments !== null &&
+                              Math.abs(guestTotalWithAdjustments - guestSubtotal) > 0.009;
+
                             const isSelected = selectedGuestIds.includes(guestOrder.guest.id);
 
                             const itemCount = guestItems.length;
@@ -1120,8 +1514,10 @@ export default function TableCheckoutV2() {
                                 {/* Guest Header */}
                                 <div className="flex items-center gap-3 p-4 border-b border-slate-200 dark:border-slate-800">
                                   <Checkbox
-                                    checked={isSelected}
+                                    checked={!isPaid && isSelected}
+                                    disabled={isPaid}
                                     onCheckedChange={(checked) => {
+                                      if (isPaid) return;
                                       if (checked) {
                                         setSelectedGuestIds([...selectedGuestIds, guestOrder.guest.id]);
                                       } else {
@@ -1150,9 +1546,19 @@ export default function TableCheckoutV2() {
                                   </div>
                                   
                                   <div className="text-right">
+                                    {hasGuestAdjustments && (
+                                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                                        Subtotal: {formatKwanza(guestSubtotal)}
+                                      </div>
+                                    )}
                                     <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
                                       {formatKwanza(guestTotal)}
                                     </div>
+                                    {hasGuestAdjustments && (
+                                      <div className="text-xs font-semibold text-purple-700/80 dark:text-purple-300/80">
+                                        Total (com ajustes)
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
 
@@ -1658,7 +2064,10 @@ export default function TableCheckoutV2() {
                                 key={pct}
                                 size="sm"
                                 variant="outline"
+                                disabled={isIndividualCheckout ? individualAdjustmentsDisabled : globalAdjustmentsDisabled}
                                 onClick={() => {
+                                  const disabled = isIndividualCheckout ? individualAdjustmentsDisabled : globalAdjustmentsDisabled;
+                                  if (disabled) return;
                                   setDiscountType('percentual');
                                   setDiscountValue(pct.toString());
                                 }}
@@ -1680,7 +2089,10 @@ export default function TableCheckoutV2() {
                                 type="number"
                                 step="0.01"
                                 value={discountValue}
+                                disabled={isIndividualCheckout ? individualAdjustmentsDisabled : globalAdjustmentsDisabled}
                                 onChange={(e) => {
+                                  const disabled = isIndividualCheckout ? individualAdjustmentsDisabled : globalAdjustmentsDisabled;
+                                  if (disabled) return;
                                   const val = parseFloat(e.target.value) || 0;
                                   const max = discountType === 'percentual' ? 100 : totalAmount;
                                   if (val <= max) {
@@ -1711,7 +2123,15 @@ export default function TableCheckoutV2() {
                           </div>
                           <div className="space-y-2">
                             <Label>Tipo</Label>
-                            <Select value={discountType} onValueChange={(v: 'valor' | 'percentual') => setDiscountType(v)}>
+                            <Select
+                              value={discountType}
+                              onValueChange={(v: 'valor' | 'percentual') => {
+                                const disabled = isIndividualCheckout ? individualAdjustmentsDisabled : globalAdjustmentsDisabled;
+                                if (disabled) return;
+                                setDiscountType(v);
+                              }}
+                              disabled={isIndividualCheckout ? individualAdjustmentsDisabled : globalAdjustmentsDisabled}
+                            >
                               <SelectTrigger className="h-12">
                                 <SelectValue />
                               </SelectTrigger>
@@ -1837,7 +2257,12 @@ export default function TableCheckoutV2() {
                             <Input
                               id="serviceName"
                               value={manualServiceName}
-                              onChange={(e) => setManualServiceName(e.target.value)}
+                              disabled={isIndividualCheckout ? individualAdjustmentsDisabled : globalAdjustmentsDisabled}
+                              onChange={(e) => {
+                                const disabled = isIndividualCheckout ? individualAdjustmentsDisabled : globalAdjustmentsDisabled;
+                                if (disabled) return;
+                                setManualServiceName(e.target.value);
+                              }}
                               placeholder="Ex: Taxa de entrega, Couvert..."
                               className="h-10"
                             />
@@ -1850,7 +2275,10 @@ export default function TableCheckoutV2() {
                                 type="number"
                                 step="0.01"
                                 value={manualServiceValue}
+                                disabled={isIndividualCheckout ? individualAdjustmentsDisabled : globalAdjustmentsDisabled}
                                 onChange={(e) => {
+                                  const disabled = isIndividualCheckout ? individualAdjustmentsDisabled : globalAdjustmentsDisabled;
+                                  if (disabled) return;
                                   const val = parseFloat(e.target.value) || 0;
                                   const max = manualServiceType === 'percentual' ? 100 : 999999;
                                   if (val <= max) {
@@ -1863,7 +2291,15 @@ export default function TableCheckoutV2() {
                             </div>
                             <div className="space-y-2">
                               <Label>Tipo</Label>
-                              <Select value={manualServiceType} onValueChange={(v: 'valor' | 'percentual') => setManualServiceType(v)}>
+                              <Select
+                                value={manualServiceType}
+                                onValueChange={(v: 'valor' | 'percentual') => {
+                                  const disabled = isIndividualCheckout ? individualAdjustmentsDisabled : globalAdjustmentsDisabled;
+                                  if (disabled) return;
+                                  setManualServiceType(v);
+                                }}
+                                disabled={isIndividualCheckout ? individualAdjustmentsDisabled : globalAdjustmentsDisabled}
+                              >
                                 <SelectTrigger className="h-10">
                                   <SelectValue />
                                 </SelectTrigger>

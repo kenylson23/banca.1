@@ -35,15 +35,28 @@ interface PrintInvoiceProps {
     phone?: string;
     nif?: string;
   };
+  /**
+   * Totais/ajustes opcionais (ex.: quando o desconto/taxa vem da sessão e não do pedido).
+   * Se fornecido, tem prioridade sobre campos do `order`.
+   */
+  totalsOverride?: {
+    subtotal: number;
+    discount?: number;
+    serviceCharge?: number;
+    total: number;
+    discountLabel?: string;
+    serviceChargeLabel?: string;
+  };
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg' | 'icon';
 }
 
-export function PrintInvoice({ 
-  order, 
-  restaurantInfo = { name: 'NaBancada' }, 
-  variant = 'outline', 
-  size = 'sm' 
+export function PrintInvoice({
+  order,
+  restaurantInfo = { name: 'NaBancada' },
+  totalsOverride,
+  variant = 'outline',
+  size = 'sm'
 }: PrintInvoiceProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const isIconOnly = size === 'icon';
@@ -78,15 +91,31 @@ export function PrintInvoice({
         ? order.payments.map(p => paymentMethodLabels[p.paymentMethod as keyof typeof paymentMethodLabels] || p.paymentMethod).join(', ')
         : undefined;
 
+      const baseDiscount = order.discount ? parseFloat(order.discount) : 0;
+      const couponDiscount = (order as any).couponDiscount ? parseFloat((order as any).couponDiscount) : 0;
+      const combinedDiscount = (Number.isFinite(baseDiscount) ? baseDiscount : 0) + (Number.isFinite(couponDiscount) ? couponDiscount : 0);
+      const serviceCharge = order.serviceCharge ? parseFloat(order.serviceCharge) : 0;
+
+      const effectiveSubtotal = totalsOverride?.subtotal ?? parseFloat(String(order.subtotal || order.totalAmount || '0'));
+      const effectiveDiscount = totalsOverride?.discount ?? combinedDiscount;
+      const effectiveServiceCharge = totalsOverride?.serviceCharge ?? serviceCharge;
+      const effectiveTotal = totalsOverride?.total ?? parseFloat(String(order.totalAmount || '0'));
+
       await printerService.printInvoice('invoice', {
         invoiceNumber: order.id.substring(0, 8).toUpperCase(),
-        date: order.createdAt ? format(new Date(order.createdAt), "dd/MM/yyyy", { locale: ptBR }) : format(new Date(), "dd/MM/yyyy", { locale: ptBR }),
+        date: order.createdAt
+          ? format(new Date(order.createdAt), "dd/MM/yyyy", { locale: ptBR })
+          : format(new Date(), "dd/MM/yyyy", { locale: ptBR }),
         customerName: order.customerName || undefined,
         customerPhone: order.customerPhone || undefined,
         items,
-        subtotal: formatKwanza(order.subtotal || order.totalAmount),
-        discount: order.discount && parseFloat(order.discount) > 0 ? formatKwanza(order.discount) : undefined,
-        total: formatKwanza(order.totalAmount),
+        subtotal: formatKwanza(effectiveSubtotal.toFixed(2)),
+        discount: effectiveDiscount > 0 ? formatKwanza(effectiveDiscount.toFixed(2)) : undefined,
+        serviceCharge:
+          Number.isFinite(effectiveServiceCharge) && effectiveServiceCharge > 0
+            ? formatKwanza(effectiveServiceCharge.toFixed(2))
+            : undefined,
+        total: formatKwanza(effectiveTotal.toFixed(2)),
         paymentInfo,
         notes: order.orderNotes || undefined,
       });
@@ -128,6 +157,19 @@ export function PrintInvoice({
       transferencia: 'Transferência Bancária',
       cartao: 'Cartão',
     };
+
+    const baseDiscount = order.discount ? parseFloat(order.discount) : 0;
+    const couponDiscount = (order as any).couponDiscount ? parseFloat((order as any).couponDiscount) : 0;
+    const combinedDiscount = (Number.isFinite(baseDiscount) ? baseDiscount : 0) + (Number.isFinite(couponDiscount) ? couponDiscount : 0);
+    const serviceCharge = order.serviceCharge ? parseFloat(order.serviceCharge) : 0;
+
+    const effectiveSubtotal = totalsOverride?.subtotal ?? parseFloat(String(order.subtotal || order.totalAmount || '0'));
+    const effectiveDiscount = totalsOverride?.discount ?? combinedDiscount;
+    const effectiveServiceCharge = totalsOverride?.serviceCharge ?? serviceCharge;
+    const effectiveTotal = totalsOverride?.total ?? parseFloat(String(order.totalAmount || '0'));
+
+    const effectiveDiscountLabel = totalsOverride?.discountLabel || 'Desconto';
+    const effectiveServiceChargeLabel = totalsOverride?.serviceChargeLabel || 'Taxa de Serviço';
 
     const printContent = `
       <!DOCTYPE html>
@@ -374,35 +416,52 @@ export function PrintInvoice({
         <div class="totals-section">
           <div class="total-row subtotal">
             <span>Subtotal:</span>
-            <span>${formatKwanza(order.subtotal || order.totalAmount)}</span>
+            <span>${formatKwanza(effectiveSubtotal.toFixed(2))}</span>
           </div>
-          ${order.discount && parseFloat(order.discount) > 0 ? `
-            <div class="total-row">
-              <span>Desconto:</span>
-              <span>- ${formatKwanza(order.discount)}</span>
-            </div>
-          ` : ''}
-          ${order.couponDiscount && parseFloat(order.couponDiscount) > 0 ? `
-            <div class="total-row">
-              <span>Cupom:</span>
-              <span>- ${formatKwanza(order.couponDiscount)}</span>
-            </div>
-          ` : ''}
-          ${order.serviceCharge && parseFloat(order.serviceCharge) > 0 ? `
-            <div class="total-row">
-              <span>Taxa de Serviço:</span>
-              <span>${formatKwanza(order.serviceCharge)}</span>
-            </div>
-          ` : ''}
-          ${order.deliveryFee && parseFloat(order.deliveryFee) > 0 ? `
-            <div class="total-row">
-              <span>Taxa de Entrega:</span>
-              <span>${formatKwanza(order.deliveryFee)}</span>
-            </div>
-          ` : ''}
+
+          ${totalsOverride ? `
+            ${effectiveDiscount > 0 ? `
+              <div class="total-row">
+                <span>${effectiveDiscountLabel}:</span>
+                <span>- ${formatKwanza(effectiveDiscount.toFixed(2))}</span>
+              </div>
+            ` : ''}
+            ${effectiveServiceCharge > 0 ? `
+              <div class="total-row">
+                <span>${effectiveServiceChargeLabel}:</span>
+                <span>${formatKwanza(effectiveServiceCharge.toFixed(2))}</span>
+              </div>
+            ` : ''}
+          ` : `
+            ${order.discount && parseFloat(order.discount) > 0 ? `
+              <div class="total-row">
+                <span>Desconto:</span>
+                <span>- ${formatKwanza(order.discount)}</span>
+              </div>
+            ` : ''}
+            ${(order as any).couponDiscount && parseFloat((order as any).couponDiscount) > 0 ? `
+              <div class="total-row">
+                <span>Cupom:</span>
+                <span>- ${formatKwanza((order as any).couponDiscount)}</span>
+              </div>
+            ` : ''}
+            ${order.serviceCharge && parseFloat(order.serviceCharge) > 0 ? `
+              <div class="total-row">
+                <span>Taxa de Serviço:</span>
+                <span>${formatKwanza(order.serviceCharge)}</span>
+              </div>
+            ` : ''}
+            ${(order as any).deliveryFee && parseFloat((order as any).deliveryFee) > 0 ? `
+              <div class="total-row">
+                <span>Taxa de Entrega:</span>
+                <span>${formatKwanza((order as any).deliveryFee)}</span>
+              </div>
+            ` : ''}
+          `}
+
           <div class="total-row final">
             <span>TOTAL:</span>
-            <span>${formatKwanza(order.totalAmount)}</span>
+            <span>${formatKwanza(effectiveTotal.toFixed(2))}</span>
           </div>
         </div>
 

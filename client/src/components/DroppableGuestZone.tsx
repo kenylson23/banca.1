@@ -20,11 +20,6 @@ export function DroppableGuestZone({
     disabled,
   });
 
-  console.log('🟢 [Droppable] Zone renderizada:', { 
-    guestId, 
-    disabled, 
-    isOver 
-  });
 
   return (
     <div

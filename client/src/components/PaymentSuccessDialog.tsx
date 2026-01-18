@@ -121,8 +121,60 @@ export function PaymentSuccessDialog({
     });
   };
 
+  const safeNumber = (v: any) => {
+    const n = typeof v === 'number' ? v : parseFloat(String(v ?? '0'));
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  // Total de ajustes de sessão (para ratear por convidado)
+  const getSessionAdjustments = () => {
+    const discountTotal = (calculateTotals.breakdown || [])
+      .filter(i => i.type === 'discount')
+      .reduce((sum, i) => sum + Math.abs(safeNumber(i.value)), 0);
+
+    const additionsTotal = (calculateTotals.breakdown || [])
+      .filter(i => i.type === 'addition')
+      .reduce((sum, i) => sum + Math.abs(safeNumber(i.value)), 0);
+
+    return { discountTotal, additionsTotal };
+  };
+
+  const getHostGuestId = () => {
+    const sorted = [...(ordersByGuest || [])]
+      .filter(g => g?.guest?.id && g.guest.id !== 'anonymous')
+      .sort((a, b) => (a.guest.guestNumber || 0) - (b.guest.guestNumber || 0));
+    return sorted[0]?.guest?.id;
+  };
+
   // Transform OrdersByGuest data to PrintGuestBill format
+  // ✅ Desconto: proporcional ao consumo
+  // ✅ Taxa/Serviço: 100% atribuída ao anfitrião (Cliente #1)
   const transformGuestDataForPrint = (og: typeof ordersByGuest[0]) => {
+    const guestSubtotal = safeNumber(og.subtotal);
+    // ✅ Ajustes INDIVIDUAIS (por convidado) — não afetam os outros
+    const guestDiscountRaw = safeNumber((og.guest as any).discount);
+    const guestDiscountType = ((og.guest as any).discountType || 'valor') as 'valor' | 'percentual';
+
+    const discountValue = guestDiscountRaw > 0
+      ? (guestDiscountType === 'percentual'
+          ? Math.min(guestSubtotal, guestSubtotal * (Math.min(guestDiscountRaw, 100) / 100))
+          : Math.min(guestSubtotal, guestDiscountRaw))
+      : 0;
+
+    const afterDiscount = Math.max(0, guestSubtotal - discountValue);
+
+    const guestServiceChargeRaw = safeNumber((og.guest as any).serviceCharge);
+    const guestServiceChargeType = ((og.guest as any).serviceChargeType || 'valor') as 'valor' | 'percentual';
+
+    const serviceChargeValue = guestServiceChargeRaw > 0
+      ? (guestServiceChargeType === 'percentual'
+          ? afterDiscount * (guestServiceChargeRaw / 100)
+          : guestServiceChargeRaw)
+      : 0;
+
+    const guestDiscount = discountValue;
+    const guestAdditions = serviceChargeValue;
+
     const guest: TableGuest = {
       id: og.guest.id,
       sessionId: og.guest.sessionId,
@@ -133,21 +185,36 @@ export function PaymentSuccessDialog({
       joinedAt: og.guest.joinedAt,
     };
 
-    const orders: GuestOrder[] = og.orders.map(order => ({
+    const orders: GuestOrder[] = og.orders.map((order: any) => ({
       orderId: order.id,
       orderStatus: order.status,
       totalAmount: order.totalPrice,
       createdAt: order.createdAt,
-      items: (order.items || []).map(item => ({
+      items: (order.items || []).map((item: any) => ({
         id: item.id,
         menuItemName: item.menuItem?.name || item.name,
         quantity: item.quantity,
         unitPrice: item.price,
-        totalPrice: (parseFloat(item.price) * item.quantity).toString(),
+        totalPrice: (safeNumber(item.price) * safeNumber(item.quantity)).toFixed(2),
       })),
     }));
 
-    return { guest, orders, totalAmount: parseFloat(og.subtotal) };
+    const totalAmount = Math.max(0, guestSubtotal - guestDiscount + guestAdditions);
+
+    return {
+      guest,
+      orders,
+      subtotal: guestSubtotal,
+      totalAmount,
+      discounts:
+        guestDiscount > 0.009
+          ? [{ description: 'Desconto do Cliente', amount: guestDiscount, type: 'fixed' as const }]
+          : [],
+      serviceCharges:
+        guestAdditions > 0.009
+          ? [{ description: 'Taxa/Serviço do Cliente', amount: guestAdditions, type: 'fixed' as const }]
+          : [],
+    };
   };
 
   const handlePrintComplete = async () => {
@@ -481,7 +548,7 @@ export function PaymentSuccessDialog({
               </div>
               <div class="payment-line highlight">
                 <span>Troco:</span>
-                <span>${formatKwanza(payment.receivedAmount - totalAmount)}</span>
+                <span>${formatKwanza(payment.receivedAmount - calculateTotals.finalTotal)}</span>
               </div>
             ` : ''}
           </div>
@@ -684,7 +751,7 @@ export function PaymentSuccessDialog({
       if (payment.receivedAmount) {
         addText(`Valor Recebido: ${formatKwanza(payment.receivedAmount)}`, 10);
         
-        const change = payment.receivedAmount - totalAmount;
+        const change = payment.receivedAmount - calculateTotals.finalTotal;
         if (change > 0) {
           pdf.setTextColor(0, 100, 200);
           addText(`Troco: ${formatKwanza(change)}`, 10, true);
@@ -736,7 +803,6 @@ export function PaymentSuccessDialog({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
-      console.log('🔘 [PaymentSuccessDialog] Dialog onOpenChange:', isOpen);
       if (!isOpen) {
         onClose();
       }
@@ -744,11 +810,7 @@ export function PaymentSuccessDialog({
       <DialogContent 
         className="max-w-[95vw] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] flex flex-col"
         onPointerDownOutside={(e) => {
-          console.log('🔘 [PaymentSuccessDialog] Clique fora detectado');
           e.preventDefault();
-        }}
-        onEscapeKeyDown={(e) => {
-          console.log('🔘 [PaymentSuccessDialog] ESC pressionado');
         }}
       >
         <DialogHeader>
@@ -813,7 +875,7 @@ export function PaymentSuccessDialog({
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-bold">Valor Total:</span>
                   <span className="text-3xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                    {formatKwanza(totalAmount)}
+                    {formatKwanza(calculateTotals.finalTotal)}
                   </span>
                 </div>
               </CardContent>
@@ -992,7 +1054,7 @@ export function PaymentSuccessDialog({
                       <div className="flex items-center justify-between text-base font-bold text-blue-600 dark:text-blue-400">
                         <span>Troco</span>
                         <span>
-                          {formatKwanza(payment.receivedAmount - totalAmount)}
+                          {formatKwanza(payment.receivedAmount - calculateTotals.finalTotal)}
                         </span>
                       </div>
                     </div>
@@ -1086,7 +1148,14 @@ export function PaymentSuccessDialog({
                       {/* Guest List */}
                       <div className="space-y-2 pl-16">
                         {ordersByGuest.map((og) => {
-                          const { guest, orders, totalAmount: guestTotal } = transformGuestDataForPrint(og);
+                          const {
+                            guest,
+                            orders,
+                            subtotal,
+                            totalAmount: guestTotal,
+                            discounts,
+                            serviceCharges,
+                          } = transformGuestDataForPrint(og);
                           
                           return (
                             <div
@@ -1110,6 +1179,9 @@ export function PaymentSuccessDialog({
                               <PrintGuestBill
                                 guest={guest}
                                 orders={orders}
+                                subtotal={subtotal}
+                                discounts={discounts}
+                                serviceCharges={serviceCharges}
                                 totalAmount={guestTotal}
                                 tableName={`Mesa ${table.number}`}
                                 restaurantName={restaurant?.name}
@@ -1140,7 +1212,6 @@ export function PaymentSuccessDialog({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              console.log('🔘 [PaymentSuccessDialog] Botão Fechar clicado');
               onClose();
             }}
             className="min-w-[200px] relative z-50"

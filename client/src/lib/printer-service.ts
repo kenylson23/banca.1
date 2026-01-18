@@ -657,6 +657,7 @@ class PrinterService {
       items: Array<{ name: string; quantity: number; price: string; total: string }>;
       subtotal: string;
       discount?: string;
+      serviceCharge?: string;
       total: string;
       paymentInfo?: string;
       notes?: string;

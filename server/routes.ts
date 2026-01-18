@@ -4378,39 +4378,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // ✅ SOLUÇÃO #1: Salvar ajustes na sessão quando fornecidos
-      if (guest.sessionId && (discount || serviceCharge)) {
-        const updates: any = { updatedAt: new Date() };
-        
-        // Salvar desconto
+      // ✅ Ajustes individuais (por convidado): salvar no próprio guest
+      if (discount || serviceCharge) {
+        const guestUpdates: any = { updatedAt: new Date() };
+
         if (discount && parseFloat(discount) > 0) {
-          updates.discount = discount;
-          updates.discountType = discountType || 'valor';
-          console.log('🎯 [GUEST PAYMENT] Salvando desconto na sessão:', {
-            sessionId: guest.sessionId,
-            discount,
-            discountType: discountType || 'valor'
-          });
+          guestUpdates.discount = discount;
+          guestUpdates.discountType = discountType || 'valor';
         }
-        
-        // Salvar taxa de serviço
+
         if (serviceCharge && parseFloat(serviceCharge) > 0) {
-          updates.serviceCharge = serviceCharge;
-          updates.serviceChargeType = serviceChargeType || 'percentual';
-          console.log('🎯 [GUEST PAYMENT] Salvando taxa de serviço na sessão:', {
-            sessionId: guest.sessionId,
-            serviceCharge,
-            serviceChargeType: serviceChargeType || 'percentual'
-          });
+          guestUpdates.serviceCharge = serviceCharge;
+          guestUpdates.serviceChargeType = serviceChargeType || 'valor';
         }
-        
-        // Aplicar updates se houver
-        if (Object.keys(updates).length > 1) { // > 1 porque updatedAt sempre existe
-          await db.update(tableSessions)
-            .set(updates)
-            .where(eq(tableSessions.id, guest.sessionId));
-          
-          console.log('✅ [GUEST PAYMENT] Ajustes salvos na sessão com sucesso');
+
+        if (Object.keys(guestUpdates).length > 1) {
+          await db.update(schema.tableGuests)
+            .set(guestUpdates)
+            .where(eq(schema.tableGuests.id, guestId));
         }
       }
       
@@ -4425,55 +4410,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const guestSubtotalOriginal = parseFloat(guest.subtotal || '0');
       const guestPaid = parseFloat(guest.paidAmount || '0');
       
-      // Buscar ajustes da sessão para calcular o subtotal esperado
-      const session = await db.select().from(tableSessions)
-        .where(eq(tableSessions.id, guest.sessionId))
-        .limit(1);
-      
+      // ✅ Ajustes individuais (por convidado): calcular subtotal esperado a partir do próprio guest
+      const payloadDiscount = discount ? parseFloat(discount) : 0;
+      const payloadDiscountType = discountType || (guest as any).discountType || 'valor';
+      const payloadServiceCharge = serviceCharge ? parseFloat(serviceCharge) : 0;
+      const payloadServiceChargeType = serviceChargeType || (guest as any).serviceChargeType || 'valor';
+
       let guestSubtotalAjustado = guestSubtotalOriginal;
-      
-      if (session.length > 0) {
-        const sessionDiscount = parseFloat(session[0].discount || '0');
-        const sessionDiscountType = session[0].discountType || 'valor';
-        const sessionServiceCharge = parseFloat(session[0].serviceCharge || '0');
-        const sessionServiceChargeType = session[0].serviceChargeType || 'percentual';
-        
-        // Calcular subtotal esperado COM ajustes (para validação)
-        if (sessionDiscount > 0) {
-          if (sessionDiscountType === 'percentual') {
-            guestSubtotalAjustado = guestSubtotalAjustado * (1 - Math.min(sessionDiscount, 100) / 100);
-          } else {
-            // Desconto em valor: distribuir proporcionalmente
-            const allGuests = await storage.getTableGuests(guest.sessionId);
-            const totalSubtotal = allGuests.reduce((sum, g) => sum + parseFloat(g.subtotal || '0'), 0);
-            const guestProportion = guestSubtotalOriginal / totalSubtotal;
-            const guestDiscountShare = sessionDiscount * guestProportion;
-            guestSubtotalAjustado = Math.max(0, guestSubtotalAjustado - guestDiscountShare);
-          }
+
+      // Aplicar desconto individual
+      if (payloadDiscount > 0) {
+        if (payloadDiscountType === 'percentual') {
+          guestSubtotalAjustado = guestSubtotalAjustado * (1 - Math.min(payloadDiscount, 100) / 100);
+        } else {
+          guestSubtotalAjustado = Math.max(0, guestSubtotalAjustado - payloadDiscount);
         }
-        
-        // Aplicar taxa de serviço
-        if (sessionServiceCharge > 0) {
-          if (sessionServiceChargeType === 'percentual') {
-            guestSubtotalAjustado = guestSubtotalAjustado * (1 + sessionServiceCharge / 100);
-          } else {
-            // Taxa em valor: distribuir proporcionalmente
-            const allGuests = await storage.getTableGuests(guest.sessionId);
-            const totalSubtotal = allGuests.reduce((sum, g) => sum + parseFloat(g.subtotal || '0'), 0);
-            const guestProportion = guestSubtotalOriginal / totalSubtotal;
-            const guestChargeShare = sessionServiceCharge * guestProportion;
-            guestSubtotalAjustado = guestSubtotalAjustado + guestChargeShare;
-          }
+      }
+
+      // Aplicar taxa individual
+      if (payloadServiceCharge > 0) {
+        if (payloadServiceChargeType === 'percentual') {
+          guestSubtotalAjustado = guestSubtotalAjustado * (1 + payloadServiceCharge / 100);
+        } else {
+          guestSubtotalAjustado = guestSubtotalAjustado + payloadServiceCharge;
         }
-        
-        console.log('[GuestPayment] Ajustes da sessão:', {
-          subtotalOriginal: guestSubtotalOriginal.toFixed(2),
-          sessionDiscount: sessionDiscount.toFixed(2),
-          sessionDiscountType,
-          sessionServiceCharge: sessionServiceCharge.toFixed(2),
-          sessionServiceChargeType,
-          subtotalAjustado: guestSubtotalAjustado.toFixed(2)
-        });
       }
       
       const guestPending = guestSubtotalAjustado - guestPaid;
@@ -5206,7 +5166,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get orders by guest for a table
   app.get("/api/tables/:id/orders-by-guest", isCashierOrAbove, async (req, res) => {
     try {
-      console.log('🔍 [orders-by-guest] Requisição recebida para mesa:', req.params.id);
       
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
@@ -5231,57 +5190,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // NUNCA incluir pedidos de sessões antigas, mesmo que tenham guestId ou tableId correto
       const currentGuestIds = guests.map(g => g.id);
       
-      console.log('📊 [orders-by-guest] Pedidos antes do filtro:', {
-        totalOrders: allTableOrders.length,
-        currentSessionId: table.currentSessionId,
-        currentGuestIds,
-      });
       
-      const orders = table.currentSessionId 
+      const orders = table.currentSessionId
         ? allTableOrders.filter((order: any) => {
             // ✅ REGRA 1: APENAS pedidos com tableSessionId da sessão atual
             if (order.tableSessionId === table.currentSessionId) {
-              console.log('✅ [orders-by-guest] Incluído (REGRA 1):', { 
-                orderId: order.id, 
-                tableSessionId: order.tableSessionId,
-                guestId: order.guestId || 'NULL' 
-              });
               return true;
             }
-            
-            // ✅ REGRA 2: APENAS pedidos de convidados da sessão atual
-            // E que NÃO tenham tableSessionId (pedidos legados)
+
+            // ✅ REGRA 2: pedidos legados (sem tableSessionId) de convidados da sessão atual
             if (!order.tableSessionId && order.guestId && currentGuestIds.includes(order.guestId)) {
-              console.log('✅ [orders-by-guest] Incluído (REGRA 2):', { orderId: order.id, guestId: order.guestId });
               return true;
             }
-            
+
+            // ✅ REGRA 3 (NOVA): pedidos legados "Mesa Completa" (sem tableSessionId e sem guestId)
+            // Devem ser incluídos se tiverem itens não atribuídos OU itens já atribuídos a convidados da sessão atual.
+            if (!order.tableSessionId && !order.guestId) {
+              const items = order.orderItems || [];
+              const hasUnassignedItems = items.some((it: any) => !it.guestId);
+              const hasItemsAssignedToCurrentGuests = items.some((it: any) => it.guestId && currentGuestIds.includes(it.guestId));
+
+              if (hasUnassignedItems || hasItemsAssignedToCurrentGuests) {
+                return true;
+              }
+            }
+
             // ❌ EXCLUIR: Todos os outros (sessões antigas, pedidos órfãos, etc)
-            console.log('❌ [orders-by-guest] Excluído:', { 
-              orderId: order.id, 
-              tableSessionId: order.tableSessionId,
-              guestId: order.guestId,
-              reason: !order.tableSessionId ? 'Sem tableSessionId e sem guestId válido' : 'Sessão diferente'
-            });
             return false;
           })
         : []; // Se não há sessão ativa, retornar array vazio
       
-      console.log('📊 [orders-by-guest] Pedidos após filtro:', orders.length);
       
       // Helper function to calculate order total from items
       const calculateOrderTotal = (order: any) => {
-        console.log('🧮 [calculateOrderTotal] Calculando:', {
-          orderId: order.id,
-          totalAmount: order.totalAmount,
-          totalAmountType: typeof order.totalAmount,
-          orderItemsCount: order.orderItems?.length || 0,
-          orderItemsExist: !!order.orderItems
-        });
-        
         if (order.totalAmount && parseFloat(order.totalAmount) > 0) {
           const total = parseFloat(order.totalAmount);
-          console.log('✅ [calculateOrderTotal] Usando totalAmount:', total);
           return total;
         }
         
@@ -5291,117 +5234,146 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const itemPrice = parseFloat(item.price || item.menuItem?.price || 0);
           const itemQty = item.quantity || 0;
           const itemTotal = itemPrice * itemQty;
-          console.log('  📦 [Item]:', {
-            itemId: item.id,
-            name: item.name || item.menuItem?.name,
-            price: itemPrice,
-            qty: itemQty,
-            total: itemTotal
-          });
           return sum + itemTotal;
         }, 0);
         
-        console.log('✅ [calculateOrderTotal] Calculado dos itens:', itemsTotal);
         return itemsTotal;
       };
 
-      // Group orders by guestId - ALWAYS include all guests, even without orders
-      const ordersByGuest = guests.map(guest => {
-        const guestOrders = orders.filter((order: any) => order.guestId === guest.id && order.status !== 'cancelado');
-        const subtotal = guestOrders.reduce((sum: number, order: any) => sum + calculateOrderTotal(order), 0);
-        
-        console.log(`👤 [Guest: ${guest.name || guest.guestNumber}] Pedidos encontrados:`, {
-          guestId: guest.id,
-          ordersCount: guestOrders.length,
-          orderIds: guestOrders.map(o => o.id),
-          subtotal: subtotal.toFixed(2)
-        });
+      const normalizeItem = (item: any) => ({
+        ...item,
+        // ✅ Garantir que guestId viaja no payload (crítico para reatribuição)
+        guestId: item.guestId ?? null,
+        orderId: item.orderId ?? undefined,
+        price: item.price || item.menuItem?.price || '0',
+        name: item.name || item.menuItem?.name || 'Item',
+      });
 
-        return {
-          guest,
-          orders: guestOrders.map((order: any) => {
-            const orderTotal = calculateOrderTotal(order);
-            // Map orderItems to items with proper price field
-            const items = (order.orderItems || []).map((item: any) => ({
-              ...item,
-              price: item.price || item.menuItem?.price || '0',
-              name: item.name || item.menuItem?.name || 'Item',
-            }));
-            
+      const calculateItemsTotal = (items: any[]) =>
+        (items || []).reduce((sum: number, item: any) => {
+          const itemPrice = parseFloat(item.price || item.menuItem?.price || '0');
+          const itemQty = item.quantity || 0;
+          return sum + itemPrice * itemQty;
+        }, 0);
+
+      // ✅ FIX: agrupar por guestId do pedido OU, se pedido não tem guestId, por guestId do item
+      const ordersByGuest = guests.map(guest => {
+        const guestOrders = orders
+          .filter((order: any) => {
+            if (order.status === 'cancelado') return false;
+            if (order.guestId === guest.id) return true;
+
+            // Pedido sem guestId: pertence ao guest se houver itens atribuídos a ele
+            if (!order.guestId) {
+              return (order.orderItems || []).some((it: any) => it.guestId === guest.id);
+            }
+
+            return false;
+          })
+          .map((order: any) => {
+            // Pedido normal (com guestId): levar todos os itens
+            if (order.guestId === guest.id) {
+              const items = (order.orderItems || []).map(normalizeItem);
+              const orderTotal = calculateOrderTotal(order);
+              return { ...order, items, totalPrice: orderTotal.toString() };
+            }
+
+            // Pedido sem guestId: criar uma "visão" do pedido apenas com os itens atribuídos a este guest
+            const items = (order.orderItems || [])
+              .filter((it: any) => it.guestId === guest.id)
+              .map(normalizeItem);
+
+            const itemsTotal = calculateItemsTotal(items);
+
             return {
               ...order,
-              items, // Rename orderItems to items with proper fields
-              totalPrice: orderTotal.toString()
+              // garantir id único no frontend (evita colisão caso o mesmo pedido apareça em vários guests)
+              id: `${order.id}:${guest.id}`,
+              originalOrderId: order.id,
+              items,
+              totalPrice: itemsTotal.toString(),
             };
-          }),
+          });
+
+        const subtotal = guestOrders.reduce(
+          (sum: number, order: any) => sum + parseFloat(order.totalPrice || '0'),
+          0
+        );
+
+        // ✅ Total final do convidado (inclui ajustes individuais)
+        const gSubtotal = parseFloat(guest.subtotal || '0');
+        let gAdjusted = gSubtotal;
+
+        const gDiscount = parseFloat((guest as any).discount || '0');
+        const gDiscountType = ((guest as any).discountType || 'valor') as string;
+        const gServiceCharge = parseFloat((guest as any).serviceCharge || '0');
+        const gServiceChargeType = ((guest as any).serviceChargeType || 'valor') as string;
+
+        if (gDiscount > 0) {
+          gAdjusted = gDiscountType === 'percentual'
+            ? gAdjusted * (1 - Math.min(gDiscount, 100) / 100)
+            : Math.max(0, gAdjusted - gDiscount);
+        }
+
+        if (gServiceCharge > 0) {
+          gAdjusted = gServiceChargeType === 'percentual'
+            ? gAdjusted * (1 + gServiceCharge / 100)
+            : gAdjusted + gServiceCharge;
+        }
+
+        return {
+          guest: { ...guest, guestTotal: gAdjusted.toFixed(2) },
+          orders: guestOrders,
           subtotal: subtotal.toFixed(2),
         };
       });
 
-      // 🔧 FIX: Check if there's a "Mesa Completa" guest to attribute anonymous orders to
-      // or keep them separate. The UI expect them inside ordersByGuest if they belong to a guest.
-      
-      // Orders without guest (anonymous) - also include items
+      // Orders sem guest (Mesa Completa): manter APENAS itens ainda não atribuídos (item.guestId null)
       const anonymousOrders = orders
         .filter((order: any) => !order.guestId && order.status !== 'cancelado')
         .map((order: any) => {
-          const orderTotal = calculateOrderTotal(order);
-          // Map orderItems to items with proper price field
-          const items = (order.orderItems || []).map((item: any) => ({
-            ...item,
-            price: item.price || item.menuItem?.price || '0',
-            name: item.name || item.menuItem?.name || 'Item',
-          }));
-          
-          console.log('🔍 [Anonymous Order] Calculando:', {
-            orderId: order.id,
-            orderTotalAmount: order.totalAmount,
-            calculatedTotal: orderTotal,
-            itemsCount: items.length,
-            itemsDetail: items.map(i => ({ name: i.name, price: i.price, qty: i.quantity }))
-          });
-          
+          const totalItemsCount = (order.orderItems || []).length;
+
+          const items = (order.orderItems || [])
+            .filter((it: any) => !it.guestId)
+            .map(normalizeItem);
+
+          const unassignedItemsCount = items.length;
+
+          if (!items.length) return null;
+
+          const itemsTotal = calculateItemsTotal(items);
           return {
             ...order,
-            items, // Rename orderItems to items with proper fields
-            totalPrice: orderTotal.toString()
+            items,
+            totalItemsCount,
+            unassignedItemsCount,
+            totalPrice: itemsTotal.toString(),
           };
-        });
+        })
+        .filter(Boolean);
 
-      // 🔧 NEW: Se houver apenas um guest ou se quisermos mostrar pedidos sem guest como um "Convidado Especial"
       if (anonymousOrders.length > 0) {
-        // Verificar se já existe um entry 'anonymous' em ordersByGuest
         const hasAnonymous = ordersByGuest.some(og => og.guest.id === 'anonymous');
         if (!hasAnonymous) {
-          const anonymousSubtotal = anonymousOrders.reduce((sum, o) => {
+          const anonymousSubtotal = anonymousOrders.reduce((sum: number, o: any) => {
             const orderTotal = parseFloat(o.totalPrice || '0');
-            console.log('💰 [Mesa Completa] Pedido:', { 
-              orderId: o.id, 
-              totalPrice: o.totalPrice,
-              parsed: orderTotal,
-              items: o.items?.length || 0
-            });
-            return sum + orderTotal;
+            return sum + (Number.isFinite(orderTotal) ? orderTotal : 0);
           }, 0);
-          
-          console.log('💰 [Mesa Completa] TOTAL:', {
-            ordersCount: anonymousOrders.length,
-            subtotal: anonymousSubtotal.toFixed(2)
-          });
-          
+
           ordersByGuest.push({
-            guest: { 
-              id: 'anonymous', 
-              name: 'Mesa Completa', 
+            guest: {
+              id: 'anonymous',
+              name: 'Mesa Completa',
               guestNumber: 0,
               status: 'ativo',
               totalSpent: anonymousSubtotal.toFixed(2),
-              paidAmount: '0.00',  // ✅ Mesa Completa nunca tem valor pago individualmente
+              paidAmount: '0.00',
               sessionId: table.currentSessionId,
-              joinedAt: null
+              joinedAt: null,
             },
             orders: anonymousOrders,
-            subtotal: anonymousSubtotal.toFixed(2)
+            subtotal: anonymousSubtotal.toFixed(2),
           });
         }
       }
@@ -5411,72 +5383,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? (await db.select().from(tableSessions).where(eq(tableSessions.id, table.currentSessionId)).limit(1))[0]
         : null;
 
-      // ✅ CORREÇÃO: Calculate total with session adjustments (discount + service fee)
-      // Step 1: Calculate subtotal from orders
+      // ✅ Total da mesa: considerar ajustes de sessão + ajustes individuais por convidado
+      // Base: subtotal dos pedidos da sessão
       const subtotalBeforeAdjustments = orders
         .filter((o: any) => o.status !== 'cancelado')
         .reduce((sum: number, o: any) => sum + calculateOrderTotal(o), 0);
 
-      // Step 2: Get session adjustments
+      // Ajustes globais da sessão (se existirem)
       const sessionDiscount = parseFloat(session?.discount || '0');
       const sessionDiscountType = session?.discountType || 'valor';
       const sessionServiceCharge = parseFloat(session?.serviceCharge || '0');
       const sessionServiceChargeType = session?.serviceChargeType || 'percentual';
 
-      // Step 3: Apply discount
-      let totalAmount = subtotalBeforeAdjustments;
+      let totalAfterSession = subtotalBeforeAdjustments;
       if (sessionDiscount > 0) {
         if (sessionDiscountType === 'percentual') {
           const discountPercent = Math.min(sessionDiscount, 100);
-          totalAmount = totalAmount * (1 - discountPercent / 100);
+          totalAfterSession = totalAfterSession * (1 - discountPercent / 100);
         } else {
-          totalAmount = Math.max(0, totalAmount - sessionDiscount);
+          totalAfterSession = Math.max(0, totalAfterSession - sessionDiscount);
         }
       }
 
-      // Step 4: Apply service charge (on discounted amount)
       if (sessionServiceCharge > 0) {
         if (sessionServiceChargeType === 'percentual') {
-          totalAmount = totalAmount * (1 + sessionServiceCharge / 100);
+          totalAfterSession = totalAfterSession * (1 + sessionServiceCharge / 100);
         } else {
-          totalAmount = totalAmount + sessionServiceCharge;
+          totalAfterSession = totalAfterSession + sessionServiceCharge;
         }
       }
 
-      // 🔍 DEBUG: Log dos valores retornados COM ajustes e filtros
-      console.log(`\n🔍 [orders-by-guest] Mesa ${req.params.id}:`, {
-        sessionId: table.currentSessionId,
-        allTableOrdersCount: allTableOrders.length,
-        filteredOrdersCount: orders.length,
-        currentGuestIds,
-        ordersBreakdown: orders.map(o => ({
-          id: o.id,
-          tableSessionId: o.tableSessionId,
-          guestId: o.guestId,
-          status: o.status,
-          total: calculateOrderTotal(o).toFixed(2)
-        })),
-        subtotalBeforeAdjustments: subtotalBeforeAdjustments.toFixed(2),
-        sessionDiscount: sessionDiscount.toFixed(2),
-        sessionDiscountType,
-        sessionServiceCharge: sessionServiceCharge.toFixed(2),
-        sessionServiceChargeType,
-        totalAmount: totalAmount.toFixed(2),
-        paidAmount: session?.paidAmount || '0.00',
-        sessionData: session ? { 
-          id: session.id, 
-          discount: session.discount,
-          serviceCharge: session.serviceCharge,
-          paidAmount: session.paidAmount 
-        } : null
+      // Ajustes individuais por convidado (não ratear)
+      const hasAnyGuestAdjustments = guests.some((g: any) => {
+        const d = parseFloat(g.discount || '0');
+        const s = parseFloat(g.serviceCharge || '0');
+        return (Number.isFinite(d) && d > 0) || (Number.isFinite(s) && s > 0);
       });
-      
-      console.log(`📊 [orders-by-guest] RESUMO FINAL:`, {
-        'Total (com ajustes)': totalAmount.toFixed(2),
-        'Pago (da sessão)': session?.paidAmount || '0.00',
-        'Pendente': (totalAmount - parseFloat(session?.paidAmount || '0')).toFixed(2),
-        'Status': (totalAmount - parseFloat(session?.paidAmount || '0')) <= 0 ? '✅ PAGO' : '⚠️ PENDENTE'
-      });
+
+      const totalFromGuestsWithIndividualAdjustments = guests.reduce((sum, g: any) => {
+        const gSubtotal = parseFloat(g.subtotal || '0');
+        let adjusted = gSubtotal;
+
+        const gDiscount = parseFloat(g.discount || '0');
+        const gDiscountType = g.discountType || 'valor';
+        const gServiceCharge = parseFloat(g.serviceCharge || '0');
+        const gServiceChargeType = g.serviceChargeType || 'valor';
+
+        if (gDiscount > 0) {
+          adjusted = gDiscountType === 'percentual'
+            ? adjusted * (1 - Math.min(gDiscount, 100) / 100)
+            : Math.max(0, adjusted - gDiscount);
+        }
+
+        if (gServiceCharge > 0) {
+          adjusted = gServiceChargeType === 'percentual'
+            ? adjusted * (1 + gServiceCharge / 100)
+            : adjusted + gServiceCharge;
+        }
+
+        return sum + adjusted;
+      }, 0);
+
+      const anonymousSubtotal = (anonymousOrders || []).reduce((sum: number, o: any) => {
+        const v = parseFloat(o.totalPrice || '0');
+        return sum + (Number.isFinite(v) ? v : 0);
+      }, 0);
+
+      // ✅ Regra: se existir qualquer ajuste individual, o total da mesa vira a soma dos totais finais por convidado
+      // (mais a parte ainda não atribuída da Mesa Completa). Caso contrário, usa o total global da sessão.
+      const totalAmount = hasAnyGuestAdjustments
+        ? (totalFromGuestsWithIndividualAdjustments + anonymousSubtotal)
+        : totalAfterSession;
 
       res.json({
         ordersByGuest,
@@ -6895,11 +6872,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Reassign order item to different guest
   app.patch("/api/order-items/:itemId/reassign", isAuthenticated, async (req, res) => {
     try {
-      console.log('🔧 [Reassign] Recebida requisição:', {
-        itemId: req.params.itemId,
-        body: req.body,
-      });
-      
       const currentUser = req.user as User;
       if (!currentUser.restaurantId) {
         console.error('❌ [Reassign] Usuário sem restaurante');
@@ -6908,8 +6880,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const restaurantId = currentUser.restaurantId;
       const { newGuestId, reason, quantity } = reassignOrderItemSchema.parse(req.body);
-      
-      console.log('📝 [Reassign] Dados parseados:', { newGuestId, reason, quantity, restaurantId });
       
       // Get the order item to verify it exists and get its order
       const orderItem = await db.query.orderItems.findFirst({
@@ -6961,39 +6931,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const oldGuestId = orderItem.guestId;
       
+      let movedItemId: string = req.params.itemId;
+      let movedQuantity: number = orderItem.quantity;
+
       // Se quantidade especificada e menor que total, dividir o item
       if (quantity && quantity < orderItem.quantity) {
-        console.log(`📊 [Reassign] Dividindo item: movendo ${quantity} de ${orderItem.quantity} unidades`);
-        
         // 1. Criar novo item com a quantidade a mover
         const newItemId = crypto.randomUUID();
-        await db.insert(orderItems).values({
-          id: newItemId,
-          orderId: orderItem.orderId,
-          menuItemId: orderItem.menuItemId,
-          name: orderItem.name,
-          quantity: quantity,
-          price: orderItem.price,
-          totalPrice: (parseFloat(orderItem.price) * quantity).toString(),
-          guestId: newGuestId,
-        });
-        
+        movedItemId = newItemId;
+        movedQuantity = quantity;
+
+        const [inserted] = await db
+          .insert(orderItems)
+          .values({
+            id: newItemId,
+            orderId: orderItem.orderId,
+            menuItemId: orderItem.menuItemId,
+            name: orderItem.name,
+            quantity: quantity,
+            price: orderItem.price,
+            totalPrice: (parseFloat(orderItem.price) * quantity).toString(),
+            guestId: newGuestId,
+          })
+          .returning({ id: orderItems.id, guestId: orderItems.guestId, quantity: orderItems.quantity });
+
+        if (!inserted || inserted.guestId !== newGuestId) {
+          return res.status(500).json({ message: 'Falha ao criar item dividido' });
+        }
+
         // 2. Reduzir quantidade do item original
         const remainingQuantity = orderItem.quantity - quantity;
-        await db.update(orderItems)
-          .set({ 
+        const [updatedOriginal] = await db
+          .update(orderItems)
+          .set({
             quantity: remainingQuantity,
-            totalPrice: (parseFloat(orderItem.price) * remainingQuantity).toString()
+            totalPrice: (parseFloat(orderItem.price) * remainingQuantity).toString(),
           })
-          .where(eq(orderItems.id, req.params.itemId));
-        
-        console.log(`✅ [Reassign] Item dividido: ${quantity} unidades movidas, ${remainingQuantity} permaneceram`);
+          .where(eq(orderItems.id, req.params.itemId))
+          .returning({ id: orderItems.id, quantity: orderItems.quantity, guestId: orderItems.guestId });
+
+        if (!updatedOriginal) {
+          return res.status(500).json({ message: 'Falha ao atualizar quantidade do item original' });
+        }
       } else {
         // Mover o item inteiro
-        console.log(`📦 [Reassign] Movendo item completo (${orderItem.quantity} unidades)`);
-        await db.update(orderItems)
+        const [updated] = await db
+          .update(orderItems)
           .set({ guestId: newGuestId })
-          .where(eq(orderItems.id, req.params.itemId));
+          .where(eq(orderItems.id, req.params.itemId))
+          .returning({ id: orderItems.id, guestId: orderItems.guestId, quantity: orderItems.quantity });
+
+        if (!updated) {
+          return res.status(404).json({ message: 'Item do pedido não encontrado para atualização' });
+        }
+        if (updated.guestId !== newGuestId) {
+          return res.status(500).json({ message: 'Falha ao mover item (guestId não atualizado)' });
+        }
       }
       
       // Get menu item details for audit log
@@ -7008,7 +7001,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.recalculateGuestTotal(restaurantId, newGuestId);
       
       // Create audit log
-      console.log('📝 [Reassign] Criando audit log...');
       await db.insert(orderItemAuditLogs).values({
         restaurantId,
         orderItemId: orderItem.id,
@@ -7034,8 +7026,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       });
-      console.log('✅ [Reassign] Audit log criado!');
-      
       // Broadcast changes
       broadcastToClients({ 
         type: 'order_items_changed', 
@@ -7047,11 +7037,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      res.json({ 
+      res.json({
         success: true,
         message: "Item movido com sucesso",
         oldGuestId,
         newGuestId,
+        movedItemId,
+        movedQuantity,
+        orderId: orderItem.orderId,
+        sessionId: orderItem.order.tableSessionId,
       });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';

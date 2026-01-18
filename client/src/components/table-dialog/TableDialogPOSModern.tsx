@@ -127,7 +127,6 @@ export function TableDialogPOSModern({
   // 🔧 FIX: Forçar refetch imediato quando diálogo abre (para sincronizar após pagamento)
   useEffect(() => {
     if (open && table?.id) {
-      console.log('🔍 [TableDialogPOSModern] Diálogo aberto, forçando refetch imediato');
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/orders-by-guest`] });
       if (table.currentSessionId) {
@@ -187,7 +186,6 @@ export function TableDialogPOSModern({
         
         // If user can force close, show option (future enhancement)
         if (error.canForceClose) {
-          console.warn('User can force close this session.');
         }
       } else {
         toast({
@@ -251,28 +249,10 @@ export function TableDialogPOSModern({
   
   // Log completo dos ajustes
   if (sessionDiscount > 0 || sessionServiceFee > 0) {
-    console.log('💰 [TableDialogPOSModern] Ajustes aplicados:', {
-      subtotalBeforeAdjustments: subtotalBeforeAdjustments.toFixed(2),
-      sessionDiscount: sessionDiscount.toFixed(2),
-      sessionDiscountType,
-      sessionServiceFee: sessionServiceFee.toFixed(2),
-      sessionServiceFeeType,
-      totalAmount: totalAmount.toFixed(2)
-    });
   }
   
   // ✅ FIX: Use sessionPaidAmount from hook (comes from session.paidAmount)
   const totalPaid = sessionPaidAmount || 0;
-  
-  // Log de debug após definir totalPaid
-  console.log('🔍 [TableDialogPOSModern] Session check:', {
-    currentSessionId: currentTable?.currentSessionId,
-    guestsCount,
-    hasActiveSession,
-    status: currentTable?.status,
-    sessionPaidAmount, // ✅ FIX: Show paidAmount from session
-    totalPaid, // ✅ FIX: Show calculated totalPaid
-  });
   
   // Calcular duração da sessão
   const sessionDuration = currentTable?.currentSessionId && currentTable?.currentSession?.startedAt
@@ -1033,8 +1013,14 @@ export function TableDialogPOSModern({
                                   // Calcular se valores estão equilibrados
                                   const avgAmount = totalAmount / guestsCount;
                                   const threshold = avgAmount * 0.3;
-                                  const isBalanced = ordersByGuest?.every((og: any) => 
-                                    Math.abs((og.totalAmount || 0) - avgAmount) <= threshold
+                                  const getOgAmount = (og: any) => {
+                                    const raw = og?.subtotal ?? og?.totalAmount ?? 0;
+                                    const n = typeof raw === 'number' ? raw : parseFloat(raw);
+                                    return Number.isFinite(n) ? n : 0;
+                                  };
+
+                                  const isBalanced = ordersByGuest?.every((og: any) =>
+                                    Math.abs(getOgAmount(og) - avgAmount) <= threshold
                                   );
                                   
                                   if (isBalanced) {
@@ -1098,13 +1084,28 @@ export function TableDialogPOSModern({
                             }
                           };
                           
+                          const getOgAmount = (og: any) => {
+                            const raw = og?.subtotal ?? og?.totalAmount ?? 0;
+                            const n = typeof raw === 'number' ? raw : parseFloat(raw);
+                            return Number.isFinite(n) ? n : 0;
+                          };
+
+                          const orderedForPreview = (() => {
+                            // Sempre priorizar mostrar "Mesa Completa" (guest.id === 'anonymous')
+                            const anonymous = ordersByGuest?.find((og: any) => og?.guest?.id === 'anonymous');
+                            const rest = (ordersByGuest || []).filter((og: any) => og?.guest?.id !== 'anonymous');
+                            return anonymous ? [anonymous, ...rest] : rest;
+                          })();
+
                           return (
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                              {ordersByGuest?.slice(0, 4).map((og: any) => {
-                                const indicator = getBalanceIndicator(og.totalAmount || 0);
+                              {orderedForPreview.slice(0, 4).map((og: any) => {
+                                const ogAmount = getOgAmount(og);
+                                const indicator = getBalanceIndicator(ogAmount);
+
                                 return (
-                                  <Card 
-                                    key={og.guest.id} 
+                                  <Card
+                                    key={og.guest.id}
                                     className={cn(
                                       "border-2 transition-all hover:shadow-md",
                                       indicator.borderColor,
@@ -1120,21 +1121,27 @@ export function TableDialogPOSModern({
                                           </p>
                                         </div>
                                       </div>
-                                      
+
                                       <div className="flex items-baseline justify-between mb-2">
                                         <p className={cn("text-2xl font-bold", indicator.color)}>
-                                          {formatKwanza(og.totalAmount || 0)}
+                                          {formatKwanza(ogAmount)}
                                         </p>
                                       </div>
-                                      
+
                                       <div className="flex items-center justify-between">
                                         <p className="text-xs text-muted-foreground">
-                                          {og.orders?.reduce((sum: number, order: any) => 
-                                            sum + (order.items?.length || 0), 0
-                                          )} {og.orders?.reduce((sum: number, order: any) => 
-                                            sum + (order.items?.length || 0), 0) === 1 ? 'item' : 'itens'}
+                                          {og.orders?.reduce(
+                                            (sum: number, order: any) => sum + (order.items?.length || 0),
+                                            0
+                                          )}{' '}
+                                          {og.orders?.reduce(
+                                            (sum: number, order: any) => sum + (order.items?.length || 0),
+                                            0
+                                          ) === 1
+                                            ? 'item'
+                                            : 'itens'}
                                         </p>
-                                        <Badge 
+                                        <Badge
                                           variant={indicator.variant}
                                           className="text-xs px-2 py-0"
                                           title={indicator.tooltip}
@@ -1146,19 +1153,20 @@ export function TableDialogPOSModern({
                                   </Card>
                                 );
                               })}
-                            {guestsCount > 4 && (
-                              <Card className="border-2 border-dashed">
-                                <CardContent className="p-4 flex items-center justify-center h-full">
-                                  <div className="text-center">
-                                    <p className="text-sm font-medium text-muted-foreground">
-                                      +{guestsCount - 4} mais
-                                    </p>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            )}
-                          </div>
-                        );
+
+                              {orderedForPreview.length > 4 && (
+                                <Card className="border-2 border-dashed">
+                                  <CardContent className="p-4 flex items-center justify-center h-full">
+                                    <div className="text-center">
+                                      <p className="text-sm font-medium text-muted-foreground">
+                                        +{orderedForPreview.length - 4} mais
+                                      </p>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              )}
+                            </div>
+                          );
                         })()}
                         
                         {!hasActiveSession ? (
