@@ -75,7 +75,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
   const ordersByGuest = ordersData?.ordersByGuest || [];
   const hasGuests = ordersByGuest.length > 0;
   const tablePaidAmount = parseFloat(ordersData?.paidAmount || '0');
-  const remainingTotal = totalAmount - tablePaidAmount;
+  const remainingTotal = Math.max(0, totalAmount - tablePaidAmount);
 
   // Calculate adjusted total for a guest
   const calculateGuestAdjustedTotal = (guestId: string, baseAmount: number) => {
@@ -352,7 +352,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
                     </div>
                   )}
                   <Separator />
-                  <div className="flex justify-between text-xl font-bold text-orange-600">
+                  <div className={"flex justify-between text-xl font-bold " + (remainingTotal > 0 ? 'text-orange-600' : 'text-green-600')}>
                     <span>A Pagar:</span>
                     <span>{formatKwanza(remainingTotal)}</span>
                   </div>

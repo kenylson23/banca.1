@@ -63,6 +63,7 @@ export function OverviewSection({
 
   // Calcular total real somando todos os pedidos (incluindo Mesa Completa)
   const realTotalAmount = ordersByGuest?.reduce((sum, og) => sum + parseFloat(og.subtotal || '0'), 0) || 0;
+  const realPaidAmount = ordersByGuest?.reduce((sum, og) => sum + parseFloat(og.guest?.paidAmount || '0'), 0) || 0;
   const realOrdersCount = ordersByGuest?.reduce((sum, og) => sum + (og.orders?.length || 0), 0) || 0;
 
   return (
@@ -92,10 +93,13 @@ export function OverviewSection({
             </div>
             {table.status !== 'livre' && (
               <div className="text-right">
-                <div className="text-sm text-muted-foreground">Tempo de sessão</div>
-                <div className="text-2xl font-bold text-primary flex items-center gap-2">
-                  <Clock className="w-5 h-5" />
-                  {sessionDuration}
+                <div className="text-sm text-muted-foreground">Pendente</div>
+                <div className={cn(
+                  "text-2xl font-bold flex items-center gap-2",
+                  realTotalAmount - realPaidAmount > 0 ? "text-orange-600" : "text-green-600"
+                )}>
+                  <DollarSign className="w-5 h-5" />
+                  {formatKwanza(Math.max(0, realTotalAmount - realPaidAmount))}
                 </div>
               </div>
             )}

@@ -232,6 +232,8 @@ export function TableGuestsManager({ table, onCheckoutGuest, onCheckoutAll }: Ta
   }
 
   const tableTotal = parseFloat(ordersData?.totalAmount || '0');
+  const tablePaidAmount = parseFloat(ordersData?.paidAmount || '0');
+  const tableRemaining = Math.max(0, tableTotal - tablePaidAmount);
   const paidGuests = guestsWithOrders.filter(g => g.guest.status === 'pago').length;
 
   return (
@@ -255,7 +257,23 @@ export function TableGuestsManager({ table, onCheckoutGuest, onCheckoutAll }: Ta
               <div className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                 {formatKwanza(tableTotal)}
               </div>
-              <div className="flex items-center justify-end gap-2 mt-1">
+              <div className="mt-2 space-y-1 text-sm">
+                {tablePaidAmount > 0 && (
+                  <div className="flex items-center justify-end gap-2 text-green-600 dark:text-green-400">
+                    <span>Pago:</span>
+                    <span className="font-semibold">{formatKwanza(tablePaidAmount)}</span>
+                  </div>
+                )}
+                {tableTotal > 0 && (
+                  <div className="flex items-center justify-end gap-2 font-semibold">
+                    <span>Restante:</span>
+                    <span className={tableRemaining > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}>
+                      {formatKwanza(tableRemaining)}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-end gap-2 mt-2">
                 {paidGuests > 0 && (
                   <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100">
                     <CheckIcon className="w-3 h-3 mr-1" weight="bold" />

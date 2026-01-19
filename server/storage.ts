@@ -1457,6 +1457,30 @@ export class DatabaseStorage implements IStorage {
                 .where(eq(tableSessions.id, table.currentSessionId))
                 .limit(1);
               currentSession = sessionResult[0] || null;
+
+              // ✅ Recalcular paidAmount a partir dos pagamentos reais
+              if (currentSession) {
+                const payments = await db.select()
+                  .from(tablePayments)
+                  .where(eq(tablePayments.sessionId, currentSession.id));
+
+                const totalPaidFromPayments = payments.reduce(
+                  (sum, payment) => sum + parseFloat(payment.amount || '0'),
+                  0
+                );
+
+                const currentPaid = parseFloat(currentSession.paidAmount || '0');
+                if (Math.abs(totalPaidFromPayments - currentPaid) > 0.009) {
+                  await db.update(tableSessions)
+                    .set({ paidAmount: totalPaidFromPayments.toFixed(2) })
+                    .where(eq(tableSessions.id, currentSession.id));
+
+                  currentSession = {
+                    ...currentSession,
+                    paidAmount: totalPaidFromPayments.toFixed(2),
+                  };
+                }
+              }
             }
             
             return {

@@ -50,6 +50,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { PaymentSuccessDialog } from "@/components/PaymentSuccessDialog";
 import { CheckoutSummaryPanel } from "@/components/CheckoutSummaryPanel";
+import { QUERY_KEYS } from "@/lib/queryKeys";
+import { invalidateAfterPayment } from "@/lib/tableInvalidations";
 
 // Step definitions
 const STEPS = [
@@ -166,7 +168,7 @@ export default function TableCheckoutV2() {
   
   // Fetch data - Otimizado para carregar em paralelo
   const { data: tablesData, isLoading: loadingTables } = useQuery<any[]>({
-    queryKey: ['/api/tables/with-orders'],
+    queryKey: QUERY_KEYS.tables.withOrders(),
     staleTime: 30000, // Cache por 30s para evitar recarregamentos desnecessários
   });
   
@@ -176,7 +178,7 @@ export default function TableCheckoutV2() {
   
   // ✅ OTIMIZAÇÃO: Usar React Query em vez de fetch direto
   const { data: sessionData } = useQuery({
-    queryKey: [`/api/tables/${id}/sessions`, table?.currentSessionId],
+    queryKey: QUERY_KEYS.tables.sessions(id ?? ''),
     queryFn: async () => {
       const res = await fetch(`/api/tables/${id}/sessions`);
       const sessions = await res.json();
@@ -195,7 +197,7 @@ export default function TableCheckoutV2() {
 
   // Fetch restaurant data
   const { data: restaurant } = useQuery({
-    queryKey: [`/api/restaurants/${table?.restaurantId}`],
+    queryKey: ['/api/restaurants', table?.restaurantId],
     queryFn: async () => {
       if (!table?.restaurantId) return null;
       const res = await fetch(`/api/restaurants/${table.restaurantId}`);
@@ -282,8 +284,8 @@ export default function TableCheckoutV2() {
         }),
       });
 
-      await queryClient.invalidateQueries({ queryKey: [`/api/tables/${id}/sessions`, table?.currentSessionId] });
-      await queryClient.refetchQueries({ queryKey: [`/api/tables/${id}/sessions`, table?.currentSessionId] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tables.sessions(id ?? '') });
+      await queryClient.refetchQueries({ queryKey: QUERY_KEYS.tables.sessions(id ?? '') });
 
       toast({
         title: 'Ajustes globais removidos',
@@ -300,10 +302,43 @@ export default function TableCheckoutV2() {
     }
   }, [table?.currentSessionId, id, queryClient, toast]);
 
+  const recalculateOpenSessionsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/sessions/recalculate-open', { method: 'POST' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.message || 'Falha ao recalcular sessões');
+      }
+
+      return data;
+    },
+    onSuccess: async (data) => {
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tables.withOrders() });
+      if (id) {
+        await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tables.ordersByGuest(id) });
+        await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tables.sessions(id) });
+        await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tables.detail(id) });
+      }
+
+      toast({
+        title: 'Sessões recalculadas',
+        description: `Atualizadas ${data?.updated ?? 0} sessões abertas.`,
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Erro ao recalcular sessões',
+        description: err?.message || 'Não foi possível recalcular as sessões abertas.',
+        variant: 'destructive',
+      });
+    },
+  });
+
   
   // ✅ OTIMIZAÇÃO: Carregar orders em paralelo, não esperar pela table
   const { data: ordersByGuestData, isLoading: loadingOrders } = useQuery<OrdersByGuestData>({
-    queryKey: [`/api/tables/${id}/orders-by-guest`],
+    queryKey: QUERY_KEYS.tables.ordersByGuest(id ?? ''),
     enabled: !!id, // Remover dependência de table?.currentSessionId
     staleTime: 10000, // Cache por 10s
   });
@@ -362,7 +397,7 @@ export default function TableCheckoutV2() {
   
   // ✅ OTIMIZAÇÃO: Lazy load apenas quando necessário (Step 2)
   const { data: customers = [] } = useQuery<any[]>({
-    queryKey: ['/api/customers'],
+    queryKey: QUERY_KEYS.customers.all(),
     enabled: currentStep >= 2, // Só carregar no Step 2+
     staleTime: 60000, // Cache por 1min
   });
@@ -387,7 +422,7 @@ export default function TableCheckoutV2() {
       // Prefetch em background após 2s (usuário provavelmente vai revisar primeiro)
       const timer = setTimeout(() => {
         queryClient.prefetchQuery({
-          queryKey: ['/api/customers'],
+          queryKey: QUERY_KEYS.customers.all(),
           staleTime: 60000,
         });
         queryClient.prefetchQuery({
@@ -440,7 +475,7 @@ export default function TableCheckoutV2() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/customers'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.customers.all() });
       toast({ 
         title: "Pontos resgatados!",
         description: `${loyaltyPointsToRedeem} pontos resgatados com sucesso`,
@@ -720,22 +755,24 @@ export default function TableCheckoutV2() {
       
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       console.log('🔍 [CHECKOUT] Pagamento processado com sucesso:', data);
       setPaymentData(data);
       setShowSuccessDialog(true);
       
+      if (!id) return;
+
       // Invalidar múltiplas queries para sincronizar tudo
       console.log('🔍 [CHECKOUT] Invalidando queries para mesa:', id);
-      queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tables', id, 'payments'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/table-sessions'] });
-      queryClient.invalidateQueries({ queryKey: [`/api/tables/${id}/orders-by-guest`] }); // Para TableDetailsDialog e QuickOrder
-      queryClient.invalidateQueries({ queryKey: ['tables'] }); // Lista de mesas
-      queryClient.invalidateQueries({ queryKey: [`/api/tables/${id}/guests`] }); // Guests
-      queryClient.invalidateQueries({ queryKey: [`/api/tables/${id}`] }); // 🔧 FIX: Invalidar dados da mesa específica
-      queryClient.invalidateQueries({ queryKey: [`/api/table-sessions/${table.currentSessionId}/guests`] }); // 🔧 FIX: Convidados da sessão
+      invalidateAfterPayment(queryClient, id);
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tables.ordersByGuest(id) }); // Para TableDetailsDialog e QuickOrder
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tables.sessions(id) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tables.detail(id) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tables.withOrders() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tables.open() });
       
+      await queryClient.refetchQueries({ queryKey: QUERY_KEYS.tables.ordersByGuest(id) });
+
       console.log('🔍 [CHECKOUT] Queries invalidadas. TableDetailsDialog deve refetch agora.');
     },
     onError: (error: any) => {
@@ -844,6 +881,10 @@ export default function TableCheckoutV2() {
   const paidAmount = ordersByGuestData?.paidAmount 
     ? Number(ordersByGuestData.paidAmount)
     : 0;
+  const totalForPending = ordersByGuestData?.totalAmount && Number(ordersByGuestData.totalAmount) > 0
+    ? Number(ordersByGuestData.totalAmount)
+    : calculateTotals.finalTotal;
+  const remainingAmount = Math.max(0, totalForPending - paidAmount);
   const hasGuests = ordersByGuest.length > 0;
 
   // ✅ OTIMIZAÇÃO CRÍTICA: Só carregar services no Step 3+ (não no Step 1)
@@ -2809,9 +2850,21 @@ export default function TableCheckoutV2() {
             <div className="sticky top-24">
               <Card className="bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-950 dark:to-slate-900 border-slate-700/50 shadow-2xl text-white">
                 <CardHeader className="border-b border-slate-700/50">
-                  <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-yellow-400" />
-                    Resumo do Pedido
+                  <CardTitle className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-yellow-400" />
+                      Resumo do Pedido
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-slate-600 text-white/90 hover:text-white"
+                      onClick={() => recalculateOpenSessionsMutation.mutate()}
+                      disabled={recalculateOpenSessionsMutation.isPending}
+                    >
+                      {recalculateOpenSessionsMutation.isPending ? 'Recalculando...' : 'Recalcular Sessões'}
+                    </Button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 space-y-4">
@@ -2874,7 +2927,7 @@ export default function TableCheckoutV2() {
                       <Separator className="bg-white/10" />
                       
                       {/* Total */}
-                      <div className="pt-2">
+                      <div className="pt-2 space-y-3">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-lg font-bold text-white">TOTAL</span>
                           <div className="text-right">
@@ -2892,6 +2945,21 @@ export default function TableCheckoutV2() {
                         {calculateTotals.totalDiscounts > 0 && (
                           <div className="text-xs text-green-400 text-right">
                             Você economizou {formatKwanza(calculateTotals.totalDiscounts)}
+                          </div>
+                        )}
+
+                        {paidAmount > 0 && (
+                          <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2 text-sm">
+                            <div className="flex items-center justify-between text-white/70">
+                              <span>Pago</span>
+                              <span className="font-semibold text-white">{formatKwanza(paidAmount)}</span>
+                            </div>
+                            <div className="flex items-center justify-between font-semibold">
+                              <span>Restante</span>
+                              <span className={remainingAmount > 0 ? 'text-orange-400' : 'text-green-400'}>
+                                {formatKwanza(remainingAmount)}
+                              </span>
+                            </div>
                           </div>
                         )}
                       </div>

@@ -137,9 +137,12 @@ export function PaymentSection({
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
+      // Invalidação abrangente para garantir que todos os componentes vejam os novos dados
+      queryClient.invalidateQueries({ queryKey: ["/api/tables"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/orders-by-guest`] });
-      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/guests`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tables/with-orders"] });
       
       const wasPartialPayment = customAmount && parseFloat(customAmount) > 0 && parseFloat(customAmount) < totalUnpaid;
       
@@ -209,8 +212,11 @@ export function PaymentSection({
   });
   
   // 🔧 FIX: Usar o valor da sessão, não dos convidados individuais
-  const totalPaid = sessionPaidAmount;
-  const totalUnpaid = totalAmount - totalPaid;
+  const paidFromGuests = ordersByGuest?.reduce((sum: number, og: any) => {
+    return sum + parseFloat(og.guest?.paidAmount || '0');
+  }, 0) || 0;
+  const totalPaid = Math.max(sessionPaidAmount, paidFromGuests);
+  const totalUnpaid = Math.max(0, totalAmount - totalPaid);
   
   // ✅ NOVO: Verificar se pagamento está completo (tolerância de 1 Kz)
   // 🔧 FIX: Apenas considerar completo se há valor total E foi pago

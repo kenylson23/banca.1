@@ -252,7 +252,10 @@ export function TableDialogPOSModern({
   }
   
   // ✅ FIX: Use sessionPaidAmount from hook (comes from session.paidAmount)
-  const totalPaid = sessionPaidAmount || 0;
+  const paidFromGuests = (ordersByGuest || []).reduce((sum: number, og: any) => {
+    return sum + parseFloat(og.guest?.paidAmount || '0');
+  }, 0);
+  const totalPaid = Math.max(sessionPaidAmount || 0, paidFromGuests);
   
   // Calcular duração da sessão
   const sessionDuration = currentTable?.currentSessionId && currentTable?.currentSession?.startedAt

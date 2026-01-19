@@ -4480,7 +4480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // ✅ FIX: Create guest payment directly (without addTablePayment that distributes to all guests)
       // First, create the table payment record for financial tracking (but don't use addTablePayment)
-      const [tablePayment] = await db.insert(schema.tablePayments).values({
+      const [tablePayment] = await db.insert(tablePayments).values({
         restaurantId,
         tableId: guest.tableId,
         sessionId: guest.sessionId,
@@ -4504,8 +4504,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ✅ FIX: Update session paidAmount from actual payments, not guest.paidAmount
       // This prevents double-counting if guest.paidAmount was already updated
       const allPaymentsInSession = await db.select()
-        .from(schema.tablePayments)
-        .where(eq(schema.tablePayments.sessionId, guest.sessionId));
+        .from(tablePayments)
+        .where(eq(tablePayments.sessionId, guest.sessionId));
       
       const totalPaidFromPayments = allPaymentsInSession.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0);
       
@@ -4536,7 +4536,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         let totalAmountAjustado = subtotalBeforeAdjustments;
         
-        // Aplicar desconto
+        // Aplicar desconto global da sessão
         if (sessionDiscount > 0) {
           if (sessionDiscountType === 'percentual') {
             totalAmountAjustado = totalAmountAjustado * (1 - Math.min(sessionDiscount, 100) / 100);
@@ -4545,7 +4545,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
-        // Aplicar taxa
+        // Aplicar taxa global da sessão
         if (sessionServiceCharge > 0) {
           if (sessionServiceChargeType === 'percentual') {
             totalAmountAjustado = totalAmountAjustado * (1 + sessionServiceCharge / 100);
@@ -4553,21 +4553,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
             totalAmountAjustado = totalAmountAjustado + sessionServiceCharge;
           }
         }
+
+        // Se houver ajustes individuais, o total da sessão deve refletir a soma ajustada por convidado
+        const hasGuestAdjustments = allGuests.some((g: any) => {
+          const d = parseFloat(g.discount || '0');
+          const s = parseFloat(g.serviceCharge || '0');
+          return (Number.isFinite(d) && d > 0) || (Number.isFinite(s) && s > 0);
+        });
+
+        if (hasGuestAdjustments) {
+          totalAmountAjustado = allGuests.reduce((sum, g: any) => {
+            let adjusted = parseFloat(g.subtotal || '0');
+            const gDiscount = parseFloat(g.discount || '0');
+            const gDiscountType = g.discountType || 'valor';
+            const gServiceCharge = parseFloat(g.serviceCharge || '0');
+            const gServiceChargeType = g.serviceChargeType || 'valor';
+
+            if (gDiscount > 0) {
+              adjusted = gDiscountType === 'percentual'
+                ? adjusted * (1 - Math.min(gDiscount, 100) / 100)
+                : Math.max(0, adjusted - gDiscount);
+            }
+
+            if (gServiceCharge > 0) {
+              adjusted = gServiceChargeType === 'percentual'
+                ? adjusted * (1 + gServiceCharge / 100)
+                : adjusted + gServiceCharge;
+            }
+
+            return sum + adjusted;
+          }, 0);
+        }
         
         console.log('🎯 [GUEST PAYMENT] Calculando totalAmount da sessão COM ajustes:', {
           subtotalBeforeAdjustments: subtotalBeforeAdjustments.toFixed(2),
           sessionDiscount: sessionDiscount.toFixed(2),
           sessionServiceCharge: sessionServiceCharge.toFixed(2),
-          totalAmountAjustado: totalAmountAjustado.toFixed(2)
+          totalAmountAjustado: totalAmountAjustado.toFixed(2),
+          hasGuestAdjustments
         });
         
         // Atualizar sessão com totalAmount E paidAmount
-        await db.update(schema.tableSessions)
+        await db.update(tableSessions)
           .set({ 
             totalAmount: totalAmountAjustado.toFixed(2),
             paidAmount: totalPaidFromPayments.toFixed(2)
           })
-          .where(eq(schema.tableSessions.id, guest.sessionId));
+          .where(eq(tableSessions.id, guest.sessionId));
         
         console.log('🎯 [GUEST PAYMENT] ✅ Sessão atualizada:', {
           totalAmount: totalAmountAjustado.toFixed(2),
@@ -4576,9 +4608,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } else {
         // Fallback: atualizar apenas paidAmount
-        await db.update(schema.tableSessions)
+        await db.update(tableSessions)
           .set({ paidAmount: totalPaidFromPayments.toFixed(2) })
-          .where(eq(schema.tableSessions.id, guest.sessionId));
+          .where(eq(tableSessions.id, guest.sessionId));
       }
       
       // ✅ CORREÇÃO CONFLITO #2: A atualização de session já foi feita acima (linhas 4337-4342)
@@ -5046,6 +5078,160 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ✅ NOVO: Recalcular totais da sessão (paidAmount + totalAmount)
+  const recalculateSessionTotals = async (sessionId: string) => {
+    const session = await storage.getSessionById(sessionId);
+    if (!session) {
+      return null;
+    }
+
+    const guests = await storage.getTableGuests(sessionId);
+
+    const sessionDiscount = parseFloat(session.discount || '0');
+    const sessionDiscountType = session.discountType || 'valor';
+    const sessionServiceCharge = parseFloat(session.serviceCharge || '0');
+    const sessionServiceChargeType = session.serviceChargeType || 'percentual';
+
+    const subtotalBeforeAdjustments = guests.reduce((sum, g: any) => {
+      return sum + parseFloat(g.subtotal || '0');
+    }, 0);
+
+    let totalAmountAdjusted = subtotalBeforeAdjustments;
+
+    if (sessionDiscount > 0) {
+      totalAmountAdjusted = sessionDiscountType === 'percentual'
+        ? totalAmountAdjusted * (1 - Math.min(sessionDiscount, 100) / 100)
+        : Math.max(0, totalAmountAdjusted - sessionDiscount);
+    }
+
+    if (sessionServiceCharge > 0) {
+      totalAmountAdjusted = sessionServiceChargeType === 'percentual'
+        ? totalAmountAdjusted * (1 + sessionServiceCharge / 100)
+        : totalAmountAdjusted + sessionServiceCharge;
+    }
+
+    const hasGuestAdjustments = guests.some((g: any) => {
+      const d = parseFloat(g.discount || '0');
+      const s = parseFloat(g.serviceCharge || '0');
+      return (Number.isFinite(d) && d > 0) || (Number.isFinite(s) && s > 0);
+    });
+
+    if (hasGuestAdjustments) {
+      totalAmountAdjusted = guests.reduce((sum, g: any) => {
+        let adjusted = parseFloat(g.subtotal || '0');
+        const gDiscount = parseFloat(g.discount || '0');
+        const gDiscountType = g.discountType || 'valor';
+        const gServiceCharge = parseFloat(g.serviceCharge || '0');
+        const gServiceChargeType = g.serviceChargeType || 'valor';
+
+        if (gDiscount > 0) {
+          adjusted = gDiscountType === 'percentual'
+            ? adjusted * (1 - Math.min(gDiscount, 100) / 100)
+            : Math.max(0, adjusted - gDiscount);
+        }
+
+        if (gServiceCharge > 0) {
+          adjusted = gServiceChargeType === 'percentual'
+            ? adjusted * (1 + gServiceCharge / 100)
+            : adjusted + gServiceCharge;
+        }
+
+        return sum + adjusted;
+      }, 0);
+    }
+
+    const payments = await db.select()
+      .from(tablePayments)
+      .where(eq(tablePayments.sessionId, sessionId));
+
+    const totalPaidFromPayments = payments.reduce(
+      (sum, payment) => sum + parseFloat(payment.amount || '0'),
+      0
+    );
+
+    await db.update(tableSessions)
+      .set({
+        totalAmount: totalAmountAdjusted.toFixed(2),
+        paidAmount: totalPaidFromPayments.toFixed(2),
+      })
+      .where(eq(tableSessions.id, sessionId));
+
+    return {
+      sessionId,
+      totalAmount: totalAmountAdjusted.toFixed(2),
+      paidAmount: totalPaidFromPayments.toFixed(2),
+      pendingAmount: Math.max(0, totalAmountAdjusted - totalPaidFromPayments).toFixed(2),
+    };
+  };
+
+  // ✅ NOVO: Recalcular totais da sessão (paidAmount + totalAmount)
+  app.post("/api/sessions/:sessionId/recalculate", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const restaurantId = currentUser.restaurantId!;
+      const sessionId = req.params.sessionId;
+      const session = await storage.getSessionById(sessionId);
+
+      if (!session) {
+        return res.status(404).json({ message: "Sessão não encontrada" });
+      }
+
+      if (session.restaurantId !== restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Sessão não pertence ao restaurante" });
+      }
+
+      const result = await recalculateSessionTotals(sessionId);
+      if (!result) {
+        return res.status(404).json({ message: "Sessão não encontrada" });
+      }
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('Erro ao recalcular sessão:', error);
+      res.status(500).json({ message: error.message || "Erro ao recalcular sessão" });
+    }
+  });
+
+  // ✅ NOVO: Recalcular todas as sessões abertas
+  app.post("/api/sessions/recalculate-open", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const restaurantId = currentUser.restaurantId!;
+      const sessions = await db.select()
+        .from(tableSessions)
+        .where(eq(tableSessions.restaurantId, restaurantId));
+
+      const results = [] as Array<{ sessionId: string; totalAmount: string; paidAmount: string; pendingAmount: string }>;
+
+      for (const session of sessions) {
+        if (session.status && session.status !== 'aberta' && session.status !== 'open') {
+          continue;
+        }
+
+        const result = await recalculateSessionTotals(session.id);
+        if (result) {
+          results.push(result);
+        }
+      }
+
+      res.json({
+        updated: results.length,
+        sessions: results,
+      });
+    } catch (error: any) {
+      console.error('Erro ao recalcular sessões abertas:', error);
+      res.status(500).json({ message: error.message || "Erro ao recalcular sessões abertas" });
+    }
+  });
+
   app.post("/api/tables/:id/guests/:guestId/checkout", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user as User;
@@ -5399,6 +5585,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? (await db.select().from(tableSessions).where(eq(tableSessions.id, table.currentSessionId)).limit(1))[0]
         : null;
 
+      // ✅ Forçar recalcular paidAmount a partir dos pagamentos reais da sessão
+      let paidAmount = session?.paidAmount || '0.00';
+      if (table.currentSessionId) {
+        const payments = await db.select()
+          .from(tablePayments)
+          .where(eq(tablePayments.sessionId, table.currentSessionId));
+
+        const totalPaidFromPayments = payments.reduce(
+          (sum, payment) => sum + parseFloat(payment.amount || '0'),
+          0
+        );
+
+        paidAmount = totalPaidFromPayments.toFixed(2);
+
+        if (!session || Math.abs(parseFloat(session.paidAmount || '0') - totalPaidFromPayments) > 0.009) {
+          await db.update(tableSessions)
+            .set({ paidAmount })
+            .where(eq(tableSessions.id, table.currentSessionId));
+        }
+      }
+
       // ✅ Total da mesa: considerar ajustes de sessão + ajustes individuais por convidado
       // Base: subtotal dos pedidos da sessão
       const subtotalBeforeAdjustments = orders
@@ -5475,7 +5682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ordersByGuest,
         anonymousOrders,
         totalAmount: totalAmount.toFixed(2),
-        paidAmount: session?.paidAmount || '0.00',
+        paidAmount,
         currentSessionId: table.currentSessionId, // 🔧 FIX: Return sessionId for frontend queries
       });
     } catch (error) {
