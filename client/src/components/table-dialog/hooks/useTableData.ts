@@ -81,13 +81,27 @@ export function useTableData({ tableId, isOpen }: UseTableDataProps) {
 
   // Calculate totals
   const totalAmount = useMemo(() => {
+    let backendTotal = 0;
     if (ordersByGuestData?.totalAmount) {
-      return parseFloat(ordersByGuestData.totalAmount);
+      backendTotal = parseFloat(ordersByGuestData.totalAmount);
+    } else {
+      backendTotal = tableOrders.reduce((sum: number, order: any) => {
+        const orderTotal = order.totalPrice ? parseFloat(order.totalPrice) : 0;
+        return sum + orderTotal;
+      }, 0);
     }
-    return tableOrders.reduce((sum: number, order: any) => {
-      const orderTotal = order.totalPrice ? parseFloat(order.totalPrice) : 0;
-      return sum + orderTotal;
-    }, 0);
+
+    // 🔧 FIX: Garantir coerência matemática mesmo para sessões existentes
+    // O total nunca pode ser menor que a soma dos subtotais individuais
+    const sumOfSubtotals = (ordersByGuestData?.ordersByGuest || []).reduce(
+      (sum: number, og: any) => sum + parseFloat(og.subtotal || '0'),
+      0
+    ) + (ordersByGuestData?.anonymousOrders || []).reduce(
+      (sum: number, o: any) => sum + parseFloat(o.totalPrice || '0'),
+      0
+    );
+
+    return Math.max(backendTotal, sumOfSubtotals);
   }, [ordersByGuestData, tableOrders]);
 
   const totalOrders = tableOrders.length;

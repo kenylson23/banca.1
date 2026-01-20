@@ -62,7 +62,8 @@ export function OverviewSection({
   const completedOrders = ordersByGuest?.flatMap(og => og.orders || []).filter((o: any) => o.status === 'pronto' || o.status === 'servido').length || 0;
 
   // Calcular total real somando todos os pedidos (incluindo Mesa Completa)
-  const realTotalAmount = ordersByGuest?.reduce((sum, og) => sum + parseFloat(og.subtotal || '0'), 0) || 0;
+  const sumOfSubtotals = ordersByGuest?.reduce((sum, og) => sum + parseFloat(og.subtotal || '0'), 0) || 0;
+  const realTotalAmount = Math.max(totalAmount, sumOfSubtotals);
   const realPaidAmount = ordersByGuest?.reduce((sum, og) => sum + parseFloat(og.guest?.paidAmount || '0'), 0) || 0;
   const realOrdersCount = ordersByGuest?.reduce((sum, og) => sum + (og.orders?.length || 0), 0) || 0;
 
