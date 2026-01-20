@@ -5674,9 +5674,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // ✅ Regra: se existir qualquer ajuste individual, o total da mesa vira a soma dos totais finais por convidado
       // (mais a parte ainda não atribuída da Mesa Completa). Caso contrário, usa o total global da sessão.
-      const totalAmount = hasAnyGuestAdjustments
+      // 🔧 FIX: Garantir que o totalAmount nunca seja menor do que a soma dos subtotais básicos dos convidados + anônimos
+      const sumOfSubtotals = (ordersByGuest.reduce((sum, og) => sum + parseFloat(og.subtotal || '0'), 0) + anonymousSubtotal);
+      
+      let totalAmount = hasAnyGuestAdjustments
         ? (totalFromGuestsWithIndividualAdjustments + anonymousSubtotal)
         : totalAfterSession;
+        
+      // Garantir coerência matemática (total não pode ser menor que o consumo base)
+      totalAmount = Math.max(totalAmount, sumOfSubtotals);
 
       res.json({
         ordersByGuest,

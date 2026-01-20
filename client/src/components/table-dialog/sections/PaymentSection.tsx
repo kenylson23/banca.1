@@ -211,16 +211,21 @@ export function PaymentSection({
     });
   });
   
-  // 🔧 FIX: Usar o valor da sessão, não dos convidados individuais
-  const paidFromGuests = ordersByGuest?.reduce((sum: number, og: any) => {
+  // 🔧 FIX: Usar soma dos guests como fonte de verdade para pagamentos individuais
+  const totalPaid = ordersByGuest?.reduce((sum: number, og: any) => {
     return sum + parseFloat(og.guest?.paidAmount || '0');
   }, 0) || 0;
-  const totalPaid = Math.max(sessionPaidAmount, paidFromGuests);
-  const totalUnpaid = Math.max(0, totalAmount - totalPaid);
+  
+  // 🔧 FIX: Garantir que o totalAmount seja consistente com os dados detalhados
+  const sumOfGuestSubtotals = ordersByGuest?.reduce((sum: number, og: any) => {
+    return sum + parseFloat(og.subtotal || '0');
+  }, 0) || 0;
+  const realTotalAmount = Math.max(totalAmount, sumOfGuestSubtotals);
+
+  const totalUnpaid = Math.max(0, realTotalAmount - totalPaid);
   
   // ✅ NOVO: Verificar se pagamento está completo (tolerância de 1 Kz)
-  // 🔧 FIX: Apenas considerar completo se há valor total E foi pago
-  const isPaymentComplete = totalAmount > 0 && totalPaid > 0 && totalUnpaid <= 1.0;
+  const isPaymentComplete = realTotalAmount > 0 && totalPaid > 0 && totalUnpaid <= 1.0;
   
   console.log('totalPaid (da sessão):', totalPaid);
   console.log('totalUnpaid:', totalUnpaid);
@@ -316,18 +321,18 @@ export function PaymentSection({
           </div>
 
           {/* Progress Bar */}
-          {totalAmount > 0 && (
+          {realTotalAmount > 0 && (
             <div>
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="text-muted-foreground">Progresso do Pagamento</span>
                 <span className="font-semibold">
-                  {((totalPaid / totalAmount) * 100).toFixed(0)}%
+                  {((totalPaid / realTotalAmount) * 100).toFixed(0)}%
                 </span>
               </div>
               <div className="h-3 bg-muted rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-500"
-                  style={{ width: `${(totalPaid / totalAmount) * 100}%` }}
+                  style={{ width: `${(totalPaid / realTotalAmount) * 100}%` }}
                 />
               </div>
             </div>

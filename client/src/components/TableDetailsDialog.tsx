@@ -991,19 +991,27 @@ export function TableDetailsDialog({
 
   const totalOrders = tableOrders.length;
   
-  // Use totalAmount from backend (more accurate with discounts, fees, etc)
+  // 🔧 FIX: Garantir que o totalAmount nunca seja menor que o valor já pago
   const totalAmount = useMemo(() => {
+    let calculatedTotal = 0;
     if (ordersByGuestData?.totalAmount) {
-      return parseFloat(ordersByGuestData.totalAmount);
+      calculatedTotal = parseFloat(ordersByGuestData.totalAmount);
+    } else {
+      calculatedTotal = tableOrders.reduce((sum: number, order: any) => {
+        return sum + parseFloat(order.totalPrice || '0');
+      }, 0);
     }
-    // 🔧 FIX: Log warning if backend doesn't provide totalAmount
-    if (tableOrders.length > 0) {
-    }
-    // Fallback: calculate from orders if backend doesn't provide it
-    return tableOrders.reduce((sum: number, order: any) => {
-      const orderTotal = order.totalPrice ? parseFloat(order.totalPrice) : 0;
-      return sum + orderTotal;
-    }, 0);
+    
+    // O total da mesa deve ser no mínimo a soma de todos os subtotais dos convidados
+    const sumOfGuestSubtotals = (ordersByGuestData?.ordersByGuest || []).reduce(
+      (sum: number, og: any) => sum + parseFloat(og.subtotal || '0'), 
+      0
+    ) + (ordersByGuestData?.anonymousOrders || []).reduce(
+      (sum: number, o: any) => sum + parseFloat(o.totalPrice || '0'),
+      0
+    );
+
+    return Math.max(calculatedTotal, sumOfGuestSubtotals);
   }, [ordersByGuestData, tableOrders]);
 
   // 🔧 FIX: Get paid amount from ordersByGuestData
