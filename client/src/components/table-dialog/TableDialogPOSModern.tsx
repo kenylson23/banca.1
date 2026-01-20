@@ -213,48 +213,53 @@ export function TableDialogPOSModern({
   const hasActiveSession = !!currentTable?.currentSessionId || guestsCount > 0;
   
   // ✅ SINCRONIZAÇÃO: Calcular totalAmount considerando desconto E taxa da sessão
-  const subtotalBeforeAdjustments = ordersByGuest?.reduce((sum, og) => {
+  const subtotalBeforeAdjustments = ordersByGuest?.reduce((sum: number, og: any) => {
     return sum + parseFloat(og.subtotal || '0');
   }, 0) || 0;
   
-  // Obter desconto da sessão (se houver)
-  const sessionDiscount = parseFloat(currentTable?.currentSession?.discount || '0');
-  const sessionDiscountType = currentTable?.currentSession?.discountType || 'valor';
-  
-  // ✅ SINCRONIZAÇÃO: Obter taxa de serviço da sessão (serviceCharge)
-  const sessionServiceFee = parseFloat(currentTable?.currentSession?.serviceCharge || '0');
-  const sessionServiceFeeType = currentTable?.currentSession?.serviceChargeType || 'percentual';
-  
-  // Calcular totalAmount COM desconto e taxa aplicados
-  let totalAmount = subtotalBeforeAdjustments;
-  
-  // 1. Aplicar desconto
-  if (sessionDiscount > 0) {
-    if (sessionDiscountType === 'percentual') {
-      const discountPercent = Math.min(sessionDiscount, 100);
-      totalAmount = totalAmount * (1 - discountPercent / 100);
-    } else {
-      totalAmount = Math.max(0, totalAmount - sessionDiscount);
+  // 🔧 FIX: Usar totalAmount do backend como prioridade, mas garantir coerência
+  let totalAmount = ordersByGuestData?.totalAmount 
+    ? parseFloat(ordersByGuestData.totalAmount) 
+    : subtotalBeforeAdjustments;
+
+  // Se o totalAmount for menor que o subtotal bruto (sem ajustes), algo está errado no sync
+  // mas aqui deixamos os ajustes serem aplicados se o totalAmount vier do backend.
+  // Se não vier, aplicamos os ajustes locais.
+  if (!ordersByGuestData?.totalAmount) {
+    // Obter desconto da sessão (se houver)
+    const sessionDiscount = parseFloat(currentTable?.currentSession?.discount || '0');
+    const sessionDiscountType = currentTable?.currentSession?.discountType || 'valor';
+    
+    // ✅ SINCRONIZAÇÃO: Obter taxa de serviço da sessão (serviceCharge)
+    const sessionServiceFee = parseFloat(currentTable?.currentSession?.serviceCharge || '0');
+    const sessionServiceFeeType = currentTable?.currentSession?.serviceChargeType || 'percentual';
+    
+    // 1. Aplicar desconto
+    if (sessionDiscount > 0) {
+      if (sessionDiscountType === 'percentual') {
+        const discountPercent = Math.min(sessionDiscount, 100);
+        totalAmount = totalAmount * (1 - discountPercent / 100);
+      } else {
+        totalAmount = Math.max(0, totalAmount - sessionDiscount);
+      }
+    }
+    
+    // 2. Aplicar taxa de serviço (sobre valor já descontado)
+    if (sessionServiceFee > 0) {
+      if (sessionServiceFeeType === 'percentual') {
+        totalAmount = totalAmount * (1 + sessionServiceFee / 100);
+      } else {
+        totalAmount = totalAmount + sessionServiceFee;
+      }
     }
   }
-  
-  // 2. Aplicar taxa de serviço (sobre valor já descontado)
-  if (sessionServiceFee > 0) {
-    if (sessionServiceFeeType === 'percentual') {
-      totalAmount = totalAmount * (1 + sessionServiceFee / 100);
-    } else {
-      totalAmount = totalAmount + sessionServiceFee;
-    }
-  }
-  
-  // Log completo dos ajustes
-  if (sessionDiscount > 0 || sessionServiceFee > 0) {
-  }
-  
-  // ✅ FIX: Use sessionPaidAmount from hook (comes from session.paidAmount)
+
+  // 🔧 FIX: Segurança extra - o total nunca pode ser menor que a soma do que foi pago
   const paidFromGuests = (ordersByGuest || []).reduce((sum: number, og: any) => {
     return sum + parseFloat(og.guest?.paidAmount || '0');
   }, 0);
+  
+  totalAmount = Math.max(totalAmount, paidFromGuests);
   const totalPaid = Math.max(sessionPaidAmount || 0, paidFromGuests);
   
   // Calcular duração da sessão
