@@ -186,8 +186,9 @@ export function PrintGuestBill({
         entryTime: format(new Date(guest.joinedAt), "dd/MM/yyyy HH:mm", { locale: ptBR }),
         items: allItems,
         subtotal: formatKwanza(calculatedSubtotal.toFixed(2)),
-        serviceCharge: totalCharges > 0 ? formatKwanza(totalCharges.toFixed(2)) : undefined,
-        discount: totalDiscounts > 0 ? formatKwanza(totalDiscounts.toFixed(2)) : undefined,
+        // Mostrar sinais para ficar consistente com o cálculo (taxa soma, desconto subtrai)
+        serviceCharge: totalCharges > 0 ? `+ ${formatKwanza(totalCharges.toFixed(2))}` : undefined,
+        discount: totalDiscounts > 0 ? `- ${formatKwanza(totalDiscounts.toFixed(2))}` : undefined,
         total: formatKwanza(totalAmount.toFixed(2)),
         paymentMethod: paymentMethod ? paymentMethodLabels[paymentMethod] || paymentMethod : undefined,
         isPaid: guest.status === 'pago',
@@ -564,7 +565,7 @@ export function PrintGuestBill({
           </div>
           
           <div class="total-section">
-            ${subtotal && subtotal !== totalAmount ? `
+            ${(typeof subtotal === 'number') && (subtotal !== totalAmount || discounts.length > 0 || serviceCharges.length > 0) ? `
               <div class="total-row subtotal">
                 <span>Subtotal:</span>
                 <span>${formatKwanza(subtotal.toFixed(2))}</span>

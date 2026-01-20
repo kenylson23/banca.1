@@ -878,18 +878,18 @@ class PrinterService {
       encoder.line(subtotalLine + ' '.repeat(Math.max(spaces, 1)) + content.subtotal);
     }
     
-    // Taxa de serviço
-    if (content.serviceCharge) {
-      const serviceLine = 'Taxa Servico:';
-      const spaces = columns - serviceLine.length - content.serviceCharge.length;
-      encoder.line(serviceLine + ' '.repeat(Math.max(spaces, 1)) + content.serviceCharge);
-    }
-    
     // Desconto
     if (content.discount) {
       const discountLine = 'Desconto:';
       const spaces = columns - discountLine.length - content.discount.length;
       encoder.line(discountLine + ' '.repeat(Math.max(spaces, 1)) + content.discount);
+    }
+    
+    // Taxa de serviço
+    if (content.serviceCharge) {
+      const serviceLine = 'Taxa Servico:';
+      const spaces = columns - serviceLine.length - content.serviceCharge.length;
+      encoder.line(serviceLine + ' '.repeat(Math.max(spaces, 1)) + content.serviceCharge);
     }
     
     encoder.line('-'.repeat(columns));

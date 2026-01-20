@@ -199,6 +199,11 @@ export function HistorySection({ table }: HistorySectionProps) {
                         <div className="font-semibold">
                           {paymentMethodLabels[payment.paymentMethod] || payment.paymentMethod}
                         </div>
+                        {payment.guestName && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Pago por: {payment.guestName}
+                          </div>
+                        )}
                       </div>
                     </div>
                     {payment.notes && (
@@ -243,6 +248,8 @@ export function HistorySection({ table }: HistorySectionProps) {
                       createdAt: paymentToPrint.createdAt,
                       notes: paymentToPrint.notes,
                       sessionId: paymentToPrint.sessionId,
+                      guestName: paymentToPrint.guestName,
+                      items: paymentToPrint.items || [],
                     }}
                     tableName={`Mesa ${table.number}`}
                     onPrintComplete={() => setPrintingPaymentId(null)}

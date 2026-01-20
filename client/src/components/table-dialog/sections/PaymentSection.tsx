@@ -83,14 +83,55 @@ export function PaymentSection({
         throw new Error('Selecione um método de pagamento');
       }
       
-      // 🔧 FIX: totalAmount já inclui os ajustes (desconto/taxa) aplicados na sessão
-      const paymentAmount = customAmount && parseFloat(customAmount) > 0 
-        ? parseFloat(customAmount) 
-        : totalUnpaid; // Pagar o valor pendente (já com ajustes)
-      
-      // Validar que não está pagando mais que o pendente
-      if (paymentAmount > totalUnpaid) {
-        throw new Error(`Valor de pagamento (${paymentAmount.toFixed(2)}) não pode ser maior que o pendente (${totalUnpaid.toFixed(2)})`);
+      // 🔧 FIX: calcular corretamente o valor a pagar.
+      // - Pagamento geral: usa o pendente da mesa (totalUnpaid)
+      // - Pagamento individual (1 convidado selecionado): usa o pendente desse convidado (com ajustes individuais)
+
+      const selectedSingleGuest = selectedGuestIds.length === 1
+        ? (guests || []).find((g: any) => g?.id === selectedGuestIds[0])
+        : null;
+
+      const computeGuestTotalDue = (g: any): number => {
+        let adjusted = parseFloat(g?.subtotal || '0');
+
+        const d = parseFloat(g?.discount || '0');
+        const dType = g?.discountType || 'valor';
+        const s = parseFloat(g?.serviceCharge || '0');
+        const sType = g?.serviceChargeType || 'valor';
+
+        if (Number.isFinite(d) && d > 0) {
+          adjusted = dType === 'percentual'
+            ? adjusted * (1 - Math.min(d, 100) / 100)
+            : Math.max(0, adjusted - d);
+        }
+
+        if (Number.isFinite(s) && s > 0) {
+          adjusted = sType === 'percentual'
+            ? adjusted * (1 + s / 100)
+            : adjusted + s;
+        }
+
+        return adjusted;
+      };
+
+      const selectedGuestPaid = selectedSingleGuest ? parseFloat(selectedSingleGuest?.paidAmount || '0') : 0;
+      const selectedGuestPending = selectedSingleGuest
+        ? Math.max(0, computeGuestTotalDue(selectedSingleGuest) - selectedGuestPaid)
+        : totalUnpaid;
+
+      const maxAllowedAmount = selectedSingleGuest ? selectedGuestPending : totalUnpaid;
+
+      const paymentAmount = customAmount && parseFloat(customAmount) > 0
+        ? parseFloat(customAmount)
+        : maxAllowedAmount;
+
+      // Validar que não está pagando mais que o pendente correto
+      if (paymentAmount > maxAllowedAmount) {
+        throw new Error(
+          selectedSingleGuest
+            ? `Valor de pagamento (${paymentAmount.toFixed(2)}) não pode ser maior que o pendente do convidado (${maxAllowedAmount.toFixed(2)})`
+            : `Valor de pagamento (${paymentAmount.toFixed(2)}) não pode ser maior que o pendente (${maxAllowedAmount.toFixed(2)})`
+        );
       }
       
       if (paymentAmount <= 0) {
@@ -192,55 +233,97 @@ export function PaymentSection({
     );
   }
 
-  // 🔧 FIX: Usar sessionPaidAmount da sessão (não somar por convidado)
-  // O sessionPaidAmount vem de table_sessions.paidAmount (atualizado pelo backend)
-  
+  // 🔧 FIX: Basear cálculos em dados da sessão (fonte de verdade)
+  // - `guests` inclui TODOS os clientes da sessão (mesmo sem ordersByGuest)
+  // - `sessionPaidAmount` vem do backend (table_sessions.paidAmount recalculado por pagamentos reais)
+
   // 🐛 DEBUG: Ver dados dos convidados e da sessão
   console.log('=== DEBUG PAGAMENTO ===');
   console.log('sessionPaidAmount (da sessão):', sessionPaidAmount);
-  console.log('totalAmount:', totalAmount);
+  console.log('totalAmount (prop):', totalAmount);
+  console.log('guests (sessão):', guests);
   console.log('ordersByGuest:', ordersByGuest);
-  ordersByGuest?.forEach((og: any, i: number) => {
-    console.log(`Convidado #${i + 1}:`, {
-      id: og.guest.id,
-      name: og.guest.name,
-      guestNumber: og.guest.guestNumber,
-      status: og.guest.status,
-      subtotal: og.subtotal,
-      paidAmount: og.guest.paidAmount,
-    });
-  });
-  
-  // 🔧 FIX: Usar soma dos guests como fonte de verdade para pagamentos individuais
-  const totalPaid = ordersByGuest?.reduce((sum: number, og: any) => {
-    return sum + parseFloat(og.guest?.paidAmount || '0');
-  }, 0) || 0;
-  
-  // 🔧 FIX: Garantir que o totalAmount seja consistente com os dados detalhados
-  const sumOfGuestSubtotals = ordersByGuest?.reduce((sum: number, og: any) => {
-    return sum + parseFloat(og.subtotal || '0');
-  }, 0) || 0;
-  const realTotalAmount = Math.max(totalAmount, sumOfGuestSubtotals);
+
+  // Total devido: garantir que inclui TODOS os convidados da sessão
+  const sumOfSessionGuestSubtotals = (guests || []).reduce((sum: number, g: any) => {
+    return sum + parseFloat(g?.subtotal || '0');
+  }, 0);
+
+  const sumOfOrdersByGuestSubtotals = (ordersByGuest || []).reduce((sum: number, og: any) => {
+    return sum + parseFloat(og?.subtotal || '0');
+  }, 0);
+
+  const realTotalAmount = Math.max(totalAmount || 0, sumOfSessionGuestSubtotals, sumOfOrdersByGuestSubtotals);
+
+  // Total pago:
+  // - Preferir soma por convidado (pagamento individual)
+  // - Mesmo que `guests` venha vazio, se `ordersByGuest` tiver dados, NÃO usar sessionPaidAmount como fonte
+  const paidFromSessionGuests = (guests || []).reduce((sum: number, g: any) => {
+    return sum + parseFloat(g?.paidAmount || '0');
+  }, 0);
+
+  const paidFromOrdersByGuest = (ordersByGuest || []).reduce((sum: number, og: any) => {
+    return sum + parseFloat(og?.guest?.paidAmount || '0');
+  }, 0);
+
+  const hasGuestsData = (guests && guests.length > 0) || (ordersByGuest && ordersByGuest.length > 0);
+
+  const totalPaidRaw = hasGuestsData
+    ? Math.max(paidFromSessionGuests, paidFromOrdersByGuest)
+    : (Number.isFinite(sessionPaidAmount) ? sessionPaidAmount : 0);
+
+  // Nunca permitir que o pago ultrapasse o total devido
+  const totalPaid = Math.min(Math.max(0, totalPaidRaw), realTotalAmount);
 
   const totalUnpaid = Math.max(0, realTotalAmount - totalPaid);
-  
-  // ✅ NOVO: Verificar se pagamento está completo (tolerância de 1 Kz)
-  const isPaymentComplete = realTotalAmount > 0 && totalPaid > 0 && totalUnpaid <= 1.0;
-  
-  console.log('totalPaid (da sessão):', totalPaid);
+
+  // Contar convidados pagos baseado em TODOS os guests da sessão
+  const guestsWithDebt = (guests || []).filter((g: any) => parseFloat(g?.subtotal || '0') > 0);
+
+  const paidGuests = guestsWithDebt.filter((g: any) => {
+    const paid = parseFloat(g?.paidAmount || '0');
+
+    // Considerar ajustes individuais do convidado ao determinar se está pago
+    let due = parseFloat(g?.subtotal || '0');
+    const d = parseFloat(g?.discount || '0');
+    const dType = g?.discountType || 'valor';
+    const s = parseFloat(g?.serviceCharge || '0');
+    const sType = g?.serviceChargeType || 'valor';
+
+    if (Number.isFinite(d) && d > 0) {
+      due = dType === 'percentual'
+        ? due * (1 - Math.min(d, 100) / 100)
+        : Math.max(0, due - d);
+    }
+
+    if (Number.isFinite(s) && s > 0) {
+      due = sType === 'percentual'
+        ? due * (1 + s / 100)
+        : due + s;
+    }
+
+    return paid >= due - 0.01;
+  }).length;
+
+  const unpaidGuests = Math.max(0, guestsWithDebt.length - paidGuests);
+
+  // ✅ Pagamento completo só quando:
+  // - o pago cobre o total (tolerância de 1 Kz)
+  // - NÃO existe nenhum convidado com dívida pendente
+  // Isso evita o bug: banner "Pagamento Completo" + lista mostrando convidado pendente.
+  const isPaymentComplete =
+    realTotalAmount > 0 &&
+    totalPaid > 0 &&
+    totalUnpaid <= 1.0 &&
+    unpaidGuests === 0;
+
+  console.log('totalPaid (final):', totalPaid);
+  console.log('realTotalAmount:', realTotalAmount);
   console.log('totalUnpaid:', totalUnpaid);
+  console.log('paidGuests:', paidGuests);
+  console.log('unpaidGuests:', unpaidGuests);
   console.log('isPaymentComplete:', isPaymentComplete);
   console.log('======================');
-  
-  // Contar convidados pagos baseado em paidAmount (não em status)
-  // 🔧 FIX: Só considerar pago se há subtotal E foi pago
-  const paidGuests = ordersByGuest?.filter((og: any) => {
-    const paid = parseFloat(og.guest.paidAmount || '0');
-    const subtotal = parseFloat(og.subtotal || '0');
-    // Só considerar pago se há valor E foi pago
-    return subtotal > 0 && paid > 0 && paid >= subtotal - 0.01; // Tolerância de 1 centavo
-  }).length || 0;
-  const unpaidGuests = (ordersByGuest?.length || 0) - paidGuests;
 
   return (
     <div className="space-y-6">
@@ -490,16 +573,16 @@ export function PaymentSection({
       {totalAmount > 0 && onCloseTable && (
         <Card className={cn(
           "border-2",
-          totalUnpaid === 0 
-            ? "border-green-500 bg-green-50 dark:bg-green-950/20" 
+          isPaymentComplete
+            ? "border-green-500 bg-green-50 dark:bg-green-950/20"
             : "border-orange-500/50 bg-orange-50/50 dark:bg-orange-950/20"
         )}>
           <CardHeader>
             <CardTitle className={cn(
               "flex items-center gap-2",
-              totalUnpaid === 0 ? "text-green-700 dark:text-green-300" : "text-orange-700 dark:text-orange-300"
+              isPaymentComplete ? "text-green-700 dark:text-green-300" : "text-orange-700 dark:text-orange-300"
             )}>
-              {totalUnpaid === 0 ? (
+              {isPaymentComplete ? (
                 <>
                   <CheckCircle2 className="w-5 h-5" />
                   Mesa Paga - Pronta para Fechar
@@ -513,7 +596,7 @@ export function PaymentSection({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {totalUnpaid === 0 ? (
+            {isPaymentComplete ? (
               <>
                 <p className="text-sm text-muted-foreground">
                   Todos os pagamentos foram recebidos. Você pode fechar esta mesa agora para liberá-la para novos clientes.

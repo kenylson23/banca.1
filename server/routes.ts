@@ -5,7 +5,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq, sql, and, isNull, or, desc, asc } from "drizzle-orm";
+import { eq, sql, and, isNull, or, desc, asc, inArray } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import { 
   orderItems, 
@@ -4503,17 +4503,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // ✅ FIX: Update session paidAmount from actual payments, not guest.paidAmount
       // This prevents double-counting if guest.paidAmount was already updated
-      const allPaymentsInSession = await db.select()
-        .from(tablePayments)
-        .where(eq(tablePayments.sessionId, guest.sessionId));
-      
-      const totalPaidFromPayments = allPaymentsInSession.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0);
+      // ✅ IMPORTANTE: Para pagamentos por convidado, a fonte de verdade deve ser guestPayments.
+      // Motivo: pode existir tablePayment "órfão" (ex.: crash/retry entre criar tablePayment e guestPayment),
+      // o que inflaciona paidAmount da sessão e faz a UI indicar "Mesa paga" indevidamente.
+      const allGuestPaymentsInSession = await db.select()
+        .from(guestPayments)
+        .where(eq(guestPayments.sessionId, guest.sessionId));
+
+      const totalPaidFromPayments = allGuestPaymentsInSession.reduce(
+        (sum, p) => sum + parseFloat(p.amount || '0'),
+        0
+      );
       
       console.log('🎯 [GUEST PAYMENT] Calculando totalPaid da sessão:', {
         sessionId: guest.sessionId,
-        paymentsCount: allPaymentsInSession.length,
+        paymentsCount: allGuestPaymentsInSession.length,
         totalPaidFromPayments: totalPaidFromPayments.toFixed(2),
-        payments: allPaymentsInSession.map(p => ({
+        payments: allGuestPaymentsInSession.map(p => ({
           id: p.id,
           amount: p.amount,
           method: p.paymentMethod,
@@ -4523,13 +4529,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get all guests for total calculation
       const allGuests = await storage.getTableGuests(guest.sessionId);
+
+      // ✅ Carregar sessão atual (estava a causar: ReferenceError: session is not defined)
+      const sessionRows = await db.select().from(tableSessions)
+        .where(eq(tableSessions.id, guest.sessionId))
+        .limit(1);
+      const sessionRow = sessionRows[0];
       
       // ✅ CORREÇÃO CRÍTICA: Atualizar totalAmount da sessão COM ajustes
-      if (session.length > 0) {
-        const sessionDiscount = parseFloat(session[0].discount || '0');
-        const sessionDiscountType = session[0].discountType || 'valor';
-        const sessionServiceCharge = parseFloat(session[0].serviceCharge || '0');
-        const sessionServiceChargeType = session[0].serviceChargeType || 'percentual';
+      if (sessionRow) {
+        const sessionDiscount = parseFloat(sessionRow.discount || '0');
+        const sessionDiscountType = sessionRow.discountType || 'valor';
+        const sessionServiceCharge = parseFloat(sessionRow.serviceCharge || '0');
+        const sessionServiceChargeType = sessionRow.serviceChargeType || 'percentual';
         
         // Calcular totalAmount esperado COM ajustes
         const subtotalBeforeAdjustments = allGuests.reduce((sum, g) => sum + parseFloat(g.subtotal || '0'), 0);
@@ -5588,11 +5600,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ✅ Forçar recalcular paidAmount a partir dos pagamentos reais da sessão
       let paidAmount = session?.paidAmount || '0.00';
       if (table.currentSessionId) {
-        const payments = await db.select()
-          .from(tablePayments)
-          .where(eq(tablePayments.sessionId, table.currentSessionId));
+        // ✅ Fonte de verdade: guestPayments (evita inflar o paidAmount por tablePayments "órfãos")
+        const guestPays = await db.select()
+          .from(guestPayments)
+          .where(eq(guestPayments.sessionId, table.currentSessionId));
 
-        const totalPaidFromPayments = payments.reduce(
+        const totalPaidFromPayments = guestPays.reduce(
           (sum, payment) => sum + parseFloat(payment.amount || '0'),
           0
         );
@@ -11054,47 +11067,172 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupWebSocket(httpServer);
 
 
-  // 🔧 FIX: Endpoint para corrigir session.paidAmount de todas as sessões ativas
+  // 🔧 FIX: Corrigir paidAmount de todas as sessões ativas (usando guestPayments como fonte)
+  // - Recalcula table_guests.paidAmount a partir de guest_payments
+  // - Recalcula table_sessions.paidAmount a partir de guest_payments
   app.post("/api/debug/fix-all-sessions", isCashierOrAbove, async (req, res) => {
     try {
       const activeSessions = await db.select()
         .from(tableSessions)
         .where(isNull(tableSessions.endedAt));
-      
-      const results = [];
-      
+
+      const results: any[] = [];
+
       for (const session of activeSessions) {
-        const payments = await db.select()
-          .from(tablePayments)
-          .where(eq(tablePayments.sessionId, session.id));
-        
-        const correctPaidAmount = payments.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0);
-        const currentPaidAmount = parseFloat(session.paidAmount || '0');
-        const difference = Math.abs(correctPaidAmount - currentPaidAmount);
-        
-        if (difference > 0.01) {
-          await db.update(tableSessions)
-            .set({ paidAmount: correctPaidAmount.toFixed(2) })
-            .where(eq(tableSessions.id, session.id));
-          
-          results.push({
-            sessionId: session.id,
-            before: currentPaidAmount.toFixed(2),
-            after: correctPaidAmount.toFixed(2),
-            difference: difference.toFixed(2),
-            fixed: true
-          });
+        const sessionId = session.id;
+
+        // 1) Guests da sessão
+        const guests = await db.select().from(tableGuests)
+          .where(eq(tableGuests.sessionId, sessionId));
+
+        // 2) Total pago da sessão a partir de guest_payments
+        const paidAgg = await db.select({
+          paid: sql<string>`COALESCE(SUM(${guestPayments.amount}), 0)`,
+        })
+          .from(guestPayments)
+          .where(eq(guestPayments.sessionId, sessionId));
+
+        const correctSessionPaid = parseFloat((paidAgg?.[0]?.paid as any) || '0') || 0;
+
+        // 3) Recalcular paidAmount por guest a partir de guest_payments
+        const guestIds = guests.map(g => g.id).filter(Boolean);
+        const paidByGuest = guestIds.length > 0
+          ? await db.select({
+              guestId: guestPayments.guestId,
+              paid: sql<string>`COALESCE(SUM(${guestPayments.amount}), 0)`,
+            })
+            .from(guestPayments)
+            .where(and(eq(guestPayments.sessionId, sessionId), inArray(guestPayments.guestId, guestIds)))
+            .groupBy(guestPayments.guestId)
+          : [];
+
+        const paidMap = new Map(paidByGuest.map(r => [r.guestId, parseFloat((r.paid as any) || '0') || 0]));
+
+        let guestsFixed = 0;
+        for (const g of guests) {
+          const correctGuestPaid = (paidMap.get(g.id) ?? 0);
+          const currentGuestPaid = parseFloat(g.paidAmount || '0') || 0;
+          if (Math.abs(correctGuestPaid - currentGuestPaid) > 0.01) {
+            await db.update(tableGuests)
+              .set({ paidAmount: correctGuestPaid.toFixed(2) })
+              .where(eq(tableGuests.id, g.id));
+            guestsFixed++;
+          }
         }
+
+        // 4) Atualizar session.paidAmount
+        const currentSessionPaid = parseFloat(session.paidAmount || '0') || 0;
+        if (Math.abs(correctSessionPaid - currentSessionPaid) > 0.01) {
+          await db.update(tableSessions)
+            .set({ paidAmount: correctSessionPaid.toFixed(2) })
+            .where(eq(tableSessions.id, sessionId));
+        }
+
+        results.push({
+          sessionId,
+          sessionPaid: { before: currentSessionPaid.toFixed(2), after: correctSessionPaid.toFixed(2) },
+          guestsFixed,
+        });
       }
-      
+
       res.json({
         success: true,
         totalSessions: activeSessions.length,
-        fixed: results.length,
-        results
+        results,
       });
     } catch (error: any) {
       console.error('Fix sessions error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 🔧 FIX: Corrigir uma sessão específica (mais seguro para uso manual)
+  app.post("/api/debug/fix-session/:sessionId", isCashierOrAbove, async (req, res) => {
+    try {
+      const sessionId = req.params.sessionId;
+
+      const [session] = await db.select().from(tableSessions)
+        .where(eq(tableSessions.id, sessionId))
+        .limit(1);
+
+      if (!session) {
+        return res.status(404).json({ error: 'Sessão não encontrada' });
+      }
+
+      const guests = await db.select().from(tableGuests)
+        .where(eq(tableGuests.sessionId, sessionId));
+
+      // ✅ Dedupe conservador: se houver guest_payments duplicados para o MESMO tablePaymentId+guestId,
+      // manter apenas o mais antigo. Isso corrige casos de retry/crash que duplicam guestPayments.
+      const allGuestPays = await db.select().from(guestPayments)
+        .where(eq(guestPayments.sessionId, sessionId))
+        .orderBy(asc(guestPayments.createdAt));
+
+      const dupIdsToDelete: string[] = [];
+      const seen = new Set<string>();
+      for (const gp of allGuestPays) {
+        if (!gp.tablePaymentId) continue;
+        const key = `${gp.guestId}:${gp.tablePaymentId}`;
+        if (seen.has(key)) {
+          dupIdsToDelete.push(gp.id);
+        } else {
+          seen.add(key);
+        }
+      }
+
+      if (dupIdsToDelete.length > 0) {
+        await db.delete(guestPayments).where(inArray(guestPayments.id, dupIdsToDelete));
+      }
+
+      const paidAgg = await db.select({
+        paid: sql<string>`COALESCE(SUM(${guestPayments.amount}), 0)`,
+      })
+        .from(guestPayments)
+        .where(eq(guestPayments.sessionId, sessionId));
+
+      const correctSessionPaid = parseFloat((paidAgg?.[0]?.paid as any) || '0') || 0;
+
+      // paid por guest
+      const guestIds = guests.map(g => g.id).filter(Boolean);
+      const paidByGuest = guestIds.length > 0
+        ? await db.select({
+            guestId: guestPayments.guestId,
+            paid: sql<string>`COALESCE(SUM(${guestPayments.amount}), 0)`,
+          })
+          .from(guestPayments)
+          .where(and(eq(guestPayments.sessionId, sessionId), inArray(guestPayments.guestId, guestIds)))
+          .groupBy(guestPayments.guestId)
+        : [];
+
+      const paidMap = new Map(paidByGuest.map(r => [r.guestId, parseFloat((r.paid as any) || '0') || 0]));
+
+      const guestUpdates: any[] = [];
+      for (const g of guests) {
+        const correctGuestPaid = (paidMap.get(g.id) ?? 0);
+        const currentGuestPaid = parseFloat(g.paidAmount || '0') || 0;
+        if (Math.abs(correctGuestPaid - currentGuestPaid) > 0.01) {
+          await db.update(tableGuests)
+            .set({ paidAmount: correctGuestPaid.toFixed(2) })
+            .where(eq(tableGuests.id, g.id));
+          guestUpdates.push({ guestId: g.id, before: currentGuestPaid.toFixed(2), after: correctGuestPaid.toFixed(2) });
+        }
+      }
+
+      const currentSessionPaid = parseFloat(session.paidAmount || '0') || 0;
+      if (Math.abs(correctSessionPaid - currentSessionPaid) > 0.01) {
+        await db.update(tableSessions)
+          .set({ paidAmount: correctSessionPaid.toFixed(2) })
+          .where(eq(tableSessions.id, sessionId));
+      }
+
+      res.json({
+        success: true,
+        sessionId,
+        sessionPaid: { before: currentSessionPaid.toFixed(2), after: correctSessionPaid.toFixed(2) },
+        guestUpdates,
+      });
+    } catch (error: any) {
+      console.error('Fix session error:', error);
       res.status(500).json({ error: error.message });
     }
   });

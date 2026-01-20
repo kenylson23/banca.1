@@ -19,6 +19,8 @@ interface PrintTablePaymentProps {
     createdAt: string;
     notes?: string;
     sessionId?: string;
+    guestName?: string;
+    items?: Array<{ name: string; quantity: number; price: string }>;
   };
   tableName: string;
   restaurantName?: string;
@@ -124,7 +126,19 @@ export function PrintTablePayment({
       { text: `Recibo: #${payment.id.slice(0, 8).toUpperCase()}` },
       { text: '' },
       { text: '--------------------------------', alignment: 'center' },
-      { text: 'DETALHES DO PAGAMENTO', alignment: 'center', bold: true },
+      { text: 'DETALHES DO CONSUMO', alignment: 'center', bold: true },
+      { text: '--------------------------------', alignment: 'center' },
+      { text: '' },
+      ...(payment.items && payment.items.length > 0 
+        ? payment.items.map(item => ({
+            text: `${item.quantity}x ${item.name.padEnd(20)} ${formatKwanza(parseFloat(item.price) * item.quantity)}`,
+            fontSize: 0.9
+          }))
+        : [{ text: 'Consumo registrado na mesa', alignment: 'center', italic: true }]
+      ),
+      { text: '' },
+      { text: '--------------------------------', alignment: 'center' },
+      { text: 'RESUMO DO PAGAMENTO', alignment: 'center', bold: true },
       { text: '--------------------------------', alignment: 'center' },
       { text: '' },
       { 
@@ -135,6 +149,7 @@ export function PrintTablePayment({
       },
       { text: '' },
       { text: `Método: ${paymentMethodLabels[payment.paymentMethod] || payment.paymentMethod}` },
+      { text: `Cliente: ${payment.guestName || 'Mesa Completa'}` },
       { text: '' },
     ];
 
@@ -209,9 +224,26 @@ export function PrintTablePayment({
         <div class="info-row"><span class="bold">Mesa:</span> ${tableName}</div>
         <div class="info-row"><span class="bold">Data:</span> ${format(new Date(payment.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</div>
         <div class="info-row"><span class="bold">Recibo:</span> #${payment.id.slice(0, 8).toUpperCase()}</div>
+        <div class="info-row"><span class="bold">Cliente:</span> ${payment.guestName || 'Mesa Completa'}</div>
         
         <div class="separator"></div>
-        <h2 class="center bold">DETALHES DO PAGAMENTO</h2>
+        <h2 class="center bold">DETALHES DO CONSUMO</h2>
+        <div class="separator"></div>
+        
+        <div style="margin-bottom: 15px;">
+          ${payment.items && payment.items.length > 0 
+            ? payment.items.map(item => `
+                <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
+                  <span>${item.quantity}x ${item.name}</span>
+                  <span>${formatKwanza(parseFloat(item.price) * item.quantity)}</span>
+                </div>
+              `).join('')
+            : '<div class="center italic">Consumo registrado na mesa</div>'
+          }
+        </div>
+
+        <div class="separator"></div>
+        <h2 class="center bold">RESUMO DO PAGAMENTO</h2>
         <div class="separator"></div>
         
         <div class="amount">${formatKwanza(payment.amount)}</div>

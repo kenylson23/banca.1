@@ -243,7 +243,8 @@ export function TableOrderDialog({ open, onOpenChange, table, onOrderCreated }: 
           quantity: item.quantity,
           price: totalPrice,
           // ✅ FIX: guestId must be inside each item, not at order level
-          guestId: selectedGuest || undefined,
+          // Enviar null em vez de undefined para consistência no backend/DB
+          guestId: selectedGuest ?? null,
           selectedOptions: item.selectedOptions.map(opt => ({
             optionId: opt.optionId,
             optionName: opt.optionName,
@@ -259,7 +260,8 @@ export function TableOrderDialog({ open, onOpenChange, table, onOrderCreated }: 
         tableId: table.id,
         orderType: 'mesa',
         // Associate with guest if selected, otherwise it's a general table order
-        guestId: selectedGuest || undefined,
+        // Enviar null em vez de undefined para consistência no backend/DB
+        guestId: selectedGuest ?? null,
         items: orderItems,
       });
     },

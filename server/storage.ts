@@ -1738,59 +1738,65 @@ export class DatabaseStorage implements IStorage {
       const session = await db.select().from(tableSessions)
         .where(eq(tableSessions.id, table.currentSessionId))
         .limit(1);
-      
+
       if (session.length > 0) {
-        const currentPaid = parseFloat(session[0].paidAmount || '0');
         const sessionTotal = parseFloat(session[0].totalAmount || '0');
-        const paymentAmount = parseFloat(payment.amount);
-        
-        // ✅ PROTEÇÃO: Limitar paidAmount ao totalAmount (evitar pagamento duplicado)
-        const remainingToPay = Math.max(0, sessionTotal - currentPaid);
-        const actualPayment = Math.min(paymentAmount, remainingToPay);
-        const newPaid = currentPaid + actualPayment;
-        
-        // ⚠️ ALERTA: Detectar tentativa de pagamento duplicado
-        if (actualPayment < paymentAmount) {
-          console.warn(`⚠️ [PAYMENT WARNING] Tentativa de pagamento duplicado detectada!`, {
+        const requestedPayment = parseFloat(payment.amount);
+
+        // ✅ Fonte de verdade: soma real dos pagamentos registrados para a sessão
+        // Evita inflação/double-count causada por lógica incremental e concorrência.
+        const payments = await db.select()
+          .from(tablePayments)
+          .where(eq(tablePayments.sessionId, table.currentSessionId));
+
+        const totalPaidFromPayments = payments.reduce((sum: number, p: any) => sum + parseFloat(p.amount || '0'), 0);
+
+        // ✅ PROTEÇÃO: nunca deixar paidAmount > totalAmount
+        const paidAmountCapped = sessionTotal > 0
+          ? Math.min(totalPaidFromPayments, sessionTotal)
+          : totalPaidFromPayments;
+
+        // ⚠️ Log útil: se alguém tentou pagar acima do pendente, vai aparecer aqui
+        if (sessionTotal > 0 && requestedPayment > 0 && totalPaidFromPayments > sessionTotal + 0.009) {
+          console.warn('⚠️ [PAYMENT WARNING] paidAmount excedeu totalAmount (cap aplicado):', {
             sessionId: table.currentSessionId,
             sessionTotal: sessionTotal.toFixed(2),
-            currentPaid: currentPaid.toFixed(2),
-            requestedPayment: paymentAmount.toFixed(2),
-            actualPayment: actualPayment.toFixed(2),
-            excess: (paymentAmount - actualPayment).toFixed(2)
+            requestedPayment: requestedPayment.toFixed(2),
+            totalPaidFromPayments: totalPaidFromPayments.toFixed(2),
+            paidAmountCapped: paidAmountCapped.toFixed(2),
           });
         }
-        
-        // ✅ CORREÇÃO CRÍTICA: Atualizar paidAmount da sessão
+
         await db.update(tableSessions)
-          .set({ paidAmount: newPaid.toFixed(2) })
+          .set({ paidAmount: paidAmountCapped.toFixed(2) })
           .where(eq(tableSessions.id, table.currentSessionId));
-        
-        // ✅ NOVO: Distribuir pagamento proporcionalmente entre convidados
-        // Isso permite que a validação de fechamento funcione corretamente
+
+        // ✅ Distribuir pagamento proporcionalmente entre convidados (para pagamentos GERAIS da mesa)
+        // O valor a distribuir é o valor efetivo deste pagamento dentro do pendente, calculado com base no estado ANTERIOR.
+        const currentPaidBefore = parseFloat(session[0].paidAmount || '0');
+        const remainingToPayBefore = sessionTotal > 0 ? Math.max(0, sessionTotal - currentPaidBefore) : requestedPayment;
+        const actualPayment = sessionTotal > 0 ? Math.min(requestedPayment, remainingToPayBefore) : requestedPayment;
+
         const guests = await this.getTableGuests(table.currentSessionId);
-        
+
         if (guests.length > 0 && actualPayment > 0) {
-          // Calcular total de subtotais dos convidados
           const totalSubtotal = guests.reduce((sum, g) => sum + parseFloat(g.subtotal || '0'), 0);
-          
+
           if (totalSubtotal > 0) {
-            // Distribuir o pagamento proporcionalmente (usar actualPayment, não paymentAmount)
             for (const guest of guests) {
               const guestSubtotal = parseFloat(guest.subtotal || '0');
               const guestProportion = guestSubtotal / totalSubtotal;
               const guestPayment = actualPayment * guestProportion;
-              
+
               const currentGuestPaid = parseFloat(guest.paidAmount || '0');
               const newGuestPaid = currentGuestPaid + guestPayment;
-              
-              // ✅ PROTEÇÃO: Limitar paidAmount do guest ao seu subtotal
+
               const maxGuestPaid = Math.min(newGuestPaid, guestSubtotal);
-              
+
               await db.update(tableGuests)
                 .set({ paidAmount: maxGuestPaid.toFixed(2) })
                 .where(eq(tableGuests.id, guest.id));
-              
+
               console.log(`[PAYMENT DISTRIBUTION] Convidado ${guest.name}: ${guestPayment.toFixed(2)} Kz (${(guestProportion * 100).toFixed(1)}%)`);
             }
           }
@@ -1835,9 +1841,24 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(tablePayments.sessionId, sessionId));
     }
     
-    return await db.select().from(tablePayments)
+    const results = await db.select({
+      id: tablePayments.id,
+      restaurantId: tablePayments.restaurantId,
+      tableId: tablePayments.tableId,
+      sessionId: tablePayments.sessionId,
+      guestId: tablePayments.guestId,
+      amount: tablePayments.amount,
+      paymentMethod: tablePayments.paymentMethod,
+      notes: tablePayments.notes,
+      createdAt: tablePayments.createdAt,
+      guestName: tableGuests.name,
+    })
+      .from(tablePayments)
+      .leftJoin(tableGuests, eq(tablePayments.guestId, tableGuests.id))
       .where(and(...conditions))
       .orderBy(desc(tablePayments.createdAt));
+      
+    return results;
   }
 
   // ✅ NOVO: Atualizar subtotal de um guest específico
@@ -2524,25 +2545,32 @@ export class DatabaseStorage implements IStorage {
     // Ensure totalAmount is not negative
     totalAmount = Math.max(0, totalAmount);
 
-    // ✅ If guestId wasn't provided at order level, derive it from items.
-    // This is critical because UI groups orders by orders.guestId.
-    // Rule: only propagate when ALL items belong to the same guest.
-    const itemGuestIds = items
-      .map(i => i.guestId)
-      .filter((g): g is string => typeof g === 'string' && g.length > 0);
+    // ✅ Normalizar guestId: nunca deixar `undefined` circular (usar string ou null)
+    // - O Drizzle/DB lida melhor com null em colunas opcionais.
+    // - Evita logs com itemGuestIds: [undefined] e inconsistências na derivação.
+    const normalizedItems: PublicOrderItem[] = items.map((i) => ({
+      ...i,
+      guestId: typeof (i as any).guestId === 'string' && (i as any).guestId.length > 0 ? (i as any).guestId : null,
+    }));
 
-    // Avoid Set iteration to keep compatibility with current TS target.
+    // Garantir que o guestId no nível do pedido também seja string|null
+    const normalizedOrderGuestId = typeof (order as any).guestId === 'string' && (order as any).guestId.length > 0
+      ? (order as any).guestId
+      : null;
+
+    // ✅ Se guestId não foi fornecido no pedido, derivar dos itens.
+    // Regra: só propagar quando TODOS os itens pertencem ao mesmo guest.
     const derivedGuestId = (() => {
-      if (order.guestId) return order.guestId;
-      if (!items || items.length === 0) return null;
-      
-      const first = items[0].guestId;
+      if (normalizedOrderGuestId) return normalizedOrderGuestId;
+      if (!normalizedItems || normalizedItems.length === 0) return null;
+
+      const first = normalizedItems[0].guestId;
       if (!first) return null;
-      
-      for (let idx = 1; idx < items.length; idx++) {
-        // Only derive if all items have the same guestId
-        if (items[idx].guestId !== first) return null;
+
+      for (let idx = 1; idx < normalizedItems.length; idx++) {
+        if (normalizedItems[idx].guestId !== first) return null;
       }
+
       return first;
     })();
 
@@ -2568,7 +2596,7 @@ export class DatabaseStorage implements IStorage {
       derivedTableSessionId,
       derivedGuestId,
       originalGuestId: order.guestId,
-      itemGuestIds: items.map(i => i.guestId)
+      itemGuestIds: normalizedItems.map(i => i.guestId)
     });
 
     const [newOrder] = await db.insert(orders).values({
@@ -2577,6 +2605,7 @@ export class DatabaseStorage implements IStorage {
       branchId: order.branchId || null,
       tableId: order.tableId || null,
       tableSessionId: derivedTableSessionId,
+      // Sempre string|null (nunca undefined)
       guestId: derivedGuestId,
       status: 'pendente',
       paymentStatus: 'nao_pago',
@@ -2584,8 +2613,8 @@ export class DatabaseStorage implements IStorage {
       totalAmount: totalAmount.toFixed(2),
     }).returning();
     
-    if (items.length > 0) {
-      for (const item of items) {
+    if (normalizedItems.length > 0) {
+      for (const item of normalizedItems) {
         const { selectedOptions, ...itemData } = item;
         
         const [createdItem] = await db.insert(orderItems).values({
@@ -9557,10 +9586,36 @@ export class DatabaseStorage implements IStorage {
         .orderBy(tableGuests.seatNumber, tableGuests.joinedAt);
       
       // Flatten structure: merge customer data into guest object
-      return results.map(row => ({
+      const guests = results.map(row => ({
         ...row.guest,
         customer: row.customer || undefined,
       }));
+
+      // ✅ Fonte de verdade para paidAmount: soma de guestPayments (evita paidAmount inflado/corrompido)
+      try {
+        const guestIds = guests.map(g => g.id).filter(Boolean);
+        if (guestIds.length > 0) {
+          const paidAgg = await db
+            .select({
+              guestId: guestPayments.guestId,
+              paid: sql<string>`COALESCE(SUM(${guestPayments.amount}), 0)`,
+            })
+            .from(guestPayments)
+            .where(and(eq(guestPayments.sessionId, sessionId), inArray(guestPayments.guestId, guestIds)))
+            .groupBy(guestPayments.guestId);
+
+          const paidMap = new Map(paidAgg.map(r => [r.guestId, parseFloat((r.paid as any) || '0') || 0]));
+          return guests.map(g => ({
+            ...g,
+            paidAmount: (paidMap.get(g.id) ?? 0).toFixed(2),
+          }));
+        }
+      } catch (e: any) {
+        // Se falhar, não bloquear a listagem de convidados
+        console.warn('[getTableGuests] Falha ao recalcular paidAmount via guestPayments:', e?.message);
+      }
+
+      return guests;
     } catch (error: any) {
       // Fallback: se der erro (colunas não existem), retornar sem JOIN
       console.error('[getTableGuests] LEFT JOIN falhou:', error.message);
@@ -9572,11 +9627,36 @@ export class DatabaseStorage implements IStorage {
           .from(tableGuests)
           .where(eq(tableGuests.sessionId, sessionId))
           .orderBy(tableGuests.seatNumber, tableGuests.joinedAt);
-        
-        return guests.map(guest => ({
+
+        const flattened = guests.map(guest => ({
           ...guest,
           customer: undefined, // Sem dados de customer
         }));
+
+        // ✅ Fonte de verdade para paidAmount: soma de guestPayments
+        try {
+          const guestIds = flattened.map(g => g.id).filter(Boolean);
+          if (guestIds.length > 0) {
+            const paidAgg = await db
+              .select({
+                guestId: guestPayments.guestId,
+                paid: sql<string>`COALESCE(SUM(${guestPayments.amount}), 0)`,
+              })
+              .from(guestPayments)
+              .where(and(eq(guestPayments.sessionId, sessionId), inArray(guestPayments.guestId, guestIds)))
+              .groupBy(guestPayments.guestId);
+
+            const paidMap = new Map(paidAgg.map(r => [r.guestId, parseFloat((r.paid as any) || '0') || 0]));
+            return flattened.map(g => ({
+              ...g,
+              paidAmount: (paidMap.get(g.id) ?? 0).toFixed(2),
+            }));
+          }
+        } catch (e: any) {
+          console.warn('[getTableGuests] (fallback) Falha ao recalcular paidAmount via guestPayments:', e?.message);
+        }
+
+        return flattened;
       } catch (fallbackError: any) {
         console.error('[getTableGuests] Fallback também falhou:', fallbackError.message);
         throw fallbackError;
@@ -9748,15 +9828,40 @@ export class DatabaseStorage implements IStorage {
 
     const guest = await this.getTableGuestById(data.guestId);
     if (guest) {
-      const currentPaid = parseFloat(guest.paidAmount || '0');
-      const newPaid = currentPaid + parseFloat(data.amount);
+      // ✅ Recalcular paidAmount a partir da fonte de verdade (guestPayments)
+      const paidAgg = await db
+        .select({
+          paid: sql<string>`COALESCE(SUM(${guestPayments.amount}), 0)`,
+        })
+        .from(guestPayments)
+        .where(eq(guestPayments.guestId, data.guestId));
+
+      const newPaid = parseFloat((paidAgg?.[0]?.paid as any) || '0') || 0;
+
       await db
         .update(tableGuests)
         .set({ paidAmount: newPaid.toFixed(2) })
         .where(eq(tableGuests.id, data.guestId));
 
-      const subtotal = parseFloat(guest.subtotal || '0');
-      if (newPaid >= subtotal) {
+      // Determinar "pago" considerando ajustes individuais (desconto/taxa)
+      let due = parseFloat(guest.subtotal || '0');
+      const d = parseFloat((guest as any).discount || '0');
+      const dType = (guest as any).discountType || 'valor';
+      const s = parseFloat((guest as any).serviceCharge || '0');
+      const sType = (guest as any).serviceChargeType || 'valor';
+
+      if (Number.isFinite(d) && d > 0) {
+        due = dType === 'percentual'
+          ? due * (1 - Math.min(d, 100) / 100)
+          : Math.max(0, due - d);
+      }
+      if (Number.isFinite(s) && s > 0) {
+        due = sType === 'percentual'
+          ? due * (1 + s / 100)
+          : due + s;
+      }
+
+      if (newPaid >= due - 0.01) {
         await db
           .update(tableGuests)
           .set({ status: 'pago' })

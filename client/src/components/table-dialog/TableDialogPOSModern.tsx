@@ -1393,32 +1393,83 @@ export function TableDialogPOSModern({
 
           <div className="space-y-4">
             {/* Status de Pagamento */}
-            <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-900">
-              <div className="flex items-center gap-2 text-green-700 dark:text-green-300 mb-2">
-                <CheckCircle2 className="w-5 h-5" />
-                <span className="font-semibold">Pagamento Completo</span>
-              </div>
-              <div className="text-sm text-muted-foreground space-y-1">
-                <div className="flex justify-between">
-                  <span>Total da Mesa:</span>
-                  <span className="font-medium">{formatKwanza(totalAmount)}</span>
+            {(() => {
+              const pending = Math.max(0, totalAmount - totalPaid);
+
+              // Considerar pendências por convidado para evitar falso "Pagamento Completo"
+              // (caso sessionPaidAmount/totalPaid esteja inflacionado).
+              const guestsWithDebt = (allSessionGuests || []).filter((g: any) => parseFloat(g?.subtotal || '0') > 0);
+              const unpaidGuests = guestsWithDebt.filter((g: any) => {
+                const paid = parseFloat(g?.paidAmount || '0');
+                const subtotal = parseFloat(g?.subtotal || '0');
+                return paid < subtotal - 0.01;
+              }).length;
+
+              const isPaid = totalAmount > 0 && pending <= 1.0 && unpaidGuests === 0;
+
+              return (
+                <div
+                  className={cn(
+                    "p-4 rounded-lg border",
+                    isPaid
+                      ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900"
+                      : "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "flex items-center gap-2 mb-2",
+                      isPaid
+                        ? "text-green-700 dark:text-green-300"
+                        : "text-orange-700 dark:text-orange-300"
+                    )}
+                  >
+                    {isPaid ? (
+                      <CheckCircle2 className="w-5 h-5" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5" />
+                    )}
+                    <span className="font-semibold">
+                      {isPaid ? "Pagamento Completo" : "Pagamento Pendente"}
+                    </span>
+                  </div>
+
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <div className="flex justify-between">
+                      <span>Total da Mesa:</span>
+                      <span className="font-medium">{formatKwanza(totalAmount)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Pago:</span>
+                      <span
+                        className={cn(
+                          "font-medium",
+                          isPaid ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"
+                        )}
+                      >
+                        {formatKwanza(totalPaid)}
+                      </span>
+                    </div>
+                    {!isPaid && (
+                      <div className="flex justify-between">
+                        <span>Pendente:</span>
+                        <span className="font-medium text-orange-600 dark:text-orange-400">
+                          {formatKwanza(pending)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span>Convidados:</span>
+                      <span className="font-medium">{guestsCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Pedidos:</span>
+                      <span className="font-medium">{ordersCount}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span>Total Pago:</span>
-                  <span className="font-medium text-green-600 dark:text-green-400">
-                    {formatKwanza(totalPaid)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Convidados:</span>
-                  <span className="font-medium">{guestsCount}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Pedidos:</span>
-                  <span className="font-medium">{ordersCount}</span>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Informação */}
             <div className="text-sm text-muted-foreground">

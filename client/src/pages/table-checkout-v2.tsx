@@ -878,16 +878,8 @@ export default function TableCheckoutV2() {
     return allItems.reduce((sum: number, item: any) => sum + parseFloat(item.totalPrice || 0), 0);
   }, [adjustmentsMode, selectedGuestIds, filteredOrdersByGuest, ordersByGuestData, ordersByGuest, allItems]);
   
-  const paidAmount = ordersByGuestData?.paidAmount 
-    ? Number(ordersByGuestData.paidAmount)
-    : 0;
-  const totalForPending = ordersByGuestData?.totalAmount && Number(ordersByGuestData.totalAmount) > 0
-    ? Number(ordersByGuestData.totalAmount)
-    : calculateTotals.finalTotal;
-  const remainingAmount = Math.max(0, totalForPending - paidAmount);
-  const hasGuests = ordersByGuest.length > 0;
-
   // ✅ OTIMIZAÇÃO CRÍTICA: Só carregar services no Step 3+ (não no Step 1)
+  // (precisa estar ANTES de calculateTotals, pois calculateTotals depende de availableServices)
   const { data: availableServices = [] } = useQuery<any[]>({
     queryKey: ['/api/services/applicable', totalAmount],
     queryFn: async () => {
@@ -1116,6 +1108,16 @@ export default function TableCheckoutV2() {
       breakdown
     };
   }, [totalAmount, discountValue, discountType, appliedCoupon, loyaltyPointsToRedeem, selectedServices, manualServiceName, manualServiceValue, manualServiceType, availableServices, loyaltyProgram]);
+
+  // ✅ Totais de pagamento (precisa vir APÓS calculateTotals)
+  const paidAmount = ordersByGuestData?.paidAmount 
+    ? Number(ordersByGuestData.paidAmount)
+    : 0;
+  const totalForPending = ordersByGuestData?.totalAmount && Number(ordersByGuestData.totalAmount) > 0
+    ? Number(ordersByGuestData.totalAmount)
+    : calculateTotals.finalTotal;
+  const remainingAmount = Math.max(0, totalForPending - paidAmount);
+  const hasGuests = ordersByGuest.length > 0;
 
   // ✅ OTIMIZAÇÃO: Mostrar layout imediatamente com skeleton
   const isInitialLoading = loadingTables && !table;

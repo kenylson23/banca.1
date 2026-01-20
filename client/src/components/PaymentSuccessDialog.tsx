@@ -921,9 +921,26 @@ export function PaymentSuccessDialog({
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="text-right">
-                              <div className="font-bold text-lg">
-                                {formatKwanza(parseFloat(og.subtotal))}
-                              </div>
+                              {(() => {
+                                const { totalAmount: guestTotal, discounts, serviceCharges } = transformGuestDataForPrint(og);
+                                // Aqui os ajustes já vêm como valores finais (type: fixed)
+                                const discountTotal = (discounts || []).reduce((s, d) => s + (d.amount || 0), 0);
+                                const chargesTotal = (serviceCharges || []).reduce((s, c) => s + (c.amount || 0), 0);
+                                return (
+                                  <>
+                                    <div className="font-bold text-lg">
+                                      {formatKwanza(guestTotal)}
+                                    </div>
+                                    {(discountTotal > 0.009 || chargesTotal > 0.009) && (
+                                      <div className="text-xs text-muted-foreground">
+                                        {discountTotal > 0.009 ? `- ${formatKwanza(discountTotal)}` : ''}
+                                        {discountTotal > 0.009 && chargesTotal > 0.009 ? ' • ' : ''}
+                                        {chargesTotal > 0.009 ? `+ ${formatKwanza(chargesTotal)}` : ''}
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
                             {isExpanded ? (
                               <ChevronUp className="h-5 w-5 text-muted-foreground" />
