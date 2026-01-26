@@ -588,7 +588,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
             <CardTitle className="text-sm font-medium text-muted-foreground">Total da Mesa</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatKwanza(numericTotalAmount.toFixed(2))}</div>
+            <div className="text-2xl font-bold">{formatKwanza(numericTotalAmount)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -597,7 +597,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${remainingAmount > 0 ? 'text-orange-500' : 'text-green-500'}`}>
-              {formatKwanza(remainingAmount.toFixed(2))}
+              {formatKwanza(remainingAmount)}
             </div>
           </CardContent>
         </Card>

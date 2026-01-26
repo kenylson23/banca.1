@@ -560,7 +560,7 @@ export function TableDialogPOSModern({
             <div class="total-section">
               <div class="total-line">
                 <span>TOTAL DA MESA:</span>
-                <span>${formatKwanza(totalAmount)}</span>
+                <span>${formatKwanza(currentTotalAmount)}</span>
               </div>
             </div>
 
@@ -595,7 +595,7 @@ export function TableDialogPOSModern({
         variant: "destructive",
       });
     }
-  }, [currentTable, ordersByGuest, ordersCount, guestsCount, totalAmount, sessionDuration, restaurant, formatKwanza, toast]);
+  }, [currentTable, ordersByGuest, ordersCount, guestsCount, currentTotalAmount, sessionDuration, restaurant, formatKwanza, toast]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -937,7 +937,7 @@ export function TableDialogPOSModern({
                         table={currentTable}
                         guestsCount={guestsCount}
                         ordersCount={ordersCount}
-                        totalAmount={totalAmount}
+                        totalAmount={currentTotalAmount}
                         sessionDuration={sessionDuration}
                         ordersByGuest={ordersByGuest || []}
                         onStartSession={() => setShowStartSession(true)}
@@ -980,7 +980,7 @@ export function TableDialogPOSModern({
                         table={currentTable}
                         guests={allSessionGuests || []}
                         ordersByGuest={ordersByGuest || []}
-                        totalAmount={totalAmount}
+                        totalAmount={currentTotalAmount}
                         sessionPaidAmount={totalPaid}
                         onClose={() => onOpenChange(false)}
                         onCloseTable={() => setShowCloseDialog(true)}
@@ -1005,7 +1005,7 @@ export function TableDialogPOSModern({
                                 size="sm"
                                 onClick={() => {
                                   // Dividir igualmente: cada convidado paga valor total / número de convidados
-                                  const valorPorPessoa = totalAmount / guestsCount;
+                                  const valorPorPessoa = currentTotalAmount / guestsCount;
                                   toast({
                                     title: "Divisão Igual",
                                     description: `Cada pessoa paga ${formatKwanza(valorPorPessoa)}`,
@@ -1025,7 +1025,7 @@ export function TableDialogPOSModern({
                                 size="sm"
                                 onClick={() => {
                                   // Calcular se valores estão equilibrados
-                                  const avgAmount = totalAmount / guestsCount;
+                                  const avgAmount = currentTotalAmount / guestsCount;
                                   const threshold = avgAmount * 0.3;
                                   const getOgAmount = (og: any) => {
                                     const raw = og?.subtotal ?? og?.totalAmount ?? 0;
@@ -1061,7 +1061,7 @@ export function TableDialogPOSModern({
                         {/* Preview de Totais - Apenas Visualização */}
                         {guestsCount >= 2 && (() => {
                           // Calcular média e variância para indicadores
-                          const avgAmount = totalAmount / guestsCount;
+                          const avgAmount = currentTotalAmount / guestsCount;
                           const threshold = avgAmount * 0.3; // 30% de variação
                           
                           const getBalanceIndicator = (amount: number) => {
