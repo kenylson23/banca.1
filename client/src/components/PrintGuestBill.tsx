@@ -155,7 +155,9 @@ export function PrintGuestBill({
       const guestDisplayName = guest.name || `Cliente ${guest.guestNumber}`;
       
       // Calcular subtotal (antes de ajustes)
-      const calculatedSubtotal = subtotal || totalAmount;
+      const sumOfItems = orders.flatMap(order => order.items).reduce((sum, item) => sum + parseFloat(item.totalPrice), 0);
+      const calculatedSubtotal = subtotal || sumOfItems;
+      const finalTotalAmount = Math.max(totalAmount, sumOfItems);
       
       // Calcular descontos totais
       const totalDiscounts = discounts.reduce((sum, d) => {
@@ -189,7 +191,7 @@ export function PrintGuestBill({
         // Mostrar sinais para ficar consistente com o cálculo (taxa soma, desconto subtrai)
         serviceCharge: totalCharges > 0 ? `+ ${formatKwanza(totalCharges.toFixed(2))}` : undefined,
         discount: totalDiscounts > 0 ? `- ${formatKwanza(totalDiscounts.toFixed(2))}` : undefined,
-        total: formatKwanza(totalAmount.toFixed(2)),
+        total: formatKwanza(finalTotalAmount.toFixed(2)),
         paymentMethod: paymentMethod ? paymentMethodLabels[paymentMethod] || paymentMethod : undefined,
         isPaid: guest.status === 'pago',
         orderCount: orders.length,

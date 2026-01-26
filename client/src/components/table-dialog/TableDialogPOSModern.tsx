@@ -218,7 +218,7 @@ export function TableDialogPOSModern({
   }, 0) || 0;
   
   // 🔧 FIX: Usar totalAmount do backend como prioridade, mas garantir coerência
-  let totalAmount = ordersByGuestData?.totalAmount 
+  let currentTotalAmount = ordersByGuestData?.totalAmount 
     ? parseFloat(ordersByGuestData.totalAmount) 
     : subtotalBeforeAdjustments;
 
@@ -238,18 +238,18 @@ export function TableDialogPOSModern({
     if (sessionDiscount > 0) {
       if (sessionDiscountType === 'percentual') {
         const discountPercent = Math.min(sessionDiscount, 100);
-        totalAmount = totalAmount * (1 - discountPercent / 100);
+        currentTotalAmount = currentTotalAmount * (1 - discountPercent / 100);
       } else {
-        totalAmount = Math.max(0, totalAmount - sessionDiscount);
+        currentTotalAmount = Math.max(0, currentTotalAmount - sessionDiscount);
       }
     }
     
     // 2. Aplicar taxa de serviço (sobre valor já descontado)
     if (sessionServiceFee > 0) {
       if (sessionServiceFeeType === 'percentual') {
-        totalAmount = totalAmount * (1 + sessionServiceFee / 100);
+        currentTotalAmount = currentTotalAmount * (1 + sessionServiceFee / 100);
       } else {
-        totalAmount = totalAmount + sessionServiceFee;
+        currentTotalAmount = currentTotalAmount + sessionServiceFee;
       }
     }
   }
@@ -259,7 +259,7 @@ export function TableDialogPOSModern({
     return sum + parseFloat(og.guest?.paidAmount || '0');
   }, 0);
   
-  totalAmount = Math.max(totalAmount, paidFromGuests);
+  currentTotalAmount = Math.max(currentTotalAmount, paidFromGuests);
   const totalPaid = Math.max(sessionPaidAmount || 0, paidFromGuests);
   
   // Calcular duração da sessão
@@ -268,6 +268,12 @@ export function TableDialogPOSModern({
         const start = new Date(currentTable.currentSession.startedAt);
         const now = new Date();
         const diff = now.getTime() - start.getTime();
+        
+        // 🔧 FIX: Se diff for negativo ou absurdamente grande (> 24h), retornar 0h 0min ou algo sensato
+        if (diff < 0 || diff > 24 * 60 * 60 * 1000) {
+          return '0h 0min';
+        }
+
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         return `${hours}h ${minutes}min`;
