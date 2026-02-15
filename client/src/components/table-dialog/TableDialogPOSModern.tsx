@@ -12,7 +12,7 @@
  * - Design responsivo
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
