@@ -263,22 +263,24 @@ export function TableDialogPOSModern({
   const totalPaid = Math.max(sessionPaidAmount || 0, paidFromGuests);
   
   // Calcular duração da sessão
-  const sessionDuration = currentTable?.currentSessionId && currentTable?.currentSession?.startedAt
-    ? (() => {
-        const start = new Date(currentTable.currentSession.startedAt);
-        const now = new Date();
-        const diff = now.getTime() - start.getTime();
-        
-        // 🔧 FIX: Se diff for negativo ou absurdamente grande (> 24h), retornar 0h 0min ou algo sensato
-        if (diff < 0 || diff > 24 * 60 * 60 * 1000) {
-          return '0h 0min';
-        }
+  const sessionDuration = useMemo(() => {
+    if (!currentTable?.currentSessionId || !currentTable?.currentSession?.startedAt) return '0h 0min';
+    
+    const start = new Date(currentTable.currentSession.startedAt).getTime();
+    const now = new Date().getTime();
+    const diffMs = now - start;
+    
+    // 🔧 FIX: Se diff for negativo ou absurdamente grande (> 24h), retornar 0h 0min
+    if (diffMs < 0 || diffMs > 24 * 60 * 60 * 1000) {
+      return '0h 0min';
+    }
 
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        return `${hours}h ${minutes}min`;
-      })()
-    : '0h 0min';
+    const diffMins = Math.floor(diffMs / 60000);
+    const hours = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    
+    return `${hours}h ${mins}min`;
+  }, [currentTable?.currentSessionId, currentTable?.currentSession?.startedAt]);
 
   const navigationItems: NavigationItem[] = [
     {
