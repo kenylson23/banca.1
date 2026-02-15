@@ -8968,20 +8968,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateSubscription(restaurantId: string, data: UpdateSubscription): Promise<Subscription> {
-    const [updated] = await db
-      .update(subscriptions)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
-      .where(eq(subscriptions.restaurantId, restaurantId))
-      .returning();
+    try {
+      const [updated] = await db
+        .update(subscriptions)
+        .set({
+          ...data,
+          updatedAt: new Date(),
+        })
+        .where(eq(subscriptions.restaurantId, restaurantId))
+        .returning();
 
-    if (!updated) {
-      throw new Error("Subscrição não encontrada");
+      if (!updated) {
+        throw new Error("Subscrição não encontrada");
+      }
+
+      return updated;
+    } catch (error: any) {
+      if (error.message === "Subscrição não encontrada") throw error;
+      console.error("Error updating subscription:", error);
+      throw new Error("Erro ao atualizar subscrição");
     }
-
-    return updated;
   }
 
   async cancelSubscription(restaurantId: string): Promise<Subscription> {
@@ -9184,11 +9190,17 @@ export class DatabaseStorage implements IStorage {
 
   // Subscription Payment operations
   async getSubscriptionPayments(restaurantId: string): Promise<SubscriptionPayment[]> {
-    return await db
-      .select()
-      .from(subscriptionPayments)
-      .where(eq(subscriptionPayments.restaurantId, restaurantId))
-      .orderBy(desc(subscriptionPayments.createdAt));
+    try {
+      return await db
+        .select()
+        .from(subscriptionPayments)
+        .where(eq(subscriptionPayments.restaurantId, restaurantId))
+        .orderBy(desc(subscriptionPayments.createdAt));
+    } catch (error) {
+      console.error('Subscription payments fetch error:', error);
+      // Retornar array vazio se a coluna falhar (migração pendente ou erro de schema)
+      return [];
+    }
   }
 
   async createSubscriptionPayment(restaurantId: string, data: InsertSubscriptionPayment): Promise<SubscriptionPayment> {

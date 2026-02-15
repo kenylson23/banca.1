@@ -454,19 +454,30 @@ async function checkSubscriptionStatus(req: any, res: any, next: any) {
 
     // Check if trial or active period has ended
     if (now > periodEnd && (subscription.status === 'trial' || subscription.status === 'ativa')) {
-      // Auto-update status to expired
-      // 🔧 FIX: Pass restaurantId instead of subscription.id
-      await storage.updateSubscription(subscription.restaurantId, { status: 'expirada' });
-      
-      // Invalidate cache so next request gets updated status
-      cache.delete(cacheKey);
-      
-      return res.status(402).json({ 
-        message: "Sua subscrição expirou. Renove para continuar usando o sistema.",
-        code: 'SUBSCRIPTION_EXPIRED',
-        expiredAt: periodEnd.toISOString(),
-        planName: subscription.plan?.name || 'Desconhecido'
-      });
+      try {
+        // Auto-update status to expired
+        // 🔧 FIX: Pass restaurantId instead of subscription.id
+        await storage.updateSubscription(subscription.restaurantId, { status: 'expirada' });
+        
+        // Invalidate cache so next request gets updated status
+        cache.delete(cacheKey);
+        
+        return res.status(402).json({ 
+          message: "Sua subscrição expirou. Renove para continuar usando o sistema.",
+          code: 'SUBSCRIPTION_EXPIRED',
+          expiredAt: periodEnd.toISOString(),
+          planName: subscription.plan?.name || 'Desconhecido'
+        });
+      } catch (err) {
+        console.error('❌ Error updating subscription status to expired:', err);
+        // Continue to show expired message anyway if update fails
+        return res.status(402).json({ 
+          message: "Sua subscrição expirou. Renove para continuar usando o sistema.",
+          code: 'SUBSCRIPTION_EXPIRED',
+          expiredAt: periodEnd.toISOString(),
+          planName: subscription.plan?.name || 'Desconhecido'
+        });
+      }
     }
 
     // Check if subscription is cancelled and period has ended

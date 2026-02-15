@@ -262,7 +262,6 @@ export function TableDialogPOSModern({
   currentTotalAmount = Math.max(currentTotalAmount, paidFromGuests);
   const totalPaid = Math.max(sessionPaidAmount || 0, paidFromGuests);
   
-  // Calcular duração da sessão
   const sessionDuration = useMemo(() => {
     if (!currentTable?.currentSessionId || !currentTable?.currentSession?.startedAt) return '0h 0min';
     
