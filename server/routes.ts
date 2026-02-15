@@ -455,7 +455,8 @@ async function checkSubscriptionStatus(req: any, res: any, next: any) {
     // Check if trial or active period has ended
     if (now > periodEnd && (subscription.status === 'trial' || subscription.status === 'ativa')) {
       // Auto-update status to expired
-      await storage.updateSubscription(subscription.id, { status: 'expirada' });
+      // 🔧 FIX: Pass restaurantId instead of subscription.id
+      await storage.updateSubscription(subscription.restaurantId, { status: 'expirada' });
       
       // Invalidate cache so next request gets updated status
       cache.delete(cacheKey);
