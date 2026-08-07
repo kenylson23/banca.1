@@ -1267,8 +1267,18 @@ export async function ensureTablesExist() {
         reference_number VARCHAR(100),
         notes TEXT,
         paid_at TIMESTAMP,
+         failed_at TIMESTAMP,
+         failure_reason TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
+
+      // Add payment failure fields to existing subscription_payments tables.
+      await db.execute(sql`DO $$ BEGIN
+        ALTER TABLE subscription_payments ADD COLUMN failed_at TIMESTAMP;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN
+        ALTER TABLE subscription_payments ADD COLUMN failure_reason TEXT;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Create subscription_usage table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS subscription_usage (

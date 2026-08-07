@@ -1,0 +1,2 @@
+- [Anonymous auth requests](anonymous-auth-requests.md) — unauthenticated user lookups should resolve to an anonymous state, not surface a console error.
+- [Replit Vite HMR proxy](replit-vite-hmr.md) — the proxied preview may not support the development WebSocket reliably; prefer a clean fallback over repeated console failures.

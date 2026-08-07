@@ -21,7 +21,10 @@ export function log(message: string, source = "express") {
 export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
-    hmr: { server },
+    // O preview do Replit fica atrás de um proxy que não encaminha o
+    // WebSocket interno do Vite de forma confiável. O HMR desativado evita
+    // erros de conexão no console; o workflow é reiniciado após alterações.
+    hmr: false,
     allowedHosts: true as const,
   };
 

@@ -739,7 +739,7 @@ export function TableDialogPOSModern({
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-success">
-                      {formatKwanza(totalAmount)}
+                      {formatKwanza(currentTotalAmount)}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       Total
@@ -1231,7 +1231,7 @@ export function TableDialogPOSModern({
                             <BillSplitPanel
                               tableId={table?.id || ''}
                               sessionId={currentTable?.currentSessionId}
-                              totalAmount={totalAmount}
+                              totalAmount={currentTotalAmount}
                             />
                           </>
                         )}
@@ -1256,7 +1256,7 @@ export function TableDialogPOSModern({
                       Total da Mesa
                     </div>
                     <div className="text-2xl font-bold text-success">
-                      {formatKwanza(totalAmount)}
+                      {formatKwanza(currentTotalAmount)}
                     </div>
                   </div>
                   <Separator orientation="vertical" className="h-10" />
@@ -1401,7 +1401,7 @@ export function TableDialogPOSModern({
           <div className="space-y-4">
             {/* Status de Pagamento */}
             {(() => {
-              const pending = Math.max(0, totalAmount - totalPaid);
+              const pending = Math.max(0, currentTotalAmount - totalPaid);
 
               // Considerar pendências por convidado para evitar falso "Pagamento Completo"
               // (caso sessionPaidAmount/totalPaid esteja inflacionado).
@@ -1412,7 +1412,7 @@ export function TableDialogPOSModern({
                 return paid < subtotal - 0.01;
               }).length;
 
-              const isPaid = totalAmount > 0 && pending <= 1.0 && unpaidGuests === 0;
+              const isPaid = currentTotalAmount > 0 && pending <= 1.0 && unpaidGuests === 0;
 
               return (
                 <div
@@ -1444,7 +1444,7 @@ export function TableDialogPOSModern({
                   <div className="text-sm text-muted-foreground space-y-1">
                     <div className="flex justify-between">
                       <span>Total da Mesa:</span>
-                      <span className="font-medium">{formatKwanza(totalAmount)}</span>
+                      <span className="font-medium">{formatKwanza(currentTotalAmount)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Total Pago:</span>
