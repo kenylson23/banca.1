@@ -1412,7 +1412,10 @@ export function TableDialogPOSModern({
                 return paid < subtotal - 0.01;
               }).length;
 
-              const isPaid = currentTotalAmount > 0 && pending <= 1.0 && unpaidGuests === 0;
+              const isPaid =
+                currentTotalAmount > 0 &&
+                pending <= 1.0 &&
+                (unpaidGuests === 0 || totalPaid >= currentTotalAmount - 1.0);
 
               return (
                 <div

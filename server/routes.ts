@@ -4292,8 +4292,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sessionPaidAmount: session?.paidAmount || '0' // Já foi atualizado por addTablePayment
         });
         
-        // Buscar todos os convidados para calcular total
+        // Buscar todos os convidados e pedidos para calcular o total real.
+        // O subtotal persistido do convidado pode ficar desatualizado quando
+        // pedidos são criados/atribuídos depois da entrada do convidado.
         const allGuests = await storage.getTableGuests(table.currentSessionId);
+        const allTableOrders = await storage.getOrdersByTableId(table.restaurantId, table.id);
+        const currentGuestIds = allGuests.map((guest) => guest.id);
+        const sessionOrders = allTableOrders.filter((order: any) => {
+          if (order.status === 'cancelado') return false;
+          if (order.tableSessionId === table.currentSessionId) return true;
+          if (!order.tableSessionId && order.guestId && currentGuestIds.includes(order.guestId)) return true;
+          if (!order.tableSessionId && !order.guestId) {
+            return (order.orderItems || []).some(
+              (item: any) => !item.guestId || currentGuestIds.includes(item.guestId),
+            );
+          }
+          return false;
+        });
+        const calculateOrderTotal = (order: any) => {
+          const storedTotal = parseFloat(order.totalAmount || '0');
+          if (storedTotal > 0) return storedTotal;
+          return (order.orderItems || []).reduce((sum: number, item: any) => {
+            const price = parseFloat(item.price || item.menuItem?.price || '0');
+            return sum + price * Number(item.quantity || 0);
+          }, 0);
+        };
+        const ordersSubtotal = sessionOrders.reduce(
+          (sum: number, order: any) => sum + calculateOrderTotal(order),
+          0,
+        );
         
         if (session) {
           const sessionDiscount = parseFloat(session.discount || '0');
@@ -4302,7 +4329,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const sessionServiceChargeType = session.serviceChargeType || 'percentual';
           
           // Calcular totalAmount COM ajustes
-          const subtotalBeforeAdjustments = allGuests.reduce((sum, g) => sum + parseFloat(g.subtotal || '0'), 0);
+          // Usar pedidos como fonte primária; guests.subtotal é apenas fallback
+          // para sessões legadas que ainda não possuem pedidos carregados.
+          const guestsSubtotal = allGuests.reduce((sum, guest) => sum + parseFloat(guest.subtotal || '0'), 0);
+          const hasReliableSubtotal = ordersSubtotal > 0 || guestsSubtotal > 0;
+          const subtotalBeforeAdjustments = ordersSubtotal > 0 ? ordersSubtotal : guestsSubtotal;
           let totalAmountAjustado = subtotalBeforeAdjustments;
           
           // Aplicar desconto
@@ -4323,8 +4354,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           
+          if (hasReliableSubtotal) {
+            await db.update(tableSessions)
+              .set({ totalAmount: totalAmountAjustado.toFixed(2) })
+              .where(eq(tableSessions.id, table.currentSessionId));
+          } else {
+            // Não substituir um total válido por apenas a taxa de serviço
+            // quando os pedidos ainda não foram carregados nesta sessão.
+            totalAmountAjustado = parseFloat(session.totalAmount || '0');
+            console.warn('[TABLE PAYMENT] Total preservado: subtotal ainda não disponível', {
+              sessionId: table.currentSessionId,
+              existingTotal: session.totalAmount,
+            });
+          }
+
+          // addTablePayment pode ter aplicado um limite baseado no total
+          // anterior. Recalcular o pago depois de obter o total definitivo.
+          const sessionPayments = await db.select()
+            .from(tablePayments)
+            .where(eq(tablePayments.sessionId, table.currentSessionId));
+          const totalPaidFromTablePayments = sessionPayments.reduce(
+            (sum: number, recordedPayment: { amount: string | null }) =>
+              sum + parseFloat(recordedPayment.amount || '0'),
+            0,
+          );
           await db.update(tableSessions)
-            .set({ totalAmount: totalAmountAjustado.toFixed(2) })
+            .set({
+              paidAmount: Math.min(totalPaidFromTablePayments, totalAmountAjustado).toFixed(2),
+            })
             .where(eq(tableSessions.id, table.currentSessionId));
 
           console.log('💰 [TABLE PAYMENT] Atualizando sessão com ajustes:', {
@@ -5110,15 +5167,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     const guests = await storage.getTableGuests(sessionId);
+    const sessionOrders = await storage.getOrdersBySessionId(session.restaurantId, sessionId);
+    const ordersSubtotal = sessionOrders
+      .filter((order: any) => order.status !== 'cancelado')
+      .reduce((sum: number, order: any) => {
+        const storedTotal = parseFloat(order.totalAmount || '0');
+        if (storedTotal > 0) return sum + storedTotal;
+        return sum + (order.orderItems || []).reduce((itemSum: number, item: any) => {
+          const price = parseFloat(item.price || item.menuItem?.price || '0');
+          return itemSum + price * Number(item.quantity || 0);
+        }, 0);
+      }, 0);
 
     const sessionDiscount = parseFloat(session.discount || '0');
     const sessionDiscountType = session.discountType || 'valor';
     const sessionServiceCharge = parseFloat(session.serviceCharge || '0');
     const sessionServiceChargeType = session.serviceChargeType || 'percentual';
 
-    const subtotalBeforeAdjustments = guests.reduce((sum, g: any) => {
+    const guestsSubtotal = guests.reduce((sum, g: any) => {
       return sum + parseFloat(g.subtotal || '0');
     }, 0);
+    const subtotalBeforeAdjustments = ordersSubtotal > 0 ? ordersSubtotal : guestsSubtotal;
 
     let totalAmountAdjusted = subtotalBeforeAdjustments;
 
@@ -5612,13 +5681,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ✅ Forçar recalcular paidAmount a partir dos pagamentos reais da sessão
       let paidAmount = session?.paidAmount || '0.00';
       if (table.currentSessionId) {
-        // ✅ Fonte de verdade: guestPayments (evita inflar o paidAmount por tablePayments "órfãos")
-        const guestPays = await db.select()
-          .from(guestPayments)
-          .where(eq(guestPayments.sessionId, table.currentSessionId));
+        // Fonte de verdade da mesa: tablePayments. O checkout completo
+        // registra pagamentos gerais apenas nesta tabela; pagamentos
+        // individuais também possuem um registro correspondente aqui.
+        const tablePays = await db.select()
+          .from(tablePayments)
+          .where(eq(tablePayments.sessionId, table.currentSessionId));
 
-        const totalPaidFromPayments = guestPays.reduce(
-          (sum, payment) => sum + parseFloat(payment.amount || '0'),
+        const totalPaidFromPayments = tablePays.reduce(
+          (sum: number, payment: { amount: string | null }) =>
+            sum + parseFloat(payment.amount || '0'),
           0
         );
 

@@ -255,9 +255,8 @@ export function PaymentSection({
 
   const realTotalAmount = Math.max(totalAmount || 0, sumOfSessionGuestSubtotals, sumOfOrdersByGuestSubtotals);
 
-  // Total pago:
-  // - Preferir soma por convidado (pagamento individual)
-  // - Mesmo que `guests` venha vazio, se `ordersByGuest` tiver dados, NÃO usar sessionPaidAmount como fonte
+  // Total pago: sessionPaidAmount também inclui pagamentos gerais feitos pelo
+  // checkout completo, então não pode ser ignorado quando existem convidados.
   const paidFromSessionGuests = (guests || []).reduce((sum: number, g: any) => {
     return sum + parseFloat(g?.paidAmount || '0');
   }, 0);
@@ -266,11 +265,11 @@ export function PaymentSection({
     return sum + parseFloat(og?.guest?.paidAmount || '0');
   }, 0);
 
-  const hasGuestsData = (guests && guests.length > 0) || (ordersByGuest && ordersByGuest.length > 0);
-
-  const totalPaidRaw = hasGuestsData
-    ? Math.max(paidFromSessionGuests, paidFromOrdersByGuest)
-    : (Number.isFinite(sessionPaidAmount) ? sessionPaidAmount : 0);
+  const totalPaidRaw = Math.max(
+    paidFromSessionGuests,
+    paidFromOrdersByGuest,
+    Number.isFinite(sessionPaidAmount) ? sessionPaidAmount : 0,
+  );
 
   // Nunca permitir que o pago ultrapasse o total devido
   const totalPaid = Math.min(Math.max(0, totalPaidRaw), realTotalAmount);
@@ -309,13 +308,13 @@ export function PaymentSection({
 
   // ✅ Pagamento completo só quando:
   // - o pago cobre o total (tolerância de 1 Kz)
-  // - NÃO existe nenhum convidado com dívida pendente
+  // - ou um pagamento geral da mesa já cobre o total devido
   // Isso evita o bug: banner "Pagamento Completo" + lista mostrando convidado pendente.
   const isPaymentComplete =
     realTotalAmount > 0 &&
     totalPaid > 0 &&
     totalUnpaid <= 1.0 &&
-    unpaidGuests === 0;
+    (unpaidGuests === 0 || totalPaid >= realTotalAmount - 1.0);
 
   console.log('totalPaid (final):', totalPaid);
   console.log('realTotalAmount:', realTotalAmount);
