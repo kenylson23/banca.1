@@ -96,7 +96,7 @@ export default function CustomerMenu() {
   const [, params] = useRoute('/mesa/:tableNumber');
   const tableNumber = params?.tableNumber;
   
-  const { items, orderNotes, addItem, removeItem, setOrderNotes, clearCart, getTotal, getItemCount } = useCart();
+  const { items, orderNotes, addItem, removeItem, updateQuantity, setOrderNotes, clearCart, getTotal, getItemCount } = useCart();
   const { isAuthenticated, customer: authCustomer } = useCustomerAuth();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
@@ -1078,9 +1078,7 @@ export default function CustomerMenu() {
                                                   className="h-7 w-7 hover:bg-white"
                                                   onClick={() => {
                                                     if (item.quantity > 1) {
-                                                      const newItem = { ...item, quantity: item.quantity - 1 };
-                                                      removeItem(item.id);
-                                                      addItem(item.menuItem, item.selectedOptions);
+                                                       updateQuantity(item.id, item.quantity - 1);
                                                     } else {
                                                       removeItem(item.id);
                                                     }

@@ -38,8 +38,8 @@ export function QRCodeDialog({
 
   // Gerar URL pública do menu
   const publicMenuUrl = restaurantSlug
-    ? `${window.location.origin}/${restaurantSlug}/menu?table=${tableId}`
-    : `${window.location.origin}/public-menu?table=${tableId}`;
+    ? `${window.location.origin}/r/${restaurantSlug}?tableId=${encodeURIComponent(tableId)}`
+    : `${window.location.origin}/mesa/${encodeURIComponent(tableNumber)}`;
 
   // Gerar QR Code
   useEffect(() => {

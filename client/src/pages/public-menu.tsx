@@ -111,7 +111,8 @@ interface CouponValidation {
 
 export default function PublicMenu() {
   const [, params] = useRoute('/r/:slug');
-  const slug = params?.slug;
+  const [, legacyParams] = useRoute('/:slug/menu');
+  const slug = params?.slug ?? legacyParams?.slug;
   const { items, addItem, removeItem, updateQuantity, clearCart, getTotal, getItemCount } = useCart();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [orderType, setOrderType] = useState<'delivery' | 'takeout' | 'mesa'>('delivery'); // ✅ ADICIONADO 'mesa'
@@ -162,12 +163,13 @@ export default function PublicMenu() {
   
   // Detect preview mode and device type from URL params
   const searchParams = new URLSearchParams(window.location.search);
+  const tableIdFromQuery = searchParams.get('tableId') || searchParams.get('table');
   const previewDevice = searchParams.get('preview'); // 'iphone', 'android', 'tablet', 'desktop'
   const isPreviewMode = !!previewDevice;
 
   // ✅ DETECTAR AUTOMATICAMENTE PEDIDO VIA QR CODE (MESA)
   useEffect(() => {
-    const tableId = searchParams.get('tableId');
+    const tableId = tableIdFromQuery;
     
     if (tableId) {
       // Cliente escaneou QR Code da mesa
@@ -180,7 +182,7 @@ export default function PublicMenu() {
         description: "Faça seu pedido diretamente do celular. Informe seu telefone para ganhar pontos!",
       });
     }
-  }, [searchParams, toast]);
+  }, [tableIdFromQuery, toast]);
 
   // Force viewport for preview mode
   useEffect(() => {
@@ -951,7 +953,10 @@ export default function PublicMenu() {
                     </AnimatePresence>
                   </button>
                 </SheetTrigger>
-                <SheetContent side="rightCompact" className="flex flex-col p-0 bg-white max-h-[85vh] [&>button]:hidden">
+                <SheetContent
+                  side="rightCompact"
+                  className="flex h-[min(85dvh,720px)] max-h-[85dvh] min-h-0 flex-col overflow-hidden p-0 bg-white [&>button]:hidden sm:h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-2rem)]"
+                >
                   {/* Header com indicador de etapas */}
                   <div className="p-3 bg-white border-b border-gray-100 flex-shrink-0">
                     <SheetHeader>

@@ -48,6 +48,8 @@ function Router() {
         <Route path="/mesa/:tableNumber" component={CustomerMenu} />
         <Route path="/r/:slug/rastrear" component={TrackOrder} />
         <Route path="/r/:slug" component={PublicMenu} />
+        {/* Compatibilidade com links antigos do menu público */}
+        <Route path="/:slug/menu" component={PublicMenu} />
         <Route path="/guest-register/:tableId" component={GuestRegister} />
       
       <Route path="/termos" component={Terms} />
