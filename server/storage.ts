@@ -192,6 +192,7 @@ function generateSlug(name: string): string {
 }
 
 export interface IStorage {
+  recalculateSessionTotals(sessionId: string): Promise<any>;
   // Restaurant operations
   getRestaurants(): Promise<Restaurant[]>;
   getRestaurantById(id: string): Promise<Restaurant | undefined>;
@@ -850,6 +851,120 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+
+  async recalculateSessionTotals(sessionId: string): Promise<any> {
+    const session = await this.getSessionById(sessionId);
+    if (!session) {
+      return null;
+    }
+
+    const guests = await this.getTableGuests(sessionId);
+    const sessionOrders = await this.getOrdersBySessionId(session.restaurantId, sessionId);
+    const ordersSubtotal = sessionOrders
+      .filter((order: any) => order.status !== 'cancelado')
+      .reduce((sum: number, order: any) => {
+        const storedTotal = parseFloat(order.totalAmount || '0');
+        if (storedTotal > 0) return sum + storedTotal;
+        return sum + (order.orderItems || []).reduce((itemSum: number, item: any) => {
+          const price = parseFloat(item.price || item.menuItem?.price || '0');
+          return itemSum + price * Number(item.quantity || 0);
+        }, 0);
+      }, 0);
+
+    const sessionDiscount = parseFloat(session.discount || '0');
+    const sessionDiscountType = session.discountType || 'valor';
+    const sessionServiceCharge = parseFloat(session.serviceCharge || '0');
+    const sessionServiceChargeType = session.serviceChargeType || 'percentual';
+
+    const guestsSubtotal = guests.reduce((sum: any, g: any) => {
+      return sum + parseFloat(g.subtotal || '0');
+    }, 0);
+    const subtotalBeforeAdjustments = ordersSubtotal > 0 ? ordersSubtotal : guestsSubtotal;
+
+    let totalAmountAdjusted = subtotalBeforeAdjustments;
+
+    if (sessionDiscount > 0) {
+      totalAmountAdjusted = sessionDiscountType === 'percentual'
+        ? totalAmountAdjusted * (1 - Math.min(sessionDiscount, 100) / 100)
+        : Math.max(0, totalAmountAdjusted - sessionDiscount);
+    }
+
+    if (sessionServiceCharge > 0) {
+      totalAmountAdjusted = sessionServiceChargeType === 'percentual'
+        ? totalAmountAdjusted * (1 + sessionServiceCharge / 100)
+        : totalAmountAdjusted + sessionServiceCharge;
+    }
+
+    const hasGuestAdjustments = guests.some((g: any) => {
+      const d = parseFloat(g.discount || '0');
+      const s = parseFloat(g.serviceCharge || '0');
+      return (Number.isFinite(d) && d > 0) || (Number.isFinite(s) && s > 0);
+    });
+
+    if (hasGuestAdjustments) {
+      totalAmountAdjusted = guests.reduce((sum: number, g: any) => {
+        let adjusted = parseFloat(g.subtotal || '0');
+        const gDiscount = parseFloat(g.discount || '0');
+        const gDiscountType = g.discountType || 'valor';
+        const gServiceCharge = parseFloat(g.serviceCharge || '0');
+        const gServiceChargeType = g.serviceChargeType || 'valor';
+
+        if (gDiscount > 0) {
+          adjusted = gDiscountType === 'percentual'
+            ? adjusted * (1 - Math.min(gDiscount, 100) / 100)
+            : Math.max(0, adjusted - gDiscount);
+        }
+
+        if (gServiceCharge > 0) {
+          adjusted = gServiceChargeType === 'percentual'
+            ? adjusted * (1 + gServiceCharge / 100)
+            : adjusted + gServiceCharge;
+        }
+
+        return sum + adjusted;
+      }, 0);
+    }
+
+    const { db } = require('./db');
+    const { tablePayments, guestPayments, tableSessions } = require('@shared/schema');
+    const { eq, sql } = require('drizzle-orm');
+
+    const payments = await db.select()
+      .from(tablePayments)
+      .where(eq(tablePayments.sessionId, sessionId));
+
+    const tablePaidSum = payments.reduce(
+      (sum: number, payment: any) => sum + parseFloat(payment.amount || '0'),
+      0
+    );
+
+    const guestPaymentsAgg = await db.select({
+      total: sql`COALESCE(SUM(${guestPayments.amount}), 0)`,
+    })
+      .from(guestPayments)
+      .where(eq(guestPayments.sessionId, sessionId));
+
+    const guestPaidSum = parseFloat((guestPaymentsAgg?.[0]?.total as any) || '0') || 0;
+    const totalPaidFromPayments = Math.max(tablePaidSum, guestPaidSum);
+
+    const paidAmountCapped = totalAmountAdjusted > 0
+      ? Math.min(totalPaidFromPayments, totalAmountAdjusted)
+      : totalPaidFromPayments;
+
+    await db.update(tableSessions)
+      .set({
+        totalAmount: totalAmountAdjusted.toFixed(2),
+        paidAmount: paidAmountCapped.toFixed(2),
+      })
+      .where(eq(tableSessions.id, sessionId));
+
+    return {
+      sessionId,
+      totalAmount: totalAmountAdjusted.toFixed(2),
+      paidAmount: paidAmountCapped.toFixed(2),
+      pendingAmount: Math.max(0, totalAmountAdjusted - paidAmountCapped).toFixed(2),
+    };
+  }
   // Restaurant operations
   async getRestaurants(): Promise<Restaurant[]> {
     return await db.select().from(restaurants).orderBy(restaurants.createdAt);
@@ -1527,6 +1642,7 @@ export class DatabaseStorage implements IStorage {
     await db.update(tables)
       .set({
         status: 'ocupada',
+        tableStatus: 'aguardando_pedido',
         currentSessionId: session.id,
         customerName: sessionData.customerName,
         customerCount: sessionData.customerCount || 0,
@@ -3810,7 +3926,7 @@ export class DatabaseStorage implements IStorage {
         .where(and(
           eq(tables.restaurantId, restaurantId),
           eq(tables.branchId, branchId),
-          eq(tables.isOccupied, 1)
+          ne(tables.status, 'livre')
         ));
     } else {
       activeTables = await db
@@ -3818,7 +3934,7 @@ export class DatabaseStorage implements IStorage {
         .from(tables)
         .where(and(
           eq(tables.restaurantId, restaurantId),
-          eq(tables.isOccupied, 1)
+          ne(tables.status, 'livre')
         ));
     }
 
@@ -9694,8 +9810,6 @@ export class DatabaseStorage implements IStorage {
 
   async createTableGuest(restaurantId: string, data: InsertTableGuest): Promise<TableGuest> {
     try {
-      // Creating table guest
-      
       const [guest] = await db
         .insert(tableGuests)
         .values({
@@ -9703,7 +9817,26 @@ export class DatabaseStorage implements IStorage {
           restaurantId,
         })
         .returning();
-      
+
+      if (data.sessionId) {
+        const activeGuests = await db
+          .select()
+          .from(tableGuests)
+          .where(and(eq(tableGuests.sessionId, data.sessionId), ne(tableGuests.status, 'saiu')));
+
+        const activeCount = activeGuests.length;
+        await db.update(tableSessions)
+          .set({ customerCount: activeCount })
+          .where(eq(tableSessions.id, data.sessionId));
+
+        const targetTableId = data.tableId || (await this.getSessionById(data.sessionId))?.tableId;
+        if (targetTableId) {
+          await db.update(tables)
+            .set({ customerCount: activeCount })
+            .where(eq(tables.id, targetTableId));
+        }
+      }
+
       return guest;
     } catch (error: any) {
       console.error('Error creating guest:', error);
@@ -9721,6 +9854,25 @@ export class DatabaseStorage implements IStorage {
       .set(updateData)
       .where(eq(tableGuests.id, id))
       .returning();
+
+    if (updated?.sessionId) {
+      const activeGuests = await db
+        .select()
+        .from(tableGuests)
+        .where(and(eq(tableGuests.sessionId, updated.sessionId), ne(tableGuests.status, 'saiu')));
+
+      const activeCount = activeGuests.length;
+      await db.update(tableSessions)
+        .set({ customerCount: activeCount })
+        .where(eq(tableSessions.id, updated.sessionId));
+
+      if (updated.tableId) {
+        await db.update(tables)
+          .set({ customerCount: activeCount })
+          .where(eq(tables.id, updated.tableId));
+      }
+    }
+
     return updated;
   }
 

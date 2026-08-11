@@ -3926,7 +3926,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tables/:id/start-session", isAdmin, async (req, res) => {
+  app.post("/api/tables/:id/start-session", isOperational, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
@@ -4278,139 +4278,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: receivedAmount ? `Valor recebido: ${receivedAmount}. ${notes || ''}` : notes,
       });
       
-      // ✅ CORREÇÃO CRÍTICA: addTablePayment JÁ atualiza session.paidAmount atomicamente
-      // Aqui só precisamos atualizar o totalAmount COM ajustes
+
+      // ✅ Usa o motor de recálculo partilhado (calcula subtotal, ajusta descontos, e soma os pagamentos reais)
       if (table.currentSessionId) {
-        // ✅ IMPORTANTE: Buscar sessão APÓS addTablePayment para ter paidAmount atualizado
-        const [session] = await db.select().from(tableSessions)
-          .where(eq(tableSessions.id, table.currentSessionId))
-          .limit(1);
+        const result = await storage.recalculateSessionTotals(table.currentSessionId);
         
-        console.log('💰 [TABLE PAYMENT] Pagamento registrado:', {
+        console.log('💰 [TABLE PAYMENT] Sessão atualizada via recálculo:', {
           sessionId: table.currentSessionId,
-          paymentAmount: parseFloat(amount).toFixed(2),
-          sessionPaidAmount: session?.paidAmount || '0' // Já foi atualizado por addTablePayment
+          totalAmount: result?.totalAmount,
+          paidAmount: result?.paidAmount,
+          pendingAmount: result?.pendingAmount
         });
+
+        // ✅ DESATIVADO: Não fechar automaticamente após pagamento
+        // Cliente pode querer fazer mais pedidos (sobremesa, café, etc)
+        // O fechamento deve ser sempre manual através do botão "Fechar Mesa"
+        const validation = await storage.validateSessionClosure(table.currentSessionId);
         
-        // Buscar todos os convidados e pedidos para calcular o total real.
-        // O subtotal persistido do convidado pode ficar desatualizado quando
-        // pedidos são criados/atribuídos depois da entrada do convidado.
-        const allGuests = await storage.getTableGuests(table.currentSessionId);
-        const allTableOrders = await storage.getOrdersByTableId(table.restaurantId, table.id);
-        const currentGuestIds = allGuests.map((guest) => guest.id);
-        const sessionOrders = allTableOrders.filter((order: any) => {
-          if (order.status === 'cancelado') return false;
-          if (order.tableSessionId === table.currentSessionId) return true;
-          if (!order.tableSessionId && order.guestId && currentGuestIds.includes(order.guestId)) return true;
-          if (!order.tableSessionId && !order.guestId) {
-            return (order.orderItems || []).some(
-              (item: any) => !item.guestId || currentGuestIds.includes(item.guestId),
-            );
-          }
-          return false;
-        });
-        const calculateOrderTotal = (order: any) => {
-          const storedTotal = parseFloat(order.totalAmount || '0');
-          if (storedTotal > 0) return storedTotal;
-          return (order.orderItems || []).reduce((sum: number, item: any) => {
-            const price = parseFloat(item.price || item.menuItem?.price || '0');
-            return sum + price * Number(item.quantity || 0);
-          }, 0);
-        };
-        const ordersSubtotal = sessionOrders.reduce(
-          (sum: number, order: any) => sum + calculateOrderTotal(order),
-          0,
-        );
-        
-        if (session) {
-          const sessionDiscount = parseFloat(session.discount || '0');
-          const sessionDiscountType = session.discountType || 'valor';
-          const sessionServiceCharge = parseFloat(session.serviceCharge || '0');
-          const sessionServiceChargeType = session.serviceChargeType || 'percentual';
-          
-          // Calcular totalAmount COM ajustes
-          // Usar pedidos como fonte primária; guests.subtotal é apenas fallback
-          // para sessões legadas que ainda não possuem pedidos carregados.
-          const guestsSubtotal = allGuests.reduce((sum, guest) => sum + parseFloat(guest.subtotal || '0'), 0);
-          const hasReliableSubtotal = ordersSubtotal > 0 || guestsSubtotal > 0;
-          const subtotalBeforeAdjustments = ordersSubtotal > 0 ? ordersSubtotal : guestsSubtotal;
-          let totalAmountAjustado = subtotalBeforeAdjustments;
-          
-          // Aplicar desconto
-          if (sessionDiscount > 0) {
-            if (sessionDiscountType === 'percentual') {
-              totalAmountAjustado = totalAmountAjustado * (1 - Math.min(sessionDiscount, 100) / 100);
-            } else {
-              totalAmountAjustado = Math.max(0, totalAmountAjustado - sessionDiscount);
-            }
-          }
-          
-          // Aplicar taxa de serviço
-          if (sessionServiceCharge > 0) {
-            if (sessionServiceChargeType === 'percentual') {
-              totalAmountAjustado = totalAmountAjustado * (1 + sessionServiceCharge / 100);
-            } else {
-              totalAmountAjustado = totalAmountAjustado + sessionServiceCharge;
-            }
-          }
-          
-          if (hasReliableSubtotal) {
-            await db.update(tableSessions)
-              .set({ totalAmount: totalAmountAjustado.toFixed(2) })
-              .where(eq(tableSessions.id, table.currentSessionId));
-          } else {
-            // Não substituir um total válido por apenas a taxa de serviço
-            // quando os pedidos ainda não foram carregados nesta sessão.
-            totalAmountAjustado = parseFloat(session.totalAmount || '0');
-            console.warn('[TABLE PAYMENT] Total preservado: subtotal ainda não disponível', {
+        if (validation.canClose) {
+          console.log(`[TablePayment] ✅ Pagamento completo detectado. Mesa pode ser fechada manualmente.`);
+          broadcastToClients({ 
+            type: 'table_payment_complete', 
+            data: { 
+              tableId: table.id, 
               sessionId: table.currentSessionId,
-              existingTotal: session.totalAmount,
-            });
-          }
-
-          // addTablePayment pode ter aplicado um limite baseado no total
-          // anterior. Recalcular o pago depois de obter o total definitivo.
-          const sessionPayments = await db.select()
-            .from(tablePayments)
-            .where(eq(tablePayments.sessionId, table.currentSessionId));
-          const totalPaidFromTablePayments = sessionPayments.reduce(
-            (sum: number, recordedPayment: { amount: string | null }) =>
-              sum + parseFloat(recordedPayment.amount || '0'),
-            0,
-          );
-          await db.update(tableSessions)
-            .set({
-              paidAmount: Math.min(totalPaidFromTablePayments, totalAmountAjustado).toFixed(2),
-            })
-            .where(eq(tableSessions.id, table.currentSessionId));
-
-          console.log('💰 [TABLE PAYMENT] Atualizando sessão com ajustes:', {
-            sessionId: table.currentSessionId,
-            subtotalBeforeAdjustments: subtotalBeforeAdjustments.toFixed(2),
-            totalAmountAjustado: totalAmountAjustado.toFixed(2),
+              canClose: true,
+              message: 'Pagamento completo. Mesa pronta para fechamento manual.' 
+            } 
           });
-
-          // ✅ DESATIVADO: Não fechar automaticamente após pagamento
-          // Cliente pode querer fazer mais pedidos (sobremesa, café, etc)
-          // O fechamento deve ser sempre manual através do botão "Fechar Mesa"
-          const validation = await storage.validateSessionClosure(table.currentSessionId);
-          
-          if (validation.canClose) {
-            console.log(`[TablePayment] ✅ Pagamento completo detectado. Mesa pode ser fechada manualmente.`);
-            // Broadcast para frontend saber que pode mostrar o botão de fechar mesa
-            broadcastToClients({ 
-              type: 'table_payment_complete', 
-              data: { 
-                tableId: table.id, 
-                sessionId: table.currentSessionId,
-                canClose: true,
-                message: 'Pagamento completo. Mesa pronta para fechamento manual.' 
-              } 
-            });
-          }
         }
       }
-      
+
       broadcastToClients({ 
         type: 'table_payment_recorded', 
         data: { tableId: req.params.id, payment } 
@@ -4570,134 +4468,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: notes || null,
       });
       
-      // ✅ FIX: Update session paidAmount from actual payments, not guest.paidAmount
-      // This prevents double-counting if guest.paidAmount was already updated
-      // ✅ IMPORTANTE: Para pagamentos por convidado, a fonte de verdade deve ser guestPayments.
-      // Motivo: pode existir tablePayment "órfão" (ex.: crash/retry entre criar tablePayment e guestPayment),
-      // o que inflaciona paidAmount da sessão e faz a UI indicar "Mesa paga" indevidamente.
-      const allGuestPaymentsInSession = await db.select()
-        .from(guestPayments)
-        .where(eq(guestPayments.sessionId, guest.sessionId));
 
-      const totalPaidFromPayments = allGuestPaymentsInSession.reduce(
-        (sum, p) => sum + parseFloat(p.amount || '0'),
-        0
-      );
-      
-      console.log('🎯 [GUEST PAYMENT] Calculando totalPaid da sessão:', {
-        sessionId: guest.sessionId,
-        paymentsCount: allGuestPaymentsInSession.length,
-        totalPaidFromPayments: totalPaidFromPayments.toFixed(2),
-        payments: allGuestPaymentsInSession.map(p => ({
-          id: p.id,
-          amount: p.amount,
-          method: p.paymentMethod,
-          createdAt: p.createdAt
-        }))
-      });
-      
-      // Get all guests for total calculation
-      const allGuests = await storage.getTableGuests(guest.sessionId);
-
-      // ✅ Carregar sessão atual (estava a causar: ReferenceError: session is not defined)
-      const sessionRows = await db.select().from(tableSessions)
-        .where(eq(tableSessions.id, guest.sessionId))
-        .limit(1);
-      const sessionRow = sessionRows[0];
-      
-      // ✅ CORREÇÃO CRÍTICA: Atualizar totalAmount da sessão COM ajustes
-      if (sessionRow) {
-        const sessionDiscount = parseFloat(sessionRow.discount || '0');
-        const sessionDiscountType = sessionRow.discountType || 'valor';
-        const sessionServiceCharge = parseFloat(sessionRow.serviceCharge || '0');
-        const sessionServiceChargeType = sessionRow.serviceChargeType || 'percentual';
+      // ✅ Usa o motor de recálculo partilhado para atualizar totais da sessão 
+      // usando todos os pagamentos da mesa e ajustes
+      if (guest.sessionId) {
+        const result = await storage.recalculateSessionTotals(guest.sessionId);
         
-        // Calcular totalAmount esperado COM ajustes
-        const subtotalBeforeAdjustments = allGuests.reduce((sum, g) => sum + parseFloat(g.subtotal || '0'), 0);
-        
-        let totalAmountAjustado = subtotalBeforeAdjustments;
-        
-        // Aplicar desconto global da sessão
-        if (sessionDiscount > 0) {
-          if (sessionDiscountType === 'percentual') {
-            totalAmountAjustado = totalAmountAjustado * (1 - Math.min(sessionDiscount, 100) / 100);
-          } else {
-            totalAmountAjustado = Math.max(0, totalAmountAjustado - sessionDiscount);
-          }
-        }
-        
-        // Aplicar taxa global da sessão
-        if (sessionServiceCharge > 0) {
-          if (sessionServiceChargeType === 'percentual') {
-            totalAmountAjustado = totalAmountAjustado * (1 + sessionServiceCharge / 100);
-          } else {
-            totalAmountAjustado = totalAmountAjustado + sessionServiceCharge;
-          }
-        }
-
-        // Se houver ajustes individuais, o total da sessão deve refletir a soma ajustada por convidado
-        const hasGuestAdjustments = allGuests.some((g: any) => {
-          const d = parseFloat(g.discount || '0');
-          const s = parseFloat(g.serviceCharge || '0');
-          return (Number.isFinite(d) && d > 0) || (Number.isFinite(s) && s > 0);
+        console.log('💰 [GUEST PAYMENT] Sessão atualizada via recálculo:', {
+          sessionId: guest.sessionId,
+          totalAmount: result?.totalAmount,
+          paidAmount: result?.paidAmount,
+          pendingAmount: result?.pendingAmount
         });
-
-        if (hasGuestAdjustments) {
-          totalAmountAjustado = allGuests.reduce((sum, g: any) => {
-            let adjusted = parseFloat(g.subtotal || '0');
-            const gDiscount = parseFloat(g.discount || '0');
-            const gDiscountType = g.discountType || 'valor';
-            const gServiceCharge = parseFloat(g.serviceCharge || '0');
-            const gServiceChargeType = g.serviceChargeType || 'valor';
-
-            if (gDiscount > 0) {
-              adjusted = gDiscountType === 'percentual'
-                ? adjusted * (1 - Math.min(gDiscount, 100) / 100)
-                : Math.max(0, adjusted - gDiscount);
-            }
-
-            if (gServiceCharge > 0) {
-              adjusted = gServiceChargeType === 'percentual'
-                ? adjusted * (1 + gServiceCharge / 100)
-                : adjusted + gServiceCharge;
-            }
-
-            return sum + adjusted;
-          }, 0);
-        }
-        
-        console.log('🎯 [GUEST PAYMENT] Calculando totalAmount da sessão COM ajustes:', {
-          subtotalBeforeAdjustments: subtotalBeforeAdjustments.toFixed(2),
-          sessionDiscount: sessionDiscount.toFixed(2),
-          sessionServiceCharge: sessionServiceCharge.toFixed(2),
-          totalAmountAjustado: totalAmountAjustado.toFixed(2),
-          hasGuestAdjustments
-        });
-        
-        // Atualizar sessão com totalAmount E paidAmount
-        await db.update(tableSessions)
-          .set({ 
-            totalAmount: totalAmountAjustado.toFixed(2),
-            paidAmount: totalPaidFromPayments.toFixed(2)
-          })
-          .where(eq(tableSessions.id, guest.sessionId));
-        
-        console.log('🎯 [GUEST PAYMENT] ✅ Sessão atualizada:', {
-          totalAmount: totalAmountAjustado.toFixed(2),
-          paidAmount: totalPaidFromPayments.toFixed(2),
-          pendente: (totalAmountAjustado - totalPaidFromPayments).toFixed(2)
-        });
-      } else {
-        // Fallback: atualizar apenas paidAmount
-        await db.update(tableSessions)
-          .set({ paidAmount: totalPaidFromPayments.toFixed(2) })
-          .where(eq(tableSessions.id, guest.sessionId));
       }
-      
-      // ✅ CORREÇÃO CONFLITO #2: A atualização de session já foi feita acima (linhas 4337-4342)
-      // NÃO duplicar atualização aqui
-      console.log('🎯 [GUEST PAYMENT] ✅ Session.paidAmount já atualizado anteriormente');
-      
+
       // ✅ CORREÇÃO CONFLITO #12: Verificar auto-fechamento após pagamento individual
       console.log('🔍 [GUEST PAYMENT] Verificando se mesa deve fechar automaticamente...');
       await storage.autoUpdateTableStatusOnPayment(guest.tableId);
@@ -4782,61 +4566,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes,
       });
       
-      // Buscar sessão atualizada
-      const [session] = await db.select().from(tableSessions)
-        .where(eq(tableSessions.id, targetSessionId))
-        .limit(1);
-      
-      if (session) {
-        const allGuests = await storage.getTableGuests(targetSessionId);
-        
-        // ✅ CORREÇÃO: NÃO somar novamente! addTablePayment já atualizou
-        console.log('💰 [LEGACY PAYMENTS] Pagamento registrado (paidAmount já atualizado):', {
-          sessionId: targetSessionId,
-          paymentAmount: parseFloat(amount).toFixed(2),
-          sessionPaidAmount: session.paidAmount // Já foi atualizado
-        });
-        
-        // Calcular totalAmount COM ajustes
-        const subtotal = allGuests.reduce((sum, g) => sum + parseFloat(g.subtotal || '0'), 0);
-        const sessionDiscount = parseFloat(session.discount || '0');
-        const sessionDiscountType = session.discountType || 'valor';
-        const sessionServiceCharge = parseFloat(session.serviceCharge || '0');
-        const sessionServiceChargeType = session.serviceChargeType || 'percentual';
-        
-        let totalAmount = subtotal;
-        
-        // Aplicar desconto
-        if (sessionDiscount > 0) {
-          if (sessionDiscountType === 'percentual') {
-            totalAmount = totalAmount * (1 - Math.min(sessionDiscount, 100) / 100);
-          } else {
-            totalAmount = Math.max(0, totalAmount - sessionDiscount);
-          }
-        }
-        
-        // Aplicar taxa
-        if (sessionServiceCharge > 0) {
-          if (sessionServiceChargeType === 'percentual') {
-            totalAmount = totalAmount * (1 + sessionServiceCharge / 100);
-          } else {
-            totalAmount = totalAmount + sessionServiceCharge;
-          }
-        }
-        
-        console.log('💰 [LEGACY PAYMENTS ENDPOINT] Atualizando sessão:', {
-          sessionId: targetSessionId,
-          totalAmount: totalAmount.toFixed(2),
-          paidAmount: session.paidAmount // Já foi atualizado por addTablePayment
-        });
-        
-        // ✅ CORREÇÃO: Atualizar apenas totalAmount (paidAmount já foi atualizado)
-        await db.update(tableSessions)
-          .set({ 
-            totalAmount: totalAmount.toFixed(2)
-            // paidAmount: NÃO atualizar aqui! addTablePayment já fez atomicamente
-          })
-          .where(eq(tableSessions.id, targetSessionId));
+
+      // ✅ Usa o motor de recálculo partilhado
+      if (targetSessionId) {
+        await storage.recalculateSessionTotals(targetSessionId);
         
         // Auto-update table status
         await storage.autoUpdateTableStatusOnPayment(req.params.id);
@@ -5159,102 +4892,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ✅ NOVO: Recalcular totais da sessão (paidAmount + totalAmount)
+  // ✅ Recalcular totais da sessão delegando ao storage
   const recalculateSessionTotals = async (sessionId: string) => {
-    const session = await storage.getSessionById(sessionId);
-    if (!session) {
-      return null;
-    }
-
-    const guests = await storage.getTableGuests(sessionId);
-    const sessionOrders = await storage.getOrdersBySessionId(session.restaurantId, sessionId);
-    const ordersSubtotal = sessionOrders
-      .filter((order: any) => order.status !== 'cancelado')
-      .reduce((sum: number, order: any) => {
-        const storedTotal = parseFloat(order.totalAmount || '0');
-        if (storedTotal > 0) return sum + storedTotal;
-        return sum + (order.orderItems || []).reduce((itemSum: number, item: any) => {
-          const price = parseFloat(item.price || item.menuItem?.price || '0');
-          return itemSum + price * Number(item.quantity || 0);
-        }, 0);
-      }, 0);
-
-    const sessionDiscount = parseFloat(session.discount || '0');
-    const sessionDiscountType = session.discountType || 'valor';
-    const sessionServiceCharge = parseFloat(session.serviceCharge || '0');
-    const sessionServiceChargeType = session.serviceChargeType || 'percentual';
-
-    const guestsSubtotal = guests.reduce((sum, g: any) => {
-      return sum + parseFloat(g.subtotal || '0');
-    }, 0);
-    const subtotalBeforeAdjustments = ordersSubtotal > 0 ? ordersSubtotal : guestsSubtotal;
-
-    let totalAmountAdjusted = subtotalBeforeAdjustments;
-
-    if (sessionDiscount > 0) {
-      totalAmountAdjusted = sessionDiscountType === 'percentual'
-        ? totalAmountAdjusted * (1 - Math.min(sessionDiscount, 100) / 100)
-        : Math.max(0, totalAmountAdjusted - sessionDiscount);
-    }
-
-    if (sessionServiceCharge > 0) {
-      totalAmountAdjusted = sessionServiceChargeType === 'percentual'
-        ? totalAmountAdjusted * (1 + sessionServiceCharge / 100)
-        : totalAmountAdjusted + sessionServiceCharge;
-    }
-
-    const hasGuestAdjustments = guests.some((g: any) => {
-      const d = parseFloat(g.discount || '0');
-      const s = parseFloat(g.serviceCharge || '0');
-      return (Number.isFinite(d) && d > 0) || (Number.isFinite(s) && s > 0);
-    });
-
-    if (hasGuestAdjustments) {
-      totalAmountAdjusted = guests.reduce((sum, g: any) => {
-        let adjusted = parseFloat(g.subtotal || '0');
-        const gDiscount = parseFloat(g.discount || '0');
-        const gDiscountType = g.discountType || 'valor';
-        const gServiceCharge = parseFloat(g.serviceCharge || '0');
-        const gServiceChargeType = g.serviceChargeType || 'valor';
-
-        if (gDiscount > 0) {
-          adjusted = gDiscountType === 'percentual'
-            ? adjusted * (1 - Math.min(gDiscount, 100) / 100)
-            : Math.max(0, adjusted - gDiscount);
-        }
-
-        if (gServiceCharge > 0) {
-          adjusted = gServiceChargeType === 'percentual'
-            ? adjusted * (1 + gServiceCharge / 100)
-            : adjusted + gServiceCharge;
-        }
-
-        return sum + adjusted;
-      }, 0);
-    }
-
-    const payments = await db.select()
-      .from(tablePayments)
-      .where(eq(tablePayments.sessionId, sessionId));
-
-    const totalPaidFromPayments = payments.reduce(
-      (sum, payment) => sum + parseFloat(payment.amount || '0'),
-      0
-    );
-
-    await db.update(tableSessions)
-      .set({
-        totalAmount: totalAmountAdjusted.toFixed(2),
-        paidAmount: totalPaidFromPayments.toFixed(2),
-      })
-      .where(eq(tableSessions.id, sessionId));
-
-    return {
-      sessionId,
-      totalAmount: totalAmountAdjusted.toFixed(2),
-      paidAmount: totalPaidFromPayments.toFixed(2),
-      pendingAmount: Math.max(0, totalAmountAdjusted - totalPaidFromPayments).toFixed(2),
-    };
+    return await storage.recalculateSessionTotals(sessionId);
   };
 
   // ✅ NOVO: Recalcular totais da sessão (paidAmount + totalAmount)

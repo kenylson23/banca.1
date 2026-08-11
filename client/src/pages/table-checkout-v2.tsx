@@ -374,12 +374,11 @@ export default function TableCheckoutV2() {
     if (
       table?.currentSessionId &&
       !isIndividualCheckout &&
-      !hasGuestLevelAdjustments &&
-      (discountValue || manualServiceValue)
+      !hasGuestLevelAdjustments
     ) {
       const timeoutId = setTimeout(() => {
         saveAdjustmentsToSession();
-      }, 1000);
+      }, 800);
 
       return () => clearTimeout(timeoutId);
     }
