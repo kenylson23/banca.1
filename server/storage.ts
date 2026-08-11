@@ -2627,6 +2627,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Calculate subtotal from items and options
+    console.log("[DEBUG] items count: " + items.length);
     let subtotal = 0;
     for (const item of items) {
       const itemPrice = parseFloat(item.price) * item.quantity;
@@ -2640,8 +2641,10 @@ export class DatabaseStorage implements IStorage {
       }
       
       subtotal += itemPrice + optionsTotal;
+      console.log("[DEBUG] item subtotal contribution: " + (itemPrice + optionsTotal) + " , running subtotal: " + subtotal);
     }
     
+  console.log("[DEBUG] Final subtotal before adjustments: " + subtotal);
     // Calculate total with discount, service charge, and delivery fee
     const discount = parseFloat(order.discount || '0');
     const serviceCharge = parseFloat(order.serviceCharge || '0');
