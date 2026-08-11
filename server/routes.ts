@@ -5414,12 +5414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 🔧 FIX: Garantir que o totalAmount nunca seja menor do que a soma dos subtotais básicos dos convidados + anônimos
       const sumOfSubtotals = ordersByGuest.reduce((sum, og) => sum + parseFloat(og.subtotal || '0'), 0);
       
-      let totalAmount = totalAfterSession;
-      
-      console.log("[ORDERS-BY-GUEST] ordersByGuest count:", ordersByGuest.length);
-      console.log("[ORDERS-BY-GUEST] anonymousOrders count:", anonymousOrders.length);
-      console.log("[ORDERS-BY-GUEST] totalAfterSession:", totalAfterSession.toFixed(2));
-      console.log("[ORDERS-BY-GUEST] final totalAmount:", totalAmount.toFixed(2));
+      const totalAmount = totalAfterSession;
       res.json({
         ordersByGuest,
         anonymousOrders,
