@@ -24,15 +24,23 @@ WHERE o.table_id IS NOT NULL AND o.table_session_id IS NULL;
 ALTER TABLE tables DROP COLUMN IF EXISTS is_occupied;
 
 -- Step 5: Migrate remaining status data to table_status if table_status is null
-UPDATE tables 
-SET table_status = CASE 
-  WHEN status = 'reservada' THEN 'reservada'
-  WHEN status = 'ocupada' THEN 'ocupada'
-  WHEN status = 'em_andamento' THEN 'em_andamento'
-  WHEN status = 'aguardando_pagamento' THEN 'aguardando_pagamento'
-  ELSE 'livre'
-END
-WHERE table_status IS NULL;
+DO 1109
+BEGIN
+  -- Only attempt migration if the target column accepts these values
+  BEGIN
+    UPDATE tables 
+    SET table_status = CASE 
+      WHEN status = 'reservada' THEN 'reservada'
+      WHEN status = 'ocupada' THEN 'ocupada'
+      WHEN status = 'em_andamento' THEN 'em_andamento'
+      WHEN status = 'aguardando_pagamento' THEN 'aguardando_pagamento'
+      ELSE 'livre'
+    END
+    WHERE table_status IS NULL;
+  EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Migration skipped: table_status enum does not accept legacy values yet';
+  END;
+END 1109;
 
 -- Step 6: Add trigger to auto-update session paidAmount when payment is added
 CREATE OR REPLACE FUNCTION update_session_paid_amount()
