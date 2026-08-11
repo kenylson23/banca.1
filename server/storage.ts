@@ -2630,6 +2630,7 @@ export class DatabaseStorage implements IStorage {
     let subtotal = 0;
     for (const item of items) {
       const itemPrice = parseFloat(item.price) * item.quantity;
+    console.log("[DEBUG] Item price: " + item.price + " , quantity: " + item.quantity + " , itemPrice: " + itemPrice);
       let optionsTotal = 0;
       
       if (item.selectedOptions && item.selectedOptions.length > 0) {
