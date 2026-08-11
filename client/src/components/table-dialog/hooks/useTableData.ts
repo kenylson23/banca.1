@@ -96,9 +96,6 @@ export function useTableData({ tableId, isOpen }: UseTableDataProps) {
     const sumOfSubtotals = (ordersByGuestData?.ordersByGuest || []).reduce(
       (sum: number, og: any) => sum + parseFloat(og.subtotal || '0'),
       0
-    ) + (ordersByGuestData?.anonymousOrders || []).reduce(
-      (sum: number, o: any) => sum + parseFloat(o.totalPrice || '0'),
-      0
     );
 
     return Math.max(backendTotal, sumOfSubtotals);
