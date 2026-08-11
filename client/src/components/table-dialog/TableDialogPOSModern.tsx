@@ -221,6 +221,7 @@ export function TableDialogPOSModern({
   let currentTotalAmount = ordersByGuestData?.totalAmount 
     ? parseFloat(ordersByGuestData.totalAmount) 
     : subtotalBeforeAdjustments;
+  console.log("[FRONTEND DEBUG] ordersByGuestData.totalAmount:", ordersByGuestData?.totalAmount, "subtotalBeforeAdjustments:", subtotalBeforeAdjustments);
 
   // Se o totalAmount for menor que o subtotal bruto (sem ajustes), algo está errado no sync
   // mas aqui deixamos os ajustes serem aplicados se o totalAmount vier do backend.
