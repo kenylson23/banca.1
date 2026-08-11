@@ -925,9 +925,7 @@ export class DatabaseStorage implements IStorage {
       }, 0);
     }
 
-    const { db } = require('./db');
-    const { tablePayments, guestPayments, tableSessions } = require('@shared/schema');
-    const { eq, sql } = require('drizzle-orm');
+
 
     const payments = await db.select()
       .from(tablePayments)
