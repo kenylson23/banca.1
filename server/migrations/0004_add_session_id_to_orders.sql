@@ -26,11 +26,11 @@ ALTER TABLE tables DROP COLUMN IF EXISTS is_occupied;
 -- Step 5: Migrate remaining status data to table_status if table_status is null
 UPDATE tables 
 SET table_status = CASE 
-  WHEN status = 'reservada' THEN 'reservada'::table_status_enum
-  WHEN status = 'ocupada' THEN 'em_consumo'::table_status_enum
-  WHEN status = 'em_andamento' THEN 'em_consumo'::table_status_enum
-  WHEN status = 'aguardando_pagamento' THEN 'aguardando_pgto'::table_status_enum
-  ELSE 'disponivel'::table_status_enum
+  WHEN status = 'reservada' THEN 'reservada'
+  WHEN status = 'ocupada' THEN 'ocupada'
+  WHEN status = 'em_andamento' THEN 'em_andamento'
+  WHEN status = 'aguardando_pagamento' THEN 'aguardando_pagamento'
+  ELSE 'livre'
 END
 WHERE table_status IS NULL;
 
