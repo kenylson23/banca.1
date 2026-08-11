@@ -5421,6 +5421,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Garantir coerência matemática (total não pode ser menor que o consumo base)
       totalAmount = Math.max(totalAmount, sumOfSubtotals);
 
+      console.log("[ORDERS-BY-GUEST] ordersByGuest:", JSON.stringify(ordersByGuest));
+      console.log("[ORDERS-BY-GUEST] anonymousOrders count:", anonymousOrders.length);
+      console.log("[ORDERS-BY-GUEST] sumOfSubtotals:", (ordersByGuest.reduce((sum, og) => sum + parseFloat(og.subtotal || '0'), 0) + anonymousSubtotal).toFixed(2));
+      console.log("[ORDERS-BY-GUEST] totalAfterSession:", totalAfterSession.toFixed(2), "totalFromGuestsWithIndividualAdjustments:", totalFromGuestsWithIndividualAdjustments.toFixed(2));
+      console.log("[ORDERS-BY-GUEST] final totalAmount:", totalAmount.toFixed(2));
       res.json({
         ordersByGuest,
         anonymousOrders,
