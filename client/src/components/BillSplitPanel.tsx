@@ -470,7 +470,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
         variant: 'destructive',
       });
     }
-  };
+  }, [ordersByGuest, toast, setReasonDialog]);
 
   const updateGuestStatusMutation = useMutation({
     mutationFn: async ({ guestId, status }: { guestId: string; status: string }) => {
