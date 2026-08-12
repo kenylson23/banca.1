@@ -128,13 +128,13 @@ export default function TableCheckoutV2() {
   const [manualServiceValue, setManualServiceValue] = useState(serviceFeeParam || '');
   const [manualServiceType, setManualServiceType] = useState<'valor' | 'percentual'>((serviceFeeTypeParam as any) || 'percentual');
   
-  // Update URL when step or adjustments change
+  // Update URL when step or adjustments change (com debounce de 300ms)
   useEffect(() => {
-    updateURL(currentStep, discountValue, discountType, manualServiceValue, manualServiceType);
-    
-    // 🔧 CORREÇÃO UX: NÃO limpar ajustes ao voltar ao Step 1
-    // Descontos devem ser persistentes em todos os steps
-    // Step 1 serve como "modo revisão" onde o usuário vê os ajustes aplicados
+    const timer = setTimeout(() => {
+      updateURL(currentStep, discountValue, discountType, manualServiceValue, manualServiceType);
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [currentStep, discountValue, discountType, manualServiceValue, manualServiceType, updateURL]);
   
   // Step 4: Payment
@@ -249,7 +249,7 @@ export default function TableCheckoutV2() {
     if (table?.currentSessionId) {
       setIsSavingAdjustments(true);
       try {
-        await fetch(`/api/tables/${id}/session-adjustments`, {
+        const res = await fetch(`/api/tables/${id}/session-adjustments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -259,8 +259,12 @@ export default function TableCheckoutV2() {
             serviceChargeType: manualServiceType,
           }),
         });
+        if (!res.ok) {
+          throw new Error('Falha ao gravar ajustes da sessão');
+        }
       } catch (err) {
         console.error('Erro ao salvar ajustes:', err);
+        throw err;
       } finally {
         setIsSavingAdjustments(false);
       }
@@ -521,9 +525,10 @@ export default function TableCheckoutV2() {
       
       // Build services array
       const services: any[] = [];
+      const safeAvailableServices = Array.isArray(availableServices) ? availableServices : [];
       
       // Add automatic services
-      availableServices.forEach((service: any) => {
+      safeAvailableServices.forEach((service: any) => {
         if (service.applyAutomatically === 1) {
           const afterDiscounts = Math.max(0, totalAmount - calculateTotals.totalDiscounts);
           const calculatedAmount = service.chargeType === 'percentual'
@@ -542,7 +547,7 @@ export default function TableCheckoutV2() {
       
       // Add selected manual services
       selectedServices.forEach(serviceId => {
-        const service = availableServices.find((s: any) => s.id === serviceId);
+        const service = safeAvailableServices.find((s: any) => s.id === serviceId);
         if (service && service.applyAutomatically === 0) {
           const afterDiscounts = Math.max(0, totalAmount - calculateTotals.totalDiscounts);
           const calculatedAmount = service.chargeType === 'percentual'
@@ -788,29 +793,23 @@ export default function TableCheckoutV2() {
   const anonymousOrders = ordersByGuestData?.anonymousOrders || [];
 
   
-  // ✅ CORREÇÃO ERRO 2: Remover selectedGuestIds das dependências para evitar re-execução
-  useEffect(() => {
-    if (ordersByGuest.length > 0 && selectedGuestIds.length === 0) {
-      // ✅ Por padrão, só selecionar convidados ainda não pagos
-      const unpaidGuestIds = ordersByGuest
-        .filter((og: any) => og.guest?.status !== 'pago')
-        .map((og: any) => og.guest.id);
-
-      setSelectedGuestIds(unpaidGuestIds);
-      console.log('🎯 [CHECKOUT] Auto-selecionando convidados não pagos:', unpaidGuestIds.length);
-    }
-  }, [ordersByGuest]); // ✅ Só quando ordersByGuest muda
-
-  // ✅ Garantir que convidados pagos não permaneçam selecionados após atualizações
+  // ✅ Sincronizar seleção automática e filtrar convidados pagos
   useEffect(() => {
     if (!ordersByGuest.length) return;
 
-    setSelectedGuestIds((prev) =>
-      prev.filter((id) => {
+    setSelectedGuestIds((prev) => {
+      // Se nenhuma seleção existia, auto-selecionar convidados não pagos
+      if (prev.length === 0) {
+        return ordersByGuest
+          .filter((og: any) => og.guest?.status !== 'pago')
+          .map((og: any) => og.guest.id);
+      }
+      // Caso contrário, remover apenas convidados que mudaram para status 'pago'
+      return prev.filter((id) => {
         const og = ordersByGuest.find((g: any) => g.guest?.id === id);
         return og && og.guest?.status !== 'pago';
-      })
-    );
+      });
+    });
   }, [ordersByGuest]);
   
   // Filter guests based on selection (if any selected, show only those)
@@ -971,17 +970,21 @@ export default function TableCheckoutV2() {
       });
 
       const breakdown: any[] = [];
-      if (discountValue && parseFloat(discountValue) > 0) {
+      if (discounts > 0) {
         breakdown.push({
           type: 'discount',
-          label: `Desconto individual (${unpaid.length} cliente${unpaid.length === 1 ? '' : 's'})`,
+          label: discountValue && parseFloat(discountValue) > 0
+            ? `Desconto individual (${unpaid.length} cliente${unpaid.length === 1 ? '' : 's'})`
+            : `Desconto de convidado (${unpaid.length} cliente${unpaid.length === 1 ? '' : 's'})`,
           value: -discounts,
         });
       }
-      if (manualServiceValue && parseFloat(manualServiceValue) > 0) {
+      if (additions > 0) {
         breakdown.push({
           type: 'addition',
-          label: `Taxa individual (${unpaid.length} cliente${unpaid.length === 1 ? '' : 's'})`,
+          label: manualServiceValue && parseFloat(manualServiceValue) > 0
+            ? `Taxa individual (${unpaid.length} cliente${unpaid.length === 1 ? '' : 's'})`
+            : `Taxa de convidado (${unpaid.length} cliente${unpaid.length === 1 ? '' : 's'})`,
           value: additions,
         });
       }
@@ -1010,6 +1013,7 @@ export default function TableCheckoutV2() {
     let discounts = 0;
     let additions = 0;
     const breakdown: any[] = [];
+    const safeAvailableServices = Array.isArray(availableServices) ? availableServices : [];
     
     // 1. Manual discount
     if (discountValue && parseFloat(discountValue) > 0) {
@@ -1054,7 +1058,7 @@ export default function TableCheckoutV2() {
     const afterDiscounts = Math.max(0, subtotal - discounts);
     
     // Add automatic services first
-    availableServices.forEach((service: any) => {
+    safeAvailableServices.forEach((service: any) => {
       if (service.applyAutomatically === 1) {
         const charge = service.chargeType === 'percentual'
           ? afterDiscounts * (parseFloat(service.value) / 100)
@@ -1070,7 +1074,7 @@ export default function TableCheckoutV2() {
     
     // Add selected manual services
     selectedServices.forEach(serviceId => {
-      const service = availableServices.find((s: any) => s.id === serviceId);
+      const service = safeAvailableServices.find((s: any) => s.id === serviceId);
       if (service && service.applyAutomatically === 0) {
         const charge = service.chargeType === 'percentual'
           ? afterDiscounts * (parseFloat(service.value) / 100)
@@ -1106,7 +1110,7 @@ export default function TableCheckoutV2() {
       finalTotal,
       breakdown
     };
-  }, [totalAmount, discountValue, discountType, appliedCoupon, loyaltyPointsToRedeem, selectedServices, manualServiceName, manualServiceValue, manualServiceType, availableServices, loyaltyProgram]);
+  }, [totalAmount, discountValue, discountType, appliedCoupon, loyaltyPointsToRedeem, selectedServices, manualServiceName, manualServiceValue, manualServiceType, availableServices, loyaltyProgram, selectedGuestIds, ordersByGuest, adjustmentsMode, currentStep]);
 
   // ✅ Totais de pagamento (precisa vir APÓS calculateTotals)
   const paidAmount = ordersByGuestData?.paidAmount 
@@ -3047,12 +3051,18 @@ export default function TableCheckoutV2() {
                       <span className="font-medium">Recebido:</span>
                       <span>{formatKwanza(parseFloat(receivedAmount))}</span>
                     </div>
-                    <div className="flex justify-between py-2 border-b bg-green-50 dark:bg-green-950/20 px-3 rounded">
-                      <span className="font-medium text-green-700 dark:text-green-300">Troco:</span>
-                      <span className="font-bold text-green-700 dark:text-green-300">
-                        {formatKwanza(parseFloat(receivedAmount) - calculateTotals.finalTotal)}
-                      </span>
-                    </div>
+                    {parseFloat(receivedAmount) < calculateTotals.finalTotal ? (
+                      <div className="p-3 bg-red-500/10 border border-red-500/30 rounded text-red-600 dark:text-red-400 text-xs font-semibold">
+                        ⚠️ O valor recebido é inferior ao total a pagar ({formatKwanza(calculateTotals.finalTotal)}).
+                      </div>
+                    ) : (
+                      <div className="flex justify-between py-2 border-b bg-green-50 dark:bg-green-950/20 px-3 rounded">
+                        <span className="font-medium text-green-700 dark:text-green-300">Troco:</span>
+                        <span className="font-bold text-green-700 dark:text-green-300">
+                          {formatKwanza(parseFloat(receivedAmount) - calculateTotals.finalTotal)}
+                        </span>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -3070,7 +3080,10 @@ export default function TableCheckoutV2() {
                 processPaymentMutation.mutate();
                 setShowConfirmation(false);
               }}
-              disabled={processPaymentMutation.isPending}
+              disabled={
+                processPaymentMutation.isPending || 
+                (paymentMethod === 'dinheiro' && !!receivedAmount && parseFloat(receivedAmount) < calculateTotals.finalTotal)
+              }
               className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
             >
               {processPaymentMutation.isPending ? 'Processando...' : 'Confirmar Pagamento'}
