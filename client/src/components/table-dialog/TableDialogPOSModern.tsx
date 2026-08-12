@@ -134,6 +134,17 @@ export function TableDialogPOSModern({
       }
     }
   }, [open, table?.id, table?.currentSessionId, queryClient]);
+
+  // 🔧 FIX: Forçar refetch quando o StartSessionDialog fechar
+  useEffect(() => {
+    if (!showStartSession && open && table?.id) {
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/orders-by-guest`] });
+      if (table.currentSessionId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/table-sessions/${table.currentSessionId}/guests`] });
+      }
+    }
+  }, [showStartSession, open, table?.id, table?.currentSessionId, queryClient]);
   
   // ✅ SOLUÇÃO 3: Mutation para fechar mesa
   const closeTableMutation = useMutation({
