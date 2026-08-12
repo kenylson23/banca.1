@@ -3824,7 +3824,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/tables/with-orders", isAdmin, async (req, res) => {
+  app.get("/api/tables/with-orders", isOperational, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
