@@ -453,6 +453,7 @@ export function TableDialogSplitPanelEnhanced({
         onOpenChange={setShowQRCode}
         tableId={table?.id || ''}
         tableNumber={table?.number?.toString() || ''}
+        restaurantId={table?.restaurantId}
       />
 
       {showQuickOrder && (

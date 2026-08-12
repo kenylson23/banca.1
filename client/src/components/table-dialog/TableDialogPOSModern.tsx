@@ -1348,7 +1348,7 @@ export function TableDialogPOSModern({
           onOpenChange={setShowQRCode}
           tableId={currentTable.id}
           tableNumber={currentTable.number?.toString() || ''}
-          restaurantSlug={restaurant?.slug}
+          restaurantId={currentTable.restaurantId}
         />
       )}
 

@@ -22,7 +22,7 @@ interface QRCodeDialogProps {
   onOpenChange: (open: boolean) => void;
   tableId: string;
   tableNumber: string;
-  restaurantSlug?: string;
+  restaurantId?: string;
 }
 
 export function QRCodeDialog({
@@ -30,15 +30,16 @@ export function QRCodeDialog({
   onOpenChange,
   tableId,
   tableNumber,
-  restaurantSlug,
+  restaurantId,
 }: QRCodeDialogProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
   // Gerar URL pública do menu
-  const publicMenuUrl = restaurantSlug
-    ? `${window.location.origin}/r/${restaurantSlug}?tableId=${encodeURIComponent(tableId)}`
+  // 🔧 FIX: Sempre usar formato seguro com restaurantId para evitar conflitos multi-restaurante
+  const publicMenuUrl = restaurantId
+    ? `${window.location.origin}/mesa/${encodeURIComponent(tableNumber)}?r=${encodeURIComponent(restaurantId)}`
     : `${window.location.origin}/mesa/${encodeURIComponent(tableNumber)}`;
 
   // Gerar QR Code
