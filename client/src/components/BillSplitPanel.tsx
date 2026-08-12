@@ -398,7 +398,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
     },
   });
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     
     setDraggedItem(null);
@@ -1063,14 +1063,17 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
           sourceGuestName={reasonDialog.sourceGuestName}
           targetGuestName={reasonDialog.targetGuestName}
           maxQuantity={reasonDialog.maxQuantity}
-          onConfirm={(reason, quantity) => {
-            moveItemMutation.mutate({
-              itemId: reasonDialog.itemId,
-              newGuestId: reasonDialog.targetGuestId,
-              reason,
-              quantity,
-            });
-            setReasonDialog(null);
+          onConfirm={async (reason, quantity) => {
+            try {
+              await moveItemMutation.mutateAsync({
+                itemId: reasonDialog.itemId,
+                newGuestId: reasonDialog.targetGuestId,
+                reason,
+                quantity,
+              });
+            } finally {
+              setReasonDialog(null);
+            }
           }}
           onCancel={() => {
             setReasonDialog(null);
