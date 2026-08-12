@@ -343,12 +343,6 @@ export default function TableCheckoutV2() {
     staleTime: 10000,
   });
 
-  const { data: billSplitsData } = useQuery({
-    queryKey: QUERY_KEYS.tables.billSplits(id ?? ''),
-    enabled: !!id,
-    staleTime: 10000,
-  });
-
   // ✅ Modo de ajustes (interpretação automática)
   // - Se existir Mesa Completa (itens não atribuídos) => modo GLOBAL (sessão)
   // - Se tudo estiver atribuído a clientes => modo INDIVIDUAL (por cliente)
