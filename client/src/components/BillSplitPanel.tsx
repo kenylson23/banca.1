@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { DndContext, DragEndEvent, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -52,6 +52,9 @@ interface TableGuest {
   guestNumber: number;
   status: string;
   totalSpent: string;
+  paidAmount?: string;
+  subtotal?: string;
+  customerId?: string | null;
   joinedAt: Date | null;
 }
 
@@ -144,7 +147,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
   const [splitType, setSplitType] = useState<'igual' | 'por_pessoa' | 'personalizado'>('por_pessoa');
   const [splitCount, setSplitCount] = useState(2);
   const [selectedGuest, setSelectedGuest] = useState<string | null>(initialGuestId || null);
-  const [paymentMethod, setPaymentMethod] = useState('dinheiro');
+  const [paymentMethodsBySplit, setPaymentMethodsBySplit] = useState<Record<string, string>>({});
   const [moveItemDialog, setMoveItemDialog] = useState<{
     open: boolean;
     item: GuestOrderItem | null;
@@ -494,7 +497,18 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
 
   const handleCreateSplit = () => {
     if (splitType === 'igual') {
-      createSplitMutation.mutate({ splitType: 'igual', splitCount });
+      const perPartAmount = (numericTotalAmount / splitCount).toFixed(2);
+      const allocations = Array.from({ length: splitCount }, (_, i) => ({
+        partNumber: i + 1,
+        label: `Parte ${i + 1}`,
+        amount: perPartAmount,
+        isPaid: false,
+      }));
+      createSplitMutation.mutate({ 
+        splitType: 'igual', 
+        splitCount,
+        allocations 
+      });
     } else if (splitType === 'por_pessoa') {
       const allocations = ordersByGuest.map(og => ({
         guestId: og.guest.id,
@@ -535,8 +549,6 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
         const item = event.active.data.current as GuestOrderItem;
         setDraggedItem(item);
       }}
-      onDragOver={(event) => {
-      }}
       onDragCancel={() => {
         setDraggedItem(null);
       }}
@@ -548,6 +560,8 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
             variant="outline"
             size="sm"
             onClick={() => setAuditHistoryOpen(true)}
+            disabled={!sessionId}
+            title={!sessionId ? 'Sem sessão ativa para ver histórico' : undefined}
             className="gap-2"
           >
             <History className="h-4 w-4" />
@@ -625,11 +639,11 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
               <div className="space-y-3">
                 {ordersByGuest.map((guestData) => (
                   <DroppableGuestZone
+                    key={guestData.guest.id}
                     guestId={guestData.guest.id}
                     disabled={guestData.guest.status === 'pago'}
                   >
                     <Card 
-                      key={guestData.guest.id} 
                       className={`hover-elevate cursor-pointer ${selectedGuest === guestData.guest.id ? 'ring-2 ring-primary' : ''}`}
                       onClick={(e) => {
                         // Não expandir se clicar nos botões
@@ -654,11 +668,11 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                               <Badge className={getGuestStatusColor(guestData.guest.status)}>
                                 {getGuestStatusLabel(guestData.guest.status)}
                               </Badge>
-                              {parseFloat(guestData.guest.paidAmount || '0') > 0 && (
-                                <Badge variant="outline" className="text-xs">
-                                  Pago: {formatKwanza(guestData.guest.paidAmount)}
-                                </Badge>
-                              )}
+                               {parseFloat(guestData.guest.paidAmount || '0') > 0 && (
+                                 <Badge variant="outline" className="text-xs">
+                                   Pago: {formatKwanza(parseFloat(guestData.guest.paidAmount || '0'))}
+                                 </Badge>
+                               )}
                               <Badge variant="outline" className="text-xs text-primary font-bold">
                                 Consumo: {formatKwanza(getGuestTotal(guestData))}
                               </Badge>
@@ -687,8 +701,11 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                             })()}
                           </div>
                           <div className="flex gap-2 mt-2">
-                            <PrintGuestBill
-                              guest={guestData.guest}
+                             <PrintGuestBill
+                              guest={{
+                                ...guestData.guest,
+                                joinedAt: guestData.guest.joinedAt || new Date(),
+                              }}
                               orders={guestData.orders}
                               totalAmount={getGuestTotal(guestData)}
                               tableName={`Mesa ${tableId}`}
@@ -970,58 +987,83 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {billSplits.map((split) => (
-              <Card key={split.id} data-testid={`card-split-${split.id}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">
-                          {split.splitType === 'igual' ? 'Divisão Igual' : 'Por Consumo'}
-                        </span>
-                        <Badge variant={split.isFinalized ? 'default' : 'secondary'}>
-                          {split.isFinalized ? 'Finalizado' : 'Pendente'}
-                        </Badge>
+            {billSplits.map((split) => {
+              const currentPaymentMethod = paymentMethodsBySplit[split.id] || 'dinheiro';
+              const allocationsList = Array.isArray(split.allocations) ? split.allocations : [];
+
+              return (
+                <Card key={split.id} data-testid={`card-split-${split.id}`}>
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">
+                            {split.splitType === 'igual' ? 'Divisão Igual' : 'Por Consumo'}
+                          </span>
+                          <Badge variant={split.isFinalized ? 'default' : 'secondary'}>
+                            {split.isFinalized ? 'Finalizado' : 'Pendente'}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {split.splitCount} partes - {formatKwanza(split.totalAmount)} total
+                        </p>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {split.splitCount} partes - {formatKwanza(split.totalAmount)} total
-                      </p>
+                      {!split.isFinalized && (
+                        <div className="flex items-center gap-2">
+                          <Select 
+                            value={currentPaymentMethod} 
+                            onValueChange={(method) => 
+                              setPaymentMethodsBySplit(prev => ({ ...prev, [split.id]: method }))
+                            }
+                          >
+                            <SelectTrigger className="w-[140px]" data-testid={`select-payment-method-${split.id}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PAYMENT_METHODS.map((method) => (
+                                <SelectItem key={method.value} value={method.value}>
+                                  <div className="flex items-center gap-2">
+                                    <method.icon className="h-4 w-4" />
+                                    {method.label}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="sm"
+                            onClick={() => finalizeSplitMutation.mutate({ 
+                              splitId: split.id, 
+                              paymentMethod: currentPaymentMethod 
+                            })}
+                            disabled={finalizeSplitMutation.isPending}
+                            data-testid={`button-finalize-split-${split.id}`}
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Finalizar
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                    {!split.isFinalized && (
-                      <div className="flex items-center gap-2">
-                        <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                          <SelectTrigger className="w-[140px]" data-testid={`select-payment-method-${split.id}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PAYMENT_METHODS.map((method) => (
-                              <SelectItem key={method.value} value={method.value}>
-                                <div className="flex items-center gap-2">
-                                  <method.icon className="h-4 w-4" />
-                                  {method.label}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          size="sm"
-                          onClick={() => finalizeSplitMutation.mutate({ 
-                            splitId: split.id, 
-                            paymentMethod 
-                          })}
-                          disabled={finalizeSplitMutation.isPending}
-                          data-testid={`button-finalize-split-${split.id}`}
-                        >
-                          <Check className="h-4 w-4 mr-1" />
-                          Finalizar
-                        </Button>
+
+                    {/* Detalhe das Partes / Alocações */}
+                    {allocationsList.length > 0 && (
+                      <div className="pt-2 border-t text-xs space-y-1">
+                        <span className="font-medium text-muted-foreground">Detalhamento das Partes:</span>
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          {allocationsList.map((alloc: any, idx: number) => (
+                            <div key={idx} className="flex justify-between bg-muted/40 p-1.5 rounded">
+                              <span>{alloc.label || alloc.guestName || `Parte ${idx + 1}`}</span>
+                              <span className="font-semibold">{formatKwanza(alloc.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </CardContent>
         </Card>
       )}

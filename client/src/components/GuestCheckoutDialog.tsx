@@ -13,44 +13,72 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import type { TableGuest, Customer, LoyaltyProgram } from '@shared/schema';
 
-interface GuestCheckoutDialogProps {
+// Modo completo: passa o objeto guest inteiro (usado por outros ecrãs)
+interface GuestCheckoutDialogFullProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   guest: TableGuest & { customer?: Customer };
   tableId: string;
   sessionId: string;
+  onSuccess?: () => void;
+}
+
+// Modo simples: passa apenas os dados mínimos (usado pelo BillSplitPanel)
+interface GuestCheckoutDialogSimpleProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  guestId: string;
+  guestName: string;
+  amount: number;
+  tableId: string;
+  sessionId?: string;
+  onSuccess?: () => void;
+}
+
+type GuestCheckoutDialogProps = GuestCheckoutDialogFullProps | GuestCheckoutDialogSimpleProps;
+
+// Type guard para distinguir os dois modos
+function isFullProps(props: GuestCheckoutDialogProps): props is GuestCheckoutDialogFullProps {
+  return 'guest' in props;
 }
 
 type PaymentMethod = 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
 
-export function GuestCheckoutDialog({ 
-  open, 
-  onOpenChange, 
-  guest, 
-  tableId,
-  sessionId 
-}: GuestCheckoutDialogProps) {
+export function GuestCheckoutDialog(props: GuestCheckoutDialogProps) {
+  const { open, onOpenChange, tableId } = props;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('dinheiro');
   const [redeemPoints, setRedeemPoints] = useState(0);
 
-  const subtotal = parseFloat(guest.subtotal || '0');
-  const paidAmount = parseFloat(guest.paidAmount || '0');
+  // Normalizar dados independentemente do modo usado
+  const guestId = isFullProps(props) ? props.guest.id : props.guestId;
+  const guestName = isFullProps(props)
+    ? (props.guest.customer?.name || props.guest.name || 'Convidado')
+    : props.guestName;
+  const customerId = isFullProps(props) ? props.guest.customerId : undefined;
+  const customerObj = isFullProps(props) ? props.guest.customer : undefined;
+
+  const subtotal = isFullProps(props)
+    ? parseFloat(props.guest.subtotal || '0')
+    : props.amount;
+  const paidAmount = isFullProps(props)
+    ? parseFloat(props.guest.paidAmount || '0')
+    : 0;
   const pendingAmount = subtotal - paidAmount;
 
   // Fetch loyalty program if customer exists
   const { data: loyaltyProgram } = useQuery<LoyaltyProgram>({
     queryKey: ['/api/loyalty-program'],
-    enabled: !!guest.customerId && open,
+    enabled: !!customerId && open,
   });
 
   // Calculate max redeemable points
   const getMaxRedeemablePoints = () => {
-    if (!guest.customer || !loyaltyProgram?.isActive) return 0;
+    if (!customerObj || !loyaltyProgram?.isActive) return 0;
     
-    const customerPoints = guest.customer.loyaltyPoints;
+    const customerPoints = customerObj.loyaltyPoints;
     const currencyPerPoint = parseFloat(loyaltyProgram.currencyPerPoint || '0');
     const maxPointsByOrder = loyaltyProgram.maxPointsPerOrder || Infinity;
     const maxPointsByAmount = Math.floor(pendingAmount / currencyPerPoint);
@@ -63,14 +91,14 @@ export function GuestCheckoutDialog({
   const finalAmount = Math.max(0, pendingAmount - pointsDiscount);
 
   // Calculate points to earn
-  const pointsToEarn = guest.customerId && loyaltyProgram?.isActive
+  const pointsToEarn = customerId && loyaltyProgram?.isActive
     ? Math.floor(finalAmount * parseFloat(loyaltyProgram.pointsPerCurrency || '0'))
     : 0;
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
       // Process payment for this specific guest
-      const response = await apiRequest('POST', `/api/tables/${tableId}/guests/${guest.id}/checkout`, {
+      const response = await apiRequest('POST', `/api/tables/${tableId}/guests/${guestId}/checkout`, {
         paymentMethod,
         amount: finalAmount.toFixed(2),
         redeemPoints: redeemPoints > 0 ? redeemPoints : undefined,
@@ -80,17 +108,19 @@ export function GuestCheckoutDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/guests`] });
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}`] });
-      if (guest.customerId) {
-        queryClient.invalidateQueries({ queryKey: ['/api/customers', guest.customerId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });
+      if (customerId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/customers', customerId] });
       }
       
       toast({
         title: 'Pagamento realizado!',
-        description: guest.customerId 
+        description: customerId 
           ? `${pointsToEarn} pontos foram creditados na sua conta.`
           : 'Obrigado pela preferência!',
       });
       
+      props.onSuccess?.();
       onOpenChange(false);
     },
     onError: (error: any) => {
@@ -130,28 +160,25 @@ export function GuestCheckoutDialog({
             Checkout Individual
           </DialogTitle>
           <DialogDescription>
-            {guest.customer 
-              ? `Pagamento para ${guest.customer.name}`
-              : `Pagamento para ${guest.name || 'Convidado'}`
-            }
+            Pagamento para {guestName}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Customer Badge */}
-          {guest.customer && (
+          {customerObj && (
             <Card className="border-2 border-primary/20 bg-gradient-to-br from-orange-50 to-pink-50">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Cliente VIP</p>
-                    <p className="font-semibold">{guest.customer.name}</p>
+                    <p className="font-semibold">{customerObj.name}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-muted-foreground">Pontos Disponíveis</p>
                     <p className="font-bold text-lg text-orange-600 flex items-center gap-1">
                       <Award className="h-4 w-4" />
-                      {guest.customer.loyaltyPoints}
+                      {customerObj.loyaltyPoints}
                     </p>
                   </div>
                 </div>
@@ -190,7 +217,7 @@ export function GuestCheckoutDialog({
           </Card>
 
           {/* Redeem Points */}
-          {guest.customerId && maxRedeemable > 0 && (
+          {customerId && maxRedeemable > 0 && (
             <Card className="border-purple-200 bg-purple-50/50">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
