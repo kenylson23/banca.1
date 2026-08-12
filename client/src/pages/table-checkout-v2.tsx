@@ -339,8 +339,14 @@ export default function TableCheckoutV2() {
   // ✅ OTIMIZAÇÃO: Carregar orders em paralelo, não esperar pela table
   const { data: ordersByGuestData, isLoading: loadingOrders } = useQuery<OrdersByGuestData>({
     queryKey: QUERY_KEYS.tables.ordersByGuest(id ?? ''),
-    enabled: !!id, // Remover dependência de table?.currentSessionId
-    staleTime: 10000, // Cache por 10s
+    enabled: !!id,
+    staleTime: 10000,
+  });
+
+  const { data: billSplitsData } = useQuery({
+    queryKey: QUERY_KEYS.tables.billSplits(id ?? ''),
+    enabled: !!id,
+    staleTime: 10000,
   });
 
   // ✅ Modo de ajustes (interpretação automática)
