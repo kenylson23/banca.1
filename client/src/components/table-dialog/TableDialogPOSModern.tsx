@@ -1022,26 +1022,6 @@ export function TableDialogPOSModern({
                                 variant="outline"
                                 size="sm"
                                 onClick={() => {
-                                  // Dividir igualmente: cada convidado paga valor total / número de convidados
-                                  const valorPorPessoa = currentTotalAmount / guestsCount;
-                                  toast({
-                                    title: "Divisão Igual",
-                                    description: `Cada pessoa paga ${formatKwanza(valorPorPessoa)}`,
-                                  });
-                                  // Navegar para checkout com divisão igual
-                                  onOpenChange(false);
-                                  navigate(`/tables/${table?.id}/checkout?step=1&splitType=equal&count=${guestsCount}`);
-                                }}
-                                className="gap-2"
-                              >
-                                <Users className="w-4 h-4" />
-                                Dividir Igualmente
-                              </Button>
-                              
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
                                   // Calcular se valores estão equilibrados
                                   const avgAmount = currentTotalAmount / guestsCount;
                                   const threshold = avgAmount * 0.3;
