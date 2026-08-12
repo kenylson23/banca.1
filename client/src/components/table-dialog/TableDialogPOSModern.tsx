@@ -1349,6 +1349,7 @@ export function TableDialogPOSModern({
           tableId={currentTable.id}
           tableNumber={currentTable.number?.toString() || ''}
           restaurantId={currentTable.restaurantId}
+          sessionPin={currentTable.currentSession?.pin || null}
         />
       )}
 

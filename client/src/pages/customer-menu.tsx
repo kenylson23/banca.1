@@ -3,7 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { useRoute } from 'wouter';
 import { useCart } from '@/contexts/CartContext';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardDescription, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -20,7 +20,7 @@ import {
   ShoppingCart, Plus, ClipboardList, Clock, ChefHat, 
   CheckCircle, Check, Search, MessageCircle, Utensils,
   X, Minus, User, Phone as PhoneIcon, ChevronRight, ShoppingBag,
-  FileText, Sparkles, Gift, Award, Tag, Percent, Loader2
+  FileText, Sparkles, Gift, Award, Tag, Percent, Loader2, Lock
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -149,6 +149,29 @@ export default function CustomerMenu() {
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   const [usePoints, setUsePoints] = useState(false);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
+
+  const [sessionPin, setSessionPin] = useState<string | null>(null);
+  const [isPinValidated, setIsPinValidated] = useState(false);
+  const [isValidatingPin, setIsValidatingPin] = useState(false);
+
+  const validatePinMutation = useMutation({
+    mutationFn: async (pin: string) => {
+      const res = await fetch(`/api/public/tables/${tableNumber}/validate-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'PIN inválido');
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setSessionPin(data.pin);
+      setIsPinValidated(true);
+    },
+  });
 
   // Resolve restaurantId from URL search params if present (e.g., /mesa/5?r=uuid)
   const searchParams = new URLSearchParams(window.location.search);
@@ -505,7 +528,7 @@ export default function CustomerMenu() {
         restaurantId: orderData.restaurantId,
         tableId: orderData.tableId,
         orderType: 'mesa',
-        customerId: authCustomer?.id, // Incluir customerId se cliente autenticado (Plano Profissional+)
+        customerId: authCustomer?.id,
         customerName: orderData.customerName,
         customerPhone: orderData.customerPhone,
         orderNotes: orderData.orderNotes || undefined,
@@ -513,6 +536,7 @@ export default function CustomerMenu() {
         redeemPoints: orderData.redeemPoints,
         status: 'pendente',
         totalAmount,
+        sessionPin: sessionPin || undefined,
         items: orderData.items,
       };
       
@@ -753,6 +777,62 @@ export default function CustomerMenu() {
         <Utensils className="h-16 w-16 text-gray-300" />
         <p className="text-gray-600 text-lg font-medium">Mesa {tableNumber} não encontrada</p>
         <p className="text-sm text-gray-400">Verifique o número da mesa e tente novamente</p>
+      </div>
+    );
+  }
+
+  const showPinValidation = currentTable?.currentSessionId && !isPinValidated;
+
+  if (showPinValidation) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <Card className="w-full max-w-md border-gray-200 shadow-lg">
+          <CardHeader className="text-center pb-4">
+            <div className="mx-auto w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
+              <Lock className="h-8 w-8 text-blue-600" />
+            </div>
+            <CardTitle className="text-xl font-bold text-gray-900">Verificação de Mesa</CardTitle>
+            <CardDescription className="text-gray-500 mt-2">
+              Digite o PIN exibido no cardápio da mesa {tableNumber} para continuar
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="000000"
+                value={sessionPin || ''}
+                onChange={(e) => setSessionPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className="h-14 text-center text-2xl font-bold tracking-widest"
+                disabled={isValidatingPin}
+              />
+              <p className="text-xs text-gray-400 text-center">
+                O PIN está disponível no PDV/balcão da mesa
+              </p>
+            </div>
+            {validatePinMutation.isError && (
+              <p className="text-sm text-red-600 text-center font-medium">
+                {(validatePinMutation.error as Error)?.message || 'PIN inválido'}
+              </p>
+            )}
+            <Button
+              onClick={() => validatePinMutation.mutate(sessionPin || '')}
+              disabled={!sessionPin || sessionPin.length !== 6 || isValidatingPin}
+              className="w-full h-12 text-base font-semibold"
+            >
+              {isValidatingPin ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Validando...
+                </>
+              ) : (
+                'Entrar na Mesa'
+              )}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

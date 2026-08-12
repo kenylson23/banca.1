@@ -811,6 +811,8 @@ export interface IStorage {
   createTableGuest(restaurantId: string, data: InsertTableGuest): Promise<TableGuest>;
   updateTableGuest(id: string, data: UpdateTableGuest): Promise<TableGuest>;
   removeTableGuest(id: string): Promise<void>;
+  validateSessionPin(sessionId: string, pin: string): Promise<boolean>;
+  getSessionPin(sessionId: string): Promise<string | null>;
   calculateGuestSubtotal(guestId: string): Promise<string>;
   updateSessionAdjustments(sessionId: string, adjustments: {
     discount?: string;
@@ -1629,12 +1631,15 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Table not found');
     }
 
+    const pin = Math.floor(100000 + Math.random() * 900000).toString();
+
     const [session] = await db.insert(tableSessions).values({
       tableId,
       restaurantId,
       customerName: sessionData.customerName,
       customerCount: sessionData.customerCount,
       status: 'ocupada',
+      pin,
     }).returning();
 
     await db.update(tables)
@@ -1649,7 +1654,6 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(tables.id, tableId));
 
-    // Create first guest automatically if customer name is provided
     if (sessionData.customerName && sessionData.customerName.trim()) {
       await this.createTableGuest(restaurantId, {
         sessionId: session.id,
@@ -1835,6 +1839,10 @@ export class DatabaseStorage implements IStorage {
         isOccupied: 0,
       })
       .where(eq(tables.id, tableId));
+
+    await db.update(tableGuests)
+      .set({ token: null, tokenExpiresAt: new Date() })
+      .where(eq(tableGuests.sessionId, table.currentSessionId));
   }
 
   async addTablePayment(restaurantId: string, payment: any): Promise<any> {
@@ -9806,8 +9814,33 @@ export class DatabaseStorage implements IStorage {
     const [guest] = await db
       .select()
       .from(tableGuests)
-      .where(eq(tableGuests.token, token));
+      .where(and(
+        eq(tableGuests.token, token),
+        or(
+          isNull(tableGuests.tokenExpiresAt),
+          gt(tableGuests.tokenExpiresAt, new Date())
+        )
+      ));
     return guest;
+  }
+
+  async validateSessionPin(sessionId: string, pin: string): Promise<boolean> {
+    const [session] = await db
+      .select()
+      .from(tableSessions)
+      .where(and(
+        eq(tableSessions.id, sessionId),
+        eq(tableSessions.pin, pin)
+      ));
+    return !!session;
+  }
+
+  async getSessionPin(sessionId: string): Promise<string | null> {
+    const [session] = await db
+      .select({ pin: tableSessions.pin })
+      .from(tableSessions)
+      .where(eq(tableSessions.id, sessionId));
+    return session?.pin || null;
   }
 
   async createTableGuest(restaurantId: string, data: InsertTableGuest): Promise<TableGuest> {

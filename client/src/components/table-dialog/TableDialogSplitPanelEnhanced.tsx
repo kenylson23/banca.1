@@ -454,6 +454,7 @@ export function TableDialogSplitPanelEnhanced({
         tableId={table?.id || ''}
         tableNumber={table?.number?.toString() || ''}
         restaurantId={table?.restaurantId}
+        sessionPin={table?.currentSession?.pin || null}
       />
 
       {showQuickOrder && (

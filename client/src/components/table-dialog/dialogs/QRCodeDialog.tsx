@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, Share2, Printer, Copy, CheckCircle2 } from 'lucide-react';
+import { Download, Share2, Printer, Copy, CheckCircle2, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import QRCode from 'qrcode';
 
@@ -23,6 +23,7 @@ interface QRCodeDialogProps {
   tableId: string;
   tableNumber: string;
   restaurantId?: string;
+  sessionPin?: string | null;
 }
 
 export function QRCodeDialog({
@@ -31,6 +32,7 @@ export function QRCodeDialog({
   tableId,
   tableNumber,
   restaurantId,
+  sessionPin,
 }: QRCodeDialogProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
@@ -239,6 +241,26 @@ export function QRCodeDialog({
               )}
             </div>
           </div>
+
+          {/* Session PIN Display */}
+          {sessionPin && (
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <span className="text-xs font-semibold text-amber-800 dark:text-amber-200">
+                    PIN da Mesa
+                  </span>
+                </div>
+                <span className="text-lg font-black text-amber-600 dark:text-amber-400 tracking-widest">
+                  {sessionPin}
+                </span>
+              </div>
+              <p className="text-[10px] text-amber-700 dark:text-amber-300 mt-1">
+                Peça aos clientes digitarem este PIN para acessar o cardápio
+              </p>
+            </div>
+          )}
 
           {/* URL Display - Compact */}
           <div className="space-y-1.5">

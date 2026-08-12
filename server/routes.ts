@@ -2739,7 +2739,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Mesa não encontrada" });
       }
       
-      // If table doesn't have an active session, create one
       let sessionId: string = table.currentSessionId || '';
       if (!sessionId) {
         const session = await storage.startTableSession(table.restaurantId, table.id, {
@@ -2749,12 +2748,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionId = session.id;
       }
       
-      const { name, deviceInfo } = req.body;
+      const { name, deviceInfo, pin } = req.body;
       
-      // Generate unique token for this guest
+      if (pin) {
+        const isValidPin = await storage.validateSessionPin(sessionId, pin);
+        if (!isValidPin) {
+          return res.status(401).json({ message: "PIN inválido" });
+        }
+      }
+      
       const token = nanoid(32);
+      const tokenExpiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000);
       
-      // Create guest entry
       const guest = await storage.createTableGuest(table.restaurantId, {
         sessionId,
         tableId: table.id,
@@ -2763,7 +2768,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         deviceInfo: deviceInfo || req.headers['user-agent'],
       });
       
-      // Broadcast to PDV/admin
+      await db.update(tableGuests)
+        .set({ tokenExpiresAt })
+        .where(eq(tableGuests.id, guest.id));
+      
       broadcastToClients({ 
         type: 'guest_joined', 
         data: { 
@@ -2785,6 +2793,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Erro ao entrar na mesa" });
+    }
+  });
+
+  app.post("/api/public/tables/:number/validate-pin", async (req, res) => {
+    try {
+      const tableNumber = parseInt(req.params.number);
+      if (isNaN(tableNumber)) {
+        return res.status(400).json({ message: "Número de mesa inválido" });
+      }
+      
+      const table = await storage.getTableByNumber(tableNumber);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+      
+      const { pin } = req.body;
+      if (!pin) {
+        return res.status(400).json({ message: "PIN obrigatório" });
+      }
+      
+      const sessionId = table.currentSessionId;
+      if (!sessionId) {
+        return res.status(400).json({ message: "Mesa sem sessão ativa" });
+      }
+      
+      const isValid = await storage.validateSessionPin(sessionId, pin);
+      if (!isValid) {
+        return res.status(401).json({ message: "PIN inválido" });
+      }
+      
+      const sessionPin = await storage.getSessionPin(sessionId);
+      
+      res.json({ 
+        valid: true, 
+        sessionId,
+        pin: sessionPin,
+        table: {
+          id: table.id,
+          number: table.number,
+          restaurantId: table.restaurantId,
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Erro ao validar PIN" });
     }
   });
 
@@ -2957,6 +3009,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // ✅ ABRIR MESA AUTOMATICAMENTE se estiver livre
         if (table.status === 'livre') {
           await storage.openTable(validatedOrder.tableId, validatedOrder.customerCount);
+        }
+
+        const sessionPin = req.headers['x-session-pin'] as string | undefined || req.body?.sessionPin as string | undefined;
+        if (sessionPin && table.currentSessionId) {
+          const isValidPin = await storage.validateSessionPin(table.currentSessionId, sessionPin);
+          if (!isValidPin) {
+            return res.status(401).json({ message: "PIN da mesa inválido" });
+          }
         }
       }
       

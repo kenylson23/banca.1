@@ -693,6 +693,7 @@ export const tableSessions = pgTable("table_sessions", {
   endedAt: timestamp("ended_at"),
   closedById: varchar("closed_by_id").references(() => users.id, { onDelete: 'set null' }),
   notes: text("notes"),
+  pin: varchar("pin", { length: 6 }),
 });
 
 export const insertTableSessionSchema = createInsertSchema(tableSessions).omit({
@@ -755,14 +756,13 @@ export const tableGuests = pgTable("table_guests", {
   sessionId: varchar("session_id").notNull().references(() => tableSessions.id, { onDelete: 'cascade' }),
   tableId: varchar("table_id").notNull().references(() => tables.id, { onDelete: 'cascade' }),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
-  customerId: varchar("customer_id").references(() => customers.id, { onDelete: 'set null' }), // Vincula a cliente registrado (null = convidado anônimo)
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: 'set null' }),
   name: varchar("name", { length: 200 }),
-  guestNumber: integer("guest_number"), // Número sequencial para convidados anônimos (1, 2, 3...)
+  guestNumber: integer("guest_number"),
   seatNumber: integer("seat_number"),
   status: guestStatusEnum("status").notNull().default('ativo'),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default('0'),
   paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default('0'),
-  // ✅ Ajustes individuais (por convidado)
   discount: decimal("discount", { precision: 10, scale: 2 }).default('0'),
   discountType: discountTypeEnum("discount_type").default('valor'),
   serviceCharge: decimal("service_charge", { precision: 10, scale: 2 }).default('0'),
@@ -771,6 +771,7 @@ export const tableGuests = pgTable("table_guests", {
   deviceInfo: text("device_info"),
   joinedAt: timestamp("joined_at").defaultNow(),
   leftAt: timestamp("left_at"),
+  tokenExpiresAt: timestamp("token_expires_at"),
 });
 
 export const insertTableGuestSchema = createInsertSchema(tableGuests).omit({
