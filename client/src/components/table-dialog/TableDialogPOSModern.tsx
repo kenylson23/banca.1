@@ -814,7 +814,7 @@ export function TableDialogPOSModern({
                     className="w-full gap-2"
                     size="sm"
                     onClick={() => setShowQRCode(true)}
-                    disabled={!hasActiveSession}
+                    disabled={false}
                   >
                     <QrCode className="w-4 h-4" />
                     QR Code
@@ -837,7 +837,7 @@ export function TableDialogPOSModern({
                     size="icon" 
                     className="w-full"
                     onClick={() => setShowQRCode(true)}
-                    disabled={!hasActiveSession}
+                    disabled={false}
                     title="QR Code"
                   >
                     <QrCode className="w-4 h-4" />
@@ -897,7 +897,7 @@ export function TableDialogPOSModern({
                     size="sm" 
                     className="gap-2"
                     onClick={() => setShowQuickOrder(true)}
-                    disabled={!hasActiveSession}
+                    disabled={false}
                   >
                     <Package className="w-4 h-4" />
                     Pedido Rápido
