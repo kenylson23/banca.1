@@ -207,6 +207,7 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/bill-splits`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });
       toast({ title: 'Divisão criada', description: 'A conta foi dividida com sucesso.' });
     },
     onError: (error: any) => {
