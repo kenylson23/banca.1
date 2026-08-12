@@ -140,11 +140,16 @@ export function TableDialogPOSModern({
     if (!showStartSession && open && table?.id) {
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/orders-by-guest`] });
-      if (table.currentSessionId) {
-        queryClient.invalidateQueries({ queryKey: [`/api/table-sessions/${table.currentSessionId}/guests`] });
-      }
     }
-  }, [showStartSession, open, table?.id, table?.currentSessionId, queryClient]);
+  }, [showStartSession, open, table?.id, queryClient]);
+
+  // 🔧 FIX: Quando o currentSessionId mudar, invalidar guests automaticamente
+  useEffect(() => {
+    const sessionId = tableData?.currentSessionId || table?.currentSessionId;
+    if (sessionId) {
+      queryClient.invalidateQueries({ queryKey: [`/api/table-sessions/${sessionId}/guests`] });
+    }
+  }, [tableData?.currentSessionId, table?.currentSessionId, queryClient]);
   
   // ✅ SOLUÇÃO 3: Mutation para fechar mesa
   const closeTableMutation = useMutation({
