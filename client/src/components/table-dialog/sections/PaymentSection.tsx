@@ -26,7 +26,8 @@ import {
   Banknote,
   Smartphone,
   Building2,
-  XCircle
+  XCircle,
+  Loader2
 } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { apiRequest } from '@/lib/queryClient';
@@ -656,7 +657,18 @@ export function PaymentSection({
 
       {/* ✅ SOLUÇÃO 4: Diálogo de Checkout Rápido */}
       <Dialog open={showQuickCheckout} onOpenChange={setShowQuickCheckout}>
-        <DialogContent>
+        <DialogContent
+          onEscapeKeyDown={(e) => {
+            // Prevenir que o Escape feche o diálogo pai (mesa)
+            e.stopPropagation();
+            setShowQuickCheckout(false);
+          }}
+          onInteractOutside={(e) => {
+            // Prevenir que clicar fora feche o diálogo pai (mesa)
+            e.stopPropagation();
+            setShowQuickCheckout(false);
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Zap className="w-5 h-5" />

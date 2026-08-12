@@ -627,8 +627,15 @@ export function TableDialogPOSModern({
         return;
       }
 
-      // ESC - Close
+      // ESC - Close (apenas se nenhum sub-diálogo estiver aberto)
       if (e.key === 'Escape') {
+        // Verificar se há sub-diálogos abertos (ex: Checkout Rápido)
+        // O Radix UI marca diálogos abertos com data-state="open" em data-radix-dialog-content
+        const openSubDialogs = document.querySelectorAll('[data-radix-dialog-content][data-state="open"]');
+        if (openSubDialogs.length > 1) {
+          // Há pelo menos um sub-diálogo aberto além do pai — não fechar o pai
+          return;
+        }
         onOpenChange(false);
         return;
       }
