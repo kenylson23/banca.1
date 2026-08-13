@@ -177,17 +177,22 @@ export default function CustomerMenu() {
   const searchParams = new URLSearchParams(window.location.search);
   const urlRestaurantId = searchParams.get('r');
 
-  const { data: currentTable, isLoading: tableLoading } = useQuery<any>({
+  const { data: currentTable, isLoading: tableLoading, error: tableError } = useQuery<any>({
     queryKey: urlRestaurantId 
       ? ['/api/public/tables', urlRestaurantId, tableNumber]
       : ['/api/public/tables', tableNumber],
     enabled: !!tableNumber,
     staleTime: 30000,
     gcTime: 300000,
+    retry: 1,
   });
 
   const tableId = currentTable?.id;
   const restaurantId = currentTable?.restaurantId;
+
+  if (tableError) {
+    console.error('[CustomerMenu] table query error:', tableError);
+  }
 
   // ✅ NOVO: Hook de guest token (funciona em TODOS os planos)
   const { guestToken, isReady: isGuestTokenReady } = useGuestToken(tableId, restaurantId);
@@ -854,6 +859,9 @@ export default function CustomerMenu() {
     );
   }
 
+  const tableNotFound = !tableLoading && !tableError && !currentTable;
+  const tableErrorOccurred = !tableLoading && tableError;
+
   // ✅ Loading: Aguardar dados da mesa; menu/token não bloqueiam mais a página
   if (tableLoading) {
     return (
@@ -883,6 +891,16 @@ export default function CustomerMenu() {
             ))}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (tableNotFound || tableErrorOccurred) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-white">
+        <Utensils className="h-16 w-16 text-gray-300" />
+        <p className="text-gray-600 text-lg font-medium">Mesa {tableNumber} não encontrada</p>
+        <p className="text-sm text-gray-400">Verifique o número da mesa e tente novamente</p>
       </div>
     );
   }
