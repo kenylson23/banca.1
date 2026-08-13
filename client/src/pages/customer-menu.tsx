@@ -190,12 +190,9 @@ export default function CustomerMenu() {
   const tableId = currentTable?.id;
   const restaurantId = currentTable?.restaurantId;
 
-  if (tableError) {
-    console.error('[CustomerMenu] table query error:', tableError);
-  }
-
   // ✅ NOVO: Hook de guest token (funciona em TODOS os planos)
-  const { guestToken, isReady: isGuestTokenReady } = useGuestToken(tableId, restaurantId);
+  // Agora usa também tableNumber/urlRestaurantId para não bloquear enquanto a mesa carrega
+  const { guestToken } = useGuestToken(tableId, restaurantId, tableNumber, urlRestaurantId);
 
   // ✅ NOVO: Acompanhantes / Declaração de Ocupantes na Mesa
   const [isCompanionDialogOpen, setIsCompanionDialogOpen] = useState(false);
@@ -862,8 +859,7 @@ export default function CustomerMenu() {
   const tableNotFound = !tableLoading && !tableError && !currentTable;
   const tableErrorOccurred = !tableLoading && tableError;
 
-  // ✅ Loading: Aguardar dados da mesa; menu/token não bloqueiam mais a página
-  if (tableLoading) {
+  if (tableLoading && !currentTable) {
     return (
       <div className="min-h-screen bg-white">
         <div className="border-b border-gray-100">

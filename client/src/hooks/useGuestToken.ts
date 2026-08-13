@@ -10,7 +10,7 @@ import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
  * 
  * O token é armazenado no localStorage por mesa e persiste entre reloads
  */
-export function useGuestToken(tableId: string | undefined, restaurantId: string | undefined) {
+export function useGuestToken(tableId: string | undefined, restaurantId: string | undefined, tableNumber?: string, urlRestaurantId?: string | null) {
   const { isAuthenticated, customer } = useCustomerAuth();
   const [guestToken, setGuestToken] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -25,19 +25,22 @@ export function useGuestToken(tableId: string | undefined, restaurantId: string 
 
   // Obter storage key único por mesa e restaurante
   const getStorageKey = () => {
-    if (!tableId || !restaurantId) return null;
-    return `guest-token-${restaurantId}-${tableId}`;
+    if (tableId && restaurantId) {
+      return `guest-token-${restaurantId}-${tableId}`;
+    }
+    if (urlRestaurantId && tableNumber) {
+      return `guest-token-${urlRestaurantId}-${tableNumber}`;
+    }
+    return null;
   };
 
   useEffect(() => {
-    if (!tableId || !restaurantId) {
+    const storageKey = getStorageKey();
+    if (!storageKey) {
       setGuestToken(null);
       setIsReady(true);
       return;
     }
-
-    const storageKey = getStorageKey();
-    if (!storageKey) return;
 
     // Se cliente está autenticado (Plano Profissional+)
     if (isAuthenticated && customer) {
@@ -59,12 +62,11 @@ export function useGuestToken(tableId: string | undefined, restaurantId: string 
       // Gerar novo token
       existingToken = generateToken();
       localStorage.setItem(storageKey, existingToken);
-    } else {
     }
 
     setGuestToken(existingToken);
     setIsReady(true);
-  }, [tableId, restaurantId, isAuthenticated, customer]);
+  }, [tableId, restaurantId, tableNumber, urlRestaurantId, isAuthenticated, customer]);
 
   // Limpar token ao sair da mesa
   const clearToken = () => {
