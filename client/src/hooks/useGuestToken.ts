@@ -31,7 +31,8 @@ export function useGuestToken(tableId: string | undefined, restaurantId: string 
 
   useEffect(() => {
     if (!tableId || !restaurantId) {
-      setIsReady(false);
+      setGuestToken(null);
+      setIsReady(true);
       return;
     }
 

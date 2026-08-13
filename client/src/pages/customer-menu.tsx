@@ -853,8 +853,8 @@ export default function CustomerMenu() {
     );
   }
 
-  // ✅ Loading: Aguardar dados da mesa, menu E token estarem prontos
-  if (menuLoading || tableLoading || !isGuestTokenReady) {
+  // ✅ Loading: Aguardar dados da mesa e, quando encontrada, menu e token
+  if (tableLoading || (currentTable && (menuLoading || !isGuestTokenReady))) {
     return (
       <div className="min-h-screen bg-white">
         <div className="border-b border-gray-100">
