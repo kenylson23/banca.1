@@ -1678,8 +1678,8 @@ export class DatabaseStorage implements IStorage {
     return session;
   }
 
-  // ✅ NOVO: Sugerir divisão automática de conta baseada no consumo
-  async suggestBillSplit(sessionId: string): Promise<{
+  // ✅ NOVO: Sugerir divisão automática de conta baseada no consumo ou igualitária por acompanhantes
+  async suggestBillSplit(sessionId: string, preferredType?: 'igual' | 'por_pessoa'): Promise<{
     splitType: 'por_pessoa' | 'igual';
     allocations: Array<{
       guestId: string;
@@ -1703,25 +1703,42 @@ export class DatabaseStorage implements IStorage {
       }
       
       const totalSession = parseFloat(session.totalAmount || '0');
+      const totalPeopleCount = Math.max(guests.length, session.customerCount || 1);
       
       // Verificar se há guests com subtotais definidos
       const guestsWithOrders = guests.filter(g => parseFloat(g.subtotal || '0') > 0);
       
-      if (guestsWithOrders.length === 0) {
-        // Nenhum guest com pedidos - sugerir divisão igual
-        const amountPerGuest = totalSession / (guests.length || 1);
+      if (preferredType === 'igual' || guestsWithOrders.length === 0) {
+        // Sugerir divisão igual considerando total de pessoas declaradas (incluindo acompanhantes virtuais)
+        const amountPerGuest = totalPeopleCount > 0 ? totalSession / totalPeopleCount : totalSession;
+        
+        const allocations = guests.map(g => ({
+          guestId: g.id,
+          guestName: g.name || `Convidado ${g.guestNumber || ''}`,
+          amount: amountPerGuest.toFixed(2),
+          percentage: parseFloat((100 / totalPeopleCount).toFixed(2)),
+          itemCount: 0,
+        }));
+
+        // Adicionar alocações virtuais para acompanhantes declarados que não se cadastraram via app
+        if (guests.length < totalPeopleCount) {
+          const missingCount = totalPeopleCount - guests.length;
+          for (let i = 1; i <= missingCount; i++) {
+            allocations.push({
+              guestId: `virtual-${i}`,
+              guestName: `Acompanhante ${i}`,
+              amount: amountPerGuest.toFixed(2),
+              percentage: parseFloat((100 / totalPeopleCount).toFixed(2)),
+              itemCount: 0,
+            });
+          }
+        }
         
         return {
           splitType: 'igual',
-          allocations: guests.map(g => ({
-            guestId: g.id,
-            guestName: g.name || `Convidado ${g.guestNumber || ''}`,
-            amount: amountPerGuest.toFixed(2),
-            percentage: (100 / guests.length),
-            itemCount: 0,
-          })),
+          allocations,
           totalAmount: totalSession.toFixed(2),
-          recommendation: 'Divisão igual recomendada: nenhum pedido individual identificado.',
+          recommendation: `Divisão igual entre ${totalPeopleCount} pessoa(s) declaradas na mesa.`,
         };
       }
       
@@ -1760,6 +1777,148 @@ export class DatabaseStorage implements IStorage {
       
     } catch (error) {
       console.error('[SUGGEST BILL SPLIT] Erro:', error);
+      throw error;
+    }
+  }
+
+  // ✅ NOVO: Ratear itens anônimos da mesa entre convidados ativos
+  async distributeAnonymousItems(sessionId: string, restaurantId: string): Promise<{
+    success: boolean;
+    distributedItemsCount: number;
+    activeGuestsCount: number;
+    message: string;
+  }> {
+    try {
+      // 1. Obter a sessão e convidados ativos
+      const allGuests = await this.getTableGuests(sessionId);
+      const activeGuests = allGuests.filter(g => g.status !== 'saiu');
+
+      if (activeGuests.length === 0) {
+        throw new Error('Nenhum convidado ativo na mesa para realizar o rateio.');
+      }
+
+      // 2. Buscar pedidos da sessão
+      const sessionOrders = await db.select()
+        .from(orders)
+        .where(eq(orders.tableSessionId, sessionId));
+
+      if (sessionOrders.length === 0) {
+        return {
+          success: true,
+          distributedItemsCount: 0,
+          activeGuestsCount: activeGuests.length,
+          message: 'Nenhum pedido encontrado na mesa.'
+        };
+      }
+
+      const orderIds = sessionOrders.map(o => o.id);
+
+      // 3. Buscar itens de pedidos sem guestId (itens anônimos)
+      const anonymousItems = await db.select()
+        .from(orderItems)
+        .where(and(
+          inArray(orderItems.orderId, orderIds),
+          isNull(orderItems.guestId)
+        ));
+
+      if (anonymousItems.length === 0) {
+        return {
+          success: true,
+          distributedItemsCount: 0,
+          activeGuestsCount: activeGuests.length,
+          message: 'Não há itens anônimos pendentes de rateio nesta mesa.'
+        };
+      }
+
+      const numGuests = activeGuests.length;
+      let totalItemsDistributed = 0;
+
+      // 4. Distribuir cada item anônimo entre todos os convidados ativos
+      for (const item of anonymousItems) {
+        const itemTotal = parseFloat(item.totalPrice || '0');
+        const qty = item.quantity || 1;
+        const unitPrice = parseFloat(item.price || '0');
+
+        if (qty >= numGuests && qty % numGuests === 0) {
+          const qtyPerGuest = qty / numGuests;
+          // Reatribuir o item original ao primeiro convidado
+          await db.update(orderItems)
+            .set({
+              guestId: activeGuests[0].id,
+              quantity: qtyPerGuest,
+              totalPrice: (qtyPerGuest * unitPrice).toFixed(2),
+            })
+            .where(eq(orderItems.id, item.id));
+
+          // Criar novos itens para os demais convidados
+          for (let i = 1; i < numGuests; i++) {
+            await db.insert(orderItems).values({
+              id: crypto.randomUUID(),
+              orderId: item.orderId,
+              menuItemId: item.menuItemId,
+              name: item.name,
+              quantity: qtyPerGuest,
+              price: item.price,
+              totalPrice: (qtyPerGuest * unitPrice).toFixed(2),
+              guestId: activeGuests[i].id,
+              notes: item.notes,
+            });
+          }
+        } else {
+          // Dividir o valor em frações exatas
+          const sharePrice = Math.floor((itemTotal / numGuests) * 100) / 100;
+          const remainderCents = Math.round((itemTotal - (sharePrice * numGuests)) * 100);
+
+          const firstGuestPrice = sharePrice + (remainderCents / 100);
+          await db.update(orderItems)
+            .set({
+              guestId: activeGuests[0].id,
+              name: numGuests > 1 ? `${item.name} (1/${numGuests})` : item.name,
+              quantity: 1,
+              price: firstGuestPrice.toFixed(2),
+              totalPrice: firstGuestPrice.toFixed(2),
+            })
+            .where(eq(orderItems.id, item.id));
+
+          for (let i = 1; i < numGuests; i++) {
+            await db.insert(orderItems).values({
+              id: crypto.randomUUID(),
+              orderId: item.orderId,
+              menuItemId: item.menuItemId,
+              name: `${item.name} (1/${numGuests})`,
+              quantity: 1,
+              price: sharePrice.toFixed(2),
+              totalPrice: sharePrice.toFixed(2),
+              guestId: activeGuests[i].id,
+              notes: item.notes,
+            });
+          }
+        }
+
+        totalItemsDistributed++;
+      }
+
+      // 5. Recalcular subtotais dos convidados
+      for (const guest of activeGuests) {
+        const guestItems = await this.getGuestOrderItems(guest.id);
+        const guestSubtotal = guestItems.reduce((sum, it) => sum + parseFloat(it.totalPrice || '0'), 0);
+
+        await db.update(tableGuests)
+          .set({ subtotal: guestSubtotal.toFixed(2) })
+          .where(eq(tableGuests.id, guest.id));
+      }
+
+      // 6. Recalcular totais da sessão
+      await this.recalculateSessionTotals(sessionId);
+
+      return {
+        success: true,
+        distributedItemsCount: totalItemsDistributed,
+        activeGuestsCount: numGuests,
+        message: `${totalItemsDistributed} item(ns) anônimo(s) rateado(s) com sucesso entre ${numGuests} convidado(s).`
+      };
+    } catch (error: any) {
+      console.error('[DISTRIBUTE ANONYMOUS ITEMS] Erro:', error);
       throw error;
     }
   }

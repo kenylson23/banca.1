@@ -2739,13 +2739,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Mesa não encontrada" });
       }
       
+      const requestedCustomerCount = req.body.customerCount ? Math.max(1, parseInt(req.body.customerCount)) : 1;
       let sessionId: string = table.currentSessionId || '';
       if (!sessionId) {
         const session = await storage.startTableSession(table.restaurantId, table.id, {
           customerName: req.body.name || 'Cliente',
-          customerCount: 1,
+          customerCount: requestedCustomerCount,
         });
         sessionId = session.id;
+      } else if (req.body.customerCount) {
+        await db.update(tableSessions)
+          .set({ customerCount: requestedCustomerCount })
+          .where(eq(tableSessions.id, sessionId));
+        await db.update(tables)
+          .set({ customerCount: requestedCustomerCount })
+          .where(eq(tables.id, table.id));
       }
       
       const { name, deviceInfo, pin } = req.body;
@@ -4801,7 +4809,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('[AddGuest] Sessão criada automaticamente:', sessionId);
       }
       
-      const { customerId, name, seatNumber } = req.body;
+      const { customerId, name, seatNumber, customerCount } = req.body;
+
+      if (customerCount) {
+        const count = Math.max(1, parseInt(customerCount));
+        await db.update(tableSessions)
+          .set({ customerCount: count })
+          .where(eq(tableSessions.id, sessionId));
+        await db.update(tables)
+          .set({ customerCount: count })
+          .where(eq(tables.id, table.id));
+      }
       
       // If customerId provided, fetch customer info
       let guestName = name;
@@ -4924,6 +4942,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Erro ao sugerir divisão de conta:', error);
       res.status(500).json({ message: "Erro ao sugerir divisão de conta" });
+    }
+  });
+
+  // ✅ NOVO: Ratear itens anônimos ("Mesa Completa") entre convidados ativos da mesa
+  app.post("/api/tables/:id/split-anonymous-items", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const table = await storage.getTableById(req.params.id);
+      if (!table) {
+        return res.status(404).json({ message: "Mesa não encontrada" });
+      }
+      if (!table.currentSessionId) {
+        return res.status(400).json({ message: "Mesa não possui sessão ativa" });
+      }
+
+      const guests = await storage.getTableGuests(table.currentSessionId);
+      if (!guests || guests.length === 0) {
+        return res.status(400).json({ message: "Nenhum convidado ativo na mesa para atribuir os itens" });
+      }
+
+      const allOrders = await storage.getOrdersByTableId(table.restaurantId, table.id);
+      const sessionOrders = allOrders.filter(o => o.status !== 'cancelado' && (o.tableSessionId === table.currentSessionId || (!o.tableSessionId && !o.guestId)));
+
+      let updatedCount = 0;
+      let guestIndex = 0;
+
+      for (const order of sessionOrders) {
+        const unassignedItems = (order.orderItems || []).filter((it: any) => !it.guestId);
+        for (const item of unassignedItems) {
+          const targetGuest = guests[guestIndex % guests.length];
+          await storage.linkOrderItemToGuest(item.id, targetGuest.id);
+          guestIndex++;
+          updatedCount++;
+        }
+      }
+
+      await storage.calculateTableTotal(table.restaurantId, table.id);
+
+      broadcastToClients({ type: 'table_session_updated', data: { tableId: table.id } });
+
+      res.json({
+        success: true,
+        message: `${updatedCount} item(ns) da Mesa Completa foram distribuídos entre ${guests.length} convidado(s).`,
+        updatedItemsCount: updatedCount,
+      });
+    } catch (error: any) {
+      console.error('Erro ao ratear itens anônimos:', error);
+      res.status(500).json({ message: error.message || "Erro ao ratear itens da mesa" });
     }
   });
 
@@ -5520,7 +5590,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== BILL SPLIT ROUTES =====
   
-  // ✅ NOVO: Sugestão automática de divisão de conta baseada em consumo
+  // ✅ NOVO: Sugestão automática de divisão de conta (suporta ?type=igual ou por_pessoa)
   app.get("/api/tables/:id/suggest-split", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user as User;
@@ -5532,55 +5602,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!table?.currentSessionId) {
         return res.status(400).json({ message: "Mesa sem sessão ativa" });
       }
+
+      const preferredType = (req.query.type as 'igual' | 'por_pessoa') || undefined;
+      const result = await storage.suggestBillSplit(table.currentSessionId, preferredType);
       
-      const guests = await storage.getTableGuests(table.currentSessionId);
-      const session = await storage.getSessionById(table.currentSessionId);
-      
-      if (!session) {
-        return res.status(404).json({ message: "Sessão não encontrada" });
-      }
-      
-      const totalSession = parseFloat(session.totalAmount || '0');
-      
-      const suggestion = {
-        splitType: 'por_pessoa' as const,
-        totalAmount: totalSession,
-        allocations: guests.map(g => {
-          const subtotal = parseFloat(g.subtotal || '0');
-          const paid = parseFloat(g.paidAmount || '0');
-          const pending = subtotal - paid;
-          
-          return {
-            guestId: g.id,
-            guestName: g.name || `Convidado ${g.guestNumber || ''}`,
-            isCustomer: !!g.customerId,
-            amount: subtotal,
-            paidAmount: paid,
-            pendingAmount: pending,
-            percentage: totalSession > 0 ? (subtotal / totalSession) * 100 : 0,
-            isPaid: paid >= subtotal - 0.01
-          };
-        }).sort((a, b) => b.amount - a.amount),
-        summary: {
-          totalGuests: guests.length,
-          totalPaid: guests.reduce((sum, g) => sum + parseFloat(g.paidAmount || '0'), 0),
-          totalPending: guests.reduce((sum, g) => {
-            const subtotal = parseFloat(g.subtotal || '0');
-            const paid = parseFloat(g.paidAmount || '0');
-            return sum + (subtotal - paid);
-          }, 0),
-          guestsPaid: guests.filter(g => {
-            const subtotal = parseFloat(g.subtotal || '0');
-            const paid = parseFloat(g.paidAmount || '0');
-            return paid >= subtotal - 0.01;
-          }).length
-        }
-      };
-      
-      res.json(suggestion);
+      res.json(result);
     } catch (error: any) {
       console.error('[SUGGEST SPLIT] Erro:', error);
       res.status(500).json({ message: error.message || "Erro ao gerar sugestão de divisão" });
+    }
+  });
+
+  // ✅ NOVO: Ratear Mesa Completa / Itens Anônimos entre Convidados Ativos
+  app.post("/api/tables/:id/distribute-anonymous-items", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const table = await storage.getTableById(req.params.id);
+      if (!table || !table.currentSessionId) {
+        return res.status(400).json({ message: "Mesa sem sessão ativa" });
+      }
+
+      const restaurantId = currentUser.restaurantId || table.restaurantId;
+      const result = await storage.distributeAnonymousItems(table.currentSessionId, restaurantId);
+
+      broadcastToClients({
+        type: 'orders_updated',
+        data: { tableId: table.id, sessionId: table.currentSessionId, restaurantId }
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('[DISTRIBUTE ANONYMOUS ITEMS] Erro:', error);
+      res.status(500).json({ message: error.message || "Erro ao ratear itens anônimos" });
     }
   });
   

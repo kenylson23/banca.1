@@ -15,6 +15,7 @@ export default function GuestRegister() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [guestName, setGuestName] = useState('');
+  const [customerCount, setCustomerCount] = useState<number>(1);
   const [isSuccess, setIsSuccess] = useState(false);
 
   // Query table info
@@ -31,6 +32,7 @@ export default function GuestRegister() {
       }
       const response = await apiRequest('POST', `/api/tables/${tableId}/guests`, {
         name: guestName.trim(),
+        customerCount: Number(customerCount) || 1,
       });
       return response.json();
     },
@@ -186,6 +188,30 @@ export default function GuestRegister() {
               />
               <p className="text-xs text-muted-foreground">
                 Seu nome ajudará na divisão da conta e nos pedidos
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="customerCount" className="text-base font-semibold flex items-center justify-between">
+                <span>Quantas pessoas estão na mesa?</span>
+                <span className="text-xs font-normal text-muted-foreground">(Acompanhantes)</span>
+              </Label>
+              <div className="grid grid-cols-5 gap-2">
+                {[1, 2, 3, 4, 5].map((num) => (
+                  <Button
+                    key={num}
+                    type="button"
+                    variant={customerCount === num ? 'default' : 'outline'}
+                    className="h-11 text-base font-bold"
+                    onClick={() => setCustomerCount(num)}
+                    disabled={createGuestMutation.isPending}
+                  >
+                    {num}{num === 5 ? '+' : ''}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Ajuda o restaurante a calcular a ocupação e sugerir a divisão da conta
               </p>
             </div>
 
