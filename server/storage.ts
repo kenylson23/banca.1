@@ -1562,6 +1562,17 @@ export class DatabaseStorage implements IStorage {
       const result = await Promise.all(
         allTables.map(async (table) => {
           try {
+            let tableTotalAmount = table.totalAmount || '0.00';
+            if (table.currentSessionId && table.status !== 'livre') {
+              const calc = await this.calculateTableTotal(restaurantId, table.id);
+              tableTotalAmount = calc.toFixed(2);
+            } else if (table.totalAmount !== '0.00') {
+              await db.update(tables)
+                .set({ totalAmount: '0.00' })
+                .where(eq(tables.id, table.id));
+              tableTotalAmount = '0.00';
+            }
+
             const orders = await this.getOrdersByTableId(restaurantId, table.id);
             
             // 🔧 FIX: Fetch current session if exists
@@ -1600,6 +1611,7 @@ export class DatabaseStorage implements IStorage {
             
             return {
               ...table,
+              totalAmount: tableTotalAmount,
               orders: orders || [],
               guestsAwaitingBill: 0,
               guestCount: 0,
@@ -2077,36 +2089,121 @@ export class DatabaseStorage implements IStorage {
   }
 
   async calculateTableTotal(restaurantId: string, tableId: string): Promise<number> {
-    const tableOrders = await db.select()
-      .from(orders)
-      .where(and(
-        eq(orders.tableId, tableId),
-        eq(orders.restaurantId, restaurantId),
-        or(
-          eq(orders.status, 'pendente'),
-          eq(orders.status, 'em_preparo'),
-          eq(orders.status, 'pronto')
-        )
-      ));
+    const table = await this.getTableById(tableId);
+    if (!table || table.status === 'livre' || !table.currentSessionId) {
+      await db.update(tables)
+        .set({ totalAmount: '0.00' })
+        .where(eq(tables.id, tableId));
+      return 0;
+    }
 
-    const total = tableOrders.reduce((sum: number, order: Order) => {
-      return sum + parseFloat(order.totalAmount || '0');
-    }, 0);
+    const sessionResult = await db.select()
+      .from(tableSessions)
+      .where(eq(tableSessions.id, table.currentSessionId))
+      .limit(1);
+    const session = sessionResult[0] || null;
 
-    await db.update(tables)
-      .set({ totalAmount: total.toFixed(2) })
-      .where(eq(tables.id, tableId));
+    const guests = await this.getTableGuests(table.currentSessionId);
+    const currentGuestIds = guests.map(g => g.id);
 
-    if (tableOrders.length > 0) {
-      const table = await this.getTableById(tableId);
-      if (table?.currentSessionId) {
-        await db.update(tableSessions)
-          .set({ totalAmount: total.toFixed(2) })
-          .where(eq(tableSessions.id, table.currentSessionId));
+    const allTableOrders = await this.getOrdersByTableId(restaurantId, tableId);
+
+    const sessionOrders = allTableOrders.filter((order: any) => {
+      if (order.status === 'cancelado') return false;
+      if (order.tableSessionId === table.currentSessionId) return true;
+      if (!order.tableSessionId && order.guestId && currentGuestIds.includes(order.guestId)) return true;
+      if (!order.tableSessionId && !order.guestId) return true;
+      return false;
+    });
+
+    const calculateOrderTotal = (order: any) => {
+      if (order.totalAmount && parseFloat(order.totalAmount) > 0) {
+        return parseFloat(order.totalAmount);
+      }
+      return (order.orderItems || []).reduce((sum: number, item: any) => {
+        const itemPrice = parseFloat(item.price || item.menuItem?.price || '0');
+        return sum + itemPrice * (item.quantity || 0);
+      }, 0);
+    };
+
+    const subtotalBeforeAdjustments = sessionOrders.reduce(
+      (sum: number, o: any) => sum + calculateOrderTotal(o),
+      0
+    );
+
+    const sessionDiscount = parseFloat(session?.discount || '0');
+    const sessionDiscountType = session?.discountType || 'valor';
+    const sessionServiceCharge = parseFloat(session?.serviceCharge || '0');
+    const sessionServiceChargeType = session?.serviceChargeType || 'percentual';
+
+    let totalAfterSession = subtotalBeforeAdjustments;
+    if (sessionDiscount > 0) {
+      if (sessionDiscountType === 'percentual') {
+        const discountPercent = Math.min(sessionDiscount, 100);
+        totalAfterSession = totalAfterSession * (1 - discountPercent / 100);
+      } else {
+        totalAfterSession = Math.max(0, totalAfterSession - sessionDiscount);
       }
     }
 
-    return total;
+    if (sessionServiceCharge > 0) {
+      if (sessionServiceChargeType === 'percentual') {
+        totalAfterSession = totalAfterSession * (1 + sessionServiceCharge / 100);
+      } else {
+        totalAfterSession = totalAfterSession + sessionServiceCharge;
+      }
+    }
+
+    const hasAnyGuestAdjustments = guests.some((g: any) => {
+      const d = parseFloat(g.discount || '0');
+      const s = parseFloat(g.serviceCharge || '0');
+      return (Number.isFinite(d) && d > 0) || (Number.isFinite(s) && s > 0);
+    });
+
+    let finalTotal = totalAfterSession;
+    if (hasAnyGuestAdjustments) {
+      const totalFromGuests = guests.reduce((sum, g: any) => {
+        const gSubtotal = parseFloat(g.subtotal || '0');
+        let adjusted = gSubtotal;
+        const gDiscount = parseFloat(g.discount || '0');
+        const gDiscountType = g.discountType || 'valor';
+        const gServiceCharge = parseFloat(g.serviceCharge || '0');
+        const gServiceChargeType = g.serviceChargeType || 'valor';
+
+        if (gDiscount > 0) {
+          adjusted = gDiscountType === 'percentual'
+            ? adjusted * (1 - Math.min(gDiscount, 100) / 100)
+            : Math.max(0, adjusted - gDiscount);
+        }
+
+        if (gServiceCharge > 0) {
+          adjusted = gServiceChargeType === 'percentual'
+            ? adjusted * (1 + gServiceCharge / 100)
+            : adjusted + gServiceCharge;
+        }
+
+        return sum + adjusted;
+      }, 0);
+
+      const anonymousOrders = sessionOrders.filter((o: any) => !o.guestId);
+      const anonymousSubtotal = anonymousOrders.reduce((sum: number, o: any) => sum + calculateOrderTotal(o), 0);
+
+      finalTotal = totalFromGuests + anonymousSubtotal;
+    }
+
+    const formattedTotal = finalTotal.toFixed(2);
+
+    await db.update(tables)
+      .set({ totalAmount: formattedTotal })
+      .where(eq(tables.id, tableId));
+
+    if (table.currentSessionId) {
+      await db.update(tableSessions)
+        .set({ totalAmount: formattedTotal })
+        .where(eq(tableSessions.id, table.currentSessionId));
+    }
+
+    return finalTotal;
   }
 
   // Category operations
@@ -2838,6 +2935,9 @@ export class DatabaseStorage implements IStorage {
           .where(eq(orders.id, id))
           .returning();
         
+        if (updated && updated.tableId) {
+          await this.calculateTableTotal(restaurantId, updated.tableId);
+        }
         return updated;
       });
     } else {
@@ -2848,6 +2948,10 @@ export class DatabaseStorage implements IStorage {
         .where(eq(orders.id, id))
         .returning();
       
+      if (updated && updated.tableId) {
+        await this.calculateTableTotal(restaurantId, updated.tableId);
+      }
+
       return updated;
     }
   }

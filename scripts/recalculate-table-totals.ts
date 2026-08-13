@@ -1,15 +1,13 @@
 import { db, initializeConnection } from "../server/db";
-import { tables, orders } from "../shared/schema";
-import { eq, and, or, isNotNull } from "drizzle-orm";
+import { tables } from "../shared/schema";
+import { and, isNotNull, eq } from "drizzle-orm";
+import { storage } from "../server/storage";
 
 /**
  * Script: Recalcular Totais de Mesas Ocupadas
  * 
  * Recalcula o campo total_amount de todas as mesas ocupadas
- * baseado na soma dos pedidos ativos (pendente, em_preparo, pronto).
- * 
- * Uso:
- *   node -e "require('./load-env.js'); require('child_process').execSync('npx tsx scripts/recalculate-table-totals.ts', {stdio:'inherit',env:process.env});"
+ * baseado na soma dos pedidos não cancelados da sessão ativa.
  */
 
 async function recalculateTableTotals() {
@@ -34,41 +32,16 @@ async function recalculateTableTotals() {
     let unchanged = 0;
     
     for (const table of occupiedTables) {
-      // Buscar pedidos ativos da mesa
-      const tableOrders = await db.query.orders.findMany({
-        where: and(
-          eq(orders.tableId, table.id),
-          eq(orders.restaurantId, table.restaurantId),
-          or(
-            eq(orders.status, 'pendente'),
-            eq(orders.status, 'em_preparo'),
-            eq(orders.status, 'pronto')
-          )
-        )
-      });
-      
-      // Calcular total
-      const total = tableOrders.reduce((sum, order) => {
-        return sum + parseFloat(order.totalAmount || '0');
-      }, 0);
-      
-      const totalFormatted = total.toFixed(2);
       const currentTotal = parseFloat(table.totalAmount || '0').toFixed(2);
+      const newTotalNum = await storage.calculateTableTotal(table.restaurantId, table.id);
+      const totalFormatted = newTotalNum.toFixed(2);
       
       console.log(`📋 Mesa ${table.number} (ID: ${table.id.substring(0, 8)}...)`);
-      console.log(`   Pedidos ativos: ${tableOrders.length}`);
-      console.log(`   Total atual: ${currentTotal}`);
+      console.log(`   Total anterior: ${currentTotal}`);
       console.log(`   Total calculado: ${totalFormatted}`);
       
       if (currentTotal !== totalFormatted) {
-        console.log(`   ⚠️  DIFERENÇA DETECTADA! Atualizando...`);
-        
-        // Atualizar mesa
-        await db.update(tables)
-          .set({ totalAmount: totalFormatted })
-          .where(eq(tables.id, table.id));
-        
-        console.log(`   ✅ Atualizado para: ${totalFormatted}`);
+        console.log(`   ⚠️  DIFERENÇA DETECTADA! Atualizado para: ${totalFormatted}`);
         updated++;
       } else {
         console.log(`   ✅ OK (total correto)`);
