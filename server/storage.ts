@@ -2705,7 +2705,7 @@ export class DatabaseStorage implements IStorage {
       const table = await this.getTableById(order.tableId);
       if (table && !table.currentSessionId) {
         console.log('[DEBUG] Table has no active session, opening one for order');
-        await this.openTableSession(restaurantId, order.tableId, order.createdBy || 'system');
+        await this.startTableSession(restaurantId, order.tableId, {});
       }
     }
 
