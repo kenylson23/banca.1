@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Download, QrCode as QrCodeIcon, LayoutGrid, Check, Clock, DollarSign, Users, Search, List, Map } from "lucide-react";
+import { Plus, Download, QrCode as QrCodeIcon, LayoutGrid, Check, Clock, DollarSign, Users, Search, List, Map, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { TableCard } from "@/components/TableCard";
 import { TableDialogWrapper } from '@/components/table-dialog/TableDialogWrapper';
+import { QrScannerDialog } from '@/components/QrScannerDialog';
 import type { Table } from "@shared/schema";
 
 export function TablesPanel() {
@@ -51,6 +52,7 @@ export function TablesPanel() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFreeTables, setShowFreeTables] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid');
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
 
   const navItems = [
     { name: 'Todas', url: '#', icon: LayoutGrid },
@@ -272,11 +274,62 @@ export function TablesPanel() {
     aguardando_pagamento: tables?.filter(t => t.status === 'aguardando_pagamento').length || 0,
   };
 
+  const handleQrScan = useCallback((scannedValue: string) => {
+    try {
+      const url = new URL(scannedValue);
+      const tableNumber = url.pathname.split('/').filter(Boolean).pop();
+      const restaurantId = url.searchParams.get('r');
+
+      if (!tableNumber) {
+        toast({
+          title: 'QR Code inválido',
+          description: 'Não foi possível identificar o número da mesa.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const foundTable = tables?.find(t => {
+        if (restaurantId && t.restaurantId !== restaurantId) return false;
+        return String(t.number) === tableNumber;
+      });
+
+      if (foundTable) {
+        setSelectedTable(foundTable);
+        toast({
+          title: 'Mesa encontrada!',
+          description: `Mesa ${foundTable.number} aberta com sucesso.`,
+        });
+      } else {
+        toast({
+          title: 'Mesa não encontrada',
+          description: `A mesa ${tableNumber} não foi encontrada neste restaurante.`,
+          variant: 'destructive',
+        });
+      }
+    } catch {
+      toast({
+        title: 'QR Code inválido',
+        description: 'O código escaneado não é uma URL válida.',
+        variant: 'destructive',
+      });
+    }
+  }, [tables, toast]);
+
   return (
     <div className="space-y-6">
       {/* Botão de criar mesa - sempre visível */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-background">
         <div className="flex flex-col sm:flex-row gap-4 flex-1">
+          <Button 
+            data-testid="button-scan-qr-table" 
+            onClick={() => setIsQrScannerOpen(true)}
+            className="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/50 hover:shadow-xl hover:shadow-emerald-500/60 transition-all duration-300 font-semibold"
+            size="lg"
+          >
+            <Camera className="h-5 w-5 mr-2" />
+            Escanear QR Code
+          </Button>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button 
@@ -843,6 +896,12 @@ export function TablesPanel() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <QrScannerDialog
+        open={isQrScannerOpen}
+        onOpenChange={setIsQrScannerOpen}
+        onScan={handleQrScan}
+      />
 
       {/* Usando TableDialogWrapper (auto-detecta mobile/desktop) */}
       <TableDialogWrapper

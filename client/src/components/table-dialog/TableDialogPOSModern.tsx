@@ -46,6 +46,7 @@ import {
   Receipt,
   UserCircle,
   XCircle,
+  Camera,
 } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { useToast } from '@/hooks/use-toast';
@@ -66,6 +67,7 @@ import { CancelOrderDialog } from './dialogs/CancelOrderDialog';
 import { EditOrderDialog } from './dialogs/EditOrderDialog';
 import { MoveItemDialog } from '@/components/MoveItemDialog';
 import { BillSplitPanel } from '@/components/BillSplitPanel';
+import { QrScannerDialog } from '@/components/QrScannerDialog';
 import type { Table } from '@shared/schema';
 
 interface TableDialogPOSModernProps {
@@ -103,6 +105,7 @@ export function TableDialogPOSModern({
   const [showAddPerson, setShowAddPerson] = useState(false);
   const [showQuickOrder, setShowQuickOrder] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
+  const [showQrScanner, setShowQrScanner] = useState(false);
   const [convertingGuest, setConvertingGuest] = useState<string | null>(null);
   const [orderToCancel, setOrderToCancel] = useState<any>(null);
   const [orderToEdit, setOrderToEdit] = useState<any>(null);
@@ -615,6 +618,48 @@ export function TableDialogPOSModern({
     }
   }, [currentTable, ordersByGuest, ordersCount, guestsCount, currentTotalAmount, sessionDuration, restaurant, formatKwanza, toast]);
 
+  const handleQrScan = useCallback((scannedValue: string) => {
+    try {
+      const url = new URL(scannedValue);
+      const tableNumber = url.pathname.split('/').filter(Boolean).pop();
+      const restaurantId = url.searchParams.get('r');
+
+      if (!tableNumber) {
+        toast({
+          title: 'QR Code inválido',
+          description: 'Não foi possível identificar o número da mesa.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const foundTable = allTables?.find(t => {
+        if (restaurantId && t.restaurantId !== restaurantId) return false;
+        return String(t.number) === tableNumber;
+      });
+
+      if (foundTable) {
+        onNavigate?.(foundTable);
+        toast({
+          title: 'Mesa encontrada!',
+          description: `Mesa ${foundTable.number} aberta com sucesso.`,
+        });
+      } else {
+        toast({
+          title: 'Mesa não encontrada',
+          description: `A mesa ${tableNumber} não foi encontrada neste restaurante.`,
+          variant: 'destructive',
+        });
+      }
+    } catch {
+      toast({
+        title: 'QR Code inválido',
+        description: 'O código escaneado não é uma URL válida.',
+        variant: 'destructive',
+      });
+    }
+  }, [allTables, onNavigate, toast]);
+
   // Keyboard shortcuts
   useEffect(() => {
     if (!open) return;
@@ -655,6 +700,12 @@ export function TableDialogPOSModern({
       // Q - QR Code
       if ((e.key === 'q' || e.key === 'Q') && !e.ctrlKey && !e.metaKey && hasActiveSession) {
         setShowQRCode(true);
+        return;
+      }
+
+      // S - Scan QR
+      if ((e.key === 's' || e.key === 'S') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        setShowQrScanner(true);
         return;
       }
 
@@ -820,6 +871,16 @@ export function TableDialogPOSModern({
                     variant="outline"
                     className="w-full gap-2"
                     size="sm"
+                    onClick={() => setShowQrScanner(true)}
+                    disabled={false}
+                  >
+                    <Camera className="w-4 h-4" />
+                    Ler QR Code
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2"
+                    size="sm"
                     onClick={() => setShowQRCode(true)}
                     disabled={false}
                   >
@@ -839,6 +900,16 @@ export function TableDialogPOSModern({
                 </>
               ) : (
                 <>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="w-full"
+                    onClick={() => setShowQrScanner(true)}
+                    disabled={false}
+                    title="Ler QR Code"
+                  >
+                    <Camera className="w-4 h-4" />
+                  </Button>
                   <Button 
                     variant="outline" 
                     size="icon" 
@@ -1352,6 +1423,14 @@ export function TableDialogPOSModern({
           sessionPin={currentTable.currentSession?.pin || null}
         />
       )}
+
+      <QrScannerDialog
+        open={showQrScanner}
+        onOpenChange={setShowQrScanner}
+        onScan={handleQrScan}
+        title="Ler QR Code da Mesa"
+        description="Aponte a câmara para o QR Code para abrir a mesa"
+      />
 
       {convertingGuest && (
         <ConvertGuestDialog
