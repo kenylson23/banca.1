@@ -246,26 +246,88 @@ export default function CustomerMenu() {
   useEffect(() => {
     if (!tableId || typeof window === 'undefined') return;
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    let ws: WebSocket | null = null;
+    let reconnectTimer: NodeJS.Timeout | null = null;
+    let heartbeatTimer: NodeJS.Timeout | null = null;
+    let isManualClose = false;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 10;
+    const baseReconnectDelay = 1000;
 
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      
-      if (message.type === 'order_status_updated' || message.type === 'new_order') {
-        queryClient.invalidateQueries({ queryKey: [`/api/public/orders/table/${tableId}`] });
+    const clearTimers = () => {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
       }
-      
-      if (message.type === 'bill_requested' && message.data?.tableNumber === parseInt(tableNumber || '0')) {
-        setBillRequested(true);
-        queryClient.invalidateQueries({ queryKey: ['/api/public/tables', tableNumber, 'status'] });
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
       }
     };
+
+    const connect = () => {
+      if (isManualClose) return;
+
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+      ws.onopen = () => {
+        reconnectAttempts = 0;
+      };
+
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+
+        if (message.type === 'order_status_updated' || message.type === 'new_order') {
+          queryClient.invalidateQueries({ queryKey: [`/api/public/orders/table/${tableId}`] });
+        }
+
+        if (message.type === 'bill_requested' && message.data?.tableNumber === parseInt(tableNumber || '0')) {
+          setBillRequested(true);
+          queryClient.invalidateQueries({ queryKey: ['/api/public/tables', tableNumber, 'status'] });
+        }
+      };
+
+      ws.onerror = () => {
+        if (ws) {
+          ws.close();
+        }
+      };
+
+      ws.onclose = (event) => {
+        if (isManualClose) return;
+
+        clearTimers();
+
+        if (!event.wasClean && reconnectAttempts < maxReconnectAttempts) {
+          const delay = Math.min(baseReconnectDelay * Math.pow(2, reconnectAttempts), 30000);
+          reconnectTimer = setTimeout(() => {
+            reconnectAttempts++;
+            connect();
+          }, delay);
+        }
+      };
+    };
+
+    const startHeartbeat = () => {
+      heartbeatTimer = setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, 30000);
+    };
+
+    connect();
+    startHeartbeat();
 
     return () => {
-      ws.close();
+      isManualClose = true;
+      clearTimers();
+      if (ws) {
+        ws.close();
+      }
     };
-  }, [tableId]);
+  }, [tableId, tableNumber, queryClient]);
 
   useEffect(() => {
     if (!restaurantId || !currentTable?.branchId) return;
