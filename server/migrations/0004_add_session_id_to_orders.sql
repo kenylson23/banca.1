@@ -24,7 +24,7 @@ WHERE o.table_id IS NOT NULL AND o.table_session_id IS NULL;
 ALTER TABLE tables DROP COLUMN IF EXISTS is_occupied;
 
 -- Step 5: Migrate remaining status data to table_status if table_status is null
-DO 1109
+DO $$
 BEGIN
   -- Only attempt migration if the target column accepts these values
   BEGIN
@@ -40,7 +40,7 @@ BEGIN
   EXCEPTION WHEN others THEN
     RAISE NOTICE 'Migration skipped: table_status enum does not accept legacy values yet';
   END;
-END 1109;
+END $$;
 
 -- Step 6: Add trigger to auto-update session paidAmount when payment is added
 CREATE OR REPLACE FUNCTION update_session_paid_amount()
