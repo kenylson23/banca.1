@@ -182,6 +182,8 @@ export default function CustomerMenu() {
       ? ['/api/public/tables', urlRestaurantId, tableNumber]
       : ['/api/public/tables', tableNumber],
     enabled: !!tableNumber,
+    staleTime: 30000,
+    gcTime: 300000,
   });
 
   const tableId = currentTable?.id;
@@ -193,16 +195,22 @@ export default function CustomerMenu() {
   const { data: menuItems, isLoading: menuLoading } = useQuery<Array<MenuItemWithOptions>>({
     queryKey: ['/api/public/menu-items', restaurantId],
     enabled: !!restaurantId,
+    staleTime: 30000,
+    gcTime: 300000,
   });
   
   const { data: restaurant } = useQuery<Restaurant>({
     queryKey: ['/api/public/restaurants', restaurantId],
     enabled: !!restaurantId,
+    staleTime: 30000,
+    gcTime: 300000,
   });
   
   const { data: tableOrders, isLoading: ordersLoading } = useQuery<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>({
     queryKey: [`/api/public/orders/table/${tableId}`],
     enabled: Boolean(tableId),
+    staleTime: 10000,
+    gcTime: 300000,
   });
 
   const { data: tableStatus } = useQuery<{
@@ -212,6 +220,8 @@ export default function CustomerMenu() {
   }>({
     queryKey: ['/api/public/tables', tableNumber, 'status'],
     enabled: !!tableNumber,
+    staleTime: 10000,
+    gcTime: 300000,
   });
 
   // Sync bill request state with server (only when guests explicitly have 'aguardando_conta' status)
