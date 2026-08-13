@@ -3837,9 +3837,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
         : `https://${req.hostname}`;
       const qrCodeUrl = `${baseUrl}/mesa/${data.number}?r=${restaurantId}`;
-      const qrCode = await QRCode.toDataURL(qrCodeUrl, {
+      const qrCode = await QRCode.toString(qrCodeUrl, {
+        type: 'svg',
         width: 300,
         margin: 2,
+        errorCorrectionLevel: 'H',
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF',
+        },
       });
 
       const branchId = currentUser.activeBranchId || null;

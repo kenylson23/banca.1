@@ -34,7 +34,7 @@ export function QRCodeDialog({
   restaurantId,
   sessionPin,
 }: QRCodeDialogProps) {
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+  const [qrCodeSvg, setQrCodeSvg] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
@@ -44,18 +44,20 @@ export function QRCodeDialog({
     ? `${window.location.origin}/mesa/${encodeURIComponent(tableNumber)}?r=${encodeURIComponent(restaurantId)}`
     : `${window.location.origin}/mesa/${encodeURIComponent(tableNumber)}`;
 
-  // Gerar QR Code
+  // Gerar QR Code como SVG vetorial com correção de erros alta
   useEffect(() => {
     if (open && tableId) {
-      QRCode.toDataURL(publicMenuUrl, {
+      QRCode.toString(publicMenuUrl, {
+        type: 'svg',
         width: 400,
         margin: 2,
+        errorCorrectionLevel: 'H',
         color: {
           dark: '#000000',
           light: '#FFFFFF',
         },
       })
-        .then(setQrCodeUrl)
+        .then(setQrCodeSvg)
         .catch((error) => {
           console.error('Error generating QR code:', error);
           toast({
@@ -86,21 +88,24 @@ export function QRCodeDialog({
   };
 
   const handleDownload = () => {
-    if (!qrCodeUrl) return;
+    if (!qrCodeSvg) return;
 
+    const svgBlob = new Blob([qrCodeSvg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
     const link = document.createElement('a');
-    link.download = `qrcode-mesa-${tableNumber}.png`;
-    link.href = qrCodeUrl;
+    link.download = `qrcode-mesa-${tableNumber}.svg`;
+    link.href = url;
     link.click();
+    URL.revokeObjectURL(url);
 
     toast({
       title: 'QR Code baixado!',
-      description: `qrcode-mesa-${tableNumber}.png`,
+      description: `qrcode-mesa-${tableNumber}.svg`,
     });
   };
 
   const handlePrint = () => {
-    if (!qrCodeUrl) return;
+    if (!qrCodeSvg) return;
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -135,10 +140,12 @@ export function QRCodeDialog({
               color: #64748b;
               margin: 0 0 2rem 0;
             }
-            img {
+            .qr-wrapper {
+              margin: 2rem 0;
+            }
+            .qr-wrapper svg {
               max-width: 400px;
               height: auto;
-              margin: 2rem 0;
             }
             .instructions {
               font-size: 1.2rem;
@@ -157,7 +164,9 @@ export function QRCodeDialog({
           <div class="container">
             <h1>Mesa ${tableNumber}</h1>
             <p>Escaneie para ver o cardápio</p>
-            <img src="${qrCodeUrl}" alt="QR Code Mesa ${tableNumber}" />
+            <div class="qr-wrapper">
+              ${qrCodeSvg}
+            </div>
             <div class="instructions">
               <strong>Como usar:</strong><br>
               1. Abra a câmera do celular<br>
@@ -218,13 +227,12 @@ export function QRCodeDialog({
           {/* QR Code Display - Compact */}
           <div className="relative">
             <div className="relative bg-white dark:bg-slate-900 rounded-lg shadow-lg p-4 border border-slate-200/50 dark:border-slate-700/50">
-              {qrCodeUrl ? (
+              {qrCodeSvg ? (
                 <div className="flex flex-col items-center space-y-2">
                   <div className="relative bg-white p-3 rounded-lg shadow">
-                    <img 
-                      src={qrCodeUrl} 
-                      alt={`QR Code Mesa ${tableNumber}`}
+                    <div
                       className="w-48 h-48"
+                      dangerouslySetInnerHTML={{ __html: qrCodeSvg }}
                     />
                   </div>
                   <Badge className="text-xs px-3 py-1 bg-gradient-to-r from-blue-600 to-purple-600">
@@ -295,7 +303,7 @@ export function QRCodeDialog({
               variant="outline"
               size="sm"
               onClick={handleDownload}
-              disabled={!qrCodeUrl}
+              disabled={!qrCodeSvg}
               className="gap-1 px-2 py-1 h-8 text-[10px] hover:bg-blue-50 dark:hover:bg-blue-950"
             >
               <Download className="h-3.5 w-3.5" />
@@ -305,7 +313,7 @@ export function QRCodeDialog({
               variant="outline"
               size="sm"
               onClick={handleShare}
-              disabled={!qrCodeUrl}
+              disabled={!qrCodeSvg}
               className="gap-1 px-2 py-1 h-8 text-[10px] hover:bg-purple-50 dark:hover:bg-purple-950"
             >
               <Share2 className="h-3.5 w-3.5" />
@@ -315,7 +323,7 @@ export function QRCodeDialog({
               variant="outline"
               size="sm"
               onClick={handlePrint}
-              disabled={!qrCodeUrl}
+              disabled={!qrCodeSvg}
               className="gap-1 px-2 py-1 h-8 text-[10px] hover:bg-pink-50 dark:hover:bg-pink-950"
             >
               <Printer className="h-3.5 w-3.5" />
