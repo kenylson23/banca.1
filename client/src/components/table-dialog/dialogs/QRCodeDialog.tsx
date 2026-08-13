@@ -229,10 +229,16 @@ export function QRCodeDialog({
             <div className="relative bg-white dark:bg-slate-900 rounded-lg shadow-lg p-4 border border-slate-200/50 dark:border-slate-700/50">
               {qrCodeSvg ? (
                 <div className="flex flex-col items-center space-y-2">
-                  <div className="relative bg-white p-3 rounded-lg shadow">
+                  <div className="bg-white p-3 rounded-lg shadow" style={{ lineHeight: 0 }}>
                     <div
-                      className="w-48 h-48"
-                      dangerouslySetInnerHTML={{ __html: qrCodeSvg }}
+                      className="w-56 h-56"
+                      style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      dangerouslySetInnerHTML={{
+                        __html: qrCodeSvg
+                          .replace(/<svg /, '<svg style="width:100%;height:100%;display:block;" ')
+                          .replace(/width="[^"]*"/, 'width="100%"')
+                          .replace(/height="[^"]*"/, 'height="100%"'),
+                      }}
                     />
                   </div>
                   <Badge className="text-xs px-3 py-1 bg-gradient-to-r from-blue-600 to-purple-600">
