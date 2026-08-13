@@ -293,8 +293,9 @@ export default function CustomerMenu() {
     }
   }, [restaurant]);
 
-  // ✅ Loading state: Aguardar token estar pronto antes de permitir pedidos
-  const isSystemReady = isGuestTokenReady && !tableLoading && !menuLoading;
+  // ✅ Loading state: aguardar mesa principal; menu/token não bloqueiam a página
+  const isTableReady = !tableLoading && !!currentTable;
+  const showReadyOverlay = !isTableReady;
 
   useEffect(() => {
     if (!tableId || typeof window === 'undefined') return;
@@ -853,8 +854,8 @@ export default function CustomerMenu() {
     );
   }
 
-  // ✅ Loading: Aguardar dados da mesa e, quando encontrada, menu e token
-  if (tableLoading || (currentTable && (menuLoading || !isGuestTokenReady))) {
+  // ✅ Loading: Aguardar dados da mesa; menu/token não bloqueiam mais a página
+  if (tableLoading) {
     return (
       <div className="min-h-screen bg-white">
         <div className="border-b border-gray-100">
