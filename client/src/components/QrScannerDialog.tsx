@@ -42,12 +42,8 @@ export function QrScannerDialog({
         await scanner.start(
           { facingMode: 'environment' },
           {
-            fps: 30,
-            qrbox: (viewfinderWidth, viewfinderHeight) => {
-              const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-              const qrboxSize = Math.floor(minEdge * 0.85);
-              return { width: qrboxSize, height: qrboxSize };
-            },
+            fps: 10,
+            qrbox: { width: 220, height: 220 },
             aspectRatio: 1.0,
           },
           (decodedText) => {
@@ -109,12 +105,8 @@ export function QrScannerDialog({
             await scanner.start(
               { facingMode: 'environment' },
               {
-                fps: 30,
-                qrbox: (viewfinderWidth, viewfinderHeight) => {
-                  const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                  const qrboxSize = Math.floor(minEdge * 0.85);
-                  return { width: qrboxSize, height: qrboxSize };
-                },
+                fps: 10,
+                qrbox: { width: 220, height: 220 },
                 aspectRatio: 1.0,
               },
               (decodedText) => {
