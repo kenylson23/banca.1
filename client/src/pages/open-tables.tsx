@@ -52,7 +52,11 @@ export default function OpenTables() {
   // Debug: log tables data to console
   useEffect(() => {
     if (tables) {
-      console.log('[OpenTables] tables loaded:', tables.length, tables.map(t => ({ id: t.id, number: t.number, status: t.status, hasDigitalOrders: t.hasDigitalOrders })));
+      const free = tables.filter(t => t.status === 'livre');
+      const occupied = tables.filter(t => t.status !== 'livre');
+      const awaiting = tables.filter(t => t.status === 'aguardando_pagamento');
+      console.log('[OpenTables] tables loaded:', tables.length, '| free:', free.length, '| occupied:', occupied.length, '| awaiting:', awaiting.length);
+      console.log('[OpenTables] table statuses:', tables.map(t => ({ id: t.id, number: t.number, status: t.status, hasDigitalOrders: t.hasDigitalOrders })));
     }
   }, [tables]);
 
