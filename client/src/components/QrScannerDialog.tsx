@@ -42,8 +42,12 @@ export function QrScannerDialog({
         await scanner.start(
           { facingMode: 'environment' },
           {
-            fps: 12,
-            qrbox: { width: 200, height: 200 },
+            fps: 30,
+            qrbox: (viewfinderWidth, viewfinderHeight) => {
+              const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+              const qrboxSize = Math.floor(minEdge * 0.85);
+              return { width: qrboxSize, height: qrboxSize };
+            },
             aspectRatio: 1.0,
           },
           (decodedText) => {
@@ -104,7 +108,15 @@ export function QrScannerDialog({
             scannerRef.current = scanner;
             await scanner.start(
               { facingMode: 'environment' },
-              { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+              {
+                fps: 30,
+                qrbox: (viewfinderWidth, viewfinderHeight) => {
+                  const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                  const qrboxSize = Math.floor(minEdge * 0.85);
+                  return { width: qrboxSize, height: qrboxSize };
+                },
+                aspectRatio: 1.0,
+              },
               (decodedText) => {
                 toast({
                   title: 'QR Code detectado!',
