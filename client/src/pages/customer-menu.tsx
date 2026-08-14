@@ -301,7 +301,7 @@ export default function CustomerMenu() {
   useEffect(() => {
     const lookupCustomer = async () => {
       // Only reset if phone is completely empty (user cleared the field)
-      if (!customerPhone || customerPhone.length === 0) {ustomerPhone.length === 0) {
+      if (!customerPhone || customerPhone.length === 0) {
         setIdentifiedCustomer(null);
         setUsePoints(false);
         setPointsToRedeem(0);
