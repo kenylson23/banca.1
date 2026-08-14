@@ -49,6 +49,13 @@ export default function OpenTables() {
     refetchInterval: 10000,
   });
 
+  // Debug: log tables data to console
+  useEffect(() => {
+    if (tables) {
+      console.log('[OpenTables] tables loaded:', tables.length, tables.map(t => ({ id: t.id, number: t.number, status: t.status, hasDigitalOrders: t.hasDigitalOrders })));
+    }
+  }, [tables]);
+
   const freeTables = tables.filter(t => t.status === 'livre');
   const occupiedTables = tables.filter(t => t.status !== 'livre');
   const tablesWithDigitalOrders = occupiedTables.filter(t => t.hasDigitalOrders);
