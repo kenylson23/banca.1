@@ -42,13 +42,14 @@ export function QrScannerDialog({
         await scanner.start(
           { facingMode: 'environment' },
           {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
+            fps: 12,
+            qrbox: { width: 200, height: 200 },
             aspectRatio: 1.0,
           },
           (decodedText) => {
             if (!mounted) return;
             setIsScanning(false);
+            setError(null);
             toast({
               title: 'QR Code detectado!',
               description: decodedText,

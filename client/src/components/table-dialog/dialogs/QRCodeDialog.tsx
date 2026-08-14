@@ -49,9 +49,9 @@ export function QRCodeDialog({
     if (open && tableId) {
       QRCode.toString(publicMenuUrl, {
         type: 'svg',
-        width: 400,
+        width: 360,
         margin: 2,
-        errorCorrectionLevel: 'H',
+        errorCorrectionLevel: 'M',
         color: {
           dark: '#000000',
           light: '#FFFFFF',

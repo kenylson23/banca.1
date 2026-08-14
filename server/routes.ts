@@ -3847,9 +3847,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const qrCodeUrl = `${baseUrl}/mesa/${data.number}?r=${restaurantId}`;
       const qrCode = await QRCode.toString(qrCodeUrl, {
         type: 'svg',
-        width: 300,
+        width: 280,
         margin: 2,
-        errorCorrectionLevel: 'H',
+        errorCorrectionLevel: 'M',
         color: {
           dark: '#000000',
           light: '#FFFFFF',
