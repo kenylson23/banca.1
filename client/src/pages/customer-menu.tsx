@@ -901,7 +901,7 @@ export default function CustomerMenu() {
                     )}
                   </Button>
                 </SheetTrigger>
-                <SheetContent className="w-full sm:max-w-md flex flex-col p-0 bg-white">
+                <SheetContent className="w-full sm:max-w-md flex flex-col p-0" style={{ backgroundColor: 'white' }}>
                   {/* Header with Steps */}
                   <div className="p-6 pb-4 border-b flex items-center justify-between" style={{ borderColor: branding.primaryColor + '20' }}>
                     <div className="flex-1">
@@ -983,7 +983,7 @@ export default function CustomerMenu() {
                                 const totalPrice = (basePrice + optionsPrice) * item.quantity;
 
                                 return (
-                                  <Card key={item.id} className="overflow-hidden border-gray-100 hover:shadow-md transition-shadow" data-testid={`cart-item-${item.id}`}>
+                                  <Card key={item.id} className="overflow-hidden border-gray-100 hover:shadow-md transition-shadow" style={{ backgroundColor: 'white' }} data-testid={`cart-item-${item.id}`}>
                                       <div className="p-4">
                                         <div className="flex gap-3">
                                           {item.menuItem.imageUrl && (
@@ -1115,7 +1115,7 @@ export default function CustomerMenu() {
                              </div>
                            </div>
 
-                            <Card className="bg-white border-gray-200">
+                            <Card className="border-gray-200" style={{ backgroundColor: 'white' }}>
                               <CardContent className="p-4">
                                 <div className="flex items-center gap-2 text-sm text-gray-600">
                                   <Sparkles className="h-4 w-4" style={{ color: branding.primaryColor }} />
@@ -1135,7 +1135,7 @@ export default function CustomerMenu() {
                           exit={{ opacity: 0, x: 20 }}
                           className="space-y-5"
                         >
-                          <Card className="border-gray-200 bg-white">
+                          <Card className="border-gray-200" style={{ backgroundColor: 'white' }}>
                             <CardContent className="p-4">
                               <h3 className="font-semibold text-gray-900 mb-3">Seus Dados</h3>
                               <div className="space-y-2 text-sm">
@@ -1316,7 +1316,7 @@ export default function CustomerMenu() {
                             </div>
                           )}
 
-                          <Card className="bg-white border-gray-200">
+                          <Card className="border-gray-200" style={{ backgroundColor: 'white' }}>
                             <CardContent className="p-4">
                               <div className="flex items-center gap-2 text-sm text-gray-600">
                                 <CheckCircle className="h-4 w-4 text-green-600" />
