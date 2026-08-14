@@ -49,17 +49,6 @@ export default function OpenTables() {
     refetchInterval: 10000,
   });
 
-  // Debug: log tables data to console
-  useEffect(() => {
-    if (tables) {
-      const free = tables.filter(t => t.status === 'livre');
-      const occupied = tables.filter(t => t.status !== 'livre');
-      const awaiting = tables.filter(t => t.status === 'aguardando_pagamento');
-      console.log('[OpenTables] tables loaded:', tables.length, '| free:', free.length, '| occupied:', occupied.length, '| awaiting:', awaiting.length);
-      console.log('[OpenTables] table statuses:', tables.map(t => ({ id: t.id, number: t.number, status: t.status, hasDigitalOrders: t.hasDigitalOrders })));
-    }
-  }, [tables]);
-
   const freeTables = tables.filter(t => t.status === 'livre');
   const occupiedTables = tables.filter(t => t.status !== 'livre');
   const tablesWithDigitalOrders = occupiedTables.filter(t => t.hasDigitalOrders);

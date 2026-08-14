@@ -2898,6 +2898,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Atualizar status da mesa para aguardando pagamento
+      if (table.status !== 'aguardando_pagamento') {
+        await storage.updateTable(table.id, {
+          status: 'aguardando_pagamento'
+        });
+      }
+      
       // Broadcast bill request to PDV/admin
       broadcastToClients({ 
         type: 'bill_requested', 
