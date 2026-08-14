@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Label } from '@/components/ui/label';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { apiRequestWithToken } from '@/lib/apiRequest';
 import { formatKwanza } from '@/lib/formatters';
