@@ -901,49 +901,59 @@ export default function CustomerMenu() {
                     )}
                   </Button>
                 </SheetTrigger>
-                <SheetContent className="w-full sm:max-w-md flex flex-col p-0 bg-gray-50">
+                <SheetContent className="w-full sm:max-w-md flex flex-col p-0 bg-white">
                   {/* Header with Steps */}
-                  <div className="p-6 pb-4 border-b border-gray-200 bg-white">
-                    <SheetHeader className="mb-4">
-                      <SheetTitle className="text-2xl font-bold text-gray-900" data-testid="text-cart-title">
-                        {checkoutStep === 'cart' && 'Seu Pedido'}
-                        {checkoutStep === 'info' && 'Seus Dados'}
-                        {checkoutStep === 'review' && 'Revisar Pedido'}
-                      </SheetTitle>
-                    </SheetHeader>
-                    
-                    {/* Progress Steps */}
-                    <div className="flex items-center gap-2">
-                      <div className={`flex items-center gap-2 ${checkoutStep === 'cart' ? 'text-gray-900' : 'text-gray-400'}`}>
-                        <div 
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium text-white"
-                          style={checkoutStep === 'cart' ? { backgroundColor: branding.primaryColor } : { backgroundColor: branding.secondaryColor + '40' }}
-                        >
-                          1
+                  <div className="p-6 pb-4 border-b flex items-center justify-between" style={{ borderColor: branding.primaryColor + '20' }}>
+                    <div className="flex-1">
+                      <SheetHeader className="mb-4">
+                        <SheetTitle className="text-2xl font-bold text-gray-900" data-testid="text-cart-title">
+                          {checkoutStep === 'cart' && 'Seu Pedido'}
+                          {checkoutStep === 'info' && 'Seus Dados'}
+                          {checkoutStep === 'review' && 'Revisar Pedido'}
+                        </SheetTitle>
+                      </SheetHeader>
+                      
+                      {/* Progress Steps */}
+                      <div className="flex items-center gap-2">
+                        <div className={`flex items-center gap-2 ${checkoutStep === 'cart' ? 'text-gray-900' : 'text-gray-400'}`}>
+                          <div 
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium text-white"
+                            style={checkoutStep === 'cart' ? { backgroundColor: branding.primaryColor } : { backgroundColor: branding.secondaryColor + '40' }}
+                          >
+                            1
+                          </div>
+                          <span className="text-xs font-medium hidden sm:inline">Itens</span>
                         </div>
-                        <span className="text-xs font-medium hidden sm:inline">Itens</span>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-gray-300" />
-                      <div className={`flex items-center gap-2 ${checkoutStep === 'info' ? 'text-gray-900' : 'text-gray-400'}`}>
-                        <div 
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium text-white"
-                          style={checkoutStep === 'info' ? { backgroundColor: branding.primaryColor } : { backgroundColor: branding.secondaryColor + '40' }}
-                        >
-                          2
+                        <ChevronRight className="h-4 w-4 text-gray-300" />
+                        <div className={`flex items-center gap-2 ${checkoutStep === 'info' ? 'text-gray-900' : 'text-gray-400'}`}>
+                          <div 
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium text-white"
+                            style={checkoutStep === 'info' ? { backgroundColor: branding.primaryColor } : { backgroundColor: branding.secondaryColor + '40' }}
+                          >
+                            2
+                          </div>
+                          <span className="text-xs font-medium hidden sm:inline">Dados</span>
                         </div>
-                        <span className="text-xs font-medium hidden sm:inline">Dados</span>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-gray-300" />
-                      <div className={`flex items-center gap-2 ${checkoutStep === 'review' ? 'text-gray-900' : 'text-gray-400'}`}>
-                        <div 
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium text-white"
-                          style={checkoutStep === 'review' ? { backgroundColor: branding.primaryColor } : { backgroundColor: branding.secondaryColor + '40' }}
-                        >
-                          3
+                        <ChevronRight className="h-4 w-4 text-gray-300" />
+                        <div className={`flex items-center gap-2 ${checkoutStep === 'review' ? 'text-gray-900' : 'text-gray-400'}`}>
+                          <div 
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium text-white"
+                            style={checkoutStep === 'review' ? { backgroundColor: branding.primaryColor } : { backgroundColor: branding.secondaryColor + '40' }}
+                          >
+                            3
+                          </div>
+                          <span className="text-xs font-medium hidden sm:inline">Revisar</span>
                         </div>
-                        <span className="text-xs font-medium hidden sm:inline">Revisar</span>
                       </div>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full"
+                      onClick={() => setCheckoutStep('cart')}
+                    >
+                      <X className="h-5 w-5" />
+                    </Button>
                   </div>
 
                   <ScrollArea className="flex-1 px-6 py-4">
