@@ -14,7 +14,7 @@ export function useTableData({ tableId, isOpen }: UseTableDataProps) {
     refetchOnMount: 'always', // Sempre refetch ao montar
     refetchOnWindowFocus: false,
     staleTime: 0, // Sempre buscar dados frescos
-    refetchInterval: isOpen ? 3000 : false, // Auto-refresh a cada 3s quando aberto
+    refetchInterval: isOpen ? 30000 : false, // Fallback a cada 30s (WebSocket cobre updates em tempo real)
   });
 
   // Query: Orders by Guest (unified data)
@@ -30,7 +30,7 @@ export function useTableData({ tableId, isOpen }: UseTableDataProps) {
     refetchOnMount: 'always', // Sempre refetch ao montar
     refetchOnWindowFocus: false,
     staleTime: 0,
-    refetchInterval: isOpen ? 3000 : false, // Auto-refresh a cada 3s quando aberto
+    refetchInterval: isOpen ? 30000 : false, // Fallback a cada 30s (WebSocket cobre updates em tempo real)
   });
 
   // Extract paidAmount from ordersByGuestData
@@ -51,7 +51,7 @@ export function useTableData({ tableId, isOpen }: UseTableDataProps) {
     refetchOnMount: 'always', // Sempre refetch ao montar
     refetchOnWindowFocus: false,
     staleTime: 0,
-    refetchInterval: isOpen && currentSessionId ? 3000 : false, // Auto-refresh a cada 3s quando aberto
+    refetchInterval: isOpen && currentSessionId ? 30000 : false, // Fallback a cada 30s (WebSocket cobre updates em tempo real)
   });
 
   // Extract guests - prioritize allSessionGuests to show guests without orders

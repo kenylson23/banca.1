@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useRoute } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -302,51 +302,6 @@ export default function CustomerMenu() {
       }
     }
   }, [isAuthenticated, authCustomer, customerName, customerPhone]);
-
-  // Lookup customer by phone when phone changes
-  useEffect(() => {
-    const lookupCustomer = async () => {
-      // Only reset if phone is completely empty (user cleared the field)
-      if (!customerPhone || customerPhone.length === 0) {
-        setIdentifiedCustomer(null);
-        setUsePoints(false);
-        setPointsToRedeem(0);
-        return;
-      }
-
-      // Don't do anything if phone is too short - keep previous data while user types
-      if (customerPhone.length < 9 || !restaurantId) {
-        return;
-      }
-
-      // Skip lookup if we already have this customer's data
-      if (identifiedCustomer?.customer?.phone === customerPhone) {
-        return;
-      }
-
-      setIsLookingUpCustomer(true);
-      try {
-        const response = await fetch(
-          `/api/public/customers/lookup?restaurantId=${restaurantId}&phone=${encodeURIComponent(customerPhone)}`
-        );
-        if (response.ok) {
-          const data: CustomerLookupData = await response.json();
-          setIdentifiedCustomer(data);
-          if (data.found && data.customer) {
-            if (!customerName && data.customer.name) {
-              setCustomerName(data.customer.name);
-            }
-          }
-        }
-      } catch (error) {
-      } finally {
-        setIsLookingUpCustomer(false);
-      }
-    };
-
-    const debounceTimer = setTimeout(lookupCustomer, 500);
-    return () => clearTimeout(debounceTimer);
-  }, [customerPhone, restaurantId, customerName, identifiedCustomer?.customer?.phone]);
 
   // Validate coupon
   const handleValidateCoupon = async () => {
@@ -667,7 +622,7 @@ export default function CustomerMenu() {
     setCheckoutStep('info');
   };
 
-  const handleProceedToReview = () => {
+  const handleProceedToReview = async () => {
     if (!customerName.trim()) {
       toast({
         title: 'Nome obrigatório',
@@ -685,6 +640,22 @@ export default function CustomerMenu() {
       });
       return;
     }
+
+    setIsLookingUpCustomer(true);
+    fetch(
+      `/api/public/customers/lookup?restaurantId=${restaurantId}&phone=${encodeURIComponent(customerPhone)}`
+    )
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data) {
+          setIdentifiedCustomer(data);
+          if (data.found && data.customer && !customerName) {
+            setCustomerName(data.customer.name);
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(() => setIsLookingUpCustomer(false));
 
     setCheckoutStep('review');
   };
@@ -875,20 +846,12 @@ export default function CustomerMenu() {
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        <AnimatePresence>
-                          {tableOrders.map((order, index) => {
-                            const statusInfo = getOrderStatusInfo(order.status);
-                            const StatusIcon = statusInfo.icon;
-                            
-                            return (
-                              <motion.div
-                                key={order.id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                transition={{ delay: index * 0.05 }}
-                              >
-                                <Card className="border-gray-100 shadow-sm" data-testid={`order-card-${order.id}`}>
+                        {tableOrders.map((order) => {
+                          const statusInfo = getOrderStatusInfo(order.status);
+                          const StatusIcon = statusInfo.icon;
+                          
+                          return (
+                            <Card key={order.id} className="border-gray-100 shadow-sm" data-testid={`order-card-${order.id}`}>
                                   <div className="p-4">
                                     <div className="flex items-start justify-between gap-2 mb-3">
                                       <div>
@@ -923,11 +886,9 @@ export default function CustomerMenu() {
                                     </div>
                                   </div>
                                 </Card>
-                              </motion.div>
-                            );
-                          })}
-                        </AnimatePresence>
-                      </div>
+                              );
+                            })}
+                          </div>
                     )}
                   </ScrollArea>
                   
@@ -1000,19 +961,14 @@ export default function CustomerMenu() {
                     data-testid="button-open-cart"
                   >
                     <ShoppingCart className="h-5 w-5" />
-                    <AnimatePresence>
-                      {getItemCount() > 0 && (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          exit={{ scale: 0 }}
-                          className="absolute -top-1 -right-1 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
-                          style={{ backgroundColor: branding.secondaryColor }}
-                        >
-                          {getItemCount()}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                    {getItemCount() > 0 && (
+                      <span
+                        className="absolute -top-1 -right-1 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"
+                        style={{ backgroundColor: branding.secondaryColor }}
+                      >
+                        {getItemCount()}
+                      </span>
+                    )}
                   </Button>
                 </SheetTrigger>
                 <SheetContent className="w-full sm:max-w-md flex flex-col p-0 bg-white">
@@ -1079,7 +1035,7 @@ export default function CustomerMenu() {
                             </div>
                           ) : (
                             <>
-                              {items.map((item, index) => {
+                              {items.map((item) => {
                                 const basePrice = parseFloat(item.menuItem.price);
                                 const optionsPrice = item.selectedOptions.reduce((sum, opt) => {
                                   return sum + parseFloat(opt.priceAdjustment) * opt.quantity;
@@ -1087,14 +1043,7 @@ export default function CustomerMenu() {
                                 const totalPrice = (basePrice + optionsPrice) * item.quantity;
 
                                 return (
-                                  <motion.div
-                                    key={item.id}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -20 }}
-                                    transition={{ delay: index * 0.03 }}
-                                  >
-                                    <Card className="overflow-hidden border-gray-100 hover:shadow-md transition-shadow" data-testid={`cart-item-${item.id}`}>
+                                  <Card key={item.id} className="overflow-hidden border-gray-100 hover:shadow-md transition-shadow" data-testid={`cart-item-${item.id}`}>
                                       <div className="p-4">
                                         <div className="flex gap-3">
                                           {item.menuItem.imageUrl && (
@@ -1166,9 +1115,8 @@ export default function CustomerMenu() {
                                         </div>
                                       </div>
                                     </Card>
-                                  </motion.div>
-                                );
-                              })}
+                                  );
+                                })}
                             </>
                           )}
                         </motion.div>
@@ -1677,20 +1625,13 @@ export default function CustomerMenu() {
                       </div>
                       
                       <div className="space-y-3">
-                        <AnimatePresence>
-                          {categoryItems.map((item, index) => (
-                            <motion.div
-                              key={item.id}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                              transition={{ delay: index * 0.02 }}
-                            >
-                              <Card 
-                                className="group overflow-hidden hover:shadow-lg transition-all duration-300 border-gray-100 bg-white"
-                                data-testid={`menu-item-card-${item.id}`}
-                              >
-                                <div className="flex items-center p-3 sm:p-4 gap-4">
+                        {categoryItems.map((item) => (
+                          <Card 
+                            key={item.id}
+                            className="group overflow-hidden hover:shadow-lg transition-all duration-300 border-gray-100 bg-white"
+                            data-testid={`menu-item-card-${item.id}`}
+                          >
+                            <div className="flex items-center p-3 sm:p-4 gap-4">
                                   <div 
                                     className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 cursor-pointer"
                                     onClick={() => handleAddMenuItem(item)}
@@ -1768,10 +1709,8 @@ export default function CustomerMenu() {
                                   </div>
                                 </div>
                               </Card>
-                            </motion.div>
-                          ))}
-                        </AnimatePresence>
-                      </div>
+                            ))}
+                          </div>
                     </div>
                   );
                 })}

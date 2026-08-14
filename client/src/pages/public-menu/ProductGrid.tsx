@@ -47,12 +47,7 @@ export function ProductGrid({
         }
 
         return (
-          <motion.div
-            key={item.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.05 }}
-          >
+          <div key={item.id}>
             <ProductCard3D
               name={item.name}
               description={item.description || ''}
@@ -71,7 +66,7 @@ export function ProductGrid({
               onClick={() => onItemClick(item)}
               className="h-full"
             />
-          </motion.div>
+          </div>
         );
       })}
     </div>
