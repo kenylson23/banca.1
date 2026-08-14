@@ -42,31 +42,16 @@ export function useGuestToken(tableId: string | undefined, restaurantId: string 
       return;
     }
 
-    // Se cliente está autenticado (Plano Profissional+)
-    if (isAuthenticated && customer) {
-      // Ainda assim manter um token como backup
-      let existingToken = localStorage.getItem(storageKey);
-      if (!existingToken) {
-        existingToken = generateToken();
-        localStorage.setItem(storageKey, existingToken);
-      }
-      setGuestToken(existingToken);
-      setIsReady(true);
-      return;
-    }
-
-    // Se cliente NÃO está autenticado (Plano Básico ou visitante)
     let existingToken = localStorage.getItem(storageKey);
     
     if (!existingToken) {
-      // Gerar novo token
       existingToken = generateToken();
       localStorage.setItem(storageKey, existingToken);
     }
 
     setGuestToken(existingToken);
     setIsReady(true);
-  }, [tableId, restaurantId, tableNumber, urlRestaurantId, isAuthenticated, customer]);
+  }, [tableId, restaurantId, tableNumber, urlRestaurantId]);
 
   // Limpar token ao sair da mesa
   const clearToken = () => {

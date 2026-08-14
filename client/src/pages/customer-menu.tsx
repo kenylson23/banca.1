@@ -262,21 +262,7 @@ export default function CustomerMenu() {
      if (isOrdersDialogOpen && tableId) {
        loadTableOrders();
      }
-   }, [isOrdersDialogOpen, tableId, loadTableOrders]);
-
-   // Log rápido de performance após a primeira renderização útil
-   useEffect(() => {
-     if (typeof window === 'undefined') return;
-     const handler = () => {
-       const ready = !!currentTable;
-       const log = performanceLog.current;
-       if (ready && log.length) {
-         console.log('[CustomerMenu][perf]', JSON.stringify(log, null, 2));
-       }
-     };
-     window.addEventListener('load', handler);
-     return () => window.removeEventListener('load', handler);
-   }, [currentTable]);
+    }, [isOrdersDialogOpen, tableId, loadTableOrders]);
 
   // Atualizar branding quando restaurante carregar
   useEffect(() => {

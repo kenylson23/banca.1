@@ -50,10 +50,6 @@ export function QrScannerDialog({
             if (!mounted) return;
             setIsScanning(false);
             setError(null);
-            toast({
-              title: 'QR Code detectado!',
-              description: decodedText,
-            });
             onScan(decodedText);
             onOpenChange(false);
           },
@@ -110,10 +106,6 @@ export function QrScannerDialog({
                 aspectRatio: 1.0,
               },
               (decodedText) => {
-                toast({
-                  title: 'QR Code detectado!',
-                  description: decodedText,
-                });
                 onScan(decodedText);
                 onOpenChange(false);
               },

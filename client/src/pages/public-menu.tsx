@@ -175,14 +175,8 @@ export default function PublicMenu() {
       // Cliente escaneou QR Code da mesa
       setTableIdFromUrl(tableId);
       setOrderType('mesa');
-      
-      
-      toast({
-        title: "🎉 Bem-vindo!",
-        description: "Faça seu pedido diretamente do celular. Informe seu telefone para ganhar pontos!",
-      });
     }
-  }, [tableIdFromQuery, toast]);
+  }, [tableIdFromQuery]);
 
   // Force viewport for preview mode
   useEffect(() => {
