@@ -154,13 +154,6 @@ export default function CustomerMenu() {
    const searchParams = new URLSearchParams(window.location.search);
    const urlRestaurantId = searchParams.get('r');
 
-   const performanceLog = useRef<any[]>([]);
-   const mark = (name: string, extra?: any) => {
-     if (typeof performance !== 'undefined') {
-       performanceLog.current.push({ name, ts: performance.now(), ...extra });
-     }
-   };
-
    const { data: currentTable, isLoading: tableLoading, error: tableError } = useQuery<any>({
      queryKey: urlRestaurantId 
        ? ['/api/public/tables', urlRestaurantId, tableNumber]
@@ -168,9 +161,8 @@ export default function CustomerMenu() {
      enabled: !!tableNumber,
      staleTime: 30000,
      gcTime: 300000,
-     retry: 1,
-     onSuccess: () => mark('table-loaded'),
-   });
+      retry: 1,
+    });
 
     const tableId = currentTable?.id;
     const restaurantId = currentTable?.restaurantId || urlRestaurantId || undefined;
@@ -226,7 +218,6 @@ export default function CustomerMenu() {
       staleTime: 300000,
       gcTime: 600000,
       retry: 1,
-      onSuccess: () => mark('restaurant-loaded'),
     });
 
     const { data: menuItems, isLoading: menuLoading } = useQuery<MenuItemWithOptions[]>({
@@ -235,10 +226,9 @@ export default function CustomerMenu() {
       staleTime: 60000,
       gcTime: 600000,
       retry: 1,
-      onSuccess: () => mark('menu-loaded'),
     });
 
-   // Adiar pedidos para quando o usuário abrir "Meus Pedidos"
+    // Adiar pedidos para quando o usuário abrir "Meus Pedidos"
    const [tableOrders, setTableOrders] = useState<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>([]);
    const [ordersLoading, setOrdersLoading] = useState(false);
 
@@ -248,10 +238,9 @@ export default function CustomerMenu() {
      const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
      try {
        const res = await apiRequest('GET', `/api/public/orders/table/${tableId}`);
-       const data = await res.json();
-       setTableOrders(data);
-       mark('orders-loaded', { durationMs: typeof performance !== 'undefined' ? performance.now() - t0 : Date.now() - t0 });
-     } catch (e) {
+      const data = await res.json();
+      setTableOrders(data);
+    } catch (e) {
        // ignore
      } finally {
        setOrdersLoading(false);
