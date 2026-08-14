@@ -172,12 +172,15 @@ export default function CustomerMenu() {
      onSuccess: () => mark('table-loaded'),
    });
 
-   const tableId = currentTable?.id;
-   const restaurantId = currentTable?.restaurantId || urlRestaurantId || undefined;
+    const tableId = currentTable?.id;
+    const restaurantId = currentTable?.restaurantId || urlRestaurantId || undefined;
 
-   // ✅ NOVO: Hook de guest token (funciona em TODOS os planos)
-   // Agora usa também tableNumber/urlRestaurantId para não bloquear enquanto a mesa carrega
-   const { guestToken } = useGuestToken(tableId, restaurantId, tableNumber, urlRestaurantId);
+    // Carregar restaurante e menu em paralelo com a mesa, usando urlRestaurantId como fallback
+    const effectiveRestaurantId = urlRestaurantId || currentTable?.restaurantId;
+
+    // ✅ NOVO: Hook de guest token (funciona em TODOS os planos)
+    // Agora usa também tableNumber/urlRestaurantId para não bloquear enquanto a mesa carrega
+    const { guestToken } = useGuestToken(tableId, restaurantId, tableNumber, urlRestaurantId);
 
    // ✅ NOVO: Acompanhantes / Declaração de Ocupantes na Mesa
    const [isCompanionDialogOpen, setIsCompanionDialogOpen] = useState(false);
@@ -217,23 +220,23 @@ export default function CustomerMenu() {
      },
    });
 
-   const { data: restaurant } = useQuery<Restaurant>({
-     queryKey: ['/api/public/restaurants', restaurantId],
-     enabled: Boolean(restaurantId),
-     staleTime: 300000,
-     gcTime: 600000,
-     retry: 1,
-     onSuccess: () => mark('restaurant-loaded'),
-   });
+    const { data: restaurant } = useQuery<Restaurant>({
+      queryKey: ['/api/public/restaurants', effectiveRestaurantId],
+      enabled: Boolean(effectiveRestaurantId),
+      staleTime: 300000,
+      gcTime: 600000,
+      retry: 1,
+      onSuccess: () => mark('restaurant-loaded'),
+    });
 
-   const { data: menuItems, isLoading: menuLoading } = useQuery<MenuItemWithOptions[]>({
-     queryKey: ['/api/public/menu-items', restaurantId],
-     enabled: Boolean(restaurantId),
-     staleTime: 60000,
-     gcTime: 600000,
-     retry: 1,
-     onSuccess: () => mark('menu-loaded'),
-   });
+    const { data: menuItems, isLoading: menuLoading } = useQuery<MenuItemWithOptions[]>({
+      queryKey: ['/api/public/menu-items', effectiveRestaurantId],
+      enabled: Boolean(effectiveRestaurantId),
+      staleTime: 60000,
+      gcTime: 600000,
+      retry: 1,
+      onSuccess: () => mark('menu-loaded'),
+    });
 
    // Adiar pedidos para quando o usuário abrir "Meus Pedidos"
    const [tableOrders, setTableOrders] = useState<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>([]);
