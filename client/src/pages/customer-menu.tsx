@@ -756,11 +756,21 @@ export default function CustomerMenu() {
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[85vh]" style={{ backgroundColor: 'white', borderColor: branding.primaryColor + '30' }}>
-                  <DialogHeader>
-                    <DialogTitle className="text-gray-900" data-testid="text-orders-dialog-title">Seus Pedidos</DialogTitle>
-                    <DialogDescription className="text-gray-500" data-testid="text-orders-dialog-description">
-                      Acompanhe o status dos seus pedidos em tempo real
-                    </DialogDescription>
+                  <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <div>
+                      <DialogTitle className="text-gray-900" data-testid="text-orders-dialog-title">Seus Pedidos</DialogTitle>
+                      <DialogDescription className="text-gray-500" data-testid="text-orders-dialog-description">
+                        Acompanhe o status dos seus pedidos em tempo real
+                      </DialogDescription>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full"
+                      onClick={() => setIsOrdersDialogOpen(false)}
+                    >
+                      <X className="h-5 w-5" />
+                    </Button>
                   </DialogHeader>
                   
                   <ScrollArea className="max-h-[65vh] pr-4">
