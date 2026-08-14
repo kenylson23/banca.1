@@ -22,10 +22,8 @@ import {
   X, Minus, User, Phone as PhoneIcon, ChevronRight, ShoppingBag,
   FileText, Sparkles, Gift, Award, Tag, Percent, Loader2, Users
 } from 'lucide-react';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { apiRequestWithToken } from '@/lib/apiRequest';
 import { formatKwanza } from '@/lib/formatters';
