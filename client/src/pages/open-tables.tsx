@@ -45,7 +45,7 @@ export default function OpenTables() {
   const [activeTab, setActiveTab] = useState<'all' | 'digital' | 'payment'>('all');
 
   const { data: tables = [], isLoading, refetch } = useQuery<TableWithDetails[]>({
-    queryKey: ['/api/tables/open'],
+    queryKey: ['/api/tables/with-orders'],
     refetchInterval: 10000,
   });
 
