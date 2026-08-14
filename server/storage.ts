@@ -1609,14 +1609,16 @@ export class DatabaseStorage implements IStorage {
               }
             }
             
-            return {
-              ...table,
-              totalAmount: tableTotalAmount,
-              orders: orders || [],
-              guestsAwaitingBill: 0,
-              guestCount: 0,
-              currentSession, // Include session with startedAt
-            };
+             return {
+               ...table,
+               totalAmount: tableTotalAmount,
+               orders: orders || [],
+               guestsAwaitingBill: 0,
+               guestCount: 0,
+               currentSession, // Include session with startedAt
+               hasDigitalOrders: (orders || []).length > 0,
+               pendingOrdersCount: (orders || []).filter((o: any) => o.status === 'pendente').length,
+             };
           } catch (error) {
             console.warn(`Failed to fetch orders for table ${table.id}:`, error);
             return {
