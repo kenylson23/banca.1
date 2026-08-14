@@ -982,7 +982,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               break;
 
             case 'UPDATE_TABLE':
-              result = await storage.updateTable(op.entityId, op.data);
+              result = await storage.updateTableStatus(table.restaurantId, op.entityId, op.data.status, op.data);
               break;
 
             default:
@@ -2900,9 +2900,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Atualizar status da mesa para aguardando pagamento
       if (table.status !== 'aguardando_pagamento') {
-        await storage.updateTable(table.id, {
-          status: 'aguardando_pagamento'
-        });
+        await storage.updateTableStatus(table.restaurantId, table.id, 'aguardando_pagamento');
+        console.log(`[request-bill] Mesa ${table.number} atualizada para aguardando_pagamento`);
       }
       
       // Broadcast bill request to PDV/admin
@@ -5237,9 +5236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Atualizar status da mesa se todos pagaram
         if (allPaid && table.status !== 'aguardando_pagamento') {
-          await storage.updateTable(table.id, {
-            status: 'aguardando_pagamento'
-          });
+          await storage.updateTableStatus(restaurantId, table.id, 'aguardando_pagamento');
           
           broadcastToClients({
             type: 'table_fully_paid',
