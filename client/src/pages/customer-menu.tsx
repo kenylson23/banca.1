@@ -199,11 +199,6 @@ export default function CustomerMenu() {
       queryClient.invalidateQueries({
         queryKey: urlRestaurantId ? ['/api/public/tables', urlRestaurantId, tableNumber] : ['/api/public/tables', tableNumber],
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/public/tables', tableNumber, 'status'] });
-      if (tableId) {
-        queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });
-        queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
-      }
     },
     onError: (error: any) => {
       toast({
@@ -214,14 +209,6 @@ export default function CustomerMenu() {
     },
   });
 
-  const { data: tableOrders, isLoading: ordersLoading } = useQuery<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>({
-    queryKey: [`/api/public/orders/table/${tableId}`],
-    enabled: Boolean(tableId),
-    staleTime: 10000,
-    gcTime: 300000,
-  });
-
-  // Carrega informações do restaurante em paralelo (usando restaurantId da mesa ou da URL)
   const { data: restaurant } = useQuery<Restaurant>({
     queryKey: ['/api/public/restaurants', restaurantId],
     enabled: Boolean(restaurantId),
@@ -230,7 +217,6 @@ export default function CustomerMenu() {
     retry: 1,
   });
 
-  // Carrega itens do menu em paralelo
   const { data: menuItems, isLoading: menuLoading } = useQuery<MenuItemWithOptions[]>({
     queryKey: ['/api/public/menu-items', restaurantId],
     enabled: Boolean(restaurantId),
@@ -238,6 +224,29 @@ export default function CustomerMenu() {
     gcTime: 600000,
     retry: 1,
   });
+
+  const [tableOrders, setTableOrders] = useState<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+
+  const loadTableOrders = useCallback(async () => {
+    if (!tableId) return;
+    setOrdersLoading(true);
+    try {
+      const res = await apiRequest('GET', `/api/public/orders/table/${tableId}`);
+      const data = await res.json();
+      setTableOrders(data);
+    } catch (e) {
+      // ignore
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, [tableId, apiRequest]);
+
+  useEffect(() => {
+    if (tableId) {
+      loadTableOrders();
+    }
+  }, [tableId, loadTableOrders]);
 
   // Atualizar branding quando restaurante carregar
   useEffect(() => {
@@ -251,41 +260,9 @@ export default function CustomerMenu() {
     }
   }, [restaurant]);
 
-  // ✅ Loading state: aguardar mesa principal; menu/token não bloqueiam a página
+   // ✅ Loading state: aguardar mesa principal; menu/token não bloqueiam a página
   const isTableReady = !tableLoading && !!currentTable;
   const showReadyOverlay = !isTableReady;
-
-   useEffect(() => {
-     if (!tableId || typeof window === 'undefined') return;
-
-     let ws: WebSocket | null = null;
-     try {
-       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-       ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-
-       ws.onmessage = (event) => {
-         try {
-           const message = JSON.parse(event.data);
-           if (message.type === 'order_status_updated' || message.type === 'new_order') {
-             queryClient.invalidateQueries({ queryKey: [`/api/public/orders/table/${tableId}`] });
-           }
-           if (message.type === 'bill_requested' && message.data?.tableNumber === parseInt(tableNumber || '0')) {
-             setBillRequested(true);
-           }
-         } catch (e) {}
-       };
-
-       ws.onerror = () => {
-         // Silently catch WS connection errors on mobile networks
-       };
-     } catch (e) {}
-
-     return () => {
-       if (ws) {
-         try { ws.close(); } catch (e) {}
-       }
-     };
-   }, [tableId, tableNumber, queryClient]);
 
    // Auto-fill customer data when authenticated
   useEffect(() => {
