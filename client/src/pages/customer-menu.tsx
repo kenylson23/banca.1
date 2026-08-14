@@ -949,9 +949,9 @@ export default function CustomerMenu() {
                     )}
                   </Button>
                 </SheetTrigger>
-                <SheetContent className="w-full sm:max-w-md flex flex-col p-0 bg-white">
+                <SheetContent className="w-full sm:max-w-md flex flex-col p-0 bg-gray-50">
                   {/* Header with Steps */}
-                  <div className="p-6 pb-4 border-b border-gray-100">
+                  <div className="p-6 pb-4 border-b border-gray-200 bg-white">
                     <SheetHeader className="mb-4">
                       <SheetTitle className="text-2xl font-bold text-gray-900" data-testid="text-cart-title">
                         {checkoutStep === 'cart' && 'Seu Pedido'}
@@ -965,7 +965,7 @@ export default function CustomerMenu() {
                       <div className={`flex items-center gap-2 ${checkoutStep === 'cart' ? 'text-gray-900' : 'text-gray-400'}`}>
                         <div 
                           className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium text-white"
-                          style={checkoutStep === 'cart' ? { backgroundColor: branding.primaryColor } : { backgroundColor: '#f3f4f6' }}
+                          style={checkoutStep === 'cart' ? { backgroundColor: branding.primaryColor } : { backgroundColor: branding.secondaryColor + '40' }}
                         >
                           1
                         </div>
@@ -975,7 +975,7 @@ export default function CustomerMenu() {
                       <div className={`flex items-center gap-2 ${checkoutStep === 'info' ? 'text-gray-900' : 'text-gray-400'}`}>
                         <div 
                           className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium text-white"
-                          style={checkoutStep === 'info' ? { backgroundColor: branding.primaryColor } : { backgroundColor: '#f3f4f6' }}
+                          style={checkoutStep === 'info' ? { backgroundColor: branding.primaryColor } : { backgroundColor: branding.secondaryColor + '40' }}
                         >
                           2
                         </div>
@@ -985,7 +985,7 @@ export default function CustomerMenu() {
                       <div className={`flex items-center gap-2 ${checkoutStep === 'review' ? 'text-gray-900' : 'text-gray-400'}`}>
                         <div 
                           className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium text-white"
-                          style={checkoutStep === 'review' ? { backgroundColor: branding.primaryColor } : { backgroundColor: '#f3f4f6' }}
+                          style={checkoutStep === 'review' ? { backgroundColor: branding.primaryColor } : { backgroundColor: branding.secondaryColor + '40' }}
                         >
                           3
                         </div>
@@ -1109,58 +1109,58 @@ export default function CustomerMenu() {
                           exit={{ opacity: 0, x: 20 }}
                           className="space-y-5"
                         >
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                                <User className="h-4 w-4" />
-                                Nome completo
-                              </label>
-                              <Input
-                                placeholder="Digite seu nome"
-                                value={customerName}
-                                onChange={(e) => setCustomerName(e.target.value)}
-                                className="h-12 border-gray-200"
-                                data-testid="input-customer-name"
-                              />
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                                <PhoneIcon className="h-4 w-4" />
-                                Telefone/WhatsApp
-                              </label>
-                              <Input
-                                placeholder="(XX) XXXXX-XXXX"
-                                value={customerPhone}
-                                onChange={(e) => setCustomerPhone(e.target.value)}
-                                className="h-12 border-gray-200"
-                                data-testid="input-customer-phone"
-                              />
-                            </div>
-                            
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                                <FileText className="h-4 w-4" />
-                                Observações (opcional)
-                              </label>
-                              <Textarea
-                                placeholder="Ex: sem cebola, bem passado, etc."
-                                value={orderNotes}
-                                onChange={(e) => setOrderNotes(e.target.value)}
-                                className="resize-none border-gray-200 min-h-24"
-                                data-testid="input-order-notes"
-                              />
-                            </div>
-                          </div>
+                           <div className="space-y-4">
+                             <div className="space-y-2">
+                               <label className="text-sm font-medium flex items-center gap-2" style={{ color: branding.primaryColor }}>
+                                 <User className="h-4 w-4" />
+                                 Nome completo
+                               </label>
+                               <Input
+                                 placeholder="Digite seu nome"
+                                 value={customerName}
+                                 onChange={(e) => setCustomerName(e.target.value)}
+                                 className="h-12 border-gray-200 focus:border-orange-300 focus:ring-orange-200"
+                                 data-testid="input-customer-name"
+                               />
+                             </div>
+                             
+                             <div className="space-y-2">
+                               <label className="text-sm font-medium flex items-center gap-2" style={{ color: branding.primaryColor }}>
+                                 <PhoneIcon className="h-4 w-4" />
+                                 Telefone/WhatsApp
+                               </label>
+                               <Input
+                                 placeholder="(XX) XXXXX-XXXX"
+                                 value={customerPhone}
+                                 onChange={(e) => setCustomerPhone(e.target.value)}
+                                 className="h-12 border-gray-200 focus:border-orange-300 focus:ring-orange-200"
+                                 data-testid="input-customer-phone"
+                               />
+                             </div>
+                             
+                             <div className="space-y-2">
+                               <label className="text-sm font-medium flex items-center gap-2" style={{ color: branding.primaryColor }}>
+                                 <FileText className="h-4 w-4" />
+                                 Observações (opcional)
+                               </label>
+                               <Textarea
+                                 placeholder="Ex: sem cebola, bem passado, etc."
+                                 value={orderNotes}
+                                 onChange={(e) => setOrderNotes(e.target.value)}
+                                 className="resize-none border-gray-200 min-h-24 focus:border-orange-300 focus:ring-orange-200"
+                                 data-testid="input-order-notes"
+                               />
+                             </div>
+                           </div>
 
-                          <Card className="bg-gray-50 border-gray-200">
-                            <CardContent className="p-4">
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Sparkles className="h-4 w-4 text-gray-400" />
-                                <span>Seus dados são usados apenas para este pedido</span>
-                              </div>
-                            </CardContent>
-                          </Card>
+                           <Card className="bg-gray-50 border-gray-200">
+                             <CardContent className="p-4">
+                               <div className="flex items-center gap-2 text-sm text-gray-600">
+                                 <Sparkles className="h-4 w-4" style={{ color: branding.primaryColor }} />
+                                 <span>Seus dados são usados apenas para este pedido</span>
+                               </div>
+                             </CardContent>
+                           </Card>
                         </motion.div>
                       )}
 
@@ -1173,21 +1173,21 @@ export default function CustomerMenu() {
                           exit={{ opacity: 0, x: 20 }}
                           className="space-y-5"
                         >
-                          <Card className="border-gray-200">
+                          <Card className="border-gray-200 bg-white">
                             <CardContent className="p-4">
                               <h3 className="font-semibold text-gray-900 mb-3">Seus Dados</h3>
                               <div className="space-y-2 text-sm">
                                 <div className="flex items-center gap-2 text-gray-600">
-                                  <User className="h-4 w-4" />
+                                  <User className="h-4 w-4" style={{ color: branding.primaryColor }} />
                                   <span>{customerName}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-gray-600">
-                                  <PhoneIcon className="h-4 w-4" />
+                                  <PhoneIcon className="h-4 w-4" style={{ color: branding.primaryColor }} />
                                   <span>{customerPhone}</span>
                                 </div>
                                 {orderNotes && (
                                   <div className="flex items-start gap-2 text-gray-600 pt-2 border-t border-gray-100">
-                                    <FileText className="h-4 w-4 mt-0.5" />
+                                    <FileText className="h-4 w-4 mt-0.5" style={{ color: branding.primaryColor }} />
                                     <span className="flex-1">{orderNotes}</span>
                                   </div>
                                 )}
@@ -1235,7 +1235,7 @@ export default function CustomerMenu() {
                                 data-testid="button-toggle-coupon"
                               >
                                 <div className="flex items-center gap-2">
-                                  <Tag className="h-4 w-4 text-gray-500" />
+                                  <Tag className="h-4 w-4" style={{ color: branding.primaryColor }} />
                                   <span className="text-sm font-medium">Cupom de Desconto</span>
                                   {couponValidation?.valid && (
                                     <Badge className="bg-green-100 text-green-700 border-0 text-[10px]">Aplicado</Badge>
@@ -1280,16 +1280,16 @@ export default function CustomerMenu() {
 
                           {/* Pontos de Fidelidade */}
                           {identifiedCustomer?.found && identifiedCustomer.loyalty?.isActive && getMaxRedeemablePointsForOrder() > 0 && (
-                            <Card className="border-amber-200 bg-amber-50/50">
+                            <Card className="border-orange-200 bg-orange-50/50">
                               <CardContent className="p-4 space-y-3">
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
-                                    <Award className="h-4 w-4 text-amber-600" />
-                                    <span className="text-sm font-medium text-amber-800">
+                                    <Award className="h-4 w-4 text-orange-600" />
+                                    <span className="text-sm font-medium text-orange-800">
                                       Usar Pontos ({identifiedCustomer.customer?.loyaltyPoints} disponíveis)
                                     </span>
                                     {usePoints && (
-                                      <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px]">Ativo</Badge>
+                                      <Badge className="bg-orange-100 text-orange-700 border-0 text-[10px]">Ativo</Badge>
                                     )}
                                   </div>
                                   <Switch
@@ -1327,14 +1327,14 @@ export default function CustomerMenu() {
                                             if (pointsToRedeem < minPoints) setPointsToRedeem(minPoints);
                                             if (pointsToRedeem > maxForOrder) setPointsToRedeem(maxForOrder);
                                           }}
-                                          className="flex-1 h-9 px-3 rounded-lg border border-amber-300 bg-white text-sm focus:border-amber-400 focus:outline-none"
+                                          className="flex-1 h-9 px-3 rounded-lg border border-orange-300 bg-white text-sm focus:border-orange-400 focus:outline-none"
                                           data-testid="input-points-to-redeem"
                                         />
-                                        <span className="text-sm font-medium text-amber-600">
+                                        <span className="text-sm font-medium text-orange-600">
                                           = {formatKwanza(getPointsDiscount())}
                                         </span>
                                       </div>
-                                      <p className="text-xs text-amber-600">
+                                      <p className="text-xs text-orange-600">
                                         Mín: {minPoints} | Máx para este pedido: {maxForOrder} pts
                                       </p>
                                     </div>
@@ -1346,9 +1346,9 @@ export default function CustomerMenu() {
 
                           {/* Pontos que vai ganhar */}
                           {identifiedCustomer?.found && identifiedCustomer.loyalty?.isActive && getPointsToEarn() > 0 && (
-                            <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
-                              <Sparkles className="h-4 w-4 text-green-600" />
-                              <span className="text-sm text-green-700">
+                            <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                              <Sparkles className="h-4 w-4 text-orange-600" />
+                              <span className="text-sm text-orange-700">
                                 Você vai ganhar <strong>{getPointsToEarn()} pontos</strong> neste pedido!
                               </span>
                             </div>
@@ -1369,7 +1369,7 @@ export default function CustomerMenu() {
 
                   {/* Footer with Actions */}
                   {items.length > 0 && (
-                    <div className="p-6 pt-4 border-t border-gray-100 space-y-3 bg-white">
+                    <div className="p-6 pt-4 border-t space-y-3 bg-white" style={{ borderColor: branding.primaryColor + '20' }}>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Subtotal</span>
                         <span className="font-semibold text-gray-900">{formatKwanza(getTotal())}</span>
@@ -1384,7 +1384,7 @@ export default function CustomerMenu() {
                         </div>
                       )}
                       {checkoutStep === 'review' && usePoints && pointsToRedeem > 0 && (
-                        <div className="flex items-center justify-between text-sm text-amber-600">
+                        <div className="flex items-center justify-between text-sm text-orange-600">
                           <span className="flex items-center gap-1">
                             <Award className="h-3 w-3" />
                             Pontos ({pointsToRedeem} pts)
@@ -1404,7 +1404,7 @@ export default function CustomerMenu() {
                           <Button
                             variant="outline"
                             size="lg"
-                            className="flex-1 h-14 text-base font-semibold border-gray-200"
+                            className="flex-1 h-14 text-base font-semibold border-gray-200 hover:bg-gray-50"
                             onClick={() => setCheckoutStep(checkoutStep === 'review' ? 'info' : 'cart')}
                           >
                             Voltar
