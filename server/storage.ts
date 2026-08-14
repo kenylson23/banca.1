@@ -10110,14 +10110,18 @@ export class DatabaseStorage implements IStorage {
     try {
       let guestNumber = data.guestNumber;
       
-      if (!guestNumber && data.sessionId) {
-        const maxGuestNumber = await db
-          .select({ maxNum: sql<number>`MAX(${tableGuests.guestNumber})` })
-          .from(tableGuests)
-          .where(eq(tableGuests.sessionId, data.sessionId))
-          .then(rows => rows[0]?.maxNum ?? 0);
-        
-        guestNumber = maxGuestNumber + 1;
+      if (!Number.isFinite(guestNumber)) {
+        if (data.sessionId) {
+          const maxGuestNumber = await db
+            .select({ maxNum: sql<number>`COALESCE(MAX(${tableGuests.guestNumber}), 0)` })
+            .from(tableGuests)
+            .where(eq(tableGuests.sessionId, data.sessionId))
+            .then(rows => rows[0]?.maxNum ?? 0);
+          
+          guestNumber = maxGuestNumber + 1;
+        } else {
+          guestNumber = 1;
+        }
       }
       
       const [guest] = await db
