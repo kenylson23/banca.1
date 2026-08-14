@@ -1077,13 +1077,13 @@ export default function CustomerMenu() {
                                  <User className="h-4 w-4" />
                                  Nome completo
                                </label>
-                               <Input
-                                 placeholder="Digite seu nome"
-                                 value={customerName}
-                                 onChange={(e) => setCustomerName(e.target.value)}
-                                 className="h-12 border-gray-200 focus:border-orange-300 focus:ring-orange-200"
-                                 data-testid="input-customer-name"
-                               />
+                                <Input
+                                  placeholder="Digite seu nome"
+                                  value={customerName}
+                                  onChange={(e) => setCustomerName(e.target.value)}
+                                  className="h-12 border-gray-200 bg-white focus:border-orange-300 focus:ring-orange-200"
+                                  data-testid="input-customer-name"
+                                />
                              </div>
                              
                              <div className="space-y-2">
@@ -1091,13 +1091,13 @@ export default function CustomerMenu() {
                                  <PhoneIcon className="h-4 w-4" />
                                  Telefone/WhatsApp
                                </label>
-                                <Input
-                                  placeholder="+244 XXX XXX XXX"
-                                  value={customerPhone}
-                                  onChange={(e) => setCustomerPhone(e.target.value)}
-                                  className="h-12 border-gray-200 focus:border-orange-300 focus:ring-orange-200"
-                                  data-testid="input-customer-phone"
-                                />
+                                 <Input
+                                   placeholder="+244 XXX XXX XXX"
+                                   value={customerPhone}
+                                   onChange={(e) => setCustomerPhone(e.target.value)}
+                                   className="h-12 border-gray-200 bg-white focus:border-orange-300 focus:ring-orange-200"
+                                   data-testid="input-customer-phone"
+                                 />
                              </div>
                              
                              <div className="space-y-2">
@@ -1105,13 +1105,13 @@ export default function CustomerMenu() {
                                  <FileText className="h-4 w-4" />
                                  Observações (opcional)
                                </label>
-                               <Textarea
-                                 placeholder="Ex: sem cebola, bem passado, etc."
-                                 value={orderNotes}
-                                 onChange={(e) => setOrderNotes(e.target.value)}
-                                 className="resize-none border-gray-200 min-h-24 focus:border-orange-300 focus:ring-orange-200"
-                                 data-testid="input-order-notes"
-                               />
+                                <Textarea
+                                  placeholder="Ex: sem cebola, bem passado, etc."
+                                  value={orderNotes}
+                                  onChange={(e) => setOrderNotes(e.target.value)}
+                                  className="resize-none border-gray-200 bg-white min-h-24 focus:border-orange-300 focus:ring-orange-200"
+                                  data-testid="input-order-notes"
+                                />
                              </div>
                            </div>
 
