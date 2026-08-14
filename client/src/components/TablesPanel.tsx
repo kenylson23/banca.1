@@ -330,6 +330,18 @@ export function TablesPanel() {
             <Camera className="h-5 w-5 mr-2" />
             Escanear QR Code
           </Button>
+          <Button
+            onClick={() => regenerateQrMutation.mutate()}
+            disabled={regenerateQrMutation.isPending}
+            variant="outline"
+            size="lg"
+            className="w-full sm:w-auto border-orange-300 text-orange-700 hover:bg-orange-50 font-semibold"
+            title="Corrigir QR Codes com URL errado (use se os QR Codes não estão a abrir corretamente)"
+            data-testid="button-regenerate-qr-codes"
+          >
+            <QrCodeIcon className="h-5 w-5 mr-2" />
+            {regenerateQrMutation.isPending ? "A regenerar..." : "Corrigir QR Codes"}
+          </Button>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button 

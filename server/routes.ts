@@ -3840,10 +3840,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const data = insertTableSchema.parse(req.body);
       
-      // Generate QR code with proper domain handling
-      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
-        ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
-        : `https://${req.hostname}`;
+      // Generate QR code with proper domain and port handling
+      const host = (req.headers['x-forwarded-host'] as string) || req.headers.host || req.hostname;
+      const protocol = (req.headers['x-forwarded-proto'] as string) || (req.secure ? 'https' : 'http');
+      const baseUrl = `${protocol}://${host}`;
       const qrCodeUrl = `${baseUrl}/mesa/${data.number}?r=${restaurantId}`;
       const qrCode = await QRCode.toString(qrCodeUrl, {
         type: 'svg',
@@ -3876,6 +3876,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: error.message });
       }
       res.status(500).json({ message: "Erro ao criar mesa" });
+    }
+  });
+
+  // Regenerate QR codes for all existing tables with current correct URL
+  app.post("/api/tables/regenerate-qr-codes", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const restaurantId = currentUser.restaurantId!;
+      const host = (req.headers['x-forwarded-host'] as string) || req.headers.host || req.hostname;
+      const protocol = (req.headers['x-forwarded-proto'] as string) || (req.secure ? 'https' : 'http');
+      const baseUrl = `${protocol}://${host}`;
+
+      // Get all tables for this restaurant
+      const branchId = currentUser.activeBranchId || null;
+      const allTables = await storage.getTables(restaurantId, branchId);
+
+      let updated = 0;
+      for (const table of allTables) {
+        const qrCodeUrl = `${baseUrl}/mesa/${table.number}?r=${restaurantId}`;
+        const qrCode = await QRCode.toString(qrCodeUrl, {
+          type: 'svg',
+          width: 280,
+          margin: 2,
+          errorCorrectionLevel: 'M',
+          color: { dark: '#000000', light: '#FFFFFF' },
+        });
+        await db.update(tables)
+          .set({ qrCode })
+          .where(eq(tables.id, table.id));
+        updated++;
+      }
+
+      res.json({ 
+        success: true, 
+        message: `QR Codes regenerados com sucesso`,
+        updated,
+        baseUrl,
+      });
+    } catch (error) {
+      console.error('Error regenerating QR codes:', error);
+      res.status(500).json({ message: "Erro ao regenerar QR Codes" });
     }
   });
 
