@@ -150,103 +150,131 @@ export default function CustomerMenu() {
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   const [usePoints, setUsePoints] = useState(false);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
-  // Resolve restaurantId from URL search params if present (e.g., /mesa/5?r=uuid)
-  const searchParams = new URLSearchParams(window.location.search);
-  const urlRestaurantId = searchParams.get('r');
+   // Resolve restaurantId from URL search params if present (e.g., /mesa/5?r=uuid)
+   const searchParams = new URLSearchParams(window.location.search);
+   const urlRestaurantId = searchParams.get('r');
 
-  const { data: currentTable, isLoading: tableLoading, error: tableError } = useQuery<any>({
-    queryKey: urlRestaurantId 
-      ? ['/api/public/tables', urlRestaurantId, tableNumber]
-      : ['/api/public/tables', tableNumber],
-    enabled: !!tableNumber,
-    staleTime: 30000,
-    gcTime: 300000,
-    retry: 1,
-  });
+   const performanceLog = useRef<any[]>([]);
+   const mark = (name: string, extra?: any) => {
+     if (typeof performance !== 'undefined') {
+       performanceLog.current.push({ name, ts: performance.now(), ...extra });
+     }
+   };
 
-  const tableId = currentTable?.id;
-  const restaurantId = currentTable?.restaurantId || urlRestaurantId || undefined;
+   const { data: currentTable, isLoading: tableLoading, error: tableError } = useQuery<any>({
+     queryKey: urlRestaurantId 
+       ? ['/api/public/tables', urlRestaurantId, tableNumber]
+       : ['/api/public/tables', tableNumber],
+     enabled: !!tableNumber,
+     staleTime: 30000,
+     gcTime: 300000,
+     retry: 1,
+     onSuccess: () => mark('table-loaded'),
+   });
 
-  // ✅ NOVO: Hook de guest token (funciona em TODOS os planos)
-  // Agora usa também tableNumber/urlRestaurantId para não bloquear enquanto a mesa carrega
-  const { guestToken } = useGuestToken(tableId, restaurantId, tableNumber, urlRestaurantId);
+   const tableId = currentTable?.id;
+   const restaurantId = currentTable?.restaurantId || urlRestaurantId || undefined;
 
-  // ✅ NOVO: Acompanhantes / Declaração de Ocupantes na Mesa
-  const [isCompanionDialogOpen, setIsCompanionDialogOpen] = useState(false);
-  const [customerCountInput, setCustomerCountInput] = useState<number>(1);
+   // ✅ NOVO: Hook de guest token (funciona em TODOS os planos)
+   // Agora usa também tableNumber/urlRestaurantId para não bloquear enquanto a mesa carrega
+   const { guestToken } = useGuestToken(tableId, restaurantId, tableNumber, urlRestaurantId);
 
-  useEffect(() => {
-    if (currentTable?.customerCount) {
-      setCustomerCountInput(currentTable.customerCount);
-    }
-  }, [currentTable?.customerCount]);
+   // ✅ NOVO: Acompanhantes / Declaração de Ocupantes na Mesa
+   const [isCompanionDialogOpen, setIsCompanionDialogOpen] = useState(false);
+   const [customerCountInput, setCustomerCountInput] = useState<number>(1);
 
-  const joinTableMutation = useMutation({
-    mutationFn: async (count: number) => {
-      const res = await apiRequest('POST', `/api/public/tables/${tableNumber}/join`, {
-        customerCount: count,
-        name: customerName.trim() || undefined,
-        token: guestToken || undefined,
-      });
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: '✅ Entrada Registrada!',
-        description: `Mesa ${tableNumber} configurada para ${customerCountInput} pessoa(s).`,
-      });
-      setIsCompanionDialogOpen(false);
-      queryClient.invalidateQueries({
-        queryKey: urlRestaurantId ? ['/api/public/tables', urlRestaurantId, tableNumber] : ['/api/public/tables', tableNumber],
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Erro ao registrar entrada',
-        description: error.message || 'Não foi possível atualizar a mesa.',
-        variant: 'destructive',
-      });
-    },
-  });
+   useEffect(() => {
+     if (currentTable?.customerCount) {
+       setCustomerCountInput(currentTable.customerCount);
+     }
+   }, [currentTable?.customerCount]);
 
-  const { data: restaurant } = useQuery<Restaurant>({
-    queryKey: ['/api/public/restaurants', restaurantId],
-    enabled: Boolean(restaurantId),
-    staleTime: 300000,
-    gcTime: 600000,
-    retry: 1,
-  });
+   const joinTableMutation = useMutation({
+     mutationFn: async (count: number) => {
+       const res = await apiRequest('POST', `/api/public/tables/${tableNumber}/join`, {
+         customerCount: count,
+         name: customerName.trim() || undefined,
+         token: guestToken || undefined,
+       });
+       return res.json();
+     },
+     onSuccess: () => {
+       toast({
+         title: '✅ Entrada Registrada!',
+         description: `Mesa ${tableNumber} configurada para ${customerCountInput} pessoa(s).`,
+       });
+       setIsCompanionDialogOpen(false);
+       queryClient.invalidateQueries({
+         queryKey: urlRestaurantId ? ['/api/public/tables', urlRestaurantId, tableNumber] : ['/api/public/tables', tableNumber],
+       });
+     },
+     onError: (error: any) => {
+       toast({
+         title: 'Erro ao registrar entrada',
+         description: error.message || 'Não foi possível atualizar a mesa.',
+         variant: 'destructive',
+       });
+     },
+   });
 
-  const { data: menuItems, isLoading: menuLoading } = useQuery<MenuItemWithOptions[]>({
-    queryKey: ['/api/public/menu-items', restaurantId],
-    enabled: Boolean(restaurantId),
-    staleTime: 60000,
-    gcTime: 600000,
-    retry: 1,
-  });
+   const { data: restaurant } = useQuery<Restaurant>({
+     queryKey: ['/api/public/restaurants', restaurantId],
+     enabled: Boolean(restaurantId),
+     staleTime: 300000,
+     gcTime: 600000,
+     retry: 1,
+     onSuccess: () => mark('restaurant-loaded'),
+   });
 
-  const [tableOrders, setTableOrders] = useState<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>([]);
-  const [ordersLoading, setOrdersLoading] = useState(false);
+   const { data: menuItems, isLoading: menuLoading } = useQuery<MenuItemWithOptions[]>({
+     queryKey: ['/api/public/menu-items', restaurantId],
+     enabled: Boolean(restaurantId),
+     staleTime: 60000,
+     gcTime: 600000,
+     retry: 1,
+     onSuccess: () => mark('menu-loaded'),
+   });
 
-  const loadTableOrders = useCallback(async () => {
-    if (!tableId) return;
-    setOrdersLoading(true);
-    try {
-      const res = await apiRequest('GET', `/api/public/orders/table/${tableId}`);
-      const data = await res.json();
-      setTableOrders(data);
-    } catch (e) {
-      // ignore
-    } finally {
-      setOrdersLoading(false);
-    }
-  }, [tableId, apiRequest]);
+   // Adiar pedidos para quando o usuário abrir "Meus Pedidos"
+   const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
+   const [tableOrders, setTableOrders] = useState<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>([]);
+   const [ordersLoading, setOrdersLoading] = useState(false);
 
-  useEffect(() => {
-    if (tableId) {
-      loadTableOrders();
-    }
-  }, [tableId, loadTableOrders]);
+   const loadTableOrders = useCallback(async () => {
+     if (!tableId) return;
+     setOrdersLoading(true);
+     const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+     try {
+       const res = await apiRequest('GET', `/api/public/orders/table/${tableId}`);
+       const data = await res.json();
+       setTableOrders(data);
+       mark('orders-loaded', { durationMs: typeof performance !== 'undefined' ? performance.now() - t0 : Date.now() - t0 });
+     } catch (e) {
+       // ignore
+     } finally {
+       setOrdersLoading(false);
+     }
+   }, [tableId, apiRequest]);
+
+   useEffect(() => {
+     if (isOrdersDialogOpen && tableId) {
+       loadTableOrders();
+     }
+   }, [isOrdersDialogOpen, tableId, loadTableOrders]);
+
+   // Log rápido de performance após a primeira renderização útil
+   useEffect(() => {
+     if (typeof window === 'undefined') return;
+     const handler = () => {
+       const ready = !!currentTable;
+       const log = performanceLog.current;
+       if (ready && log.length) {
+         console.log('[CustomerMenu][perf]', JSON.stringify(log, null, 2));
+       }
+     };
+     window.addEventListener('load', handler);
+     return () => window.removeEventListener('load', handler);
+   }, [currentTable]);
 
   // Atualizar branding quando restaurante carregar
   useEffect(() => {
