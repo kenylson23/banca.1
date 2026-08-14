@@ -950,7 +950,7 @@ export default function CustomerMenu() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full"
-                      onClick={() => setCheckoutStep('cart')}
+                      onClick={() => setIsCartOpen(false)}
                     >
                       <X className="h-5 w-5" />
                     </Button>
@@ -1018,7 +1018,7 @@ export default function CustomerMenu() {
                                               </div>
                                             )}
                                             <div className="flex items-center justify-between mt-3">
-                                              <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1">
+                                              <div className="flex items-center gap-2 bg-white rounded-lg p-1">
                                                 <Button
                                                   size="icon"
                                                   variant="ghost"
@@ -1091,13 +1091,13 @@ export default function CustomerMenu() {
                                  <PhoneIcon className="h-4 w-4" />
                                  Telefone/WhatsApp
                                </label>
-                               <Input
-                                 placeholder="(XX) XXXXX-XXXX"
-                                 value={customerPhone}
-                                 onChange={(e) => setCustomerPhone(e.target.value)}
-                                 className="h-12 border-gray-200 focus:border-orange-300 focus:ring-orange-200"
-                                 data-testid="input-customer-phone"
-                               />
+                                <Input
+                                  placeholder="+244 XXX XXX XXX"
+                                  value={customerPhone}
+                                  onChange={(e) => setCustomerPhone(e.target.value)}
+                                  className="h-12 border-gray-200 focus:border-orange-300 focus:ring-orange-200"
+                                  data-testid="input-customer-phone"
+                                />
                              </div>
                              
                              <div className="space-y-2">
@@ -1115,14 +1115,14 @@ export default function CustomerMenu() {
                              </div>
                            </div>
 
-                           <Card className="bg-gray-50 border-gray-200">
-                             <CardContent className="p-4">
-                               <div className="flex items-center gap-2 text-sm text-gray-600">
-                                 <Sparkles className="h-4 w-4" style={{ color: branding.primaryColor }} />
-                                 <span>Seus dados são usados apenas para este pedido</span>
-                               </div>
-                             </CardContent>
-                           </Card>
+                            <Card className="bg-white border-gray-200">
+                              <CardContent className="p-4">
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <Sparkles className="h-4 w-4" style={{ color: branding.primaryColor }} />
+                                  <span>Seus dados são usados apenas para este pedido</span>
+                                </div>
+                              </CardContent>
+                            </Card>
                         </motion.div>
                       )}
 
@@ -1316,7 +1316,7 @@ export default function CustomerMenu() {
                             </div>
                           )}
 
-                          <Card className="bg-gray-50 border-gray-200">
+                          <Card className="bg-white border-gray-200">
                             <CardContent className="p-4">
                               <div className="flex items-center gap-2 text-sm text-gray-600">
                                 <CheckCircle className="h-4 w-4 text-green-600" />
