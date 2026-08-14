@@ -755,7 +755,7 @@ export default function CustomerMenu() {
                     <ClipboardList className="h-5 w-5" />
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[85vh] bg-white">
+                <DialogContent className="max-w-2xl max-h-[85vh]" style={{ backgroundColor: 'white', borderColor: branding.primaryColor + '30' }}>
                   <DialogHeader>
                     <DialogTitle className="text-gray-900" data-testid="text-orders-dialog-title">Seus Pedidos</DialogTitle>
                     <DialogDescription className="text-gray-500" data-testid="text-orders-dialog-description">
@@ -781,7 +781,7 @@ export default function CustomerMenu() {
                           const StatusIcon = statusInfo.icon;
                           
                           return (
-                            <Card key={order.id} className="border-gray-100 shadow-sm" data-testid={`order-card-${order.id}`}>
+                            <Card key={order.id} className="border-gray-100 shadow-sm" style={{ backgroundColor: 'white' }} data-testid={`order-card-${order.id}`}>
                                   <div className="p-4">
                                     <div className="flex items-start justify-between gap-2 mb-3">
                                       <div>
@@ -801,7 +801,7 @@ export default function CustomerMenu() {
                                       {order.orderItems.map((item) => (
                                         <div key={item.id} className="flex justify-between text-sm" data-testid={`order-item-${item.id}`}>
                                           <span className="text-gray-600">
-                                            {item.quantity}x {item.menuItem.name}
+                                            {item.quantity}x {order.menuItem?.name || item.menuItem?.name || 'Item'}
                                           </span>
                                           <span className="font-medium text-gray-900">
                                             {formatKwanza(parseFloat(item.price) * item.quantity)}
@@ -809,7 +809,7 @@ export default function CustomerMenu() {
                                         </div>
                                       ))}
                                     </div>
-                                    <Separator className="my-3 bg-gray-100" />
+                                    <Separator className="my-3" style={{ backgroundColor: branding.primaryColor + '20' }} />
                                     <div className="flex justify-between font-semibold text-gray-900" data-testid={`text-order-total-${order.id}`}>
                                       <span>Total</span>
                                       <span>{formatKwanza(order.totalAmount)}</span>
