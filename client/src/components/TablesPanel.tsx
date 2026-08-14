@@ -75,8 +75,10 @@ export function TablesPanel() {
 
   const { data: tables, isLoading } = useQuery<Array<Table & { orders?: any[]; guestsAwaitingBill?: number; guestCount?: number }>>({
     queryKey: ["/api/tables/with-orders"],
-    staleTime: 10000, // 10 seconds
+    staleTime: 5000, // 5 seconds
     gcTime: 300000, // 5 minutes cache
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   const handleWebSocketMessage = useCallback((message: any) => {
