@@ -236,7 +236,6 @@ export default function CustomerMenu() {
    });
 
    // Adiar pedidos para quando o usuário abrir "Meus Pedidos"
-   const [isOrdersDialogOpen, setIsOrdersDialogOpen] = useState(false);
    const [tableOrders, setTableOrders] = useState<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>([]);
    const [ordersLoading, setOrdersLoading] = useState(false);
 
