@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useRoute } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,7 +21,7 @@ import {
   ShoppingCart, Plus, ClipboardList, Clock, ChefHat, 
   CheckCircle, Check, Search, MessageCircle, Utensils,
   X, Minus, User, Phone as PhoneIcon, ChevronRight, ShoppingBag,
-  FileText, Sparkles, Gift, Award, Tag, Percent, Loader2, Users
+  FileText, Sparkles, Gift, Award, Tag, Percent, Loader2
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -174,45 +174,7 @@ export default function CustomerMenu() {
     // Agora usa também tableNumber/urlRestaurantId para não bloquear enquanto a mesa carrega
     const { guestToken } = useGuestToken(tableId, restaurantId, tableNumber, urlRestaurantId);
 
-   // ✅ NOVO: Acompanhantes / Declaração de Ocupantes na Mesa
-   const [isCompanionDialogOpen, setIsCompanionDialogOpen] = useState(false);
-   const [customerCountInput, setCustomerCountInput] = useState<number>(1);
-
-   useEffect(() => {
-     if (currentTable?.customerCount) {
-       setCustomerCountInput(currentTable.customerCount);
-     }
-   }, [currentTable?.customerCount]);
-
-   const joinTableMutation = useMutation({
-     mutationFn: async (count: number) => {
-       const res = await apiRequest('POST', `/api/public/tables/${tableNumber}/join`, {
-         customerCount: count,
-         name: customerName.trim() || undefined,
-         token: guestToken || undefined,
-       });
-       return res.json();
-     },
-     onSuccess: () => {
-       toast({
-         title: '✅ Entrada Registrada!',
-         description: `Mesa ${tableNumber} configurada para ${customerCountInput} pessoa(s).`,
-       });
-       setIsCompanionDialogOpen(false);
-       queryClient.invalidateQueries({
-         queryKey: urlRestaurantId ? ['/api/public/tables', urlRestaurantId, tableNumber] : ['/api/public/tables', tableNumber],
-       });
-     },
-     onError: (error: any) => {
-       toast({
-         title: 'Erro ao registrar entrada',
-         description: error.message || 'Não foi possível atualizar a mesa.',
-         variant: 'destructive',
-       });
-     },
-   });
-
-    const { data: restaurant } = useQuery<Restaurant>({
+     const { data: restaurant } = useQuery<Restaurant>({
       queryKey: ['/api/public/restaurants', effectiveRestaurantId],
       enabled: Boolean(effectiveRestaurantId),
       staleTime: 300000,
@@ -778,20 +740,10 @@ export default function CustomerMenu() {
               <div className="flex flex-col">
                 <h1 className="text-base sm:text-lg font-bold text-gray-900">{restaurant?.name}</h1>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <Badge variant="outline" className="text-xs font-medium border-gray-200 text-gray-600" data-testid="badge-table-number">
-                    Mesa {tableNumber}
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-xs font-semibold bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 rounded-full flex items-center gap-1"
-                    onClick={() => setIsCompanionDialogOpen(true)}
-                    data-testid="button-companions"
-                  >
-                    <Users className="h-3 w-3" />
-                    <span>{currentTable?.customerCount || 1} {(currentTable?.customerCount || 1) === 1 ? 'Pessoa' : 'Pessoas'}</span>
-                  </Button>
-                </div>
+                   <Badge variant="outline" className="text-xs font-medium border-gray-200 text-gray-600" data-testid="badge-table-number">
+                     Mesa {tableNumber}
+                   </Badge>
+                 </div>
               </div>
             </div>
 
@@ -1490,35 +1442,6 @@ export default function CustomerMenu() {
       {/* Main Content */}
       <main className="pb-24 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          {/* Banner de Boas-Vindas & Declaração de Acompanhantes */}
-          <div className="pt-4 sm:pt-6">
-            <Card className="border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 shadow-sm">
-              <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-                    <Users className="h-5 w-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                      Mesa {tableNumber} — {currentTable?.customerCount || 1} {(currentTable?.customerCount || 1) === 1 ? 'Pessoa na mesa' : 'Pessoas na mesa'}
-                    </h3>
-                    <p className="text-xs text-gray-600 mt-0.5">
-                      Está acompanhado? Declare o número total de pessoas para facilitar a divisão justa da conta.
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white font-semibold text-xs shrink-0 shadow-sm"
-                  onClick={() => setIsCompanionDialogOpen(true)}
-                  data-testid="button-declare-companions-banner"
-                >
-                  <Users className="h-3.5 w-3.5 mr-1.5" />
-                  Declarar Acompanhantes
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
           {/* Search Bar */}
           <div className="py-4 sm:py-6">
             <div className="relative max-w-2xl mx-auto">
@@ -1794,74 +1717,7 @@ export default function CustomerMenu() {
         />
       )}
 
-      {/* Dialog de Acompanhantes / Ocupantes da Mesa */}
-      <Dialog open={isCompanionDialogOpen} onOpenChange={setIsCompanionDialogOpen}>
-        <DialogContent className="max-w-md bg-white p-6 rounded-2xl shadow-xl">
-          <DialogHeader className="text-center pb-2">
-            <div className="mx-auto w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center mb-2">
-              <Users className="h-6 w-6 text-orange-600" />
-            </div>
-            <DialogTitle className="text-xl font-bold text-gray-900" data-testid="title-companion-dialog">
-              Pessoas na Mesa {tableNumber}
-            </DialogTitle>
-            <DialogDescription className="text-sm text-gray-500 mt-1">
-              Informe quantas pessoas estão com você (você + acompanhantes) para permitir a divisão justa da conta no final.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-5 py-3">
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold text-gray-700">Quantidade Total de Pessoas</Label>
-              <div className="grid grid-cols-5 gap-2">
-                {[1, 2, 3, 4, 5].map((num) => (
-                  <Button
-                    key={num}
-                    type="button"
-                    variant={customerCountInput === num ? 'default' : 'outline'}
-                    className={`h-12 text-base font-bold transition-all ${
-                      customerCountInput === num 
-                        ? 'bg-orange-600 hover:bg-orange-700 text-white shadow-md' 
-                        : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                    }`}
-                    onClick={() => setCustomerCountInput(num)}
-                    data-testid={`button-select-count-${num}`}
-                  >
-                    {num === 5 ? '5+' : num}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-700">Seu Nome (Opcional)</Label>
-              <Input
-                type="text"
-                placeholder="Ex: João"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="h-11 border-gray-200"
-                data-testid="input-customer-name-companion"
-              />
-            </div>
-
-            <Button
-              onClick={() => joinTableMutation.mutate(customerCountInput)}
-              disabled={joinTableMutation.isPending}
-              className="w-full h-12 text-base font-bold bg-orange-600 hover:bg-orange-700 text-white shadow-lg"
-              data-testid="button-confirm-companions"
-            >
-              {joinTableMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Registrando...
-                </>
-              ) : (
-                'Confirmar Ocupantes da Mesa'
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      )}
     </div>
   );
 }
