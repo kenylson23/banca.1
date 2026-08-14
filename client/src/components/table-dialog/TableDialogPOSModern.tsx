@@ -127,18 +127,7 @@ export function TableDialogPOSModern({
   const mutations = useTableMutations({ tableId: table?.id });
   const queryClient = useQueryClient();
   
-  // 🔧 FIX: Forçar refetch imediato quando diálogo abre (para sincronizar após pagamento)
-  useEffect(() => {
-    if (open && table?.id) {
-      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/orders-by-guest`] });
-      if (table.currentSessionId) {
-        queryClient.invalidateQueries({ queryKey: [`/api/table-sessions/${table.currentSessionId}/guests`] });
-      }
-    }
-  }, [open, table?.id, table?.currentSessionId, queryClient]);
-
-  // 🔧 FIX: Forçar refetch quando o StartSessionDialog fechar
+  // Forçar refetch quando o StartSessionDialog fechar
   useEffect(() => {
     if (!showStartSession && open && table?.id) {
       queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}`] });

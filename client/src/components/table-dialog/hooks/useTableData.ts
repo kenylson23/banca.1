@@ -11,9 +11,10 @@ export function useTableData({ tableId, isOpen }: UseTableDataProps) {
   const { data: tableData } = useQuery<any>({
     queryKey: [`/api/tables/${tableId}`],
     enabled: isOpen && !!tableId,
-    refetchOnMount: 'always', // Sempre refetch ao montar
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
-    staleTime: 0, // Sempre buscar dados frescos
+    staleTime: 30000,
+    gcTime: 5 * 60 * 1000,
     refetchInterval: isOpen ? 30000 : false, // Fallback a cada 30s (WebSocket cobre updates em tempo real)
   });
 
@@ -27,9 +28,10 @@ export function useTableData({ tableId, isOpen }: UseTableDataProps) {
   }>({
     queryKey: [`/api/tables/${tableId}/orders-by-guest`],
     enabled: isOpen && !!tableId,
-    refetchOnMount: 'always', // Sempre refetch ao montar
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
-    staleTime: 0,
+    staleTime: 30000,
+    gcTime: 5 * 60 * 1000,
     refetchInterval: isOpen ? 30000 : false, // Fallback a cada 30s (WebSocket cobre updates em tempo real)
   });
 
@@ -48,9 +50,10 @@ export function useTableData({ tableId, isOpen }: UseTableDataProps) {
   const { data: allSessionGuests = [] } = useQuery<any[]>({
     queryKey: [`/api/table-sessions/${currentSessionId}/guests`],
     enabled: isOpen && !!currentSessionId,
-    refetchOnMount: 'always', // Sempre refetch ao montar
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
-    staleTime: 0,
+    staleTime: 30000,
+    gcTime: 5 * 60 * 1000,
     refetchInterval: isOpen && currentSessionId ? 30000 : false, // Fallback a cada 30s (WebSocket cobre updates em tempo real)
   });
 
