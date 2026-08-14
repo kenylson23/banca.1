@@ -148,7 +148,6 @@ export default function CustomerMenu() {
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   const [usePoints, setUsePoints] = useState(false);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
-
   // Resolve restaurantId from URL search params if present (e.g., /mesa/5?r=uuid)
   const searchParams = new URLSearchParams(window.location.search);
   const urlRestaurantId = searchParams.get('r');
@@ -164,7 +163,7 @@ export default function CustomerMenu() {
   });
 
   const tableId = currentTable?.id;
-  const restaurantId = currentTable?.restaurantId;
+  const restaurantId = currentTable?.restaurantId || urlRestaurantId || undefined;
 
   // ✅ NOVO: Hook de guest token (funciona em TODOS os planos)
   // Agora usa também tableNumber/urlRestaurantId para não bloquear enquanto a mesa carrega
@@ -220,6 +219,24 @@ export default function CustomerMenu() {
     gcTime: 300000,
   });
 
+  // Carrega informações do restaurante em paralelo (usando restaurantId da mesa ou da URL)
+  const { data: restaurant } = useQuery<Restaurant>({
+    queryKey: ['/api/public/restaurants', restaurantId],
+    enabled: Boolean(restaurantId),
+    staleTime: 300000,
+    gcTime: 600000,
+    retry: 1,
+  });
+
+  // Carrega itens do menu em paralelo
+  const { data: menuItems, isLoading: menuLoading } = useQuery<MenuItemWithOptions[]>({
+    queryKey: ['/api/public/menu-items', restaurantId],
+    enabled: Boolean(restaurantId),
+    staleTime: 60000,
+    gcTime: 600000,
+    retry: 1,
+  });
+
   // Atualizar branding quando restaurante carregar
   useEffect(() => {
     if (restaurant) {
@@ -239,21 +256,32 @@ export default function CustomerMenu() {
    useEffect(() => {
      if (!tableId || typeof window === 'undefined') return;
 
-     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-     const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+     let ws: WebSocket | null = null;
+     try {
+       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+       ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
-     ws.onmessage = (event) => {
-       const message = JSON.parse(event.data);
-       if (message.type === 'order_status_updated' || message.type === 'new_order') {
-         queryClient.invalidateQueries({ queryKey: [`/api/public/orders/table/${tableId}`] });
-       }
-       if (message.type === 'bill_requested' && message.data?.tableNumber === parseInt(tableNumber || '0')) {
-         setBillRequested(true);
-       }
-     };
+       ws.onmessage = (event) => {
+         try {
+           const message = JSON.parse(event.data);
+           if (message.type === 'order_status_updated' || message.type === 'new_order') {
+             queryClient.invalidateQueries({ queryKey: [`/api/public/orders/table/${tableId}`] });
+           }
+           if (message.type === 'bill_requested' && message.data?.tableNumber === parseInt(tableNumber || '0')) {
+             setBillRequested(true);
+           }
+         } catch (e) {}
+       };
+
+       ws.onerror = () => {
+         // Silently catch WS connection errors on mobile networks
+       };
+     } catch (e) {}
 
      return () => {
-       ws.close();
+       if (ws) {
+         try { ws.close(); } catch (e) {}
+       }
      };
    }, [tableId, tableNumber, queryClient]);
 
@@ -273,7 +301,7 @@ export default function CustomerMenu() {
   useEffect(() => {
     const lookupCustomer = async () => {
       // Only reset if phone is completely empty (user cleared the field)
-      if (!customerPhone || customerPhone.length === 0) {
+      if (!customerPhone || customerPhone.length === 0) {ustomerPhone.length === 0) {
         setIdentifiedCustomer(null);
         setUsePoints(false);
         setPointsToRedeem(0);
