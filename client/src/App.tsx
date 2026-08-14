@@ -1,5 +1,5 @@
 import { Switch, Route, Redirect } from "wouter";
-import { lazy, Suspense, useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -11,12 +11,11 @@ import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 import { SubscriptionExpiredAlert } from "@/components/SubscriptionExpiredAlert";
 import { ConnectionIndicator } from "@/components/ConnectionIndicator";
 
-// Lazy load pages for better code splitting
+// Lazy load non-critical pages
 const Landing = lazy(() => import("@/pages/landing"));
 const Login = lazy(() => import("@/pages/login"));
 const Terms = lazy(() => import("@/pages/terms"));
 const Privacy = lazy(() => import("@/pages/privacy"));
-const CustomerMenu = lazy(() => import("@/pages/customer-menu"));
 const PublicMenu = lazy(() => import("@/pages/public-menu"));
 const TrackOrder = lazy(() => import("@/pages/track-order"));
 const GuestRegister = lazy(() => import("@/pages/guest-register"));
@@ -24,6 +23,8 @@ const MainDashboard = lazy(() => import("@/pages/main-dashboard"));
 const OrderDetail = lazy(() => import("@/pages/order-detail"));
 const TableCheckout = lazy(() => import("@/pages/table-checkout-v2"));
 const NotFound = lazy(() => import("@/pages/not-found"));
+
+import CustomerMenu from "@/pages/customer-menu";
 
 // Loading fallback component
 const PageLoader = () => (

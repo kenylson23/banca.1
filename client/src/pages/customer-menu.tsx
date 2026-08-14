@@ -213,51 +213,12 @@ export default function CustomerMenu() {
     },
   });
 
-  const { data: menuItems, isLoading: menuLoading } = useQuery<Array<MenuItemWithOptions>>({
-    queryKey: ['/api/public/menu-items', restaurantId],
-    enabled: !!restaurantId,
-    staleTime: 30000,
-    gcTime: 300000,
-  });
-  
-  const { data: restaurant } = useQuery<Restaurant>({
-    queryKey: ['/api/public/restaurants', restaurantId],
-    enabled: !!restaurantId,
-    staleTime: 30000,
-    gcTime: 300000,
-  });
-  
   const { data: tableOrders, isLoading: ordersLoading } = useQuery<Array<Order & { orderItems: Array<OrderItem & { menuItem: MenuItem }> }>>({
     queryKey: [`/api/public/orders/table/${tableId}`],
     enabled: Boolean(tableId),
     staleTime: 10000,
     gcTime: 300000,
   });
-
-  const { data: tableStatus } = useQuery<{
-    table: { id: string; number: number; status: string };
-    guests: Array<{ id: string; name: string; status: string }>;
-    hasActiveSession: boolean;
-  }>({
-    queryKey: ['/api/public/tables', tableNumber, 'status'],
-    enabled: !!tableNumber,
-    staleTime: 10000,
-    gcTime: 300000,
-  });
-
-  // Sync bill request state with server (only when guests explicitly have 'aguardando_conta' status)
-  useEffect(() => {
-    if (tableStatus) {
-      if (!tableStatus.hasActiveSession) {
-        setBillRequested(false);
-      } else if (tableStatus.guests && tableStatus.guests.length > 0) {
-        const hasBillRequest = tableStatus.guests.some(g => g.status === 'aguardando_conta');
-        if (hasBillRequest) {
-          setBillRequested(true);
-        }
-      }
-    }
-  }, [tableStatus]);
 
   // Atualizar branding quando restaurante carregar
   useEffect(() => {
@@ -275,106 +236,28 @@ export default function CustomerMenu() {
   const isTableReady = !tableLoading && !!currentTable;
   const showReadyOverlay = !isTableReady;
 
-  useEffect(() => {
-    if (!tableId || typeof window === 'undefined') return;
+   useEffect(() => {
+     if (!tableId || typeof window === 'undefined') return;
 
-    let ws: WebSocket | null = null;
-    let reconnectTimer: NodeJS.Timeout | null = null;
-    let heartbeatTimer: NodeJS.Timeout | null = null;
-    let isManualClose = false;
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 10;
-    const baseReconnectDelay = 1000;
+     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+     const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
-    const clearTimers = () => {
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer);
-        reconnectTimer = null;
-      }
-      if (heartbeatTimer) {
-        clearInterval(heartbeatTimer);
-        heartbeatTimer = null;
-      }
-    };
+     ws.onmessage = (event) => {
+       const message = JSON.parse(event.data);
+       if (message.type === 'order_status_updated' || message.type === 'new_order') {
+         queryClient.invalidateQueries({ queryKey: [`/api/public/orders/table/${tableId}`] });
+       }
+       if (message.type === 'bill_requested' && message.data?.tableNumber === parseInt(tableNumber || '0')) {
+         setBillRequested(true);
+       }
+     };
 
-    const connect = () => {
-      if (isManualClose) return;
+     return () => {
+       ws.close();
+     };
+   }, [tableId, tableNumber, queryClient]);
 
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-
-      ws.onopen = () => {
-        reconnectAttempts = 0;
-      };
-
-      ws.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-
-        if (message.type === 'order_status_updated' || message.type === 'new_order') {
-          queryClient.invalidateQueries({ queryKey: [`/api/public/orders/table/${tableId}`] });
-        }
-
-        if (message.type === 'bill_requested' && message.data?.tableNumber === parseInt(tableNumber || '0')) {
-          setBillRequested(true);
-          queryClient.invalidateQueries({ queryKey: ['/api/public/tables', tableNumber, 'status'] });
-        }
-      };
-
-      ws.onerror = () => {
-        if (ws) {
-          ws.close();
-        }
-      };
-
-      ws.onclose = (event) => {
-        if (isManualClose) return;
-
-        clearTimers();
-
-        if (!event.wasClean && reconnectAttempts < maxReconnectAttempts) {
-          const delay = Math.min(baseReconnectDelay * Math.pow(2, reconnectAttempts), 30000);
-          reconnectTimer = setTimeout(() => {
-            reconnectAttempts++;
-            connect();
-          }, delay);
-        }
-      };
-    };
-
-    const startHeartbeat = () => {
-      heartbeatTimer = setInterval(() => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'ping' }));
-        }
-      }, 30000);
-    };
-
-    connect();
-    startHeartbeat();
-
-    return () => {
-      isManualClose = true;
-      clearTimers();
-      if (ws) {
-        ws.close();
-      }
-    };
-  }, [tableId, tableNumber, queryClient]);
-
-  useEffect(() => {
-    if (!restaurantId || !currentTable?.branchId) return;
-
-    apiRequest('POST', '/api/menu-visits', {
-      restaurantId,
-      branchId: currentTable.branchId,
-      visitSource: 'qr_code',
-      ipAddress: '',
-      userAgent: navigator.userAgent,
-      referrer: document.referrer || '',
-    }).catch(() => {});
-  }, [restaurantId, currentTable?.branchId]);
-
-  // Auto-fill customer data when authenticated
+   // Auto-fill customer data when authenticated
   useEffect(() => {
     if (isAuthenticated && authCustomer) {
       if (!customerName && authCustomer.name) {
