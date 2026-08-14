@@ -81,6 +81,13 @@ export function TablesPanel() {
     refetchOnWindowFocus: true,
   });
 
+  // Debug: log tables data to console
+  useEffect(() => {
+    if (tables) {
+      console.log('[TablesPanel] tables loaded:', tables.length, tables.map(t => ({ id: t.id, number: t.number, status: t.status })));
+    }
+  }, [tables]);
+
   const handleWebSocketMessage = useCallback((message: any) => {
     if (
       message.type === 'table_created' ||
