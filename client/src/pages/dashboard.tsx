@@ -80,7 +80,45 @@ export default function Dashboard() {
 
   const handleQuickFilter = (filter: FilterOption) => {
     setQuickFilter(filter);
-    setDateRange(undefined);
+    
+    // Calcular dateRange correspondente ao filtro rápido
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let from: Date;
+    let to: Date;
+    
+    switch (filter) {
+      case 'today':
+        from = new Date(today);
+        to = new Date(today);
+        break;
+      case 'week':
+        from = new Date(today);
+        from.setDate(from.getDate() - 6);
+        to = new Date(today);
+        break;
+      case 'month':
+        from = new Date(today);
+        from.setDate(from.getDate() - 29);
+        to = new Date(today);
+        break;
+      case '3months':
+        from = new Date(today);
+        from.setDate(from.getDate() - 89);
+        to = new Date(today);
+        break;
+      case 'year':
+        from = new Date(today);
+        from.setDate(from.getDate() - 364);
+        to = new Date(today);
+        break;
+      default:
+        from = new Date(today);
+        to = new Date(today);
+    }
+    
+    setDateRange({ from, to });
   };
 
   const { data: todayStats, isLoading: todayLoading } = useQuery<DashboardStats>({
