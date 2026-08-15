@@ -553,7 +553,7 @@ export type InsertPrintHistory = z.infer<typeof insertPrintHistorySchema>;
 export type PrintHistory = typeof printHistory.$inferSelect;
 
 // Table Status Enum
-export const tableStatusEnum = pgEnum('table_status', ['livre', 'ocupada', 'em_andamento', 'aguardando_pagamento', 'encerrada']);
+export const tableStatusEnum = pgEnum('table_status', ['livre', 'ocupada', 'em_andamento', 'aguardando_pagamento', 'pagamento_pendente', 'encerrada']);
 
 // Granular table status enum for better state management
 export const tableStatusGranularEnum = pgEnum('table_status_enum', [

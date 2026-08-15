@@ -996,6 +996,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             data: result
           });
 
+          // Update table payment status after order creation
+          if (op.operation === 'CREATE_ORDER' && result?.tableId) {
+            await storage.autoUpdateTablePaymentStatus(result.tableId);
+          }
+
         } catch (error: any) {
           results.push({
             id: op.id,
@@ -3285,6 +3290,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       broadcastToClients({ type: 'new_order', data: order });
+
+      // Update table payment status after order creation
+      if (order.tableId) {
+        await storage.autoUpdateTablePaymentStatus(order.tableId);
+      }
 
       // Return order with additional info about discounts applied
       res.json({

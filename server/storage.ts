@@ -8775,6 +8775,32 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async autoUpdateTablePaymentStatus(tableId: string): Promise<void> {
+    // Check if table has unpaid orders and update status to pagamento_pendente
+    const [table] = await db
+      .select()
+      .from(tables)
+      .where(eq(tables.id, tableId));
+
+    if (!table || !table.currentSessionId) return;
+
+    // Get session totals
+    const [session] = await db
+      .select()
+      .from(tableSessions)
+      .where(eq(tableSessions.id, table.currentSessionId));
+
+    if (!session) return;
+
+    const totalAmount = parseFloat(session.totalAmount || '0');
+    const paidAmount = parseFloat(session.paidAmount || '0');
+
+    // If there are orders and not fully paid, mark as pagamento_pendente
+    if (totalAmount > 0 && paidAmount < totalAmount && table.status !== 'pagamento_pendente') {
+      await this.updateTableStatus(tableId, 'pagamento_pendente');
+    }
+  }
+
   async autoUpdateTableStatusOnSessionStart(tableId: string): Promise<void> {
     // When session starts, set to 'aguardando_pedido'
     await this.updateTableStatus(tableId, 'aguardando_pedido');

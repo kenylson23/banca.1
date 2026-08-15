@@ -69,6 +69,7 @@ export function TablesPanel() {
       'Ocupadas': 'ocupada',
       'Em Andamento': 'em_andamento',
       'Aguardando': 'aguardando_pagamento',
+    'Pagamento Pendente': 'pagamento_pendente',
     };
     setStatusFilter(filterMap[item.name] || 'all');
   };
@@ -244,7 +245,7 @@ export function TablesPanel() {
   // KPIs
   const occupiedTables = tables?.filter(t => t.status !== 'livre') || [];
   const tablesWithDigitalOrders = occupiedTables.filter(t => t.orders && t.orders.length > 0);
-  const tablesAwaitingPayment = occupiedTables.filter(t => t.status === 'aguardando_pagamento');
+  const tablesAwaitingPayment = occupiedTables.filter(t => t.status === 'aguardando_pagamento' || t.status === 'pagamento_pendente');
   const totalRevenue = occupiedTables.reduce((sum, t) => sum + parseFloat(t.totalAmount || '0'), 0);
 
   // Analytics Avançados
@@ -280,7 +281,8 @@ export function TablesPanel() {
     livre: tables?.filter(t => t.status === 'livre').length || 0,
     ocupada: tables?.filter(t => t.status === 'ocupada').length || 0,
     em_andamento: tables?.filter(t => t.status === 'em_andamento').length || 0,
-    aguardando_pagamento: tables?.filter(t => t.status === 'aguardando_pagamento').length || 0,
+    aguardando_pagamento: tables?.filter(t => t.status === 'aguardando_pagamento' || t.status === 'pagamento_pendente').length || 0,
+    pagamento_pendente: tables?.filter(t => t.status === 'pagamento_pendente').length || 0,
   };
 
   const handleQrScan = useCallback((scannedValue: string) => {

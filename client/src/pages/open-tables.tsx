@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -35,6 +35,7 @@ const STATUS_CONFIG = {
   ocupada: { label: 'Ocupada', color: 'bg-blue-500', textColor: 'text-blue-500' },
   em_andamento: { label: 'Em Andamento', color: 'bg-amber-500', textColor: 'text-amber-500' },
   aguardando_pagamento: { label: 'Aguardando Pagamento', color: 'bg-orange-500', textColor: 'text-orange-500' },
+  pagamento_pendente: { label: 'Pagamento Pendente', color: 'bg-yellow-500', textColor: 'text-yellow-500' },
   encerrada: { label: 'Encerrada', color: 'bg-green-500', textColor: 'text-green-500' },
 };
 
@@ -42,7 +43,7 @@ export default function OpenTables() {
   const [selectedTable, setSelectedTable] = useState<TableWithDetails | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'digital' | 'payment'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'digital' | 'payment' | 'pending'>('all');
 
   const { data: tables = [], isLoading, refetch } = useQuery<TableWithDetails[]>({
     queryKey: ['/api/tables/with-orders'],
@@ -52,13 +53,15 @@ export default function OpenTables() {
   const freeTables = tables.filter(t => t.status === 'livre');
   const occupiedTables = tables.filter(t => t.status !== 'livre');
   const tablesWithDigitalOrders = occupiedTables.filter(t => t.hasDigitalOrders);
-  const tablesAwaitingPayment = occupiedTables.filter(t => t.status === 'aguardando_pagamento');
+  const tablesAwaitingPayment = occupiedTables.filter(t => t.status === 'aguardando_pagamento' || t.status === 'pagamento_pendente');
 
   const filteredTables = activeTab === 'all' 
     ? occupiedTables 
     : activeTab === 'digital' 
       ? tablesWithDigitalOrders 
-      : tablesAwaitingPayment;
+      : activeTab === 'payment'
+        ? tablesAwaitingPayment 
+        : tables.filter(t => t.status === 'pagamento_pendente');
 
   const totalRevenue = occupiedTables.reduce((sum, t) => sum + parseFloat(t.totalAmount || '0'), 0);
 
@@ -167,6 +170,21 @@ export default function OpenTables() {
           </CardContent>
         </Card>
 
+        <Card className="relative overflow-hidden border-l-4 border-l-yellow-500 hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Pagamento Pendente</CardTitle>
+              <div className="p-2 bg-yellow-500/10 rounded-lg">
+                <Clock className="w-5 h-5 text-yellow-500" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-yellow-600" data-testid="text-pending-payment">{tables.filter(t => t.status === 'pagamento_pendente').length}</div>
+            <p className="text-xs text-muted-foreground mt-1">com pedidos não pagos</p>
+          </CardContent>
+        </Card>
+
         <Card className="relative overflow-hidden border-l-4 border-l-emerald-500 hover:shadow-lg transition-shadow">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -204,16 +222,23 @@ export default function OpenTables() {
               url: '#', 
               icon: CreditCard 
             },
+            { 
+              name: `Pendente (${tables.filter(t => t.status === 'pagamento_pendente').length})`, 
+              url: '#', 
+              icon: Clock 
+            },
           ]}
           activeItem={
             activeTab === 'all' ? `Todas (${occupiedTables.length})` :
             activeTab === 'digital' ? `Pedidos Digitais (${tablesWithDigitalOrders.length})` :
-            `Aguardando (${tablesAwaitingPayment.length})`
+            activeTab === 'payment' ? `Aguardando (${tablesAwaitingPayment.length})` :
+            `Pendente (${tables.filter(t => t.status === 'pagamento_pendente').length})`
           }
           onItemClick={(item) => {
             if (item.name.startsWith('Todas')) setActiveTab('all');
             else if (item.name.startsWith('Pedidos')) setActiveTab('digital');
             else if (item.name.startsWith('Aguardando')) setActiveTab('payment');
+            else if (item.name.startsWith('Pendente')) setActiveTab('pending');
           }}
           className="relative"
         />
