@@ -114,7 +114,7 @@ function Router() {
           }} />
           
           <Route path="/kitchen" component={() => {
-            if (user?.role === 'admin' || user?.role === 'manager' || user?.role === 'kitchen') {
+            if (user?.role === 'admin' || user?.role === 'manager' || user?.role === 'kitchen' || user?.role === 'cashier') {
               return <MainDashboard section="kitchen" />;
             }
             return <Redirect to="/" />;
