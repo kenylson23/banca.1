@@ -382,6 +382,40 @@ function isCashierOrAbove(req: any, res: any, next: any) {
   next();
 }
 
+// Middleware to check if user is cashier or above (admin, manager, cashier, superadmin)
+function isCashier(req: any, res: any, next: any) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Não autenticado" });
+  }
+  const user = req.user as User;
+  const allowedRoles = ['admin', 'superadmin', 'manager', 'cashier'];
+  
+  if (!allowedRoles.includes(user.role)) {
+    return res.status(403).json({ message: "Acesso negado. Apenas caixa e administradores podem acessar a cozinha." });
+  }
+  if (user.role !== 'superadmin' && !user.restaurantId) {
+    return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+  }
+  next();
+}
+
+// Middleware to check if user is waiter or above (admin, manager, waiter, superadmin)
+function isWaiter(req: any, res: any, next: any) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Não autenticado" });
+  }
+  const user = req.user as User;
+  const allowedRoles = ['admin', 'superadmin', 'manager', 'waiter'];
+  
+  if (!allowedRoles.includes(user.role)) {
+    return res.status(403).json({ message: "Acesso negado. Apenas garçons e administradores podem acessar esta área." });
+  }
+  if (user.role !== 'superadmin' && !user.restaurantId) {
+    return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+  }
+  next();
+}
+
 // Middleware to check if user is super admin
 function isSuperAdmin(req: any, res: any, next: any) {
   if (!req.isAuthenticated()) {
@@ -6639,7 +6673,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== ORDER ROUTES =====
-  app.get("/api/orders/kitchen", isAuthenticated, async (req, res) => {
+  app.get("/api/orders/kitchen", isCashier, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId) {
@@ -7895,7 +7929,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/stats/kitchen", isAuthenticated, async (req, res) => {
+  app.get("/api/stats/kitchen", isCashier, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
