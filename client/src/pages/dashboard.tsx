@@ -245,7 +245,7 @@ export default function Dashboard() {
   }, [historicalData]);
 
   const { data: heatmapData, isLoading: heatmapLoading } = useQuery<Array<{ day: string; hour: number; value: number }>>({
-    queryKey: ["/api/stats/heatmap?days=30"],
+    queryKey: ["/api/stats/heatmap", historicalDays],
     staleTime: 120000, // Cache por 2 minutos (dados menos críticos)
     gcTime: 300000,
   });
