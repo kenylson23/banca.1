@@ -119,12 +119,12 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left Side - Form */}
       <div className="w-full lg:w-1/2 flex flex-col min-h-screen bg-background">
-        <div className="flex-1 flex flex-col px-6 sm:px-8 lg:px-12 xl:px-16 py-6">
+        <div className="flex-1 flex flex-col px-4 py-6 sm:px-6 sm:py-8 lg:px-12 xl:px-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 mb-8" data-testid="link-home-logo">
+          <Link href="/" className="flex items-center gap-2 mb-6 sm:mb-8" data-testid="link-home-logo">
             <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
               <svg viewBox="0 0 24 24" className="w-4 h-4 text-primary-foreground" fill="currentColor">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
@@ -134,12 +134,12 @@ export default function Login() {
           </Link>
 
           {/* Form Content */}
-          <div className="flex-1 flex flex-col justify-center max-w-sm w-full mx-auto lg:mx-0">
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-foreground mb-1">
+          <div className="flex-1 flex flex-col justify-center w-full max-w-sm mx-auto">
+            <div className="mb-5 sm:mb-6">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1">
                 {isLoginMode ? "Bem-vindo de volta" : "Comece Agora"}
               </h1>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 {isLoginMode 
                   ? "Entre com suas credenciais para acessar sua conta"
                   : "Cadastre seu restaurante e comece a gerenciar"}
@@ -162,7 +162,7 @@ export default function Login() {
                             <Input
                               type="email"
                               placeholder="seu@email.com"
-                              className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                              className="pl-9 h-10 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                               data-testid="input-login-email"
                               {...field}
                             />
@@ -195,7 +195,7 @@ export default function Login() {
                             <Input
                               type={showPassword ? "text" : "password"}
                               placeholder="min 6 caracteres"
-                              className="pl-9 pr-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                              className="pl-9 pr-9 h-10 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                               data-testid="input-login-password"
                               {...field}
                             />
@@ -227,7 +227,7 @@ export default function Login() {
 
                   <Button
                     type="submit"
-                    className="w-full h-9 text-sm font-medium"
+                    className="w-full h-10 text-sm font-medium"
                     data-testid="button-login-submit"
                     disabled={loginMutation.isPending}
                   >
@@ -288,7 +288,7 @@ export default function Login() {
                               <Input
                                 type="text"
                                 placeholder="Restaurante ABC"
-                                className="pl-9 h-9 text-sm text-foreground bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                                className="pl-9 h-10 text-sm text-foreground bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                                 data-testid="input-restaurant-name"
                                 autoComplete="off"
                                 {...field}
@@ -312,7 +312,7 @@ export default function Login() {
                               <Input
                                 type="email"
                                 placeholder="contato@restaurante.com"
-                                className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                                className="pl-9 h-10 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                                 data-testid="input-restaurant-email"
                                 {...field}
                               />
@@ -323,7 +323,7 @@ export default function Login() {
                       )}
                     />
 
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <FormField
                         control={registerForm.control}
                         name="phone"
@@ -336,7 +336,7 @@ export default function Login() {
                                 <Input
                                   type="tel"
                                   placeholder="+244 9XX XXX XXX"
-                                  className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                                  className="pl-9 h-10 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                                   data-testid="input-restaurant-phone"
                                   {...field}
                                 />
@@ -359,7 +359,7 @@ export default function Login() {
                                 <Input
                                   type="tel"
                                   placeholder="+244 9XX XXX XXX"
-                                  className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                                  className="pl-9 h-10 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                                   data-testid="input-restaurant-whatsapp"
                                   {...field}
                                 />
@@ -383,7 +383,7 @@ export default function Login() {
                               <Input
                                 type="text"
                                 placeholder="Rua, Bairro - Cidade"
-                                className="pl-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                                className="pl-9 h-10 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                                 data-testid="input-restaurant-address"
                                 {...field}
                               />
@@ -417,7 +417,7 @@ export default function Login() {
                               disabled={plansLoading}
                             >
                               <SelectTrigger 
-                                className="h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all" 
+                                className="h-10 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all" 
                                 data-testid="select-plan"
                               >
                                 <SelectValue placeholder={plansLoading ? "Carregando planos..." : "Selecione um plano"} />
@@ -449,7 +449,7 @@ export default function Login() {
                       )}
                     />
 
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <FormField
                         control={registerForm.control}
                         name="password"
@@ -462,7 +462,7 @@ export default function Login() {
                                 <Input
                                   type={showRegPassword ? "text" : "password"}
                                   placeholder="Min 6 caracteres"
-                                  className="pl-9 pr-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                                  className="pl-9 pr-9 h-10 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                                   data-testid="input-restaurant-password"
                                   {...field}
                                 />
@@ -493,7 +493,7 @@ export default function Login() {
                                 <Input
                                   type={showConfirmPassword ? "text" : "password"}
                                   placeholder="Repita a senha"
-                                  className="pl-9 pr-9 h-9 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
+                                  className="pl-9 pr-9 h-10 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all"
                                   data-testid="input-restaurant-confirm-password"
                                   {...field}
                                 />
@@ -532,7 +532,7 @@ export default function Login() {
 
                   <Button
                     type="submit"
-                    className="w-full h-9 text-sm font-medium mt-1"
+                    className="w-full h-10 text-sm font-medium mt-1"
                     data-testid="button-register-submit"
                     disabled={registerMutation.isPending}
                   >
@@ -572,7 +572,7 @@ export default function Login() {
       </div>
 
       {/* Right Side - Hero/Preview */}
-      <div className="hidden lg:flex w-1/2 bg-primary relative overflow-hidden">
+      <div className="hidden lg:flex w-full lg:w-1/2 bg-primary relative overflow-hidden">
         {/* Background Pattern */}
         <div className="absolute inset-0">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
@@ -581,9 +581,9 @@ export default function Login() {
         </div>
 
         {/* Content */}
-        <div className="relative z-10 flex flex-col justify-center px-10 xl:px-14 py-8 w-full">
+        <div className="relative z-10 flex flex-col justify-center px-8 xl:px-14 py-8 w-full">
           <div className="mb-8">
-            <h2 className="text-2xl xl:text-3xl font-bold text-primary-foreground mb-3 leading-tight">
+            <h2 className="text-xl sm:text-2xl xl:text-3xl font-bold text-primary-foreground mb-3 leading-tight">
               A forma mais simples de<br />gerir seu restaurante
             </h2>
             <p className="text-primary-foreground/80 text-sm">
@@ -601,7 +601,7 @@ export default function Login() {
           </div>
 
           {/* Trust Badges */}
-          <div className="mt-8 flex items-center gap-6 opacity-60">
+          <div className="mt-8 flex items-center gap-4 sm:gap-6 opacity-60">
             <div className="flex items-center gap-1.5 text-primary-foreground/70">
               <Check className="h-3 w-3" />
               <span className="text-xs">Dados seguros</span>
