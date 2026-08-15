@@ -85,10 +85,10 @@ export function DataHeatmap({
           <CardTitle className="text-lg font-semibold">{title}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <div className="min-w-[600px]">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="min-w-[500px] sm:min-w-[600px]">
               {/* Grid */}
-              <div className="grid grid-cols-[80px_repeat(9,1fr)] gap-2">
+              <div className="grid grid-cols-[50px_repeat(9,1fr)] gap-1 sm:gap-2">
                 {/* Empty top-left corner */}
                 <div />
                 
@@ -96,7 +96,7 @@ export function DataHeatmap({
                 {HOURS.map((hour) => (
                   <div
                     key={hour}
-                    className="text-xs font-medium text-muted-foreground text-center pb-2"
+                    className="text-[10px] sm:text-xs font-medium text-muted-foreground text-center pb-1 sm:pb-2"
                   >
                     {hour}
                   </div>
@@ -107,7 +107,7 @@ export function DataHeatmap({
                   <React.Fragment key={day}>
                     {/* Day label */}
                     <div
-                      className="text-xs font-medium text-muted-foreground flex items-center pr-2"
+                      className="text-[10px] sm:text-xs font-medium text-muted-foreground flex items-center pr-1 sm:pr-2"
                     >
                       {day}
                     </div>
@@ -127,7 +127,7 @@ export function DataHeatmap({
                           className="group relative"
                         >
                           <div
-                            className="h-10 rounded-md transition-all duration-200 cursor-pointer border border-border/20"
+                            className="h-8 sm:h-10 rounded-md transition-all duration-200 cursor-pointer border border-border/20"
                             style={{
                               backgroundColor: getColor(value),
                             }}
@@ -152,20 +152,20 @@ export function DataHeatmap({
               </div>
 
               {/* Legend */}
-              <div className="flex items-center justify-center gap-4 mt-6">
-                <span className="text-xs text-muted-foreground">Baixo</span>
-                <div className="flex gap-1">
+              <div className="flex items-center justify-center gap-2 sm:gap-4 mt-4 sm:mt-6">
+                <span className="text-[10px] sm:text-xs text-muted-foreground">Baixo</span>
+                <div className="flex gap-0.5 sm:gap-1">
                   {[0.2, 0.4, 0.6, 0.8, 1.0].map((intensity, idx) => (
                     <div
                       key={idx}
-                      className="h-4 w-8 rounded"
+                      className="h-3 w-5 sm:w-6 sm:h-4 rounded"
                       style={{
                         backgroundColor: getColor(max * intensity),
                       }}
                     />
                   ))}
                 </div>
-                <span className="text-xs text-muted-foreground">Alto</span>
+                <span className="text-[10px] sm:text-xs text-muted-foreground">Alto</span>
               </div>
             </div>
           </div>
