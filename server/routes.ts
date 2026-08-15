@@ -390,6 +390,8 @@ function isCashier(req: any, res: any, next: any) {
   const user = req.user as User;
   const allowedRoles = ['admin', 'superadmin', 'manager', 'cashier'];
   
+  console.log('[isCashier] user role:', user.role, 'restaurantId:', user.restaurantId, 'path:', req.path);
+  
   if (!allowedRoles.includes(user.role)) {
     return res.status(403).json({ message: "Acesso negado. Apenas caixa e administradores podem acessar a cozinha." });
   }
@@ -6705,7 +6707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/orders", isOperational, checkSubscriptionStatus, async (req, res) => {
+  app.get("/api/orders", isOperational, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
