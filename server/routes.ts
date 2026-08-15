@@ -6689,7 +6689,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/orders/recent", isAdmin, async (req, res) => {
+  app.get("/api/orders/recent", isOperational, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
@@ -6705,7 +6705,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/orders", isAdmin, checkSubscriptionStatus, async (req, res) => {
+  app.get("/api/orders", isOperational, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
