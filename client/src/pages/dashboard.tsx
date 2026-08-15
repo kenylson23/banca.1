@@ -257,7 +257,7 @@ export default function Dashboard() {
     return recentOrders.slice(0, 8).map((order, index) => ({
       id: order.id.toString(),
       type: "order" as const,
-      title: `Pedido #${order.id}`,
+      title: `Pedido #${(order as any).orderNumber || order.id.slice(-6)}`,
       description: `${order.table ? `Mesa ${order.table.number}` : order.orderType === 'delivery' ? 'Entrega' : 'Balcão'} - ${order.status}`,
       timestamp: order.createdAt ? new Date(order.createdAt) : new Date(),
       status: order.status === "servido" ? "success" as const : "info" as const,
