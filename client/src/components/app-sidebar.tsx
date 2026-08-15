@@ -247,6 +247,12 @@ const kitchenMenuItems: MenuItem[] = [
 
 const waiterMenuItems: MenuItem[] = [
   {
+    title: "PDV",
+    section: "pdv" as Section,
+    path: "/pdv",
+    icon: CreditCard,
+  },
+  {
     title: "Mesas Abertas",
     section: "open-tables" as Section,
     path: "/open-tables",
@@ -256,16 +262,22 @@ const waiterMenuItems: MenuItem[] = [
 
 const cashierMenuItems: MenuItem[] = [
   {
+    title: "PDV",
+    section: "pdv" as Section,
+    path: "/pdv",
+    icon: CreditCard,
+  },
+  {
     title: "Mesas Abertas",
     section: "open-tables" as Section,
     path: "/open-tables",
     icon: QrCode,
   },
   {
-    title: "PDV",
-    section: "pdv" as Section,
-    path: "/pdv",
-    icon: CreditCard,
+    title: "Cozinha",
+    section: "kitchen" as Section,
+    path: "/kitchen",
+    icon: ChefHat,
   },
 ];
 
