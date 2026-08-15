@@ -7916,14 +7916,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
       
-      const days = parseInt(req.query.days as string) || 30;
-      if (days < 1 || days > 365) {
-        return res.status(400).json({ message: "Days must be between 1 and 365" });
-      }
-      
       const restaurantId = currentUser.restaurantId!;
       const branchId = currentUser.activeBranchId || null;
-      const heatmapData = await storage.getSalesHeatmapData(restaurantId, branchId, days);
+      
+      let heatmapData;
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+      
+      if (startDate && endDate) {
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+          return res.status(400).json({ message: "Formato de data inválido. Use YYYY-MM-DD" });
+        }
+        const start = new Date(startDate + 'T00:00:00.000Z');
+        const end = new Date(endDate + 'T23:59:59.999Z');
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+          return res.status(400).json({ message: "Datas inválidas" });
+        }
+        heatmapData = await storage.getSalesHeatmapDataByDateRange(restaurantId, branchId, start, end);
+      } else {
+        const days = parseInt(req.query.days as string) || 30;
+        if (days < 1 || days > 365) {
+          return res.status(400).json({ message: "Days must be between 1 and 365" });
+        }
+        heatmapData = await storage.getSalesHeatmapData(restaurantId, branchId, days);
+      }
+      
       res.json(heatmapData);
     } catch (error) {
       console.error('Heatmap data error:', error);

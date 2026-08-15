@@ -334,6 +334,12 @@ export interface IStorage {
     value: number;
   }>>;
   
+  getSalesHeatmapDataByDateRange(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date): Promise<Array<{
+    day: string;
+    hour: number;
+    value: number;
+  }>>;
+  
   getKitchenStats(restaurantId: string, branchId: string | null, period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): Promise<{
     totalOrders: number;
     totalRevenue: string;
@@ -4524,6 +4530,70 @@ export class DatabaseStorage implements IStorage {
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${today}`
+        ));
+    }
+
+    const allOrders = ordersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
+
+    const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const heatmapMap = new Map<string, number>();
+
+    for (const order of allOrders) {
+      if (!order.createdAt) continue;
+      
+      const orderDate = new Date(order.createdAt);
+      const dayOfWeek = orderDate.getDay();
+      const hour = orderDate.getHours();
+      const dayName = dayNames[dayOfWeek];
+      
+      const key = `${dayName}-${hour}`;
+      heatmapMap.set(key, (heatmapMap.get(key) || 0) + 1);
+    }
+
+    const result: Array<{ day: string; hour: number; value: number }> = [];
+    
+    for (const dayName of dayNames) {
+      for (let hour = 0; hour < 24; hour++) {
+        const key = `${dayName}-${hour}`;
+        result.push({
+          day: dayName,
+          hour: hour,
+          value: heatmapMap.get(key) || 0,
+        });
+      }
+    }
+
+    return result;
+  }
+
+  async getSalesHeatmapDataByDateRange(restaurantId: string, branchId: string | null, startDate: Date, endDate: Date): Promise<Array<{
+    day: string;
+    hour: number;
+    value: number;
+  }>> {
+    let ordersData;
+    if (branchId) {
+      ordersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+          sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
+          gte(orders.createdAt, startDate),
+          sql`${orders.createdAt} <= ${endDate}`
+        ));
+    } else {
+      ordersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
+          gte(orders.createdAt, startDate),
+          sql`${orders.createdAt} <= ${endDate}`
         ));
     }
 
