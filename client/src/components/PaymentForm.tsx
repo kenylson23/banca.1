@@ -34,7 +34,7 @@ export function PaymentForm({ onSubmit, totalAmount, paidAmount, isPending, allo
 
   return (
     <div className="space-y-4">
-      <div className="p-4 rounded-md bg-muted">
+      <div className="p-3 sm:p-4 rounded-md bg-muted">
         <div className="flex justify-between text-sm mb-2">
           <span>Total:</span>
           <span className="font-semibold">{formatKwanza(totalAmount)}</span>
@@ -72,7 +72,7 @@ export function PaymentForm({ onSubmit, totalAmount, paidAmount, isPending, allo
           </div>
 
           {enableSplit && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
               <div>
                 <Label>Número de Pessoas</Label>
                 <Input
@@ -89,9 +89,9 @@ export function PaymentForm({ onSubmit, totalAmount, paidAmount, isPending, allo
                 />
               </div>
               <div className="flex items-end">
-                <div className="w-full p-2 rounded-md border bg-muted flex justify-between">
-                  <span>Valor por pessoa</span>
-                  <span className="font-semibold">{formatKwanza(splitAmount)}</span>
+                <div className="w-full p-2 sm:p-3 rounded-md border bg-muted flex justify-between">
+                  <span className="text-sm">Valor por pessoa</span>
+                  <span className="font-semibold text-sm">{formatKwanza(splitAmount)}</span>
                 </div>
               </div>
             </div>

@@ -14,7 +14,7 @@ interface PaymentDialogProps {
 export function PaymentDialog({ open, onOpenChange, totalAmount, paidAmount = 0, isSubmitting, onSubmit, title = "Registrar Pagamento" }: PaymentDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="w-full max-w-[95vw] sm:max-w-md md:max-w-lg">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
