@@ -4516,7 +4516,6 @@ export class DatabaseStorage implements IStorage {
         .where(and(
           eq(orders.restaurantId, restaurantId),
           or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-          sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${today}`
         ));
@@ -4527,7 +4526,6 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${today}`
         ));
@@ -4571,31 +4569,29 @@ export class DatabaseStorage implements IStorage {
     hour: number;
     value: number;
   }>> {
-    let ordersData;
-    if (branchId) {
-      ordersData = await db
-        .select()
-        .from(orders)
-        .leftJoin(tables, eq(orders.tableId, tables.id))
-        .where(and(
-          eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-          sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
-          gte(orders.createdAt, startDate),
-          sql`${orders.createdAt} <= ${endDate}`
-        ));
-    } else {
-      ordersData = await db
-        .select()
-        .from(orders)
-        .leftJoin(tables, eq(orders.tableId, tables.id))
-        .where(and(
-          eq(orders.restaurantId, restaurantId),
-          sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
-          gte(orders.createdAt, startDate),
-          sql`${orders.createdAt} <= ${endDate}`
-        ));
-    }
+     let ordersData;
+     if (branchId) {
+       ordersData = await db
+         .select()
+         .from(orders)
+         .leftJoin(tables, eq(orders.tableId, tables.id))
+         .where(and(
+           eq(orders.restaurantId, restaurantId),
+           or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+           gte(orders.createdAt, startDate),
+           sql`${orders.createdAt} <= ${endDate}`
+         ));
+     } else {
+       ordersData = await db
+         .select()
+         .from(orders)
+         .leftJoin(tables, eq(orders.tableId, tables.id))
+         .where(and(
+           eq(orders.restaurantId, restaurantId),
+           gte(orders.createdAt, startDate),
+           sql`${orders.createdAt} <= ${endDate}`
+         ));
+     }
 
     const allOrders = ordersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
 
