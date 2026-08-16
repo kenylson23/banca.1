@@ -3984,6 +3984,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const restaurantId = currentUser.restaurantId!;
+      console.log(`[DeleteTable] restaurantId=${restaurantId} tableId=${req.params.id} userRole=${currentUser.role}`);
       await storage.deleteTable(restaurantId, req.params.id);
       
       // Broadcast to WebSocket clients
@@ -3991,6 +3992,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ success: true });
     } catch (error) {
+      console.error('[DeleteTable] Error:', error);
       res.status(500).json({ message: "Failed to delete table" });
     }
   });

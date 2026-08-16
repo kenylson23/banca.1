@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Download, QrCode as QrCodeIcon, LayoutGrid, Check, Clock, DollarSign, Users, Search, List, Map, Camera } from "lucide-react";
+import { Plus, Download, QrCode as QrCodeIcon, LayoutGrid, Check, Clock, DollarSign, Users, Search, List, Map, Camera, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { useAuth } from "@/hooks/useAuth";
 import { TableCard } from "@/components/TableCard";
 import { TableDialogWrapper } from '@/components/table-dialog/TableDialogWrapper';
 import { QrScannerDialog } from '@/components/QrScannerDialog';
@@ -40,6 +41,7 @@ import type { Table } from "@shared/schema";
 
 export function TablesPanel() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [qrDialogTable, setQrDialogTable] = useState<Table | null>(null);
   const [deleteTableId, setDeleteTableId] = useState<string | null>(null);
@@ -53,6 +55,8 @@ export function TablesPanel() {
   const [showFreeTables, setShowFreeTables] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid');
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
+
+  const canDeleteTable = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'superadmin';
 
   const navItems = [
     { name: 'Todas', url: '#', icon: LayoutGrid },
@@ -718,76 +722,90 @@ export function TablesPanel() {
                   {areaTables.length} {areaTables.length === 1 ? 'mesa' : 'mesas'}
                 </Badge>
               </div>
-              {viewMode === 'grid' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-                  {areaTables.map((table) => (
-                    <TableCard
-                      key={table.id}
-                      table={table}
-                      onClick={() => {
-                        setSelectedTable(table);
-                      }}
-                      onShowQrCode={setQrDialogTable}
-                    />
-                  ))}
-                </div>
-              ) : viewMode === 'list' ? (
-                <div className="space-y-2">
-                  {areaTables.map((table) => (
-                    <Card 
-                      key={table.id} 
-                      className="cursor-pointer hover:bg-accent transition-colors"
-                      onClick={() => setSelectedTable(table)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4 flex-1">
-                            <div className="font-semibold text-lg">Mesa {table.number}</div>
-                            <Badge variant={
-                              table.status === 'livre' ? 'secondary' :
-                              table.status === 'ocupada' ? 'default' :
-                              table.status === 'em_andamento' ? 'default' :
-                              'destructive'
-                            }>
-                              {table.status === 'livre' ? 'Livre' :
-                               table.status === 'ocupada' ? 'Ocupada' :
-                               table.status === 'em_andamento' ? 'Em Andamento' :
-                               'Aguardando Pagamento'}
-                            </Badge>
-                            {table.customerName && (
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Users className="h-4 w-4" />
-                                <span>{table.customerName}</span>
-                              </div>
-                            )}
-                            {table.customerCount && (
-                              <span className="text-sm text-muted-foreground">
-                                {table.customerCount} {table.customerCount === 1 ? 'pessoa' : 'pessoas'}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-4">
-                            {table.totalAmount && parseFloat(table.totalAmount) > 0 && (
-                              <div className="text-lg font-bold text-green-600">
-                                {parseFloat(table.totalAmount).toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
-                              </div>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setQrDialogTable(table);
-                              }}
-                            >
-                              <QrCodeIcon className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+               {viewMode === 'grid' ? (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                   {areaTables.map((table) => (
+                     <TableCard
+                       key={table.id}
+                       table={table}
+                       onClick={() => {
+                         setSelectedTable(table);
+                       }}
+                       onShowQrCode={setQrDialogTable}
+                       onDelete={canDeleteTable ? (t) => setDeleteTableId(t.id) : undefined}
+                     />
+                   ))}
+                 </div>
+               ) : viewMode === 'list' ? (
+                 <div className="space-y-2">
+                   {areaTables.map((table) => (
+                     <Card 
+                       key={table.id} 
+                       className="cursor-pointer hover:bg-accent transition-colors"
+                       onClick={() => setSelectedTable(table)}
+                     >
+                       <CardContent className="p-4">
+                         <div className="flex items-center justify-between">
+                           <div className="flex items-center gap-4 flex-1">
+                             <div className="font-semibold text-lg">Mesa {table.number}</div>
+                             <Badge variant={
+                               table.status === 'livre' ? 'secondary' :
+                               table.status === 'ocupada' ? 'default' :
+                               table.status === 'em_andamento' ? 'default' :
+                               'destructive'
+                             }>
+                               {table.status === 'livre' ? 'Livre' :
+                                table.status === 'ocupada' ? 'Ocupada' :
+                                table.status === 'em_andamento' ? 'Em Andamento' :
+                                'Aguardando Pagamento'}
+                             </Badge>
+                             {table.customerName && (
+                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                 <Users className="h-4 w-4" />
+                                 <span>{table.customerName}</span>
+                               </div>
+                             )}
+                             {table.customerCount && (
+                               <span className="text-sm text-muted-foreground">
+                                 {table.customerCount} {table.customerCount === 1 ? 'pessoa' : 'pessoas'}
+                               </span>
+                             )}
+                           </div>
+                           <div className="flex items-center gap-2">
+                             {table.totalAmount && parseFloat(table.totalAmount) > 0 && (
+                               <div className="text-lg font-bold text-green-600">
+                                 {parseFloat(table.totalAmount).toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
+                               </div>
+                             )}
+                             {canDeleteTable && (
+                               <Button
+                                 variant="ghost"
+                                 size="sm"
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   setDeleteTableId(table.id);
+                                 }}
+                                 data-testid={`button-delete-table-${table.id}`}
+                               >
+                                 <Trash2 className="h-4 w-4 text-destructive" />
+                               </Button>
+                             )}
+                             <Button
+                               variant="ghost"
+                               size="sm"
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 setQrDialogTable(table);
+                               }}
+                             >
+                               <QrCodeIcon className="h-4 w-4" />
+                             </Button>
+                           </div>
+                         </div>
+                       </CardContent>
+                     </Card>
+                   ))}
+                 </div>
               ) : (
                 // Map View
                 <div className="relative bg-muted/30 rounded-lg p-8 min-h-[600px] border-2 border-dashed">

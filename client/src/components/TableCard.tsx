@@ -15,10 +15,13 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { Table } from '@shared/schema';
 
+import { Trash2 } from "lucide-react";
+
 interface TableCardProps {
   table: Table & { orders?: any[]; guestsAwaitingBill?: number; guestCount?: number };
   onClick: () => void;
   onShowQrCode: (table: Table & { orders?: any[]; guestsAwaitingBill?: number; guestCount?: number }) => void;
+  onDelete?: (table: Table & { orders?: any[]; guestsAwaitingBill?: number; guestCount?: number }) => void;
 }
 
 const getStatusConfig = (status: string) => {
@@ -196,6 +199,22 @@ export function TableCard({ table, onClick, onShowQrCode }: TableCardProps) {
               </div>
             )}
           </div>
+        )}
+
+        {onDelete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-destructive hover:text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(table);
+            }}
+            data-testid={`button-delete-${table.id}`}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Excluir Mesa
+          </Button>
         )}
 
         <Button
