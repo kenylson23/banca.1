@@ -4571,32 +4571,36 @@ export class DatabaseStorage implements IStorage {
     hour: number;
     value: number;
   }>> {
-     let ordersData;
-     if (branchId) {
-       ordersData = await db
-         .select()
-         .from(orders)
-         .leftJoin(tables, eq(orders.tableId, tables.id))
-         .where(and(
-           eq(orders.restaurantId, restaurantId),
-           or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
-           gte(orders.createdAt, startDate),
-           sql`${orders.createdAt} <= ${endDate}`
-         ));
-     } else {
-       ordersData = await db
-         .select()
-         .from(orders)
-         .leftJoin(tables, eq(orders.tableId, tables.id))
-         .where(and(
-           eq(orders.restaurantId, restaurantId),
-           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
-           gte(orders.createdAt, startDate),
-           sql`${orders.createdAt} <= ${endDate}`
-         ));
-     }
+    console.log(`[HeatmapDateRange] restaurantId=${restaurantId} branchId=${branchId} startDate=${startDate.toISOString()} endDate=${endDate.toISOString()}`);
+    
+    let ordersData;
+    if (branchId) {
+      ordersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+          sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
+          gte(orders.createdAt, startDate),
+          sql`${orders.createdAt} <= ${endDate}`
+        ));
+    } else {
+      ordersData = await db
+        .select()
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(
+          eq(orders.restaurantId, restaurantId),
+          sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
+          gte(orders.createdAt, startDate),
+          sql`${orders.createdAt} <= ${endDate}`
+        ));
+    }
 
+    console.log(`[HeatmapDateRange] Pedidos encontrados no período: ${ordersData.length}`);
+    
     const allOrders = ordersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
 
     const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -4627,6 +4631,7 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    console.log(`[HeatmapDateRange] Retornando ${result.length} slots, total pedidos: ${allOrders.length}`);
     return result;
   }
 
