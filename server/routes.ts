@@ -7922,6 +7922,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let heatmapData;
       const startDate = req.query.startDate as string | undefined;
       const endDate = req.query.endDate as string | undefined;
+      const days = req.query.days as string | undefined;
+      
+      console.log(`[Heatmap] restaurantId=${restaurantId} branchId=${branchId} startDate=${startDate} endDate=${endDate} days=${days}`);
       
       if (startDate && endDate) {
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -7933,15 +7936,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (isNaN(start.getTime()) || isNaN(end.getTime())) {
           return res.status(400).json({ message: "Datas inválidas" });
         }
+        console.log(`[Heatmap] Usando dateRange: ${start.toISOString()} -> ${end.toISOString()}`);
         heatmapData = await storage.getSalesHeatmapDataByDateRange(restaurantId, branchId, start, end);
       } else {
-        const days = parseInt(req.query.days as string) || 30;
-        if (days < 1 || days > 365) {
+        const daysNum = days ? parseInt(days) : 30;
+        if (daysNum < 1 || daysNum > 365) {
           return res.status(400).json({ message: "Days must be between 1 and 365" });
         }
-        heatmapData = await storage.getSalesHeatmapData(restaurantId, branchId, days);
+        console.log(`[Heatmap] Usando days fallback: ${daysNum}`);
+        heatmapData = await storage.getSalesHeatmapData(restaurantId, branchId, daysNum);
       }
       
+      console.log(`[Heatmap] Retornando ${heatmapData.length} registros, total de pedidos no período: ${heatmapData.reduce((sum, item) => sum + item.value, 0)}`);
       res.json(heatmapData);
     } catch (error) {
       console.error('Heatmap data error:', error);
