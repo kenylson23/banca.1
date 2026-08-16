@@ -262,12 +262,16 @@ export default function Dashboard() {
         params.set('days', String(historicalDays));
       }
       
-      const response = await fetch(`/api/stats/heatmap?${params}`);
+      const response = await fetch(`/api/stats/heatmap?${params}`, {
+        cache: 'no-store',
+      });
       if (!response.ok) throw new Error('Failed to fetch heatmap data');
       return response.json();
     },
-    staleTime: 120000, // Cache por 2 minutos (dados menos críticos)
+    staleTime: 0,
     gcTime: 300000,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   // Mock activity feed data (in production, this would come from WebSocket or API)
