@@ -129,7 +129,7 @@ export default function Dashboard() {
   });
 
   const { data: customStats, isLoading: customLoading } = useQuery<CustomRangeStats>({
-    queryKey: ["/api/stats/custom-range", dateRange?.from, dateRange?.to],
+    queryKey: ["/api/stats/custom-range", dateRange?.from?.toISOString(), dateRange?.to?.toISOString()],
     queryFn: async () => {
       if (!dateRange?.from || !dateRange?.to) return null;
       const formatDate = (date: Date) => {
@@ -245,7 +245,7 @@ export default function Dashboard() {
   }, [historicalData]);
 
   const { data: heatmapData, isLoading: heatmapLoading } = useQuery<Array<{ day: string; hour: number; value: number }>>({
-    queryKey: ["/api/stats/heatmap", dateRange?.from, dateRange?.to],
+    queryKey: ["/api/stats/heatmap", dateRange?.from?.toISOString(), dateRange?.to?.toISOString()],
     queryFn: async () => {
       const params = new URLSearchParams();
       
