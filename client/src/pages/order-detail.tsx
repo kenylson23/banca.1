@@ -1030,28 +1030,9 @@ export default function OrderDetail() {
                               guest={guestData.guest}
                               orders={guestData.orders}
                               totalAmount={parseFloat(guestData.subtotal || "0")}
-                              table={{
-                                id: order.tableId!,
-                                number: order.tableNumber || 0,
-                                capacity: 0,
-                                status: 'occupied' as const,
-                                restaurantId: order.restaurantId,
-                                branchId: order.branchId || null,
-                                qrCode: null,
-                                createdAt: new Date().toISOString(),
-                                updatedAt: new Date().toISOString(),
-                              }}
+                              tableName={`Mesa ${order.tableNumber || order.tableId}`}
                               restaurantName={restaurant?.name || ''}
-                            >
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="w-full"
-                              >
-                                <Printer className="w-4 h-4 mr-2" />
-                                Imprimir Fatura do Cliente
-                              </Button>
-                            </PrintGuestBill>
+                            />
                             
                             <Separator />
                             

@@ -285,6 +285,7 @@ export function TableDetailsDialog({
   const [selectedOrderMenu, setSelectedOrderMenu] = useState<string | null>(null);
   const [showQuickOrder, setShowQuickOrder] = useState(false);
   const [showPrintBill, setShowPrintBill] = useState(false);
+  const [printBillGuestId, setPrintBillGuestId] = useState<string | null>(null);
 
   // 🔧 FIX: Acumular invalidations em vez de cancelar
   const pendingInvalidationsRef = useRef<Set<string>>(new Set());
@@ -2882,18 +2883,46 @@ export function TableDetailsDialog({
         />
         
         {/* Print Bill Dialog */}
-        <PrintGuestBill
-          open={showPrintBill}
-          onOpenChange={setShowPrintBill}
-          tableId={table.id}
-          tableNumber={table.number}
-          guests={guests.map(g => ({
-            id: g.id,
-            name: g.name || `Convidado ${g.guestNumber || g.seatNumber}`,
-            orders: ordersByGuestData?.ordersByGuest?.find(og => og.guest.id === g.id)?.orders || []
-          }))}
-          totalAmount={totalAmount}
-        />
+        {showPrintBill && (() => {
+          const selectedGuest = printBillGuestId
+            ? guests.find(g => g.id === printBillGuestId)
+            : guests[0];
+
+          if (!selectedGuest) return null;
+
+          const guestOrders = ordersByGuestData?.ordersByGuest?.find(og => og.guest.id === selectedGuest.id)?.orders || [];
+          const guestTotal = guestOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount || "0"), 0);
+
+          return (
+            <PrintGuestBill
+              guest={{
+                id: selectedGuest.id,
+                sessionId: selectedGuest.sessionId,
+                name: selectedGuest.name || `Convidado ${selectedGuest.guestNumber || selectedGuest.seatNumber}`,
+                guestNumber: selectedGuest.guestNumber || selectedGuest.seatNumber,
+                status: selectedGuest.status,
+                totalSpent: selectedGuest.totalSpent,
+                joinedAt: selectedGuest.joinedAt,
+              }}
+              orders={guestOrders.map(o => ({
+                orderId: o.id,
+                orderStatus: o.status,
+                totalAmount: o.totalAmount,
+                createdAt: o.createdAt,
+                items: (o.orderItems || []).map((item: any) => ({
+                  id: item.id,
+                  menuItemName: item.menuItem?.name || item.name,
+                  quantity: item.quantity,
+                  unitPrice: item.price,
+                  totalPrice: (parseFloat(item.price) * item.quantity).toFixed(2),
+                })),
+              }))}
+              totalAmount={guestTotal}
+              tableName={`Mesa ${table.number}`}
+              restaurantName={restaurant?.name}
+            />
+          );
+        })()}
         
         {/* Speed Dial Menu - Only show when dialog is open and table is occupied */}
         {open && table.status !== 'livre' && (
