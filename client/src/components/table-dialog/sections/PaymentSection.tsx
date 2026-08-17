@@ -570,7 +570,7 @@ export function PaymentSection({
       )}
 
       {/* ✅ Card de Fechamento de Mesa - SEMPRE VISÍVEL quando há sessão */}
-      {totalAmount > 0 && onCloseTable && (
+      {onCloseTable && (
         <Card className={cn(
           "border-2",
           isPaymentComplete

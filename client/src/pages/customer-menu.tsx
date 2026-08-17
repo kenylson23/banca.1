@@ -33,7 +33,7 @@ import type { MenuItem, Category, Order, OrderItem, Restaurant, OptionGroup, Opt
 import type { SelectedOption } from '@/contexts/CartContext';
 import { CustomerMenuItemOptionsDialog } from '@/components/CustomerMenuItemOptionsDialog';
 import { ShareOrderDialog } from '@/components/ShareOrderDialog';
-import { Heart } from 'lucide-react';
+import { Heart, UserPlus } from 'lucide-react';
 import { useGuestToken } from '@/hooks/useGuestToken';
 
 type MenuItemWithOptions = MenuItem & { 
@@ -108,6 +108,8 @@ export default function CustomerMenu() {
   const [isOptionsDialogOpen, setIsOptionsDialogOpen] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
+  const [isJoiningTable, setIsJoiningTable] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'info' | 'review'>('cart');
@@ -649,6 +651,32 @@ export default function CustomerMenu() {
     });
   };
 
+  const handleJoinTable = async () => {
+    if (!currentTable || !tableNumber) return;
+    setIsJoiningTable(true);
+    try {
+      const response = await apiRequest('POST', `/api/public/tables/${tableNumber}/join`, {
+        name: customerName.trim() || undefined,
+        customerCount: 1,
+      });
+      const data = await response.json();
+      toast({
+        title: 'Mesa ocupada',
+        description: `Você entrou na mesa ${tableNumber}.`,
+      });
+      setIsJoinDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/public/tables', currentTable.restaurantId, tableNumber] });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao ocupar mesa',
+        description: error.message || 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsJoiningTable(false);
+    }
+  };
+
   if (!tableNumber) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-white">
@@ -749,6 +777,19 @@ export default function CustomerMenu() {
 
             {/* Actions */}
             <div className="flex items-center gap-2">
+              {!currentTable?.currentSessionId && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="hidden sm:flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => setIsJoinDialogOpen(true)}
+                  data-testid="button-join-table"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Ocupar Mesa
+                </Button>
+              )}
+
               <Dialog open={isOrdersDialogOpen} onOpenChange={setIsOrdersDialogOpen}>
                 <DialogTrigger asChild>
                   <Button variant="ghost" size="icon" className="text-gray-600" data-testid="button-track-orders">
@@ -1736,6 +1777,26 @@ export default function CustomerMenu() {
           primaryColor={branding.primaryColor}
         />
       )}
+
+      {/* Join Table Confirmation Dialog */}
+      <Dialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Ocupar Mesa {tableNumber}?</DialogTitle>
+            <DialogDescription>
+              Isso irá iniciar uma sessão nesta mesa. Outras pessoas poderão ver que a mesa está ocupada.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setIsJoinDialogOpen(false)} disabled={isJoiningTable}>
+              Cancelar
+            </Button>
+            <Button onClick={handleJoinTable} disabled={isJoiningTable}>
+              {isJoiningTable ? 'Ocupando...' : 'Ocupar Mesa'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
