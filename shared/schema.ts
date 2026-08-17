@@ -588,11 +588,10 @@ export const tables = pgTable("tables", {
   positionX: decimal("position_x", { precision: 5, scale: 2 }).default('50'), // Posição X (0-100)
   positionY: decimal("position_y", { precision: 5, scale: 2 }).default('50'), // Posição Y (0-100)
   createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Performance indexes for tables
-export const idxTablesRestaurantStatus = index("idx_tables_restaurant_status").on(tables.restaurantId, tables.status);
-export const idxTablesBranchId = index("idx_tables_branch_id").on(tables.branchId);
+}, (table) => [
+  index("idx_tables_restaurant_status").on(table.restaurantId, table.status),
+  index("idx_tables_branch_id").on(table.branchId),
+]);
 
 export const insertTableSchema = z.object({
   number: z.number().int().positive("O número da mesa deve ser maior que zero"),
@@ -779,10 +778,9 @@ export const tableGuests = pgTable("table_guests", {
   joinedAt: timestamp("joined_at").defaultNow(),
   leftAt: timestamp("left_at"),
   tokenExpiresAt: timestamp("token_expires_at"),
-});
-
-// Performance indexes for table_guests
-export const idxTableGuestsTable = index("idx_table_guests_table").on(tableGuests.tableId);
+}, (table) => [
+  index("idx_table_guests_table").on(table.tableId),
+]);
 
 export const insertTableGuestSchema = createInsertSchema(tableGuests).omit({
   id: true,
@@ -946,12 +944,11 @@ export const customers = pgTable("customers", {
   isActive: integer("is_active").notNull().default(1),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// Performance indexes for customers
-export const idxCustomersRestaurant = index("idx_customers_restaurant").on(customers.restaurantId);
-export const idxCustomersPhone = index("idx_customers_phone").on(customers.phone);
-export const idxCustomersEmail = index("idx_customers_email").on(customers.email);
+}, (table) => [
+  index("idx_customers_restaurant").on(table.restaurantId),
+  index("idx_customers_phone").on(table.phone),
+  index("idx_customers_email").on(table.email),
+]);
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
@@ -1127,11 +1124,10 @@ export const coupons = pgTable("coupons", {
   createdBy: varchar("created_by").references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// Performance indexes for coupons
-export const idxCouponsRestaurant = index("idx_coupons_restaurant").on(coupons.restaurantId);
-export const idxCouponsCode = index("idx_coupons_code").on(coupons.code);
+}, (table) => [
+  index("idx_coupons_restaurant").on(table.restaurantId),
+  index("idx_coupons_code").on(table.code),
+]);
 
 export const insertCouponSchema = createInsertSchema(coupons).omit({
   id: true,
@@ -1252,14 +1248,13 @@ export const orders = pgTable("orders", {
   closedBy: varchar("closed_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// Performance indexes for orders
-export const idxOrdersRestaurantStatus = index("idx_orders_restaurant_status").on(orders.restaurantId, orders.status);
-export const idxOrdersTableId = index("idx_orders_table_id").on(orders.tableId);
-export const idxOrdersCreatedAt = index("idx_orders_created_at").on(orders.createdAt);
-export const idxOrdersOrderNumber = index("idx_orders_order_number").on(orders.orderNumber);
-export const idxOrdersGuestId = index("idx_orders_guest_id").on(orders.guestId);
+}, (table) => [
+  index("idx_orders_restaurant_status").on(table.restaurantId, table.status),
+  index("idx_orders_table_id").on(table.tableId),
+  index("idx_orders_created_at").on(table.createdAt),
+  index("idx_orders_order_number").on(table.orderNumber),
+  index("idx_orders_guest_id").on(table.guestId),
+]);
 
 export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
@@ -1453,11 +1448,10 @@ export const orderItems = pgTable("order_items", {
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Performance indexes for order_items
-export const idxOrderItemsOrderId = index("idx_order_items_order_id").on(orderItems.orderId);
-export const idxOrderItemsMenuItem = index("idx_order_items_menu_item").on(orderItems.menuItemId);
+}, (table) => [
+  index("idx_order_items_order_id").on(table.orderId),
+  index("idx_order_items_menu_item").on(table.menuItemId),
+]);
 
 export const insertOrderItemSchema = createInsertSchema(orderItems).omit({
   id: true,
@@ -1749,12 +1743,11 @@ export const menuItems = pgTable("menu_items", {
   tags: text("tags").array(), // Tags: vegetariano, vegano, sem_gluten, picante, etc
   preparationTime: integer("preparation_time"), // Tempo de preparo em minutos
   createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Performance indexes for menu_items
-export const idxMenuItemsRestaurantAvailable = index("idx_menu_items_restaurant_available").on(menuItems.restaurantId, menuItems.isAvailable);
-export const idxMenuItemsCategory = index("idx_menu_items_category").on(menuItems.categoryId);
-export const idxMenuItemsBranch = index("idx_menu_items_branch").on(menuItems.branchId);
+}, (table) => [
+  index("idx_menu_items_restaurant_available").on(table.restaurantId, table.isAvailable),
+  index("idx_menu_items_category").on(table.categoryId),
+  index("idx_menu_items_branch").on(table.branchId),
+]);
 
 export const insertMenuItemSchema = createInsertSchema(menuItems).omit({
   id: true,
@@ -2440,11 +2433,10 @@ export const financialTransactions = pgTable("financial_transactions", {
   installmentNumber: integer("installment_number").default(1),
   parentTransactionId: varchar("parent_transaction_id").references((): any => financialTransactions.id, { onDelete: 'cascade' }),
   createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Performance indexes for financial_transactions
-export const idxTransactionsRestaurantDate = index("idx_transactions_restaurant_date").on(financialTransactions.restaurantId, financialTransactions.createdAt);
-export const idxTransactionsType = index("idx_transactions_type").on(financialTransactions.type);
+}, (table) => [
+  index("idx_transactions_restaurant_date").on(table.restaurantId, table.createdAt),
+  index("idx_transactions_type").on(table.type),
+]);
 
 export const insertFinancialTransactionSchema = createInsertSchema(financialTransactions).omit({
   id: true,
@@ -3119,12 +3111,11 @@ export const subscriptions = pgTable("subscriptions", {
   autoRenew: integer("auto_renew").notNull().default(1), // 0 = não renova, 1 = renova automaticamente
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// Performance indexes for subscriptions
-export const idxSubscriptionsRestaurantStatus = index("idx_subscriptions_restaurant_status").on(subscriptions.restaurantId, subscriptions.status);
-export const idxSubscriptionsPeriodEnd = index("idx_subscriptions_period_end").on(subscriptions.currentPeriodEnd);
-export const idxSubscriptionsPlanId = index("idx_subscriptions_plan_id").on(subscriptions.planId);
+}, (table) => [
+  index("idx_subscriptions_restaurant_status").on(table.restaurantId, table.status),
+  index("idx_subscriptions_period_end").on(table.currentPeriodEnd),
+  index("idx_subscriptions_plan_id").on(table.planId),
+]);
 
 // Schema simplificado para cliente criar subscrição - aceita apenas o mínimo necessário
 export const insertSubscriptionSchema = z.object({
