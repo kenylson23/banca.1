@@ -1,22 +1,27 @@
 import { useState, useEffect } from 'react';
-import { printerService, type ConnectedPrinter, type PrinterType } from '@/lib/printer-service';
+import { printerService, type ConnectedPrinter, type PrinterType, type PrintJob } from '@/lib/printer-service';
 import { useToast } from '@/hooks/use-toast';
 
 export function usePrinter() {
   const [printers, setPrinters] = useState<ConnectedPrinter[]>([]);
+  const [printQueue, setPrintQueue] = useState<PrintJob[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
-    const unsubscribe = printerService.subscribe(setPrinters);
+    const unsubscribePrinters = printerService.subscribe(setPrinters);
+    const unsubscribeQueue = printerService.subscribeToQueue(setPrintQueue);
     setPrinters(printerService.getAllPrinters());
+    setPrintQueue(printerService.getQueueStatus().jobs);
+
     return () => {
-      unsubscribe();
+      unsubscribePrinters();
+      unsubscribeQueue();
     };
   }, []);
 
-  const connectPrinter = async (type: PrinterType) => {
+  const connectPrinter = async (type: PrinterType, options?: { connectionType?: 'usb' | 'network'; networkHost?: string; networkPort?: number }) => {
     try {
-      const printer = await printerService.connectPrinter(type);
+      const printer = await printerService.connectPrinter(type, options);
       toast({
         title: 'Impressora conectada',
         description: `${printer.name} conectada com sucesso`,
@@ -68,11 +73,30 @@ export function usePrinter() {
     return printerService.getPrinter(type);
   };
 
+  const clearPrintQueue = () => {
+    printerService.clearPrintQueue();
+    toast({
+      title: 'Fila limpa',
+      description: 'Fila de impressão limpa com sucesso',
+    });
+  };
+
+  const retryFailedPrints = () => {
+    printerService.processPrintQueue();
+    toast({
+      title: 'Reprocessando',
+      description: 'Tentando reimprimir trabalhos pendentes',
+    });
+  };
+
   return {
     printers,
+    printQueue,
     connectPrinter,
     disconnectPrinter,
     testPrint,
     getPrinterByType,
+    clearPrintQueue,
+    retryFailedPrints,
   };
 }

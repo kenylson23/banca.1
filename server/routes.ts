@@ -10956,6 +10956,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Print to network printer via raw TCP socket
+  app.post('/api/printers/network', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const restaurantId = currentUser.restaurantId;
+
+      if (!restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const { host, port, data, printerType, language } = req.body as {
+        host: string;
+        port: number;
+        data: string;
+        printerType: string;
+        language?: string;
+      };
+
+      if (!host || !port || !data) {
+        return res.status(400).json({ message: "Host, porta e dados são obrigatórios" });
+      }
+
+      const net = await import('net');
+
+      const result = await new Promise<boolean>((resolve) => {
+        const socket = new net.Socket();
+
+        const timeout = setTimeout(() => {
+          socket.destroy();
+          resolve(false);
+        }, 10000);
+
+        socket.connect(port, host, () => {
+          clearTimeout(timeout);
+          try {
+            const binaryString = Buffer.from(data, 'base64');
+            socket.write(binaryString, () => {
+              socket.end();
+              resolve(true);
+            });
+          } catch (error) {
+            socket.destroy();
+            resolve(false);
+          }
+        });
+
+        socket.on('error', () => {
+          clearTimeout(timeout);
+          socket.destroy();
+          resolve(false);
+        });
+      });
+
+      if (!result) {
+        return res.status(500).json({ message: "Falha ao enviar dados para impressora de rede" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error printing to network printer:', error);
+      res.status(500).json({ message: "Erro ao imprimir em impressora de rede" });
+    }
+  });
+
   // Get print history
   app.get('/api/print-history', isAuthenticated, async (req, res) => {
     try {

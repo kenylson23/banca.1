@@ -7,7 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Printer, Trash2, TestTube, Plus, CheckCircle, XCircle, AlertCircle, Settings2 } from 'lucide-react';
+import { Printer, Trash2, TestTube, Plus, CheckCircle, XCircle, AlertCircle, Settings2, RefreshCw } from 'lucide-react';
 import { type PrinterType } from '@/lib/printer-service';
 import {
   Select,
@@ -50,12 +50,18 @@ interface PrinterConfig {
   autoReconnect: number;
   isActive: number;
   lastConnected?: string;
+  connectionType?: 'usb' | 'network';
+  networkHost?: string;
+  networkPort?: number;
 }
 
 export function PrinterSettings() {
-  const { printers, connectPrinter, disconnectPrinter, testPrint } = usePrinter();
+  const { printers, printQueue, connectPrinter, disconnectPrinter, testPrint, clearPrintQueue, retryFailedPrints } = usePrinter();
   const [selectedType, setSelectedType] = useState<PrinterType>('receipt');
   const [connecting, setConnecting] = useState(false);
+  const [connectionType, setConnectionType] = useState<'usb' | 'network'>('usb');
+  const [networkHost, setNetworkHost] = useState('');
+  const [networkPort, setNetworkPort] = useState(9100);
   const [printerToRemove, setPrinterToRemove] = useState<string | null>(null);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [editingConfig, setEditingConfig] = useState<string | null>(null);
@@ -161,7 +167,11 @@ export function PrinterSettings() {
   const handleConnect = async () => {
     try {
       setConnecting(true);
-      const printer = await connectPrinter(selectedType);
+      const printer = await connectPrinter(selectedType, {
+        connectionType,
+        networkHost: connectionType === 'network' ? networkHost : undefined,
+        networkPort: connectionType === 'network' ? networkPort : undefined,
+      });
       
       // Save configuration to backend
       await createConfigMutation.mutateAsync({
@@ -177,6 +187,9 @@ export function PrinterSettings() {
         soundEnabled: 1,
         autoReconnect: 1,
         isActive: 1,
+        connectionType,
+        networkHost: connectionType === 'network' ? networkHost : undefined,
+        networkPort: connectionType === 'network' ? networkPort : undefined,
       });
     } catch (error) {
     } finally {
@@ -243,30 +256,120 @@ export function PrinterSettings() {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Add Printer Section */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Select value={selectedType} onValueChange={(value) => setSelectedType(value as PrinterType)}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="receipt">{printerTypeLabels.receipt}</SelectItem>
-                <SelectItem value="kitchen">{printerTypeLabels.kitchen}</SelectItem>
-                <SelectItem value="invoice">{printerTypeLabels.invoice}</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button 
-              onClick={handleConnect} 
-              disabled={connecting}
-              className="w-full sm:w-auto"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              {connecting ? 'Conectando...' : 'Adicionar Impressora'}
-            </Button>
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Select value={selectedType} onValueChange={(value) => setSelectedType(value as PrinterType)}>
+                <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="receipt">{printerTypeLabels.receipt}</SelectItem>
+                  <SelectItem value="kitchen">{printerTypeLabels.kitchen}</SelectItem>
+                  <SelectItem value="invoice">{printerTypeLabels.invoice}</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={connectionType} onValueChange={(value) => setConnectionType(value as 'usb' | 'network')}>
+                <SelectTrigger className="w-full sm:w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="usb">USB</SelectItem>
+                  <SelectItem value="network">Rede (IP)</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {connectionType === 'network' ? (
+                <div className="flex gap-2 flex-1">
+                  <Input
+                    placeholder="192.168.1.100"
+                    value={networkHost}
+                    onChange={(e) => setNetworkHost(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="9100"
+                    value={networkPort}
+                    onChange={(e) => setNetworkPort(parseInt(e.target.value || '9100'))}
+                    className="w-24"
+                  />
+                </div>
+              ) : null}
+
+              <Button 
+                onClick={handleConnect} 
+                disabled={connecting || (connectionType === 'network' && !networkHost)}
+                className="w-full sm:w-auto"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {connecting ? 'Conectando...' : 'Adicionar Impressora'}
+              </Button>
+            </div>
+
+            {connectionType === 'network' && (
+              <p className="text-xs text-muted-foreground">
+                Informe o IP/porta da impressora de rede. A porta padrão é 9100.
+              </p>
+            )}
           </div>
 
           <Separator />
 
-          {/* Connected Printers List */}
+          {/* Print Queue Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium">Fila de Impressão</h3>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={retryFailedPrints}
+                  disabled={printQueue.length === 0}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Reprocessar
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearPrintQueue}
+                  disabled={printQueue.length === 0}
+                >
+                  Limpar
+                </Button>
+              </div>
+            </div>
+
+            {printQueue.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground border rounded-lg">
+                <p>Nenhum trabalho na fila</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {printQueue.map((job) => (
+                  <Card key={job.id} className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {job.documentType === 'order' ? 'Pedido' : job.documentType === 'receipt' ? 'Recibo' : job.documentType === 'invoice' ? 'Fatura' : job.documentType === 'bill' ? 'Conta' : 'Relatório'}
+                          {job.orderNumber ? ` #${job.orderNumber}` : ''}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(job.createdAt).toLocaleString('pt-AO')} • Tentativa {job.attempts}/{job.maxAttempts}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {printerTypeLabels[job.printerType]}
+                      </Badge>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Separator />
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium">Impressoras Conectadas</h3>

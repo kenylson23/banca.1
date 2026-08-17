@@ -14,6 +14,9 @@ export interface ConnectedPrinter {
   codepageMapping?: string;
   endpointNumber?: number;
   serialNumber?: string;
+  connectionType?: 'usb' | 'network';
+  networkHost?: string;
+  networkPort?: number;
 }
 
 export interface PrinterConfig {
@@ -23,6 +26,9 @@ export interface PrinterConfig {
   paperWidth: number; // em mm (58 ou 80)
   copies?: number; // número de cópias
   soundEnabled?: boolean; // som ao imprimir
+  connectionType?: 'usb' | 'network';
+  networkHost?: string;
+  networkPort?: number;
 }
 
 export interface PrintHistory {
@@ -36,18 +42,44 @@ export interface PrintHistory {
   error?: string;
 }
 
+export interface PrintJob {
+  id: string;
+  printerType: PrinterType;
+  printerId?: string;
+  data: Uint8Array;
+  documentType: PrintHistory['documentType'];
+  orderNumber?: string;
+  attempts: number;
+  maxAttempts: number;
+  createdAt: string;
+}
+
 class PrinterService {
   private connectedPrinters: Map<string, ConnectedPrinter> = new Map();
   private printerConfigs: Map<PrinterType, PrinterConfig> = new Map();
   private listeners: Set<(printers: ConnectedPrinter[]) => void> = new Set();
   private printHistory: PrintHistory[] = [];
   private maxHistorySize = 100;
+  private printQueue: PrintJob[] = [];
+  private maxQueueSize = 50;
+  private isProcessingQueue = false;
+  private queueListeners: Set<(queue: PrintJob[]) => void> = new Set();
 
   constructor() {
     this.loadConfigs();
     this.setupUSBListeners();
     this.loadSavedPrinters();
     this.loadPrintHistory();
+    this.loadPrintQueue();
+    this.setupPrinterStatusListeners();
+  }
+
+  private setupPrinterStatusListeners() {
+    const originalNotify = this.notifyListeners.bind(this);
+    this.notifyListeners = () => {
+      originalNotify();
+      this.processPrintQueue();
+    };
   }
 
   // Carregar histórico de impressões
@@ -61,7 +93,41 @@ class PrinterService {
     }
   }
 
-  // Salvar histórico de impressões
+  // Carregar fila de impressão
+  private loadPrintQueue() {
+    try {
+      const saved = localStorage.getItem('print-queue');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        this.printQueue = parsed.map((job: any) => ({
+          ...job,
+          data: job.data ? Uint8Array.from(atob(job.data), c => c.charCodeAt(0)) : new Uint8Array(),
+        }));
+        if (this.printQueue.length > 0) {
+          setTimeout(() => this.processPrintQueue(), 1000);
+        }
+      }
+    } catch (error) {
+      this.printQueue = [];
+    }
+  }
+
+  // Salvar fila de impressão
+  private savePrintQueue() {
+    try {
+      if (this.printQueue.length > this.maxQueueSize) {
+        this.printQueue = this.printQueue.slice(-this.maxQueueSize);
+      }
+      const serializable = this.printQueue.map(job => ({
+        ...job,
+        data: Array.from(job.data).reduce((acc, byte) => acc + String.fromCharCode(byte), ''),
+      }));
+      localStorage.setItem('print-queue', JSON.stringify(serializable));
+    } catch (error) {
+    }
+  }
+
+  // Adicionar entrada ao histórico
   private savePrintHistory() {
     try {
       // Manter apenas as últimas impressões
@@ -140,7 +206,110 @@ class PrinterService {
       byType,
       byDocument,
       last24Hours: recentPrints.length,
+      queueLength: this.printQueue.length,
     };
+  }
+
+  // Enfileirar trabalho de impressão
+  public enqueuePrintJob(job: Omit<PrintJob, 'id' | 'createdAt' | 'attempts'>) {
+    const newJob: PrintJob = {
+      ...job,
+      id: crypto.randomUUID(),
+      attempts: 0,
+      maxAttempts: 3,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.printQueue.push(newJob);
+    this.savePrintQueue();
+    this.processPrintQueue();
+
+    return newJob.id;
+  }
+
+  // Processar fila de impressão
+  public async processPrintQueue() {
+    if (this.isProcessingQueue) return;
+    this.isProcessingQueue = true;
+
+    try {
+      while (this.printQueue.length > 0) {
+        const job = this.printQueue[0];
+        const printer = job.printerId 
+          ? this.connectedPrinters.get(job.printerId)
+          : this.getPrinter(job.printerType);
+
+        if (!printer || printer.status !== 'connected') {
+          break;
+        }
+
+        try {
+          if (printer.connectionType === 'network' && printer.networkHost) {
+            await this.sendToNetworkPrinter(printer, job.data, job.documentType, job.orderNumber);
+          } else {
+            await this.sendToPrinter(printer, job.data, job.documentType, job.orderNumber);
+          }
+
+          this.addToHistory({
+            printerType: job.printerType,
+            printerName: printer.name,
+            documentType: job.documentType,
+            orderNumber: job.orderNumber,
+            success: true,
+          });
+
+          this.printQueue.shift();
+          this.savePrintQueue();
+          this.notifyQueueListeners();
+        } catch (error) {
+          job.attempts += 1;
+
+          if (job.attempts >= job.maxAttempts) {
+            this.addToHistory({
+              printerType: job.printerType,
+              printerName: printer.name,
+              documentType: job.documentType,
+              orderNumber: job.orderNumber,
+              success: false,
+              error: error instanceof Error ? error.message : 'Erro desconhecido',
+            });
+            this.printQueue.shift();
+            this.savePrintQueue();
+            this.notifyQueueListeners();
+          } else {
+            break;
+          }
+        }
+      }
+    } finally {
+      this.isProcessingQueue = false;
+    }
+  }
+
+  private notifyQueueListeners() {
+    const queue = [...this.printQueue];
+    this.queueListeners.forEach(listener => listener(queue));
+  }
+
+  public subscribeToQueue(listener: (queue: PrintJob[]) => void) {
+    this.queueListeners.add(listener);
+    listener([...this.printQueue]);
+    return () => {
+      this.queueListeners.delete(listener);
+    };
+  }
+
+  public getQueueStatus() {
+    return {
+      length: this.printQueue.length,
+      jobs: [...this.printQueue],
+    };
+  }
+
+  public clearPrintQueue() {
+    this.printQueue = [];
+    this.savePrintQueue();
+    this.notifyQueueListeners();
   }
 
   private async loadSavedPrinters() {
@@ -275,7 +444,11 @@ class PrinterService {
     return () => this.listeners.delete(listener);
   }
 
-  public async connectPrinter(type: PrinterType): Promise<ConnectedPrinter> {
+  public async connectPrinter(type: PrinterType, options?: { connectionType?: 'usb' | 'network'; networkHost?: string; networkPort?: number }): Promise<ConnectedPrinter> {
+    if (options?.connectionType === 'network') {
+      return this.connectNetworkPrinter(type, options.networkHost, options.networkPort);
+    }
+
     if (!('usb' in navigator) || !navigator.usb) {
       throw new Error('WebUSB não é suportado neste navegador. Use Chrome, Edge ou Opera.');
     }
@@ -320,6 +493,7 @@ class PrinterService {
         codepageMapping: 'epson',
         endpointNumber,
         serialNumber: device.serialNumber,
+        connectionType: 'usb',
       };
 
       this.connectedPrinters.set(printer.id, printer);
@@ -330,6 +504,38 @@ class PrinterService {
     } catch (error) {
       throw new Error('Falha ao conectar impressora. Verifique se está conectada e tente novamente.');
     }
+  }
+
+  private async connectNetworkPrinter(type: PrinterType, host?: string, port = 9100): Promise<ConnectedPrinter> {
+    if (!host) {
+      throw new Error('Host da impressora de rede é obrigatório');
+    }
+
+    const printerId = `network-${type}-${host}-${port}`;
+    const existing = this.connectedPrinters.get(printerId);
+    if (existing) {
+      existing.status = 'connected';
+      this.notifyListeners();
+      return existing;
+    }
+
+    const printer: ConnectedPrinter = {
+      id: printerId,
+      name: `Impressora de Rede ${type}`,
+      type,
+      status: 'connected',
+      connectionType: 'network',
+      networkHost: host,
+      networkPort: port,
+      language: 'esc-pos',
+      codepageMapping: 'epson',
+    };
+
+    this.connectedPrinters.set(printer.id, printer);
+    this.savePrinters();
+    this.notifyListeners();
+
+    return printer;
   }
 
   private detectOutEndpoint(device: USBDevice): number | undefined {
@@ -498,6 +704,105 @@ class PrinterService {
     }
   }
 
+  private async sendToNetworkPrinter(
+    printer: ConnectedPrinter,
+    data: Uint8Array,
+    documentType: PrintHistory['documentType'] = 'order',
+    orderNumber?: string
+  ) {
+    if (!printer.networkHost) {
+      throw new Error('Host da impressora de rede não configurado');
+    }
+
+    try {
+      const base64 = btoa(String.fromCharCode(...Array.from(data)));
+      const response = await fetch('/api/printers/network', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          host: printer.networkHost,
+          port: printer.networkPort || 9100,
+          data: base64,
+          printerType: printer.type,
+          language: printer.language || 'esc-pos',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Falha ao enviar para impressora de rede');
+      }
+
+      this.addToHistory({
+        printerType: printer.type,
+        printerName: printer.name,
+        documentType,
+        orderNumber,
+        success: true,
+      });
+    } catch (error) {
+      this.addToHistory({
+        printerType: printer.type,
+        printerName: printer.name,
+        documentType,
+        orderNumber,
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro na impressão de rede',
+      });
+      throw error;
+    }
+  }
+
+  private async trySend(printer: ConnectedPrinter, data: Uint8Array, documentType: PrintHistory['documentType'], orderNumber?: string) {
+    if (printer.connectionType === 'network') {
+      await this.sendToNetworkPrinter(printer, data, documentType, orderNumber);
+      return;
+    }
+
+    await this.sendToPrinter(printer, data, documentType, orderNumber);
+  }
+
+  private async printWithRetry(
+    printerType: PrinterType,
+    data: Uint8Array,
+    documentType: PrintHistory['documentType'],
+    orderNumber?: string,
+    printerId?: string
+  ) {
+    const printer = printerId
+      ? this.connectedPrinters.get(printerId)
+      : this.getPrinter(printerType);
+
+    if (!printer) {
+      this.enqueuePrintJob({
+        printerType,
+        printerId,
+        data,
+        documentType,
+        orderNumber,
+        maxAttempts: 5,
+      });
+      throw new Error(`Nenhuma impressora ${printerType} conectada. Trabalho enfileirado.`);
+    }
+
+    try {
+      await this.trySend(printer, data, documentType, orderNumber);
+    } catch (error) {
+      this.enqueuePrintJob({
+        printerType,
+        printerId: printer.id,
+        data,
+        documentType,
+        orderNumber,
+        maxAttempts: 5,
+      });
+      throw error;
+    }
+  }
+
   public async printReceipt(
     type: PrinterType,
     content: {
@@ -569,7 +874,7 @@ class PrinterService {
     encoder.newline().newline().newline().cut('partial');
 
     const data = encoder.encode();
-    await this.sendToPrinter(printer, data, 'receipt');
+    await this.printWithRetry(type, data, 'receipt', undefined, printer.id);
   }
 
   public async printText(type: PrinterType, text: string, options?: { 
@@ -609,7 +914,7 @@ class PrinterService {
     }
 
     const data = encoder.encode();
-    await this.sendToPrinter(printer, data, 'receipt');
+    await this.printWithRetry(type, data, 'receipt', undefined, printer.id);
   }
 
   public async testPrint(printerId: string) {
@@ -644,7 +949,7 @@ class PrinterService {
       .cut('partial');
 
     const data = encoder.encode();
-    await this.sendToPrinter(printer, data, 'order');
+    await this.sendToPrinter(printer, data, 'order', printer.id);
   }
 
   public async printInvoice(
@@ -741,7 +1046,7 @@ class PrinterService {
     encoder.newline().newline().newline().cut('partial');
 
     const data = encoder.encode();
-    await this.sendToPrinter(printer, data, 'invoice', content.invoiceNumber);
+    await this.printWithRetry(type, data, 'invoice', content.invoiceNumber, printer.id);
   }
 
   public async printGuestBill(
@@ -965,7 +1270,7 @@ class PrinterService {
     encoder.newline().newline().newline().cut('partial');
 
     const data = encoder.encode();
-    await this.sendToPrinter(printer, data, 'bill', content.documentId);
+    await this.printWithRetry(type, data, 'bill', content.documentId, printer.id);
   }
 
   public async printFinancialReport(
@@ -1053,7 +1358,7 @@ class PrinterService {
     encoder.newline().newline().newline().cut('partial');
 
     const data = encoder.encode();
-    await this.sendToPrinter(printer, data, 'report');
+    await this.printWithRetry(type, data, 'report', undefined, printer.id);
   }
 
   public async printKitchenOrder(
@@ -1133,7 +1438,7 @@ class PrinterService {
     encoder.newline().newline().newline().cut('partial');
 
     const data = encoder.encode();
-    await this.sendToPrinter(printer, data, 'order', content.orderNumber);
+    await this.printWithRetry(type, data, 'order', content.orderNumber, printer.id);
   }
 }
 

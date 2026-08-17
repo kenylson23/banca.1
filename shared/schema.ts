@@ -462,6 +462,9 @@ export const printerConfigurations = pgTable("printer_configurations", {
   autoReconnect: integer("auto_reconnect").default(1), // Auto-reconnect on disconnect
   isActive: integer("is_active").notNull().default(1),
   lastConnected: timestamp("last_connected"),
+  connectionType: varchar("connection_type", { length: 20 }).default('usb'),
+  networkHost: varchar("network_host", { length: 100 }),
+  networkPort: integer("network_port").default(9100),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
