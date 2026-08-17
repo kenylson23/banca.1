@@ -3,8 +3,9 @@
  * Redireciona para checkout v2 ou mostra resumo
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
+import { QUERY_KEYS } from '@/lib/queryKeys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -68,6 +69,21 @@ export function PaymentSection({
   const [receivedAmount, setReceivedAmount] = useState('');
   const [customAmount, setCustomAmount] = useState(''); // 🔧 FIX: Permitir valor customizado
   
+  // ✅ OTIMIZAÇÃO: Pré-carregar o bundle do checkout e queries em segundo plano
+  useEffect(() => {
+    if (table?.id) {
+      import('@/pages/table-checkout-v2');
+      queryClient.prefetchQuery({
+        queryKey: QUERY_KEYS.tables.sessions(table.id),
+        queryFn: async () => {
+          const res = await fetch(`/api/tables/${table.id}/sessions`);
+          return res.json();
+        },
+        staleTime: 30000,
+      });
+    }
+  }, [table?.id, queryClient]);
+
   const handleGoToCheckout = () => {
     onClose();
     navigate(`/tables/${table.id}/checkout?step=1`);
@@ -138,6 +154,13 @@ export function PaymentSection({
       
       if (paymentAmount <= 0) {
         throw new Error('Valor de pagamento deve ser maior que zero');
+      }
+
+      if (paymentMethod === 'dinheiro' && receivedAmount) {
+        const received = parseFloat(receivedAmount);
+        if (received < paymentAmount - 0.009) {
+          throw new Error(`Valor recebido em dinheiro (${received.toFixed(2)}) não pode ser menor que o valor a pagar (${paymentAmount.toFixed(2)})`);
+        }
       }
       
       // ✅ NEW: Se apenas 1 convidado selecionado, usar rota de pagamento específico
@@ -769,31 +792,43 @@ export function PaymentSection({
             </div>
 
             {/* Valor Recebido (opcional - apenas para dinheiro) */}
-            {paymentMethod === 'dinheiro' && (
-              <div className="space-y-2">
-                <Label htmlFor="received-amount">
-                  Valor Recebido (opcional)
-                </Label>
-                <Input
-                  id="received-amount"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={receivedAmount}
-                  onChange={(e) => setReceivedAmount(e.target.value)}
-                />
-                {receivedAmount && parseFloat(receivedAmount) > totalUnpaid && (
-                  <div className="text-sm p-2 bg-green-50 dark:bg-green-950/20 rounded border border-green-200 dark:border-green-900">
-                    <div className="flex items-center justify-between">
-                      <span className="text-green-700 dark:text-green-300">Troco:</span>
-                      <span className="font-bold text-green-700 dark:text-green-300">
-                        {formatKwanza(parseFloat(receivedAmount) - totalUnpaid)}
+            {paymentMethod === 'dinheiro' && (() => {
+              const targetAmount = customAmount && parseFloat(customAmount) > 0 ? parseFloat(customAmount) : totalUnpaid;
+              const isInsufficient = Boolean(receivedAmount) && parseFloat(receivedAmount) < targetAmount - 0.009;
+              return (
+                <div className="space-y-2">
+                  <Label htmlFor="received-amount">
+                    Valor Recebido (opcional)
+                  </Label>
+                  <Input
+                    id="received-amount"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={receivedAmount}
+                    onChange={(e) => setReceivedAmount(e.target.value)}
+                  />
+                  {receivedAmount && isInsufficient && (
+                    <div className="text-sm p-2.5 bg-red-50 dark:bg-red-950/20 rounded-md border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>
+                        Valor insuficiente. Falta: {formatKwanza(targetAmount - parseFloat(receivedAmount))}
                       </span>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                  {receivedAmount && !isInsufficient && parseFloat(receivedAmount) >= targetAmount && (
+                    <div className="text-sm p-2.5 bg-green-50 dark:bg-green-950/20 rounded-md border border-green-200 dark:border-green-900">
+                      <div className="flex items-center justify-between">
+                        <span className="text-green-700 dark:text-green-300 font-medium">Troco a Devolver:</span>
+                        <span className="font-bold text-green-700 dark:text-green-300">
+                          {formatKwanza(parseFloat(receivedAmount) - targetAmount)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Botões */}
             <div className="flex gap-3 pt-4">
@@ -812,7 +847,11 @@ export function PaymentSection({
               <Button
                 className="flex-1 bg-green-600 hover:bg-green-700"
                 onClick={() => quickPaymentMutation.mutate()}
-                disabled={quickPaymentMutation.isPending || !paymentMethod}
+                disabled={
+                  quickPaymentMutation.isPending || 
+                  !paymentMethod || 
+                  (paymentMethod === 'dinheiro' && Boolean(receivedAmount) && parseFloat(receivedAmount) < ((customAmount && parseFloat(customAmount) > 0 ? parseFloat(customAmount) : totalUnpaid) - 0.009))
+                }
               >
                 {quickPaymentMutation.isPending ? (
                   <>

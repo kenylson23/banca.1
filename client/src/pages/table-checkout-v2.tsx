@@ -174,17 +174,23 @@ export default function TableCheckoutV2() {
   
   const table = tablesData?.find((t: any) => t.id === id);
 
-  const isIndividualCheckout = selectedGuestIds.length === 1;
+  const isIndividualCheckout = selectedGuestIds.length === 1 && selectedGuestIds[0] !== 'anonymous' && adjustmentsMode === 'guest';
   
-  // ✅ OTIMIZAÇÃO: Usar React Query em vez de fetch direto
+  // ✅ OTIMIZAÇÃO: Carregar dados da sessão em paralelo imediatamente
   const { data: sessionData } = useQuery({
     queryKey: QUERY_KEYS.tables.sessions(id ?? ''),
     queryFn: async () => {
       const res = await fetch(`/api/tables/${id}/sessions`);
       const sessions = await res.json();
-      return sessions.find((s: any) => s.id === table?.currentSessionId);
+      if (!Array.isArray(sessions)) return null;
+      return (
+        (table?.currentSessionId ? sessions.find((s: any) => s.id === table.currentSessionId) : null) ||
+        sessions.find((s: any) => s.status === 'aberta') ||
+        sessions[0] ||
+        null
+      );
     },
-    enabled: !!table?.currentSessionId && !!id,
+    enabled: !!id,
     staleTime: 30000, // Cache por 30s
   });
 
@@ -579,9 +585,17 @@ export default function TableCheckoutV2() {
           calculatedAmount: calculatedAmount.toFixed(2),
         });
       }
-      
-      // ✅ MODO INDIVIDUAL (por cliente): pagar via rota de guest (em massa se necessário)
-      if (adjustmentsMode === 'guest' && selectedGuestIds.length > 0) {
+
+      // Determinar se é pagamento geral da mesa ou individual de convidados específicos
+      const isTableWidePayment =
+        adjustmentsMode === 'session' ||
+        selectedGuestIds.length === 0 ||
+        selectedGuestIds.length === ordersByGuest.length ||
+        selectedGuestIds.includes('anonymous') ||
+        ordersByGuest.some((og: any) => og.guest?.id === 'anonymous');
+
+      // ✅ MODO INDIVIDUAL (apenas quando um subconjunto de convidados REAIS está selecionado)
+      if (!isTableWidePayment && adjustmentsMode === 'guest' && selectedGuestIds.length > 0) {
         // ✅ Bloqueio: não permitir ajustes individuais se já existir ajuste global na sessão
         if (
           hasSessionLevelAdjustments &&
@@ -591,7 +605,7 @@ export default function TableCheckoutV2() {
         }
 
         const selectedGuests = ordersByGuest
-          .filter((og: any) => selectedGuestIds.includes(og.guest.id))
+          .filter((og: any) => selectedGuestIds.includes(og.guest.id) && og.guest.id !== 'anonymous')
           .filter((og: any) => og.guest?.status !== 'pago');
 
         if (selectedGuests.length === 0) {
@@ -647,6 +661,7 @@ export default function TableCheckoutV2() {
               : selectedGuests.length > 1
                 ? 'Pagamento individual (em massa)'
                 : 'Pagamento individual',
+            receivedAmount: receivedAmount ? parseFloat(receivedAmount) : undefined,
           };
 
           if (discountValue && parseFloat(discountValue) > 0) {
@@ -670,55 +685,7 @@ export default function TableCheckoutV2() {
         };
       }
 
-      // ✅ MODO GLOBAL (mesa completa / sessão)
-      // ✅ NEW: Se apenas 1 convidado selecionado, usar rota de pagamento específico
-      if (selectedGuestIds.length === 1) {
-        // ✅ Bloqueio: não permitir aplicar ajuste individual se já existir ajuste global na sessão
-        if (hasSessionLevelAdjustments && ((discountValue && parseFloat(discountValue) > 0) || (manualServiceValue && parseFloat(manualServiceValue) > 0))) {
-          throw new Error('Existem ajustes globais na mesa. Remova-os antes de aplicar ajustes individuais por convidado.');
-        }
-      
-
-        const guestId = selectedGuestIds[0];
-        
-        // ✅ SOLUÇÃO #1: Incluir ajustes no payload do pagamento individual
-        const guestPayload: any = {
-          amount: calculateTotals.finalTotal.toFixed(2),
-          paymentMethod,
-          notes: receivedAmount ? `Valor recebido: ${parseFloat(receivedAmount).toFixed(2)}` : 'Pagamento individual',
-          receivedAmount: receivedAmount ? parseFloat(receivedAmount) : undefined,
-        };
-        
-        // Adicionar desconto se fornecido
-        if (discountValue && parseFloat(discountValue) > 0) {
-          guestPayload.discount = discountValue;
-          guestPayload.discountType = discountType;
-        }
-        
-        // Adicionar taxa de serviço se fornecida
-        if (manualServiceValue && parseFloat(manualServiceValue) > 0) {
-          guestPayload.serviceCharge = manualServiceValue;
-          guestPayload.serviceChargeType = manualServiceType;
-        }
-        
-        console.log('🎯 [CHECKOUT] Usando rota de pagamento INDIVIDUAL com ajustes:', {
-          guestId,
-          route: `/api/table-guests/${guestId}/payment`,
-          payload: guestPayload,
-          breakdown: {
-            subtotal: totalAmount,
-            discount: guestPayload.discount,
-            discountType: guestPayload.discountType,
-            serviceCharge: guestPayload.serviceCharge,
-            serviceChargeType: guestPayload.serviceChargeType,
-            finalAmount: guestPayload.amount
-          }
-        });
-        
-        const res = await apiRequest('POST', `/api/table-guests/${guestId}/payment`, guestPayload);
-        return res.json();
-      }
-      
+      // ✅ MODO GLOBAL (mesa completa / sessão geral)
       console.log('🎯 [CHECKOUT] Usando rota de pagamento GERAL da mesa:', {
         selectedGuestCount: selectedGuestIds.length,
         route: `/api/tables/${id}/payment`
@@ -729,7 +696,6 @@ export default function TableCheckoutV2() {
         throw new Error('Existem ajustes individuais em convidados. Remova-os antes de aplicar ajustes globais na mesa.');
       }
 
-      
       // Pagamento geral da mesa (todos os convidados ou múltiplos)
       const payload = {
         tableId: id,
@@ -739,24 +705,15 @@ export default function TableCheckoutV2() {
         services: services.length > 0 ? services : undefined,
         discount: discountValue ? discountValue : undefined,
         discountType: discountValue ? discountType : undefined,
-        // ✅ CORREÇÃO: Usar serviceCharge (campo correto do schema)
         serviceCharge: manualServiceValue ? manualServiceValue : undefined,
-        serviceChargeType: manualServiceValue ? manualServiceType : undefined,
+        serviceChargeType: manualServiceType ? manualServiceType : undefined,
         notes: receivedAmount ? `Valor recebido: ${parseFloat(receivedAmount).toFixed(2)}` : undefined,
         receivedAmount: receivedAmount ? parseFloat(receivedAmount) : undefined,
       };
-      
-      console.log('🎯 [CHECKOUT] Payload com desconto e taxa:', {
-        amount: calculateTotals.finalTotal.toFixed(2),
-        discount: discountValue,
-        discountType,
-        serviceFee: manualServiceValue,
-        serviceFeeType: manualServiceType
-      });
-      
-      
+
+      console.log('🎯 [CHECKOUT] Payload com desconto e taxa:', payload);
+
       const res = await apiRequest('POST', `/api/tables/${id}/payment`, payload);
-      
       return res.json();
     },
     onSuccess: async (data) => {

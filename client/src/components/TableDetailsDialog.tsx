@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { OrdersByGuestData } from '@shared/types';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
+import { QUERY_KEYS } from '@/lib/queryKeys';
 import { format, formatDistanceToNow, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -382,6 +383,21 @@ export function TableDetailsDialog({
   console.log('[DEBUG TableDetailsDialog] currentSessionId:', ordersByGuestData?.currentSessionId);
   console.log('[DEBUG TableDetailsDialog] ========================');
   
+  // ✅ OTIMIZAÇÃO: Pré-carregar bundle e dados do checkout para abertura instantânea
+  useEffect(() => {
+    if (open && currentTable?.id) {
+      import('@/pages/table-checkout-v2');
+      queryClient.prefetchQuery({
+        queryKey: QUERY_KEYS.tables.sessions(currentTable.id),
+        queryFn: async () => {
+          const res = await fetch(`/api/tables/${currentTable.id}/sessions`);
+          return res.json();
+        },
+        staleTime: 30000,
+      });
+    }
+  }, [open, currentTable?.id, queryClient]);
+
   // Flatten orders from ordersByGuest structure
   const tableOrders = useMemo(() => {
     if (!ordersByGuestData) return [];
