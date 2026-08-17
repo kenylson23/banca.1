@@ -35,6 +35,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { PDVKpiCard } from "@/components/pdv-kpi-card";
 import { PDVOrderCard } from "@/components/pdv-order-card";
 import { ShimmerSkeleton } from "@/components/shimmer-skeleton";
+import { PrinterStatusBadge } from "@/components/PrinterStatusBadge";
 import { formatKwanza } from "@/lib/formatters";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -293,6 +294,7 @@ export default function PDV() {
             >
               <Search className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
+            <PrinterStatusBadge type="kitchen" />
             {user?.restaurantId && (
               <NewOrderDialog 
                 restaurantId={user.restaurantId}

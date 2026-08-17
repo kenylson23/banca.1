@@ -1,14 +1,20 @@
+import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { PrintOrder } from "@/components/PrintOrder";
 import { PrintInvoice } from "@/components/PrintInvoice";
+import { PrinterStatusBadge } from "@/components/PrinterStatusBadge";
 import { formatKwanza } from "@/lib/formatters";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Clock, UtensilsCrossed, Truck, ShoppingBag, MapPin, Phone, User, Award, Mail } from "lucide-react";
+import { Clock, UtensilsCrossed, Truck, ShoppingBag, MapPin, Phone, User, Award, Mail, Printer } from "lucide-react";
 import type { Order, OrderItem, MenuItem, Table, Customer } from "@shared/schema";
+import { printerService } from "@/lib/printer-service";
+import { useToast } from "@/hooks/use-toast";
+import { usePrinter } from "@/hooks/usePrinter";
 
 interface PDVOrder extends Order {
   customer: Customer | null;
@@ -66,6 +72,52 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
   if (!order) return null;
 
   const OrderTypeIcon = orderTypeIcons[order.orderType as keyof typeof orderTypeIcons] || ShoppingBag;
+  const { toast } = useToast();
+  const { getPrinterByType } = usePrinter();
+  const [isReprinting, setIsReprinting] = React.useState(false);
+
+  const handleReprint = async () => {
+    const kitchenPrinter = getPrinterByType('kitchen');
+    
+    if (!kitchenPrinter) {
+      toast({
+        title: "Impressora não conectada",
+        description: "Conecte uma impressora de cozinha nas configurações",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsReprinting(true);
+    try {
+      await printerService.printKitchenOrder('kitchen', {
+        orderNumber: order.orderNumber || order.id.slice(-6),
+        orderType: order.orderType || 'balcao',
+        customerName: order.customerName || undefined,
+        tableNumber: order.table?.number || undefined,
+        items: order.orderItems?.map((item: any) => ({
+          name: item.menuItem?.name || item.name || 'Item',
+          quantity: item.quantity,
+          selectedOptions: item.selectedOptions || [],
+        })) || [],
+        notes: (order as any).orderNotes || (order as any).notes || undefined,
+        createdAt: order.createdAt ? new Date(order.createdAt).toISOString() : new Date().toISOString(),
+      });
+
+      toast({
+        title: "Pedido reimpresso",
+        description: "Pedido enviado novamente para impressora da cozinha",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao reimprimir",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+    } finally {
+      setIsReprinting(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -77,6 +129,17 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
               <OrderTypeIcon className="h-5 w-5 text-orange-500" />
             </div>
             <div className="flex gap-2">
+              <PrinterStatusBadge type="kitchen" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReprint}
+                disabled={isReprinting}
+                className="gap-1.5"
+              >
+                <Printer className="h-4 w-4" />
+                {isReprinting ? "Reimprimindo..." : "Reimprimir"}
+              </Button>
               <PrintInvoice order={order} variant="outline" size="sm" />
               <PrintOrder order={order} variant="default" size="sm" />
             </div>

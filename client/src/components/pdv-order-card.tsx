@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Eye as EyeIcon,
   X as XIcon,
@@ -15,6 +16,7 @@ import {
   ForkKnife,
 } from "@phosphor-icons/react";
 import { Printer } from "lucide-react";
+import { PrinterStatusBadge } from "@/components/PrinterStatusBadge";
 import { formatKwanza } from "@/lib/formatters";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -75,19 +77,32 @@ export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(
     orderTypeIcons[order.orderType as keyof typeof orderTypeIcons] || ShoppingBagIcon;
   const { toast } = useToast();
   const { getPrinterByType } = usePrinter();
+  const [isPrinting, setIsPrinting] = React.useState(false);
 
   const handlePrint = async () => {
     const kitchenPrinter = getPrinterByType('kitchen');
     
     if (!kitchenPrinter) {
       toast({
-        title: "Impressora não encontrada",
-        description: "Configure uma impressora de cozinha nas configurações",
+        title: "Impressora não conectada",
+        description: "Conecte uma impressora de cozinha nas configurações ou tente novamente",
         variant: "destructive",
+        action: (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.location.href = '/settings?section=printers'}
+            className="gap-1"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            Configurar
+          </Button>
+        ),
       });
       return;
     }
 
+    setIsPrinting(true);
     try {
       await printerService.printKitchenOrder('kitchen', {
         orderNumber: order.orderNumber || order.id.slice(-6),
@@ -110,9 +125,11 @@ export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(
     } catch (error) {
       toast({
         title: "Erro ao imprimir",
-        description: error instanceof Error ? error.message : "Erro desconhecido",
+        description: error instanceof Error ? error.message : "Erro desconhecido. Verifique a conexão da impressora.",
         variant: "destructive",
       });
+    } finally {
+      setIsPrinting(false);
     }
   };
 
@@ -234,15 +251,34 @@ export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(
 
           {/* Right Section: Actions */}
           <div className="flex items-center justify-end gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePrint}
-              data-testid={`button-print-${order.id}`}
-              title="Imprimir pedido"
-            >
-              <Printer className="h-4 w-4" />
-            </Button>
+            <PrinterStatusBadge type="kitchen" />
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePrint}
+                    disabled={isPrinting}
+                    data-testid={`button-print-${order.id}`}
+                    title="Imprimir pedido"
+                    className={cn(
+                      "gap-1.5",
+                      !getPrinterByType('kitchen') && "border-orange-300 text-orange-700 hover:bg-orange-50"
+                    )}
+                  >
+                    <Printer className="h-4 w-4" />
+                    {isPrinting ? "Imprimindo..." : "Imprimir"}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {getPrinterByType('kitchen') 
+                    ? "Imprimir pedido na cozinha" 
+                    : "Nenhuma impressora conectada. Configure nas configurações."}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             <Button
               variant="outline"
