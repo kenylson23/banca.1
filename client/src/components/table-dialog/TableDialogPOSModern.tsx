@@ -1615,7 +1615,7 @@ export function TableDialogPOSModern({
               </Button>
               <Button
                 className="flex-1 bg-green-600 hover:bg-green-700"
-                onClick={() => closeTableMutation.mutate()}
+                onClick={() => closeTableMutation.mutate(true)}
                 disabled={closeTableMutation.isPending}
               >
                 {closeTableMutation.isPending ? (
