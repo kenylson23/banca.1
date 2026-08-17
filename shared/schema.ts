@@ -783,7 +783,6 @@ export const tableGuests = pgTable("table_guests", {
 
 // Performance indexes for table_guests
 export const idxTableGuestsTable = index("idx_table_guests_table").on(tableGuests.tableId);
-export const idxTableGuestsOrder = index("idx_table_guests_order").on(tableGuests.orderId);
 
 export const insertTableGuestSchema = createInsertSchema(tableGuests).omit({
   id: true,
@@ -1753,7 +1752,7 @@ export const menuItems = pgTable("menu_items", {
 });
 
 // Performance indexes for menu_items
-export const idxMenuItemsRestaurantAvailable = index("idx_menu_items_restaurant_available").on(menuItems.restaurantId, menuItems.available);
+export const idxMenuItemsRestaurantAvailable = index("idx_menu_items_restaurant_available").on(menuItems.restaurantId, menuItems.isAvailable);
 export const idxMenuItemsCategory = index("idx_menu_items_category").on(menuItems.categoryId);
 export const idxMenuItemsBranch = index("idx_menu_items_branch").on(menuItems.branchId);
 
@@ -2445,7 +2444,7 @@ export const financialTransactions = pgTable("financial_transactions", {
 
 // Performance indexes for financial_transactions
 export const idxTransactionsRestaurantDate = index("idx_transactions_restaurant_date").on(financialTransactions.restaurantId, financialTransactions.createdAt);
-export const idxTransactionsType = index("idx_transactions_type").on(financialTransactions.transactionType);
+export const idxTransactionsType = index("idx_transactions_type").on(financialTransactions.type);
 
 export const insertFinancialTransactionSchema = createInsertSchema(financialTransactions).omit({
   id: true,
