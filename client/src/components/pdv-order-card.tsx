@@ -72,7 +72,7 @@ export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(
   onAccept,
 }, ref) => {
   const OrderTypeIcon =
-    orderTypeIcons[order.orderType as keyof typeof orderTypeIcons] || ShoppingBag;
+    orderTypeIcons[order.orderType as keyof typeof orderTypeIcons] || ShoppingBagIcon;
   const { toast } = useToast();
   const { getPrinterByType } = usePrinter();
 
