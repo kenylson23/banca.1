@@ -229,6 +229,12 @@ export default function PublicMenu() {
     },
   });
 
+  useEffect(() => {
+    if (resolvedTable?.id && orderType !== 'mesa') {
+      setOrderType('mesa');
+    }
+  }, [resolvedTable?.id, orderType]);
+
   const { data: menuItems, isLoading: menuLoading } = useQuery<Array<MenuItem & { category: Category }>>({
     queryKey: ['/api/public/menu-items', restaurantId],
     enabled: !!restaurantId,
