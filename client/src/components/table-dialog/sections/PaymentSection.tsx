@@ -32,6 +32,7 @@ import {
 import { formatKwanza } from '@/lib/formatters';
 import { apiRequest } from '@/lib/queryClient';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTableInvalidations } from '@/lib/tableInvalidations';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { Table } from '@shared/schema';
@@ -179,12 +180,10 @@ export function PaymentSection({
       return res.json();
     },
     onSuccess: () => {
-      // Invalidação abrangente para garantir que todos os componentes vejam os novos dados
-      queryClient.invalidateQueries({ queryKey: ["/api/tables"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/orders-by-guest`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/guests`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/tables/with-orders"] });
+      if (table?.id) {
+        const { invalidateAll } = useTableInvalidations(table.id);
+        invalidateAll(table.currentSessionId ?? undefined);
+      }
       
       const wasPartialPayment = customAmount && parseFloat(customAmount) > 0 && parseFloat(customAmount) < totalUnpaid;
       

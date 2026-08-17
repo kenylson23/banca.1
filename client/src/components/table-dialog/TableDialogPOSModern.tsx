@@ -54,6 +54,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
 import { useTableData } from './hooks/useTableData';
 import { useTableMutations } from './hooks/useTableMutations';
+import { useTableInvalidations } from '@/lib/tableInvalidations';
 import { OverviewSection } from './sections/OverviewSection';
 import { GuestsSection } from './sections/GuestsSection';
 import { OrdersSection } from './sections/OrdersSection';
@@ -133,14 +134,14 @@ export function TableDialogPOSModern({
   const ordersByGuest = ordersByGuestData?.ordersByGuest || [];
   const mutations = useTableMutations({ tableId: table?.id });
   const queryClient = useQueryClient();
-  
+  const { invalidateAll } = useTableInvalidations(table?.id);
+
   // Forçar refetch quando o StartSessionDialog fechar
   useEffect(() => {
     if (!showStartSession && open && table?.id) {
-      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}/orders-by-guest`] });
+      invalidateAll();
     }
-  }, [showStartSession, open, table?.id, queryClient]);
+  }, [showStartSession, open, table?.id, invalidateAll, queryClient]);
 
   // 🔧 FIX: Quando o currentSessionId mudar, invalidar guests automaticamente
   useEffect(() => {
@@ -153,6 +154,9 @@ export function TableDialogPOSModern({
   // ✅ SOLUÇÃO 3: Mutation para fechar mesa
   const closeTableMutation = useMutation({
     mutationFn: async (forceClose: boolean = false) => {
+      if (!table?.id) {
+        throw new Error('Mesa não encontrada');
+      }
       const res = await fetch(`/api/tables/${table.id}/close-session`, {
         method: 'POST',
         headers: {
@@ -175,13 +179,11 @@ export function TableDialogPOSModern({
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
-      queryClient.invalidateQueries({ queryKey: ['tables'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
+      invalidateAll();
       
       toast({
         title: "Mesa fechada com sucesso",
-        description: `Mesa ${table.number} está agora disponível para novos clientes`,
+        description: `Mesa ${table?.number} está agora disponível para novos clientes`,
       });
       
       onOpenChange(false);
@@ -371,7 +373,7 @@ export function TableDialogPOSModern({
         return;
       }
 
-      const restaurantName = restaurant?.name || 'Restaurante';
+      const restaurantName = typeof restaurant === 'object' && restaurant && 'name' in restaurant ? (restaurant as any).name : 'Restaurante';
       const currentDate = new Date().toLocaleString('pt-PT');
 
       const printContent = `
@@ -560,11 +562,11 @@ export function TableDialogPOSModern({
                     </span>
                     <span class="item-price">${formatKwanza(parseFloat(item.price) * item.quantity)}</span>
                   </div>
-                  ${item.options && item.options.length > 0 ? `
-                    <div class="item-options">
-                      + ${item.options.map(o => o.value).join(', ')}
-                    </div>
-                  ` : ''}
+                   ${item.options && item.options.length > 0 ? `
+                     <div class="item-options">
+                       + ${item.options.map((o: any) => o.value).join(', ')}
+                     </div>
+                   ` : ''}
                 `).join('')}
                 <div class="subtotal">
                   <span>Subtotal:</span>
@@ -817,14 +819,14 @@ export function TableDialogPOSModern({
                 </div>
               </div>
 
-              {/* Status Badge */}
-              {!isSidebarCollapsed && (
-                <Badge
-                  variant={table.status === 'occupied' ? 'default' : 'secondary'}
-                  className="w-full justify-center py-1"
-                >
-                  {table.status === 'occupied' ? '🟢 Ocupada' : '⚪ Disponível'}
-                </Badge>
+               {/* Status Badge */}
+               {!isSidebarCollapsed && (
+                 <Badge
+                   variant={table.status === 'ocupada' ? 'default' : 'secondary'}
+                   className="w-full justify-center py-1"
+                 >
+                   {table.status === 'ocupada' ? '🟢 Ocupada' : '⚪ Disponível'}
+                 </Badge>
               )}
             </div>
 

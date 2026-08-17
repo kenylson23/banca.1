@@ -1,34 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import { useTableInvalidations } from '@/lib/tableInvalidations';
 
 interface UseTableMutationsProps {
   tableId: string | undefined;
 }
 
 export function useTableMutations({ tableId }: UseTableMutationsProps) {
-  const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { invalidateAll } = useTableInvalidations(tableId);
 
-  // Helper to invalidate queries
-  const invalidateTableQueries = () => {
-    // Dados principais da mesa e pedidos
-    queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });
-    queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
-    queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
-    queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
-
-    // Garantir atualização da lista de pessoas da sessão atual
-    // Observação: useTableData usa /api/table-sessions/{sessionId}/guests
-    queryClient.invalidateQueries({
-      predicate: (q) => {
-        const key = q.queryKey?.[0];
-        return typeof key === 'string' && key.startsWith('/api/table-sessions/');
-      },
-    });
-  };
-
-  // Cancel Order
   const cancelOrderMutation = useMutation({
     mutationFn: async (orderId: string) => {
       const response = await apiRequest('PATCH', `/api/orders/${orderId}`, {
@@ -37,7 +19,7 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
       return response.json();
     },
     onSuccess: () => {
-      invalidateTableQueries();
+      invalidateAll();
       toast({ title: 'Pedido cancelado com sucesso' });
     },
     onError: (error: any) => {
@@ -49,14 +31,13 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
     },
   });
 
-  // Update Order Item
   const updateOrderItemMutation = useMutation({
     mutationFn: async ({ itemId, quantity }: { itemId: string; quantity: number }) => {
       const response = await apiRequest('PATCH', `/api/order-items/${itemId}`, { quantity });
       return response.json();
     },
     onSuccess: () => {
-      invalidateTableQueries();
+      invalidateAll();
       toast({ title: 'Item atualizado' });
     },
     onError: (error: any) => {
@@ -68,14 +49,13 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
     },
   });
 
-  // Remove Order Item
   const removeOrderItemMutation = useMutation({
     mutationFn: async (itemId: string) => {
       const response = await apiRequest('DELETE', `/api/order-items/${itemId}`);
       return response.json();
     },
     onSuccess: () => {
-      invalidateTableQueries();
+      invalidateAll();
       toast({ title: 'Item removido' });
     },
     onError: (error: any) => {
@@ -87,7 +67,6 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
     },
   });
 
-  // Move Item
   const moveItemMutation = useMutation({
     mutationFn: async ({ itemId, targetGuestId }: { itemId: string; targetGuestId: string | null }) => {
       const response = await apiRequest('PATCH', `/api/order-items/${itemId}/move`, {
@@ -96,7 +75,7 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
       return response.json();
     },
     onSuccess: () => {
-      invalidateTableQueries();
+      invalidateAll();
       toast({ title: 'Item movido com sucesso' });
     },
     onError: (error: any) => {
@@ -108,7 +87,6 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
     },
   });
 
-  // Add Guest
   const addGuestMutation = useMutation({
     mutationFn: async ({ type, name, customerId }: { type: 'anonymous' | 'customer'; name?: string; customerId?: string }) => {
       const response = await apiRequest('POST', `/api/tables/${tableId}/guests`, {
@@ -117,30 +95,8 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
       });
       return response.json();
     },
-    onSuccess: async () => {
-      console.log('🎉 [AddGuest] Pessoa adicionada, atualizando dados...');
-      
-      // 1. Invalidar todas as queries relacionadas
-      invalidateTableQueries();
-      
-      // 2. Forçar refetch imediato
-      await Promise.all([
-        queryClient.refetchQueries({ 
-          queryKey: [`/api/tables/${tableId}/orders-by-guest`] 
-        }),
-        queryClient.refetchQueries({ 
-          queryKey: ['/api/tables'] 
-        }),
-        queryClient.refetchQueries({
-          predicate: (q) => {
-            const key = q.queryKey?.[0];
-            return typeof key === 'string' && key.startsWith('/api/table-sessions/');
-          },
-        }),
-      ]);
-      
-      console.log('✅ [AddGuest] Dados atualizados!');
-      
+    onSuccess: () => {
+      invalidateAll();
       toast({ title: 'Pessoa adicionada' });
     },
     onError: (error: any) => {
@@ -152,36 +108,13 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
     },
   });
 
-  // Remove Guest
   const removeGuestMutation = useMutation({
     mutationFn: async (guestId: string) => {
       const response = await apiRequest('DELETE', `/api/table-guests/${guestId}`);
       return response.json();
     },
-    onSuccess: async () => {
-      console.log('🎉 [RemoveGuest] Pessoa removida, atualizando dados...');
-      
-      // 1. Invalidar todas as queries relacionadas
-      invalidateTableQueries();
-      
-      // 2. Forçar refetch imediato
-      await Promise.all([
-        queryClient.refetchQueries({ 
-          queryKey: [`/api/tables/${tableId}/orders-by-guest`] 
-        }),
-        queryClient.refetchQueries({ 
-          queryKey: ['/api/tables'] 
-        }),
-        queryClient.refetchQueries({
-          predicate: (q) => {
-            const key = q.queryKey?.[0];
-            return typeof key === 'string' && key.startsWith('/api/table-sessions/');
-          },
-        }),
-      ]);
-      
-      console.log('✅ [RemoveGuest] Dados atualizados!');
-      
+    onSuccess: () => {
+      invalidateAll();
       toast({ title: 'Pessoa removida' });
     },
     onError: (error: any) => {
@@ -193,7 +126,6 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
     },
   });
 
-  // Start Session
   const startSessionMutation = useMutation({
     mutationFn: async (numberOfGuests: number) => {
       const response = await apiRequest('POST', `/api/tables/${tableId}/start-session`, {
@@ -201,43 +133,9 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
       });
       return response.json();
     },
-    onSuccess: async () => {
-      console.log('🎉 [StartSession] Sessão iniciada, atualizando dados...');
-      
-      // 1. Invalidar todas as queries relacionadas
-      invalidateTableQueries();
-      
-      // 2. Forçar refetch imediato das queries críticas (incluindo a mesa principal!)
-      await Promise.all([
-        // CRÍTICO: Refetch da query da mesa específica para atualizar currentSessionId
-        queryClient.refetchQueries({ 
-          queryKey: [`/api/tables/${tableId}`],
-          type: 'active'
-        }),
-        queryClient.refetchQueries({ 
-          queryKey: [`/api/tables/${tableId}/orders-by-guest`],
-          type: 'active'
-        }),
-        queryClient.refetchQueries({ 
-          queryKey: ['/api/tables'],
-          type: 'active'
-        }),
-        queryClient.refetchQueries({ 
-          queryKey: ['/api/tables/with-orders'],
-          type: 'active'
-        }),
-        // Refetch de todas as queries de sessões
-        queryClient.refetchQueries({
-          predicate: (q) => {
-            const key = q.queryKey?.[0];
-            return typeof key === 'string' && key.startsWith('/api/table-sessions/');
-          },
-        }),
-      ]);
-      
-      console.log('✅ [StartSession] Dados atualizados!');
-      
-      toast({ 
+    onSuccess: () => {
+      invalidateAll();
+      toast({
         title: 'Sessão iniciada',
         description: 'Mesa aberta com sucesso.',
       });
@@ -251,58 +149,30 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
     },
   });
 
-  // End Session
   const endSessionMutation = useMutation({
     mutationFn: async (forceClose: boolean = false) => {
       const response = await apiRequest('POST', `/api/tables/${tableId}/close-session`, { forceClose });
       return response.json();
     },
-    onSuccess: async () => {
-      console.log('🎉 [EndSession] Sessão encerrada, atualizando dados...');
-      
-      // 1. Invalidar todas as queries relacionadas
-      invalidateTableQueries();
-      
-      // 2. Forçar refetch imediato
-      await Promise.all([
-        queryClient.refetchQueries({ 
-          queryKey: [`/api/tables/${tableId}/orders-by-guest`] 
-        }),
-        queryClient.refetchQueries({ 
-          queryKey: ['/api/tables'] 
-        }),
-        queryClient.refetchQueries({ 
-          queryKey: ['/api/tables/with-orders'] 
-        }),
-        queryClient.refetchQueries({
-          predicate: (q) => {
-            const key = q.queryKey?.[0];
-            return typeof key === 'string' && key.startsWith('/api/table-sessions/');
-          },
-        }),
-      ]);
-      
-      console.log('✅ [EndSession] Dados atualizados!');
-      
-      toast({ 
+    onSuccess: () => {
+      invalidateAll();
+      toast({
         title: 'Sessão encerrada',
         description: 'Mesa fechada com sucesso.',
       });
     },
     onError: (error: any) => {
-      // Handle validation errors for pending payments
       if (error.status === 400 && error.pendingAmount) {
         const guestsList = error.unpaidGuests?.length > 0
           ? error.unpaidGuests.map((g: any) => `${g.name}: ${g.pending} Kz`).join(', ')
           : '';
-        
+
         toast({
           title: 'Atenção: Valores Pendentes',
           description: `Mesa possui ${error.pendingAmount} Kz pendente de pagamento. ${guestsList}`,
           variant: 'destructive',
         });
-        
-        // If user can force close, show a follow-up message
+
         if (error.canForceClose) {
           console.warn('User can force close. Implement force close dialog if needed.');
         }

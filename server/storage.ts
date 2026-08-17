@@ -9536,7 +9536,7 @@ export class DatabaseStorage implements IStorage {
     const { cache, CacheKeys, CacheTTL } = await import('./cache.js');
     const cacheKey = CacheKeys.subscriptionLimits(restaurantId);
     
-    const cached = cache.get<any>(cacheKey);
+    const cached = await cache.get<any>(cacheKey);
     if (cached && cached.plan) {
       return cached;
     }
