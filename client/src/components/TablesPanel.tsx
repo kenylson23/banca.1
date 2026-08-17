@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Download, QrCode as QrCodeIcon, LayoutGrid, Check, Clock, DollarSign, Users, Search, List, Map, Camera, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,12 @@ import type { Table } from "@shared/schema";
 export function TablesPanel() {
   const { toast } = useToast();
   const { user } = useAuth();
+  
+  // Debug: log user role to console
+  useEffect(() => {
+    console.log('[TablesPanel] user role:', user?.role, 'canDeleteTable:', user?.role === 'admin' || user?.role === 'manager' || user?.role === 'superadmin');
+  }, [user]);
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [qrDialogTable, setQrDialogTable] = useState<Table | null>(null);
   const [deleteTableId, setDeleteTableId] = useState<string | null>(null);
