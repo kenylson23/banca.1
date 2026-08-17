@@ -47,6 +47,8 @@ interface PDVOrder extends Order {
   orderItems: Array<OrderItem & { menuItem: MenuItem }>;
 }
 
+const BALCAO_TYPES = new Set(["balcao", "takeout"]);
+
 export default function PDV() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<OrderType>("balcao");
@@ -73,7 +75,9 @@ export default function PDV() {
 
   const getFilteredOrders = (type: OrderType, filter: OrderFilter) => {
     let filtered = orders?.filter((order) => {
-      const matchesType = order.orderType === typeMapping[type];
+      const matchesType = type === "balcao"
+        ? BALCAO_TYPES.has(order.orderType)
+        : order.orderType === typeMapping[type];
       const matchesSearch = !searchQuery || 
         order.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.id.toLowerCase().includes(searchQuery.toLowerCase());
@@ -93,7 +97,7 @@ export default function PDV() {
   };
 
   const getOrderCounts = (type: OrderType) => {
-    const allTypeOrders = orders?.filter(o => o.orderType === typeMapping[type]) || [];
+    const allTypeOrders = orders?.filter(o => type === "balcao" ? BALCAO_TYPES.has(o.orderType) : o.orderType === typeMapping[type]) || [];
     const total = allTypeOrders.length;
     const pendente = allTypeOrders.filter(o => o.status === "pendente").length;
     const emCurso = allTypeOrders.filter(o => o.status === "em_preparo" || o.status === "pronto").length;
