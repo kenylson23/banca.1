@@ -1707,27 +1707,35 @@ export default function PublicMenu() {
                             )}
                           </div>
 
-                          {/* Tipo de entrega */}
-                          <Tabs value={orderType} onValueChange={(v) => setOrderType(v as 'delivery' | 'takeout')}>
-                            <TabsList className="grid w-full grid-cols-2 h-10 bg-gray-100 rounded-lg p-1">
-                              <TabsTrigger 
-                                value="delivery" 
-                                data-testid="tab-delivery" 
-                                className="gap-1.5 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:text-gray-900"
-                              >
-                                <Bike className="h-4 w-4" />
-                                Delivery
-                              </TabsTrigger>
-                              <TabsTrigger 
-                                value="takeout" 
-                                data-testid="tab-takeout" 
-                                className="gap-1.5 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:text-gray-900"
-                              >
-                                <ShoppingBag className="h-4 w-4" />
-                                Retirada
-                              </TabsTrigger>
-                            </TabsList>
-                          </Tabs>
+                           {/* Tipo de entrega */}
+                           <Tabs value={orderType} onValueChange={(v) => setOrderType(v as 'delivery' | 'takeout' | 'mesa')}>
+                             <TabsList className="grid w-full grid-cols-3 h-10 bg-gray-100 rounded-lg p-1">
+                               <TabsTrigger 
+                                 value="delivery" 
+                                 data-testid="tab-delivery" 
+                                 className="gap-1.5 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:text-gray-900"
+                               >
+                                 <Bike className="h-4 w-4" />
+                                 Delivery
+                               </TabsTrigger>
+                               <TabsTrigger 
+                                 value="takeout" 
+                                 data-testid="tab-takeout" 
+                                 className="gap-1.5 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:text-gray-900"
+                               >
+                                 <ShoppingBag className="h-4 w-4" />
+                                 Retirada
+                               </TabsTrigger>
+                               <TabsTrigger 
+                                 value="mesa" 
+                                 data-testid="tab-table" 
+                                 className="gap-1.5 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:text-gray-900"
+                               >
+                                 <Utensils className="h-4 w-4" />
+                                 Mesa
+                               </TabsTrigger>
+                             </TabsList>
+                           </Tabs>
 
                           {/* Endereço (se delivery) */}
                           {orderType === 'delivery' && (
