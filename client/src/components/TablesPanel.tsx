@@ -186,6 +186,38 @@ export function TablesPanel() {
     },
   });
 
+  const regenerateQrMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/tables/regenerate-qr-codes", {});
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tables/with-orders"] });
+      toast({
+        title: "QR Codes regenerados",
+        description: data?.message || `${data?.updated ?? ''} QR Codes atualizados com sucesso.`,
+      });
+    },
+    onError: (error: any) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Não autorizado",
+          description: "Você foi desconectado. Fazendo login novamente...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Erro ao regenerar QR Codes",
+        description: error.message || "Não foi possível regenerar os QR codes.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     const number = parseInt(tableNumber);

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertCircle } from "lucide-react";
 import { formatKwanza } from "@/lib/formatters";
 
 interface PaymentFormProps {
@@ -31,6 +32,8 @@ export function PaymentForm({ onSubmit, totalAmount, paidAmount, isPending, allo
     { value: "transferencia", label: "Transferência" },
     { value: "cartao", label: "Cartão" },
   ];
+
+  const isCashInvalid = paymentMethod === "dinheiro" && Boolean(receivedAmount) && Number(receivedAmount) < Number(amount);
 
   return (
     <div className="space-y-4">
@@ -131,15 +134,27 @@ export function PaymentForm({ onSubmit, totalAmount, paidAmount, isPending, allo
           <Label>Valor Recebido (opcional)</Label>
           <Input
             type="number"
+            step="0.01"
             value={receivedAmount}
             onChange={(e) => setReceivedAmount(e.target.value)}
             placeholder="0.00"
             data-testid="input-received-amount"
           />
-          {receivedAmount && Number(receivedAmount) > Number(amount) && (
-            <p className="text-sm text-muted-foreground">
-              Troco: {formatKwanza(Number(receivedAmount) - Number(amount))}
-            </p>
+          {receivedAmount && Number(receivedAmount) < Number(amount) && (
+            <div className="p-2.5 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>
+                Valor insuficiente. Falta: {formatKwanza(Number(amount) - Number(receivedAmount))}
+              </span>
+            </div>
+          )}
+          {receivedAmount && Number(receivedAmount) >= Number(amount) && (
+            <div className="p-2.5 rounded-md bg-green-500/10 border border-green-500/20 text-green-700 dark:text-green-300 text-sm flex items-center justify-between">
+              <span className="font-medium">Troco a Devolver:</span>
+              <span className="font-bold text-base">
+                {formatKwanza(Number(receivedAmount) - Number(amount))}
+              </span>
+            </div>
           )}
         </div>
       )}
@@ -147,7 +162,7 @@ export function PaymentForm({ onSubmit, totalAmount, paidAmount, isPending, allo
       <Button
         onClick={() => onSubmit({ amount, paymentMethod, receivedAmount: receivedAmount || undefined })}
         className="w-full"
-        disabled={isPending || Number(amount) <= 0}
+        disabled={isPending || Number(amount) <= 0 || isCashInvalid}
         data-testid="button-confirm-payment"
       >
         {isPending ? "Processando..." : "Confirmar Pagamento"}

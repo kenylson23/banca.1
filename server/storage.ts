@@ -3504,8 +3504,11 @@ export class DatabaseStorage implements IStorage {
     const newPaidAmount = Math.min(currentPaid + paymentAmount, total);
 
     let changeAmount = 0;
-    if (data.receivedAmount) {
+    if (data.receivedAmount !== undefined && data.receivedAmount !== null && data.receivedAmount !== '') {
       const received = parseFloat(data.receivedAmount);
+      if (isNaN(received) || (data.paymentMethod === 'dinheiro' && received < paymentAmount - 0.009)) {
+        throw new Error(`Valor recebido em dinheiro (${isNaN(received) ? data.receivedAmount : received.toFixed(2)}) não pode ser menor que o valor a pagar (${paymentAmount.toFixed(2)})`);
+      }
       if (received >= paymentAmount) {
         changeAmount = received - paymentAmount;
       }

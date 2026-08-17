@@ -178,20 +178,20 @@ export default function TableCheckoutV2() {
   
   // ✅ OTIMIZAÇÃO: Carregar dados da sessão em paralelo imediatamente
   const { data: sessionData } = useQuery({
-    queryKey: QUERY_KEYS.tables.sessions(id ?? ''),
+    queryKey: [...QUERY_KEYS.tables.sessions(id ?? ''), table?.currentSessionId],
     queryFn: async () => {
       const res = await fetch(`/api/tables/${id}/sessions`);
       const sessions = await res.json();
       if (!Array.isArray(sessions)) return null;
       return (
         (table?.currentSessionId ? sessions.find((s: any) => s.id === table.currentSessionId) : null) ||
-        sessions.find((s: any) => s.status === 'aberta') ||
+        sessions.find((s: any) => s.status !== 'encerrada') ||
         sessions[0] ||
         null
       );
     },
     enabled: !!id,
-    staleTime: 30000, // Cache por 30s
+    staleTime: 10000,
   });
 
   // ✅ Ajustes globais existentes na sessão
@@ -247,8 +247,11 @@ export default function TableCheckoutV2() {
     if (sessionData.serviceCharge && parseFloat(sessionData.serviceCharge) > 0 && !manualServiceValue) {
       setManualServiceValue(sessionData.serviceCharge);
       setManualServiceType(sessionData.serviceChargeType || 'percentual');
+      if (!manualServiceName) {
+        setManualServiceName('Taxa de Serviço');
+      }
     }
-  }, [sessionData, isIndividualCheckout]);
+  }, [sessionData, isIndividualCheckout, discountValue, manualServiceValue, manualServiceName]);
   
   // 🔧 CORREÇÃO UX: Salvar ajustes com debounce (auto-save)
   const saveAdjustmentsToSession = useCallback(async () => {
@@ -571,7 +574,7 @@ export default function TableCheckoutV2() {
       });
       
       // Add manual service if defined
-      if (manualServiceName && manualServiceValue && parseFloat(manualServiceValue) > 0) {
+      if (manualServiceValue && parseFloat(manualServiceValue) > 0) {
         const afterDiscounts = Math.max(0, totalAmount - calculateTotals.totalDiscounts);
         const calculatedAmount = manualServiceType === 'percentual'
           ? afterDiscounts * (parseFloat(manualServiceValue) / 100)
@@ -579,7 +582,7 @@ export default function TableCheckoutV2() {
         
         services.push({
           serviceId: null,
-          serviceName: manualServiceName,
+          serviceName: manualServiceName || 'Taxa de Serviço',
           chargeType: manualServiceType,
           value: manualServiceValue,
           calculatedAmount: calculatedAmount.toFixed(2),
@@ -1046,14 +1049,14 @@ export default function TableCheckoutV2() {
     });
     
     // Add manual service if defined
-    if (manualServiceName && manualServiceValue && parseFloat(manualServiceValue) > 0) {
+    if (manualServiceValue && parseFloat(manualServiceValue) > 0) {
       const charge = manualServiceType === 'percentual'
         ? afterDiscounts * (parseFloat(manualServiceValue) / 100)
         : parseFloat(manualServiceValue);
       additions += charge;
       breakdown.push({
         type: 'addition',
-        label: `${manualServiceName} (${manualServiceType === 'percentual' ? manualServiceValue + '%' : 'fixa'})`,
+        label: `${manualServiceName || 'Taxa de Serviço'} (${manualServiceType === 'percentual' ? manualServiceValue + '%' : 'fixa'})`,
         value: charge
       });
     }

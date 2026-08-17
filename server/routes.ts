@@ -4329,9 +4329,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Record payment if provided
       let updatedOrder = await storage.getOrderById(restaurantId, orderId);
       if (paymentAmount && parseFloat(paymentAmount) > 0) {
+        const payAmount = parseFloat(paymentAmount);
+        const method = paymentMethod || 'dinheiro';
+        if (method === 'dinheiro' && receivedAmount !== undefined && receivedAmount !== null && receivedAmount !== '') {
+          const received = parseFloat(receivedAmount);
+          if (isNaN(received) || received < payAmount - 0.009) {
+            return res.status(400).json({ 
+              message: `Valor recebido em dinheiro (${isNaN(received) ? receivedAmount : received.toFixed(2)}) não pode ser inferior ao valor a pagar (${payAmount.toFixed(2)})` 
+            });
+          }
+        }
         updatedOrder = await storage.recordPayment(restaurantId, orderId, {
           amount: paymentAmount,
-          paymentMethod: paymentMethod || 'dinheiro',
+          paymentMethod: method as any,
           receivedAmount
         }, currentUser.id);
       }
@@ -4396,6 +4406,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const restaurantId = currentUser.restaurantId!;
       const { amount, paymentMethod, notes, receivedAmount, services, discount, discountType, serviceCharge, serviceChargeType } = req.body;
+      
+      const paymentAmount = parseFloat(amount);
+      if (isNaN(paymentAmount) || paymentAmount <= 0) {
+        return res.status(400).json({ message: "Valor de pagamento inválido" });
+      }
+
+      if (paymentMethod === 'dinheiro' && receivedAmount !== undefined && receivedAmount !== null && receivedAmount !== '') {
+        const received = typeof receivedAmount === 'string' ? parseFloat(receivedAmount) : Number(receivedAmount);
+        if (isNaN(received) || received < paymentAmount - 0.009) {
+          return res.status(400).json({ 
+            message: `Valor recebido em dinheiro (${isNaN(received) ? receivedAmount : received.toFixed(2)}) não pode ser inferior ao valor a pagar (${paymentAmount.toFixed(2)})` 
+          });
+        }
+      }
       
       const table = await storage.getTableById(req.params.id);
       if (!table) {
@@ -4520,6 +4544,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
               discount, discountType, serviceCharge, serviceChargeType } = req.body;
       const guestId = req.params.guestId;
       
+      if (guestId === 'anonymous') {
+        const targetTableId = req.body.tableId || (req.params as any).id;
+        if (targetTableId) {
+          const table = await storage.getTableById(targetTableId);
+          if (table && table.restaurantId === restaurantId) {
+            const payment = await storage.addTablePayment(restaurantId, {
+              tableId: targetTableId,
+              sessionId: table.currentSessionId,
+              amount,
+              paymentMethod,
+              notes: receivedAmount ? `Valor recebido: ${receivedAmount}. ${notes || ''}` : notes,
+            });
+            if (table.currentSessionId) {
+              await storage.recalculateSessionTotals(table.currentSessionId);
+            }
+            return res.json(payment);
+          }
+        }
+      }
+
       // Validate guest exists
       const guest = await storage.getTableGuestById(guestId);
       if (!guest) {
@@ -4559,6 +4603,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const paymentAmount = parseFloat(amount);
       if (isNaN(paymentAmount) || paymentAmount <= 0) {
         return res.status(400).json({ message: "Valor de pagamento inválido" });
+      }
+
+      if (paymentMethod === 'dinheiro' && receivedAmount !== undefined && receivedAmount !== null && receivedAmount !== '') {
+        const received = typeof receivedAmount === 'string' ? parseFloat(receivedAmount) : Number(receivedAmount);
+        if (isNaN(received) || received < paymentAmount - 0.009) {
+          return res.status(400).json({ 
+            message: `Valor recebido em dinheiro (${isNaN(received) ? receivedAmount : received.toFixed(2)}) não pode ser inferior ao valor a pagar (${paymentAmount.toFixed(2)})` 
+          });
+        }
       }
       
       // ✅ CORREÇÃO: O frontend JÁ calcula e envia o valor com ajustes
@@ -4706,11 +4759,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const restaurantId = currentUser.restaurantId!;
-      const { amount, paymentMethod, notes, sessionId } = req.body;
+      const { amount, paymentMethod, notes, sessionId, receivedAmount } = req.body;
       
       // ✅ CORREÇÃO CONFLITO #29: Validar amount
-      if (!amount || parseFloat(amount) <= 0) {
+      const paymentAmount = parseFloat(amount);
+      if (!amount || isNaN(paymentAmount) || paymentAmount <= 0) {
         return res.status(400).json({ message: "Valor deve ser maior que 0" });
+      }
+
+      if (paymentMethod === 'dinheiro' && receivedAmount !== undefined && receivedAmount !== null && receivedAmount !== '') {
+        const received = typeof receivedAmount === 'string' ? parseFloat(receivedAmount) : Number(receivedAmount);
+        if (isNaN(received) || received < paymentAmount - 0.009) {
+          return res.status(400).json({ 
+            message: `Valor recebido em dinheiro (${isNaN(received) ? receivedAmount : received.toFixed(2)}) não pode ser inferior ao valor a pagar (${paymentAmount.toFixed(2)})` 
+          });
+        }
       }
       
       const table = await storage.getTableById(req.params.id);
@@ -5117,9 +5180,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         serviceChargeType,
       });
       
+      // ✅ Recalcular totais da sessão e atualizar mesa
+      const result = await storage.recalculateSessionTotals(table.currentSessionId);
+      await storage.calculateTableTotal(table.restaurantId, table.id);
+
+      broadcastToClients({ 
+        type: 'table_session_updated', 
+        data: { tableId: table.id, sessionId: table.currentSessionId, sessionTotals: result } 
+      });
+      broadcastToClients({ 
+        type: 'table_updated', 
+        data: { tableId: table.id } 
+      });
+      
       res.json({ 
         message: "Ajustes salvos com sucesso",
-        sessionId: table.currentSessionId 
+        sessionId: table.currentSessionId,
+        sessionTotals: result
       });
     } catch (error) {
       console.error('Erro ao salvar ajustes da sessão:', error);
@@ -7423,6 +7500,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const payment = recordPaymentSchema.parse(req.body);
+      const paymentAmount = parseFloat(payment.amount);
+      if (payment.paymentMethod === 'dinheiro' && payment.receivedAmount !== undefined && payment.receivedAmount !== null && payment.receivedAmount !== '') {
+        const received = parseFloat(payment.receivedAmount);
+        if (isNaN(received) || received < paymentAmount - 0.009) {
+          return res.status(400).json({ 
+            message: `Valor recebido em dinheiro (${isNaN(received) ? payment.receivedAmount : received.toFixed(2)}) não pode ser inferior ao valor a pagar (${paymentAmount.toFixed(2)})` 
+          });
+        }
+      }
       const updated = await storage.recordPayment(restaurantId, req.params.id, payment, currentUser.id);
       
       if (updated.paymentStatus === 'pago') {
