@@ -34,6 +34,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useAuth } from "@/hooks/useAuth";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TableCard } from "@/components/TableCard";
 import { TableDialogWrapper } from '@/components/table-dialog/TableDialogWrapper';
 import { QrScannerDialog } from '@/components/QrScannerDialog';
@@ -924,25 +925,16 @@ export function TablesPanel() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!deleteTableId} onOpenChange={() => setDeleteTableId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir esta mesa? Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteTableId && deleteMutation.mutate(deleteTableId)}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!deleteTableId}
+        onOpenChange={(open) => !open && setDeleteTableId(null)}
+        title="Confirmar exclusão"
+        description="Tem certeza que deseja excluir esta mesa? Esta ação não pode ser desfeita."
+        confirmText={deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+        cancelText="Cancelar"
+        onConfirm={() => deleteTableId && deleteMutation.mutate(deleteTableId)}
+        variant="destructive"
+      />
 
       <QrScannerDialog
         open={isQrScannerOpen}

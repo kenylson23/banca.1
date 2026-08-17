@@ -71,6 +71,7 @@ import { BillSplitPanel } from '@/components/BillSplitPanel';
 import { QrScannerDialog } from '@/components/QrScannerDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import type { Table } from '@shared/schema';
 
 interface TableDialogPOSModernProps {
@@ -118,6 +119,7 @@ export function TableDialogPOSModern({
   
   // ✅ SOLUÇÃO 2: Estado para fechamento de mesa
   const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Integrar dados reais
   const { 
@@ -771,24 +773,34 @@ export function TableDialogPOSModern({
                 )}
                 <div className="flex items-center gap-1">
                   {canDeleteTable && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        if (confirm(`Tem certeza que deseja excluir a mesa ${table.number}?`)) {
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowDeleteDialog(true)}
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        data-testid={`button-delete-table-${table.id}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                      <ConfirmDialog
+                        open={showDeleteDialog}
+                        onOpenChange={setShowDeleteDialog}
+                        title="Excluir mesa"
+                        description={`Tem certeza que deseja excluir a mesa ${table.number}? Esta ação não pode ser desfeita.`}
+                        confirmText="Excluir"
+                        cancelText="Cancelar"
+                        onConfirm={() => {
                           apiRequest('DELETE', `/api/tables/${table.id}`).then(() => {
                             toast({ title: 'Mesa excluída', description: `Mesa ${table.number} foi excluída.` });
                             onOpenChange(false);
                           }).catch((error) => {
                             toast({ title: 'Erro', description: error.message || 'Não foi possível excluir a mesa.', variant: 'destructive' });
                           });
-                        }
-                      }}
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      data-testid={`button-delete-table-${table.id}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                        }}
+                        variant="destructive"
+                      />
+                    </>
                   )}
                   <Button
                     variant="ghost"
