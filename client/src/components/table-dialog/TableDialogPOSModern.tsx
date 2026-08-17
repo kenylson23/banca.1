@@ -47,6 +47,7 @@ import {
   UserCircle,
   XCircle,
   Camera,
+  Trash2,
 } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { useToast } from '@/hooks/use-toast';
@@ -63,11 +64,13 @@ import { AddPersonDialog } from './dialogs/AddPersonDialog';
 import { QuickOrderDialog } from '@/components/QuickOrderDialog';
 import { QRCodeDialog } from './dialogs/QRCodeDialog';
 import { ConvertGuestDialog } from '@/components/ConvertGuestDialog';
-import { CancelOrderDialog } from './dialogs/CancelOrderDialog';
-import { EditOrderDialog } from './dialogs/EditOrderDialog';
+import { CancelOrderDialog } from '@/dialogs/CancelOrderDialog';
+import { EditOrderDialog } from '@/dialogs/EditOrderDialog';
 import { MoveItemDialog } from '@/components/MoveItemDialog';
 import { BillSplitPanel } from '@/components/BillSplitPanel';
 import { QrScannerDialog } from '@/components/QrScannerDialog';
+import { useAuth } from '@/hooks/useAuth';
+import { apiRequest } from '@/lib/queryClient';
 import type { Table } from '@shared/schema';
 
 interface TableDialogPOSModernProps {
@@ -97,8 +100,10 @@ export function TableDialogPOSModern({
 }: TableDialogPOSModernProps) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [activeSection, setActiveSection] = useState<NavigationSection>('overview');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const canDeleteTable = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'superadmin';
 
   // Dialog states
   const [showStartSession, setShowStartSession] = useState(false);
@@ -764,18 +769,40 @@ export function TableDialogPOSModern({
                     </p>
                   </motion.div>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                  className="h-8 w-8"
-                >
-                  {isSidebarCollapsed ? (
-                    <ChevronRight className="w-4 h-4" />
-                  ) : (
-                    <ChevronLeft className="w-4 h-4" />
+                <div className="flex items-center gap-1">
+                  {canDeleteTable && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        if (confirm(`Tem certeza que deseja excluir a mesa ${table.number}?`)) {
+                          apiRequest('DELETE', `/api/tables/${table.id}`).then(() => {
+                            toast({ title: 'Mesa excluída', description: `Mesa ${table.number} foi excluída.` });
+                            onOpenChange(false);
+                          }).catch((error) => {
+                            toast({ title: 'Erro', description: error.message || 'Não foi possível excluir a mesa.', variant: 'destructive' });
+                          });
+                        }
+                      }}
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      data-testid={`button-delete-table-${table.id}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   )}
-                </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                    className="h-8 w-8"
+                  >
+                    {isSidebarCollapsed ? (
+                      <ChevronRight className="w-4 h-4" />
+                    ) : (
+                      <ChevronLeft className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
 
               {/* Status Badge */}
