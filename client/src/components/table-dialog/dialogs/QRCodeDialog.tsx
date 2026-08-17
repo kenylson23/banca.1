@@ -41,8 +41,8 @@ export function QRCodeDialog({
   // Gerar URL pública do menu
   // 🔧 FIX: Sempre usar formato seguro com restaurantId para evitar conflitos multi-restaurante
   const publicMenuUrl = restaurantId
-    ? `${window.location.origin}/mesa/${encodeURIComponent(tableNumber)}?r=${encodeURIComponent(restaurantId)}`
-    : `${window.location.origin}/mesa/${encodeURIComponent(tableNumber)}`;
+    ? `${window.location.origin}/mesa/${encodeURIComponent(tableNumber)}?r=${encodeURIComponent(restaurantId)}&tableId=${encodeURIComponent(tableId)}`
+    : `${window.location.origin}/mesa/${encodeURIComponent(tableNumber)}?tableId=${encodeURIComponent(tableId)}`;
 
   // Gerar QR Code como SVG vetorial com correção de erros alta
   useEffect(() => {

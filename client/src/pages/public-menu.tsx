@@ -164,6 +164,7 @@ export default function PublicMenu() {
   // Detect preview mode and device type from URL params
   const searchParams = new URLSearchParams(window.location.search);
   const tableIdFromQuery = searchParams.get('tableId') || searchParams.get('table');
+  const tableNumberFromQuery = searchParams.get('tableNumber');
   const previewDevice = searchParams.get('preview'); // 'iphone', 'android', 'tablet', 'desktop'
   const isPreviewMode = !!previewDevice;
 
@@ -218,6 +219,15 @@ export default function PublicMenu() {
   });
 
   const restaurantId = restaurant?.id;
+
+  const { data: resolvedTable } = useQuery({
+    queryKey: ['/api/public/tables', restaurantId, tableNumberFromQuery],
+    enabled: !!tableNumberFromQuery && !!restaurantId,
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/public/tables/${restaurantId}/${tableNumberFromQuery}`);
+      return response.json();
+    },
+  });
 
   const { data: menuItems, isLoading: menuLoading } = useQuery<Array<MenuItem & { category: Category }>>({
     queryKey: ['/api/public/menu-items', restaurantId],
@@ -709,13 +719,22 @@ export default function PublicMenu() {
       };
     });
 
-    // ✅ Obter tableId da URL (QR Code)
-    const tableId = searchParams.get('tableId');
+    // ✅ Obter tableId da URL (QR Code) ou resolver por tableNumber
+    const tableId = tableIdFromUrl || resolvedTable?.id;
+
+    if (orderType === 'mesa' && !tableId) {
+      toast({
+        title: 'Mesa não identificada',
+        description: 'Escaneie o QR Code da mesa ou acesse o link com o número da mesa.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     createOrderMutation.mutate({
       restaurantId: restaurant.id,
       orderType,
-      tableId: tableId || undefined, // ✅ ENVIAR tableId da URL
+      tableId: tableId || undefined,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
       deliveryAddress: orderType === 'delivery' ? deliveryAddress.trim() : undefined,
