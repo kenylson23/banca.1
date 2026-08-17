@@ -781,7 +781,7 @@ export default function CustomerMenu() {
                 <Button
                   variant="default"
                   size="sm"
-                  className="hidden sm:flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                  className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white"
                   onClick={() => setIsJoinDialogOpen(true)}
                   data-testid="button-join-table"
                 >
