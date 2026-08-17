@@ -355,7 +355,7 @@ function isOperational(req: any, res: any, next: any) {
     return res.status(401).json({ message: "Não autenticado" });
   }
   const user = req.user as User;
-  const allowedRoles = ['admin', 'superadmin', 'manager', 'cashier', 'waiter'];
+  const allowedRoles = ['admin', 'superadmin', 'manager', 'cashier', 'waiter', 'kitchen'];
   if (!allowedRoles.includes(user.role)) {
     return res.status(403).json({ message: "Acesso negado. Você não tem permissão para esta ação." });
   }
@@ -388,12 +388,27 @@ function isCashier(req: any, res: any, next: any) {
     return res.status(401).json({ message: "Não autenticado" });
   }
   const user = req.user as User;
-  const allowedRoles = ['admin', 'superadmin', 'manager', 'cashier'];
-  
-  console.log('[isCashier] user role:', user.role, 'restaurantId:', user.restaurantId, 'path:', req.path);
+  const allowedRoles = ['admin', 'superadmin', 'manager', 'cashier', 'kitchen'];
   
   if (!allowedRoles.includes(user.role)) {
-    return res.status(403).json({ message: "Acesso negado. Apenas caixa e administradores podem acessar a cozinha." });
+    return res.status(403).json({ message: "Acesso negado. Você não tem permissão para esta ação." });
+  }
+  if (user.role !== 'superadmin' && !user.restaurantId) {
+    return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+  }
+  next();
+}
+
+// Middleware to check if user can access kitchen display (kitchen, cashier, manager, admin, superadmin, waiter)
+function isKitchen(req: any, res: any, next: any) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Não autenticado" });
+  }
+  const user = req.user as User;
+  const allowedRoles = ['admin', 'superadmin', 'manager', 'cashier', 'kitchen', 'waiter'];
+  
+  if (!allowedRoles.includes(user.role)) {
+    return res.status(403).json({ message: "Acesso negado. Apenas equipe da cozinha, caixa e administradores podem acessar a cozinha." });
   }
   if (user.role !== 'superadmin' && !user.restaurantId) {
     return res.status(403).json({ message: "Usuário não associado a um restaurante" });
@@ -6754,7 +6769,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== ORDER ROUTES =====
-  app.get("/api/orders/kitchen", isCashier, async (req, res) => {
+  app.get("/api/orders/kitchen", isKitchen, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId) {
@@ -8043,7 +8058,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/stats/kitchen", isCashier, async (req, res) => {
+  app.get("/api/stats/kitchen", isKitchen, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {
