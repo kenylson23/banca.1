@@ -377,7 +377,7 @@ export default function Kitchen() {
     return (
       <div
         ref={setNodeRef}
-        className={`flex flex-col min-w-[280px] max-w-[320px] rounded-lg border bg-muted/30 ${isOver ? 'ring-2 ring-primary' : ''}`}
+        className={`flex flex-col w-[78vw] sm:w-[280px] md:w-[300px] lg:w-[320px] min-w-[260px] max-w-[320px] rounded-lg border bg-muted/30 snap-center ${isOver ? 'ring-2 ring-primary' : ''}`}
       >
         <div className={`p-3 rounded-t-lg ${statusColors[status]}`}>
           <div className="flex items-center justify-between">
@@ -385,7 +385,7 @@ export default function Kitchen() {
             <Badge variant="secondary" className="bg-background/20">{columnOrders.length}</Badge>
           </div>
         </div>
-        <ScrollArea className="flex-1 p-2" style={{ height: 'calc(100vh - 280px)' }}>
+        <ScrollArea className="flex-1 p-2" style={{ height: 'calc(100vh - 220px)' }}>
           <div className="space-y-2">
             {columnOrders.map(order => (
               <KanbanCard key={order.id} order={order} />
@@ -457,34 +457,34 @@ export default function Kitchen() {
   };
 
   return (
-    <div className="min-h-screen">
-      <div className="space-y-4 p-4 sm:p-6">
+    <div className="min-h-screen overflow-x-hidden">
+      <div className="space-y-3 sm:space-y-4 p-2 sm:p-4 md:p-6">
         <motion.div
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
               Cozinha
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               Gerencie pedidos em tempo real
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <Button
               variant={viewMode === "kanban" ? "default" : "outline"}
-              size="icon"
+              size="sm"
               onClick={() => setViewMode(viewMode === "list" ? "kanban" : "list")}
               data-testid="button-toggle-view"
               title={viewMode === "list" ? "Modo Kanban" : "Modo Lista"}
             >
               {viewMode === "list" ? (
-                <LayoutGrid className="h-5 w-5" />
+                <LayoutGrid className="h-4 w-4 sm:h-5 sm:w-5" />
               ) : (
-                <List className="h-5 w-5" />
+                <List className="h-4 w-4 sm:h-5 sm:w-5" />
               )}
             </Button>
             <Button
@@ -492,19 +492,19 @@ export default function Kitchen() {
               onClick={() => setShowStats(!showStats)}
               data-testid="button-toggle-stats"
             >
-              <BarChart3 className="h-5 w-5 mr-2" />
-              Estatísticas
+              <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 sm:mr-2" />
+              <span className="hidden sm:inline">Estatísticas</span>
             </Button>
             <Button
               variant="outline"
-              size="icon"
+              size="sm"
               onClick={handleMuteToggle}
               data-testid="button-toggle-sound"
             >
               {isMuted ? (
-                <VolumeX className="h-5 w-5" />
+                <VolumeX className="h-4 w-4 sm:h-5 sm:w-5" />
               ) : (
-                <Volume2 className="h-5 w-5" />
+                <Volume2 className="h-4 w-4 sm:h-5 sm:w-5" />
               )}
             </Button>
           </div>
@@ -517,8 +517,8 @@ export default function Kitchen() {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="overflow-x-auto pb-4">
-            <div className="flex gap-4 min-w-max px-4 sm:px-6">
+          <div className="overflow-x-auto pb-4 -mx-2 sm:mx-0 snap-x snap-mandatory">
+            <div className="flex gap-3 sm:gap-4 min-w-max px-2 sm:px-4">
               {kanbanStatuses.map(status => (
                 <KanbanColumn key={status} status={status} />
               ))}
@@ -537,7 +537,7 @@ export default function Kitchen() {
         </DndContext>
       ) : (
         <>
-          <div className="flex justify-center">
+          <div className="flex justify-center w-full overflow-x-auto scrollbar-hide -mx-2 px-2 sm:mx-0 sm:px-0">
             <TubelightNavBar
               items={navItems}
               activeItem={Object.keys(statusMapping).find(key => statusMapping[key] === selectedStatus)}
@@ -546,15 +546,15 @@ export default function Kitchen() {
             />
           </div>
 
-          <div className="px-4 sm:px-6">
+          <div>
             {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {[...Array(6)].map((_, i) => (
                 <Skeleton key={i} className="h-64" />
               ))}
             </div>
           ) : filteredOrders.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {filteredOrders.map((order) => {
             const isNew = newOrderIds.has(order.id);
             const nextStatus = getNextStatus(order.status);
@@ -630,7 +630,7 @@ export default function Kitchen() {
                                 {item.quantity}x
                               </span>
                               <div className="flex-1">
-                                <p className="font-semibold text-sm sm:text-base truncate">{item.menuItem.name}</p>
+                                <p className="font-semibold text-sm sm:text-base break-words">{item.menuItem.name}</p>
                                 {item.options && item.options.length > 0 && (
                                   <div className="mt-1 space-y-0.5">
                                     {item.options.map((option, idx) => (
@@ -664,7 +664,7 @@ export default function Kitchen() {
                       <h3 className="font-semibold text-xs sm:text-sm text-amber-700 dark:text-amber-400 uppercase mb-2">
                         Observações do Pedido
                       </h3>
-                      <p className="text-xs sm:text-sm text-foreground break-words">
+                      <p className="text-xs sm:text-sm text-foreground/80">
                         {order.orderNotes}
                       </p>
                     </div>
@@ -717,7 +717,7 @@ export default function Kitchen() {
             <p className="text-xl font-semibold text-foreground mb-2">
               Nenhum pedido encontrado
             </p>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground text-center text-sm">
               {selectedStatus === "all"
                 ? "Aguardando novos pedidos..."
                 : `Nenhum pedido com status "${statusLabels[selectedStatus as OrderStatus]}"`}
@@ -730,7 +730,7 @@ export default function Kitchen() {
       )}
 
       {showStats && (
-        <div className="space-y-6 mt-8 px-4 sm:px-6">
+        <div className="space-y-4 sm:space-y-6 mt-6 sm:mt-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <h2 className="text-xl sm:text-2xl font-bold">Estatísticas de Produção</h2>
             <Tabs value={statsPeriod} onValueChange={(value) => setStatsPeriod(value as StatsPeriod)}>

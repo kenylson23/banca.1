@@ -1132,7 +1132,7 @@ export default function CustomerMenu() {
                                   placeholder="Digite seu nome"
                                   value={customerName}
                                   onChange={(e) => setCustomerName(e.target.value)}
-                                  className="h-12 border-gray-200 bg-white focus:border-orange-300 focus:ring-orange-200"
+                                  className="h-12 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-orange-300 focus:ring-orange-200"
                                   data-testid="input-customer-name"
                                 />
                              </div>
@@ -1146,7 +1146,7 @@ export default function CustomerMenu() {
                                    placeholder="+244 XXX XXX XXX"
                                    value={customerPhone}
                                    onChange={(e) => setCustomerPhone(e.target.value)}
-                                   className="h-12 border-gray-200 bg-white focus:border-orange-300 focus:ring-orange-200"
+                                   className="h-12 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-orange-300 focus:ring-orange-200"
                                    data-testid="input-customer-phone"
                                  />
                              </div>
@@ -1160,14 +1160,14 @@ export default function CustomerMenu() {
                                   placeholder="Ex: sem cebola, bem passado, etc."
                                   value={orderNotes}
                                   onChange={(e) => setOrderNotes(e.target.value)}
-                                  className="resize-none border-gray-200 bg-white min-h-24 focus:border-orange-300 focus:ring-orange-200"
+                                  className="resize-none border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 min-h-24 focus:border-orange-300 focus:ring-orange-200"
                                   data-testid="input-order-notes"
                                 />
                              </div>
                            </div>
 
                             <Card className="border-gray-200" style={{ backgroundColor: 'white' }}>
-                              <CardContent className="p-4">
+                          <CardContent className="p-4">
                                 <div className="flex items-center gap-2 text-sm text-gray-600">
                                   <Sparkles className="h-4 w-4" style={{ color: branding.primaryColor }} />
                                   <span>Seus dados são usados apenas para este pedido</span>
@@ -1249,7 +1249,7 @@ export default function CustomerMenu() {
                               >
                                 <div className="flex items-center gap-2">
                                   <Tag className="h-4 w-4" style={{ color: branding.primaryColor }} />
-                                  <span className="text-sm font-medium">Cupom de Desconto</span>
+                                  <span className="text-sm font-medium text-gray-900">Cupom de Desconto</span>
                                   {couponValidation?.valid && (
                                     <Badge className="bg-green-100 text-green-700 border-0 text-[10px]">Aplicado</Badge>
                                   )}
@@ -1266,7 +1266,7 @@ export default function CustomerMenu() {
                                     setCouponCode(e.target.value.toUpperCase());
                                     if (couponValidation) setCouponValidation(null);
                                   }}
-                                  className="flex-1 border-gray-200"
+                                  className="flex-1 border-gray-200 bg-white text-gray-900 placeholder:text-gray-400"
                                   data-testid="input-coupon-code"
                                 />
                                 <Button
@@ -1340,7 +1340,7 @@ export default function CustomerMenu() {
                                             if (pointsToRedeem < minPoints) setPointsToRedeem(minPoints);
                                             if (pointsToRedeem > maxForOrder) setPointsToRedeem(maxForOrder);
                                           }}
-                                          className="flex-1 h-9 px-3 rounded-lg border border-orange-300 bg-white text-sm focus:border-orange-400 focus:outline-none"
+                                          className="flex-1 h-9 px-3 rounded-lg border border-orange-300 bg-white text-gray-900 placeholder:text-gray-400 text-sm focus:border-orange-400 focus:outline-none"
                                           data-testid="input-points-to-redeem"
                                         />
                                         <span className="text-sm font-medium text-orange-600">
@@ -1366,7 +1366,6 @@ export default function CustomerMenu() {
                               </span>
                             </div>
                           )}
-
                           <Card className="border-gray-200" style={{ backgroundColor: 'white' }}>
                             <CardContent className="p-4">
                               <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -1511,7 +1510,7 @@ export default function CustomerMenu() {
                 placeholder="Buscar no cardápio..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 h-12 sm:h-14 text-base border-white rounded-full bg-white shadow-sm focus:shadow-md transition-shadow"
+                className="pl-12 h-12 sm:h-14 text-base border-white rounded-full bg-white text-gray-900 placeholder:text-gray-400 shadow-sm focus:shadow-md transition-shadow"
                 data-testid="input-search-main"
               />
             </div>
@@ -1594,75 +1593,75 @@ export default function CustomerMenu() {
                             data-testid={`menu-item-card-${item.id}`}
                           >
                             <div className="flex items-center p-3 sm:p-4 gap-4">
+                              <div 
+                                className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 cursor-pointer"
+                                onClick={() => handleAddMenuItem(item)}
+                              >
+                                {item.imageUrl ? (
+                                  <img 
+                                    src={item.imageUrl} 
+                                    alt={item.name} 
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <Utensils className="h-8 w-8 text-gray-300" />
+                                  </div>
+                                )}
+                                {item.optionGroups && item.optionGroups.length > 0 && (
+                                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent py-1">
+                                    <span className="text-[10px] text-white font-medium px-1.5">Personalizável</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
                                   <div 
-                                    className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-xl overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 cursor-pointer"
+                                    className="min-w-0 flex-1 cursor-pointer"
                                     onClick={() => handleAddMenuItem(item)}
                                   >
-                                    {item.imageUrl ? (
-                                      <img 
-                                        src={item.imageUrl} 
-                                        alt={item.name}
-                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                      />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center">
-                                        <Utensils className="h-8 w-8 text-gray-300" />
-                                      </div>
-                                    )}
-                                    {item.optionGroups && item.optionGroups.length > 0 && (
-                                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent py-1">
-                                        <span className="text-[10px] text-white font-medium px-1.5">Personalizável</span>
-                                      </div>
+                                    <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate" data-testid={`text-item-name-${item.id}`}>
+                                      {item.name}
+                                    </h3>
+                                    {item.description && (
+                                      <p className="text-xs sm:text-sm text-gray-500 mt-0.5 line-clamp-1" data-testid={`text-item-description-${item.id}`}>
+                                        {item.description}
+                                      </p>
                                     )}
                                   </div>
-
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between gap-2">
-                                      <div 
-                                        className="min-w-0 flex-1 cursor-pointer"
-                                        onClick={() => handleAddMenuItem(item)}
-                                      >
-                                        <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate" data-testid={`text-item-name-${item.id}`}>
-                                          {item.name}
-                                        </h3>
-                                        {item.description && (
-                                          <p className="text-xs sm:text-sm text-gray-500 mt-0.5 line-clamp-1" data-testid={`text-item-description-${item.id}`}>
-                                            {item.description}
-                                          </p>
-                                        )}
-                                      </div>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-gray-400 hover:text-red-500 flex-shrink-0"
-                                        data-testid={`button-favorite-${item.id}`}
-                                      >
-                                        <Heart className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                    
-                                    <div className="flex items-center justify-between mt-2 gap-2">
-                                      <span 
-                                        className="text-base sm:text-lg font-bold cursor-pointer"
-                                        style={{ color: branding.primaryColor }}
-                                        onClick={() => handleAddMenuItem(item)}
-                                        data-testid={`text-item-price-${item.id}`}
-                                      >
-                                        {formatKwanza(item.price)}
-                                      </span>
-                                      
-                                      {item.isAvailable === 0 ? (
-                                        <Badge variant="outline" className="border-red-200 text-red-600 text-xs">
-                                          Indisponível
-                                        </Badge>
-                                      ) : (
-                                        <Button
-                                          size="sm"
-                                          className="h-8 px-4 text-white text-xs font-semibold rounded-full shadow-sm"
-                                          style={{ backgroundColor: branding.primaryColor }}
-                                          onClick={() => handleQuickAddToCart(item)}
-                                          data-testid={`button-add-${item.id}`}
-                                        >
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-gray-400 hover:text-red-500 flex-shrink-0"
+                                    data-testid={`button-favorite-${item.id}`}
+                                  >
+                                    <Heart className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                
+                                <div className="flex items-center justify-between mt-2 gap-2">
+                                  <span 
+                                    className="text-base sm:text-lg font-bold cursor-pointer"
+                                    style={{ color: branding.primaryColor }}
+                                    onClick={() => handleAddMenuItem(item)}
+                                    data-testid={`text-item-price-${item.id}`}
+                                  >
+                                    {formatKwanza(item.price)}
+                                  </span>
+                                  
+                                  {item.isAvailable === 0 ? (
+                                    <Badge variant="outline" className="border-red-200 text-red-600 text-xs">
+                                      Indisponível
+                                    </Badge>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      className="h-8 px-4 text-white text-xs font-semibold rounded-full shadow-sm"
+                                      style={{ backgroundColor: branding.primaryColor }}
+                                      onClick={() => handleQuickAddToCart(item)}
+                                      data-testid={`button-add-${item.id}`}
+                                    >
                                           <Plus className="h-3.5 w-3.5 mr-1" />
                                           Adicionar
                                         </Button>

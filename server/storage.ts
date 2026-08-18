@@ -8854,7 +8854,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async autoUpdateTablePaymentStatus(tableId: string): Promise<void> {
-    // Check if table has unpaid orders and update status to pagamento_pendente
+    // Check if table has unpaid orders and update status to aguardando_pgto
     const [table] = await db
       .select()
       .from(tables)
@@ -8873,9 +8873,9 @@ export class DatabaseStorage implements IStorage {
     const totalAmount = parseFloat(session.totalAmount || '0');
     const paidAmount = parseFloat(session.paidAmount || '0');
 
-    // If there are orders and not fully paid, mark as pagamento_pendente
-    if (totalAmount > 0 && paidAmount < totalAmount && table.status !== 'pagamento_pendente') {
-      await this.updateTableStatus(tableId, 'pagamento_pendente');
+    // If there are orders and not fully paid, mark as aguardando_pgto
+    if (totalAmount > 0 && paidAmount < totalAmount && table.tableStatus !== 'aguardando_pgto') {
+      await this.updateTableStatus(tableId, 'aguardando_pgto');
     }
   }
 

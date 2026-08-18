@@ -55,7 +55,7 @@ export function TubelightNavBar({ items, className, activeItem, onItemClick }: N
         className,
       )}
     >
-      <div className="flex items-center gap-3 bg-background/5 border border-border backdrop-blur-lg py-1 px-1 rounded-full shadow-lg">
+      <div className="flex items-center gap-1 sm:gap-3 bg-background/5 border border-border backdrop-blur-lg py-1 px-1 rounded-full shadow-lg overflow-x-auto scrollbar-hide">
         {items.map((item) => {
           const Icon = item.icon
           const isActive = activeTab === item.name
@@ -88,7 +88,7 @@ export function TubelightNavBar({ items, className, activeItem, onItemClick }: N
           )
 
           const itemClasses = cn(
-            "relative cursor-pointer text-sm font-semibold px-6 py-2 rounded-full transition-colors border-0 bg-transparent",
+            "relative cursor-pointer text-xs sm:text-sm font-semibold px-3 sm:px-6 py-1.5 sm:py-2 rounded-full transition-colors border-0 bg-transparent whitespace-nowrap",
             "text-foreground/80 hover:text-primary",
             isActive && "bg-muted text-primary",
           )

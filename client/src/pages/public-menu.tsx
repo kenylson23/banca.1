@@ -1103,7 +1103,7 @@ export default function PublicMenu() {
                                         placeholder="+244 900 000 000"
                                         value={customerPhone}
                                         onChange={(e) => setCustomerPhone(e.target.value)}
-                                        className="h-9 text-sm pr-10"
+                                        className="h-9 text-sm pr-10 bg-white text-gray-900 placeholder:text-gray-400"
                                       />
                                       {isLookingUpCustomer && (
                                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -1126,7 +1126,7 @@ export default function PublicMenu() {
                                         placeholder="Seu nome"
                                         value={customerName}
                                         onChange={(e) => setCustomerName(e.target.value)}
-                                        className="h-9 text-sm"
+                                        className="h-9 text-sm bg-white text-gray-900 placeholder:text-gray-400"
                                       />
                                     </div>
                                   )}
@@ -1206,7 +1206,7 @@ export default function PublicMenu() {
                                           setCouponCode(e.target.value.toUpperCase());
                                           if (couponValidation) setCouponValidation(null);
                                         }}
-                                        className="h-9 flex-1 uppercase text-sm"
+                                        className="h-9 flex-1 uppercase text-sm bg-white text-gray-900 placeholder:text-gray-400"
                                       />
                                       <Button
                                         size="sm"
