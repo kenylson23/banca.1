@@ -151,7 +151,57 @@ export function PaymentSuccessDialog({
   // ✅ Taxa/Serviço: 100% atribuída ao anfitrião (Cliente #1)
   const transformGuestDataForPrint = (og: typeof ordersByGuest[0]) => {
     const guestSubtotal = safeNumber(og.subtotal);
-    // ✅ Ajustes INDIVIDUAIS (por convidado) — não afetam os outros
+    
+    const guestTotalFromBackend = safeNumber((og.guest as any).guestTotal);
+    const hasGuestTotal = guestTotalFromBackend > 0.009 && Math.abs(guestTotalFromBackend - guestSubtotal) > 0.009;
+    
+    if (hasGuestTotal) {
+      const guestDiscountRaw = safeNumber((og.guest as any).discount);
+      const guestServiceChargeRaw = safeNumber((og.guest as any).serviceCharge);
+      
+      const guestDiscount = guestDiscountRaw > 0.009 ? guestDiscountRaw : 0;
+      const guestAdditions = guestServiceChargeRaw > 0.009 ? guestServiceChargeRaw : 0;
+      
+      const guest: TableGuest = {
+        id: og.guest.id,
+        sessionId: og.guest.sessionId,
+        name: og.guest.name,
+        guestNumber: og.guest.guestNumber,
+        status: og.guest.status,
+        totalSpent: og.subtotal,
+        joinedAt: og.guest.joinedAt,
+      };
+  
+      const orders: GuestOrder[] = og.orders.map((order: any) => ({
+        orderId: order.id,
+        orderStatus: order.status,
+        totalAmount: order.totalPrice,
+        createdAt: order.createdAt,
+        items: (order.items || []).map((item: any) => ({
+          id: item.id,
+          menuItemName: item.menuItem?.name || item.name,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          totalPrice: (safeNumber(item.price) * safeNumber(item.quantity)).toFixed(2),
+        })),
+      }));
+  
+      return {
+        guest,
+        orders,
+        subtotal: guestSubtotal,
+        totalAmount: guestTotalFromBackend,
+        discounts:
+          guestDiscount > 0.009
+            ? [{ description: 'Desconto do Cliente', amount: guestDiscount, type: 'fixed' as const }]
+            : [],
+        serviceCharges:
+          guestAdditions > 0.009
+            ? [{ description: 'Taxa/Serviço do Cliente', amount: guestAdditions, type: 'fixed' as const }]
+            : [],
+      };
+    }
+    
     const guestDiscountRaw = safeNumber((og.guest as any).discount);
     const guestDiscountType = ((og.guest as any).discountType || 'valor') as 'valor' | 'percentual';
 
@@ -462,7 +512,7 @@ export function PaymentSuccessDialog({
             </div>
             <div class="info-line">
               <strong>Convidados:</strong>
-              <span>${ordersByGuest.length}</span>
+              <span>${ordersByGuest.filter((og) => og.orders.some((o: any) => (o.items || []).length > 0)).length}</span>
             </div>
             ${sessionDuration ? `
               <div class="info-line">
@@ -488,7 +538,7 @@ export function PaymentSuccessDialog({
 
           <!-- ITEMS BY GUEST -->
           <div class="section-title">Itens Consumidos</div>
-          ${ordersByGuest.map((og) => `
+          ${ordersByGuest.filter((og) => og.orders.some((o: any) => (o.items || []).length > 0)).map((og) => `
             <div class="guest-section">
               <div class="guest-header">
                 <div>
@@ -1162,9 +1212,9 @@ export function PaymentSuccessDialog({
                         </div>
                       </div>
                       
-                      {/* Guest List */}
-                      <div className="space-y-2 pl-16">
-                        {ordersByGuest.map((og) => {
+                       {/* Guest List */}
+                       <div className="space-y-2 pl-16">
+                         {ordersByGuest.filter((og) => og.orders.some((o: any) => (o.items || []).length > 0)).map((og) => {
                           const {
                             guest,
                             orders,

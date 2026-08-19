@@ -72,7 +72,9 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
     enabled: !!table?.id && open,
   });
 
-  const ordersByGuest = ordersData?.ordersByGuest || [];
+  const ordersByGuest = (ordersData?.ordersByGuest || []).filter((og) =>
+    og.orders.some((o: any) => (o.items || []).length > 0)
+  );
   const hasGuests = ordersByGuest.length > 0;
   const tablePaidAmount = parseFloat(ordersData?.paidAmount || '0');
   const remainingTotal = Math.max(0, totalAmount - tablePaidAmount);
