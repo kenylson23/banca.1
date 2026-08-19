@@ -5731,8 +5731,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const totalFromGuestsWithIndividualAdjustments = guests.reduce((sum, g: any) => {
-        const gSubtotal = parseFloat(g.subtotal || '0');
-        let adjusted = gSubtotal;
+        const guestOrderData = ordersByGuest.find((og: any) => og.guest.id === g.id);
+        const guestSubtotal = guestOrderData ? parseFloat(guestOrderData.subtotal || '0') : parseFloat(g.subtotal || '0');
+        let adjusted = guestSubtotal;
 
         const gDiscount = parseFloat(g.discount || '0');
         const gDiscountType = g.discountType || 'valor';
@@ -5759,8 +5760,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sum + (Number.isFinite(v) ? v : 0);
       }, 0);
 
-      // ✅ Regra: se existir qualquer ajuste individual, o total da mesa vira a soma dos totais finais por convidado
-      // (mais a parte ainda não atribuída da Mesa Completa). Caso contrário, usa o total global da sessão.
       const sumOfSubtotals = ordersByGuest.reduce((sum, og) => sum + parseFloat(og.subtotal || '0'), 0);
       
       const totalAmount = hasAnyGuestAdjustments

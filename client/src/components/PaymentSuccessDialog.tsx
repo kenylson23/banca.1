@@ -147,83 +147,12 @@ export function PaymentSuccessDialog({
   };
 
   // Transform OrdersByGuest data to PrintGuestBill format
-  // ✅ Desconto: proporcional ao consumo
-  // ✅ Taxa/Serviço: 100% atribuída ao anfitrião (Cliente #1)
+  // ✅ Fonte de verdade: usar guestTotal do backend quando disponível
   const transformGuestDataForPrint = (og: typeof ordersByGuest[0]) => {
     const guestSubtotal = safeNumber(og.subtotal);
-    
     const guestTotalFromBackend = safeNumber((og.guest as any).guestTotal);
-    const hasGuestTotal = guestTotalFromBackend > 0.009 && Math.abs(guestTotalFromBackend - guestSubtotal) > 0.009;
-    
-    if (hasGuestTotal) {
-      const guestDiscountRaw = safeNumber((og.guest as any).discount);
-      const guestServiceChargeRaw = safeNumber((og.guest as any).serviceCharge);
-      
-      const guestDiscount = guestDiscountRaw > 0.009 ? guestDiscountRaw : 0;
-      const guestAdditions = guestServiceChargeRaw > 0.009 ? guestServiceChargeRaw : 0;
-      
-      const guest: TableGuest = {
-        id: og.guest.id,
-        sessionId: og.guest.sessionId,
-        name: og.guest.name,
-        guestNumber: og.guest.guestNumber,
-        status: og.guest.status,
-        totalSpent: og.subtotal,
-        joinedAt: og.guest.joinedAt,
-      };
-  
-      const orders: GuestOrder[] = og.orders.map((order: any) => ({
-        orderId: order.id,
-        orderStatus: order.status,
-        totalAmount: order.totalPrice,
-        createdAt: order.createdAt,
-        items: (order.items || []).map((item: any) => ({
-          id: item.id,
-          menuItemName: item.menuItem?.name || item.name,
-          quantity: item.quantity,
-          unitPrice: item.price,
-          totalPrice: (safeNumber(item.price) * safeNumber(item.quantity)).toFixed(2),
-        })),
-      }));
-  
-      return {
-        guest,
-        orders,
-        subtotal: guestSubtotal,
-        totalAmount: guestTotalFromBackend,
-        discounts:
-          guestDiscount > 0.009
-            ? [{ description: 'Desconto do Cliente', amount: guestDiscount, type: 'fixed' as const }]
-            : [],
-        serviceCharges:
-          guestAdditions > 0.009
-            ? [{ description: 'Taxa/Serviço do Cliente', amount: guestAdditions, type: 'fixed' as const }]
-            : [],
-      };
-    }
-    
     const guestDiscountRaw = safeNumber((og.guest as any).discount);
-    const guestDiscountType = ((og.guest as any).discountType || 'valor') as 'valor' | 'percentual';
-
-    const discountValue = guestDiscountRaw > 0
-      ? (guestDiscountType === 'percentual'
-          ? Math.min(guestSubtotal, guestSubtotal * (Math.min(guestDiscountRaw, 100) / 100))
-          : Math.min(guestSubtotal, guestDiscountRaw))
-      : 0;
-
-    const afterDiscount = Math.max(0, guestSubtotal - discountValue);
-
     const guestServiceChargeRaw = safeNumber((og.guest as any).serviceCharge);
-    const guestServiceChargeType = ((og.guest as any).serviceChargeType || 'valor') as 'valor' | 'percentual';
-
-    const serviceChargeValue = guestServiceChargeRaw > 0
-      ? (guestServiceChargeType === 'percentual'
-          ? afterDiscount * (guestServiceChargeRaw / 100)
-          : guestServiceChargeRaw)
-      : 0;
-
-    const guestDiscount = discountValue;
-    const guestAdditions = serviceChargeValue;
 
     const guest: TableGuest = {
       id: og.guest.id,
@@ -249,7 +178,12 @@ export function PaymentSuccessDialog({
       })),
     }));
 
-    const totalAmount = Math.max(0, guestSubtotal - guestDiscount + guestAdditions);
+    const hasAdjustments = guestDiscountRaw > 0.009 || guestServiceChargeRaw > 0.009;
+    const useBackendTotal = guestTotalFromBackend > 0.009 && hasAdjustments;
+
+    const totalAmount = useBackendTotal
+      ? guestTotalFromBackend
+      : Math.max(0, guestSubtotal - guestDiscountRaw + guestServiceChargeRaw);
 
     return {
       guest,
@@ -257,12 +191,12 @@ export function PaymentSuccessDialog({
       subtotal: guestSubtotal,
       totalAmount,
       discounts:
-        guestDiscount > 0.009
-          ? [{ description: 'Desconto do Cliente', amount: guestDiscount, type: 'fixed' as const }]
+        guestDiscountRaw > 0.009
+          ? [{ description: 'Desconto do Cliente', amount: guestDiscountRaw, type: 'fixed' as const }]
           : [],
       serviceCharges:
-        guestAdditions > 0.009
-          ? [{ description: 'Taxa/Serviço do Cliente', amount: guestAdditions, type: 'fixed' as const }]
+        guestServiceChargeRaw > 0.009
+          ? [{ description: 'Taxa/Serviço do Cliente', amount: guestServiceChargeRaw, type: 'fixed' as const }]
           : [],
     };
   };
@@ -1212,57 +1146,59 @@ export function PaymentSuccessDialog({
                         </div>
                       </div>
                       
-                       {/* Guest List */}
-                       <div className="space-y-2 pl-16">
-                         {ordersByGuest.filter((og) => og.orders.some((o: any) => (o.items || []).length > 0)).map((og) => {
-                          const {
-                            guest,
-                            orders,
-                            subtotal,
-                            totalAmount: guestTotal,
-                            discounts,
-                            serviceCharges,
-                          } = transformGuestDataForPrint(og);
-                          
-                          return (
-                            <div
-                              key={og.guest.id}
-                              className="flex items-center justify-between p-2 rounded-lg bg-purple-50 dark:bg-purple-950/20 hover:bg-purple-100 dark:hover:bg-purple-950/30 transition-colors"
-                            >
-                              <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-xs font-bold text-purple-700 dark:text-purple-300">
-                                  #{og.guest.guestNumber}
-                                </div>
-                                <div>
-                                  <div className="text-sm font-medium">
-                                    {og.guest.name || `Cliente ${og.guest.guestNumber}`}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {formatKwanza(parseFloat(og.subtotal))}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <PrintGuestBill
-                                guest={guest}
-                                orders={orders}
-                                subtotal={subtotal}
-                                discounts={discounts}
-                                serviceCharges={serviceCharges}
-                                totalAmount={guestTotal}
-                                tableName={`Mesa ${table.number}`}
-                                restaurantName={restaurant?.name}
-                                restaurantAddress={restaurant?.address}
-                                restaurantPhone={restaurant?.phone}
-                                restaurantNIF={restaurant?.nif}
-                                paymentMethod={payment.paymentMethod}
-                                variant="ghost"
-                                size="sm"
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
+                        {/* Guest List */}
+                        <div className="space-y-2 pl-16">
+                          {ordersByGuest.map((og) => {
+                           const {
+                             guest,
+                             orders,
+                             subtotal,
+                             totalAmount: guestTotal,
+                             discounts,
+                             serviceCharges,
+                           } = transformGuestDataForPrint(og);
+                           
+                           return (
+                             <div
+                               key={og.guest.id}
+                               className="flex items-center justify-between p-2 rounded-lg bg-purple-50 dark:bg-purple-950/20 hover:bg-purple-100 dark:hover:bg-purple-950/30 transition-colors"
+                             >
+                               <div className="flex items-center gap-2">
+                                 <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-xs font-bold text-purple-700 dark:text-purple-300">
+                                   #{og.guest.guestNumber}
+                                 </div>
+                                 <div>
+                                   <div className="text-sm font-medium">
+                                     {og.guest.name || `Cliente ${og.guest.guestNumber}`}
+                                   </div>
+                                   <div className="text-xs text-muted-foreground">
+                                     {orders.length === 0 ? 'Sem itens' : formatKwanza(subtotal)}
+                                   </div>
+                                 </div>
+                               </div>
+                               
+                               {orders.length > 0 && (
+                                 <PrintGuestBill
+                                   guest={guest}
+                                   orders={orders}
+                                   subtotal={subtotal}
+                                   discounts={discounts}
+                                   serviceCharges={serviceCharges}
+                                   totalAmount={guestTotal}
+                                   tableName={`Mesa ${table.number}`}
+                                   restaurantName={restaurant?.name}
+                                   restaurantAddress={restaurant?.address}
+                                   restaurantPhone={restaurant?.phone}
+                                   restaurantNIF={restaurant?.nif}
+                                   paymentMethod={payment.paymentMethod}
+                                   variant="ghost"
+                                   size="sm"
+                                 />
+                               )}
+                             </div>
+                           );
+                         })}
+                       </div>
                     </div>
                   </CardContent>
                 </Card>
