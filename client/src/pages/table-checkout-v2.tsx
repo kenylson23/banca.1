@@ -309,6 +309,7 @@ export default function TableCheckoutV2() {
 
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tables.sessions(id ?? '') });
       await queryClient.refetchQueries({ queryKey: QUERY_KEYS.tables.sessions(id ?? '') });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tables.ordersByGuest(id) });
 
       toast({
         title: 'Ajustes globais removidos',
@@ -973,7 +974,7 @@ export default function TableCheckoutV2() {
         subtotal: totalAmount,
         totalDiscounts: 0,
         totalAdditions: 0,
-        finalTotal: totalAmount,
+        finalTotal: backendTotal !== null ? backendTotal : totalAmount,
         breakdown: []
       };
     }
@@ -1968,63 +1969,83 @@ export default function TableCheckoutV2() {
                 {currentStep === 3 && (
                   <div className="space-y-6">
                     {/* 🎯 MELHORIA: Alerta Visual de Ajustes Salvos */}
-                    {((discountValue && parseFloat(discountValue) > 0) || (manualServiceValue && parseFloat(manualServiceValue) > 0)) && (
-                      <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-lg bg-slate-200 dark:bg-slate-700">
-                            <AlertCircle className="h-5 w-5 text-slate-600 dark:text-slate-300" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="font-bold text-slate-900 dark:text-slate-100 mb-1">
-                              Ajustes Ativos na Conta
-                            </div>
-                            <div className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
-                              {discountValue && parseFloat(discountValue) > 0 && (
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="bg-green-500/10 border-green-500 text-green-700 dark:text-green-300">
-                                    Desconto: {discountType === 'percentual' ? `${discountValue}%` : `${formatKwanza(parseFloat(discountValue))}`}
-                                  </Badge>
-                                  <span>= -{formatKwanza(
-                                    discountType === 'percentual'
-                                      ? totalAmount * (parseFloat(discountValue) / 100)
-                                      : parseFloat(discountValue)
-                                  )}</span>
-                                </div>
-                              )}
-                              {manualServiceValue && parseFloat(manualServiceValue) > 0 && (
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="bg-slate-200 dark:bg-slate-700 border-slate-400 text-slate-700 dark:text-slate-300">
-                                    Taxa: {manualServiceType === 'percentual' ? `${manualServiceValue}%` : `${formatKwanza(parseFloat(manualServiceValue))}`}
-                                  </Badge>
-                                  <span>= +{formatKwanza(
-                                    manualServiceType === 'percentual'
-                                      ? totalAmount * (parseFloat(manualServiceValue) / 100)
-                                      : parseFloat(manualServiceValue)
-                                  )}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          {/* 🎯 MELHORIA: Botão Limpar Ajustes */}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setDiscountValue('');
-                              setManualServiceValue('');
-                              toast({
-                                title: "Ajustes removidos",
-                                description: "Todos os descontos e taxas foram limpos",
-                              });
-                            }}
-                            className="border-red-500/50 text-red-600 hover:bg-red-500/10"
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            Limpar Tudo
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                     {((discountValue && parseFloat(discountValue) > 0) || (manualServiceValue && parseFloat(manualServiceValue) > 0)) && (
+                       <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
+                         <div className="flex items-start gap-3">
+                           <div className="p-2 rounded-lg bg-slate-200 dark:bg-slate-700">
+                             <AlertCircle className="h-5 w-5 text-slate-600 dark:text-slate-300" />
+                           </div>
+                           <div className="flex-1">
+                             <div className="font-bold text-slate-900 dark:text-slate-100 mb-1">
+                               Ajustes Ativos na Conta
+                             </div>
+                             <div className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
+                               {discountValue && parseFloat(discountValue) > 0 && (
+                                 <div className="flex items-center gap-2">
+                                   <Badge variant="outline" className="bg-green-500/10 border-green-500 text-green-700 dark:text-green-300">
+                                     Desconto: {discountType === 'percentual' ? `${discountValue}%` : `${formatKwanza(parseFloat(discountValue))}`}
+                                   </Badge>
+                                   <span>= -{formatKwanza(
+                                     discountType === 'percentual'
+                                       ? totalAmount * (parseFloat(discountValue) / 100)
+                                       : parseFloat(discountValue)
+                                   )}</span>
+                                 </div>
+                               )}
+                               {manualServiceValue && parseFloat(manualServiceValue) > 0 && (
+                                 <div className="flex items-center gap-2">
+                                   <Badge variant="outline" className="bg-slate-200 dark:bg-slate-700 border-slate-400 text-slate-700 dark:text-slate-300">
+                                     Taxa: {manualServiceType === 'percentual' ? `${manualServiceValue}%` : `${formatKwanza(parseFloat(manualServiceValue))}`}
+                                   </Badge>
+                                   <span>= +{formatKwanza(
+                                     manualServiceType === 'percentual'
+                                       ? totalAmount * (parseFloat(manualServiceValue) / 100)
+                                       : parseFloat(manualServiceValue)
+                                   )}</span>
+                                 </div>
+                               )}
+                             </div>
+                           </div>
+                           {/* 🎯 MELHORIA: Botão Limpar Ajustes */}
+                           <Button
+                             size="sm"
+                             variant="outline"
+                             onClick={() => {
+                               setDiscountValue('');
+                               setManualServiceValue('');
+                               toast({
+                                 title: "Ajustes removidos",
+                                 description: "Todos os descontos e taxas foram limpos",
+                               });
+                             }}
+                             className="border-red-500/50 text-red-600 hover:bg-red-500/10"
+                           >
+                             <X className="h-4 w-4 mr-1" />
+                             Limpar Tudo
+                           </Button>
+                         </div>
+                       </div>
+                     )}
+
+                     {isIndividualCheckout && individualAdjustmentsDisabled && (
+                       <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                         <div className="font-semibold">Ajustes individuais bloqueados</div>
+                         <div className="text-sm mt-1">
+                           Esta mesa já tem ajustes globais (sessão). Remova-os antes de aplicar descontos/taxas individuais por convidado.
+                         </div>
+                         <div className="mt-3">
+                           <Button
+                             size="sm"
+                             variant="outline"
+                             onClick={clearSessionAdjustments}
+                             disabled={isSavingAdjustments}
+                             className="border-amber-400 text-amber-900 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/30"
+                           >
+                             {isSavingAdjustments ? 'Limpando...' : 'Limpar ajustes globais da mesa'}
+                           </Button>
+                         </div>
+                       </div>
+                     )}
                     
                      {/* Selection Banner */}
                      {selectedGuestIds.length > 0 && (
