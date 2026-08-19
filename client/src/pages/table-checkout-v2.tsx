@@ -1357,22 +1357,22 @@ export default function TableCheckoutV2() {
                     </div>
 
                     {/* Resumo Estatístico */}
-                    <div className="grid grid-cols-3 gap-3">
-                      <Card className="p-4 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border-blue-500/20">
-                        <div className="text-xs text-blue-700 dark:text-blue-300 mb-1">Total Clientes</div>
-                        <div className="text-3xl font-black text-blue-600 dark:text-blue-400">{ordersByGuest.length}</div>
-                      </Card>
-                      <Card className="p-4 bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20">
-                        <div className="text-xs text-green-700 dark:text-green-300 mb-1">Total Itens</div>
-                        <div className="text-3xl font-black text-green-600 dark:text-green-400">{allItems.length}</div>
-                      </Card>
-                      <Card className="p-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20">
-                        <div className="text-xs text-purple-700 dark:text-purple-300 mb-1">Média/Cliente</div>
-                        <div className="text-3xl font-black text-purple-600 dark:text-purple-400">
-                          {ordersByGuest.length > 0 ? formatKwanza(totalAmount / ordersByGuest.length) : '0 Kz'}
-                        </div>
-                      </Card>
-                    </div>
+                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                       <Card className="p-4 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border-blue-500/20">
+                         <div className="text-xs text-blue-700 dark:text-blue-300 mb-1">Total Clientes</div>
+                         <div className="text-3xl font-black text-blue-600 dark:text-blue-400">{ordersByGuest.length}</div>
+                       </Card>
+                       <Card className="p-4 bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20">
+                         <div className="text-xs text-green-700 dark:text-green-300 mb-1">Total Itens</div>
+                         <div className="text-3xl font-black text-green-600 dark:text-green-400">{allItems.length}</div>
+                       </Card>
+                       <Card className="p-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20">
+                         <div className="text-xs text-purple-700 dark:text-purple-300 mb-1">Média/Cliente</div>
+                         <div className="text-3xl font-black text-purple-600 dark:text-purple-400">
+                           {ordersByGuest.length > 0 ? formatKwanza(totalAmount / ordersByGuest.length) : '0 Kz'}
+                         </div>
+                       </Card>
+                     </div>
 
                     {/* Items by Guest */}
                     <div className="space-y-4">
@@ -1403,25 +1403,25 @@ export default function TableCheckoutV2() {
                       </div>
 
                       {/* Busca e Ordenação */}
-                      <div className="flex gap-3">
-                        <Input
-                          placeholder="🔍 Buscar cliente..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="flex-1"
-                        />
-                        <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
-                          <SelectTrigger className="w-[200px]">
-                            <SelectValue placeholder="Ordenar por..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="name">📝 Nome</SelectItem>
-                            <SelectItem value="total-desc">💰 Maior Total</SelectItem>
-                            <SelectItem value="total-asc">💵 Menor Total</SelectItem>
-                            <SelectItem value="status">⏰ Pendente Primeiro</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                       <div className="flex flex-col sm:flex-row gap-3">
+                         <Input
+                           placeholder="🔍 Buscar cliente..."
+                           value={searchQuery}
+                           onChange={(e) => setSearchQuery(e.target.value)}
+                           className="flex-1"
+                         />
+                         <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+                           <SelectTrigger className="w-full sm:w-[200px]">
+                             <SelectValue placeholder="Ordenar por..." />
+                           </SelectTrigger>
+                           <SelectContent>
+                             <SelectItem value="name">📝 Nome</SelectItem>
+                             <SelectItem value="total-desc">💰 Maior Total</SelectItem>
+                             <SelectItem value="total-asc">💵 Menor Total</SelectItem>
+                             <SelectItem value="status">⏰ Pendente Primeiro</SelectItem>
+                           </SelectContent>
+                         </Select>
+                       </div>
 
                       <ScrollArea className="max-h-[500px] pr-4">
                         <div className="space-y-4">
@@ -2087,7 +2087,7 @@ export default function TableCheckoutV2() {
 
                         <Separator />
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Valor do Desconto</Label>
                             <div className="relative">
@@ -2274,7 +2274,7 @@ export default function TableCheckoutV2() {
                             />
                           </div>
 
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label>Valor</Label>
                               <Input
@@ -2427,7 +2427,7 @@ export default function TableCheckoutV2() {
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="pt-4 space-y-3">
-                        <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                           <div className="flex items-center gap-2">
                             <ShoppingBag className="h-4 w-4 text-muted-foreground" />
                             <span className="text-muted-foreground">Total de Itens:</span>

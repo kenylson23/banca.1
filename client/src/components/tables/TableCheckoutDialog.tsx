@@ -369,7 +369,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
 
             {/* Checkout Modes */}
             <Tabs value={checkoutMode} onValueChange={(v) => setCheckoutMode(v as 'simple' | 'by_guest')}>
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2">
                 <TabsTrigger value="simple" data-testid="tab-simple-payment">
                   <Receipt className="w-4 h-4 mr-2" />
                   Pagamento Único

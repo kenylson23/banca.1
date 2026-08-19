@@ -1138,11 +1138,11 @@ export function TableDetailsDialog({
             </Tooltip>
           </TooltipProvider>
         </div>
-        <div className="flex h-full">
-          {/* Main Content - Left Side (2/3) */}
-          <div className="flex-1 flex flex-col overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+        <div className="flex flex-col lg:flex-row h-full">
+          {/* Main Content - Left Side */}
+          <div className="flex-1 flex flex-col overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 min-w-0">
             {/* Header - Premium Gradient */}
-            <div className="relative px-8 py-6 bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A] overflow-hidden">
+            <div className="relative px-4 sm:px-6 lg:px-8 py-4 sm:py-6 bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A] overflow-hidden">
               {/* Animated Background Pattern */}
               <div className="absolute inset-0 opacity-10">
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 via-violet-500/20 to-cyan-500/20" />
@@ -1733,8 +1733,8 @@ export function TableDetailsDialog({
             </ScrollArea>
           </div>
 
-          {/* Sidebar - Right Side (1/3) - Premium Dark */}
-          <div className="w-96 bg-gradient-to-br from-[#0F172A] to-[#1E293B] flex flex-col relative overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
+          {/* Sidebar - Right Side - Premium Dark */}
+          <div className="w-full lg:w-96 bg-gradient-to-br from-[#0F172A] to-[#1E293B] flex flex-col relative overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 shrink-0">
             {/* Ambient Glow */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-500/10 to-violet-500/10 rounded-full blur-3xl" />
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-cyan-500/10 to-indigo-500/10 rounded-full blur-3xl" />

@@ -748,13 +748,20 @@ export function TableDialogPOSModern({
             Diálogo de gestão da mesa {table.number}
           </div>
 
-        <div className="flex h-full w-full">
+        <div className="flex flex-col lg:flex-row h-full">
           {/* SIDEBAR - Navegação Lateral */}
           <motion.aside
             initial={false}
-            animate={{ width: isSidebarCollapsed ? 80 : 280 }}
+            animate={{ 
+              width: isSidebarCollapsed ? 72 : '100%',
+              height: isSidebarCollapsed ? 'auto' : 'auto'
+            }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="flex flex-col bg-sidebar border-r border-sidebar-border shadow-xl"
+            className={cn(
+              "flex flex-col bg-sidebar border-r border-sidebar-border shadow-xl",
+              "lg:w-auto",
+              isSidebarCollapsed ? "hidden lg:flex lg:w-[72px]" : "flex"
+            )}
           >
             {/* Header da Sidebar */}
             <div className="p-4 border-b border-sidebar-border">
@@ -968,10 +975,10 @@ export function TableDialogPOSModern({
           {/* MAIN CONTENT AREA */}
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Top Bar - Actions & Navigation */}
-            <div className="bg-card border-b border-border px-6 py-4">
-              <div className="flex items-center justify-between">
-                {/* Left - Quick Actions */}
-                <div className="flex items-center gap-2">
+            <div className="bg-card border-b border-border px-4 py-3">
+              <div className="flex flex-col gap-3">
+                {/* Top actions row */}
+                <div className="flex flex-wrap items-center gap-2">
                   <Button 
                     variant="default" 
                     size="sm" 
@@ -987,7 +994,7 @@ export function TableDialogPOSModern({
                     disabled={!currentTable}
                   >
                     <Plus className="w-4 h-4" />
-                    Novo Pedido
+                    <span className="hidden sm:inline">Novo Pedido</span>
                   </Button>
                   <Button 
                     variant="outline" 
@@ -997,9 +1004,8 @@ export function TableDialogPOSModern({
                     disabled={false}
                   >
                     <UserPlus className="w-4 h-4" />
-                    Adicionar Pessoa
+                    <span className="hidden sm:inline">Adicionar Pessoa</span>
                   </Button>
-                  <Separator orientation="vertical" className="h-6 mx-2" />
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -1008,41 +1014,45 @@ export function TableDialogPOSModern({
                     disabled={false}
                   >
                     <Package className="w-4 h-4" />
-                    Pedido Rápido
+                    <span className="hidden sm:inline">Pedido Rápido</span>
                   </Button>
-                </div>
-
-                {/* Right - Table Navigation & Close */}
-                <div className="flex items-center gap-2">
-                  {allTables.length > 1 && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleNavigateTable('prev')}
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <span className="text-sm text-muted-foreground px-2">
-                        Mesa {allTables.findIndex(t => t.id === table.id) + 1} de {allTables.length}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleNavigateTable('next')}
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                      <Separator orientation="vertical" className="h-6 mx-2" />
-                    </>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleClose}
-                  >
-                    <X className="w-5 h-5" />
-                  </Button>
+                  
+                  <div className="flex-1" />
+                  
+                  {/* Right side */}
+                  <div className="flex items-center gap-2">
+                    {allTables.length > 1 && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleNavigateTable('prev')}
+                          className="h-8 w-8"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </Button>
+                        <span className="text-xs sm:text-sm text-muted-foreground px-1">
+                          {allTables.findIndex(t => t.id === table.id) + 1}/{allTables.length}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleNavigateTable('next')}
+                          className="h-8 w-8"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleClose}
+                      className="h-8 w-8"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
