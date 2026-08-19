@@ -105,6 +105,7 @@ export function TableDialogPOSModern({
   const { user } = useAuth();
   const [activeSection, setActiveSection] = useState<NavigationSection>('overview');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const canDeleteTable = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'superadmin';
 
   // Dialog states
@@ -738,8 +739,13 @@ export function TableDialogPOSModern({
             transition={{ duration: 0.3, ease: 'easeInOut' }}
             className={cn(
               "flex flex-col bg-sidebar border-b lg:border-r border-sidebar-border shadow-xl",
-              "lg:w-auto w-full h-full lg:h-auto",
-              isSidebarCollapsed ? "hidden lg:flex lg:w-[72px]" : "flex"
+              "lg:w-auto w-full",
+              "fixed inset-x-0 bottom-0 lg:relative lg:inset-auto lg:bottom-auto lg:top-auto z-40",
+              "lg:h-full lg:max-h-full",
+              "max-h-[50vh] lg:max-h-none",
+              "lg:flex",
+              isSidebarCollapsed && "hidden lg:flex lg:w-[72px]",
+              !isSidebarCollapsed && isMobileSidebarOpen && "flex"
             )}
           >
             {/* Header da Sidebar */}
@@ -856,7 +862,10 @@ export function TableDialogPOSModern({
                       isSidebarCollapsed && 'justify-center px-0',
                       activeSection === item.id && 'shadow-md'
                     )}
-                    onClick={() => setActiveSection(item.id)}
+                     onClick={() => {
+                       setActiveSection(item.id);
+                       setIsMobileSidebarOpen(false);
+                     }}
                   >
                     {item.icon}
                     {!isSidebarCollapsed && (
@@ -951,6 +960,14 @@ export function TableDialogPOSModern({
             </div>
           </motion.aside>
 
+          {/* Overlay para fechar sidebar mobile */}
+          {isMobileSidebarOpen && (
+            <div
+              className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+              onClick={() => setIsMobileSidebarOpen(false)}
+            />
+          )}
+
           {/* MAIN CONTENT AREA */}
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Top Bar - Actions & Navigation */}
@@ -996,9 +1013,20 @@ export function TableDialogPOSModern({
                     <span className="hidden sm:inline">Pedido Rápido</span>
                   </Button>
                   
-                  <div className="flex-1" />
-                  
-                  {/* Right side */}
+                   <div className="flex-1" />
+                   
+                   {/* Mobile sidebar toggle */}
+                   <Button
+                     variant="outline"
+                     size="icon"
+                     onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+                     className="h-8 w-8 lg:hidden"
+                     title="Abrir menu"
+                   >
+                     <LayoutGrid className="w-4 h-4" />
+                   </Button>
+                   
+                   {/* Right side */}
                   <div className="flex items-center gap-2">
                     {allTables.length > 1 && (
                       <>
