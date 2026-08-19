@@ -174,8 +174,6 @@ export default function TableCheckoutV2() {
   
   const table = tablesData?.find((t: any) => t.id === id);
 
-  // isIndividualCheckout will be defined later after ordersByGuestData query
-  
   // ✅ OTIMIZAÇÃO: Carregar dados da sessão em paralelo imediatamente
   const { data: sessionData } = useQuery({
     queryKey: [...QUERY_KEYS.tables.sessions(id ?? ''), table?.currentSessionId],
@@ -229,6 +227,18 @@ export default function TableCheckoutV2() {
     }
     return `${minutes}min`;
   }, [sessionData]);
+
+  // ✅ OTIMIZAÇÃO: Carregar orders em paralelo, não esperar pela table
+  const { data: ordersByGuestData, isLoading: loadingOrders } = useQuery<OrdersByGuestData>({
+    queryKey: QUERY_KEYS.tables.ordersByGuest(id ?? ''),
+    enabled: !!id,
+    staleTime: 10000,
+  });
+  // Determine if checkout is individual (no anonymous orders)
+  const isIndividualCheckout = useMemo(() => {
+    const hasAnonymous = !!(ordersByGuestData?.anonymousOrders?.length);
+    return selectedGuestIds.length === 1 && selectedGuestIds[0] !== 'anonymous' && !hasAnonymous;
+  }, [selectedGuestIds, ordersByGuestData]);
 
   // Restaurar ajustes da sessão quando dados estiverem disponíveis
   useEffect(() => {
@@ -349,18 +359,6 @@ export default function TableCheckoutV2() {
   });
 
   
-  // ✅ OTIMIZAÇÃO: Carregar orders em paralelo, não esperar pela table
-  const { data: ordersByGuestData, isLoading: loadingOrders } = useQuery<OrdersByGuestData>({
-    queryKey: QUERY_KEYS.tables.ordersByGuest(id ?? ''),
-    enabled: !!id,
-    staleTime: 10000,
-  });
-  // Determine if checkout is individual (no anonymous orders)
-  const isIndividualCheckout = useMemo(() => {
-    const hasAnonymous = !!(ordersByGuestData?.anonymousOrders?.length);
-    return selectedGuestIds.length === 1 && selectedGuestIds[0] !== 'anonymous' && !hasAnonymous;
-  }, [selectedGuestIds, ordersByGuestData]);
-
   // ✅ Modo de ajustes (interpretação automática)
   // - Se existir Mesa Completa (itens não atribuídos) => modo GLOBAL (sessão)
   // - Se tudo estiver atribuído a clientes => modo INDIVIDUAL (por cliente)
