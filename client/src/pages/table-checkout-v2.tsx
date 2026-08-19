@@ -174,7 +174,7 @@ export default function TableCheckoutV2() {
   
   const table = tablesData?.find((t: any) => t.id === id);
 
-  const isIndividualCheckout = selectedGuestIds.length === 1 && selectedGuestIds[0] !== 'anonymous' && ((ordersByGuestData?.anonymousOrders?.length || 0) === 0);
+  // isIndividualCheckout will be defined later after ordersByGuestData query
   
   // ✅ OTIMIZAÇÃO: Carregar dados da sessão em paralelo imediatamente
   const { data: sessionData } = useQuery({
@@ -355,6 +355,11 @@ export default function TableCheckoutV2() {
     enabled: !!id,
     staleTime: 10000,
   });
+  // Determine if checkout is individual (no anonymous orders)
+  const isIndividualCheckout = useMemo(() => {
+    const hasAnonymous = !!(ordersByGuestData?.anonymousOrders?.length);
+    return selectedGuestIds.length === 1 && selectedGuestIds[0] !== 'anonymous' && !hasAnonymous;
+  }, [selectedGuestIds, ordersByGuestData]);
 
   // ✅ Modo de ajustes (interpretação automática)
   // - Se existir Mesa Completa (itens não atribuídos) => modo GLOBAL (sessão)
