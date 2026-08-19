@@ -105,7 +105,6 @@ export function TableDialogPOSModern({
   const { user } = useAuth();
   const [activeSection, setActiveSection] = useState<NavigationSection>('overview');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const canDeleteTable = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'superadmin';
 
   // Dialog states
@@ -857,10 +856,7 @@ export function TableDialogPOSModern({
                       isSidebarCollapsed && 'justify-center px-0',
                       activeSection === item.id && 'shadow-md'
                     )}
-                     onClick={() => {
-                       setActiveSection(item.id);
-                       setIsMobileSidebarOpen(false);
-                     }}
+                     onClick={() => setActiveSection(item.id)}
                   >
                     {item.icon}
                     {!isSidebarCollapsed && (
@@ -955,14 +951,6 @@ export function TableDialogPOSModern({
             </div>
           </motion.aside>
 
-          {/* Overlay para fechar sidebar mobile */}
-          {isMobileSidebarOpen && (
-            <div
-              className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-              onClick={() => setIsMobileSidebarOpen(false)}
-            />
-          )}
-
            {/* MAIN CONTENT AREA */}
            <div className="flex-1 flex flex-col overflow-hidden">
              {/* Mobile Navigation */}
@@ -1027,17 +1015,6 @@ export function TableDialogPOSModern({
                   </Button>
                   
                    <div className="flex-1" />
-                   
-                   {/* Mobile sidebar toggle */}
-                   <Button
-                     variant="outline"
-                     size="icon"
-                     onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-                     className="h-8 w-8 lg:hidden"
-                     title="Abrir menu"
-                   >
-                     <LayoutGrid className="w-4 h-4" />
-                   </Button>
                    
                    {/* Right side */}
                   <div className="flex items-center gap-2">
