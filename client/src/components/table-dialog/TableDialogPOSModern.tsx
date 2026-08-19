@@ -729,7 +729,7 @@ export function TableDialogPOSModern({
           </div>
 
         <div className="flex flex-col lg:flex-row h-full">
-          {/* SIDEBAR - Navegação Lateral */}
+          {/* SIDEBAR - Navegação Lateral (desktop) */}
           <motion.aside
             initial={false}
             animate={{ 
@@ -738,14 +738,9 @@ export function TableDialogPOSModern({
             }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
             className={cn(
-              "flex flex-col bg-sidebar border-r border-sidebar-border shadow-xl",
-              "lg:w-auto w-[85vw] sm:w-[320px]",
-              "fixed inset-y-0 left-0 lg:relative lg:inset-auto lg:top-auto lg:left-auto z-40",
-              "lg:h-full lg:max-h-full",
-              "h-full",
-              "lg:flex",
-              isSidebarCollapsed ? "hidden lg:flex lg:w-[72px]" : "hidden lg:flex",
-              !isSidebarCollapsed && isMobileSidebarOpen && "flex"
+              "hidden lg:flex flex-col bg-sidebar border-r border-sidebar-border shadow-xl",
+              "lg:w-auto",
+              isSidebarCollapsed ? "lg:w-[72px]" : "lg:w-auto"
             )}
           >
             {/* Header da Sidebar */}
@@ -968,9 +963,27 @@ export function TableDialogPOSModern({
             />
           )}
 
-          {/* MAIN CONTENT AREA */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Top Bar - Actions & Navigation */}
+           {/* MAIN CONTENT AREA */}
+           <div className="flex-1 flex flex-col overflow-hidden">
+             {/* Mobile Navigation */}
+             <div className="lg:hidden bg-card border-b border-border px-2 py-2">
+               <div className="flex items-center gap-1 overflow-x-auto pb-1">
+                 {navigationItems.map((item) => (
+                   <Button
+                     key={item.id}
+                     variant={activeSection === item.id ? 'default' : 'ghost'}
+                     size="sm"
+                     onClick={() => setActiveSection(item.id)}
+                     className="flex items-center gap-1.5 whitespace-nowrap h-8 px-2"
+                   >
+                     {item.icon}
+                     <span className="text-xs">{item.label}</span>
+                   </Button>
+                 ))}
+               </div>
+             </div>
+
+             {/* Top Bar - Actions & Navigation */}
             <div className="bg-card border-b border-border px-4 py-3">
               <div className="flex flex-col gap-3">
                 {/* Top actions row */}
