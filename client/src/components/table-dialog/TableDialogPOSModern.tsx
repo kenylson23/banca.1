@@ -738,11 +738,11 @@ export function TableDialogPOSModern({
             }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
             className={cn(
-              "flex flex-col bg-sidebar border-b lg:border-r border-sidebar-border shadow-xl",
-              "lg:w-auto w-full",
-              "fixed inset-x-0 bottom-0 lg:relative lg:inset-auto lg:bottom-auto lg:top-auto z-40",
+              "flex flex-col bg-sidebar border-r border-sidebar-border shadow-xl",
+              "lg:w-auto w-[85vw] sm:w-[320px]",
+              "fixed inset-y-0 left-0 lg:relative lg:inset-auto lg:top-auto lg:left-auto z-40",
               "lg:h-full lg:max-h-full",
-              "max-h-[60vh] lg:max-h-none",
+              "h-full",
               "lg:flex",
               isSidebarCollapsed ? "hidden lg:flex lg:w-[72px]" : "hidden lg:flex",
               !isSidebarCollapsed && isMobileSidebarOpen && "flex"
