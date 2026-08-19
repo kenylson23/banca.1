@@ -737,8 +737,8 @@ export function TableDialogPOSModern({
             }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
             className={cn(
-              "flex flex-col bg-sidebar border-r border-sidebar-border shadow-xl",
-              "lg:w-auto",
+              "flex flex-col bg-sidebar border-b lg:border-r border-sidebar-border shadow-xl",
+              "lg:w-auto w-full h-full lg:h-auto",
               isSidebarCollapsed ? "hidden lg:flex lg:w-[72px]" : "flex"
             )}
           >
@@ -1036,9 +1036,9 @@ export function TableDialogPOSModern({
               </div>
             </div>
 
-            {/* Content Area - Dynamic based on active section */}
-            <ScrollArea className="flex-1 bg-background">
-              <div className="p-6">
+             {/* Content Area - Dynamic based on active section */}
+             <ScrollArea className="flex-1 bg-background">
+               <div className="p-3 sm:p-6">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={activeSection}
@@ -1341,55 +1341,55 @@ export function TableDialogPOSModern({
             </ScrollArea>
 
             {/* Bottom Bar - Summary & Main Actions */}
-            <div className="bg-card border-t border-border px-6 py-4">
-              <div className="flex items-center justify-between">
+            <div className="bg-card border-t border-border px-3 py-3 sm:px-6 sm:py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 {/* Left - Summary */}
-                <div className="flex items-center gap-6">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-6">
                   <div>
                     <div className="text-xs text-muted-foreground">
                       Total da Mesa
                     </div>
-                    <div className="text-2xl font-bold text-success">
+                    <div className="text-xl sm:text-2xl font-bold text-success">
                       {formatKwanza(currentTotalAmount)}
                     </div>
                   </div>
-                  <Separator orientation="vertical" className="h-10" />
-                  <div className="flex items-center gap-4 text-sm text-foreground">
-                    <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-muted-foreground" />
+                  <Separator orientation="vertical" className="h-8 sm:h-10 hidden sm:block" />
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
                       <span>{guestsCount} pessoas</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <ShoppingCart className="w-4 h-4 text-muted-foreground" />
+                    <div className="flex items-center gap-1.5">
+                      <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
                       <span>{ordersCount} pedidos</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-muted-foreground" />
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
                       <span>{sessionDuration}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Right - Main Actions */}
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                   <Button 
                     variant="outline" 
-                    size="lg"
+                    size="default"
                     onClick={() => setActiveSection('split')}
                     disabled={!hasActiveSession || ordersCount === 0 || guestsCount < 2}
-                    className="gap-2"
+                    className="gap-2 w-full sm:w-auto"
                   >
-                    <Split className="w-5 h-5" />
+                    <Split className="w-4 h-4" />
                     Dividir Conta
                   </Button>
                   <Button 
                     variant="default" 
-                    size="lg" 
-                    className="gap-2"
+                    size="default" 
+                    className="gap-2 w-full sm:w-auto"
                     onClick={() => setActiveSection('payment')}
                     disabled={!hasActiveSession || ordersCount === 0}
                   >
-                    <CreditCard className="w-5 h-5" />
+                    <CreditCard className="w-4 h-4" />
                     Finalizar Pagamento
                   </Button>
                 </div>
