@@ -742,9 +742,9 @@ export function TableDialogPOSModern({
               "lg:w-auto w-full",
               "fixed inset-x-0 bottom-0 lg:relative lg:inset-auto lg:bottom-auto lg:top-auto z-40",
               "lg:h-full lg:max-h-full",
-              "max-h-[50vh] lg:max-h-none",
+              "max-h-[60vh] lg:max-h-none",
               "lg:flex",
-              isSidebarCollapsed && "hidden lg:flex lg:w-[72px]",
+              isSidebarCollapsed ? "hidden lg:flex lg:w-[72px]" : "hidden lg:flex",
               !isSidebarCollapsed && isMobileSidebarOpen && "flex"
             )}
           >
