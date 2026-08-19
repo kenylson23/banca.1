@@ -174,7 +174,7 @@ export default function TableCheckoutV2() {
   
   const table = tablesData?.find((t: any) => t.id === id);
 
-  const isIndividualCheckout = selectedGuestIds.length === 1 && selectedGuestIds[0] !== 'anonymous' && adjustmentsMode === 'guest';
+  const isIndividualCheckout = selectedGuestIds.length === 1 && selectedGuestIds[0] !== 'anonymous' && ((ordersByGuestData?.anonymousOrders?.length || 0) === 0);
   
   // ✅ OTIMIZAÇÃO: Carregar dados da sessão em paralelo imediatamente
   const { data: sessionData } = useQuery({
