@@ -731,20 +731,26 @@ export default function Users() {
                               </p>
                             </div>
 
-                            {/* Role Badge */}
-                            <Badge 
-                              className={`${getRoleColor(user.role)} border flex items-center gap-1 w-fit text-xs`}
-                              data-testid={`badge-role-${user.id}`}
-                            >
-                              <RoleIcon className="h-3 w-3" />
-                              {getRoleName(user.role)}
-                            </Badge>
+                             {/* Role Badge */}
+                             <Badge 
+                               className={`${getRoleColor(user.role)} border flex items-center gap-1 w-fit text-xs`}
+                               data-testid={`badge-role-${user.id}`}
+                             >
+                               <RoleIcon className="h-3 w-3" />
+                               {getRoleName(user.role)}
+                             </Badge>
 
-                            {/* Metadata - Hidden on mobile */}
-                            <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
-                              <Calendar className="h-3 w-3" />
-                              Criado em {new Date(user.createdAt).toLocaleDateString('pt-AO')}
-                            </div>
+                             {/* Password Status */}
+                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                               <Key className="h-3 w-3" />
+                               <span>Senha definida</span>
+                             </div>
+
+                             {/* Metadata - Hidden on mobile */}
+                             <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
+                               <Calendar className="h-3 w-3" />
+                               Criado em {new Date(user.createdAt).toLocaleDateString('pt-AO')}
+                             </div>
                           </div>
                         </div>
 
@@ -762,17 +768,17 @@ export default function Users() {
                             <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
                             <span className="hidden xs:inline">Editar</span>
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openPasswordDialog(user)}
-                            className="gap-1 sm:gap-2 h-8 sm:h-9 text-xs sm:text-sm touch-manipulation active:scale-95"
-                            title="Alterar senha"
-                            data-testid={`button-password-${user.id}`}
-                          >
-                            <Key className="h-3 w-3 sm:h-4 sm:w-4" />
-                            <span className="hidden xs:inline">Senha</span>
-                          </Button>
+                           <Button
+                             variant="ghost"
+                             size="sm"
+                             onClick={() => openPasswordDialog(user)}
+                             className="gap-1 sm:gap-2 h-8 sm:h-9 text-xs sm:text-sm touch-manipulation active:scale-95"
+                             title="Alterar senha deste usuário"
+                             data-testid={`button-password-${user.id}`}
+                           >
+                             <Key className="h-3 w-3 sm:h-4 sm:w-4" />
+                             <span className="hidden xs:inline">Senha</span>
+                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -836,12 +842,12 @@ export default function Users() {
           }
         }}>
           <DialogContent data-testid="dialog-edit-user">
-            <DialogHeader>
-              <DialogTitle>Editar Usuário</DialogTitle>
-              <DialogDescription>
-                Atualize as informações do usuário
-              </DialogDescription>
-            </DialogHeader>
+             <DialogHeader>
+               <DialogTitle>Editar Usuário</DialogTitle>
+               <DialogDescription>
+                 Atualize as informações do usuário. Para alterar a senha, use o botão "Senha" no card do usuário.
+               </DialogDescription>
+             </DialogHeader>
             <Form {...editForm}>
               <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
                 <FormField
@@ -956,12 +962,12 @@ export default function Users() {
           }
         }}>
           <DialogContent data-testid="dialog-reset-password">
-            <DialogHeader>
-              <DialogTitle>Alterar Senha</DialogTitle>
-              <DialogDescription>
-                Defina uma nova senha para {selectedUser?.firstName || selectedUser?.email}
-              </DialogDescription>
-            </DialogHeader>
+             <DialogHeader>
+               <DialogTitle>Alterar Senha</DialogTitle>
+               <DialogDescription>
+                 Defina uma nova senha para {selectedUser?.firstName || selectedUser?.email}. A senha atual não é exibida por segurança.
+               </DialogDescription>
+             </DialogHeader>
             <Form {...passwordForm}>
               <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
                 <FormField
