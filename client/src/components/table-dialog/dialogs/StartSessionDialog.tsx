@@ -183,40 +183,31 @@ export function StartSessionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden">
-        {/* Header compacto com gradiente */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-primary to-primary/80 px-6 pt-6 pb-4">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iZ3JpZCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLW9wYWNpdHk9IjAuMSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-20" />
-          
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="relative z-10"
-          >
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-                <Play className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h2 className="text-lg font-bold text-white">Iniciar Sessão</h2>
-                <p className="text-white/80 text-xs">Mesa {table.number}{table.area && ` • ${table.area}`}</p>
-              </div>
-            </div>
-          </motion.div>
+      <DialogContent className="sm:max-w-md">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-6 pt-6 pb-4">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Play className="w-5 h-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <DialogTitle className="text-lg">Iniciar Sessão</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Mesa {table.number}{table.area && ` • ${table.area}`}
+            </p>
+          </div>
         </div>
 
-        {/* Content Area - compacto */}
-        <div className="p-6">
+        {/* Content Area */}
+        <div className="px-6">
           <AnimatePresence mode="wait">
             {step === 'info' ? (
               <motion.div
                 key="info"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
-                className="space-y-4"
+                className="space-y-4 pb-4"
               >
                 {/* Expected Guests */}
                 <div className="space-y-2">
@@ -224,91 +215,56 @@ export function StartSessionDialog({
                     <Users className="w-4 h-4 text-primary" />
                     Quantas pessoas?
                   </Label>
-                  <div className="relative">
-                    <div className="flex items-center gap-3">
-                      {/* Botão Diminuir */}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          const current = parseInt(expectedGuests) || 0;
-                          if (current > 1) {
-                            handleGuestsChange(String(current - 1));
-                          }
-                        }}
-                        disabled={!expectedGuests || parseInt(expectedGuests) <= 1}
-                        className="h-11 w-11 rounded-lg flex-shrink-0 hover:bg-primary/10 hover:text-primary hover:border-primary transition-colors"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </Button>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        const current = parseInt(expectedGuests) || 0;
+                        if (current > 1) {
+                          handleGuestsChange(String(current - 1));
+                        }
+                      }}
+                      disabled={!expectedGuests || parseInt(expectedGuests) <= 1}
+                      className="h-11 w-11 rounded-lg hover:bg-primary/10 hover:text-primary hover:border-primary transition-colors"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </Button>
 
-                      {/* Input Central */}
-                      <div className="flex-1 relative">
-                        <Input
-                          id="expectedGuests"
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={expectedGuests}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/[^0-9]/g, '');
-                            handleGuestsChange(value);
-                          }}
-                          placeholder={table.capacity ? `Ex: ${table.capacity}` : "Ex: 4"}
-                          className="h-11 text-center text-lg font-semibold focus-visible:ring-0 focus-visible:ring-offset-0"
-                        />
-                        <AnimatePresence>
-                          {showCapacityWarning && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -10, scale: 0.9 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: -10, scale: 0.9 }}
-                              transition={{ duration: 0.2 }}
-                              className="absolute -top-12 left-0 right-0 z-10"
-                            >
-                              <div className="bg-orange-500 text-white text-xs font-medium px-3 py-2 rounded-lg shadow-lg flex items-center gap-2">
-                                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                                <span>Capacidade da mesa: {table.capacity} lugares</span>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-
-                      {/* Botão Aumentar */}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          const current = parseInt(expectedGuests) || 0;
-                          handleGuestsChange(String(current + 1));
+                    <div className="flex-1">
+                      <Input
+                        id="expectedGuests"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={expectedGuests}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9]/g, '');
+                          handleGuestsChange(value);
                         }}
-                        className="h-11 w-11 rounded-lg flex-shrink-0 hover:bg-primary/10 hover:text-primary hover:border-primary transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
+                        placeholder={table.capacity ? `Ex: ${table.capacity}` : "Ex: 4"}
+                        className="h-11 text-center text-lg font-semibold"
+                      />
                     </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        const current = parseInt(expectedGuests) || 0;
+                        handleGuestsChange(String(current + 1));
+                      }}
+                      className="h-11 w-11 rounded-lg hover:bg-primary/10 hover:text-primary hover:border-primary transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
                   </div>
                   {table.capacity && (
-                    <div className="flex items-center gap-2">
-                      <p className={cn(
-                        "text-xs transition-colors",
-                        showCapacityWarning ? "text-orange-600 font-medium" : "text-muted-foreground"
-                      )}>
-                        Capacidade da mesa: {table.capacity} lugares
-                      </p>
-                      {expectedGuests && parseInt(expectedGuests) > table.capacity && (
-                        <motion.span
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          className="text-xs text-orange-600 font-semibold"
-                        >
-                          (+{parseInt(expectedGuests) - table.capacity} extra)
-                        </motion.span>
-                      )}
-                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Capacidade da mesa: {table.capacity} lugares
+                    </p>
                   )}
                 </div>
 
@@ -325,7 +281,7 @@ export function StartSessionDialog({
                     placeholder="Ex: Aniversário, mesa reservada..."
                     maxLength={200}
                     rows={2}
-                    className="resize-none text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="resize-none text-sm"
                   />
                   <p className="text-xs text-muted-foreground text-right">
                     {notes.length}/200
@@ -335,48 +291,43 @@ export function StartSessionDialog({
             ) : (
               <motion.div
                 key="confirm"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
-                className="space-y-4"
+                className="space-y-4 pb-4"
               >
-                <div className="text-center">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", duration: 0.5 }}
-                    className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 mb-3"
-                  >
-                    <CheckCircle2 className="w-8 h-8 text-white" />
-                  </motion.div>
-                  <h3 className="text-lg font-bold mb-1">Confirmar Início?</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Revise as informações
+                <div className="text-center py-2">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 mb-3">
+                    <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  </div>
+                  <h3 className="text-base font-semibold">Confirmar início da sessão?</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Revise as informações antes de confirmar
                   </p>
                 </div>
 
-                {/* Summary compacto */}
-                <div className="rounded-lg bg-muted/50 p-4 space-y-2 text-sm">
-                  <div className="flex items-center justify-between py-1">
+                {/* Summary */}
+                <div className="rounded-lg border bg-muted/50 p-4 space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Mesa</span>
-                    <span className="font-bold">#{table.number}</span>
+                    <span className="font-semibold">#{table.number}</span>
                   </div>
                   {expectedGuests && (
-                    <div className="flex items-center justify-between py-1 border-t pt-2">
+                    <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Pessoas</span>
                       <span className="font-semibold">{expectedGuests}</span>
                     </div>
                   )}
                   {table.area && (
-                    <div className="flex items-center justify-between py-1 border-t pt-2">
+                    <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Área</span>
                       <span className="font-semibold">{table.area}</span>
                     </div>
                   )}
                   {notes && (
-                    <div className="border-t pt-2">
-                      <span className="text-muted-foreground block mb-1">Observações</span>
+                    <div className="pt-2 border-t">
+                      <span className="text-muted-foreground block mb-1 text-xs">Observações</span>
                       <p className="text-foreground bg-background p-2 rounded border text-xs">
                         {notes}
                       </p>
@@ -388,7 +339,7 @@ export function StartSessionDialog({
           </AnimatePresence>
         </div>
 
-        {/* Footer Actions - compacto */}
+        {/* Footer Actions */}
         <div className="border-t bg-muted/30 px-6 py-4">
           <div className="flex items-center justify-between gap-3">
             <Button
@@ -396,6 +347,7 @@ export function StartSessionDialog({
               variant="ghost"
               onClick={() => step === 'info' ? onOpenChange(false) : handleBack()}
               disabled={startSessionMutation.isPending || isAnimating}
+              className="h-9"
             >
               {step === 'info' ? 'Cancelar' : 'Voltar'}
             </Button>
@@ -404,7 +356,7 @@ export function StartSessionDialog({
               <Button
                 onClick={handleContinue}
                 disabled={isAnimating}
-                className="gap-2"
+                className="gap-2 h-9"
               >
                 Continuar
                 <ChevronRight className="w-4 h-4" />
@@ -413,7 +365,7 @@ export function StartSessionDialog({
               <Button
                 onClick={handleSubmit}
                 disabled={startSessionMutation.isPending}
-                className="gap-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                className="gap-2 bg-green-600 hover:bg-green-700 h-9"
               >
                 {startSessionMutation.isPending ? (
                   <>

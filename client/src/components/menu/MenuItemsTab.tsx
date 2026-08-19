@@ -608,10 +608,13 @@ export function MenuItemsTab() {
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent className="sm:max-w-[420px]">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Plus className="h-4 w-4 text-primary" />
+                </div>
                 {menuItemForm.id ? "Editar Prato" : "Criar Novo Prato"}
               </DialogTitle>
               <DialogDescription>
@@ -620,27 +623,27 @@ export function MenuItemsTab() {
                   : "Adicione um novo prato ao menu"}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-3 py-3">
-              <div>
-                <Label htmlFor="name" className="text-sm">Nome do Prato *</Label>
+            <div className="space-y-3 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-sm font-medium">Nome do Prato *</Label>
                 <Input
                   id="name"
                   placeholder="Ex: Feijoada"
                   value={menuItemForm.name}
                   onChange={(e) => setMenuItemForm({ ...menuItemForm, name: e.target.value })}
                   data-testid="input-menu-item-name"
-                  className="mt-1"
+                  className="h-10"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="category" className="text-sm">Categoria *</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="category" className="text-sm font-medium">Categoria *</Label>
                   <Select
                     value={menuItemForm.categoryId}
                     onValueChange={(value) => setMenuItemForm({ ...menuItemForm, categoryId: value })}
                   >
-                    <SelectTrigger className="mt-1" data-testid="select-category">
+                    <SelectTrigger className="h-10" data-testid="select-category">
                       <SelectValue placeholder="Categoria" />
                     </SelectTrigger>
                     <SelectContent>
@@ -653,8 +656,8 @@ export function MenuItemsTab() {
                   </Select>
                 </div>
 
-                <div>
-                  <Label htmlFor="price" className="text-sm">Preço *</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="price" className="text-sm font-medium">Preço *</Label>
                   <Input
                     id="price"
                     type="number"
@@ -664,26 +667,26 @@ export function MenuItemsTab() {
                     value={menuItemForm.price}
                     onChange={(e) => setMenuItemForm({ ...menuItemForm, price: e.target.value })}
                     data-testid="input-menu-item-price"
-                    className="mt-1"
+                    className="h-10"
                   />
                 </div>
               </div>
 
-              <div>
-                <Label className="text-sm">Imagem do Prato</Label>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Imagem do Prato</Label>
                 
                 {(imagePreview || menuItemForm.imageUrl) && (
-                  <div className="mt-1 relative inline-block w-full">
+                  <div className="relative inline-block w-full">
                     <img 
                       src={imagePreview || menuItemForm.imageUrl} 
                       alt="Preview" 
-                      className="w-full h-24 object-cover rounded-md border"
+                      className="w-full h-32 object-cover rounded-md border"
                     />
                     <Button
                       type="button"
                       variant="destructive"
                       size="icon"
-                      className="absolute top-1 right-1 h-6 w-6 shadow-md"
+                      className="absolute top-2 right-2 h-7 w-7 shadow-md"
                       onClick={handleRemoveImage}
                       data-testid="button-remove-image"
                     >
@@ -692,7 +695,7 @@ export function MenuItemsTab() {
                   </div>
                 )}
 
-                <div className="mt-1 space-y-1.5">
+                <div className="space-y-2">
                   <Input
                     id="image-file"
                     type="file"
@@ -706,7 +709,7 @@ export function MenuItemsTab() {
                     variant="outline"
                     size="sm"
                     onClick={() => document.getElementById('image-file')?.click()}
-                    className="w-full"
+                    className="w-full h-9"
                     data-testid="button-upload-image"
                   >
                     <Upload className="h-4 w-4 mr-2" />
@@ -726,31 +729,33 @@ export function MenuItemsTab() {
                       }
                     }}
                     data-testid="input-menu-item-image-url"
+                    className="h-9"
                   />
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="description" className="text-sm">Descrição</Label>
+              <div className="space-y-2">
+                <Label htmlFor="description" className="text-sm font-medium">Descrição</Label>
                 <Textarea
                   id="description"
                   placeholder="Descreva o prato..."
                   value={menuItemForm.description}
                   onChange={(e) => setMenuItemForm({ ...menuItemForm, description: e.target.value })}
                   data-testid="input-menu-item-description"
-                  className="mt-1 resize-none"
+                  className="resize-none text-sm"
                   rows={2}
                 />
               </div>
 
               <div className="flex items-center justify-between pt-1">
-                <Label htmlFor="isAvailable" className="text-sm">Disponibilidade</Label>
+                <Label htmlFor="isAvailable" className="text-sm font-medium">Disponibilidade</Label>
                 <Button
                   type="button"
                   size="sm"
                   variant={menuItemForm.isAvailable === 1 ? "default" : "outline"}
                   onClick={() => setMenuItemForm({ ...menuItemForm, isAvailable: menuItemForm.isAvailable === 1 ? 0 : 1 })}
                   data-testid="button-toggle-availability"
+                  className="h-9"
                 >
                   {menuItemForm.isAvailable === 1 ? "Disponível" : "Indisponível"}
                 </Button>
@@ -758,9 +763,18 @@ export function MenuItemsTab() {
             </div>
             <DialogFooter>
               <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleDialogOpenChange(false)}
+                className="h-9"
+              >
+                Cancelar
+              </Button>
+              <Button
                 type="submit"
                 disabled={saveMenuItemMutation.isPending}
                 data-testid="button-submit-menu-item"
+                className="h-9"
               >
                 {saveMenuItemMutation.isPending ? (
                   <>

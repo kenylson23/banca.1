@@ -388,15 +388,12 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
   });
 
   const addToCart = (item: NormalizedMenuItem) => {
-    // Verificar se o produto tem grupos de opções
     if (item.optionGroups && item.optionGroups.length > 0) {
-      // Abrir diálogo de seleção de opções
       setSelectedProduct(item);
       setOptionsDialogOpen(true);
       return;
     }
 
-    // Produto sem opções: adicionar direto ao carrinho
     const existing = cart.find((i) => i.menuItemId === item.id && !i.selectedOptions);
     if (existing) {
       setCart(cart.map((i) => 
@@ -412,16 +409,19 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
         quantity: 1,
       }]);
     }
+
+    toast({
+      title: 'Adicionado',
+      description: `${item.name} foi adicionado ao pedido.`,
+    });
   };
 
   const handleOptionsConfirm = (selectedOptions: SelectedOption[]) => {
     if (!selectedProduct) return;
 
-    // Calcular preço total com opções
     const optionsTotal = selectedOptions.reduce((sum, opt) => sum + (parseFloat(opt.priceAdjustment) * opt.quantity), 0);
     const totalPrice = parseFloat(selectedProduct.price) + optionsTotal;
 
-    // Adicionar ao carrinho com opções
     setCart([...cart, {
       menuItemId: selectedProduct.id,
       name: selectedProduct.name,
@@ -431,6 +431,11 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
     }]);
 
     setSelectedProduct(null);
+
+    toast({
+      title: 'Adicionado',
+      description: `${selectedProduct.name} foi adicionado ao pedido.`,
+    });
   };
 
   const removeFromCart = (index: number) => {
