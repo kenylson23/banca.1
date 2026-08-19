@@ -1087,9 +1087,9 @@ export default function TableCheckoutV2() {
   
   if (isInitialLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="w-16 h-16 border-4 border-slate-900 dark:border-slate-100 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-lg font-medium text-slate-700 dark:text-slate-300">Carregando checkout...</p>
         </div>
       </div>
@@ -1099,14 +1099,14 @@ export default function TableCheckoutV2() {
   // Table not found
   if (!table) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="text-center space-y-4 p-8">
           <AlertCircle className="h-16 w-16 mx-auto text-red-500" />
           <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Mesa não encontrada</h2>
           <p className="text-slate-600 dark:text-slate-400">A mesa com ID "{id}" não existe ou foi removida.</p>
           <Button
             onClick={() => setLocation(`/${fromParam}`)}
-            className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600"
+            className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar para {fromParam === 'open-tables' ? 'Mesas Abertas' : 'Mesas'}
@@ -1117,10 +1117,10 @@ export default function TableCheckoutV2() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* Header */}
-      <div className="sticky top-0 z-50 backdrop-blur-xl bg-white/70 dark:bg-slate-950/70 border-b border-white/20 dark:border-slate-800/50 shadow-lg">
-        <div className="container mx-auto px-4 py-4 max-w-7xl">
+      <div className="sticky top-0 z-50 bg-white dark:bg-slate-950 border-b">
+        <div className="container mx-auto px-4 py-3 max-w-7xl">
           <div className="flex items-center justify-between">
             <Button 
               variant="ghost" 
@@ -1132,7 +1132,7 @@ export default function TableCheckoutV2() {
             </Button>
             
             <div className="flex items-center gap-3">
-              <Badge className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white border-0 px-4 py-2 text-lg font-bold">
+              <Badge className="bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-0 px-4 py-2 text-lg font-bold">
                 Mesa {id}
               </Badge>
             </div>
@@ -1141,7 +1141,7 @@ export default function TableCheckoutV2() {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="container mx-auto px-4 py-6 max-w-5xl">
         {/* Progress Steps */}
         <div className="mb-8">
           <div className="flex items-center justify-between max-w-3xl mx-auto">
@@ -1156,34 +1156,30 @@ export default function TableCheckoutV2() {
                   <div className="flex flex-col items-center">
                     <div
                       className={cn(
-                        "relative flex items-center justify-center w-16 h-16 rounded-full border-4 transition-all duration-300",
-                        isActive && "border-purple-500 bg-gradient-to-br from-purple-500 to-indigo-500 shadow-lg shadow-purple-500/50 scale-110",
+                        "relative flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300",
+                        isActive && "border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900",
                         isCompleted && "border-green-500 bg-green-500",
                         !isActive && !isCompleted && "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
                       )}
                     >
                       {isCompleted ? (
-                        <Check className="h-8 w-8 text-white" />
+                        <Check className="h-5 w-5 text-white" />
                       ) : (
                         <Icon className={cn(
-                          "h-8 w-8",
+                          "h-5 w-5",
                           isActive && "text-white",
                           !isActive && "text-slate-400 dark:text-slate-600"
                         )} />
                       )}
-                      
-                      {isActive && (
-                        <div className="absolute inset-0 rounded-full bg-purple-500 animate-ping opacity-20"></div>
-                      )}
                     </div>
                     
                     <div className="mt-3 text-center">
-                      <div className={cn(
-                        "text-sm font-bold transition-colors",
-                        isActive && "text-purple-600 dark:text-purple-400",
-                        isCompleted && "text-green-600 dark:text-green-400",
-                        !isActive && !isCompleted && "text-slate-400"
-                      )}>
+                        <div className={cn(
+                          "text-sm font-bold transition-colors",
+                          isActive && "text-slate-900 dark:text-slate-100",
+                          isCompleted && "text-green-600 dark:text-green-400",
+                          !isActive && !isCompleted && "text-slate-400"
+                        )}>
                         {step.name}
                       </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">
@@ -1194,7 +1190,7 @@ export default function TableCheckoutV2() {
                   
                   {/* Connector Line */}
                   {index < STEPS.length - 1 && (
-                    <div className="flex-1 h-1 mx-4 mb-10">
+                    <div className="flex-1 h-0.5 mx-2 mb-6">
                       <div className={cn(
                         "h-full rounded-full transition-all duration-500",
                         currentStep > step.id ? "bg-green-500" : "bg-slate-200 dark:bg-slate-700"
@@ -1207,19 +1203,19 @@ export default function TableCheckoutV2() {
           </div>
         </div>
 
-        {/* Content Area */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+         {/* Content Area */}
+         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content - 2 columns */}
           <div className="lg:col-span-2">
-            <Card className="bg-white/90 dark:bg-slate-900/90 backdrop-blur border-slate-200/50 dark:border-slate-800/50 shadow-2xl">
+            <Card className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-lg">
               <CardHeader className="border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-2xl flex items-center gap-3">
+                  <CardTitle className="text-lg flex items-center gap-3">
                     {(() => {
                       const StepIcon = STEPS[currentStep - 1].icon;
                       return (
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-500">
-                          <StepIcon className="h-6 w-6 text-white" />
+                        <div className="p-2 rounded-lg bg-slate-900 dark:bg-slate-100">
+                          <StepIcon className="h-4 w-4 text-white dark:text-slate-900" />
                         </div>
                       );
                     })()}
@@ -1281,37 +1277,37 @@ export default function TableCheckoutV2() {
                       </div>
                     )}
                     {manualServiceValue && parseFloat(manualServiceValue) > 0 && (
-                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 group hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors">
-                        <Percent className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                        <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
-                          Taxa: {manualServiceType === 'percentual' ? `${manualServiceValue}%` : `${manualServiceValue} Kz`}
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 group hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                        <BadgePercent className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          Desconto: {discountType === 'percentual' ? `${discountValue}%` : `${discountValue} Kz`}
                         </span>
                         <button
                           onClick={async (e) => {
                             e.stopPropagation();
-                            setManualServiceValue('');
-                            setManualServiceType('percentual');
+                            setDiscountValue('');
+                            setDiscountType('valor');
                             if (!isIndividualCheckout) {
                               await saveAdjustmentsToSession();
                             }
                             toast({
-                              title: "Taxa removida",
+                              title: "Desconto removido",
                               description: isIndividualCheckout
-                                ? "A taxa individual foi limpa"
-                                : "A taxa de serviço foi removida com sucesso",
+                                ? "O desconto individual foi limpo"
+                                : "O desconto foi removido com sucesso",
                             });
                           }}
-                          className="ml-1 p-0.5 rounded-full hover:bg-blue-300 dark:hover:bg-blue-800 transition-colors opacity-0 group-hover:opacity-100"
-                          title="Remover taxa"
+                          className="ml-1 p-0.5 rounded-full hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Remover desconto"
                         >
-                          <X className="h-3 w-3 text-blue-700 dark:text-blue-300" />
+                          <X className="h-3 w-3 text-slate-600 dark:text-slate-300" />
                         </button>
                       </div>
                     )}
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-8">
+              <CardContent className="p-5">
                 {/* Step 1: Review Items & Guests */}
                 {currentStep === 1 && (
                   <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -1342,14 +1338,14 @@ export default function TableCheckoutV2() {
                       </div>
                     )}
                     {/* Info Banner */}
-                    <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/20 p-4">
+                    <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
                       <div className="flex items-start gap-3">
-                        <AlertCircle className="h-5 w-5 text-blue-500 mt-0.5" />
+                        <AlertCircle className="h-5 w-5 text-slate-500 dark:text-slate-400 mt-0.5" />
                         <div>
-                          <div className="font-semibold text-blue-900 dark:text-blue-100">
+                          <div className="font-semibold text-slate-900 dark:text-slate-100">
                             Revise os itens antes de prosseguir
                           </div>
-                          <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                          <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                             Verifique se todos os itens e clientes estão corretos. Você pode selecionar clientes específicos para checkout individual.
                           </div>
                         </div>
@@ -1358,21 +1354,21 @@ export default function TableCheckoutV2() {
 
                     {/* Resumo Estatístico */}
                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                       <Card className="p-4 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border-blue-500/20">
-                         <div className="text-xs text-blue-700 dark:text-blue-300 mb-1">Total Clientes</div>
-                         <div className="text-3xl font-black text-blue-600 dark:text-blue-400">{ordersByGuest.length}</div>
-                       </Card>
-                       <Card className="p-4 bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20">
-                         <div className="text-xs text-green-700 dark:text-green-300 mb-1">Total Itens</div>
-                         <div className="text-3xl font-black text-green-600 dark:text-green-400">{allItems.length}</div>
-                       </Card>
-                       <Card className="p-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20">
-                         <div className="text-xs text-purple-700 dark:text-purple-300 mb-1">Média/Cliente</div>
-                         <div className="text-3xl font-black text-purple-600 dark:text-purple-400">
-                           {ordersByGuest.length > 0 ? formatKwanza(totalAmount / ordersByGuest.length) : '0 Kz'}
-                         </div>
-                       </Card>
-                     </div>
+                        <Card className="p-3 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                          <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Total Clientes</div>
+                          <div className="text-xl font-bold text-slate-900 dark:text-slate-100">{ordersByGuest.length}</div>
+                        </Card>
+                        <Card className="p-3 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                          <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Total Itens</div>
+                          <div className="text-xl font-bold text-slate-900 dark:text-slate-100">{allItems.length}</div>
+                        </Card>
+                        <Card className="p-3 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                          <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Média/Cliente</div>
+                          <div className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                            {ordersByGuest.length > 0 ? formatKwanza(totalAmount / ordersByGuest.length) : '0 Kz'}
+                          </div>
+                        </Card>
+                      </div>
 
                     {/* Items by Guest */}
                     <div className="space-y-4">
@@ -1423,7 +1419,7 @@ export default function TableCheckoutV2() {
                          </Select>
                        </div>
 
-                      <ScrollArea className="max-h-[500px] pr-4">
+                       <ScrollArea className="max-h-[70vh] pr-4">
                         <div className="space-y-4">
                           {loadingOrders && (
                             <div className="text-center py-8 text-slate-500">
@@ -1510,7 +1506,7 @@ export default function TableCheckoutV2() {
                                   "relative rounded-xl border-2 transition-all duration-200",
                                   isPaid && "opacity-60",
                                   isSelected 
-                                    ? "border-purple-500 bg-purple-500/5" 
+                                    ? "border-slate-900 bg-slate-50 dark:border-slate-100 dark:bg-slate-800/50" 
                                     : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
                                 )}
                               >
@@ -1518,7 +1514,7 @@ export default function TableCheckoutV2() {
                                   <div className="absolute inset-0 bg-green-500/5 rounded-xl pointer-events-none" />
                                 )}
                                 {/* Guest Header */}
-                                <div className="flex items-center gap-3 p-4 border-b border-slate-200 dark:border-slate-800">
+                                <div className="flex items-center gap-3 p-3 border-b border-slate-200 dark:border-slate-800">
                                   <Checkbox
                                     checked={!isPaid && isSelected}
                                     disabled={isPaid}
@@ -1535,7 +1531,7 @@ export default function TableCheckoutV2() {
                                   
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2">
-                                      <Users className="h-4 w-4 text-purple-500" />
+                                      <Users className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                                       <span className="font-bold">
                                         {guestOrder.guest.name || `Cliente ${guestOrder.guest.guestNumber}`}
                                       </span>
@@ -1557,11 +1553,11 @@ export default function TableCheckoutV2() {
                                         Subtotal: {formatKwanza(guestSubtotal)}
                                       </div>
                                     )}
-                                    <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                                     <div className="text-lg font-bold text-slate-900 dark:text-slate-100">
                                       {formatKwanza(guestTotal)}
                                     </div>
                                     {hasGuestAdjustments && (
-                                      <div className="text-xs font-semibold text-purple-700/80 dark:text-purple-300/80">
+                                      <div className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                                         Total (com ajustes)
                                       </div>
                                     )}
@@ -1569,43 +1565,43 @@ export default function TableCheckoutV2() {
                                 </div>
 
                                 {/* Guest Items */}
-                                <div className="p-4 space-y-2">
+                                <div className="p-3 space-y-1.5">
                                   {itemCount === 0 ? (
-                                    <div className="py-6 text-center text-slate-500">
-                                      <AlertCircle className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                                      <p className="text-sm">Nenhum item para este cliente</p>
+                                    <div className="py-4 text-center text-slate-500">
+                                      <AlertCircle className="h-6 w-6 mx-auto mb-1.5 text-slate-300" />
+                                      <p className="text-xs">Nenhum item para este cliente</p>
                                     </div>
                                   ) : (
                                     guestItems.map((item: any, index: number) => (
                                       <div 
                                         key={`${item.id}-${index}`}
-                                        className="py-2 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                                        className="py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                                       >
                                         <div className="flex items-center justify-between">
-                                          <div className="flex items-center gap-3 flex-1">
-                                            <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-purple-500/20 text-purple-700 dark:text-purple-300 font-bold text-sm">
+                                          <div className="flex items-center gap-2 flex-1">
+                                            <div className="flex items-center justify-center w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs">
                                               {item.quantity}×
                                             </div>
-                                            <div className="flex-1">
-                                              <div className="font-medium">{item.menuItemName}</div>
+                                            <div className="flex-1 min-w-0">
+                                              <div className="font-medium text-sm truncate">{item.menuItemName}</div>
                                               <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                                 {formatKwanza(item.unitPrice)} cada
                                               </div>
                                               {item.options && item.options.length > 0 && (
-                                                <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1">
+                                                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
                                                   <Settings className="h-3 w-3" />
                                                   {item.options.map((opt: any) => opt.name).join(', ')}
                                                 </div>
                                               )}
                                               {item.notes && (
-                                                <div className="text-xs text-orange-600 dark:text-orange-400 mt-1 flex items-center gap-1">
+                                                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
                                                   <AlertCircle className="h-3 w-3" />
                                                   {item.notes}
                                                 </div>
                                               )}
                                             </div>
                                           </div>
-                                          <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                          <span className="font-semibold text-slate-700 dark:text-slate-300 text-sm ml-2">
                                             {formatKwanza(item.totalPrice)}
                                           </span>
                                         </div>
@@ -1621,15 +1617,15 @@ export default function TableCheckoutV2() {
 
                       {/* Selection Summary */}
                       {selectedGuestIds.length > 0 && (
-                        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 p-4">
+                        <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <CheckCircle2 className="h-5 w-5 text-purple-500" />
+                              <CheckCircle2 className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                               <div>
-                                <div className="font-semibold text-purple-900 dark:text-purple-100">
+                                <div className="font-semibold text-slate-900 dark:text-slate-100">
                                   {selectedGuestIds.length} {selectedGuestIds.length === 1 ? 'cliente selecionado' : 'clientes selecionados'}
                                 </div>
-                                <div className="text-sm text-purple-700 dark:text-purple-300 mt-0.5">
+                                <div className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
                                   Total: {formatKwanza(
                                     ordersByGuest
                                       .filter((og: any) => selectedGuestIds.includes(og.guest.id))
@@ -1642,10 +1638,9 @@ export default function TableCheckoutV2() {
                               <Button
                                 size="sm"
                                 onClick={() => {
-                                  // Checkout individual: continuar com os clientes selecionados
                                   setCurrentStep(2);
                                 }}
-                                className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600"
+                                className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
                               >
                                 Continuar com Selecionados
                               </Button>
@@ -1653,7 +1648,7 @@ export default function TableCheckoutV2() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setSelectedGuestIds([])}
-                                className="text-purple-600 border-purple-500/30 hover:bg-purple-500/10"
+                                className="text-slate-600 border-slate-300 hover:bg-slate-100 dark:text-slate-400 dark:border-slate-600 dark:hover:bg-slate-800"
                               >
                                 Limpar Seleção
                               </Button>
@@ -1670,14 +1665,14 @@ export default function TableCheckoutV2() {
                   <div className="space-y-6">
                     {/* Selection Banner */}
                     {selectedGuestIds.length > 0 && (
-                      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 p-4">
+                      <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
                         <div className="flex items-start gap-3">
-                          <CheckCircle2 className="h-5 w-5 text-purple-500 mt-0.5" />
+                          <CheckCircle2 className="h-5 w-5 text-slate-500 dark:text-slate-400 mt-0.5" />
                           <div>
-                            <div className="font-semibold text-purple-900 dark:text-purple-100">
+                            <div className="font-semibold text-slate-900 dark:text-slate-100">
                               Checkout Individual Ativo
                             </div>
-                            <div className="text-sm text-purple-700 dark:text-purple-300 mt-1">
+                            <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                               Processando apenas {selectedGuestIds.length} {selectedGuestIds.length === 1 ? 'cliente selecionado' : 'clientes selecionados'} • Total: {formatKwanza(totalAmount)}
                             </div>
                           </div>
@@ -1686,14 +1681,14 @@ export default function TableCheckoutV2() {
                     )}
 
                     {/* Info Banner */}
-                    <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 p-4">
+                    <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
                       <div className="flex items-start gap-3">
-                        <Gift className="h-5 w-5 text-amber-500 mt-0.5" />
+                        <Gift className="h-5 w-5 text-slate-500 dark:text-slate-400 mt-0.5" />
                         <div>
-                          <div className="font-semibold text-amber-900 dark:text-amber-100">
+                          <div className="font-semibold text-slate-900 dark:text-slate-100">
                             Aproveite cupons e pontos de fidelidade
                           </div>
-                          <div className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                          <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                             Selecione um cliente para habilitar cupons e resgatar pontos de fidelidade.
                           </div>
                         </div>
@@ -1701,14 +1696,14 @@ export default function TableCheckoutV2() {
                     </div>
 
                     {/* Customer Selection */}
-                    <Card className="border-2 border-slate-200 dark:border-slate-800">
+                     <Card className="border-2 border-slate-200 dark:border-slate-800">
                       <CardHeader className="bg-slate-50 dark:bg-slate-900/50 border-b">
                         <CardTitle className="text-lg flex items-center gap-2">
-                          <Users className="h-5 w-5 text-blue-500" />
+                          <Users className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                           Selecionar Cliente
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="p-6">
+                      <CardContent className="p-5">
                         {customers.length === 0 ? (
                           <div className="text-center py-8">
                             <Users className="h-12 w-12 mx-auto mb-3 text-slate-300" />
@@ -1721,7 +1716,7 @@ export default function TableCheckoutV2() {
                             <Button
                               size="sm"
                               onClick={() => setLocation('/customers')}
-                              className="bg-gradient-to-r from-blue-500 to-indigo-500"
+                              className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900"
                             >
                               Cadastrar Primeiro Cliente
                             </Button>
@@ -1739,7 +1734,7 @@ export default function TableCheckoutV2() {
                                       <Users className="h-4 w-4" />
                                       <span className="font-medium">{customer.name}</span>
                                       {customer.loyaltyPoints > 0 && (
-                                        <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20">
+                                        <Badge variant="outline" className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600">
                                           {customer.loyaltyPoints} pts
                                         </Badge>
                                       )}
@@ -1765,14 +1760,14 @@ export default function TableCheckoutV2() {
                     </Card>
 
                     {/* Coupon Section */}
-                    <Card className="border-2 border-slate-200 dark:border-slate-800">
-                      <CardHeader className="bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-950/20 dark:to-rose-950/20 border-b">
+                     <Card className="border-2 border-slate-200 dark:border-slate-800">
+                      <CardHeader className="bg-slate-100 dark:bg-slate-800 border-b">
                         <CardTitle className="text-lg flex items-center gap-2">
-                          <Gift className="h-5 w-5 text-pink-500" />
+                          <Gift className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                           Cupom de Desconto
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="p-6">
+                      <CardContent className="p-5">
                         <div className="space-y-4">
                           <div className="flex gap-3">
                             <Input
@@ -1780,26 +1775,26 @@ export default function TableCheckoutV2() {
                               onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                               placeholder="DIGITE-O-CODIGO"
                               disabled={!!appliedCoupon}
-                              className="h-12 text-lg font-bold tracking-wider uppercase"
+                              className="flex-1"
                             />
                             {appliedCoupon ? (
                               <Button
                                 variant="outline"
-                                size="lg"
+                                size="sm"
                                 onClick={() => {
                                   setAppliedCoupon(null);
                                   setCouponCode('');
                                 }}
-                                className="px-6"
+                                className="px-4"
                               >
                                 Remover
                               </Button>
                             ) : (
                               <Button
-                                size="lg"
+                                size="sm"
                                 onClick={() => applyCouponMutation.mutate(couponCode)}
                                 disabled={!couponCode || applyCouponMutation.isPending}
-                                className="px-6 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600"
+                                className="px-4 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900"
                               >
                                 {applyCouponMutation.isPending ? (
                                   <>
@@ -1817,23 +1812,23 @@ export default function TableCheckoutV2() {
                           </div>
 
                           {appliedCoupon && (
-                            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 p-4">
+                            <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2">
                                   <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                                  <span className="font-black text-green-700 dark:text-green-400 tracking-wider">
+                                  <span className="font-bold text-slate-900 dark:text-slate-100 tracking-wider">
                                     {appliedCoupon.code}
                                   </span>
                                   <Badge className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30">
                                     Ativo
                                   </Badge>
                                 </div>
-                                <p className="text-sm text-green-700 dark:text-green-300 font-medium">
+                                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
                                   {appliedCoupon.description}
                                 </p>
                                 <div className="flex items-center gap-2 pt-1">
                                   <Sparkles className="h-4 w-4 text-green-600 dark:text-green-400" />
-                                  <span className="text-sm font-bold text-green-700 dark:text-green-300">
+                                  <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
                                     Desconto: {appliedCoupon.discountType === 'percentual'
                                       ? `${appliedCoupon.discountValue}%`
                                       : formatKwanza(appliedCoupon.discountValue)}
@@ -1847,12 +1842,12 @@ export default function TableCheckoutV2() {
                     </Card>
 
                     {/* Loyalty Program */}
-                    {loyaltyProgram?.isActive === 1 && selectedCustomer && (
+                     {loyaltyProgram?.isActive === 1 && selectedCustomer && (
                       <Card className="border-2 border-slate-200 dark:border-slate-800">
-                        <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 border-b">
+                        <CardHeader className="bg-slate-100 dark:bg-slate-800 border-b">
                           <div className="flex items-center justify-between">
                             <CardTitle className="text-lg flex items-center gap-2">
-                              <Sparkles className="h-5 w-5 text-purple-500" />
+                              <Sparkles className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                               Programa de Fidelidade
                             </CardTitle>
                             <Badge className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-500/30">
@@ -1860,14 +1855,14 @@ export default function TableCheckoutV2() {
                             </Badge>
                           </div>
                         </CardHeader>
-                        <CardContent className="p-6 space-y-4">
+                        <CardContent className="p-5 space-y-4">
                           {/* Available Points */}
-                          <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/20 p-4">
+                          <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                                 Pontos Disponíveis
                               </span>
-                              <span className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                              <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
                                 {selectedCustomer.loyaltyPoints || 0} pts
                               </span>
                             </div>
@@ -1896,17 +1891,17 @@ export default function TableCheckoutV2() {
                                   }}
                                   min={loyaltyProgram.minPointsToRedeem || 100}
                                   max={selectedCustomer.loyaltyPoints}
-                                  className="h-12 text-lg font-semibold"
+                                  className="h-10"
                                 />
                                 <Button
-                                  size="lg"
+                                  size="sm"
                                   onClick={() => redeemPointsMutation.mutate(parseInt(loyaltyPointsToRedeem))}
                                   disabled={
                                     !loyaltyPointsToRedeem ||
                                     parseInt(loyaltyPointsToRedeem) < (loyaltyProgram.minPointsToRedeem || 100) ||
                                     redeemPointsMutation.isPending
                                   }
-                                  className="px-6 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600"
+                                  className="px-4 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900"
                                 >
                                   {redeemPointsMutation.isPending ? (
                                     <>
@@ -1932,14 +1927,14 @@ export default function TableCheckoutV2() {
                           )}
 
                           {/* Points to Earn */}
-                          <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 p-4">
+                          <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                                 Pontos a Ganhar nesta Compra
                               </span>
-                              <span className="text-2xl font-black text-green-600 dark:text-green-400 flex items-center gap-1">
+                              <span className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
                                 +{Math.floor(calculateTotals.finalTotal * parseFloat(loyaltyProgram.pointsPerCurrency || "1"))} pts
-                                <TrendingUp className="h-5 w-5" />
+                                <TrendingUp className="h-4 w-4" />
                               </span>
                             </div>
                           </div>
@@ -1963,16 +1958,16 @@ export default function TableCheckoutV2() {
                   <div className="space-y-6">
                     {/* 🎯 MELHORIA: Alerta Visual de Ajustes Salvos */}
                     {((discountValue && parseFloat(discountValue) > 0) || (manualServiceValue && parseFloat(manualServiceValue) > 0)) && (
-                      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border-2 border-yellow-500/30 p-4 shadow-lg">
+                      <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
                         <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-lg bg-yellow-500/20">
-                            <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                          <div className="p-2 rounded-lg bg-slate-200 dark:bg-slate-700">
+                            <AlertCircle className="h-5 w-5 text-slate-600 dark:text-slate-300" />
                           </div>
                           <div className="flex-1">
-                            <div className="font-bold text-yellow-900 dark:text-yellow-100 mb-1">
-                              ⚡ Ajustes Ativos na Conta
+                            <div className="font-bold text-slate-900 dark:text-slate-100 mb-1">
+                              Ajustes Ativos na Conta
                             </div>
-                            <div className="text-sm text-yellow-800 dark:text-yellow-300 space-y-1">
+                            <div className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
                               {discountValue && parseFloat(discountValue) > 0 && (
                                 <div className="flex items-center gap-2">
                                   <Badge variant="outline" className="bg-green-500/10 border-green-500 text-green-700 dark:text-green-300">
@@ -1987,7 +1982,7 @@ export default function TableCheckoutV2() {
                               )}
                               {manualServiceValue && parseFloat(manualServiceValue) > 0 && (
                                 <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="bg-orange-500/10 border-orange-500 text-orange-700 dark:text-orange-300">
+                                  <Badge variant="outline" className="bg-slate-200 dark:bg-slate-700 border-slate-400 text-slate-700 dark:text-slate-300">
                                     Taxa: {manualServiceType === 'percentual' ? `${manualServiceValue}%` : `${formatKwanza(parseFloat(manualServiceValue))}`}
                                   </Badge>
                                   <span>= +{formatKwanza(
@@ -2020,47 +2015,47 @@ export default function TableCheckoutV2() {
                       </div>
                     )}
                     
-                    {/* Selection Banner */}
-                    {selectedGuestIds.length > 0 && (
-                      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 p-4">
-                        <div className="flex items-start gap-3">
-                          <CheckCircle2 className="h-5 w-5 text-purple-500 mt-0.5" />
-                          <div>
-                            <div className="font-semibold text-purple-900 dark:text-purple-100">
-                              Checkout Individual Ativo
-                            </div>
-                            <div className="text-sm text-purple-700 dark:text-purple-300 mt-1">
-                              Ajustando apenas para {selectedGuestIds.length} {selectedGuestIds.length === 1 ? 'cliente' : 'clientes'} • Subtotal: {formatKwanza(totalAmount)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                     {/* Selection Banner */}
+                     {selectedGuestIds.length > 0 && (
+                       <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
+                         <div className="flex items-start gap-3">
+                           <CheckCircle2 className="h-5 w-5 text-slate-500 dark:text-slate-400 mt-0.5" />
+                           <div>
+                             <div className="font-semibold text-slate-900 dark:text-slate-100">
+                               Checkout Individual Ativo
+                             </div>
+                             <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                               Ajustando apenas para {selectedGuestIds.length} {selectedGuestIds.length === 1 ? 'cliente' : 'clientes'} • Subtotal: {formatKwanza(totalAmount)}
+                             </div>
+                           </div>
+                         </div>
+                       </div>
+                     )}
 
-                    {/* Info Banner */}
-                    <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/20 p-4">
-                      <div className="flex items-start gap-3">
-                        <Calculator className="h-5 w-5 text-orange-500 mt-0.5" />
-                        <div>
-                          <div className="font-semibold text-orange-900 dark:text-orange-100">
-                            Ajustes adicionais (opcional)
-                          </div>
-                          <div className="text-sm text-orange-700 dark:text-orange-300 mt-1">
-                            Adicione descontos manuais ou taxas de serviço se necessário.
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                     {/* Info Banner */}
+                     <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
+                       <div className="flex items-start gap-3">
+                         <Calculator className="h-5 w-5 text-slate-500 dark:text-slate-400 mt-0.5" />
+                         <div>
+                           <div className="font-semibold text-slate-900 dark:text-slate-100">
+                             Ajustes adicionais (opcional)
+                           </div>
+                           <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                             Adicione descontos manuais ou taxas de serviço se necessário.
+                           </div>
+                         </div>
+                       </div>
+                     </div>
 
                     {/* Manual Discount */}
-                    <Card className="border-2 border-slate-200 dark:border-slate-800">
-                      <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-b">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          <Percent className="h-5 w-5 text-green-500" />
-                          Desconto Manual
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-6 space-y-4">
+                     <Card className="border-2 border-slate-200 dark:border-slate-800">
+                       <CardHeader className="bg-slate-100 dark:bg-slate-800 border-b">
+                         <CardTitle className="text-lg flex items-center gap-2">
+                           <Percent className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                           Desconto Manual
+                         </CardTitle>
+                       </CardHeader>
+                       <CardContent className="p-5 space-y-4">
                         {/* Atalhos Rápidos */}
                         <div className="space-y-2">
                           <Label className="text-sm">Atalhos Rápidos</Label>
@@ -2151,17 +2146,17 @@ export default function TableCheckoutV2() {
 
                         {/* 🎯 MELHORIA: Card de Confirmação Visual Melhorado */}
                         {discountValue && parseFloat(discountValue) > 0 && (
-                          <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-2 border-green-500/30 p-4 shadow-md">
+                          <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
-                                <div className="p-2 rounded-lg bg-green-500/20">
-                                  <TrendingUp className="h-4 w-4 text-green-600 rotate-180" />
+                                <div className="p-2 rounded-lg bg-slate-200 dark:bg-slate-700">
+                                  <TrendingUp className="h-4 w-4 text-slate-600 dark:text-slate-300 rotate-180" />
                                 </div>
-                                <span className="text-sm font-semibold text-green-700 dark:text-green-300">
+                                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                                   Desconto Ativo:
                                 </span>
                               </div>
-                              <span className="text-2xl font-black text-green-600 dark:text-green-400">
+                              <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
                                 -{formatKwanza(
                                   discountType === 'percentual'
                                     ? totalAmount * (parseFloat(discountValue) / 100)
@@ -2175,14 +2170,14 @@ export default function TableCheckoutV2() {
                     </Card>
 
                     {/* Services */}
-                    <Card className="border-2 border-slate-200 dark:border-slate-800">
-                      <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-b">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          <TrendingUp className="h-5 w-5 text-blue-500" />
-                          Serviços e Taxas
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-6 space-y-4">
+                     <Card className="border-2 border-slate-200 dark:border-slate-800">
+                       <CardHeader className="bg-slate-100 dark:bg-slate-800 border-b">
+                         <CardTitle className="text-lg flex items-center gap-2">
+                           <TrendingUp className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                           Serviços e Taxas
+                         </CardTitle>
+                       </CardHeader>
+                       <CardContent className="p-5 space-y-4">
                         {/* Available Services */}
                         {availableServices.length > 0 && (
                           <div className="space-y-3">
@@ -2196,8 +2191,8 @@ export default function TableCheckoutV2() {
                                     className={cn(
                                       "flex items-center justify-between p-3 rounded-lg border-2 transition-all cursor-pointer hover:border-blue-300",
                                       selectedServices.includes(service.id)
-                                        ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
-                                        : "border-slate-200 dark:border-slate-700"
+                                        ? "border-slate-900 bg-slate-50 dark:border-slate-100 dark:bg-slate-800"
+                                        : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600"
                                     )}
                                     onClick={() => {
                                       setSelectedServices(prev =>
@@ -2234,14 +2229,14 @@ export default function TableCheckoutV2() {
 
                         {/* Auto-applied Services Info */}
                         {availableServices.filter((s: any) => s.applyAutomatically === 1).length > 0 && (
-                          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                          <div className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3">
                             <div className="flex items-start gap-2">
-                              <CheckCircle2 className="h-4 w-4 text-blue-500 mt-0.5" />
+                              <CheckCircle2 className="h-4 w-4 text-slate-500 dark:text-slate-400 mt-0.5" />
                               <div className="text-sm">
-                                <div className="font-medium text-blue-900 dark:text-blue-100">
+                                <div className="font-medium text-slate-900 dark:text-slate-100">
                                   Serviços Automáticos
                                 </div>
-                                <div className="text-blue-700 dark:text-blue-300 mt-1">
+                                <div className="text-slate-600 dark:text-slate-400 mt-1">
                                   {availableServices
                                     .filter((s: any) => s.applyAutomatically === 1)
                                     .map((s: any) => s.name)
@@ -2320,9 +2315,9 @@ export default function TableCheckoutV2() {
 
                         {/* Services Summary */}
                         {(selectedServices.length > 0 || (manualServiceName && manualServiceValue && parseFloat(manualServiceValue) > 0)) && (
-                          <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20 p-4">
+                          <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
                             <div className="space-y-2">
-                              <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                              <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
                                 Serviços Adicionados:
                               </div>
                               {selectedServices.map(serviceId => {
@@ -2351,9 +2346,9 @@ export default function TableCheckoutV2() {
                                 </div>
                               )}
                               <Separator className="my-2" />
-                              <div className="flex justify-between">
-                                <span className="font-medium text-blue-700 dark:text-blue-300">Total em Serviços:</span>
-                                <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                               <div className="flex justify-between">
+                                <span className="font-medium text-slate-700 dark:text-slate-300">Total em Serviços:</span>
+                                <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
                                   +{formatKwanza(calculateTotals.totalAdditions)}
                                 </span>
                               </div>
@@ -2364,14 +2359,14 @@ export default function TableCheckoutV2() {
                     </Card>
 
                     {/* Summary Preview - Sempre Visível */}
-                    <Card className="border-2 border-purple-500/50 bg-gradient-to-br from-purple-500/5 to-indigo-500/5">
-                      <CardHeader className="border-b border-purple-500/20">
+                    <Card className="border-2 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                      <CardHeader className="border-b border-slate-200 dark:border-slate-700">
                         <CardTitle className="text-lg flex items-center gap-2">
-                          <Calculator className="h-5 w-5 text-purple-500" />
+                          <Calculator className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                           Resumo Detalhado
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="p-6 space-y-3">
+                      <CardContent className="p-5 space-y-3">
                         <div className="flex justify-between py-2">
                           <span className="text-slate-600 dark:text-slate-400">Subtotal:</span>
                           <span className="font-bold">{formatKwanza(totalAmount)}</span>
@@ -2404,12 +2399,12 @@ export default function TableCheckoutV2() {
 
                         <Separator />
 
-                        <div className="flex items-center justify-between pt-2">
-                          <span className="text-lg font-bold">Total Final:</span>
-                          <span className="text-3xl font-black bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                            {formatKwanza(calculateTotals.finalTotal)}
-                          </span>
-                        </div>
+                         <div className="flex items-center justify-between pt-2">
+                            <span className="text-lg font-bold">Total Final:</span>
+                            <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                              {formatKwanza(calculateTotals.finalTotal)}
+                            </span>
+                          </div>
                       </CardContent>
                     </Card>
                   </div>
@@ -2419,10 +2414,10 @@ export default function TableCheckoutV2() {
                 {currentStep === 4 && (
                   <div className="space-y-6">
                     {/* 🎯 MELHORIA 10: Resumo Detalhado no Step 4 */}
-                    <Card className="border-2 border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20">
-                      <CardHeader className="pb-3 border-b border-indigo-200 dark:border-indigo-800">
+                    <Card className="border-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
+                      <CardHeader className="pb-3 border-b border-slate-200 dark:border-slate-700">
                         <CardTitle className="flex items-center gap-2 text-lg">
-                          <Receipt className="h-5 w-5 text-indigo-600" />
+                          <Receipt className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                           Revisão Final do Pedido
                         </CardTitle>
                       </CardHeader>
@@ -2452,7 +2447,7 @@ export default function TableCheckoutV2() {
                           
                           {/* 🎯 MELHORIA 12: Badge de Ajustes Aplicados */}
                           {calculateTotals.breakdown.length > 0 && (
-                            <div className="space-y-1.5 pl-2 border-l-2 border-indigo-300 dark:border-indigo-700">
+                            <div className="space-y-1.5 pl-2 border-l-2 border-slate-300 dark:border-slate-600">
                               {calculateTotals.breakdown.map((item, idx) => (
                                 <div key={idx} className={cn(
                                   "flex justify-between text-xs",
@@ -2472,12 +2467,12 @@ export default function TableCheckoutV2() {
                           
                           <Separator />
                           
-                          <div className="flex justify-between items-center pt-1">
-                            <span className="font-bold text-base">TOTAL A PAGAR</span>
-                            <span className="font-black text-2xl text-indigo-600 dark:text-indigo-400">
-                              {formatKwanza(calculateTotals.finalTotal)}
-                            </span>
-                          </div>
+                           <div className="flex justify-between items-center pt-1">
+                             <span className="font-bold text-base">TOTAL A PAGAR</span>
+                              <span className="font-bold text-xl text-slate-900 dark:text-slate-100">
+                                {formatKwanza(calculateTotals.finalTotal)}
+                              </span>
+                           </div>
                           
                           {calculateTotals.totalDiscounts > 0 && (
                             <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/20 p-2 rounded">
@@ -2491,14 +2486,14 @@ export default function TableCheckoutV2() {
                     
                     {/* Selection Banner */}
                     {selectedGuestIds.length > 0 && (
-                      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 p-4">
+                      <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
                         <div className="flex items-start gap-3">
-                          <CheckCircle2 className="h-5 w-5 text-purple-500 mt-0.5" />
+                          <CheckCircle2 className="h-5 w-5 text-slate-500 dark:text-slate-400 mt-0.5" />
                           <div>
-                            <div className="font-semibold text-purple-900 dark:text-purple-100">
+                            <div className="font-semibold text-slate-900 dark:text-slate-100">
                               Checkout Individual Ativo
                             </div>
-                            <div className="text-sm text-purple-700 dark:text-purple-300 mt-1 flex items-center gap-2">
+                            <div className="text-sm text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-2">
                               <span>Pagando para {selectedGuestIds.length} {selectedGuestIds.length === 1 ? 'cliente' : 'clientes'}</span>
                               <span>•</span>
                               <span className="font-bold">{formatKwanza(calculateTotals.finalTotal)}</span>
@@ -2509,14 +2504,14 @@ export default function TableCheckoutV2() {
                     )}
 
                     {/* Info Banner */}
-                    <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 p-4">
+                    <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
                       <div className="flex items-start gap-3">
-                        <CreditCard className="h-5 w-5 text-green-500 mt-0.5" />
+                        <CreditCard className="h-5 w-5 text-slate-500 dark:text-slate-400 mt-0.5" />
                         <div>
-                          <div className="font-semibold text-green-900 dark:text-green-100">
+                          <div className="font-semibold text-slate-900 dark:text-slate-100">
                             Selecione o método de pagamento
                           </div>
-                          <div className="text-sm text-green-700 dark:text-green-300 mt-1">
+                          <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                             Escolha como o cliente irá pagar a conta.
                           </div>
                         </div>
@@ -2530,161 +2525,153 @@ export default function TableCheckoutV2() {
                         <h3 className="text-xl font-bold">Escolha o Método de Pagamento</h3>
                       </div>
                       
-                      <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Dinheiro - REDESIGNED */}
-                            <label className={cn(
-                              "relative flex flex-col gap-3 p-5 rounded-2xl border-2 cursor-pointer transition-all group overflow-hidden",
-                              paymentMethod === 'dinheiro' 
-                                ? "border-primary bg-primary/10 shadow-lg shadow-primary/20 scale-[1.02]" 
-                                : "border-border bg-card hover:border-primary/50 hover:shadow-md"
-                            )}>
-                              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary/20 to-transparent rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
-                              
-                              <div className="flex items-start justify-between relative z-10">
-                                <div className="flex items-center gap-3">
-                                  <div className={cn(
-                                    "p-3 rounded-xl transition-all",
-                                    paymentMethod === 'dinheiro'
-                                      ? "bg-primary text-primary-foreground shadow-lg"
-                                      : "bg-primary/20 text-primary"
-                                  )}>
-                                    <Banknote className="h-7 w-7" />
-                                  </div>
-                                  <div>
-                                    <div className="font-bold text-lg">Dinheiro</div>
-                                    <div className="text-sm text-muted-foreground">Pagamento em espécie</div>
-                                  </div>
-                                </div>
-                                <RadioGroupItem value="dinheiro" id="dinheiro" className="mt-1" />
-                              </div>
-                              
-                              {paymentMethod === 'dinheiro' && (
-                                <div className="flex items-center gap-2 text-sm text-primary font-medium relative z-10">
-                                  <CheckCircle2 className="h-4 w-4" />
-                                  <span>Selecionado</span>
-                                </div>
-                              )}
-                            </label>
+                       <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             {/* Dinheiro - REDESIGNED */}
+                             <label className={cn(
+                               "relative flex flex-col gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all group",
+                               paymentMethod === 'dinheiro' 
+                                 ? "border-slate-900 bg-slate-50 dark:border-slate-100 dark:bg-slate-800 shadow-md" 
+                                 : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600"
+                             )}>
+                               <div className="flex items-start justify-between relative z-10">
+                                 <div className="flex items-center gap-3">
+                                   <div className={cn(
+                                     "p-2.5 rounded-lg transition-all",
+                                     paymentMethod === 'dinheiro'
+                                       ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                                   )}>
+                                     <Banknote className="h-6 w-6" />
+                                   </div>
+                                   <div>
+                                     <div className="font-bold text-base">Dinheiro</div>
+                                     <div className="text-sm text-muted-foreground">Pagamento em espécie</div>
+                                   </div>
+                                 </div>
+                                 <RadioGroupItem value="dinheiro" id="dinheiro" />
+                               </div>
+                               
+                               {paymentMethod === 'dinheiro' && (
+                                 <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 font-medium relative z-10">
+                                   <CheckCircle2 className="h-4 w-4" />
+                                   <span>Selecionado</span>
+                                 </div>
+                               )}
+                             </label>
 
-                            {/* Multicaixa - REDESIGNED */}
-                            <label className={cn(
-                              "relative flex flex-col gap-3 p-5 rounded-2xl border-2 cursor-pointer transition-all group overflow-hidden",
-                              paymentMethod === 'multicaixa' 
-                                ? "border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-500/20 scale-[1.02]" 
-                                : "border-border bg-card hover:border-blue-500/50 hover:shadow-md"
-                            )}>
-                              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/20 to-transparent rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
-                              
-                              <div className="flex items-start justify-between relative z-10">
-                                <div className="flex items-center gap-3">
-                                  <div className={cn(
-                                    "p-3 rounded-xl transition-all",
-                                    paymentMethod === 'multicaixa'
-                                      ? "bg-blue-500 text-white shadow-lg"
-                                      : "bg-blue-500/20 text-blue-600"
-                                  )}>
-                                    <CreditCard className="h-7 w-7" />
-                                  </div>
-                                  <div>
-                                    <div className="font-bold text-lg">Multicaixa</div>
-                                    <div className="text-sm text-muted-foreground">Pagamento por ATM</div>
-                                  </div>
-                                </div>
-                                <RadioGroupItem value="multicaixa" id="multicaixa" className="mt-1" />
-                              </div>
-                              
-                              {paymentMethod === 'multicaixa' && (
-                                <div className="flex items-center gap-2 text-sm text-blue-600 font-medium relative z-10">
-                                  <CheckCircle2 className="h-4 w-4" />
-                                  <span>Selecionado</span>
-                                </div>
-                              )}
-                            </label>
+                             {/* Multicaixa - REDESIGNED */}
+                             <label className={cn(
+                               "relative flex flex-col gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all group",
+                               paymentMethod === 'multicaixa' 
+                                 ? "border-slate-900 bg-slate-50 dark:border-slate-100 dark:bg-slate-800 shadow-md" 
+                                 : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600"
+                             )}>
+                               <div className="flex items-start justify-between relative z-10">
+                                 <div className="flex items-center gap-3">
+                                   <div className={cn(
+                                     "p-2.5 rounded-lg transition-all",
+                                     paymentMethod === 'multicaixa'
+                                       ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                                   )}>
+                                     <CreditCard className="h-6 w-6" />
+                                   </div>
+                                   <div>
+                                     <div className="font-bold text-base">Multicaixa</div>
+                                     <div className="text-sm text-muted-foreground">Pagamento por ATM</div>
+                                   </div>
+                                 </div>
+                                 <RadioGroupItem value="multicaixa" id="multicaixa" />
+                               </div>
+                               
+                               {paymentMethod === 'multicaixa' && (
+                                 <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 font-medium relative z-10">
+                                   <CheckCircle2 className="h-4 w-4" />
+                                   <span>Selecionado</span>
+                                 </div>
+                               )}
+                             </label>
 
-                            {/* Transferência - REDESIGNED */}
-                            <label className={cn(
-                              "relative flex flex-col gap-3 p-5 rounded-2xl border-2 cursor-pointer transition-all group overflow-hidden",
-                              paymentMethod === 'transferencia' 
-                                ? "border-purple-500 bg-purple-500/10 shadow-lg shadow-purple-500/20 scale-[1.02]" 
-                                : "border-border bg-card hover:border-purple-500/50 hover:shadow-md"
-                            )}>
-                              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-500/20 to-transparent rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
-                              
-                              <div className="flex items-start justify-between relative z-10">
-                                <div className="flex items-center gap-3">
-                                  <div className={cn(
-                                    "p-3 rounded-xl transition-all",
-                                    paymentMethod === 'transferencia'
-                                      ? "bg-purple-500 text-white shadow-lg"
-                                      : "bg-purple-500/20 text-purple-600"
-                                  )}>
-                                    <Building className="h-7 w-7" />
-                                  </div>
-                                  <div>
-                                    <div className="font-bold text-lg">Transferência Bancária</div>
-                                    <div className="text-sm text-muted-foreground">Pagamento por transferência</div>
-                                  </div>
-                                </div>
-                                <RadioGroupItem value="transferencia" id="transferencia" className="mt-1" />
-                              </div>
-                              
-                              {paymentMethod === 'transferencia' && (
-                                <div className="flex items-center gap-2 text-sm text-purple-600 font-medium relative z-10">
-                                  <CheckCircle2 className="h-4 w-4" />
-                                  <span>Selecionado</span>
-                                </div>
-                              )}
-                            </label>
+                             {/* Transferência - REDESIGNED */}
+                             <label className={cn(
+                               "relative flex flex-col gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all group",
+                               paymentMethod === 'transferencia' 
+                                 ? "border-slate-900 bg-slate-50 dark:border-slate-100 dark:bg-slate-800 shadow-md" 
+                                 : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600"
+                             )}>
+                               <div className="flex items-start justify-between relative z-10">
+                                 <div className="flex items-center gap-3">
+                                   <div className={cn(
+                                     "p-2.5 rounded-lg transition-all",
+                                     paymentMethod === 'transferencia'
+                                       ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                                   )}>
+                                     <Building className="h-6 w-6" />
+                                   </div>
+                                   <div>
+                                     <div className="font-bold text-base">Transferência Bancária</div>
+                                     <div className="text-sm text-muted-foreground">Pagamento por transferência</div>
+                                   </div>
+                                 </div>
+                                 <RadioGroupItem value="transferencia" id="transferencia" />
+                               </div>
+                               
+                               {paymentMethod === 'transferencia' && (
+                                 <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 font-medium relative z-10">
+                                   <CheckCircle2 className="h-4 w-4" />
+                                   <span>Selecionado</span>
+                                 </div>
+                               )}
+                             </label>
 
-                            {/* Cartão - REDESIGNED */}
-                            <label className={cn(
-                              "relative flex flex-col gap-3 p-5 rounded-2xl border-2 cursor-pointer transition-all group overflow-hidden",
-                              paymentMethod === 'cartao' 
-                                ? "border-orange-500 bg-orange-500/10 shadow-lg shadow-orange-500/20 scale-[1.02]" 
-                                : "border-border bg-card hover:border-orange-500/50 hover:shadow-md"
-                            )}>
-                              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-500/20 to-transparent rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500" />
-                              
-                              <div className="flex items-start justify-between relative z-10">
-                                <div className="flex items-center gap-3">
-                                  <div className={cn(
-                                    "p-3 rounded-xl transition-all",
-                                    paymentMethod === 'cartao'
-                                      ? "bg-orange-500 text-white shadow-lg"
-                                      : "bg-orange-500/20 text-orange-600"
-                                  )}>
-                                    <Smartphone className="h-7 w-7" />
-                                  </div>
-                                  <div>
-                                    <div className="font-bold text-lg">Cartão</div>
-                                    <div className="text-sm text-muted-foreground">Pagamento por cartão</div>
-                                  </div>
-                                </div>
-                                <RadioGroupItem value="cartao" id="cartao" className="mt-1" />
-                              </div>
-                              
-                              {paymentMethod === 'cartao' && (
-                                <div className="flex items-center gap-2 text-sm text-orange-600 font-medium relative z-10">
-                                  <CheckCircle2 className="h-4 w-4" />
-                                  <span>Selecionado</span>
-                                </div>
-                              )}
-                            </label>
-                          </div>
-                        </RadioGroup>
+                             {/* Cartão - REDESIGNED */}
+                             <label className={cn(
+                               "relative flex flex-col gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all group",
+                               paymentMethod === 'cartao' 
+                                 ? "border-slate-900 bg-slate-50 dark:border-slate-100 dark:bg-slate-800 shadow-md" 
+                                 : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600"
+                             )}>
+                               <div className="flex items-start justify-between relative z-10">
+                                 <div className="flex items-center gap-3">
+                                   <div className={cn(
+                                     "p-2.5 rounded-lg transition-all",
+                                     paymentMethod === 'cartao'
+                                       ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                                   )}>
+                                     <Smartphone className="h-6 w-6" />
+                                   </div>
+                                   <div>
+                                     <div className="font-bold text-base">Cartão</div>
+                                     <div className="text-sm text-muted-foreground">Pagamento por cartão</div>
+                                   </div>
+                                 </div>
+                                 <RadioGroupItem value="cartao" id="cartao" />
+                               </div>
+                               
+                               {paymentMethod === 'cartao' && (
+                                 <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 font-medium relative z-10">
+                                   <CheckCircle2 className="h-4 w-4" />
+                                   <span>Selecionado</span>
+                                 </div>
+                               )}
+                             </label>
+                           </div>
+                         </RadioGroup>
                       </div>
 
                     {/* Input de Troco (se Dinheiro) */}
-                    {paymentMethod === 'dinheiro' && (
-                      <Card className="border-2 border-slate-200 dark:border-slate-800">
-                        <CardHeader className="bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/20 dark:to-yellow-950/20 border-b">
-                          <CardTitle className="text-lg flex items-center gap-2">
-                            <Banknote className="h-5 w-5 text-amber-500" />
-                            Valor Recebido
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-6 space-y-4">
+                     {paymentMethod === 'dinheiro' && (
+                       <Card className="border-2 border-slate-200 dark:border-slate-800">
+                         <CardHeader className="bg-slate-100 dark:bg-slate-800 border-b">
+                           <CardTitle className="text-lg flex items-center gap-2">
+                             <Banknote className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                             Valor Recebido
+                           </CardTitle>
+                         </CardHeader>
+                         <CardContent className="p-5 space-y-4">
                           <div className="space-y-2">
                             <Label>Quanto o cliente deu?</Label>
                             <Input
@@ -2697,50 +2684,50 @@ export default function TableCheckoutV2() {
                             />
                           </div>
 
-                          {receivedAmount && parseFloat(receivedAmount) >= calculateTotals.finalTotal && (
-                            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 p-4">
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                                    Troco a Devolver:
-                                  </span>
-                                  <span className="text-2xl font-bold text-green-600 dark:text-green-400">
-                                    {formatKwanza(parseFloat(receivedAmount) - calculateTotals.finalTotal)}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
+                           {receivedAmount && parseFloat(receivedAmount) >= calculateTotals.finalTotal && (
+                             <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
+                               <div className="space-y-2">
+                                 <div className="flex items-center justify-between">
+                                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                     Troco a Devolver:
+                                   </span>
+                                   <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                                     {formatKwanza(parseFloat(receivedAmount) - calculateTotals.finalTotal)}
+                                   </span>
+                                 </div>
+                               </div>
+                             </div>
+                           )}
 
-                          {receivedAmount && parseFloat(receivedAmount) < calculateTotals.finalTotal && (
-                            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-red-500/10 to-rose-500/10 border border-red-500/20 p-4">
-                              <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
-                                <AlertCircle className="h-4 w-4" />
-                                <span className="text-sm font-medium">
-                                  Valor insuficiente. Falta: {formatKwanza(calculateTotals.finalTotal - parseFloat(receivedAmount))}
-                                </span>
-                              </div>
-                            </div>
-                          )}
+                           {receivedAmount && parseFloat(receivedAmount) < calculateTotals.finalTotal && (
+                             <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-red-200 dark:border-red-800 p-4">
+                               <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                                 <AlertCircle className="h-4 w-4" />
+                                 <span className="text-sm font-medium">
+                                   Valor insuficiente. Falta: {formatKwanza(calculateTotals.finalTotal - parseFloat(receivedAmount))}
+                                 </span>
+                               </div>
+                             </div>
+                           )}
                         </CardContent>
                       </Card>
                     )}
 
                     {/* Final Summary */}
                     {paymentMethod && (
-                      <Card className="border-2 border-green-500/50 bg-gradient-to-br from-green-500/5 to-emerald-500/5">
-                        <CardContent className="p-6">
+                      <Card className="border-2 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                        <CardContent className="p-5">
                           <div className="space-y-4">
                             <div className="flex items-center justify-between">
-                              <span className="text-lg font-semibold">Método Selecionado:</span>
-                              <Badge className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30 text-base px-4 py-1">
+                              <span className="text-base font-semibold">Método Selecionado:</span>
+                              <Badge className="bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-600 text-sm px-3 py-1">
                                 {paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)}
                               </Badge>
                             </div>
                             <Separator />
                             <div className="flex items-center justify-between">
-                              <span className="text-xl font-bold">Valor a Receber:</span>
-                              <span className="text-4xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                              <span className="text-lg font-bold">Valor a Receber:</span>
+                              <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                                 {formatKwanza(calculateTotals.finalTotal)}
                               </span>
                             </div>
@@ -2757,51 +2744,48 @@ export default function TableCheckoutV2() {
             <div className="flex justify-between mt-6">
               <Button
                 variant="outline"
-                size="lg"
+                size="default"
                 onClick={async () => {
-                  // 🔧 CORREÇÃO UX: Salvar ANTES de navegar
                   await saveAdjustmentsToSession();
                   setCurrentStep(Math.max(1, currentStep - 1));
                 }}
                 disabled={currentStep === 1}
-                className="rounded-xl transition-all"
               >
-                <ArrowLeft className="h-5 w-5 mr-2" />
+                <ArrowLeft className="h-4 w-4 mr-2" />
                 Voltar
               </Button>
               
               {currentStep < STEPS.length ? (
                 <Button
-                  size="lg"
+                  size="default"
                   onClick={async () => {
-                    // 🔧 CORREÇÃO UX: Salvar ANTES de navegar
                     await saveAdjustmentsToSession();
                     setCurrentStep(Math.min(STEPS.length, currentStep + 1));
                   }}
-                  className="rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 shadow-lg shadow-purple-500/30 transition-all hover:scale-105"
+                  className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900"
                 >
                   Continuar
-                  <ArrowRight className="h-5 w-5 ml-2" />
+                  <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               ) : (
                 <Button
-                  size="lg"
+                  size="default"
                   disabled={
                     !paymentMethod || 
                     (paymentMethod === 'dinheiro' && receivedAmount && parseFloat(receivedAmount) < calculateTotals.finalTotal) ||
                     processPaymentMutation.isPending
                   }
                   onClick={() => setShowConfirmation(true)}
-                  className="rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 shadow-2xl shadow-green-500/40 transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+                  className="bg-green-600 hover:bg-green-700"
                 >
                   {processPaymentMutation.isPending ? (
                     <>
-                      <div className="animate-spin h-5 w-5 mr-2 border-2 border-white border-t-transparent rounded-full" />
+                      <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
                       Processando...
                     </>
                   ) : (
                     <>
-                      <Check className="h-5 w-5 mr-2" />
+                      <Check className="h-4 w-4 mr-2" />
                       Finalizar Pagamento
                     </>
                   )}
@@ -2811,15 +2795,15 @@ export default function TableCheckoutV2() {
           </div>
 
           {/* Sidebar - 1 column */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-24">
-              <Card className="bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-950 dark:to-slate-900 border-slate-700/50 shadow-2xl text-white">
-                <CardHeader className="border-b border-slate-700/50">
-                  <CardTitle className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-yellow-400" />
-                      Resumo do Pedido
-                    </span>
+            <div className="lg:col-span-1">
+             <div className="sticky top-24">
+               <Card className="bg-slate-900 dark:bg-slate-950 border-slate-700/50 text-white">
+                 <CardHeader className="border-b border-slate-700/50">
+                   <CardTitle className="flex items-center justify-between gap-2">
+                     <span className="flex items-center gap-2">
+                       <Sparkles className="h-5 w-5 text-yellow-400" />
+                       Resumo do Pedido
+                     </span>
                     <Button
                       type="button"
                       variant="outline"
@@ -2891,21 +2875,21 @@ export default function TableCheckoutV2() {
                       
                       <Separator className="bg-white/10" />
                       
-                      {/* Total */}
-                      <div className="pt-2 space-y-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-lg font-bold text-white">TOTAL</span>
-                          <div className="text-right">
-                            {calculateTotals.totalDiscounts > 0 && (
-                              <div className="text-xs text-green-400 line-through">
-                                {formatKwanza(calculateTotals.subtotal)}
+                       {/* Total */}
+                       <div className="pt-2 space-y-3">
+                         <div className="flex items-center justify-between mb-2">
+                           <span className="text-lg font-bold text-white">TOTAL</span>
+                           <div className="text-right">
+                             {calculateTotals.totalDiscounts > 0 && (
+                               <div className="text-xs text-green-400 line-through">
+                                 {formatKwanza(calculateTotals.subtotal)}
+                               </div>
+                             )}
+                              <div className="text-xl font-bold text-white">
+                                {formatKwanza(calculateTotals.finalTotal)}
                               </div>
-                            )}
-                            <div className="text-3xl font-black bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
-                              {formatKwanza(calculateTotals.finalTotal)}
-                            </div>
-                          </div>
-                        </div>
+                           </div>
+                         </div>
                         
                         {calculateTotals.totalDiscounts > 0 && (
                           <div className="text-xs text-green-400 text-right">
@@ -2941,7 +2925,7 @@ export default function TableCheckoutV2() {
                         {/* Progress Bar */}
                         <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
                           <div 
-                            className="absolute inset-y-0 left-0 bg-gradient-to-r from-green-400 to-emerald-400 transition-all duration-500 ease-out"
+                            className="absolute inset-y-0 left-0 bg-slate-100 dark:bg-slate-400 transition-all duration-500 ease-out"
                             style={{ width: `${(currentStep / STEPS.length) * 100}%` }}
                           />
                         </div>
@@ -3044,7 +3028,7 @@ export default function TableCheckoutV2() {
                 processPaymentMutation.isPending || 
                 (paymentMethod === 'dinheiro' && !!receivedAmount && parseFloat(receivedAmount) < calculateTotals.finalTotal)
               }
-              className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+              className="bg-green-600 hover:bg-green-700"
             >
               {processPaymentMutation.isPending ? 'Processando...' : 'Confirmar Pagamento'}
             </AlertDialogAction>

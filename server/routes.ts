@@ -4274,6 +4274,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         orderId: z.string(),
         discount: z.string().optional(),
         discountType: z.enum(['valor', 'percentual']).optional(),
+        serviceCharge: z.string().optional(),
+        guestId: z.string().optional(),
         services: z.array(z.object({
           serviceId: z.string().optional().nullable(),
           serviceName: z.string(),
@@ -4293,6 +4295,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const {
         discount,
         discountType,
+        serviceCharge,
+        guestId,
         services,
         deliveryFee,
         packagingFee,
@@ -4332,6 +4336,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             currentUser.id
           );
         }
+      } else if (serviceCharge && parseFloat(serviceCharge) > 0) {
+        await storage.applyServiceCharge(
+          restaurantId,
+          orderId,
+          serviceCharge,
+          "Taxa de Serviço"
+        );
       }
       
       if (deliveryFee !== undefined && order.orderType === 'delivery') {
@@ -4359,6 +4370,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           paymentMethod: method as any,
           receivedAmount
         }, currentUser.id);
+
+        if (guestId && order.tableSessionId) {
+          await db.insert(guestPayments).values({
+            guestId,
+            sessionId: order.tableSessionId,
+            restaurantId,
+            amount: paymentAmount,
+            paymentMethod: method as string,
+          });
+          
+          await db.update(tableGuests)
+            .set({ status: 'pago' })
+            .where(eq(tableGuests.id, guestId));
+        }
       }
 
       // Handle table session closure
