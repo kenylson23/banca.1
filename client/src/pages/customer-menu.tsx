@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useRoute } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -357,59 +357,59 @@ export default function CustomerMenu() {
   };
 
   // Calculate final total with discounts
-  const calculateFinalTotal = () => {
+  const calculateFinalTotal = useCallback(() => {
     let total = getTotal();
-    
     if (couponValidation?.valid && couponValidation.discountAmount) {
       total -= couponValidation.discountAmount;
     }
-    
     if (usePoints && pointsToRedeem > 0 && identifiedCustomer?.loyalty) {
       const pointsDiscount = pointsToRedeem * parseFloat(identifiedCustomer.loyalty.currencyPerPoint);
       total -= pointsDiscount;
     }
-    
     return Math.max(0, total);
-  };
+  }, [getTotal, couponValidation?.valid, couponValidation?.discountAmount, usePoints, pointsToRedeem, identifiedCustomer?.loyalty?.currencyPerPoint]);
 
   // Calculate points discount
-  const getPointsDiscount = () => {
+  const getPointsDiscount = useCallback(() => {
     if (!usePoints || pointsToRedeem <= 0 || !identifiedCustomer?.loyalty) return 0;
     const discount = pointsToRedeem * parseFloat(identifiedCustomer.loyalty.currencyPerPoint);
-    // Ensure discount doesn't exceed payable amount
     let payableAmount = getTotal();
     if (couponValidation?.valid && couponValidation.discountAmount) {
       payableAmount -= couponValidation.discountAmount;
     }
     return Math.min(discount, payableAmount);
-  };
+  }, [usePoints, pointsToRedeem, identifiedCustomer?.loyalty?.currencyPerPoint, getTotal, couponValidation?.valid, couponValidation?.discountAmount]);
 
   // Calculate points to earn
-  const getPointsToEarn = () => {
+  const getPointsToEarn = useCallback(() => {
     if (!identifiedCustomer?.loyalty?.isActive) return 0;
     const finalTotal = calculateFinalTotal();
     return Math.floor(finalTotal * parseFloat(identifiedCustomer.loyalty.pointsPerCurrency));
-  };
+  }, [identifiedCustomer?.loyalty?.isActive, calculateFinalTotal, identifiedCustomer?.loyalty?.pointsPerCurrency]);
 
-  const categories = menuItems
-    ?.filter(item => item.isVisible === 1)
-    ?.reduce((acc, item) => {
-      if (!acc.find(cat => cat.id === item.category.id)) {
-        acc.push(item.category);
-      }
-      return acc;
-    }, [] as Category[])
-    .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)) || [];
+  const categories = useMemo(() => {
+    return menuItems
+      ?.filter(item => item.isVisible === 1)
+      ?.reduce((acc, item) => {
+        if (!acc.find(cat => cat.id === item.category.id)) {
+          acc.push(item.category);
+        }
+        return acc;
+      }, [] as Category[])
+      .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)) || [];
+  }, [menuItems]);
 
-  const filteredItems = menuItems
-    ?.filter(item => item.isVisible === 1)
-    ?.filter(item => {
-      const matchesCategory = selectedCategory === 'all' || String(item.categoryId) === selectedCategory;
-      const matchesSearch = !searchQuery || 
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
-      return matchesCategory && matchesSearch;
-    }) || [];
+  const filteredItems = useMemo(() => {
+    return menuItems
+      ?.filter(item => item.isVisible === 1)
+      ?.filter(item => {
+        const matchesCategory = selectedCategory === 'all' || String(item.categoryId) === selectedCategory;
+        const matchesSearch = !searchQuery || 
+          item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+        return matchesCategory && matchesSearch;
+      }) || [];
+  }, [menuItems, selectedCategory, searchQuery]);
 
   const createOrderMutation = useMutation({
     mutationFn: async (orderData: { 

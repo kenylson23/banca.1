@@ -338,50 +338,32 @@ export function TableDetailsDialog({
     refetchOnWindowFocus: true,
   });
   
-  // Usar tableData atualizado ou fallback para prop table
-  const currentTable = tableData || table;
-  
-  console.log('[DEBUG TableDetailsDialog] table (prop):', table);
-  console.log('[DEBUG TableDetailsDialog] tableData (query):', tableData);
-  console.log('[DEBUG TableDetailsDialog] currentTable (used):', currentTable);
-  
-  // Usar a mesma query do checkout que retorna orders-by-guest com items
-  const { data: ordersByGuestData } = useQuery<OrdersByGuestData>({
-    queryKey: [`/api/tables/${currentTable?.id}/orders-by-guest`],
-    enabled: open && !!currentTable?.id && currentTable?.status !== 'livre',
-    refetchOnMount: true, // 🔧 FIX: Sempre buscar dados frescos ao abrir o diálogo
-    refetchOnWindowFocus: true, // 🔧 FIX: Refetch quando a janela recebe foco
-    staleTime: 0, // 🔧 FIX: Dados sempre considerados "stale" para forçar refetch após invalidações
-  });
-  
-  // 🔧 FIX: Buscar TODOS os guests da sessão atual, independente de terem pedidos
-  // Esta query garante que sempre mostramos o número correto de pessoas na mesa
-  const { data: allSessionGuests = [], isLoading: isLoadingGuests } = useQuery<any[]>({
-    queryKey: [`/api/tables/${currentTable?.id}/guests`],
-    enabled: open && !!currentTable?.id && !!currentTable?.currentSessionId,
-    refetchOnMount: true, // 🔧 FIX: Refetch on mount to ensure fresh data
-    refetchOnWindowFocus: true, // 🔧 FIX: Refetch when window regains focus
-    queryFn: async () => {
-      if (!currentTable?.currentSessionId) {
-        console.log('[DEBUG TableDetailsDialog] No currentSessionId, returning empty guests');
-        return [];
-      }
-      console.log('[DEBUG TableDetailsDialog] Fetching guests for session:', currentTable.currentSessionId);
-      const response = await apiRequest('GET', `/api/table-sessions/${currentTable.currentSessionId}/guests`);
-      const guests = await response.json();
-      console.log('[DEBUG TableDetailsDialog] Guests fetched:', guests);
-      return guests;
-    },
-  });
-  
-  console.log('[DEBUG TableDetailsDialog] allSessionGuests:', allSessionGuests);
-  console.log('[DEBUG TableDetailsDialog] isLoadingGuests:', isLoadingGuests);
-  console.log('[DEBUG TableDetailsDialog] ===== PAYMENT DEBUG =====');
-  console.log('[DEBUG TableDetailsDialog] ordersByGuestData:', ordersByGuestData);
-  console.log('[DEBUG TableDetailsDialog] paidAmount from data:', ordersByGuestData?.paidAmount);
-  console.log('[DEBUG TableDetailsDialog] totalAmount from data:', ordersByGuestData?.totalAmount);
-  console.log('[DEBUG TableDetailsDialog] currentSessionId:', ordersByGuestData?.currentSessionId);
-  console.log('[DEBUG TableDetailsDialog] ========================');
+   // Usar tableData atualizado ou fallback para prop table
+   const currentTable = tableData || table;
+   
+   // Usar a mesma query do checkout que retorna orders-by-guest com items
+   const { data: ordersByGuestData } = useQuery<OrdersByGuestData>({
+     queryKey: [`/api/tables/${currentTable?.id}/orders-by-guest`],
+     enabled: open && !!currentTable?.id && currentTable?.status !== 'livre',
+     refetchOnMount: true,
+     refetchOnWindowFocus: false,
+     staleTime: 30000,
+   });
+   
+   // 🔧 FIX: Buscar TODOS os guests da sessão atual, independente de terem pedidos
+   const { data: allSessionGuests = [], isLoading: isLoadingGuests } = useQuery<any[]>({
+     queryKey: [`/api/tables/${currentTable?.id}/guests`],
+     enabled: open && !!currentTable?.id && !!currentTable?.currentSessionId,
+     refetchOnMount: true,
+     refetchOnWindowFocus: false,
+     queryFn: async () => {
+       if (!currentTable?.currentSessionId) {
+         return [];
+       }
+       const response = await apiRequest('GET', `/api/table-sessions/${currentTable.currentSessionId}/guests`);
+       return await response.json();
+     },
+   });
   
   // ✅ OTIMIZAÇÃO: Pré-carregar bundle e dados do checkout para abertura instantânea
   useEffect(() => {

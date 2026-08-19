@@ -222,63 +222,42 @@ export function TableDialogPOSModern({
 
   // Dados reais da mesa
   const currentTable = tableData || table;
-  const ordersCount = ordersByGuest?.reduce((sum, og) => sum + og.orders.length, 0) || 0;
+  const ordersCount = useMemo(() => ordersByGuest?.reduce((sum, og) => sum + og.orders.length, 0) || 0, [ordersByGuest]);
+  const guestsCount = useMemo(() => allSessionGuests?.length || 0, [allSessionGuests]);
+  const hasActiveSession = useMemo(() => !!currentTable?.currentSessionId || guestsCount > 0, [currentTable?.currentSessionId, guestsCount]);
+  const subtotalBeforeAdjustments = useMemo(() => ordersByGuest?.reduce((sum: number, og: any) => sum + parseFloat(og.subtotal || '0'), 0) || 0, [ordersByGuest]);
   
-  // ✅ IMPORTANTE: Calcular hasActiveSession baseado em sessionId OU guests
-  // (pois agora criamos sessão automaticamente ao adicionar primeiro convidado)
-  const guestsCount = allSessionGuests?.length || 0;
-  const hasActiveSession = !!currentTable?.currentSessionId || guestsCount > 0;
-  
-  // ✅ SINCRONIZAÇÃO: Calcular totalAmount considerando desconto E taxa da sessão
-  const subtotalBeforeAdjustments = ordersByGuest?.reduce((sum: number, og: any) => {
-    return sum + parseFloat(og.subtotal || '0');
-  }, 0) || 0;
-  
-  // 🔧 FIX: Usar totalAmount do backend como prioridade, mas garantir coerência
-  let currentTotalAmount = ordersByGuestData?.totalAmount 
-    ? parseFloat(ordersByGuestData.totalAmount) 
-    : subtotalBeforeAdjustments;
-  console.log("[FRONTEND DEBUG] ordersByGuestData.totalAmount:", ordersByGuestData?.totalAmount, "subtotalBeforeAdjustments:", subtotalBeforeAdjustments);
-
-  // Se o totalAmount for menor que o subtotal bruto (sem ajustes), algo está errado no sync
-  // mas aqui deixamos os ajustes serem aplicados se o totalAmount vier do backend.
-  // Se não vier, aplicamos os ajustes locais.
-  if (!ordersByGuestData?.totalAmount) {
-    // Obter desconto da sessão (se houver)
+  const currentTotalAmount = useMemo(() => {
+    const totalFromBackend = ordersByGuestData?.totalAmount ? parseFloat(ordersByGuestData.totalAmount) : subtotalBeforeAdjustments;
+    if (ordersByGuestData?.totalAmount) {
+      return totalFromBackend;
+    }
+    let total = totalFromBackend;
     const sessionDiscount = parseFloat(currentTable?.currentSession?.discount || '0');
     const sessionDiscountType = currentTable?.currentSession?.discountType || 'valor';
-    
-    // ✅ SINCRONIZAÇÃO: Obter taxa de serviço da sessão (serviceCharge)
     const sessionServiceFee = parseFloat(currentTable?.currentSession?.serviceCharge || '0');
     const sessionServiceFeeType = currentTable?.currentSession?.serviceChargeType || 'percentual';
-    
-    // 1. Aplicar desconto
     if (sessionDiscount > 0) {
       if (sessionDiscountType === 'percentual') {
-        const discountPercent = Math.min(sessionDiscount, 100);
-        currentTotalAmount = currentTotalAmount * (1 - discountPercent / 100);
+        total = total * (1 - Math.min(sessionDiscount, 100) / 100);
       } else {
-        currentTotalAmount = Math.max(0, currentTotalAmount - sessionDiscount);
+        total = Math.max(0, total - sessionDiscount);
       }
     }
-    
-    // 2. Aplicar taxa de serviço (sobre valor já descontado)
     if (sessionServiceFee > 0) {
       if (sessionServiceFeeType === 'percentual') {
-        currentTotalAmount = currentTotalAmount * (1 + sessionServiceFee / 100);
+        total = total * (1 + sessionServiceFee / 100);
       } else {
-        currentTotalAmount = currentTotalAmount + sessionServiceFee;
+        total = total + sessionServiceFee;
       }
     }
-  }
-
-  // 🔧 FIX: Segurança extra - o total nunca pode ser menor que a soma do que foi pago
-  const paidFromGuests = (ordersByGuest || []).reduce((sum: number, og: any) => {
-    return sum + parseFloat(og.guest?.paidAmount || '0');
-  }, 0);
+    return total;
+  }, [ordersByGuestData?.totalAmount, subtotalBeforeAdjustments, currentTable?.currentSession?.discount, currentTable?.currentSession?.discountType, currentTable?.currentSession?.serviceCharge, currentTable?.currentSession?.serviceChargeType]);
   
-  currentTotalAmount = Math.max(currentTotalAmount, paidFromGuests);
-  const totalPaid = Math.max(sessionPaidAmount || 0, paidFromGuests);
+  const totalPaid = useMemo(() => {
+    const paidFromGuests = (ordersByGuest || []).reduce((sum: number, og: any) => sum + parseFloat(og.guest?.paidAmount || '0'), 0);
+    return Math.max(sessionPaidAmount || 0, paidFromGuests);
+  }, [ordersByGuest, sessionPaidAmount]);
   
   const sessionDuration = useMemo(() => {
     if (!currentTable?.currentSessionId || !currentTable?.currentSession?.startedAt) return '0h 0min';
@@ -299,7 +278,7 @@ export function TableDialogPOSModern({
     return `${hours}h ${mins}min`;
   }, [currentTable?.currentSessionId, currentTable?.currentSession?.startedAt]);
 
-  const navigationItems: NavigationItem[] = [
+  const navigationItems = useMemo<NavigationItem[]>(() => [
     {
       id: 'overview',
       label: 'Visão Geral',
@@ -339,7 +318,7 @@ export function TableDialogPOSModern({
       icon: <History className="w-5 h-5" />,
       shortcut: '6',
     },
-  ];
+  ], [guestsCount, ordersCount]);
 
   const handleClose = useCallback(() => {
     onOpenChange(false);

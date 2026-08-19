@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useRoute, Link } from 'wouter';
 import { useCart } from '@/contexts/CartContext';
@@ -345,94 +345,99 @@ export default function PublicMenu() {
   };
 
   // Calculate final total with discounts
-  const calculateFinalTotal = () => {
+  const calculateFinalTotal = useCallback(() => {
     let total = getTotal();
-    
-    // Apply coupon discount
     if (couponValidation?.valid && couponValidation.discountAmount) {
       total -= couponValidation.discountAmount;
     }
-    
-    // Apply loyalty points discount
     if (usePoints && pointsToRedeem > 0 && identifiedCustomer?.loyalty) {
       const pointsDiscount = pointsToRedeem * parseFloat(identifiedCustomer.loyalty.currencyPerPoint);
       total -= pointsDiscount;
     }
-    
     return Math.max(0, total);
-  };
+  }, [getTotal, couponValidation?.valid, couponValidation?.discountAmount, usePoints, pointsToRedeem, identifiedCustomer?.loyalty?.currencyPerPoint]);
 
-  // Calculate points discount
-  const getPointsDiscount = () => {
+  const getPointsDiscount = useCallback(() => {
     if (!usePoints || pointsToRedeem <= 0 || !identifiedCustomer?.loyalty) return 0;
     return pointsToRedeem * parseFloat(identifiedCustomer.loyalty.currencyPerPoint);
-  };
+  }, [usePoints, pointsToRedeem, identifiedCustomer?.loyalty?.currencyPerPoint]);
 
-  // Calculate points to earn
-  const getPointsToEarn = () => {
+  const getPointsToEarn = useCallback(() => {
     if (!identifiedCustomer?.loyalty?.isActive) return 0;
     const finalTotal = calculateFinalTotal();
     return Math.floor(finalTotal * parseFloat(identifiedCustomer.loyalty.pointsPerCurrency));
-  };
+  }, [identifiedCustomer?.loyalty?.isActive, calculateFinalTotal, identifiedCustomer?.loyalty?.pointsPerCurrency]);
 
-  const categories = menuItems
-    ?.filter(item => item.isVisible === 1)
-    ?.reduce((acc, item) => {
-      if (!acc.find(cat => cat.id === item.category.id)) {
-        acc.push(item.category);
-      }
-      return acc;
-    }, [] as Category[])
-    .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)) || [];
-
-  const filteredItems = menuItems
-    ?.filter(item => item.isVisible === 1)
-    ?.filter(item => {
-      const matchesCategory = selectedCategory === 'all' || String(item.categoryId) === selectedCategory;
-      const matchesSearch = !searchQuery || 
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
-      return matchesCategory && matchesSearch;
-    }) || [];
-
-  const itemsByCategory = categories.map(category => {
-    const categoryItems = menuItems
+  const categories = useMemo(() => {
+    return menuItems
       ?.filter(item => item.isVisible === 1)
-      ?.filter(item => String(item.categoryId) === category.id)
+      ?.reduce((acc, item) => {
+        if (!acc.find(cat => cat.id === item.category.id)) {
+          acc.push(item.category);
+        }
+        return acc;
+      }, [] as Category[])
+      .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)) || [];
+  }, [menuItems]);
+
+  const filteredItems = useMemo(() => {
+    return menuItems
+      ?.filter(item => item.isVisible === 1)
       ?.filter(item => {
+        const matchesCategory = selectedCategory === 'all' || String(item.categoryId) === selectedCategory;
         const matchesSearch = !searchQuery || 
           item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
-        return matchesSearch;
+        return matchesCategory && matchesSearch;
       }) || [];
-    
-    return {
-      category,
-      items: categoryItems
-    };
-  }).filter(group => group.items.length > 0);
+  }, [menuItems, selectedCategory, searchQuery]);
 
-  const categoryImages = categories.reduce((acc, category) => {
-    const firstItemWithImage = menuItems
-      ?.filter(item => item.isVisible === 1 && String(item.categoryId) === category.id && item.imageUrl)
-      ?.[0];
-    acc[category.id] = firstItemWithImage?.imageUrl || null;
-    return acc;
-  }, {} as Record<string, string | null>);
+  const itemsByCategory = useMemo(() => {
+    return categories.map(category => {
+      const categoryItems = menuItems
+        ?.filter(item => item.isVisible === 1)
+        ?.filter(item => String(item.categoryId) === category.id)
+        ?.filter(item => {
+          const matchesSearch = !searchQuery || 
+            item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+          return matchesSearch;
+        }) || [];
+      
+      return {
+        category,
+        items: categoryItems
+      };
+    }).filter(group => group.items.length > 0);
+  }, [categories, menuItems, searchQuery]);
 
-  const favoriteItems = menuItems
-    ?.filter(item => item.isVisible === 1 && favorites.includes(item.id)) || [];
+  const categoryImages = useMemo(() => {
+    return categories.reduce((acc, category) => {
+      const firstItemWithImage = menuItems
+        ?.filter(item => item.isVisible === 1 && String(item.categoryId) === category.id && item.imageUrl)
+        ?.[0];
+      acc[category.id] = firstItemWithImage?.imageUrl || null;
+      return acc;
+    }, {} as Record<string, string | null>);
+  }, [categories, menuItems]);
 
-  const specialOfferItems = menuItems
-    ?.filter(item => item.isVisible === 1)
-    ?.filter(item => {
-      const itemPrice = typeof item.price === 'string' ? parseFloat(item.price) : item.price;
-      const itemOriginalPrice = item.originalPrice 
-        ? (typeof item.originalPrice === 'string' ? parseFloat(item.originalPrice) : item.originalPrice) 
-        : null;
-      return itemOriginalPrice && itemOriginalPrice > itemPrice;
-    })
-    .slice(0, 6) || [];
+  const favoriteItems = useMemo(() => {
+    return menuItems
+      ?.filter(item => item.isVisible === 1 && favorites.includes(item.id)) || [];
+  }, [menuItems, favorites]);
+
+  const specialOfferItems = useMemo(() => {
+    return menuItems
+      ?.filter(item => item.isVisible === 1)
+      ?.filter(item => {
+        const itemPrice = typeof item.price === 'string' ? parseFloat(item.price) : item.price;
+        const itemOriginalPrice = item.originalPrice 
+          ? (typeof item.originalPrice === 'string' ? parseFloat(item.originalPrice) : item.originalPrice) 
+          : null;
+        return itemOriginalPrice && itemOriginalPrice > itemPrice;
+      })
+      .slice(0, 6) || [];
+  }, [menuItems]);
 
   const registerCustomerMutation = useMutation({
     mutationFn: async (customerData: typeof registerFormData) => {

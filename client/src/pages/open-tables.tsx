@@ -47,7 +47,7 @@ export default function OpenTables() {
 
   const { data: tables = [], isLoading, refetch } = useQuery<TableWithDetails[]>({
     queryKey: ['/api/tables/with-orders'],
-    refetchInterval: 10000,
+    refetchInterval: 30000,
   });
 
   const freeTables = tables.filter(t => t.status === 'livre');
