@@ -856,6 +856,11 @@ export default function TableCheckoutV2() {
   
   // ✅ OTIMIZAÇÃO: Cálculo detalhado só quando há ajustes ou Step 3+
   const calculateTotals = useMemo(() => {
+    // 🔧 FIX: Usar totalAmount do backend como fonte de verdade quando disponível
+    const backendTotal = ordersByGuestData?.totalAmount && Number(ordersByGuestData.totalAmount) > 0
+      ? Number(ordersByGuestData.totalAmount)
+      : null;
+
     // ✅ Modo INDIVIDUAL: aplicar descontos/taxas por convidado (valor exato por convidado)
     if (adjustmentsMode === 'guest') {
       const selected = selectedGuestIds.length > 0
@@ -908,7 +913,6 @@ export default function TableCheckoutV2() {
           discounts += applied.discount;
           additions += applied.additions;
         } else {
-          // ✅ Sem ajustes digitados agora: usar ajustes já gravados no convidado (para manter breakdown correto)
           const gDiscountRaw = parseFloat(og.guest?.discount || '0');
           const gDiscountType = og.guest?.discountType || 'valor';
           const gServiceRaw = parseFloat(og.guest?.serviceCharge || '0');
@@ -952,11 +956,13 @@ export default function TableCheckoutV2() {
         });
       }
 
+      const finalTotal = backendTotal !== null ? backendTotal : Math.max(0, subtotal - discounts + additions);
+
       return {
         subtotal,
         totalDiscounts: discounts,
         totalAdditions: additions,
-        finalTotal: Math.max(0, subtotal - discounts + additions),
+        finalTotal,
         breakdown,
       };
     }
@@ -972,11 +978,13 @@ export default function TableCheckoutV2() {
       };
     }
     
-    let subtotal = totalAmount;
+    let subtotal = backendTotal !== null ? totalAmount : totalAmount;
     let discounts = 0;
     let additions = 0;
     const breakdown: any[] = [];
     const safeAvailableServices = Array.isArray(availableServices) ? availableServices : [];
+    
+    const useBackendTotal = backendTotal !== null;
     
     // 1. Manual discount
     if (discountValue && parseFloat(discountValue) > 0) {
@@ -1064,7 +1072,7 @@ export default function TableCheckoutV2() {
       });
     }
     
-    const finalTotal = Math.max(0, afterDiscounts + additions);
+    const finalTotal = useBackendTotal ? backendTotal : Math.max(0, afterDiscounts + additions);
     
     return {
       subtotal,
@@ -1073,7 +1081,7 @@ export default function TableCheckoutV2() {
       finalTotal,
       breakdown
     };
-  }, [totalAmount, discountValue, discountType, appliedCoupon, loyaltyPointsToRedeem, selectedServices, manualServiceName, manualServiceValue, manualServiceType, availableServices, loyaltyProgram, selectedGuestIds, ordersByGuest, adjustmentsMode, currentStep]);
+  }, [totalAmount, discountValue, discountType, appliedCoupon, loyaltyPointsToRedeem, selectedServices, manualServiceName, manualServiceValue, manualServiceType, availableServices, loyaltyProgram, selectedGuestIds, ordersByGuest, adjustmentsMode, currentStep, ordersByGuestData]);
 
   // ✅ Totais de pagamento (precisa vir APÓS calculateTotals)
   const paidAmount = ordersByGuestData?.paidAmount 
