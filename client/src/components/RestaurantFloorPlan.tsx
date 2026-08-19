@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
@@ -940,18 +940,18 @@ export function RestaurantFloorPlan({ className }: RestaurantFloorPlanProps) {
     setMagnetismActive(false);
   };
 
-  const filteredTables = tables.filter(table => 
+  const filteredTables = useMemo(() => tables.filter(table => 
     !searchQuery || 
     table.number.toString().includes(searchQuery) ||
     table.customerName?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  ), [tables, searchQuery]);
 
-  const stats = {
+  const stats = useMemo(() => ({
     total: tables.length,
     occupied: tables.filter(t => t.status === 'ocupada' || t.status === 'em_andamento').length,
     available: tables.filter(t => t.status === 'livre').length,
     payment: tables.filter(t => t.status === 'aguardando_pagamento').length,
-  };
+  }), [tables]);
 
   if (isLoading) {
     return (
