@@ -146,9 +146,13 @@ export function PrintGuestBill({
       });
     });
 
-    const sumOfItems = orders.flatMap(order => order.items).reduce((sum, item) => sum + parseFloat(item.totalPrice), 0);
-    const calculatedSubtotal = subtotal || sumOfItems;
-    const finalTotalAmount = Math.max(totalAmount, sumOfItems);
+    const sumOfItems = orders.flatMap(order => order.items).reduce((sum, item) => {
+      const itemTotal = parseFloat(item.totalPrice || '0');
+      const fallbackTotal = parseFloat(item.unitPrice || '0') * (item.quantity || 0);
+      return sum + (Number.isFinite(itemTotal) && itemTotal > 0 ? itemTotal : fallbackTotal);
+    }, 0);
+    const calculatedSubtotal = (subtotal && Number(subtotal) > 0) ? Number(subtotal) : sumOfItems;
+    const finalTotalAmount = Math.max(totalAmount, calculatedSubtotal, sumOfItems);
 
     const totalDiscounts = discounts.reduce((sum, d) => {
       const amount = d.type === "percentage" ? (calculatedSubtotal * d.amount) / 100 : d.amount;

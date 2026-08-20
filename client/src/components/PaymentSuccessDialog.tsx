@@ -209,7 +209,6 @@ export function PaymentSuccessDialog({
           : [],
     };
   };
-
   const handlePrintComplete = async () => {
     setIsPrinting(true);
     
