@@ -185,6 +185,14 @@ export function PaymentReceiptDialog({
   };
 
   const handlePrintComplete = async () => {
+    if (!payment?.id) {
+      toast({
+        title: "Erro ao imprimir",
+        description: "Dados do pagamento indisponíveis para impressão.",
+        variant: "destructive",
+      });
+      return;
+    }
     setIsPrinting(true);
     try {
       const printWindow = window.open("", "_blank");
@@ -216,12 +224,21 @@ export function PaymentReceiptDialog({
   };
 
   const generatePrintableInvoice = () => {
+    if (!payment?.id) {
+      return "<p>Dados do pagamento indisponíveis.</p>";
+    }
     const restaurantName = restaurant?.name || "Restaurante";
     const restaurantAddress = restaurant?.address || "";
     const restaurantNIF = restaurant?.nif || "";
     const restaurantPhone = restaurant?.phone || "";
     const printDateTime = new Date().toLocaleString("pt-PT");
     const operatorName = localStorage.getItem("userName") || "Sistema";
+
+    const paymentId = payment?.id || "SEM-ID";
+    const paymentDate = payment?.createdAt ? new Date(payment.createdAt).toLocaleString("pt-PT") : printDateTime;
+    const paymentMethodLabel = getPaymentMethodLabel(payment?.paymentMethod || "");
+    const paymentNotes = payment?.notes ? `<div class="info-line"><strong>Observações:</strong><span>${payment.notes}</span></div>` : "";
+    const paymentReceived = payment?.receivedAmount;
 
     return `
       <!DOCTYPE html>
@@ -273,12 +290,12 @@ export function PaymentReceiptDialog({
           </div>
 
           <div class="invoice-info">
-            <div class="info-line"><strong>Fatura Nº:</strong><span>${payment.id.substring(0, 8).toUpperCase()}</span></div>
-            <div class="info-line"><strong>Data:</strong><span>${new Date(payment.createdAt).toLocaleString("pt-PT")}</span></div>
+            <div class="info-line"><strong>Fatura Nº:</strong><span>${paymentId}</span></div>
+            <div class="info-line"><strong>Data:</strong><span>${paymentDate}</span></div>
             <div class="info-line"><strong>Mesa:</strong><span>${table.number}${table.area ? ` (${table.area})` : ""}</span></div>
             <div class="info-line"><strong>Convidados:</strong><span>${guestsWithItems.length}</span></div>
             ${sessionDuration ? `<div class="info-line"><strong>Duração:</strong><span>${sessionDuration}</span></div>` : ""}
-            ${payment.notes ? `<div class="info-line"><strong>Observações:</strong><span>${payment.notes}</span></div>` : ""}
+            ${paymentNotes}
             <div class="info-line"><strong>Operador:</strong><span>${operatorName}</span></div>
             <div class="info-line"><strong>Impresso em:</strong><span>${printDateTime}</span></div>
           </div>
@@ -320,14 +337,14 @@ export function PaymentReceiptDialog({
           </div>
 
           <div class="payment-info">
-            <div class="payment-line"><span>Método de Pagamento:</span><span>${payment.paymentMethod}</span></div>
-            ${payment.receivedAmount ? `
-              <div class="payment-line"><span>Valor Recebido:</span><span>${formatKwanza(payment.receivedAmount)}</span></div>
-              <div class="payment-line highlight"><span>Troco:</span><span>${formatKwanza(payment.receivedAmount - safeCalculateTotals.finalTotal)}</span></div>
+            <div class="payment-line"><span>Método de Pagamento:</span><span>${paymentMethodLabel}</span></div>
+            ${paymentReceived ? `
+              <div class="payment-line"><span>Valor Recebido:</span><span>${formatKwanza(paymentReceived)}</span></div>
+              <div class="payment-line highlight"><span>Troco:</span><span>${formatKwanza(paymentReceived - safeCalculateTotals.finalTotal)}</span></div>
             ` : ""}
           </div>
 
-          <div class="validation-code">Código de Validação: ${payment.id.substring(0, 8).toUpperCase()}</div>
+          <div class="validation-code">Código de Validação: ${paymentId}</div>
           <div class="footer">Obrigado pela sua visita!<br>Volte sempre!</div>
         </body>
       </html>
@@ -335,8 +352,18 @@ export function PaymentReceiptDialog({
   };
 
   const handleDownloadPDF = async () => {
+    if (!payment?.id) {
+      toast({
+        title: "Erro ao gerar PDF",
+        description: "Dados do pagamento indisponíveis para gerar a fatura.",
+        variant: "destructive",
+      });
+      return;
+    }
     setIsGeneratingPDF(true);
     try {
+      const paymentId = payment?.id || "SEM-ID";
+      const paymentMethodLabel = getPaymentMethodLabel(payment?.paymentMethod || "");
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
@@ -375,12 +402,12 @@ export function PaymentReceiptDialog({
 
       addText("FATURA DE PAGAMENTO", 14, true, "center");
       yPos += 5;
-      addText(`Fatura Nº: ${payment.id.substring(0, 8).toUpperCase()}`, 10, true);
-      addText(`Data: ${new Date(payment.createdAt).toLocaleString("pt-PT")}`, 10);
+      addText(`Fatura Nº: ${paymentId}`, 10, true);
+      addText(`Data: ${payment?.createdAt ? new Date(payment.createdAt).toLocaleString("pt-PT") : new Date().toLocaleString("pt-PT")}`, 10);
       addText(`Mesa: ${table.number}${table.area ? ` (${table.area})` : ""}`, 10);
       addText(`Convidados: ${guestsWithItems.length}`, 10);
       if (sessionDuration) addText(`Duração da Sessão: ${sessionDuration}`, 10);
-      if (payment.notes) addText(`Observações: ${payment.notes}`, 10);
+      if (payment?.notes) addText(`Observações: ${payment.notes}`, 10);
       const operatorName = localStorage.getItem("userName") || "Sistema";
       addText(`Operador: ${operatorName}`, 10);
 
@@ -476,10 +503,11 @@ export function PaymentReceiptDialog({
 
       addText("INFORMAÇÕES DE PAGAMENTO", 12, true);
       yPos += 3;
-      addText(`Método: ${payment.paymentMethod}`, 10);
-      if (payment.receivedAmount) {
-        addText(`Valor Recebido: ${formatKwanza(payment.receivedAmount)}`, 10);
-        const change = payment.receivedAmount - safeCalculateTotals.finalTotal;
+      addText(`Método: ${paymentMethodLabel}`, 10);
+      const pdfReceivedAmount = payment?.receivedAmount;
+      if (pdfReceivedAmount) {
+        addText(`Valor Recebido: ${formatKwanza(pdfReceivedAmount)}`, 10);
+        const change = pdfReceivedAmount - safeCalculateTotals.finalTotal;
         if (change > 0) {
           pdf.setTextColor(0, 100, 200);
           addText(`Troco: ${formatKwanza(change)}`, 10, true);
@@ -490,7 +518,7 @@ export function PaymentReceiptDialog({
       yPos += 5;
       addLine();
 
-      addText(`Código de Validação: ${payment.id.substring(0, 8).toUpperCase()}`, 9, false, "center");
+      addText(`Código de Validação: ${paymentId}`, 9, false, "center");
       yPos += 5;
       addText("Obrigado pela sua visita!", 10, true, "center");
       addText("Volte sempre!", 10, false, "center");
@@ -564,7 +592,7 @@ export function PaymentReceiptDialog({
                   )}
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-500">Método:</span>
-                    <span className="font-semibold">{getPaymentMethodLabel(payment.paymentMethod)}</span>
+                    <span className="font-semibold">{getPaymentMethodLabel(payment?.paymentMethod || "")}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-500">Convidados:</span>
@@ -646,7 +674,7 @@ export function PaymentReceiptDialog({
                   <span className="text-xl">{formatKwanza(safeCalculateTotals.finalTotal)}</span>
                 </div>
 
-                {payment.receivedAmount && (
+                {payment?.receivedAmount && (
                   <div className="mt-3 pt-3 border-t space-y-2 text-sm">
                     <div className="flex items-center justify-between">
                       <span>Valor Recebido</span>
@@ -812,7 +840,7 @@ export function PaymentReceiptDialog({
                                 restaurantAddress={restaurant?.address}
                                 restaurantPhone={restaurant?.phone}
                                 restaurantNIF={restaurant?.nif}
-                                paymentMethod={payment.paymentMethod}
+                                paymentMethod={payment?.paymentMethod || ""}
                                 variant="ghost"
                                 size="sm"
                               />
