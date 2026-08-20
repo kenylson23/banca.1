@@ -109,6 +109,15 @@ export function PaymentSuccessDialog({
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const { toast } = useToast();
 
+  const safeOrdersByGuest = Array.isArray(ordersByGuest) ? ordersByGuest : [];
+  const safeCalculateTotals = calculateTotals || {
+    subtotal: 0,
+    totalDiscounts: 0,
+    totalAdditions: 0,
+    finalTotal: totalAmount || 0,
+    breakdown: [],
+  };
+
   const toggleGuestExpanded = (guestId: string) => {
     setExpandedGuests((prev) => {
       const newSet = new Set(prev);
@@ -128,11 +137,11 @@ export function PaymentSuccessDialog({
 
   // Total de ajustes de sessão (para ratear por convidado)
   const getSessionAdjustments = () => {
-    const discountTotal = (calculateTotals.breakdown || [])
+    const discountTotal = (safeCalculateTotals.breakdown || [])
       .filter(i => i.type === 'discount')
       .reduce((sum, i) => sum + Math.abs(safeNumber(i.value)), 0);
 
-    const additionsTotal = (calculateTotals.breakdown || [])
+    const additionsTotal = (safeCalculateTotals.breakdown || [])
       .filter(i => i.type === 'addition')
       .reduce((sum, i) => sum + Math.abs(safeNumber(i.value)), 0);
 
@@ -140,7 +149,7 @@ export function PaymentSuccessDialog({
   };
 
   const getHostGuestId = () => {
-    const sorted = [...(ordersByGuest || [])]
+    const sorted = [...(safeOrdersByGuest || [])]
       .filter(g => g?.guest?.id && g.guest.id !== 'anonymous')
       .sort((a, b) => (a.guest.guestNumber || 0) - (b.guest.guestNumber || 0));
     return sorted[0]?.guest?.id;
@@ -446,7 +455,7 @@ export function PaymentSuccessDialog({
             </div>
             <div class="info-line">
               <strong>Convidados:</strong>
-              <span>${ordersByGuest.filter((og) => og.orders.some((o: any) => (o.items || []).length > 0)).length}</span>
+              <span>${safeOrdersByGuest.filter((og) => og.orders.some((o: any) => (o.items || []).length > 0)).length}</span>
             </div>
             ${sessionDuration ? `
               <div class="info-line">
@@ -472,7 +481,7 @@ export function PaymentSuccessDialog({
 
           <!-- ITEMS BY GUEST -->
           <div class="section-title">Itens Consumidos</div>
-          ${ordersByGuest.filter((og) => og.orders.some((o: any) => (o.items || []).length > 0)).map((og) => `
+          ${safeOrdersByGuest.filter((og) => og.orders.some((o: any) => (o.items || []).length > 0)).map((og) => `
             <div class="guest-section">
               <div class="guest-header">
                 <div>
@@ -503,10 +512,10 @@ export function PaymentSuccessDialog({
           <div class="calculations">
             <div class="calc-line subtotal-line">
               <span>Subtotal</span>
-              <span>${formatKwanza(calculateTotals.subtotal)}</span>
+              <span>${formatKwanza(safeCalculateTotals.subtotal)}</span>
             </div>
             
-            ${calculateTotals.breakdown.map(item => `
+            ${safeCalculateTotals.breakdown.map(item => `
               <div class="calc-line ${item.type}">
                 <span>${item.label}${item.source ? ` (${item.source})` : ''}</span>
                 <span>${item.type === 'discount' ? '-' : '+'}${formatKwanza(Math.abs(item.value))}</span>
@@ -515,7 +524,7 @@ export function PaymentSuccessDialog({
             
             <div class="total-line">
               <span>TOTAL A PAGAR</span>
-              <span>${formatKwanza(calculateTotals.finalTotal)}</span>
+              <span>${formatKwanza(safeCalculateTotals.finalTotal)}</span>
             </div>
           </div>
 
@@ -532,7 +541,7 @@ export function PaymentSuccessDialog({
               </div>
               <div class="payment-line highlight">
                 <span>Troco:</span>
-                <span>${formatKwanza(payment.receivedAmount - calculateTotals.finalTotal)}</span>
+                <span>${formatKwanza(payment.receivedAmount - safeCalculateTotals.finalTotal)}</span>
               </div>
             ` : ''}
           </div>
@@ -621,7 +630,7 @@ export function PaymentSuccessDialog({
       addText(`Fatura Nº: ${payment.id.substring(0, 8).toUpperCase()}`, 10, true);
       addText(`Data: ${new Date(payment.createdAt).toLocaleString('pt-PT')}`, 10);
       addText(`Mesa: ${table.number}${table.area ? ` (${table.area})` : ''}`, 10);
-      addText(`Convidados: ${ordersByGuest.length}`, 10);
+      addText(`Convidados: ${safeOrdersByGuest.length}`, 10);
       
       if (sessionDuration) {
         addText(`Duração da Sessão: ${sessionDuration}`, 10);
@@ -641,7 +650,7 @@ export function PaymentSuccessDialog({
       addText('ITENS CONSUMIDOS', 12, true);
       yPos += 3;
 
-      for (const og of ordersByGuest) {
+      for (const og of safeOrdersByGuest) {
         checkPageBreak(40);
 
         // Guest header
@@ -692,10 +701,10 @@ export function PaymentSuccessDialog({
       yPos += 3;
 
       addText('Subtotal:', 10, false);
-      pdf.text(formatKwanza(calculateTotals.subtotal), pageWidth - margin, yPos - 5, { align: 'right' });
+      pdf.text(formatKwanza(safeCalculateTotals.subtotal), pageWidth - margin, yPos - 5, { align: 'right' });
 
       // Breakdown
-      for (const item of calculateTotals.breakdown) {
+      for (const item of safeCalculateTotals.breakdown) {
         checkPageBreak();
         
         const label = `${item.label}${item.source ? ` (${item.source})` : ''}`;
@@ -721,7 +730,7 @@ export function PaymentSuccessDialog({
       pdf.setFontSize(14);
       pdf.setFont('helvetica', 'bold');
       pdf.text('TOTAL A PAGAR:', margin, yPos);
-      pdf.text(formatKwanza(calculateTotals.finalTotal), pageWidth - margin, yPos, { align: 'right' });
+      pdf.text(formatKwanza(safeCalculateTotals.finalTotal), pageWidth - margin, yPos, { align: 'right' });
       yPos += 10;
 
       addLine();
@@ -735,7 +744,7 @@ export function PaymentSuccessDialog({
       if (payment.receivedAmount) {
         addText(`Valor Recebido: ${formatKwanza(payment.receivedAmount)}`, 10);
         
-        const change = payment.receivedAmount - calculateTotals.finalTotal;
+        const change = payment.receivedAmount - safeCalculateTotals.finalTotal;
         if (change > 0) {
           pdf.setTextColor(0, 100, 200);
           addText(`Troco: ${formatKwanza(change)}`, 10, true);
@@ -850,7 +859,7 @@ export function PaymentSuccessDialog({
                   
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Convidados:</span>
-                    <span className="font-semibold">{ordersByGuest.length}</span>
+                    <span className="font-semibold">{safeOrdersByGuest.length}</span>
                   </div>
                 </div>
                 
@@ -859,7 +868,7 @@ export function PaymentSuccessDialog({
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-bold">Valor Total:</span>
                   <span className="text-3xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                    {formatKwanza(calculateTotals.finalTotal)}
+                    {formatKwanza(safeCalculateTotals.finalTotal)}
                   </span>
                 </div>
               </CardContent>
@@ -874,7 +883,7 @@ export function PaymentSuccessDialog({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {ordersByGuest.map((og) => {
+                {safeOrdersByGuest.map((og) => {
                   const isExpanded = expandedGuests.has(og.guest.id);
                   const allItems = og.orders.flatMap(order => order.items || []);
                   const totalItems = allItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -994,15 +1003,15 @@ export function PaymentSuccessDialog({
                   <div className="flex items-center justify-between text-base">
                     <span className="font-medium">Subtotal</span>
                     <span className="font-semibold">
-                      {formatKwanza(calculateTotals.subtotal)}
+                      {safeCalculateTotals.subtotal}
                     </span>
                   </div>
 
                   {/* Breakdown Items */}
-                  {calculateTotals.breakdown.length > 0 && (
+                  {safeCalculateTotals.breakdown.length > 0 && (
                     <>
                       <Separator />
-                      {calculateTotals.breakdown.map((item, idx) => (
+                      {safeCalculateTotals.breakdown.map((item, idx) => (
                         <div
                           key={idx}
                           className={cn(
@@ -1039,7 +1048,7 @@ export function PaymentSuccessDialog({
                   <div className="flex items-center justify-between text-lg font-bold bg-gradient-to-r from-green-500/10 to-emerald-500/10 p-3 rounded-lg">
                     <span>Total Final</span>
                     <span className="text-2xl bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                      {formatKwanza(calculateTotals.finalTotal)}
+                      {formatKwanza(safeCalculateTotals.finalTotal)}
                     </span>
                   </div>
 
@@ -1055,7 +1064,7 @@ export function PaymentSuccessDialog({
                       <div className="flex items-center justify-between text-base font-bold text-blue-600 dark:text-blue-400">
                         <span>Troco</span>
                         <span>
-                          {formatKwanza(payment.receivedAmount - calculateTotals.finalTotal)}
+                          {formatKwanza(payment.receivedAmount - safeCalculateTotals.finalTotal)}
                         </span>
                       </div>
                     </div>
@@ -1124,7 +1133,7 @@ export function PaymentSuccessDialog({
               </Card>
 
               {/* Print Individual Bills */}
-              {ordersByGuest.length > 0 && (
+              {safeOrdersByGuest.length > 0 && (
                 <Card className={cn(
                   "border-2 border-purple-200 hover:border-purple-300",
                   "dark:border-purple-800 dark:hover:border-purple-700"
@@ -1139,7 +1148,7 @@ export function PaymentSuccessDialog({
                         <div className="flex-1">
                           <div className="font-bold text-base">Imprimir por Convidado</div>
                           <div className="text-sm text-muted-foreground">
-                            {ordersByGuest.length === 1 
+                            {safeOrdersByGuest.length === 1 
                               ? 'Fatura individual do cliente' 
                               : 'Fatura individual para cada cliente'}
                           </div>
@@ -1148,7 +1157,7 @@ export function PaymentSuccessDialog({
                       
                         {/* Guest List */}
                         <div className="space-y-2 pl-16">
-                          {ordersByGuest.map((og) => {
+                          {safeOrdersByGuest.map((og) => {
                            const {
                              guest,
                              orders,
