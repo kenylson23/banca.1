@@ -113,6 +113,27 @@ export function PaymentReceiptDialog({
     [safeOrdersByGuest]
   );
 
+  const guestsWithoutItems = useMemo(
+    () => safeOrdersByGuest.filter((og) => !og.orders.some((o: any) => (o.items || []).length > 0)),
+    [safeOrdersByGuest]
+  );
+
+  const stats = useMemo(() => {
+    const totalItems = guestsWithItems.reduce((sum, og) => {
+      return sum + og.orders.reduce((s, o) => s + (o.items || []).length, 0);
+    }, 0);
+
+    const guestsSubtotal = guestsWithItems.reduce((sum, og) => sum + safeNumber(og.subtotal), 0);
+
+    return {
+      totalGuests: safeOrdersByGuest.length,
+      guestsWithItems: guestsWithItems.length,
+      guestsWithoutItems: guestsWithoutItems.length,
+      totalItems,
+      guestsSubtotal,
+    };
+  }, [safeOrdersByGuest, guestsWithItems, guestsWithoutItems]);
+
   const transformGuestDataForPrint = (og: (typeof safeOrdersByGuest)[0]) => {
     const guestSubtotal = safeNumber(og.subtotal);
     const guestTotalFromBackend = safeNumber((og.guest as any).guestTotal);
@@ -281,7 +302,6 @@ export function PaymentReceiptDialog({
                     <span class="item-name">${item.menuItemName}</span>
                     <span class="item-price">${formatKwanza(parseFloat(item.unitPrice || "0") * item.quantity)}</span>
                   </div>
-                  ${item.options && item.options.length > 0 ? `<div class="item-options">+ ${item.options.map((o: any) => o.value || o.name || "").join(", ")}</div>` : ""}
                 `).join("")}
                 <div class="subtotal"><span>Subtotal:</span><span>${formatKwanza(subtotal)}</span></div>
                 ${discountTotal > 0.009 ? `<div class="subtotal"><span>Desconto:</span><span>- ${formatKwanza(discountTotal)}</span></div>` : ""}
@@ -551,7 +571,28 @@ export function PaymentReceiptDialog({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-500">Convidados:</span>
-                    <span className="font-semibold">{guestsWithItems.length}</span>
+                    <span className="font-semibold">{stats.totalGuests}</span>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">Com itens</span>
+                    <span className="font-semibold">{stats.guestsWithItems}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">Sem itens</span>
+                    <span className="font-semibold">{stats.guestsWithoutItems}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">Itens</span>
+                    <span className="font-semibold">{stats.totalItems}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">Subtotal</span>
+                    <span className="font-semibold">{formatKwanza(stats.guestsSubtotal)}</span>
                   </div>
                 </div>
 
@@ -620,6 +661,70 @@ export function PaymentReceiptDialog({
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Users className="h-4 w-4" />
+                  Itens por Convidado
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {guestsWithItems.length === 0 && (
+                  <div className="text-sm text-slate-500">Nenhum item consumido.</div>
+                )}
+                {guestsWithItems.map((og) => {
+                  const {
+                    guest,
+                    orders,
+                    subtotal,
+                    totalAmount: guestTotal,
+                    discounts,
+                    serviceCharges,
+                  } = transformGuestDataForPrint(og);
+                  const discountTotal = (discounts || []).reduce((s, d) => s + (d.amount || 0), 0);
+                  const chargesTotal = (serviceCharges || []).reduce((s, c) => s + (c.amount || 0), 0);
+
+                  return (
+                    <div key={og.guest.id} className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold text-sm">{guest.name || `Cliente ${guest.guestNumber}`}</div>
+                          <div className="text-xs text-slate-500">
+                            {orders.length === 0 ? "Sem itens" : `${orders.reduce((s, o) => s + (o.items || []).length, 0)} itens`}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-semibold">{formatKwanza(subtotal)}</div>
+                          {(discountTotal > 0.009 || chargesTotal > 0.009) && (
+                            <div className="text-xs text-slate-500">
+                              {discountTotal > 0.009 ? `- ${formatKwanza(discountTotal)}` : ""}
+                              {discountTotal > 0.009 && chargesTotal > 0.009 ? " • " : ""}
+                              {chargesTotal > 0.009 ? `+ ${formatKwanza(chargesTotal)}` : ""}
+                            </div>
+                          )}
+                          <div className="text-sm font-bold">{formatKwanza(guestTotal)}</div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        {orders.flatMap(order => order.items || []).map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2 flex-1">
+                              <span className="font-semibold">{item.quantity}x</span>
+                              <span className="truncate">{item.menuItemName}</span>
+                            </div>
+                            <span className="font-semibold ml-2">
+                              {formatKwanza(safeNumber(item.unitPrice) * item.quantity)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </CardContent>
             </Card>
 
