@@ -174,7 +174,7 @@ export default function CustomerMenu() {
 
     // ✅ NOVO: Hook de guest token (funciona em TODOS os planos)
     // Agora usa também tableNumber/urlRestaurantId para não bloquear enquanto a mesa carrega
-    const { guestToken } = useGuestToken(tableId, restaurantId, tableNumber, urlRestaurantId);
+    const { guestToken, refreshToken } = useGuestToken(tableId, restaurantId, tableNumber, urlRestaurantId);
 
      const { data: restaurant } = useQuery<Restaurant>({
       queryKey: ['/api/public/restaurants', effectiveRestaurantId],
@@ -660,6 +660,19 @@ export default function CustomerMenu() {
         customerCount: 1,
       });
       const data = await response.json();
+      
+      const effectiveRestaurantId = urlRestaurantId || currentTable?.restaurantId;
+      const storageKey = currentTable?.id && effectiveRestaurantId
+        ? `guest-token-${effectiveRestaurantId}-${currentTable.id}`
+        : urlRestaurantId && tableNumber
+          ? `guest-token-${urlRestaurantId}-${tableNumber}`
+          : null;
+      
+      if (storageKey && data.token) {
+        localStorage.setItem(storageKey, data.token);
+        refreshToken();
+      }
+      
       toast({
         title: 'Mesa ocupada',
         description: `Você entrou na mesa ${tableNumber}.`,
@@ -851,9 +864,9 @@ export default function CustomerMenu() {
                                     <div className="space-y-2">
                                       {order.orderItems.map((item) => (
                                         <div key={item.id} className="flex justify-between text-sm" data-testid={`order-item-${item.id}`}>
-                                          <span className="text-gray-600">
-                                            {item.quantity}x {order.menuItem?.name || item.menuItem?.name || 'Item'}
-                                          </span>
+                                           <span className="text-gray-600">
+                                             {item.quantity}x {item.menuItem?.name || 'Item'}
+                                           </span>
                                           <span className="font-medium text-gray-900">
                                             {formatKwanza(parseFloat(item.price) * item.quantity)}
                                           </span>

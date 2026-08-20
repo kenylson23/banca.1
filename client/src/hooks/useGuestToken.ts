@@ -73,10 +73,23 @@ export function useGuestToken(tableId: string | undefined, restaurantId: string 
     return newToken;
   };
 
+  const refreshToken = () => {
+    const storageKey = getStorageKey();
+    if (storageKey) {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        setGuestToken(stored);
+        return stored;
+      }
+    }
+    return null;
+  };
+
   return {
     guestToken,
     isReady,
     clearToken,
     regenerateToken,
+    refreshToken,
   };
 }
