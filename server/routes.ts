@@ -3320,11 +3320,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Apply coupon usage if valid
       if (appliedCouponId && couponDiscount > 0) {
-        await storage.applyCoupon(
+        await storage.applyCouponToOrder(
           validatedOrder.restaurantId,
-          appliedCouponId,
           order.id,
-          validatedOrder.customerId || undefined,
+          appliedCouponId,
           couponDiscount
         );
       }
@@ -3339,8 +3338,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           '' // No user for public orders
         );
       }
+
+      const updatedOrder = await storage.calculateOrderTotal(order.id);
       
-      broadcastToClients({ type: 'new_order', data: order });
+      broadcastToClients({ type: 'new_order', data: updatedOrder });
 
       // Update table payment status after order creation
       if (order.tableId) {
@@ -3349,7 +3350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Return order with additional info about discounts applied
       res.json({
-        ...order,
+        ...updatedOrder,
         couponDiscountApplied: couponDiscount,
         loyaltyDiscountApplied: loyaltyDiscount,
         pointsRedeemed: pointsToRedeem,
