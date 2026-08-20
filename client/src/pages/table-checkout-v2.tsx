@@ -49,6 +49,7 @@ import { formatKwanza } from "@/lib/formatters";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { PaymentSuccessDialog } from "@/components/PaymentSuccessDialog";
+import { PaymentReceiptDialog } from "@/components/PaymentReceiptDialog";
 import { CheckoutSummaryPanel } from "@/components/CheckoutSummaryPanel";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { invalidateAfterPayment } from "@/lib/tableInvalidations";
@@ -3068,12 +3069,11 @@ export default function TableCheckoutV2() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Payment Success Dialog */}
+      {/* Payment Receipt Dialog */}
       {paymentData && table && (
-        <PaymentSuccessDialog
+        <PaymentReceiptDialog
           open={showSuccessDialog}
           onClose={() => {
-            console.log('🔘 [Checkout] onClose chamado, fechando diálogo e redirecionando...');
             setShowSuccessDialog(false);
             setLocation(`/${fromParam}`);
           }}
