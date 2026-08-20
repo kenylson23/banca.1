@@ -21,7 +21,7 @@ import {
   ShoppingCart, Plus, ClipboardList, Clock, ChefHat, 
   CheckCircle, Check, Search, MessageCircle, Utensils,
   X, Minus, User, Phone as PhoneIcon, ChevronRight, ShoppingBag,
-  FileText, Sparkles, Gift, Award, Tag, Percent, Loader2
+  FileText, Sparkles, Gift, Award, Tag, Percent, Loader2, Printer
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -525,6 +525,89 @@ export default function CustomerMenu() {
     }
   };
 
+  const handlePrintOrder = (order: any) => {
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) {
+      toast({
+        title: 'Erro',
+        description: 'Permita popups para imprimir a fatura.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const orderDate = new Date(order.createdAt).toLocaleString('pt-PT');
+    const itemsHtml = (order.orderItems || []).map((item: any) => {
+      const itemName = item.menuItem?.name || 'Item';
+      const itemPrice = parseFloat(item.price) * item.quantity;
+      return `<tr>
+        <td style="padding: 6px 0; border-bottom: 1px dashed #e5e7eb;">${item.quantity}x ${itemName}</td>
+        <td style="padding: 6px 0; border-bottom: 1px dashed #e5e7eb; text-align: right;">${formatKwanza(itemPrice)}</td>
+      </tr>`;
+    }).join('');
+
+    const discountInfo = [];
+    if (order.couponDiscountApplied > 0) {
+      discountInfo.push(`<tr><td style="padding: 4px 0; color: #16a34a;">Desconto (Cupom)</td><td style="text-align: right; color: #16a34a;">-${formatKwanza(order.couponDiscountApplied)}</td></tr>`);
+    }
+    if (order.loyaltyDiscountApplied > 0) {
+      discountInfo.push(`<tr><td style="padding: 4px 0; color: #16a34a;">Desconto (Pontos)</td><td style="text-align: right; color: #16a34a;">-${formatKwanza(order.loyaltyDiscountApplied)}</td></tr>`);
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Fatura - Mesa ${tableNumber}</title>
+        <style>
+          body { font-family: 'Courier New', monospace; padding: 20px; max-width: 400px; margin: 0 auto; }
+          h1 { text-align: center; font-size: 18px; margin-bottom: 4px; }
+          .subtitle { text-align: center; font-size: 12px; color: #666; margin-bottom: 16px; }
+          .info { font-size: 12px; margin-bottom: 16px; }
+          table { width: 100%; border-collapse: collapse; }
+          th { text-align: left; font-size: 12px; border-bottom: 2px solid #000; padding: 6px 0; }
+          td { font-size: 12px; }
+          .total-row { border-top: 2px solid #000; font-weight: bold; }
+          .footer { text-align: center; font-size: 11px; margin-top: 20px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <h1>FATURA</h1>
+        <div class="subtitle">Mesa ${tableNumber}</div>
+        <div class="info">
+          Data: ${orderDate}<br>
+          Pedido: ${order.orderNumber || order.id.slice(0, 8)}<br>
+          Cliente: ${order.customerName || 'N/A'}
+        </div>
+        <table>
+          <thead>
+            <tr><th>Item</th><th style="text-align: right;">Valor</th></tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+            ${discountInfo.length > 0 ? `<tr><td colspan="2" style="padding-top: 8px; font-weight: bold;">Descontos</td></tr>` : ''}
+            ${discountInfo.join('')}
+            <tr class="total-row">
+              <td style="padding-top: 8px;">Total</td>
+              <td style="padding-top: 8px; text-align: right;">${formatKwanza(order.totalAmount)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="footer">
+          Obrigado pela preferência!<br>
+          ${restaurant?.name || ''}
+        </div>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
   const handleAddMenuItem = (item: MenuItemWithOptions) => {
     setSelectedMenuItem(item);
     setIsOptionsDialogOpen(true);
@@ -878,6 +961,16 @@ export default function CustomerMenu() {
                                       <span>Total</span>
                                       <span>{formatKwanza(order.totalAmount)}</span>
                                     </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="mt-2 w-full flex items-center gap-2 text-gray-600 hover:text-gray-900"
+                                      onClick={() => handlePrintOrder(order)}
+                                      data-testid={`button-print-order-${order.id}`}
+                                    >
+                                      <Printer className="h-4 w-4" />
+                                      Imprimir Fatura
+                                    </Button>
                                   </div>
                                 </Card>
                               );
