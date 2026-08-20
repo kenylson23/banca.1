@@ -139,7 +139,6 @@ export function PaymentReceiptDialog({
     const guestTotalFromBackend = safeNumber((og.guest as any).guestTotal);
     const guestDiscountRaw = safeNumber((og.guest as any).discount);
     const guestServiceChargeRaw = safeNumber((og.guest as any).serviceCharge);
-    const hasBackendGuestTotal = guestTotalFromBackend > 0.009;
 
     const guest: TableGuest = {
       id: og.guest.id,
@@ -165,7 +164,7 @@ export function PaymentReceiptDialog({
       })),
     }));
 
-    const totalAmount = hasBackendGuestTotal
+    const totalAmount = guestTotalFromBackend > 0.009
       ? guestTotalFromBackend
       : Math.max(0, guestSubtotal - guestDiscountRaw + guestServiceChargeRaw);
 
@@ -174,7 +173,6 @@ export function PaymentReceiptDialog({
       orders,
       subtotal: guestSubtotal,
       totalAmount,
-      hasBackendGuestTotal,
       discounts:
         guestDiscountRaw > 0.009
           ? [{ description: "Desconto do Cliente", amount: guestDiscountRaw, type: "fixed" as const }]
@@ -185,11 +183,6 @@ export function PaymentReceiptDialog({
           : [],
     };
   };
-
-  const hasAnyGuestTotalMissing = useMemo(
-    () => safeOrdersByGuest.some((og) => !(safeNumber((og.guest as any).guestTotal) > 0.009)),
-    [safeOrdersByGuest]
-  );
 
   const handlePrintComplete = async () => {
     setIsPrinting(true);
@@ -619,11 +612,6 @@ export function PaymentReceiptDialog({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {hasAnyGuestTotalMissing && (
-                  <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
-                    Alguns totais por convidado não foram encontrados no backend. Os valores exibidos podem não refletir os ajustes finais da sessão.
-                  </div>
-                )}
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-600">Subtotal</span>
                   <span className="font-semibold">{formatKwanza(safeCalculateTotals.subtotal)}</span>
@@ -681,11 +669,6 @@ export function PaymentReceiptDialog({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {hasAnyGuestTotalMissing && (
-                  <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
-                    Alguns totais por convidado não foram encontrados no backend. Os valores exibidos podem não refletir os ajustes finais da sessão.
-                  </div>
-                )}
                 {guestsWithItems.length === 0 && (
                   <div className="text-sm text-slate-500">Nenhum item consumido.</div>
                 )}

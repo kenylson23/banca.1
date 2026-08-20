@@ -5586,7 +5586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
 
         // ✅ Total final do convidado (inclui ajustes individuais)
-        const gSubtotal = parseFloat(guest.subtotal || '0');
+        const gSubtotal = subtotal;
         let gAdjusted = gSubtotal;
 
         const gDiscount = parseFloat((guest as any).discount || '0');
@@ -5607,7 +5607,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         return {
-          guest: { ...guest, guestTotal: gAdjusted.toFixed(2) },
+          guest: { 
+            ...guest, 
+            guestTotal: gAdjusted.toFixed(2),
+            discount: gDiscount > 0 ? gDiscount.toFixed(2) : '0',
+            discountType: gDiscountType,
+            serviceCharge: gServiceCharge > 0 ? gServiceCharge.toFixed(2) : '0',
+            serviceChargeType: gServiceChargeType,
+          },
           orders: guestOrders,
           subtotal: subtotal.toFixed(2),
         };
