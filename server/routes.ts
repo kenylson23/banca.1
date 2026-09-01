@@ -4447,6 +4447,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const restaurantId = currentUser.restaurantId!;
       const { amount, paymentMethod, notes, receivedAmount, services, discount, discountType, serviceCharge, serviceChargeType } = req.body;
+
+      // Os serviços chegam pré-calculados pelo checkout. No pagamento, eles
+      // passam a ser uma taxa fixa da sessão para que o recálculo posterior
+      // preserve exatamente o total cobrado.
+      const calculatedServicesTotal = Array.isArray(services)
+        ? services.reduce((sum: number, service: any) => {
+            const value = parseFloat(service?.calculatedAmount || '0');
+            return sum + (Number.isFinite(value) && value > 0 ? value : 0);
+          }, 0)
+        : 0;
       
       const paymentAmount = parseFloat(amount);
       if (isNaN(paymentAmount) || paymentAmount <= 0) {
@@ -4489,15 +4499,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
-        // ✅ SINCRONIZAÇÃO: Salvar taxa de serviço (serviceCharge)
-        if (serviceCharge && parseFloat(serviceCharge) > 0) {
+        // Persistir o valor final de todos os serviços (automáticos,
+        // selecionados e manual). Isso impede que o recálculo remova taxas
+        // que já foram cobradas no checkout.
+        if (calculatedServicesTotal > 0) {
+          updates.serviceCharge = calculatedServicesTotal.toFixed(2);
+          updates.serviceChargeType = 'valor';
+          console.log('[Payment] Aplicando serviços calculados à sessão:', {
+            sessionId: table.currentSessionId,
+            serviceCharge: updates.serviceCharge,
+          });
+        } else if (serviceCharge && parseFloat(serviceCharge) > 0) {
           updates.serviceCharge = serviceCharge;
           updates.serviceChargeType = serviceChargeType || 'percentual';
-          console.log('[Payment] Aplicando taxa de serviço à sessão:', {
-            sessionId: table.currentSessionId,
-            serviceCharge,
-            serviceChargeType: serviceChargeType || 'percentual'
-          });
         }
         
         // Aplicar updates se houver
@@ -5298,7 +5312,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const results = [] as Array<{ sessionId: string; totalAmount: string; paidAmount: string; pendingAmount: string }>;
 
       for (const session of sessions) {
-        if (session.status && session.status !== 'aberta' && session.status !== 'open') {
+        // Sessões ativas podem estar como aberta, ocupada ou aguardando pagamento.
+        // Apenas sessões já encerradas devem ficar fora do recálculo em massa.
+        if (session.status === 'encerrada' || session.endedAt) {
           continue;
         }
 
