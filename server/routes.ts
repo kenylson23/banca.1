@@ -5784,11 +5784,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sum + (Number.isFinite(v) ? v : 0);
       }, 0);
 
-      const sumOfSubtotals = ordersByGuest.reduce((sum, og) => sum + parseFloat(og.subtotal || '0'), 0);
+      // `ordersByGuest` inclui um convidado sintético (`anonymous`) para
+      // exibir os itens da Mesa Completa. Não o some aqui: anonymousSubtotal
+      // já contém exatamente esses mesmos itens.
+      const assignedGuestsSubtotal = ordersByGuest
+        .filter((og: any) => og.guest?.id !== 'anonymous')
+        .reduce((sum: number, og: any) => sum + parseFloat(og.subtotal || '0'), 0);
       
       const totalAmount = hasAnyGuestAdjustments
         ? totalFromGuestsWithIndividualAdjustments + anonymousSubtotal
-        : Math.max(totalAfterSession, sumOfSubtotals + anonymousSubtotal);
+        : Math.max(totalAfterSession, assignedGuestsSubtotal + anonymousSubtotal);
       res.json({
         ordersByGuest,
         anonymousOrders,
