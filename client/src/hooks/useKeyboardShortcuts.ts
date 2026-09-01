@@ -14,13 +14,19 @@ export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[], enabled = tr
     if (!enabled) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Não executar atalhos se estiver em um input/textarea
-      const target = event.target as HTMLElement;
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
-      ) {
+      // Não executar atalhos se estiver em um input/textarea/select ou elemento editável
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      const tagName = target.tagName;
+      const isInputField =
+        tagName === 'INPUT' ||
+        tagName === 'TEXTAREA' ||
+        tagName === 'SELECT' ||
+        target.isContentEditable ||
+        !!target.closest?.('input, textarea, select, [contenteditable="true"]');
+
+      if (isInputField) {
         return;
       }
 

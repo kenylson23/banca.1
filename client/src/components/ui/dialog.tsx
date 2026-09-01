@@ -10,7 +10,40 @@ const Dialog = DialogPrimitive.Root
 
 const DialogTrigger = DialogPrimitive.Trigger
 
-const DialogPortal = DialogPrimitive.Portal
+const DialogPortal = ({
+  children,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Portal> & {
+  children?: React.ReactNode
+}) => {
+  const [container, setContainer] = React.useState<HTMLElement | null>(null)
+
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return
+    const existing = document.getElementById('radix-portal-root')
+    if (existing) {
+      setContainer(existing)
+      return
+    }
+    const el = document.createElement('div')
+    el.id = 'radix-portal-root'
+    el.setAttribute('data-radix-portal', '')
+    document.body.appendChild(el)
+    setContainer(el)
+    return () => {
+      if (el.parentNode && document.body.contains(el)) {
+        el.parentNode.removeChild(el)
+      }
+    }
+  }, [])
+
+  if (!container) return null
+  return (
+    <DialogPrimitive.Portal container={container} {...props}>
+      {children}
+    </DialogPrimitive.Portal>
+  )
+}
 
 const DialogClose = DialogPrimitive.Close
 
