@@ -763,10 +763,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // TEMPORARY: FIX SESSIONS WITH MISSING ADJUSTMENTS
   // ============================================================================
   
+  app.post("/api/admin/recalculate-all-sessions", isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+
+      if (!['admin', 'manager', 'superadmin'].includes(currentUser.role)) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+
+      console.log('🔄 [RECALC] Recalculando todas as sessões abertas...');
+
+      const openSessions = await db.select().from(tableSessions).where(
+        sql`${tableSessions.status} != 'fechada'`
+      );
+
+      const results = [];
+      for (const session of openSessions) {
+        try {
+          const before = parseFloat(session.totalAmount || '0');
+          await storage.recalculateSessionTotals(session.id);
+          const after = await db.select().from(tableSessions).where(eq(tableSessions.id, session.id)).limit(1);
+          const afterTotal = parseFloat((after[0]?.totalAmount as any) || '0');
+          results.push({
+            sessionId: session.id,
+            tableId: session.tableId,
+            before: before.toFixed(2),
+            after: afterTotal.toFixed(2),
+            changed: Math.abs(before - afterTotal) > 0.01,
+          });
+        } catch (e: any) {
+          results.push({ sessionId: session.id, error: e?.message || 'erro' });
+        }
+      }
+
+      const fixed = results.filter(r => (r as any).changed).length;
+
+      console.log(`✅ [RECALC] ${fixed} sessões corrigidas de ${openSessions.length}`);
+
+      return res.json({
+        success: true,
+        total: openSessions.length,
+        fixed,
+        results,
+        message: `${fixed} sessões recalculadas com sucesso.`,
+      });
+    } catch (error: any) {
+      console.error('❌ [RECALC] Erro:', error);
+      return res.status(500).json({ message: 'Erro ao recalcular sessões', error: error?.message });
+    }
+  });
+
   app.post("/api/admin/fix-sessions", isAuthenticated, async (req, res) => {
     try {
       const currentUser = req.user as User;
-      
+
       // Apenas admin, manager ou superadmin podem executar
       if (!['admin', 'manager', 'superadmin'].includes(currentUser.role)) {
         return res.status(403).json({ message: "Acesso negado" });
