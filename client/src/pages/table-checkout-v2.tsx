@@ -958,7 +958,10 @@ export default function TableCheckoutV2() {
         });
       }
 
-      const finalTotal = backendTotal !== null ? backendTotal : Math.max(0, subtotal - discounts + additions);
+      // ✅ CORREÇÃO: usar cálculo local em tempo real como fonte de verdade
+      // O backendTotal só é atualizado após pagamento, então estava defasado durante o checkout
+      const localFinalTotal = Math.max(0, subtotal - discounts + additions);
+      const finalTotal = Number.isFinite(localFinalTotal) ? localFinalTotal : (backendTotal ?? 0);
 
       return {
         subtotal,
@@ -975,18 +978,17 @@ export default function TableCheckoutV2() {
         subtotal: totalAmount,
         totalDiscounts: 0,
         totalAdditions: 0,
-        finalTotal: backendTotal !== null ? backendTotal : totalAmount,
+        // ✅ CORREÇÃO: usar totalAmount calculado em tempo real
+        finalTotal: totalAmount,
         breakdown: []
       };
     }
     
-    let subtotal = backendTotal !== null ? totalAmount : totalAmount;
+    let subtotal = totalAmount;
     let discounts = 0;
     let additions = 0;
     const breakdown: any[] = [];
     const safeAvailableServices = Array.isArray(availableServices) ? availableServices : [];
-    
-    const useBackendTotal = backendTotal !== null;
     
     // 1. Manual discount
     if (discountValue && parseFloat(discountValue) > 0) {
@@ -1074,7 +1076,8 @@ export default function TableCheckoutV2() {
       });
     }
     
-    const finalTotal = useBackendTotal ? backendTotal : Math.max(0, afterDiscounts + additions);
+    // ✅ CORREÇÃO: calcular em tempo real a partir do subtotal local
+    const finalTotal = Math.max(0, afterDiscounts + additions);
     
     return {
       subtotal,
