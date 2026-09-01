@@ -1939,49 +1939,53 @@ export class DatabaseStorage implements IStorage {
     warnings: string[];
   }> {
     try {
+      // A sessão é a fonte de verdade: pagamentos globais, convidados e pedidos
+      // "Mesa Completa" são todos reconciliados em totalAmount/paidAmount.
+      const session = await this.getSessionById(sessionId);
+      if (!session) {
+        return {
+          canClose: false,
+          totalPending: 0,
+          unpaidGuests: [],
+          warnings: ['Sessão não encontrada'],
+        };
+      }
+
+      const totalAmount = parseFloat(session.totalAmount || '0') || 0;
+      const paidAmount = parseFloat(session.paidAmount || '0') || 0;
+      const totalPending = Math.max(0, totalAmount - paidAmount);
       const guests = await this.getTableGuests(sessionId);
-      const session = await db.select()
-        .from(tableSessions)
-        .where(eq(tableSessions.id, sessionId))
-        .then(rows => rows[0]);
-      
-      let totalPending = 0;
-      const unpaidGuests = [];
-      const warnings = [];
-      
-      for (const guest of guests) {
-        const subtotal = parseFloat(guest.subtotal || '0');
-        const paid = parseFloat(guest.paidAmount || '0');
-        const pending = subtotal - paid;
-        
-        if (pending > 0.01) { // Tolera 1 centavo de diferença
-          totalPending += pending;
-          unpaidGuests.push({
-            id: guest.id,
-            name: guest.name || `Convidado ${guest.guestNumber || '?'}`,
-            pending: parseFloat(pending.toFixed(2))
-          });
-        }
+
+      // O detalhe por convidado é apenas informativo. Não pode bloquear o
+      // fecho, pois descontos/taxas globais não são gravados por convidado.
+      const unpaidGuests = totalPending <= 0.01
+        ? []
+        : guests
+            .map((guest) => {
+              const subtotal = parseFloat(guest.subtotal || '0') || 0;
+              const paid = parseFloat(guest.paidAmount || '0') || 0;
+              return {
+                id: guest.id,
+                name: guest.name || `Convidado ${guest.guestNumber || '?'}`,
+                pending: Math.max(0, subtotal - paid),
+              };
+            })
+            .filter((guest) => guest.pending > 0.01)
+            .map((guest) => ({ ...guest, pending: parseFloat(guest.pending.toFixed(2)) }));
+
+      if (totalPending > 0.01 && unpaidGuests.length === 0) {
+        unpaidGuests.push({
+          id: 'anonymous',
+          name: 'Mesa Completa',
+          pending: parseFloat(totalPending.toFixed(2)),
+        });
       }
-      
-      // Verificar reconciliação com total da sessão
-      if (session) {
-        const sessionTotal = parseFloat(session.totalAmount || '0');
-        const sessionPaid = parseFloat(session.paidAmount || '0');
-        const sessionPending = sessionTotal - sessionPaid;
-        
-        if (Math.abs(sessionPending - totalPending) > 0.10) {
-          warnings.push(
-            `Diferença de reconciliação: ${Math.abs(sessionPending - totalPending).toFixed(2)} Kz entre sessão e guests`
-          );
-        }
-      }
-      
+
       return {
-        canClose: totalPending <= 0,
+        canClose: totalPending <= 0.01,
         totalPending: parseFloat(totalPending.toFixed(2)),
         unpaidGuests,
-        warnings
+        warnings: [],
       };
     } catch (error) {
       console.error('[VALIDATE CLOSURE] Erro:', error);
@@ -1989,7 +1993,7 @@ export class DatabaseStorage implements IStorage {
         canClose: false,
         totalPending: 0,
         unpaidGuests: [],
-        warnings: ['Erro ao validar fechamento']
+        warnings: ['Erro ao validar fechamento'],
       };
     }
   }
