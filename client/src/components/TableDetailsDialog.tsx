@@ -864,6 +864,15 @@ export function TableDetailsDialog({
     if (!open) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // 🛡️ Ignorar atalhos se o foco estiver num campo de input ou elemento editável
+      const target = e.target as HTMLElement;
+      const isInputField = 
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName) ||
+        target?.isContentEditable ||
+        target?.closest?.('input, textarea, select, [contenteditable="true"]') !== null;
+
+      if (isInputField) return;
+
       // 🛡️ Bloquear shortcuts se houver modais/diálogos abertos
       const hasModalOpen = showEndSessionDialog || showStartSessionDialog || 
                           addingGuest || showQRCode || showAddPersonModal || 
@@ -907,7 +916,17 @@ export function TableDetailsDialog({
       
       // 🛡️ Bloquear outros shortcuts se modal estiver aberto
       if (hasModalOpen) return;
-      
+
+      // 🛡️ Bloquear atalhos quando estiver digitando em campo editável
+      const target = e.target as HTMLElement;
+      const isInputField =
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName) ||
+        target?.isContentEditable ||
+        target?.closest?.('input, textarea, select, [contenteditable="true"]') !== null;
+
+      if (isInputField) {
+        return;
+      }
       // Arrow Right - Next table
       if (e.key === 'ArrowRight') {
         e.preventDefault();
