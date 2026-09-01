@@ -857,30 +857,44 @@ export function TableDetailsDialog({
           });
         });
     }
-  }, [showQRCode, table, toast]);
+  }, [showQRCode, table]);
 
   // ⌨️ Keyboard Shortcuts (melhorados com proteção contra diálogos abertos)
   useEffect(() => {
     if (!open) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 🛡️ Ignorar atalhos se o foco estiver num campo de input ou elemento editável
+      // 🛡️ Ignorar atalhos se o foco estiver num campo de input ou elemento editável (verifica target e activeElement)
       const target = e.target as HTMLElement;
-      const isInputField = 
-        ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName) ||
-        target?.isContentEditable ||
-        target?.closest?.('input, textarea, select, [contenteditable="true"]') !== null;
+      const activeEl = document.activeElement as HTMLElement;
 
-      if (isInputField) return;
+      const isInput = (el: HTMLElement | null) => {
+        if (!el) return false;
+        const tag = el.tagName?.toUpperCase();
+        return (
+          ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) ||
+          Boolean(el.isContentEditable) ||
+          el.closest?.('input, textarea, select, [contenteditable="true"]') !== null
+        );
+      };
+
+      const activeEl = (typeof document !== 'undefined' ? document.activeElement : null) as HTMLElement | null;
+
+      if (isInput(target) || isInput(activeEl)) return;
 
       // 🛡️ Bloquear shortcuts se houver modais/diálogos abertos
       const hasModalOpen = showEndSessionDialog || showStartSessionDialog || 
                           addingGuest || showQRCode || showAddPersonModal || 
-                          showCustomerSearch || showForceCloseDialog;
+                          showCustomerSearch || showForceCloseDialog ||
+                          addPersonMode !== null;
       
       // ESC - Close dialog (sempre permitido)
       if (e.key === 'Escape') {
         // Fechar modal aberto primeiro, se houver
+        if (addPersonMode !== null) {
+          setAddPersonMode(null);
+          return;
+        }
         if (showForceCloseDialog) {
           setShowForceCloseDialog(false);
           return;
@@ -917,16 +931,6 @@ export function TableDetailsDialog({
       // 🛡️ Bloquear outros shortcuts se modal estiver aberto
       if (hasModalOpen) return;
 
-      // 🛡️ Bloquear atalhos quando estiver digitando em campo editável
-      const target = e.target as HTMLElement;
-      const isInputField =
-        ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName) ||
-        target?.isContentEditable ||
-        target?.closest?.('input, textarea, select, [contenteditable="true"]') !== null;
-
-      if (isInputField) {
-        return;
-      }
       // Arrow Right - Next table
       if (e.key === 'ArrowRight') {
         e.preventDefault();
@@ -976,7 +980,7 @@ export function TableDetailsDialog({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [open, table, allTables, onNavigate, onOpenChange, navigate, showGuestSplit, showQRCode, 
       showEndSessionDialog, showStartSessionDialog, addingGuest, showAddPersonModal, 
-      showCustomerSearch, showForceCloseDialog, tableOrders]); // 🔧 FIX: Use tableOrders instead of totalOrders
+      showCustomerSearch, showForceCloseDialog, addPersonMode, tableOrders]);
 
   // Reset states when navigating between tables
   useEffect(() => {
