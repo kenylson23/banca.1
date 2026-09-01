@@ -910,7 +910,29 @@ export class DatabaseStorage implements IStorage {
     });
 
     if (hasGuestAdjustments) {
-      totalAmountAdjusted = guests.reduce((sum: number, g: any) => {
+      // ✅ CORREÇÃO: quando há ajustes por convidado, partir do subtotal já calculado
+      // (ordersSubtotal ou guestsSubtotal) e aplicar os ajustes individuais.
+      // Antes, o código somava guestsSubtotal em cima do totalAmountAdjusted,
+      // causando duplicação (ex: 15000 aparecia como 30000).
+      const baseSubtotal = ordersSubtotal > 0 ? ordersSubtotal : guestsSubtotal;
+      let totalWithGuestAdjustments = baseSubtotal;
+
+      // Aplicar desconto/taxa da sessão sobre o subtotal base
+      if (sessionDiscount > 0) {
+        totalWithGuestAdjustments = sessionDiscountType === 'percentual'
+          ? totalWithGuestAdjustments * (1 - Math.min(sessionDiscount, 100) / 100)
+          : Math.max(0, totalWithGuestAdjustments - sessionDiscount);
+      }
+
+      if (sessionServiceCharge > 0) {
+        totalWithGuestAdjustments = sessionServiceChargeType === 'percentual'
+          ? totalWithGuestAdjustments * (1 + sessionServiceCharge / 100)
+          : totalWithGuestAdjustments + sessionServiceCharge;
+      }
+
+      // Calcular ajuste líquido dos guests (diferença entre soma ajustada e soma base dos guests)
+      const guestsBaseSum = guests.reduce((sum: number, g: any) => sum + parseFloat(g.subtotal || '0'), 0);
+      const guestsAdjustedSum = guests.reduce((sum: number, g: any) => {
         let adjusted = parseFloat(g.subtotal || '0');
         const gDiscount = parseFloat(g.discount || '0');
         const gDiscountType = g.discountType || 'valor';
@@ -931,6 +953,11 @@ export class DatabaseStorage implements IStorage {
 
         return sum + adjusted;
       }, 0);
+
+      // Diferença líquida dos ajustes individuais (positiva se taxa > desconto)
+      const guestsAdjustmentDelta = guestsAdjustedSum - guestsBaseSum;
+
+      totalAmountAdjusted = totalWithGuestAdjustments + guestsAdjustmentDelta;
     }
 
 
