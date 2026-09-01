@@ -33,10 +33,19 @@ export function useTableKeyboardShortcuts({
   const handleKeyPress = useCallback((e: KeyboardEvent) => {
     // Ignorar se estiver em input, textarea ou elemento editável
     const target = e.target as HTMLElement;
-    const isInputField = ['INPUT', 'TEXTAREA'].includes(target.tagName) ||
-                        target.isContentEditable;
+    const activeEl = document.activeElement as HTMLElement;
 
-    if (isInputField) {
+    const isInput = (el: HTMLElement | null) => {
+      if (!el) return false;
+      const tag = el.tagName?.toUpperCase();
+      return (
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) ||
+        Boolean(el.isContentEditable) ||
+        el.closest?.('input, textarea, select, [contenteditable="true"]') !== null
+      );
+    };
+
+    if (isInput(target) || isInput(activeEl)) {
       return;
     }
 
@@ -96,19 +105,6 @@ export function useTableKeyboardShortcuts({
           toast({
             title: '📱 QR Code',
             description: 'Atalho: Q',
-            duration: 1000,
-          });
-        }
-        break;
-
-      case 's':
-        if (handlers.onSplitBill) {
-          e.preventDefault();
-          handlers.onSplitBill();
-          handled = true;
-          toast({
-            title: '✂️ Dividir Conta',
-            description: 'Atalho: S',
             duration: 1000,
           });
         }
@@ -206,10 +202,6 @@ export function useTableKeyboardShortcuts({
             <div className="flex items-center gap-2">
               <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-white">Q</kbd>
               <span>QR Code</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-white">S</kbd>
-              <span>Dividir Conta</span>
             </div>
             <div className="flex items-center gap-2">
               <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-white">I</kbd>
