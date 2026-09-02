@@ -1,6 +1,6 @@
 # Backend (Railway)
 
-**Build command:** `npm install && npm run build`
+**Build command:** `npm ci --registry=https://registry.npmjs.org/ && npm run build`
 **Start command:** `node dist/index.js`
 
 ## Variáveis de ambiente obrigatórias
@@ -25,6 +25,9 @@
 4. Definir `NODE_ENV=production` e `SERVE_STATIC=false`. O Railway fornece `PORT` automaticamente.
 5. O health check deve responder em `GET /api/health`.
 6. As migrações e a criação/verificação das tabelas são executadas no startup.
+
+> O comando de build força o registry público porque o ambiente Replit pode gravar URLs
+> internas no `package-lock.json`; essas URLs não são acessíveis durante o build no Railway.
 
 ---
 
