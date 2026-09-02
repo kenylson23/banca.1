@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useInfiniteQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { apiFetch } from "@/lib/api-url";
 import { useInView } from "react-intersection-observer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -177,7 +178,7 @@ export default function Users() {
   const { data, isLoading } = useQuery<PaginatedUsersResponse>({
     queryKey: ['/api/users', page, debouncedSearch, roleFilter],
     queryFn: async () => {
-      const res = await fetch(`/api/users?${queryParams.toString()}`, {
+      const res = await apiFetch(`/api/users?${queryParams.toString()}`, {
         credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to fetch users');

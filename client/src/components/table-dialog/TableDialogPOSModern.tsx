@@ -72,6 +72,7 @@ import { BillSplitPanel } from '@/components/BillSplitPanel';
 import { QrScannerDialog } from '@/components/QrScannerDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
+import { apiFetch } from '@/lib/api-url';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import type { Table } from '@shared/schema';
 
@@ -157,7 +158,7 @@ export function TableDialogPOSModern({
       if (!table?.id) {
         throw new Error('Mesa não encontrada');
       }
-      const res = await fetch(`/api/tables/${table.id}/close-session`, {
+      const res = await apiFetch(`/api/tables/${table.id}/close-session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

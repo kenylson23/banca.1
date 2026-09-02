@@ -81,6 +81,7 @@ import { formatKwanza } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
+import { apiFetch } from '@/lib/api-url';
 import type { Table } from '@shared/schema';
 import QRCode from 'qrcode';
 import { CustomerSearchDialog } from './CustomerSearchDialog';
@@ -372,7 +373,7 @@ export function TableDetailsDialog({
       queryClient.prefetchQuery({
         queryKey: QUERY_KEYS.tables.sessions(currentTable.id),
         queryFn: async () => {
-          const res = await fetch(`/api/tables/${currentTable.id}/sessions`);
+          const res = await apiFetch(`/api/tables/${currentTable.id}/sessions`);
           return res.json();
         },
         staleTime: 30000,

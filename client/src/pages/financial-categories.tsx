@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { buildApiUrl } from "@/lib/api-url";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -91,7 +92,7 @@ export default function FinancialCategories() {
           description: "Você foi desconectado. Fazendo login novamente...",
           variant: "destructive",
         });
-        setTimeout(() => window.location.href = "/api/login", 500);
+        setTimeout(() => window.location.href = buildApiUrl("/api/login"), 500);
         return;
       }
       toast({
@@ -121,7 +122,7 @@ export default function FinancialCategories() {
           description: "Você foi desconectado. Fazendo login novamente...",
           variant: "destructive",
         });
-        setTimeout(() => window.location.href = "/api/login", 500);
+        setTimeout(() => window.location.href = buildApiUrl("/api/login"), 500);
         return;
       }
       toast({

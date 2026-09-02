@@ -16,6 +16,7 @@ import { formatKwanza } from '@/lib/formatters';
 import { Progress } from '@/components/ui/progress';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
+import { apiFetch } from '@/lib/api-url';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -350,7 +351,7 @@ export function CustomerLoginDialog({
     queryKey: ['customer-orders', customer?.id, restaurantId],
     queryFn: async () => {
       if (!customer?.id) return [];
-      const response = await fetch(`/api/public/customers/${customer.id}/orders?restaurantId=${restaurantId}`);
+      const response = await apiFetch(`/api/public/customers/${customer.id}/orders?restaurantId=${restaurantId}`);
       if (!response.ok) return [];
       return response.json();
     },
@@ -362,7 +363,7 @@ export function CustomerLoginDialog({
     queryKey: ['customer-coupons', customer?.id, restaurantId],
     queryFn: async () => {
       if (!customer?.id) return [];
-      const response = await fetch(`/api/public/customers/${customer.id}/coupons?restaurantId=${restaurantId}`);
+      const response = await apiFetch(`/api/public/customers/${customer.id}/coupons?restaurantId=${restaurantId}`);
       if (!response.ok) return [];
       return response.json();
     },

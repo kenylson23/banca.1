@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { buildApiUrl } from "@/lib/api-url";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { CashRegister, FinancialCategory } from "@shared/schema";
 
@@ -84,7 +85,7 @@ export default function FinancialNewTransaction() {
           description: "Você foi desconectado. Fazendo login novamente...",
           variant: "destructive",
         });
-        setTimeout(() => window.location.href = "/api/login", 500);
+        setTimeout(() => window.location.href = buildApiUrl("/api/login"), 500);
         return;
       }
       toast({

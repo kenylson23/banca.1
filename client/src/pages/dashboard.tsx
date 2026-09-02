@@ -1,5 +1,6 @@
 import { useState, useMemo, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-url";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -142,7 +143,7 @@ export default function Dashboard() {
         startDate: formatDate(dateRange.from),
         endDate: formatDate(dateRange.to),
       });
-      const response = await fetch(`/api/stats/custom-range?${params}`);
+      const response = await apiFetch(`/api/stats/custom-range?${params}`);
       if (!response.ok) throw new Error('Failed to fetch custom range stats');
       return response.json();
     },
@@ -228,7 +229,7 @@ export default function Dashboard() {
   const { data: historicalData, isLoading: historicalLoading } = useQuery<Array<{ date: string; sales: number; orders: number }>>({
     queryKey: ["/api/stats/historical", historicalDays],
     queryFn: async () => {
-      const response = await fetch(`/api/stats/historical?days=${historicalDays}`);
+      const response = await apiFetch(`/api/stats/historical?days=${historicalDays}`);
       if (!response.ok) throw new Error('Failed to fetch historical stats');
       return response.json();
     },
@@ -262,7 +263,7 @@ export default function Dashboard() {
         params.set('days', String(historicalDays));
       }
       
-      const response = await fetch(`/api/stats/heatmap?${params}`, {
+      const response = await apiFetch(`/api/stats/heatmap?${params}`, {
         cache: 'no-store',
       });
       if (!response.ok) throw new Error('Failed to fetch heatmap data');

@@ -1,11 +1,19 @@
 import "../load-env";
 import express, { type Request, Response, NextFunction } from "express";
+import path from "path";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Uploaded media belongs to the API service, not the Vercel frontend.
+// Keep the legacy path readable so existing database URLs continue to work.
+const uploadRoot = path.resolve(process.env.UPLOAD_DIR || "uploads");
+const legacyUploadRoot = path.resolve("client/public/uploads");
+app.use("/uploads", express.static(uploadRoot));
+app.use("/uploads", express.static(legacyUploadRoot));
 
 // CORS para deploy separado (frontend na Vercel)
 const allowedOrigins = (process.env.CORS_ORIGINS || "")

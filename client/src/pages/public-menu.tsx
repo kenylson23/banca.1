@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest } from '@/lib/queryClient';
+import { apiFetch } from '@/lib/api-url';
 import { formatKwanza } from '@/lib/formatters';
 import type { MenuItem, Category, Restaurant, Order } from '@shared/schema';
 import { CustomerMenuItemOptionsDialog } from '@/components/CustomerMenuItemOptionsDialog';
@@ -193,7 +194,7 @@ export default function PublicMenu() {
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
     queryKey: ['/api/public/restaurants/slug', slug],
     queryFn: async () => {
-      const response = await fetch(`/api/public/restaurants/slug/${slug}`);
+      const response = await apiFetch(`/api/public/restaurants/slug/${slug}`);
       if (!response.ok) throw new Error('Restaurante não encontrado');
       return response.json();
     },
@@ -643,7 +644,7 @@ export default function PublicMenu() {
       const pollStatus = async () => {
         try {
           setIsPolling(true);
-          const response = await fetch(`/api/public/orders/${order.id}/status`);
+          const response = await apiFetch(`/api/public/orders/${order.id}/status`);
           if (response.ok) {
             const data = await response.json();
             setLiveStatus(data.status);

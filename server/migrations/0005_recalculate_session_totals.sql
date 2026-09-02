@@ -5,11 +5,11 @@
 
 -- Update totalAmount based on current orders + guest adjustments
 UPDATE table_sessions ts
-SET "totalAmount" = COALESCE((
+SET total_amount = COALESCE((
   SELECT
     CASE
-      WHEN COALESCE(SUM(o."totalAmount"), 0) > 0
-      THEN COALESCE(SUM(o."totalAmount"), 0)
+      WHEN COALESCE(SUM(o.total_amount), 0) > 0
+      THEN COALESCE(SUM(o.total_amount), 0)
       ELSE COALESCE((
         SELECT SUM(
           CASE
@@ -19,13 +19,13 @@ SET "totalAmount" = COALESCE((
           END
         )
         FROM order_items oi
-        WHERE oi."orderId" IN (
-          SELECT o.id FROM orders o
-          WHERE o."tableSessionId" = ts.id AND o.status != 'cancelado'
+          WHERE oi.order_id IN (
+           SELECT o.id FROM orders o
+           WHERE o.table_session_id = ts.id AND o.status != 'cancelado'
         )
       ), 0)
     END
   FROM orders o
-  WHERE o."tableSessionId" = ts.id AND o.status != 'cancelado'
+  WHERE o.table_session_id = ts.id AND o.status != 'cancelado'
 ), '0')
-WHERE ts."endedAt" IS NULL;
+WHERE ts.ended_at IS NULL;

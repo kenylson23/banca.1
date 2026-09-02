@@ -273,7 +273,7 @@ export async function syncOfflineOrders(): Promise<{ success: number; failed: nu
           break;
 
         case "update_order":
-          response = await fetch(`/api/orders/${item.data.id}`, {
+          response = await apiFetch(`/api/orders/${item.data.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(item.data),
@@ -281,7 +281,7 @@ export async function syncOfflineOrders(): Promise<{ success: number; failed: nu
           break;
 
         case "delete_order":
-          response = await fetch(`/api/orders/${item.data.id}`, {
+          response = await apiFetch(`/api/orders/${item.data.id}`, {
             method: "DELETE",
           });
           break;

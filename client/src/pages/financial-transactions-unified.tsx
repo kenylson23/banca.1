@@ -26,6 +26,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { buildApiUrl } from "@/lib/api-url";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { formatKwanza } from "@/lib/formatters";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
@@ -198,7 +199,7 @@ export default function FinancialTransactionsUnified() {
           description: "Você foi desconectado. Fazendo login novamente...",
           variant: "destructive",
         });
-        setTimeout(() => window.location.href = "/api/login", 500);
+        setTimeout(() => window.location.href = buildApiUrl("/api/login"), 500);
         return;
       }
       toast({

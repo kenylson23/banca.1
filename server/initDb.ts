@@ -1,6 +1,5 @@
 import { sql } from 'drizzle-orm';
 import { db, initializeConnection } from './db';
-import { hashPassword } from './auth';
 
 let isInitialized = false;
 let initPromise: Promise<void> | null = null;
@@ -1345,20 +1344,8 @@ export async function ensureTablesExist() {
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
       
-      // Create initial super admin user if it doesn't exist
-      const superAdminEmail = 'superadmin@nabancada.com';
-      const checkSuperAdmin = await db.execute(sql`SELECT id FROM users WHERE email = ${superAdminEmail} AND role = 'superadmin'`);
-      
-      if (checkSuperAdmin.rows.length === 0) {
-        const defaultPassword = 'SuperAdmin123!';
-        const hashedPassword = await hashPassword(defaultPassword);
-        
-        await db.execute(sql`
-          INSERT INTO users (email, password, first_name, last_name, role, restaurant_id)
-          VALUES (${superAdminEmail}, ${hashedPassword}, 'Super', 'Admin', 'superadmin', NULL)
-        `);
-        
-      }
+      // Super administrators must be created explicitly with the secure CLI
+      // script; never seed a known email/password during application startup.
       
       // Seed subscription plans if they don't exist
       const checkPlans = await db.execute(sql`SELECT COUNT(*) as count FROM subscription_plans`);

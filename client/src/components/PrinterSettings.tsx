@@ -113,7 +113,7 @@ export function PrinterSettings() {
   // Update printer configuration
   const updateConfigMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<PrinterConfig> }) => {
-      const res = await fetch(`/api/printer-configurations/${id}`, {
+      const res = await apiFetch(`/api/printer-configurations/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -142,7 +142,7 @@ export function PrinterSettings() {
   // Delete printer configuration
   const deleteConfigMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/printer-configurations/${id}`, {
+      const res = await apiFetch(`/api/printer-configurations/${id}`, {
         method: 'DELETE',
         credentials: 'include',
       });

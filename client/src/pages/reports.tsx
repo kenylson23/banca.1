@@ -12,6 +12,7 @@ import { ShoppingCart, Package, Clock, Download, Eye, LayoutDashboard, DollarSig
 import { format } from "date-fns";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { queryClient } from "@/lib/queryClient";
+import { apiFetch } from "@/lib/api-url";
 import { PrintOrder } from "@/components/PrintOrder";
 import { motion } from "framer-motion";
 import { TubelightNavBar } from "@/components/ui/tubelight-navbar";
@@ -167,7 +168,7 @@ export default function Reports() {
   const { data: historicalData, isLoading: historicalLoading } = useQuery<Array<{ date: string; sales: number; orders: number }>>({
     queryKey: ["/api/stats/historical", historicalDays],
     queryFn: async () => {
-      const response = await fetch(`/api/stats/historical?days=${historicalDays}`);
+      const response = await apiFetch(`/api/stats/historical?days=${historicalDays}`);
       if (!response.ok) throw new Error('Failed to fetch historical stats');
       return response.json();
     },
@@ -190,7 +191,7 @@ export default function Reports() {
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
-      await fetch(`/api/orders/${orderId}/status`, {
+      await apiFetch(`/api/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

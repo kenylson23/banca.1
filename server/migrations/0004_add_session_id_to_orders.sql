@@ -74,38 +74,5 @@ AFTER INSERT OR UPDATE OR DELETE ON table_payments
 FOR EACH ROW
 EXECUTE FUNCTION update_session_paid_amount();
 
--- Step 7: Add trigger to auto-update guest paidAmount when guest payment is added
-CREATE OR REPLACE FUNCTION update_guest_paid_amount()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF TG_OP = 'DELETE' THEN
-    UPDATE table_guests
-    SET paid_amount = (
-      SELECT COALESCE(SUM(amount::numeric), 0)
-      FROM guest_payments
-      WHERE guest_id = OLD.guest_id
-    )
-    WHERE id = OLD.guest_id;
-    RETURN OLD;
-  ELSE
-    UPDATE table_guests
-    SET paid_amount = (
-      SELECT COALESCE(SUM(amount::numeric), 0)
-      FROM guest_payments
-      WHERE guest_id = NEW.guest_id
-    )
-    WHERE id = NEW.guest_id;
-    RETURN NEW;
-  END IF;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trigger_update_guest_paid_amount ON guest_payments;
-CREATE TRIGGER trigger_update_guest_paid_amount
-AFTER INSERT OR UPDATE OR DELETE ON guest_payments
-FOR EACH ROW
-EXECUTE FUNCTION update_guest_paid_amount();
-
 COMMENT ON COLUMN orders.table_session_id IS 'Links order to specific table session for accurate session-based calculations';
 COMMENT ON TRIGGER trigger_update_session_paid_amount ON table_payments IS 'Auto-updates session.paidAmount when payments are added/removed';
-COMMENT ON TRIGGER trigger_update_guest_paid_amount ON guest_payments IS 'Auto-updates guest.paidAmount when payments are added/removed';

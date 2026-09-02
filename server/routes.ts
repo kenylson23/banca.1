@@ -46,6 +46,7 @@ import QRCode from "qrcode";
 import PDFDocument from "pdfkit";
 import multer from "multer";
 import path from "path";
+import fsSync from "fs";
 import { nanoid } from "nanoid";
 import fs from "fs/promises";
 import twilio from "twilio";
@@ -213,9 +214,15 @@ import {
 import { z } from "zod";
 
 // Configure multer for file uploads
+const uploadRoot = path.resolve(process.env.UPLOAD_DIR || 'uploads');
+const legacyUploadRoot = path.resolve('client/public/uploads');
+for (const uploadType of ['restaurants', 'menu-items', 'profile-images']) {
+  fsSync.mkdirSync(path.join(uploadRoot, uploadType), { recursive: true });
+}
+
 const restaurantStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'client/public/uploads/restaurants');
+    cb(null, path.join(uploadRoot, 'restaurants'));
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -251,7 +258,7 @@ const uploadRestaurantImage = multer({
 // Configure multer for menu item (product) images
 const menuItemStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'client/public/uploads/menu-items');
+    cb(null, path.join(uploadRoot, 'menu-items'));
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -287,7 +294,7 @@ const uploadMenuItemImage = multer({
 // Configure multer for profile images
 const profileImageStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'client/public/uploads/profile-images');
+    cb(null, path.join(uploadRoot, 'profile-images'));
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -327,8 +334,13 @@ async function deleteOldImage(imageUrl: string | null | undefined, type: 'restau
     const filename = imageUrl.split('/').pop();
     if (!filename) return;
     
-    const filePath = path.join(`client/public/uploads/${type}`, filename);
-    await fs.unlink(filePath);
+    const filePath = path.join(uploadRoot, type, filename);
+    try {
+      await fs.unlink(filePath);
+    } catch {
+      // Existing installations may still have files in the old frontend path.
+      await fs.unlink(path.join(legacyUploadRoot, type, filename));
+    }
   } catch (error) {
     // Ignore errors (file might not exist)
   }

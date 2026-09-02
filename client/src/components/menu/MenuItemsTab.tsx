@@ -40,6 +40,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiFetch } from "@/lib/api-url";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { formatKwanza } from "@/lib/formatters";
 import type { Category, MenuItem } from "@shared/schema";
@@ -158,7 +159,7 @@ export function MenuItemsTab() {
             const formData = new FormData();
             formData.append('image', compressedImage);
 
-            const uploadResponse = await fetch(`/api/menu-items/${menuItemId}/image`, {
+            const uploadResponse = await apiFetch(`/api/menu-items/${menuItemId}/image`, {
               method: 'POST',
               body: formData,
               credentials: 'include',

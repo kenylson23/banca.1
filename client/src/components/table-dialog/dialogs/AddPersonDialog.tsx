@@ -70,7 +70,7 @@ export function AddPersonDialog({
   const handleCustomerSelect = async (customer: any) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/tables/${tableId}/guests`, {
+      const res = await apiFetch(`/api/tables/${tableId}/guests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -151,7 +151,7 @@ export function AddPersonDialog({
       const newCustomer = await customerRes.json();
 
       // Depois adicionar à sessão
-      const guestRes = await fetch(`/api/tables/${tableId}/guests`, {
+      const guestRes = await apiFetch(`/api/tables/${tableId}/guests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -214,7 +214,7 @@ export function AddPersonDialog({
   const handleAnonymousAdd = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/tables/${tableId}/guests`, {
+      const res = await apiFetch(`/api/tables/${tableId}/guests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

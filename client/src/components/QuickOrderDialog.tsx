@@ -197,7 +197,7 @@ export function QuickOrderDialog({
   const { data: ordersByGuestData } = useQuery({
     queryKey: [`/api/tables/${tableId}/orders-by-guest`],
     queryFn: async () => {
-      const response = await fetch(`/api/tables/${tableId}/orders-by-guest`, {
+      const response = await apiFetch(`/api/tables/${tableId}/orders-by-guest`, {
         credentials: 'include',
       });
       if (!response.ok) throw new Error('Erro ao carregar pedidos');
@@ -215,7 +215,7 @@ export function QuickOrderDialog({
   const { data: guests = [] } = useQuery<Guest[]>({
     queryKey: ['table-guests', tableId],
     queryFn: async () => {
-      const response = await fetch(`/api/tables/${tableId}/guests`, {
+      const response = await apiFetch(`/api/tables/${tableId}/guests`, {
         credentials: 'include', // 🔧 FIX: Include credentials
       });
       if (!response.ok) throw new Error('Erro ao carregar convidados');
@@ -260,7 +260,7 @@ export function QuickOrderDialog({
       // Create new session if none exists
       if (!sessionId) {
         // Create session automatically
-        const sessionResponse = await fetch(`/api/tables/${tableId}/start-session`, {
+        const sessionResponse = await apiFetch(`/api/tables/${tableId}/start-session`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',

@@ -157,7 +157,7 @@ export default function Services() {
   // Update service mutation
   const updateServiceMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<InsertService> }) => {
-      const response = await fetch(`/api/services/${id}`, {
+      const response = await apiFetch(`/api/services/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -190,7 +190,7 @@ export default function Services() {
   // Delete service mutation
   const deleteServiceMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/services/${id}`, {
+      const response = await apiFetch(`/api/services/${id}`, {
         method: "DELETE",
         credentials: "include",
       });

@@ -33,6 +33,7 @@ import {
   Plus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { apiFetch } from '@/lib/api-url';
 import type { Table } from '@shared/schema';
 
 interface StartSessionDialogProps {
@@ -58,7 +59,7 @@ export function StartSessionDialog({
 
   const startSessionMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/tables/${table.id}/start-session`, {
+      const res = await apiFetch(`/api/tables/${table.id}/start-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

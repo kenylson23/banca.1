@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRoute } from 'wouter';
+import { apiFetch } from '@/lib/api-url';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,7 @@ export default function TrackOrder() {
   const { data: restaurant, isLoading: restaurantLoading } = useQuery<Restaurant>({
     queryKey: ['/api/public/restaurants/slug', slug],
     queryFn: async () => {
-      const response = await fetch(`/api/public/restaurants/slug/${slug}`);
+      const response = await apiFetch(`/api/public/restaurants/slug/${slug}`);
       if (!response.ok) throw new Error('Restaurante não encontrado');
       return response.json();
     },
@@ -29,7 +30,7 @@ export default function TrackOrder() {
   const { data: orders, isLoading, error } = useQuery<Array<Order & { table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> }>>({
     queryKey: ['/api/public/restaurants', slug, 'orders/search', { q: searchQuery }],
     queryFn: async () => {
-      const response = await fetch(`/api/public/restaurants/${slug}/orders/search?q=${encodeURIComponent(searchQuery)}`);
+      const response = await apiFetch(`/api/public/restaurants/${slug}/orders/search?q=${encodeURIComponent(searchQuery)}`);
       if (!response.ok) throw new Error('Erro ao buscar pedidos');
       return response.json();
     },

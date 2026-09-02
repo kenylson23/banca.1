@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { QUERY_KEYS } from '@/lib/queryKeys';
+import { apiFetch } from '@/lib/api-url';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -76,7 +77,7 @@ export function PaymentSection({
       queryClient.prefetchQuery({
         queryKey: QUERY_KEYS.tables.sessions(table.id),
         queryFn: async () => {
-          const res = await fetch(`/api/tables/${table.id}/sessions`);
+          const res = await apiFetch(`/api/tables/${table.id}/sessions`);
           return res.json();
         },
         staleTime: 30000,

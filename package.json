@@ -14,6 +14,7 @@
     "db:migrate:status": "bash scripts/migrate.sh status",
     "db:migrate:list": "bash scripts/migrate.sh list",
     "generate:secret": "node scripts/generate-session-secret.js",
+    "admin:create": "tsx scripts/create-superadmin.ts",
     "check-subscriptions": "tsx scripts/check-subscriptions.ts"
   },
   "dependencies": {

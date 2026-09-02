@@ -29,6 +29,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { buildApiUrl } from "@/lib/api-url";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -142,7 +143,7 @@ export function TablesPanel() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = buildApiUrl("/api/login");
         }, 500);
         return;
       }
@@ -174,7 +175,7 @@ export function TablesPanel() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = buildApiUrl("/api/login");
         }, 500);
         return;
       }
@@ -206,7 +207,7 @@ export function TablesPanel() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = buildApiUrl("/api/login");
         }, 500);
         return;
       }

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiFetch } from '@/lib/api-url';
 
 interface BusinessHour {
   day: string;
@@ -101,7 +102,7 @@ export function BusinessHoursManager({ restaurantId }: BusinessHoursManagerProps
   // Save business hours mutation
   const saveMutation = useMutation({
     mutationFn: async (data: { businessHours: string; isOpen: number }) => {
-      const response = await fetch(`/api/restaurants/${restaurantId}/business-hours`, {
+      const response = await apiFetch(`/api/restaurants/${restaurantId}/business-hours`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -135,7 +136,7 @@ export function BusinessHoursManager({ restaurantId }: BusinessHoursManagerProps
   // Toggle restaurant open/closed mutation
   const toggleOpenMutation = useMutation({
     mutationFn: async (isOpen: boolean) => {
-      const response = await fetch(`/api/restaurants/${restaurantId}/toggle-open`, {
+      const response = await apiFetch(`/api/restaurants/${restaurantId}/toggle-open`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

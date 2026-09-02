@@ -28,6 +28,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Label } from '@/components/ui/label';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { apiRequestWithToken } from '@/lib/apiRequest';
+import { apiFetch } from '@/lib/api-url';
 import { formatKwanza } from '@/lib/formatters';
 import type { MenuItem, Category, Order, OrderItem, Restaurant, OptionGroup, Option } from '@shared/schema';
 import type { SelectedOption } from '@/contexts/CartContext';
@@ -667,7 +668,7 @@ export default function CustomerMenu() {
     }
 
     setIsLookingUpCustomer(true);
-    fetch(
+    apiFetch(
       `/api/public/customers/lookup?restaurantId=${restaurantId}&phone=${encodeURIComponent(customerPhone)}`
     )
       .then(res => res.ok ? res.json() : null)

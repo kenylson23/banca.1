@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiFetch } from "@/lib/api-url";
 import { formatKwanza } from "@/lib/formatters";
 import { PrintOrder } from "@/components/PrintOrder";
 import { KitchenOrderDialog } from "@/components/KitchenOrderDialog";
@@ -165,7 +166,7 @@ export default function Kitchen() {
   const { data: stats, isLoading: statsLoading } = useQuery<KitchenStats>({
     queryKey: ["/api/stats/kitchen", statsPeriod],
     queryFn: async () => {
-      const response = await fetch(`/api/stats/kitchen?period=${statsPeriod}`);
+      const response = await apiFetch(`/api/stats/kitchen?period=${statsPeriod}`);
       if (!response.ok) throw new Error('Failed to fetch stats');
       return response.json();
     },

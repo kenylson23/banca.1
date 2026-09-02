@@ -14,6 +14,7 @@ import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { Order } from '@shared/schema';
+import { apiFetch } from '@/lib/api-url';
 
 interface SalesTableProps {
   dateFilter: string;
@@ -104,7 +105,7 @@ export function SalesTable({
   const { data: orders, isLoading } = useQuery<Array<Order & { tableNumber?: number }>>({
     queryKey: ['/api/sales', queryParams.toString()],
     queryFn: async () => {
-      const res = await fetch(`/api/sales?${queryParams.toString()}`);
+      const res = await apiFetch(`/api/sales?${queryParams.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch sales');
       return res.json();
     },

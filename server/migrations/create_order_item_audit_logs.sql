@@ -1,12 +1,12 @@
 -- Create order_item_audit_logs table for tracking item movements between guests
 CREATE TABLE IF NOT EXISTS order_item_audit_logs (
   id SERIAL PRIMARY KEY,
-  order_item_id INTEGER NOT NULL,
-  restaurant_id INTEGER NOT NULL,
-  previous_guest_id INTEGER,
-  new_guest_id INTEGER,
+  order_item_id VARCHAR NOT NULL,
+  restaurant_id VARCHAR NOT NULL,
+  previous_guest_id VARCHAR,
+  new_guest_id VARCHAR,
   reason TEXT,
-  moved_by INTEGER NOT NULL,
+  moved_by VARCHAR NOT NULL,
   moved_at TIMESTAMP DEFAULT NOW(),
   
   CONSTRAINT fk_order_item

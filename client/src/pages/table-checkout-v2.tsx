@@ -180,7 +180,7 @@ export default function TableCheckoutV2() {
   const { data: sessionData } = useQuery({
     queryKey: [...QUERY_KEYS.tables.sessions(id ?? ''), table?.currentSessionId],
     queryFn: async () => {
-      const res = await fetch(`/api/tables/${id}/sessions`);
+      const res = await apiFetch(`/api/tables/${id}/sessions`);
       const sessions = await res.json();
       if (!Array.isArray(sessions)) return null;
       return (
@@ -206,7 +206,7 @@ export default function TableCheckoutV2() {
     queryKey: ['/api/restaurants', table?.restaurantId],
     queryFn: async () => {
       if (!table?.restaurantId) return null;
-      const res = await fetch(`/api/restaurants/${table.restaurantId}`);
+      const res = await apiFetch(`/api/restaurants/${table.restaurantId}`);
       return res.json();
     },
     enabled: !!table?.restaurantId,
@@ -270,7 +270,7 @@ export default function TableCheckoutV2() {
     if (table?.currentSessionId) {
       setIsSavingAdjustments(true);
       try {
-        const res = await fetch(`/api/tables/${id}/session-adjustments`, {
+        const res = await apiFetch(`/api/tables/${id}/session-adjustments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -298,7 +298,7 @@ export default function TableCheckoutV2() {
 
     setIsSavingAdjustments(true);
     try {
-      await fetch(`/api/tables/${id}/session-adjustments`, {
+      await apiFetch(`/api/tables/${id}/session-adjustments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

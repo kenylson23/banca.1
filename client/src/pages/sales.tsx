@@ -10,6 +10,7 @@ import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Toolti
 import { format, startOfDay, endOfDay, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { queryClient } from '@/lib/queryClient';
+import { apiFetch } from '@/lib/api-url';
 import { motion } from 'framer-motion';
 import { InteractiveKPICard } from '@/components/interactive-kpi-card';
 import { ModernChart } from '@/components/modern-chart';
@@ -132,7 +133,7 @@ export default function Sales() {
   const { data: historicalData, isLoading: historicalLoading } = useQuery<Array<{ date: string; sales: number; orders: number }>>({
     queryKey: ["/api/stats/historical", historicalDays],
     queryFn: async () => {
-      const response = await fetch(`/api/stats/historical?days=${historicalDays}`);
+      const response = await apiFetch(`/api/stats/historical?days=${historicalDays}`);
       if (!response.ok) throw new Error('Failed to fetch historical stats');
       return response.json();
     },
