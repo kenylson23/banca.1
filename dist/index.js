@@ -17431,6 +17431,7 @@ async function registerRoutes(app2) {
       const orders2 = await storage.getKitchenOrders(restaurantId, branchId);
       res.json(orders2);
     } catch (error) {
+      console.error("[GET /api/orders/kitchen] Failed to fetch orders:", error);
       res.status(500).json({ message: "Failed to fetch orders" });
     }
   });

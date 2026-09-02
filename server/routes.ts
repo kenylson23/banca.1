@@ -6905,6 +6905,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orders = await storage.getKitchenOrders(restaurantId, branchId);
       res.json(orders);
     } catch (error) {
+      console.error("[GET /api/orders/kitchen] Failed to fetch orders:", error);
       res.status(500).json({ message: "Failed to fetch orders" });
     }
   });
