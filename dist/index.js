@@ -21437,6 +21437,14 @@ app.use((req, res, next) => {
   } else if (process.env.SERVE_STATIC === "true") {
     serveStatic(app);
   } else {
+    app.get("/", (_req, res) => {
+      res.status(200).json({
+        service: "NaBancada API",
+        status: "ok",
+        health: "/api/health",
+        message: "O frontend \xE9 servido separadamente pela Vercel."
+      });
+    });
     log("Running in API-only mode (frontend deployed separately)");
   }
   const port = parseInt(process.env.PORT || "5000", 10);

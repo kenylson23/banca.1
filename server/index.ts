@@ -158,6 +158,16 @@ app.use((req, res, next) => {
     // (deploy monolítico). Em deploy separado (Railway), deixe SERVE_STATIC=false
     serveStatic(app);
   } else {
+    // O Railway hospeda apenas a API; a raiz continua útil para diagnóstico
+    // sem reativar o frontend nesse serviço.
+    app.get("/", (_req, res) => {
+      res.status(200).json({
+        service: "NaBancada API",
+        status: "ok",
+        health: "/api/health",
+        message: "O frontend é servido separadamente pela Vercel.",
+      });
+    });
     log("Running in API-only mode (frontend deployed separately)");
   }
 
