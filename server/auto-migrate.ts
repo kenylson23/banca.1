@@ -20,6 +20,16 @@ interface MigrationResult {
   errors: string[];
 }
 
+function findMigrationsDirectory(): string | undefined {
+  const candidates = [
+    path.join(__dirname, 'migrations'),
+    path.resolve(__dirname, '..', 'server', 'migrations'),
+    path.resolve(process.cwd(), 'server', 'migrations'),
+  ];
+
+  return candidates.find(candidate => fs.existsSync(candidate));
+}
+
 /**
  * Garante que a tabela de controle de migrações existe
  */
@@ -125,9 +135,9 @@ export async function runAutoMigrations(): Promise<MigrationResult> {
     const appliedMigrations = await getAppliedMigrations();
     
     // Ler todos os ficheiros de migração
-    const migrationsDir = path.join(__dirname, 'migrations');
+    const migrationsDir = findMigrationsDirectory();
     
-    if (!fs.existsSync(migrationsDir)) {
+    if (!migrationsDir) {
       console.log('   ℹ️  Nenhuma pasta de migrações encontrada');
       return result;
     }
