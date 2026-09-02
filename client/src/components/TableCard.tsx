@@ -7,6 +7,7 @@ import {
   Clock as ClockIcon, 
   QrCode, 
   WarningCircle, 
+  CheckCircle,
   UserCheck as UserCheckIcon,
   Warning
 } from '@phosphor-icons/react';
@@ -71,7 +72,7 @@ const getStatusConfig = (status: string) => {
   }
 };
 
-export function TableCard({ table, onClick, onShowQrCode }: TableCardProps) {
+export function TableCard({ table, onClick, onShowQrCode, onDelete }: TableCardProps) {
   const statusConfig = getStatusConfig(table.status || 'livre');
   const orderCount = table.orders?.length || 0;
   

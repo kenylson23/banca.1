@@ -638,6 +638,10 @@ export function TableDialogPOSModern({
     }
   }, [allTables, onNavigate, toast]);
 
+  // O wrapper mantém este componente montado mesmo quando o diálogo está
+  // fechado. Não renderizar sem mesa evita acessar table.number com null.
+  if (!table) return null;
+
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
