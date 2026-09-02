@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { apiFetch } from '@/lib/api-url';
 import { Printer, Trash2, TestTube, Plus, CheckCircle, XCircle, AlertCircle, Settings2, RefreshCw } from 'lucide-react';
 import { type PrinterType } from '@/lib/printer-service';
 import {
@@ -73,7 +74,7 @@ export function PrinterSettings() {
   const { data: configs = [], isLoading } = useQuery<PrinterConfig[]>({
     queryKey: ['printer-configurations'],
     queryFn: async () => {
-      const res = await fetch('/api/printer-configurations', {
+      const res = await apiFetch('/api/printer-configurations', {
         credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to fetch configurations');
@@ -84,7 +85,7 @@ export function PrinterSettings() {
   // Create printer configuration
   const createConfigMutation = useMutation({
     mutationFn: async (config: Partial<PrinterConfig>) => {
-      const res = await fetch('/api/printer-configurations', {
+      const res = await apiFetch('/api/printer-configurations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

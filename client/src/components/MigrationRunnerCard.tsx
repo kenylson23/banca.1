@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Database, Play, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { apiFetch } from "@/lib/api-url";
 
 interface MigrationResult {
   success: boolean;
@@ -24,7 +25,7 @@ export function MigrationRunnerCard() {
 
   const runMigrationMutation = useMutation({
     mutationFn: async (name: string) => {
-      const res = await fetch("/api/admin/run-migration", {
+      const res = await apiFetch("/api/admin/run-migration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ migrationName: name }),

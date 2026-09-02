@@ -12,10 +12,11 @@ const allowedOrigins = (process.env.CORS_ORIGINS || "")
   .split(",")
   .map(s => s.trim())
   .filter(Boolean);
+const allowAnyOrigin = process.env.NODE_ENV !== "production" && allowedOrigins.length === 0;
 
 app.use((req, res, next) => {
   const origin = req.headers.origin as string | undefined;
-  if (origin && (allowedOrigins.length === 0 || allowedOrigins.includes(origin))) {
+  if (origin && (allowAnyOrigin || allowedOrigins.includes(origin))) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Credentials", "true");

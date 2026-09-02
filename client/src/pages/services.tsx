@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { apiFetch } from "@/lib/api-url";
 import {
   Card,
   CardContent,
@@ -123,7 +124,7 @@ export default function Services() {
   // Create service mutation
   const createServiceMutation = useMutation({
     mutationFn: async (data: InsertService) => {
-      const response = await fetch("/api/services", {
+      const response = await apiFetch("/api/services", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),

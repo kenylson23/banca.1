@@ -32,10 +32,10 @@ export function getSession() {
     console.warn("⚠️  SESSION_SECRET is too short (minimum 32 characters recommended)");
   }
 
-  // Cookie configuration that works in both development and production
-  // In production, the frontend and backend are served from the same domain
-  // so we use 'lax' sameSite for better security
+  // A Vercel frontend and Railway backend are cross-site, so production
+  // sessions need SameSite=None. Local development can stay on Lax.
   const isProduction = process.env.NODE_ENV === "production";
+  const isSeparateFrontend = Boolean(process.env.CORS_ORIGINS);
   
   return session({
     secret: sessionSecret,
@@ -45,7 +45,7 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: isProduction,
-      sameSite: 'lax',
+      sameSite: isProduction && isSeparateFrontend ? 'none' : 'lax',
       maxAge: sessionTtl,
       // Ensure the cookie domain is not set, allowing it to work with subdomains
       domain: undefined,

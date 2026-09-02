@@ -1,7 +1,7 @@
 # Backend (Railway)
 
 **Build command:** `npm install && npm run build`
-**Start command:** `node dist/index.cjs`
+**Start command:** `node dist/index.js`
 
 ## Variáveis de ambiente obrigatórias
 
@@ -13,24 +13,26 @@
 | `SESSION_SECRET` | Chave aleatória longa para assinar sessões |
 | `PORT` | Railway define automaticamente |
 | `CORS_ORIGINS` | Lista separada por vírgulas. Ex: `https://seu-app.vercel.app,https://www.seu-dominio.com` |
-| `APP_URL` | URL pública do frontend. Ex: `https://seu-app.vercel.app` |
 | `TWILIO_ACCOUNT_SID` | (opcional) WhatsApp |
 | `TWILIO_AUTH_TOKEN` | (opcional) |
 | `TWILIO_WHATSAPP_NUMBER` | (opcional) |
 
 ## Após o deploy
 
-1. Provisionar Postgres no Railway (ou Neon/Supabase)
-2. Adicionar `DATABASE_URL` no serviço
-3. As migrações em `server/migrations/*.sql` rodam automaticamente no startup
+1. Criar um serviço PostgreSQL no Railway (ou conectar Neon/Supabase).
+2. Adicionar `DATABASE_URL` e `SESSION_SECRET` no serviço Railway.
+3. Definir `CORS_ORIGINS` com a URL final da Vercel, sem barra no final. Para múltiplos domínios, separar por vírgulas.
+4. Definir `NODE_ENV=production` e `SERVE_STATIC=false`. O Railway fornece `PORT` automaticamente.
+5. O health check deve responder em `GET /api/health`.
+6. As migrações e a criação/verificação das tabelas são executadas no startup.
 
 ---
 
 # Frontend (Vercel)
 
-**Root directory:** `client`
-**Build command:** `npm run build`
-**Output directory:** `dist`
+**Root directory:** `/` (raiz do repositório)
+**Build command:** `npm run build:client`
+**Output directory:** `dist/public`
 
 ## Variáveis de ambiente
 
@@ -40,6 +42,14 @@
 
 ## Após o deploy
 
-1. No Vercel, defina `VITE_API_URL` com a URL do Railway
-2. Adicione o domínio da Vercel em `CORS_ORIGINS` no backend
-3. Re-deploy do backend se necessário
+1. Fazer o deploy do backend no Railway e copiar o domínio público `https://...`.
+2. No Vercel, definir `VITE_API_URL` com esse domínio, sem `/` no final.
+3. Fazer o deploy do frontend na Vercel.
+4. Copiar o domínio final da Vercel para `CORS_ORIGINS` no Railway e fazer redeploy do backend.
+5. Se usar domínio personalizado, incluir também a versão `www` (se existir).
+
+## WebSocket e sessões
+
+- O frontend usa `VITE_API_URL` para API e WebSocket (`/ws`), então o Railway precisa aceitar conexões WebSocket.
+- Como o frontend e backend ficam em domínios diferentes, o backend configura cookies de sessão `SameSite=None; Secure` quando `CORS_ORIGINS` está definido.
+- Não coloque `DATABASE_URL` ou `SESSION_SECRET` no Vercel. Variáveis `VITE_*` são públicas no bundle; use apenas a URL pública do backend.

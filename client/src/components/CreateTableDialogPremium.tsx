@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { apiFetch } from '@/lib/api-url';
 
 interface Table {
   id: string;
@@ -98,7 +99,7 @@ export function CreateTableDialogPremium({ trigger, onTableCreated }: CreateTabl
   // Create table mutation
   const createMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/tables', {
+      const response = await apiFetch('/api/tables', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

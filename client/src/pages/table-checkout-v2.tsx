@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import type { OrdersByGuestData } from "@shared/types";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-url";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -329,7 +330,7 @@ export default function TableCheckoutV2() {
 
   const recalculateOpenSessionsMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/sessions/recalculate-open', { method: 'POST' });
+      const res = await apiFetch('/api/sessions/recalculate-open', { method: 'POST' });
       const data = await res.json();
 
       if (!res.ok) {

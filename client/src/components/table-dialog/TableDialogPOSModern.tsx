@@ -627,6 +627,18 @@ export function TableDialogPOSModern({
           description: `A mesa ${tableNumber} não foi encontrada neste restaurante.`,
           variant: 'destructive',
         });
+      }
+    } catch (error) {
+      toast({
+        title: 'QR Code inválido',
+        description: 'O QR Code não contém um endereço válido.',
+        variant: 'destructive',
+      });
+    }
+  }, [allTables, onNavigate, toast]);
+
+  return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
         <DialogOverlay />
@@ -1335,6 +1347,7 @@ export function TableDialogPOSModern({
         </div>
         </DialogPrimitive.Content>
       </DialogPortal>
+    </Dialog>
 
       {/* Auxiliary Dialogs */}
       {showStartSession && currentTable && (
@@ -1558,6 +1571,6 @@ export function TableDialogPOSModern({
           </div>
         </DialogContent>
       </Dialog>
-    </Dialog>
+    </>
   );
 }

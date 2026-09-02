@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Circle, AlertCircle, CheckCircle2, Pause, X } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api-url';
 
 interface RestaurantStatusControlProps {
   currentStatus: number; // 0 = fechado, 1 = aberto
@@ -59,7 +60,7 @@ export function RestaurantStatusControl({
 
   const updateStatusMutation = useMutation({
     mutationFn: async (newStatus: number) => {
-      const response = await fetch('/api/restaurant/status', {
+      const response = await apiFetch('/api/restaurant/status', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isOpen: newStatus }),

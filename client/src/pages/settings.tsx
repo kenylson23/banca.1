@@ -16,6 +16,7 @@ import { QRCodeGenerator } from '@/components/QRCodeGenerator';
 import { LinkAnalytics } from '@/components/LinkAnalytics';
 import { MockMenuPreview } from '@/components/MockMenuPreview';
 import { RestaurantStatusControl } from '@/components/RestaurantStatusControl';
+import { apiFetch } from '@/lib/api-url';
 
 type LinkSection = 'link' | 'qrcode' | 'preview' | 'analytics';
 
@@ -116,7 +117,7 @@ export default function Settings() {
     formData.append('logo', file);
 
     try {
-      const response = await fetch('/api/restaurants/upload-logo', {
+      const response = await apiFetch('/api/restaurants/upload-logo', {
         method: 'POST',
         body: formData,
         credentials: 'include',
@@ -162,7 +163,7 @@ export default function Settings() {
     formData.append('heroImage', file);
 
     try {
-      const response = await fetch('/api/restaurants/upload-hero', {
+      const response = await apiFetch('/api/restaurants/upload-hero', {
         method: 'POST',
         body: formData,
         credentials: 'include',

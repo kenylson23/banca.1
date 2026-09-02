@@ -1,5 +1,6 @@
 import ReceiptPrinterEncoder from '@point-of-sale/receipt-printer-encoder';
 import QRCode from 'qrcode';
+import { apiFetch } from './api-url';
 
 export type PrinterType = 'receipt' | 'kitchen' | 'invoice';
 export type PrinterStatus = 'connected' | 'disconnected' | 'error';
@@ -716,7 +717,7 @@ class PrinterService {
 
     try {
       const base64 = btoa(String.fromCharCode(...Array.from(data)));
-      const response = await fetch('/api/printers/network', {
+      const response = await apiFetch('/api/printers/network', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

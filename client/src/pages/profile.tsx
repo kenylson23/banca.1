@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, Upload } from "lucide-react";
 import { useState, useRef } from "react";
+import { apiFetch } from "@/lib/api-url";
 
 export default function Profile() {
   const { user } = useAuth();
@@ -117,7 +118,7 @@ export default function Profile() {
       const formData = new FormData();
       formData.append('image', file);
 
-      const res = await fetch('/api/auth/profile-image', {
+      const res = await apiFetch('/api/auth/profile-image', {
         method: 'POST',
         body: formData,
         credentials: 'include',

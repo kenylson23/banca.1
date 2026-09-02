@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { apiRequest } from '@/lib/queryClient';
+import { apiFetch } from '@/lib/api-url';
 
 interface CustomerInfo {
   id: string;
@@ -44,7 +45,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
 
   const checkAuth = useCallback(async (authToken: string) => {
     try {
-      const response = await fetch('/api/public/customer-auth/me', {
+      const response = await apiFetch('/api/public/customer-auth/me', {
         headers: {
           'Authorization': `Bearer ${authToken}`,
         },
@@ -128,7 +129,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
   const logout = async () => {
     try {
       if (token) {
-        await fetch('/api/public/customer-auth/logout', {
+        await apiFetch('/api/public/customer-auth/logout', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -149,7 +150,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
     if (!token) return false;
     
     try {
-      const response = await fetch('/api/public/customer-auth/refresh', {
+      const response = await apiFetch('/api/public/customer-auth/refresh', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

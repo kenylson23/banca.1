@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
+import { apiFetch } from "@/lib/api-url";
 
 export function ProfileMenu() {
   const { user } = useAuth();
@@ -18,7 +19,7 @@ export function ProfileMenu() {
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/logout", { 
+      await apiFetch("/api/auth/logout", {
         method: "POST",
         credentials: "include"
       });

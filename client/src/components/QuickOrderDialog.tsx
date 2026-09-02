@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { queryClient } from '@/lib/queryClient';
+import { apiFetch } from '@/lib/api-url';
 
 interface QuickOrderDialogProps {
   open: boolean;
@@ -184,7 +185,7 @@ export function QuickOrderDialog({
   const { data: menuItems = [], isLoading } = useQuery({
     queryKey: ['menu-items'],
     queryFn: async () => {
-      const response = await fetch('/api/menu-items?available=true');
+      const response = await apiFetch('/api/menu-items?available=true');
       if (!response.ok) throw new Error('Erro ao carregar produtos');
       return response.json();
     },
@@ -317,7 +318,7 @@ export function QuickOrderDialog({
         }))
       });
       
-      const response = await fetch('/api/orders', {
+      const response = await apiFetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include', // 🔧 FIX: Include credentials for authentication

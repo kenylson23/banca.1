@@ -16,6 +16,7 @@ import { formatKwanza } from "@/lib/formatters";
 import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
 import { ActivityFeed } from "@/components/activity-feed";
 import type { LoyaltyProgram, LoyaltyTransaction, Customer } from "@shared/schema";
+import { apiFetch } from "@/lib/api-url";
 
 type LoyaltyTransactionWithCustomer = LoyaltyTransaction & { customer: Customer };
 
@@ -48,7 +49,7 @@ export default function Loyalty() {
   const { data: program, isLoading: programLoading } = useQuery<LoyaltyProgram>({
     queryKey: ['/api/loyalty', 'program'],
     queryFn: async () => {
-      const response = await fetch('/api/loyalty/program');
+      const response = await apiFetch('/api/loyalty/program');
       if (!response.ok) return null;
       return response.json();
     },

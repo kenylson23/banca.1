@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Database, Trash2, RefreshCw, Activity, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { apiFetch } from "@/lib/api-url";
 
 interface CacheStats {
   total: number;
@@ -26,7 +27,7 @@ export function CacheMonitorCard() {
 
   const clearCacheMutation = useMutation({
     mutationFn: async (pattern?: string) => {
-      const res = await fetch("/api/admin/cache/clear", {
+      const res = await apiFetch("/api/admin/cache/clear", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pattern }),

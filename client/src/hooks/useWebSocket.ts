@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAuth } from './useAuth';
+import { buildWebSocketUrl } from '@/lib/api-url';
 
 interface WebSocketMessage {
   type: string;
@@ -21,8 +22,7 @@ export function useWebSocket(onMessage?: MessageHandler) {
   const connect = useCallback(() => {
     if (!window.location.host) return; // Safety check
     
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const wsUrl = buildWebSocketUrl();
 
     try {
       const ws = new WebSocket(wsUrl);

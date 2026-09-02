@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Zap, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api-url';
 
 interface SpeedDialMenuProps {
   tableId: string;
@@ -30,7 +31,7 @@ export function SpeedDialMenu({ tableId, tableNumber, onOrderCreated }: SpeedDia
   const { data: favoriteProducts = [] } = useQuery<FavoriteProduct[]>({
     queryKey: ['favorite-products'],
     queryFn: async () => {
-      const response = await fetch('/api/menu-items?popular=true&limit=5');
+      const response = await apiFetch('/api/menu-items?popular=true&limit=5');
       if (!response.ok) throw new Error('Erro ao carregar favoritos');
       const data = await response.json();
       
@@ -54,7 +55,7 @@ export function SpeedDialMenu({ tableId, tableNumber, onOrderCreated }: SpeedDia
   // Quick add mutation
   const quickAddMutation = useMutation({
     mutationFn: async (product: FavoriteProduct) => {
-      const response = await fetch('/api/orders', {
+      const response = await apiFetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

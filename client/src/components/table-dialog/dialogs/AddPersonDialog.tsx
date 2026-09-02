@@ -18,6 +18,7 @@ import { CustomerSearchDialog } from '@/components/CustomerSearchDialog';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { apiFetch } from '@/lib/api-url';
 
 type AddPersonMode = 'search' | 'quick' | 'anonymous' | null;
 
@@ -135,7 +136,7 @@ export function AddPersonDialog({
     setIsLoading(true);
     try {
       // Primeiro criar o cliente
-      const customerRes = await fetch('/api/customers', {
+      const customerRes = await apiFetch('/api/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

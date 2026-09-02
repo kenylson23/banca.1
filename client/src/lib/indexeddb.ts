@@ -1,4 +1,5 @@
 import type { InsertOrder, Order, InsertOrderItem, OrderItem } from "@shared/schema";
+import { apiFetch } from "./api-url";
 
 const DB_NAME = "nabancada_pdv";
 const DB_VERSION = 1;
@@ -264,7 +265,7 @@ export async function syncOfflineOrders(): Promise<{ success: number; failed: nu
 
       switch (item.type) {
         case "create_order":
-          response = await fetch("/api/orders", {
+          response = await apiFetch("/api/orders", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(item.data),

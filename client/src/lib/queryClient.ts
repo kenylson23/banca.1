@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { buildApiUrl } from "./api-url";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -30,11 +31,8 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? '';
-
 function buildUrl(url: string): string {
-  if (/^https?:\/\//i.test(url)) return url;
-  return `${API_BASE_URL}${url}`;
+  return buildApiUrl(url);
 }
 
 export async function apiRequest(

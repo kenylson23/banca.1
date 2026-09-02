@@ -5,6 +5,7 @@
  * - Plano Básico: Envia guest token no header
  * - Plano Profissional+: Envia customerId + guest token
  */
+import { apiFetch } from "./api-url";
 
 type RequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -39,7 +40,7 @@ export async function apiRequestWithToken(
     config.body = JSON.stringify(data);
   }
 
-  const response = await fetch(url, config);
+  const response = await apiFetch(url, config);
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Erro na requisição' }));
