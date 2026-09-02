@@ -307,6 +307,23 @@ export async function ensureTablesExist() {
       await db.execute(sql`DO $$ BEGIN 
         ALTER TABLE table_sessions ADD COLUMN closed_by_id VARCHAR REFERENCES users(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+
+      // Add session-level discount and service charge fields.
+      // These columns are also covered by a standalone migration, but keeping
+      // them here makes upgrades from older Railway databases safe even when
+      // the compiled deployment cannot resolve the migration directory.
+      await db.execute(sql`DO $$ BEGIN
+        ALTER TABLE table_sessions ADD COLUMN discount DECIMAL(10, 2) DEFAULT 0;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN
+        ALTER TABLE table_sessions ADD COLUMN discount_type VARCHAR(20) DEFAULT 'valor';
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN
+        ALTER TABLE table_sessions ADD COLUMN service_charge DECIMAL(10, 2) DEFAULT 0;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN
+        ALTER TABLE table_sessions ADD COLUMN service_charge_type VARCHAR(20) DEFAULT 'percentual';
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Create guest_status enum if it doesn't exist
       await db.execute(sql`DO $$ BEGIN CREATE TYPE guest_status AS ENUM ('ativo', 'aguardando_conta', 'pago', 'saiu'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
