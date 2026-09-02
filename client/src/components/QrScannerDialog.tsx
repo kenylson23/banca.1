@@ -36,6 +36,18 @@ export function QrScannerDialog({
     const startScanner = async () => {
       try {
         setError(null);
+
+        // Aguardar o elemento estar montado no DOM pelo Dialog
+        let container = document.getElementById('qr-scanner-container');
+        let attempts = 0;
+        while (!container && attempts < 15) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          container = document.getElementById('qr-scanner-container');
+          attempts++;
+        }
+
+        if (!container || !mounted) return;
+
         const scanner = new Html5Qrcode('qr-scanner-container');
         scannerRef.current = scanner;
 

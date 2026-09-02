@@ -15,18 +15,20 @@ export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[], enabled = tr
 
     const handleKeyDown = (event: KeyboardEvent) => {
       // Não executar atalhos se estiver em um input/textarea/select ou elemento editável
-      const target = event.target as HTMLElement | null;
-      if (!target) return;
+      const target = event.target as HTMLElement;
+      const activeEl = document.activeElement as HTMLElement;
 
-      const tagName = target.tagName;
-      const isInputField =
-        tagName === 'INPUT' ||
-        tagName === 'TEXTAREA' ||
-        tagName === 'SELECT' ||
-        target.isContentEditable ||
-        !!target.closest?.('input, textarea, select, [contenteditable="true"]');
+      const isInput = (el: HTMLElement | null) => {
+        if (!el) return false;
+        const tag = el.tagName?.toUpperCase();
+        return (
+          ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) ||
+          Boolean(el.isContentEditable) ||
+          el.closest?.('input, textarea, select, [contenteditable="true"]') !== null
+        );
+      };
 
-      if (isInputField) {
+      if (isInput(target) || isInput(activeEl)) {
         return;
       }
 

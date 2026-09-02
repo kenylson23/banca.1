@@ -959,11 +959,6 @@ export function TableDetailsDialog({
         onOpenChange(false);
         navigate(`/tables/${table?.id}/checkout?step=1`);
       }
-      // S - Split bill
-      else if ((e.key === 's' || e.key === 'S') && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        setShowGuestSplit(!showGuestSplit);
-      }
       // G - Add person (guest or customer)
       else if ((e.key === 'g' || e.key === 'G') && !e.ctrlKey && !e.metaKey && table?.status !== 'livre') {
         e.preventDefault();
