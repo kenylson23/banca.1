@@ -1,5 +1,5 @@
 import '../load-env';
-import { db } from '../server/db';
+import { db, initializeConnection } from '../server/db';
 import { users } from '../shared/schema';
 import { eq } from 'drizzle-orm';
 import * as readline from 'readline';
@@ -18,6 +18,10 @@ function question(query: string): Promise<string> {
 
 async function createSuperAdmin() {
   try {
+    // The database proxy initializes lazily; CLI scripts must await it before
+    // accessing query methods.
+    await initializeConnection();
+
     console.log('\n🔐 Criação de Super Administrador do NaBancada\n');
     console.log('Este script irá criar um usuário com privilégios de super administrador.');
     console.log('O super administrador pode gerenciar todos os restaurantes da plataforma.\n');
