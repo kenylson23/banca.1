@@ -3615,6 +3615,24 @@ async function ensureTablesExist() {
       await db.execute(sql2`DO $$ BEGIN 
         ALTER TABLE table_sessions ADD COLUMN closed_by_id VARCHAR REFERENCES users(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql2`DO $$ BEGIN
+        ALTER TABLE table_sessions ADD COLUMN discount DECIMAL(10, 2) DEFAULT 0;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql2`DO $$ BEGIN
+        ALTER TABLE table_sessions ADD COLUMN discount_type VARCHAR(20) DEFAULT 'valor';
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql2`DO $$ BEGIN
+        ALTER TABLE table_sessions ADD COLUMN service_fee VARCHAR;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql2`DO $$ BEGIN
+        ALTER TABLE table_sessions ADD COLUMN service_fee_type VARCHAR;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql2`DO $$ BEGIN
+        ALTER TABLE table_sessions ADD COLUMN service_charge DECIMAL(10, 2) DEFAULT 0;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql2`DO $$ BEGIN
+        ALTER TABLE table_sessions ADD COLUMN service_charge_type VARCHAR(20) DEFAULT 'percentual';
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       await db.execute(sql2`DO $$ BEGIN CREATE TYPE guest_status AS ENUM ('ativo', 'aguardando_conta', 'pago', 'saiu'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql2`CREATE TABLE IF NOT EXISTS table_guests (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -4651,6 +4669,7 @@ async function ensureTablesExist() {
               ${plan.hasInventoryModule}, ${plan.maxInventoryItems}, ${plan.hasStockTransfers},
               ${plan.features}::jsonb, ${plan.isActive}, ${plan.displayOrder}
             )
+            ON CONFLICT (slug) DO NOTHING
           `);
         }
       }
@@ -10503,7 +10522,7 @@ var init_storage = __esm({
           }
         ];
         for (const plan of plansData) {
-          await db.insert(subscriptionPlans).values(plan);
+          await db.insert(subscriptionPlans).values(plan).onConflictDoNothing({ target: subscriptionPlans.slug });
         }
       }
       // Subscription operations
@@ -11688,6 +11707,14 @@ import { sql as sql8 } from "drizzle-orm";
 import fs4 from "fs";
 import path5 from "path";
 import { fileURLToPath as fileURLToPath4 } from "url";
+function findMigrationsDirectory() {
+  const candidates = [
+    path5.join(__dirname2, "migrations"),
+    path5.resolve(__dirname2, "..", "server", "migrations"),
+    path5.resolve(process.cwd(), "server", "migrations")
+  ];
+  return candidates.find((candidate) => fs4.existsSync(candidate));
+}
 async function ensureMigrationsTable() {
   try {
     await db.execute(sql8`
@@ -11753,8 +11780,8 @@ async function runAutoMigrations() {
     console.log("\n\u{1F504} Verificando migra\xE7\xF5es pendentes...");
     await ensureMigrationsTable();
     const appliedMigrations = await getAppliedMigrations();
-    const migrationsDir = path5.join(__dirname2, "migrations");
-    if (!fs4.existsSync(migrationsDir)) {
+    const migrationsDir = findMigrationsDirectory();
+    if (!migrationsDir) {
       console.log("   \u2139\uFE0F  Nenhuma pasta de migra\xE7\xF5es encontrada");
       return result;
     }
@@ -21325,11 +21352,13 @@ var uploadRoot2 = path6.resolve(process.env.UPLOAD_DIR || "uploads");
 var legacyUploadRoot2 = path6.resolve("client/public/uploads");
 app.use("/uploads", express2.static(uploadRoot2));
 app.use("/uploads", express2.static(legacyUploadRoot2));
-var allowedOrigins = (process.env.CORS_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
+var normalizeOrigin = (origin) => origin.trim().replace(/\/+$/, "");
+var allowedOrigins = (process.env.CORS_ORIGINS || "").split(",").map(normalizeOrigin).filter(Boolean);
 var allowAnyOrigin = process.env.NODE_ENV !== "production" && allowedOrigins.length === 0;
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && (allowAnyOrigin || allowedOrigins.includes(origin))) {
+  const normalizedOrigin = origin ? normalizeOrigin(origin) : "";
+  if (origin && (allowAnyOrigin || allowedOrigins.includes(normalizedOrigin))) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -21442,10 +21471,10 @@ app.use((req, res, next) => {
         service: "NaBancada API",
         status: "ok",
         health: "/api/health",
-        message: "O frontend \xE9 servido separadamente pela Vercel."
+        message: "O frontend est\xE1tico n\xE3o est\xE1 habilitado neste servi\xE7o."
       });
     });
-    log("Running in API-only mode (frontend deployed separately)");
+    log("Running in API-only mode (static frontend disabled)");
   }
   const port = parseInt(process.env.PORT || "5000", 10);
   server.listen({

@@ -319,6 +319,12 @@ export async function ensureTablesExist() {
         ALTER TABLE table_sessions ADD COLUMN discount_type VARCHAR(20) DEFAULT 'valor';
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN
+        ALTER TABLE table_sessions ADD COLUMN service_fee VARCHAR;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN
+        ALTER TABLE table_sessions ADD COLUMN service_fee_type VARCHAR;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN
         ALTER TABLE table_sessions ADD COLUMN service_charge DECIMAL(10, 2) DEFAULT 0;
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       await db.execute(sql`DO $$ BEGIN

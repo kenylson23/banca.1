@@ -43,6 +43,13 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // A service worker só deve processar requisições do próprio aplicativo.
+  // Extensões do navegador podem emitir requests com o esquema
+  // chrome-extension://, que não pode ser armazenado no Cache API.
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
   if (request.method !== 'GET') {
     return;
   }
