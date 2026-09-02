@@ -932,6 +932,14 @@ export function TableDetailsDialog({
       // 🛡️ Bloquear outros shortcuts se modal estiver aberto
       if (hasModalOpen) return;
 
+      // S não é um atalho da gestão de mesas.
+      // Mantemos a tecla sem ação para evitar que versões antigas do diálogo
+      // acionem algum comportamento associado ao leitor de QR Code.
+      if (e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        return;
+      }
+
       // Arrow Right - Next table
       if (e.key === 'ArrowRight') {
         e.preventDefault();
@@ -1116,10 +1124,6 @@ export function TableDetailsDialog({
                   <div className="flex items-center gap-2">
                     <kbd className="px-1.5 py-0.5 bg-slate-800 rounded">P</kbd>
                     <span>Checkout/Pagamento</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <kbd className="px-1.5 py-0.5 bg-slate-800 rounded">S</kbd>
-                    <span>Dividir Conta</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <kbd className="px-1.5 py-0.5 bg-slate-800 rounded">G</kbd>
