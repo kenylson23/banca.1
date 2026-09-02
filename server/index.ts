@@ -7,6 +7,27 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// CORS para deploy separado (frontend na Vercel)
+const allowedOrigins = (process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map(s => s.trim())
+  .filter(Boolean);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin as string | undefined;
+  if (origin && (allowedOrigins.length === 0 || allowedOrigins.includes(origin))) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Guest-Token");
+  }
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 app.use((req, res, next) => {
   if (req.path === '/sw.js' || req.path === '/version.json' || req.path === '/manifest.json') {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -123,8 +144,12 @@ app.use((req, res, next) => {
   // doesn't interfere with the other routes
   if (app.get("env") === "development") {
     await setupVite(app, server);
-  } else {
+  } else if (process.env.SERVE_STATIC === "true") {
+    // Em produção, só servimos o frontend estático se explicitamente solicitado
+    // (deploy monolítico). Em deploy separado (Railway), deixe SERVE_STATIC=false
     serveStatic(app);
+  } else {
+    log("Running in API-only mode (frontend deployed separately)");
   }
 
   // ALWAYS serve the app on the port specified in the environment variable PORT

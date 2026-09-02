@@ -30,12 +30,19 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? '';
+
+function buildUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${API_BASE_URL}${url}`;
+}
+
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(url, {
+  const res = await fetch(buildUrl(url), {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
@@ -72,7 +79,7 @@ export const getQueryFn: <T>(options: {
       url = queryKey.join("/") as string;
     }
     
-    const res = await fetch(url, {
+    const res = await fetch(buildUrl(url), {
       credentials: "include",
     });
 

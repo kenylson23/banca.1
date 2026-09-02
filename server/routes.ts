@@ -2380,9 +2380,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Health check endpoint (usado pelo Railway/Vercel para monitoring)
+  app.get("/api/health", (_req, res) => {
+    res.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+    });
+  });
+
   // ===== USER MANAGEMENT ROUTES (Admin Only) =====
-  app.get("/api/users", async (req, res) => {
-    
+  app.get("/api/users", async (req, res) => {    
     // Manual isAdmin check with detailed logging
     if (!req.isAuthenticated || !req.isAuthenticated()) {
       return res.status(401).json({ message: "Não autenticado" });

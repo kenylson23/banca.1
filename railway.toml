@@ -1,0 +1,9 @@
+# Nixpacks configuration for Railway
+# Build the app (Vite client + esbuild server) and start the server in API-only mode
+
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm install && npm run build"
+
+[start]
+cmd = "node dist/index.js"
