@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm ci --registry=https://registry.npmjs.org/ && npm run build",
+  "buildCommand": "npm install --registry=https://registry.npmjs.org/ --no-audit --no-fund && npm run build",
   "startCommand": "node dist/index.js",
   "healthcheckPath": "/api/health",
   "env": {

@@ -1,6 +1,6 @@
 # Backend (Railway)
 
-**Build command:** `npm ci --registry=https://registry.npmjs.org/ && npm run build`
+**Build command:** `npm install --registry=https://registry.npmjs.org/ --no-audit --no-fund && npm run build`
 **Start command:** `node dist/index.js`
 
 ## Variáveis de ambiente obrigatórias
@@ -28,6 +28,8 @@
 
 > O comando de build força o registry público porque o ambiente Replit pode gravar URLs
 > internas no `package-lock.json`; essas URLs não são acessíveis durante o build no Railway.
+> Usamos `npm install` em vez de `npm ci` porque o cache do Nixpacks pode montar
+> `/app/node_modules/.cache`; o `npm ci` tenta apagar essa montagem e falha com `EBUSY`.
 
 ---
 
