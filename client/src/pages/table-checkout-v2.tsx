@@ -541,11 +541,11 @@ export default function TableCheckoutV2() {
       // Build services array
       const services: any[] = [];
       const safeAvailableServices = Array.isArray(availableServices) ? availableServices : [];
+      const afterDiscounts = Math.max(0, calculateTotals.subtotal - calculateTotals.totalDiscounts);
       
       // Add automatic services
       safeAvailableServices.forEach((service: any) => {
         if (service.applyAutomatically === 1) {
-          const afterDiscounts = Math.max(0, totalAmount - calculateTotals.totalDiscounts);
           const calculatedAmount = service.chargeType === 'percentual'
             ? afterDiscounts * (parseFloat(service.value) / 100)
             : parseFloat(service.value);
@@ -564,7 +564,6 @@ export default function TableCheckoutV2() {
       selectedServices.forEach(serviceId => {
         const service = safeAvailableServices.find((s: any) => s.id === serviceId);
         if (service && service.applyAutomatically === 0) {
-          const afterDiscounts = Math.max(0, totalAmount - calculateTotals.totalDiscounts);
           const calculatedAmount = service.chargeType === 'percentual'
             ? afterDiscounts * (parseFloat(service.value) / 100)
             : parseFloat(service.value);
@@ -581,7 +580,6 @@ export default function TableCheckoutV2() {
       
       // Add manual service if defined
       if (manualServiceValue && parseFloat(manualServiceValue) > 0) {
-        const afterDiscounts = Math.max(0, totalAmount - calculateTotals.totalDiscounts);
         const calculatedAmount = manualServiceType === 'percentual'
           ? afterDiscounts * (parseFloat(manualServiceValue) / 100)
           : parseFloat(manualServiceValue);
@@ -727,7 +725,16 @@ export default function TableCheckoutV2() {
     },
     onSuccess: async (data) => {
       console.log('🔍 [CHECKOUT] Pagamento processado com sucesso:', data);
-      setPaymentData(data);
+        // A rota global responde { success, payment }, enquanto algumas
+        // rotas legadas devolvem o pagamento diretamente ou dentro de
+        // tablePayment. Normalizar aqui mantém o diálogo independente da rota.
+        const payment = data?.payment
+          ?? data?.tablePayment
+          ?? data?.guestPayment
+          ?? data?.results?.[0]?.tablePayment
+          ?? data?.results?.[0]?.guestPayment
+          ?? data;
+        setPaymentData(payment);
       setShowSuccessDialog(true);
       
       if (!id) return;
@@ -800,22 +807,27 @@ export default function TableCheckoutV2() {
       )
     );
   }, [filteredOrdersByGuest]); // ✅ Sempre calculado, não apenas no Step 1
+
+  // Subtotal real dos itens da sessão, sem descontos/taxas já persistidos.
+  // `ordersByGuestData.totalAmount` representa o total final da sessão e
+  // pode já incluir a taxa de serviço global.
+  const tableItemsSubtotal = useMemo(() => {
+    const assignedSubtotal = ordersByGuest
+      .filter((og: any) => og.guest?.id !== 'anonymous')
+      .reduce((sum: number, og: any) => sum + (parseFloat(og.subtotal || '0') || 0), 0);
+    const anonymousSubtotal = anonymousOrders.reduce(
+      (sum: number, order: any) => sum + (parseFloat(order.totalPrice || '0') || 0),
+      0
+    );
+
+    return assignedSubtotal + anonymousSubtotal;
+  }, [ordersByGuest, anonymousOrders]);
   
   // ✅ CORREÇÃO ERRO 4: Cálculo de totalAmount mais robusto
   const totalAmount = useMemo(() => {
     // ✅ Modo GLOBAL (Mesa Completa): ignorar seleção e usar sempre o total da mesa
     if (adjustmentsMode === 'session') {
-      if (ordersByGuestData?.totalAmount && Number(ordersByGuestData.totalAmount) > 0) {
-        return Number(ordersByGuestData.totalAmount);
-      }
-
-      if (ordersByGuest.length > 0) {
-        return ordersByGuest
-          .filter((og: any) => og.guest?.status !== 'pago')
-          .reduce((sum: number, og: any) => sum + parseFloat(og.subtotal || 0), 0);
-      }
-
-      return allItems.reduce((sum: number, item: any) => sum + parseFloat(item.totalPrice || 0), 0);
+      return tableItemsSubtotal;
     }
 
     // Prioridade 1: Se há guests selecionados, usar subtotal deles
@@ -840,7 +852,7 @@ export default function TableCheckoutV2() {
     
     // Fallback: Calcular de allItems (última opção)
     return allItems.reduce((sum: number, item: any) => sum + parseFloat(item.totalPrice || 0), 0);
-  }, [adjustmentsMode, selectedGuestIds, filteredOrdersByGuest, ordersByGuestData, ordersByGuest, allItems]);
+  }, [adjustmentsMode, selectedGuestIds, filteredOrdersByGuest, ordersByGuestData, ordersByGuest, allItems, tableItemsSubtotal]);
   
   // ✅ OTIMIZAÇÃO CRÍTICA: Só carregar services no Step 3+ (não no Step 1)
   // (precisa estar ANTES de calculateTotals, pois calculateTotals depende de availableServices)
@@ -975,17 +987,17 @@ export default function TableCheckoutV2() {
 
     // Cálculo simplificado para Steps iniciais
     if (currentStep < 3 && !discountValue && !appliedCoupon && !loyaltyPointsToRedeem) {
+      const initialSubtotal = adjustmentsMode === 'session' ? tableItemsSubtotal : totalAmount;
       return {
-        subtotal: totalAmount,
+        subtotal: initialSubtotal,
         totalDiscounts: 0,
         totalAdditions: 0,
-        // ✅ CORREÇÃO: usar totalAmount calculado em tempo real
-        finalTotal: totalAmount,
+        finalTotal: initialSubtotal,
         breakdown: []
       };
     }
     
-    let subtotal = totalAmount;
+    let subtotal = adjustmentsMode === 'session' ? tableItemsSubtotal : totalAmount;
     let discounts = 0;
     let additions = 0;
     const breakdown: any[] = [];
@@ -1087,7 +1099,7 @@ export default function TableCheckoutV2() {
       finalTotal,
       breakdown
     };
-  }, [totalAmount, discountValue, discountType, appliedCoupon, loyaltyPointsToRedeem, selectedServices, manualServiceName, manualServiceValue, manualServiceType, availableServices, loyaltyProgram, selectedGuestIds, ordersByGuest, adjustmentsMode, currentStep, ordersByGuestData]);
+  }, [totalAmount, tableItemsSubtotal, discountValue, discountType, appliedCoupon, loyaltyPointsToRedeem, selectedServices, manualServiceName, manualServiceValue, manualServiceType, availableServices, loyaltyProgram, selectedGuestIds, ordersByGuest, adjustmentsMode, currentStep, ordersByGuestData]);
 
   // ✅ Totais de pagamento (precisa vir APÓS calculateTotals)
   const paidAmount = ordersByGuestData?.paidAmount 
@@ -1382,7 +1394,7 @@ export default function TableCheckoutV2() {
                         <Card className="p-3 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                           <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Média/Cliente</div>
                           <div className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                            {ordersByGuest.length > 0 ? formatKwanza(totalAmount / ordersByGuest.length) : '0 Kz'}
+                            {ordersByGuest.length > 0 ? formatKwanza(calculateTotals.subtotal / ordersByGuest.length) : '0 Kz'}
                           </div>
                         </Card>
                       </div>
@@ -1693,7 +1705,7 @@ export default function TableCheckoutV2() {
                               Checkout Individual Ativo
                             </div>
                             <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                              Processando apenas {selectedGuestIds.length} {selectedGuestIds.length === 1 ? 'cliente selecionado' : 'clientes selecionados'} • Total: {formatKwanza(totalAmount)}
+                              Processando apenas {selectedGuestIds.length} {selectedGuestIds.length === 1 ? 'cliente selecionado' : 'clientes selecionados'} • Total: {formatKwanza(calculateTotals.finalTotal)}
                             </div>
                           </div>
                         </div>
@@ -1995,7 +2007,7 @@ export default function TableCheckoutV2() {
                                    </Badge>
                                    <span>= -{formatKwanza(
                                      discountType === 'percentual'
-                                       ? totalAmount * (parseFloat(discountValue) / 100)
+                                       ? calculateTotals.subtotal * (parseFloat(discountValue) / 100)
                                        : parseFloat(discountValue)
                                    )}</span>
                                  </div>
@@ -2007,7 +2019,7 @@ export default function TableCheckoutV2() {
                                    </Badge>
                                    <span>= +{formatKwanza(
                                      manualServiceType === 'percentual'
-                                       ? totalAmount * (parseFloat(manualServiceValue) / 100)
+                                       ? calculateTotals.subtotal * (parseFloat(manualServiceValue) / 100)
                                        : parseFloat(manualServiceValue)
                                    )}</span>
                                  </div>
@@ -2065,7 +2077,7 @@ export default function TableCheckoutV2() {
                                Checkout Individual Ativo
                              </div>
                              <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                               Ajustando apenas para {selectedGuestIds.length} {selectedGuestIds.length === 1 ? 'cliente' : 'clientes'} • Subtotal: {formatKwanza(totalAmount)}
+                               Ajustando apenas para {selectedGuestIds.length} {selectedGuestIds.length === 1 ? 'cliente' : 'clientes'} • Subtotal: {formatKwanza(calculateTotals.subtotal)}
                              </div>
                            </div>
                          </div>
@@ -2135,7 +2147,7 @@ export default function TableCheckoutV2() {
                                   const disabled = isIndividualCheckout ? individualAdjustmentsDisabled : globalAdjustmentsDisabled;
                                   if (disabled) return;
                                   const val = parseFloat(e.target.value) || 0;
-                                  const max = discountType === 'percentual' ? 100 : totalAmount;
+                                  const max = discountType === 'percentual' ? 100 : calculateTotals.subtotal;
                                   if (val <= max) {
                                     setDiscountValue(e.target.value);
                                   }
@@ -2199,7 +2211,7 @@ export default function TableCheckoutV2() {
                               <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
                                 -{formatKwanza(
                                   discountType === 'percentual'
-                                    ? totalAmount * (parseFloat(discountValue) / 100)
+                                    ? calculateTotals.subtotal * (parseFloat(discountValue) / 100)
                                     : parseFloat(discountValue)
                                 )}
                               </span>
@@ -2364,7 +2376,7 @@ export default function TableCheckoutV2() {
                                 const service = availableServices.find((s: any) => s.id === serviceId);
                                 if (!service) return null;
                                 const charge = service.chargeType === 'percentual'
-                                  ? (totalAmount - calculateTotals.totalDiscounts) * (parseFloat(service.value) / 100)
+                                  ? (calculateTotals.subtotal - calculateTotals.totalDiscounts) * (parseFloat(service.value) / 100)
                                   : parseFloat(service.value);
                                 return (
                                   <div key={service.id} className="flex justify-between text-sm">
@@ -2379,7 +2391,7 @@ export default function TableCheckoutV2() {
                                   <span className="font-bold">
                                     +{formatKwanza(
                                       manualServiceType === 'percentual'
-                                        ? (totalAmount - calculateTotals.totalDiscounts) * (parseFloat(manualServiceValue) / 100)
+                                        ? (calculateTotals.subtotal - calculateTotals.totalDiscounts) * (parseFloat(manualServiceValue) / 100)
                                         : parseFloat(manualServiceValue)
                                     )}
                                   </span>
@@ -2409,7 +2421,7 @@ export default function TableCheckoutV2() {
                       <CardContent className="p-5 space-y-3">
                         <div className="flex justify-between py-2">
                           <span className="text-slate-600 dark:text-slate-400">Subtotal:</span>
-                          <span className="font-bold">{formatKwanza(totalAmount)}</span>
+                          <span className="font-bold">{formatKwanza(calculateTotals.subtotal)}</span>
                         </div>
 
                         {discountValue && parseFloat(discountValue) > 0 && (
@@ -2418,7 +2430,7 @@ export default function TableCheckoutV2() {
                             <span className="font-bold">
                               -{formatKwanza(
                                 discountType === 'percentual'
-                                  ? totalAmount * (parseFloat(discountValue) / 100)
+                                  ? calculateTotals.subtotal * (parseFloat(discountValue) / 100)
                                   : parseFloat(discountValue)
                               )}
                             </span>
@@ -3086,7 +3098,7 @@ export default function TableCheckoutV2() {
           }}
           table={table}
           payment={paymentData}
-          ordersByGuest={filteredOrdersByGuest}
+          ordersByGuest={ordersByGuest}
           calculateTotals={calculateTotals}
           restaurant={restaurant}
           sessionDuration={sessionDuration}

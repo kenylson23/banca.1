@@ -185,14 +185,6 @@ export function PaymentReceiptDialog({
   };
 
   const handlePrintComplete = async () => {
-    if (!payment?.id) {
-      toast({
-        title: "Erro ao imprimir",
-        description: "Dados do pagamento indisponíveis para impressão.",
-        variant: "destructive",
-      });
-      return;
-    }
     setIsPrinting(true);
     try {
       const printWindow = window.open("", "_blank");
@@ -224,9 +216,6 @@ export function PaymentReceiptDialog({
   };
 
   const generatePrintableInvoice = () => {
-    if (!payment?.id) {
-      return "<p>Dados do pagamento indisponíveis.</p>";
-    }
     const restaurantName = restaurant?.name || "Restaurante";
     const restaurantAddress = restaurant?.address || "";
     const restaurantNIF = restaurant?.nif || "";
@@ -293,7 +282,7 @@ export function PaymentReceiptDialog({
             <div class="info-line"><strong>Fatura Nº:</strong><span>${paymentId}</span></div>
             <div class="info-line"><strong>Data:</strong><span>${paymentDate}</span></div>
             <div class="info-line"><strong>Mesa:</strong><span>${table.number}${table.area ? ` (${table.area})` : ""}</span></div>
-            <div class="info-line"><strong>Convidados:</strong><span>${guestsWithItems.length}</span></div>
+            <div class="info-line"><strong>Convidados:</strong><span>${safeOrdersByGuest.length}</span></div>
             ${sessionDuration ? `<div class="info-line"><strong>Duração:</strong><span>${sessionDuration}</span></div>` : ""}
             ${paymentNotes}
             <div class="info-line"><strong>Operador:</strong><span>${operatorName}</span></div>
@@ -301,7 +290,7 @@ export function PaymentReceiptDialog({
           </div>
 
           <div class="section-title">Itens Consumidos</div>
-          ${guestsWithItems.map((og) => {
+          ${safeOrdersByGuest.map((og) => {
             const { guest, orders, subtotal, totalAmount: guestTotal, discounts, serviceCharges } = transformGuestDataForPrint(og);
             const discountTotal = (discounts || []).reduce((s, d) => s + (d.amount || 0), 0);
             const chargesTotal = (serviceCharges || []).reduce((s, c) => s + (c.amount || 0), 0);
@@ -310,13 +299,15 @@ export function PaymentReceiptDialog({
                 <div class="guest-header">
                   <div><span class="guest-number">#${guest.guestNumber}</span>${guest.name || `Cliente ${guest.guestNumber}`}</div>
                 </div>
-                ${orders.flatMap(order => order.items || []).map(item => `
+                ${orders.length > 0 && orders.flatMap(order => order.items || []).length > 0
+                  ? orders.flatMap(order => order.items || []).map(item => `
                   <div class="item-line">
                     <span class="item-qty">${item.quantity}x</span>
                     <span class="item-name">${item.menuItemName}</span>
                     <span class="item-price">${formatKwanza(parseFloat(item.unitPrice || "0") * item.quantity)}</span>
                   </div>
-                `).join("")}
+                `).join("")
+                  : `<div class="item-line"><span class="item-name">Sem itens atribuídos</span></div>`}
                 <div class="subtotal"><span>Subtotal:</span><span>${formatKwanza(subtotal)}</span></div>
                 ${discountTotal > 0.009 ? `<div class="subtotal"><span>Desconto:</span><span>- ${formatKwanza(discountTotal)}</span></div>` : ""}
                 ${chargesTotal > 0.009 ? `<div class="subtotal"><span>Taxa/Serviço:</span><span>+ ${formatKwanza(chargesTotal)}</span></div>` : ""}
@@ -352,14 +343,6 @@ export function PaymentReceiptDialog({
   };
 
   const handleDownloadPDF = async () => {
-    if (!payment?.id) {
-      toast({
-        title: "Erro ao gerar PDF",
-        description: "Dados do pagamento indisponíveis para gerar a fatura.",
-        variant: "destructive",
-      });
-      return;
-    }
     setIsGeneratingPDF(true);
     try {
       const paymentId = payment?.id || "SEM-ID";
@@ -405,7 +388,7 @@ export function PaymentReceiptDialog({
       addText(`Fatura Nº: ${paymentId}`, 10, true);
       addText(`Data: ${payment?.createdAt ? new Date(payment.createdAt).toLocaleString("pt-PT") : new Date().toLocaleString("pt-PT")}`, 10);
       addText(`Mesa: ${table.number}${table.area ? ` (${table.area})` : ""}`, 10);
-      addText(`Convidados: ${guestsWithItems.length}`, 10);
+       addText(`Convidados: ${safeOrdersByGuest.length}`, 10);
       if (sessionDuration) addText(`Duração da Sessão: ${sessionDuration}`, 10);
       if (payment?.notes) addText(`Observações: ${payment.notes}`, 10);
       const operatorName = localStorage.getItem("userName") || "Sistema";
@@ -417,7 +400,7 @@ export function PaymentReceiptDialog({
       addText("ITENS CONSUMIDOS", 12, true);
       yPos += 3;
 
-      for (const og of guestsWithItems) {
+       for (const og of safeOrdersByGuest) {
         checkPageBreak(40);
         const guestName = og.guest.name || `Cliente ${og.guest.guestNumber}`;
         pdf.setFillColor(240, 240, 240);
@@ -426,6 +409,9 @@ export function PaymentReceiptDialog({
         yPos += 2;
 
         const allItems = og.orders.flatMap(order => order.items || []);
+         if (allItems.length === 0) {
+           addText("Sem itens atribuídos", 10);
+         }
         for (const item of allItems) {
           checkPageBreak(15);
           const itemName = item.menuItem?.name || item.name;
@@ -697,10 +683,10 @@ export function PaymentReceiptDialog({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {guestsWithItems.length === 0 && (
+                {safeOrdersByGuest.length === 0 && (
                   <div className="text-sm text-slate-500">Nenhum item consumido.</div>
                 )}
-                {guestsWithItems.map((og) => {
+                {safeOrdersByGuest.map((og) => {
                   const {
                     guest,
                     orders,
