@@ -1513,6 +1513,7 @@ export async function ensureTablesExist() {
               ${plan.hasInventoryModule}, ${plan.maxInventoryItems}, ${plan.hasStockTransfers},
               ${plan.features}::jsonb, ${plan.isActive}, ${plan.displayOrder}
             )
+            ON CONFLICT (slug) DO NOTHING
           `);
         }
         

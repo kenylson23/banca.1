@@ -9459,7 +9459,10 @@ export class DatabaseStorage implements IStorage {
     ];
     
     for (const plan of plansData) {
-      await db.insert(subscriptionPlans).values(plan as any);
+      await db
+        .insert(subscriptionPlans)
+        .values(plan as any)
+        .onConflictDoNothing({ target: subscriptionPlans.slug });
     }
   }
 
