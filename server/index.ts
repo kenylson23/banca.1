@@ -157,20 +157,19 @@ app.use((req, res, next) => {
     await setupVite(app, server);
   } else if (process.env.SERVE_STATIC === "true") {
     // Em produção, só servimos o frontend estático se explicitamente solicitado
-    // (deploy monolítico). Em deploy separado (Railway), deixe SERVE_STATIC=false
+    // (deploy monolítico).
     serveStatic(app);
   } else {
-    // O Railway hospeda apenas a API; a raiz continua útil para diagnóstico
-    // sem reativar o frontend nesse serviço.
+    // Modo API-only opcional para deployments separados.
     app.get("/", (_req, res) => {
       res.status(200).json({
         service: "NaBancada API",
         status: "ok",
         health: "/api/health",
-        message: "O frontend é servido separadamente pela Vercel.",
+        message: "O frontend estático não está habilitado neste serviço.",
       });
     });
-    log("Running in API-only mode (frontend deployed separately)");
+    log("Running in API-only mode (static frontend disabled)");
   }
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
