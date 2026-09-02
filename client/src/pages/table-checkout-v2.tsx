@@ -1150,7 +1150,7 @@ export default function TableCheckoutV2() {
             
             <div className="flex items-center gap-3">
               <Badge className="bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-0 px-4 py-2 text-lg font-bold">
-                Mesa {id}
+                Mesa {table.number}
               </Badge>
             </div>
           </div>
@@ -1436,8 +1436,11 @@ export default function TableCheckoutV2() {
                          </Select>
                        </div>
 
-                       <ScrollArea className="max-h-[70vh] pr-4">
-                        <div className="space-y-4">
+                        <ScrollArea
+                          className="h-[58vh] min-h-[280px] max-h-[560px] rounded-lg border border-slate-200 dark:border-slate-800 pr-3"
+                          aria-label="Lista de itens por cliente"
+                        >
+                         <div className="space-y-4 p-2">
                           {loadingOrders && (
                             <div className="text-center py-8 text-slate-500">
                               <div className="animate-pulse">Carregando pedidos...</div>
