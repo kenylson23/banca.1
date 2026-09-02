@@ -1,14 +1,14 @@
 # Backend (Railway)
 
 **Build command:** `npm install --registry=https://registry.npmjs.org/ --no-audit --no-fund && npm run build`
-**Start command:** `node dist/index.js`
+**Start command:** `SERVE_STATIC=true NODE_ENV=production node dist/index.js`
 
 ## Variáveis de ambiente obrigatórias
 
 | Variável | Descrição |
 |---|---|
 | `NODE_ENV` | `production` |
-| `SERVE_STATIC` | `true` para o Railway servir também o frontend compilado |
+| `SERVE_STATIC` | `true` para o Railway servir também o frontend compilado (já incluído no Start Command) |
 | `DATABASE_URL` | URL do PostgreSQL (use Neon, Supabase ou Railway Postgres) |
 | `SESSION_SECRET` | Chave aleatória longa para assinar sessões |
 | `CRON_SECRET` | Chave longa para autenticar `/api/cron/check-subscriptions` (configure se usar esse endpoint) |
@@ -25,7 +25,7 @@
 2. Adicionar `DATABASE_URL` e `SESSION_SECRET` no serviço Railway.
 3. Se também usar a Vercel, definir `CORS_ORIGINS` com a URL final da Vercel, sem barra no final. Para múltiplos domínios, separar por vírgulas. Se usar somente o Railway, essa variável pode ficar ausente.
 4. Definir `CRON_SECRET` se for usar o endpoint de verificação de assinaturas.
-5. Definir `NODE_ENV=production` e `SERVE_STATIC=true` para abrir o frontend pela URL do Railway. O Railway fornece `PORT` automaticamente.
+5. O Start Command já define `NODE_ENV=production` e `SERVE_STATIC=true` para abrir o frontend pela URL do Railway. O Railway fornece `PORT` automaticamente.
 6. O health check deve responder em `GET /api/health`.
 7. As migrações e a criação/verificação das tabelas são executadas no startup.
 

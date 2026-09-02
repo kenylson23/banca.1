@@ -5,5 +5,8 @@
 builder = "NIXPACKS"
 buildCommand = "npm install --registry=https://registry.npmjs.org/ --no-audit --no-fund && npm run build"
 
-[start]
-cmd = "node dist/index.js"
+[deploy]
+startCommand = "SERVE_STATIC=true NODE_ENV=production node dist/index.js"
+healthcheckPath = "/api/health"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
