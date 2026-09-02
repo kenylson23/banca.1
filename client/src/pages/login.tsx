@@ -49,9 +49,27 @@ export default function Login() {
     mode: "onSubmit",
   });
 
-  const { data: plans, isLoading: plansLoading } = useQuery<SubscriptionPlan[]>({
+  const {
+    data: plans,
+    isLoading: plansLoading,
+    isError: plansError,
+    refetch: refetchPlans,
+  } = useQuery<SubscriptionPlan[]>({
     queryKey: ["/api/subscription-plans"],
+    enabled: !isLoginMode,
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/subscription-plans");
+      const data = await response.json();
+
+      if (!Array.isArray(data)) {
+        throw new Error("A resposta dos planos está inválida.");
+      }
+
+      return data;
+    },
   });
+
+  const availablePlans = plans?.filter((plan) => plan.isActive) ?? [];
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginUser) => {
@@ -414,16 +432,26 @@ export default function Login() {
                             <Select
                               onValueChange={field.onChange}
                               value={field.value}
-                              disabled={plansLoading}
+                              disabled={plansLoading || plansError || availablePlans.length === 0}
                             >
                               <SelectTrigger 
                                 className="h-10 text-sm bg-muted/30 border-border/50 focus:border-primary focus:bg-background transition-all" 
                                 data-testid="select-plan"
                               >
-                                <SelectValue placeholder={plansLoading ? "Carregando planos..." : "Selecione um plano"} />
+                                <SelectValue
+                                  placeholder={
+                                    plansLoading
+                                      ? "Carregando planos..."
+                                      : plansError
+                                        ? "Planos indisponíveis"
+                                        : availablePlans.length === 0
+                                          ? "Nenhum plano disponível"
+                                          : "Selecione um plano"
+                                  }
+                                />
                               </SelectTrigger>
                               <SelectContent>
-                                {plans?.filter(p => p.isActive).map((plan) => (
+                                {availablePlans.map((plan) => (
                                   <SelectItem key={plan.id} value={plan.id} data-testid={`option-plan-${plan.id}`}>
                                     <div className="flex flex-col gap-0.5">
                                       <div className="flex items-center gap-2">
@@ -441,6 +469,25 @@ export default function Login() {
                               </SelectContent>
                             </Select>
                           </FormControl>
+                          {plansError && (
+                            <div className="flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-2.5 py-2 text-[10px] text-destructive">
+                              <span>Não foi possível carregar os planos.</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-[10px] text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => refetchPlans()}
+                              >
+                                Tentar novamente
+                              </Button>
+                            </div>
+                          )}
+                          {!plansLoading && !plansError && availablePlans.length === 0 && (
+                            <p className="text-[10px] text-destructive">
+                              Nenhum plano ativo está disponível no momento.
+                            </p>
+                          )}
                           <FormDescription className="text-[10px]">
                             Comece com 30 dias grátis em qualquer plano
                           </FormDescription>
