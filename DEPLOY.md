@@ -8,7 +8,7 @@
 | Variável | Descrição |
 |---|---|
 | `NODE_ENV` | `production` |
-| `SERVE_STATIC` | `false` (servidor só expõe API; frontend está em outro deploy) |
+| `SERVE_STATIC` | `true` para o Railway servir também o frontend compilado |
 | `DATABASE_URL` | URL do PostgreSQL (use Neon, Supabase ou Railway Postgres) |
 | `SESSION_SECRET` | Chave aleatória longa para assinar sessões |
 | `CRON_SECRET` | Chave longa para autenticar `/api/cron/check-subscriptions` (configure se usar esse endpoint) |
@@ -23,9 +23,9 @@
 
 1. Criar um serviço PostgreSQL no Railway (ou conectar Neon/Supabase).
 2. Adicionar `DATABASE_URL` e `SESSION_SECRET` no serviço Railway.
-3. Definir `CORS_ORIGINS` com a URL final da Vercel, sem barra no final. Para múltiplos domínios, separar por vírgulas.
+3. Se também usar a Vercel, definir `CORS_ORIGINS` com a URL final da Vercel, sem barra no final. Para múltiplos domínios, separar por vírgulas. Se usar somente o Railway, essa variável pode ficar ausente.
 4. Definir `CRON_SECRET` se for usar o endpoint de verificação de assinaturas.
-5. Definir `NODE_ENV=production` e `SERVE_STATIC=false`. O Railway fornece `PORT` automaticamente.
+5. Definir `NODE_ENV=production` e `SERVE_STATIC=true` para abrir o frontend pela URL do Railway. O Railway fornece `PORT` automaticamente.
 6. O health check deve responder em `GET /api/health`.
 7. As migrações e a criação/verificação das tabelas são executadas no startup.
 
@@ -36,7 +36,7 @@
 
 ---
 
-# Frontend (Vercel)
+# Frontend (Vercel, opcional)
 
 **Root directory:** `/` (raiz do repositório)
 **Build command:** `npm run build:client`
@@ -50,7 +50,7 @@
 
 ## Após o deploy
 
-1. Fazer o deploy do backend no Railway e copiar o domínio público `https://...`.
+1. Fazer o deploy do backend no Railway e copiar o domínio público `https://...`. Esse domínio já servirá o frontend quando `SERVE_STATIC=true`.
 2. No Vercel, definir `VITE_API_URL` com esse domínio, sem `/` no final.
 3. Fazer o deploy do frontend na Vercel.
 4. Copiar o domínio final da Vercel para `CORS_ORIGINS` no Railway e fazer redeploy do backend.
@@ -59,5 +59,6 @@
 ## WebSocket e sessões
 
 - O frontend usa `VITE_API_URL` para API e WebSocket (`/ws`), então o Railway precisa aceitar conexões WebSocket.
-- Como o frontend e backend ficam em domínios diferentes, o backend configura cookies de sessão `SameSite=None; Secure` quando `CORS_ORIGINS` está definido.
+- Quando o frontend é aberto pelo próprio Railway, `VITE_API_URL` pode ficar vazio no build e as chamadas usam o mesmo domínio. Na Vercel, configure `VITE_API_URL` com a URL pública do Railway.
+- Como o frontend e backend ficam no mesmo domínio quando o Railway serve o frontend, não é necessário CORS adicional. Se usar a Vercel, o backend configura cookies de sessão `SameSite=None; Secure` quando `CORS_ORIGINS` está definido.
 - Não coloque `DATABASE_URL` ou `SESSION_SECRET` no Vercel. Variáveis `VITE_*` são públicas no bundle; use apenas a URL pública do backend.

@@ -1,5 +1,5 @@
 # Nixpacks configuration for Railway
-# Build the app (Vite client + esbuild server) and start the server in API-only mode
+# Build the app (Vite client + esbuild server) and serve the frontend and API
 
 [build]
 builder = "NIXPACKS"

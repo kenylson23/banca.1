@@ -7,7 +7,7 @@
       "value": "production"
     },
     "SERVE_STATIC": {
-      "value": "false"
+      "value": "true"
     }
   }
 }
