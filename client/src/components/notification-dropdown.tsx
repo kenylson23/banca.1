@@ -42,6 +42,17 @@ const notificationColors: Record<NotificationType, string> = {
   system: 'text-gray-500',
 };
 
+const notificationIconBackgrounds: Record<NotificationType, string> = {
+  new_order: 'bg-green-500/10',
+  order_status: 'bg-blue-500/10',
+  order_cancelled: 'bg-red-500/10',
+  low_stock: 'bg-amber-500/10',
+  new_customer: 'bg-purple-500/10',
+  payment_received: 'bg-emerald-500/10',
+  subscription_alert: 'bg-orange-500/10',
+  system: 'bg-muted',
+};
+
 export function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
@@ -149,14 +160,14 @@ export function NotificationDropdown() {
         <Button 
           variant="ghost" 
           size="icon" 
-          className="relative"
+          className="relative h-9 w-9 rounded-xl hover:bg-muted"
           data-testid="button-notifications"
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge 
               variant="destructive" 
-              className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
+              className="absolute -right-1 -top-1 h-4 min-w-4 rounded-full px-1 text-[10px] font-semibold ring-2 ring-background"
             >
               {unreadCount > 99 ? '99+' : unreadCount}
             </Badge>
@@ -165,33 +176,38 @@ export function NotificationDropdown() {
       </DropdownMenuTrigger>
       <DropdownMenuContent 
         align="end" 
-        className="w-80 p-0"
+        className="w-[calc(100vw-1rem)] max-w-[380px] overflow-hidden rounded-xl border-border/60 p-0 shadow-xl"
         data-testid="dropdown-notifications"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b">
-          <h3 className="font-semibold text-sm">Notificações</h3>
+        <div className="flex items-center justify-between gap-3 border-b bg-muted/20 px-4 py-3">
+          <div>
+            <h3 className="text-sm font-semibold">Notificações</h3>
+            <p className="text-[11px] text-muted-foreground">
+              {unreadCount > 0 ? `${unreadCount} por ler` : 'Tudo em dia'}
+            </p>
+          </div>
           {unreadCount > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 text-xs"
+              className="h-8 rounded-lg px-2.5 text-xs"
               onClick={() => markAllAsReadMutation.mutate()}
               disabled={markAllAsReadMutation.isPending}
               data-testid="button-mark-all-read"
             >
-              <CheckCheck className="h-3.5 w-3.5 mr-1" />
-              Marcar todas como lidas
+              <CheckCheck className="mr-1 h-3.5 w-3.5" />
+              Ler tudo
             </Button>
           )}
         </div>
         
-        <ScrollArea className="h-[300px]">
+        <ScrollArea className="h-[min(320px,50vh)]">
           {isLoading ? (
             <div className="flex items-center justify-center h-full py-8">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
             </div>
           ) : notifications && notifications.length > 0 ? (
-            <div className="divide-y">
+            <div className="space-y-1.5 p-2">
               {notifications.map((notification) => {
                 const IconComponent = notificationIcons[notification.type as NotificationType] || Bell;
                 const iconColor = notificationColors[notification.type as NotificationType] || 'text-gray-500';
@@ -199,41 +215,43 @@ export function NotificationDropdown() {
                 return (
                   <div
                     key={notification.id}
-                    className={`p-3 hover-elevate cursor-pointer ${
-                      !notification.isRead ? 'bg-primary/5' : ''
+                    className={`cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/60 ${
+                      !notification.isRead
+                        ? 'border-primary/15 bg-primary/[0.04]'
+                        : 'border-transparent'
                     }`}
                     onClick={() => !notification.isRead && markAsReadMutation.mutate(notification.id)}
                     data-testid={`notification-item-${notification.id}`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`mt-0.5 ${iconColor}`}>
-                        <IconComponent className="h-4 w-4" />
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${notificationIconBackgrounds[notification.type as NotificationType] || 'bg-muted'}`}>
+                        <IconComponent className={`h-4 w-4 ${iconColor}`} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className={`text-sm font-medium truncate ${!notification.isRead ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          <p className={`line-clamp-2 text-sm font-medium ${!notification.isRead ? 'text-foreground' : 'text-muted-foreground'}`}>
                             {notification.title}
                           </p>
                           {!notification.isRead && (
                             <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0" />
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
                           {notification.message}
                         </p>
-                        <p className="text-xs text-muted-foreground/70 mt-1">
+                        <p className="mt-1.5 text-[11px] text-muted-foreground/70">
                           {notification.createdAt && formatDistanceToNow(new Date(notification.createdAt), { 
                             addSuffix: true, 
                             locale: ptBR 
                           })}
                         </p>
                       </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
+                      <div className="flex shrink-0 items-center gap-1">
                         {!notification.isRead && (
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7"
+                             className="h-8 w-8 rounded-lg"
                             onClick={(e) => handleMarkAsRead(notification.id, e)}
                             data-testid={`button-mark-read-${notification.id}`}
                           >
@@ -243,7 +261,7 @@ export function NotificationDropdown() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                           className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive"
                           onClick={(e) => handleDelete(notification.id, e)}
                           data-testid={`button-delete-notification-${notification.id}`}
                         >
@@ -257,17 +275,19 @@ export function NotificationDropdown() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full py-8 text-muted-foreground">
-              <Bell className="h-8 w-8 mb-2 opacity-50" />
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
+                <Bell className="h-5 w-5 opacity-50" />
+              </div>
               <p className="text-sm">Nenhuma notificação</p>
             </div>
           )}
         </ScrollArea>
         
         <Separator />
-        <div className="p-2">
+        <div className="border-t bg-muted/10 p-2">
           <Button
             variant="ghost"
-            className="w-full justify-start text-sm h-9"
+            className="h-9 w-full justify-start rounded-lg text-sm"
             onClick={() => setIsOpen(false)}
             data-testid="button-notification-settings"
           >

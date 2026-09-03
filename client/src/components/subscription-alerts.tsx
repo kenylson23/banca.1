@@ -70,7 +70,7 @@ export function SubscriptionAlerts({
         id: 'trial-expiring',
         type: 'warning',
         icon: Clock,
-        title: daysUntilRenewal <= 3 ? '🚨 Trial expira em breve!' : 'Trial terminando',
+          title: daysUntilRenewal <= 3 ? 'Trial expira em breve' : 'Trial terminando',
         description: `Seu período de teste termina em ${daysUntilRenewal} ${daysUntilRenewal === 1 ? 'dia' : 'dias'} (${format(new Date(subscription.currentPeriodEnd), "dd 'de' MMM", { locale: ptBR })}). Escolha um plano para continuar usando o sistema.`,
         action: onUpgrade ? {
           label: 'Escolher Plano',
@@ -111,7 +111,7 @@ export function SubscriptionAlerts({
         id: 'limit-reached',
         type: 'error',
         icon: AlertTriangle,
-        title: '⚠️ Limite atingido!',
+        title: 'Limite atingido',
         description: `Você atingiu o limite de ${limitedResources.join(', ')}. Faça upgrade para continuar crescendo.`,
         action: onUpgrade ? {
           label: 'Fazer Upgrade',
@@ -169,7 +169,7 @@ export function SubscriptionAlerts({
         id: 'efficient-usage',
         type: 'info',
         icon: Info,
-        title: '✅ Uso eficiente',
+        title: 'Uso eficiente',
         description: `Você está usando apenas ${Math.round(overallUsage * 100)}% do seu plano. Está aproveitando bem os recursos disponíveis!`,
         priority: 4
       });
@@ -202,18 +202,24 @@ export function SubscriptionAlerts({
           <Alert 
             key={alert.id} 
             variant={getAlertVariant(alert.type)}
-            className="py-3"
+            className={`rounded-xl px-4 py-3 shadow-sm transition-colors ${
+              alert.type === 'error'
+                ? 'border-destructive/30 bg-destructive/[0.06]'
+                : alert.type === 'warning'
+                  ? 'border-amber-500/30 bg-amber-500/[0.06]'
+                  : 'border-blue-500/25 bg-blue-500/[0.05]'
+            }`}
           >
             <Icon className="h-4 w-4" />
             <AlertTitle className="text-sm font-semibold">{alert.title}</AlertTitle>
-            <AlertDescription className="text-xs mt-1">
+            <AlertDescription className="mt-1 text-xs leading-5">
               {alert.description}
             </AlertDescription>
             {alert.action && (
               <Button
                 size="sm"
                 variant={alert.type === 'error' ? 'default' : 'outline'}
-                className="mt-3 h-8 text-xs"
+                className="mt-3 h-8 w-fit rounded-lg text-xs"
                 onClick={alert.action.onClick}
               >
                 <ArrowUpCircle className="h-3.5 w-3.5 mr-1.5" />

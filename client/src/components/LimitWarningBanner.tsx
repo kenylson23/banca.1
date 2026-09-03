@@ -35,9 +35,9 @@ export function LimitWarningBanner({
     <Alert
       variant={isAtLimit ? "destructive" : "default"}
       className={cn(
-        "border-2",
-        isAtLimit && "bg-destructive/5 border-destructive",
-        isNearLimit && "bg-yellow-500/5 border-yellow-500",
+        "rounded-xl shadow-sm",
+        isAtLimit && "border-destructive/30 bg-destructive/[0.06]",
+        isNearLimit && "border-amber-500/30 bg-amber-500/[0.06]",
         className
       )}
     >
@@ -48,7 +48,7 @@ export function LimitWarningBanner({
           <Info className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
         )}
         <div className="flex-1 space-y-2">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
             <AlertTitle className="mb-0">
               {isAtLimit
                 ? `Limite de ${resourceNamePlural} atingido`
@@ -58,7 +58,7 @@ export function LimitWarningBanner({
               variant={isAtLimit ? "destructive" : "secondary"}
               className={cn(
                 "shrink-0",
-                isNearLimit && "bg-yellow-500/20 text-yellow-700 border-yellow-500/50"
+                isNearLimit && "border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300"
               )}
             >
               {current} / {max}
