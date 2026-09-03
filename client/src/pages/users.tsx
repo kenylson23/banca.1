@@ -401,23 +401,29 @@ export default function Users() {
                 <span className="sm:inline">Novo</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]" data-testid="dialog-create-user">
-              <DialogHeader>
-                <DialogTitle className="text-2xl">Criar Novo Usuário</DialogTitle>
-                <DialogDescription>
+            <DialogContent
+              className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-2xl border-border/60 p-0 shadow-2xl sm:max-w-[520px]"
+              data-testid="dialog-create-user"
+            >
+              <DialogHeader className="border-b bg-muted/10 px-5 py-5 pr-12 sm:px-6">
+                <DialogTitle className="text-xl font-semibold tracking-tight sm:text-2xl">
+                  Criar Novo Usuário
+                </DialogTitle>
+                <DialogDescription className="mt-1 text-sm leading-5">
                   Preencha os dados para criar um novo utilizador no sistema
                 </DialogDescription>
               </DialogHeader>
               <Form {...createForm}>
-                <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
+                <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-5 p-5 sm:p-6">
                   <FormField
                     control={createForm.control}
                     name="email"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
+                      <FormItem className="space-y-2">
+                        <FormLabel className="text-sm font-medium">Email</FormLabel>
                         <FormControl>
                           <Input
+                            className="h-11 rounded-xl border-border/70 bg-background/60 px-3"
                             type="email"
                             placeholder="email@exemplo.com"
                             data-testid="input-user-email"
@@ -432,11 +438,12 @@ export default function Users() {
                     control={createForm.control}
                     name="password"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Senha</FormLabel>
+                      <FormItem className="space-y-2">
+                        <FormLabel className="text-sm font-medium">Senha</FormLabel>
                         <FormControl>
                           <div className="relative">
                             <Input
+                              className="h-11 rounded-xl border-border/70 bg-background/60 px-3 pr-12"
                               type={showPassword ? "text" : "password"}
                               placeholder="Mínimo 6 caracteres"
                               data-testid="input-user-password"
@@ -446,8 +453,10 @@ export default function Users() {
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                              className="absolute right-2 top-1/2 h-8 w-8 -translate-y-1/2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
                               onClick={() => setShowPassword(!showPassword)}
+                              aria-label={showPassword ? "Ocultar senha" : "Exibir senha"}
+                              title={showPassword ? "Ocultar senha" : "Exibir senha"}
                               data-testid="button-toggle-password"
                             >
                               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -458,49 +467,53 @@ export default function Users() {
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={createForm.control}
-                    name="firstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Nome"
-                            data-testid="input-user-firstname"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={createForm.control}
-                    name="lastName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Sobrenome</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Sobrenome"
-                            data-testid="input-user-lastname"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <FormField
+                      control={createForm.control}
+                      name="firstName"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <FormLabel className="text-sm font-medium">Nome</FormLabel>
+                          <FormControl>
+                            <Input
+                              className="h-11 rounded-xl border-border/70 bg-background/60 px-3"
+                              placeholder="Nome"
+                              data-testid="input-user-firstname"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={createForm.control}
+                      name="lastName"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <FormLabel className="text-sm font-medium">Sobrenome</FormLabel>
+                          <FormControl>
+                            <Input
+                              className="h-11 rounded-xl border-border/70 bg-background/60 px-3"
+                              placeholder="Sobrenome"
+                              data-testid="input-user-lastname"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                   <FormField
                     control={createForm.control}
                     name="role"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tipo de Acesso</FormLabel>
+                      <FormItem className="space-y-2">
+                        <FormLabel className="text-sm font-medium">Tipo de Acesso</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger data-testid="select-user-role">
+                            <SelectTrigger className="h-11 rounded-xl border-border/70 bg-background/60" data-testid="select-user-role">
                               <SelectValue />
                             </SelectTrigger>
                           </FormControl>
@@ -515,16 +528,19 @@ export default function Users() {
                           </SelectContent>
                         </Select>
                         <FormDescription>
-                          {ROLE_PERMISSIONS[field.value]?.description}
+                          <span className="block rounded-lg bg-muted/50 px-3 py-2 text-xs leading-5">
+                            {ROLE_PERMISSIONS[field.value]?.description}
+                          </span>
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <DialogFooter>
+                  <DialogFooter className="flex-col-reverse gap-2 border-t border-border/60 pt-5 sm:flex-row sm:justify-end">
                     <Button
                       type="button"
                       variant="outline"
+                      className="h-10 w-full rounded-xl sm:w-auto"
                       onClick={() => setIsDialogOpen(false)}
                       data-testid="button-cancel"
                     >
@@ -532,6 +548,7 @@ export default function Users() {
                     </Button>
                     <Button
                       type="submit"
+                      className="h-10 w-full rounded-xl sm:w-auto"
                       disabled={createUserMutation.isPending}
                       data-testid="button-submit-user"
                     >
