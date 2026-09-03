@@ -97,10 +97,12 @@ export function PrintOrder({ order, restaurantName = "NaBancada", variant = "out
       size={size}
       onClick={handlePreview}
       disabled={!order || !order.id}
+      aria-label="Imprimir pedido"
+      title="Imprimir pedido"
       data-testid={order?.id ? `button-print-order-${order.id}` : "button-print-order-disabled"}
     >
-      <Printer className="h-4 w-4 mr-2" />
-      Imprimir
+      <Printer className={size === "icon" ? "h-4 w-4" : "mr-2 h-4 w-4"} />
+      {size === "icon" ? <span className="sr-only">Imprimir</span> : "Imprimir"}
     </Button>
   );
 }
