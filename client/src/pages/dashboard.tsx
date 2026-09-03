@@ -584,8 +584,8 @@ export default function Dashboard() {
                   // (Dom, Seg, Ter...), portanto não devemos convertê-lo com
                   // new Date(), que geraria um dia inválido.
                   day: item.day,
-                  hour: `${item.hour}h`,
-                  value: item.value
+                  hour: `${Number(item.hour)}h`,
+                  value: Number(item.value) || 0
                 })) || []}
                 isLoading={heatmapLoading}
               />

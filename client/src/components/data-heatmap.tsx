@@ -18,7 +18,9 @@ interface DataHeatmapProps {
   className?: string;
 }
 
-const HOURS = ["6h", "8h", "10h", "12h", "14h", "16h", "18h", "20h", "22h"];
+// O endpoint fornece um slot para cada hora do dia. Renderizar as 24 horas
+// evita esconder pedidos feitos nos horários ímpares.
+const HOURS = Array.from({ length: 24 }, (_, hour) => `${hour}h`);
 const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export function DataHeatmap({
@@ -64,7 +66,7 @@ export function DataHeatmap({
         <CardContent>
           <div className="animate-pulse">
             <div className="grid grid-cols-10 gap-2">
-              {Array.from({ length: 70 }).map((_, i) => (
+              {Array.from({ length: 175 }).map((_, i) => (
                 <div key={i} className="h-10 bg-muted rounded" />
               ))}
             </div>
@@ -88,7 +90,7 @@ export function DataHeatmap({
           <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
             <div className="min-w-[500px] sm:min-w-[600px]">
               {/* Grid */}
-              <div className="grid grid-cols-[50px_repeat(9,1fr)] gap-1 sm:gap-2">
+              <div className="grid grid-cols-[50px_repeat(24,minmax(28px,1fr))] gap-1 sm:gap-2">
                 {/* Empty top-left corner */}
                 <div />
                 
