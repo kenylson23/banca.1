@@ -441,26 +441,30 @@ export default function Users() {
                       <FormItem className="space-y-2">
                         <FormLabel className="text-sm font-medium">Senha</FormLabel>
                         <FormControl>
-                          <div className="relative">
+                          <div className="relative w-full" style={{ position: "relative" }}>
                             <Input
-                              className="h-11 rounded-xl border-border/70 bg-background/60 px-3 pr-12"
+                              className="h-11 w-full rounded-xl border-border/70 bg-background/60 px-3 pr-12"
                               type={showPassword ? "text" : "password"}
                               placeholder="Mínimo 6 caracteres"
                               data-testid="input-user-password"
                               {...field}
                             />
-                            <Button
+                            <button
                               type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="absolute right-2 top-1/2 h-8 w-8 -translate-y-1/2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                              className="absolute right-2 top-1/2 z-10 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg border-0 bg-transparent p-0 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                              style={{
+                                position: "absolute",
+                                right: "0.5rem",
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                              }}
                               onClick={() => setShowPassword(!showPassword)}
                               aria-label={showPassword ? "Ocultar senha" : "Exibir senha"}
                               title={showPassword ? "Ocultar senha" : "Exibir senha"}
                               data-testid="button-toggle-password"
                             >
                               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </Button>
+                            </button>
                           </div>
                         </FormControl>
                         <FormMessage />
