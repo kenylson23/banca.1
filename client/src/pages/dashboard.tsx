@@ -580,7 +580,10 @@ export default function Dashboard() {
               <DataHeatmap
                 title="Mapa de Calor - Horários de Maior Movimento"
                 data={heatmapData?.map(item => ({
-                  day: ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"][new Date(item.day).getDay()],
+                  // A API já devolve o dia no formato usado pelo componente
+                  // (Dom, Seg, Ter...), portanto não devemos convertê-lo com
+                  // new Date(), que geraria um dia inválido.
+                  day: item.day,
                   hour: `${item.hour}h`,
                   value: item.value
                 })) || []}

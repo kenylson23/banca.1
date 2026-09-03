@@ -34,7 +34,7 @@ export function DataHeatmap({
   className,
 }: DataHeatmapProps) {
   
-  const max = maxValue || Math.max(...data.map(d => d.value));
+  const max = Math.max(maxValue ?? 0, ...data.map(d => d.value), 1);
 
   const getColor = (value: number) => {
     if (value === 0) return "rgb(250, 250, 250)"; // gray-50
