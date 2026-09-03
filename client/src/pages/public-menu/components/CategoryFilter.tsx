@@ -1,6 +1,6 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Utensils } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Utensils } from 'lucide-react';
 import type { Category, MenuItem } from '@shared/schema';
 
 interface CategoryFilterProps {
@@ -18,8 +18,48 @@ export const CategoryFilter = ({
   menuItems,
   categoryImages = {}
 }: CategoryFilterProps) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollState, setScrollState] = useState({
+    canScrollLeft: false,
+    canScrollRight: false,
+    hasOverflow: false,
+  });
+
   const getItemCount = (categoryId: string) => {
     return menuItems?.filter(item => item.isVisible === 1 && String(item.categoryId) === categoryId).length || 0;
+  };
+
+  const updateScrollState = useCallback(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+
+    const maxScrollLeft = Math.max(0, element.scrollWidth - element.clientWidth);
+    setScrollState({
+      canScrollLeft: element.scrollLeft > 4,
+      canScrollRight: element.scrollLeft < maxScrollLeft - 4,
+      hasOverflow: maxScrollLeft > 4,
+    });
+  }, []);
+
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+
+    updateScrollState();
+    element.addEventListener('scroll', updateScrollState, { passive: true });
+    window.addEventListener('resize', updateScrollState);
+
+    return () => {
+      element.removeEventListener('scroll', updateScrollState);
+      window.removeEventListener('resize', updateScrollState);
+    };
+  }, [categories.length, updateScrollState]);
+
+  const scrollCategories = (direction: -1 | 1) => {
+    scrollRef.current?.scrollBy({
+      left: direction * Math.max(220, scrollRef.current.clientWidth * 0.7),
+      behavior: 'smooth',
+    });
   };
 
   return (
@@ -27,8 +67,16 @@ export const CategoryFilter = ({
       {/* Subtle gradient background */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-black/20 pointer-events-none" />
       
-      <ScrollArea className="w-full">
-        <div className="flex gap-3 pb-4 pt-2 px-1">
+      <div
+        ref={scrollRef}
+        className="w-full overflow-x-auto scroll-smooth scrollbar-hide"
+        onWheel={(event) => {
+          if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+            event.currentTarget.scrollLeft += event.deltaY;
+          }
+        }}
+      >
+        <div className="flex w-max min-w-full gap-3 pb-4 pt-2 px-8 sm:px-10">
           {/* All Categories Button - Premium */}
           <motion.button
             onClick={() => onSelectCategory('all')}
@@ -150,7 +198,30 @@ export const CategoryFilter = ({
             );
           })}
         </div>
-      </ScrollArea>
+      </div>
+
+      {scrollState.hasOverflow && (
+        <>
+          <button
+            type="button"
+            aria-label="Ver categorias anteriores"
+            onClick={() => scrollCategories(-1)}
+            disabled={!scrollState.canScrollLeft}
+            className="absolute left-0 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-slate-950/90 text-white shadow-lg backdrop-blur transition-opacity disabled:pointer-events-none disabled:opacity-30"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            aria-label="Ver próximas categorias"
+            onClick={() => scrollCategories(1)}
+            disabled={!scrollState.canScrollRight}
+            className="absolute right-0 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-slate-950/90 text-white shadow-lg backdrop-blur transition-opacity disabled:pointer-events-none disabled:opacity-30"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </>
+      )}
     </div>
   );
 };

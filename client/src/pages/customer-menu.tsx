@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useRoute } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,7 +21,7 @@ import {
   ShoppingCart, Plus, ClipboardList, Clock, ChefHat, 
   CheckCircle, Check, Search, MessageCircle, Utensils,
   X, Minus, User, Phone as PhoneIcon, ChevronRight, ShoppingBag,
-  FileText, Sparkles, Gift, Award, Tag, Percent, Loader2, Printer
+  FileText, Sparkles, Gift, Award, Tag, Percent, Loader2, Printer, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -399,6 +399,49 @@ export default function CustomerMenu() {
       }, [] as Category[])
       .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)) || [];
   }, [menuItems]);
+
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const [categoryScrollState, setCategoryScrollState] = useState({
+    canScrollLeft: false,
+    canScrollRight: false,
+    hasOverflow: false,
+  });
+
+  const updateCategoryScrollState = useCallback(() => {
+    const element = categoryScrollRef.current;
+    if (!element) return;
+
+    const maxScrollLeft = Math.max(0, element.scrollWidth - element.clientWidth);
+    setCategoryScrollState({
+      canScrollLeft: element.scrollLeft > 4,
+      canScrollRight: element.scrollLeft < maxScrollLeft - 4,
+      hasOverflow: maxScrollLeft > 4,
+    });
+  }, []);
+
+  useEffect(() => {
+    const element = categoryScrollRef.current;
+    if (!element) return;
+
+    updateCategoryScrollState();
+    element.addEventListener('scroll', updateCategoryScrollState, { passive: true });
+    window.addEventListener('resize', updateCategoryScrollState);
+
+    return () => {
+      element.removeEventListener('scroll', updateCategoryScrollState);
+      window.removeEventListener('resize', updateCategoryScrollState);
+    };
+  }, [categories.length, updateCategoryScrollState]);
+
+  const scrollCategories = (direction: -1 | 1) => {
+    const element = categoryScrollRef.current;
+    if (!element) return;
+
+    element.scrollBy({
+      left: direction * Math.max(220, element.clientWidth * 0.7),
+      behavior: 'smooth',
+    });
+  };
 
   const filteredItems = useMemo(() => {
     return menuItems
@@ -1626,8 +1669,17 @@ export default function CustomerMenu() {
           {/* Categories - Scroll horizontal com cores dinâmicas */}
           {categories.length > 0 && (
             <div className="mb-8">
-              <ScrollArea className="w-full">
-                <div className="flex gap-3 pb-2">
+              <div className="relative">
+                <div
+                  ref={categoryScrollRef}
+                  className="w-full overflow-x-auto scroll-smooth scrollbar-hide"
+                  onWheel={(event) => {
+                    if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+                      event.currentTarget.scrollLeft += event.deltaY;
+                    }
+                  }}
+                >
+                  <div className="flex w-max min-w-full gap-3 px-8 pb-2">
                   <Button
                     variant="outline"
                     onClick={() => setSelectedCategory('all')}
@@ -1665,8 +1717,32 @@ export default function CustomerMenu() {
                       {category.name}
                     </Button>
                   ))}
+                  </div>
                 </div>
-              </ScrollArea>
+
+                {categoryScrollState.hasOverflow && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Ver categorias anteriores"
+                      onClick={() => scrollCategories(-1)}
+                      disabled={!categoryScrollState.canScrollLeft}
+                      className="absolute left-0 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-md transition-opacity disabled:pointer-events-none disabled:opacity-30"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Ver próximas categorias"
+                      onClick={() => scrollCategories(1)}
+                      disabled={!categoryScrollState.canScrollRight}
+                      className="absolute right-0 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-md transition-opacity disabled:pointer-events-none disabled:opacity-30"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           )}
 
