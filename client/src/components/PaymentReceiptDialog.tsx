@@ -138,7 +138,17 @@ export function PaymentReceiptDialog({
     const guestSubtotal = safeNumber(og.subtotal);
     const guestTotalFromBackend = safeNumber((og.guest as any).guestTotal);
     const guestDiscountRaw = safeNumber((og.guest as any).discount);
+    const guestDiscountType = (og.guest as any).discountType || "valor";
     const guestServiceChargeRaw = safeNumber((og.guest as any).serviceCharge);
+    const guestServiceChargeType = (og.guest as any).serviceChargeType || "valor";
+
+    const discountAmount = guestDiscountType === "percentual"
+      ? guestSubtotal * (Math.min(guestDiscountRaw, 100) / 100)
+      : Math.min(guestDiscountRaw, guestSubtotal);
+    const afterDiscount = Math.max(0, guestSubtotal - discountAmount);
+    const serviceChargeAmount = guestServiceChargeType === "percentual"
+      ? afterDiscount * (guestServiceChargeRaw / 100)
+      : guestServiceChargeRaw;
 
     const guest: TableGuest = {
       id: og.guest.id,
@@ -166,7 +176,7 @@ export function PaymentReceiptDialog({
 
     const totalAmount = guestTotalFromBackend > 0.009
       ? guestTotalFromBackend
-      : Math.max(0, guestSubtotal - guestDiscountRaw + guestServiceChargeRaw);
+      : Math.max(0, afterDiscount + serviceChargeAmount);
 
     return {
       guest,
@@ -174,12 +184,12 @@ export function PaymentReceiptDialog({
       subtotal: guestSubtotal,
       totalAmount,
       discounts:
-        guestDiscountRaw > 0.009
-          ? [{ description: "Desconto do Cliente", amount: guestDiscountRaw, type: "fixed" as const }]
+        discountAmount > 0.009
+          ? [{ description: "Desconto do Cliente", amount: discountAmount, type: "fixed" as const }]
           : [],
       serviceCharges:
-        guestServiceChargeRaw > 0.009
-          ? [{ description: "Taxa/Serviço do Cliente", amount: guestServiceChargeRaw, type: "fixed" as const }]
+        serviceChargeAmount > 0.009
+          ? [{ description: "Taxa/Serviço do Cliente", amount: serviceChargeAmount, type: "fixed" as const }]
           : [],
     };
   };

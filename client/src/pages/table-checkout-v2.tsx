@@ -63,6 +63,19 @@ const STEPS = [
   { id: 4, name: "Pagamento", icon: CreditCard, description: "Finalizar" },
 ] as const;
 
+type ReceiptTotalsSnapshot = {
+  subtotal: number;
+  totalDiscounts: number;
+  totalAdditions: number;
+  finalTotal: number;
+  breakdown: Array<{
+    type: "discount" | "addition";
+    label: string;
+    value: number;
+    source?: string;
+  }>;
+};
+
 export default function TableCheckoutV2() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
@@ -145,6 +158,8 @@ export default function TableCheckoutV2() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
+  const [receiptTotals, setReceiptTotals] = useState<ReceiptTotalsSnapshot | null>(null);
+  const [receiptOrdersByGuest, setReceiptOrdersByGuest] = useState<OrdersByGuestData["ordersByGuest"] | null>(null);
   
   // ✅ SOLUÇÃO #2: Estado para feedback visual de salvamento
   const [isSavingAdjustments, setIsSavingAdjustments] = useState(false);
@@ -734,6 +749,20 @@ export default function TableCheckoutV2() {
           ?? data?.results?.[0]?.tablePayment
           ?? data?.results?.[0]?.guestPayment
           ?? data;
+        // Congelar os dados antes das invalidações: no pagamento individual,
+        // o convidado passa a "pago" e a seleção é removida, o que faria
+        // calculateTotals voltar para zero enquanto a fatura ainda está aberta.
+        const isIndividualPayment =
+          adjustmentsMode === 'guest' &&
+          selectedGuestIds.length > 0 &&
+          selectedGuestIds.length < ordersByGuest.length &&
+          !selectedGuestIds.includes('anonymous');
+        const billedOrders = isIndividualPayment
+          ? filteredOrdersByGuest.filter((og: any) => og.guest?.status !== 'pago')
+          : ordersByGuest;
+
+        setReceiptTotals(calculateTotals);
+        setReceiptOrdersByGuest(billedOrders);
         setPaymentData(payment);
       setShowSuccessDialog(true);
       
@@ -3098,11 +3127,11 @@ export default function TableCheckoutV2() {
           }}
           table={table}
           payment={paymentData}
-          ordersByGuest={ordersByGuest}
-          calculateTotals={calculateTotals}
+          ordersByGuest={receiptOrdersByGuest ?? ordersByGuest}
+          calculateTotals={receiptTotals ?? calculateTotals}
           restaurant={restaurant}
           sessionDuration={sessionDuration}
-          totalAmount={calculateTotals.finalTotal}
+          totalAmount={(receiptTotals ?? calculateTotals).finalTotal}
           onPrintComplete={() => {
             toast({
               title: "Fatura impressa",
