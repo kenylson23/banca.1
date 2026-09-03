@@ -378,7 +378,7 @@ export default function Kitchen() {
     return (
       <div
         ref={setNodeRef}
-        className={`flex flex-col w-[78vw] sm:w-[280px] md:w-[300px] lg:w-[320px] min-w-[260px] max-w-[320px] rounded-lg border bg-muted/30 snap-center ${isOver ? 'ring-2 ring-primary' : ''}`}
+        className={`flex w-[calc(100vw-1rem)] min-w-[260px] max-w-[320px] shrink-0 snap-center flex-col rounded-lg border bg-muted/30 sm:w-[280px] md:w-[300px] lg:w-[320px] ${isOver ? 'ring-2 ring-primary' : ''}`}
       >
         <div className={`p-3 rounded-t-lg ${statusColors[status]}`}>
           <div className="flex items-center justify-between">
@@ -386,7 +386,7 @@ export default function Kitchen() {
             <Badge variant="secondary" className="bg-background/20">{columnOrders.length}</Badge>
           </div>
         </div>
-        <ScrollArea className="flex-1 p-2" style={{ height: 'calc(100vh - 220px)' }}>
+        <ScrollArea className="min-h-[180px] flex-1 p-2" style={{ maxHeight: 'calc(100vh - 250px)' }}>
           <div className="space-y-2">
             {columnOrders.map(order => (
               <KanbanCard key={order.id} order={order} />
@@ -458,8 +458,8 @@ export default function Kitchen() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden">
-      <div className="space-y-3 sm:space-y-4 p-2 sm:p-4 md:p-6">
+    <div className="min-h-screen min-w-0 overflow-x-hidden">
+      <div className="mx-auto w-full max-w-[1800px] space-y-3 p-2 sm:space-y-4 sm:p-4 md:p-6">
         <motion.div
           className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3"
           initial={{ opacity: 0, y: -20 }}
@@ -474,7 +474,7 @@ export default function Kitchen() {
               Gerencie pedidos em tempo real
             </p>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+          <div className="flex w-full items-center justify-end gap-1.5 sm:w-auto sm:gap-2">
             <Button
               variant={viewMode === "kanban" ? "default" : "outline"}
               size="sm"
@@ -518,8 +518,8 @@ export default function Kitchen() {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="overflow-x-auto pb-4 -mx-2 sm:mx-0 snap-x snap-mandatory">
-            <div className="flex gap-3 sm:gap-4 min-w-max px-2 sm:px-4">
+          <div className="mx-[-0.5rem] overflow-x-auto px-2 pb-4 snap-x snap-mandatory sm:mx-0 sm:px-0">
+            <div className="flex min-w-max gap-3 sm:gap-4">
               {kanbanStatuses.map(status => (
                 <KanbanColumn key={status} status={status} />
               ))}
@@ -527,7 +527,7 @@ export default function Kitchen() {
           </div>
           <DragOverlay>
             {activeOrder && (
-              <div className="bg-card border rounded-lg p-3 shadow-lg opacity-90 w-[280px]">
+              <div className="w-[min(280px,calc(100vw-2rem))] rounded-lg border bg-card p-3 shadow-lg opacity-90">
                 <span className="font-semibold text-sm">
                   {activeOrder.table ? `Mesa ${activeOrder.table.number}` : 
                    activeOrder.orderType === 'delivery' ? 'Delivery' : 'Balcão'}
@@ -549,13 +549,13 @@ export default function Kitchen() {
 
           <div>
             {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
               {[...Array(6)].map((_, i) => (
                 <Skeleton key={i} className="h-64" />
               ))}
             </div>
           ) : filteredOrders.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredOrders.map((order) => {
             const isNew = newOrderIds.has(order.id);
             const nextStatus = getNextStatus(order.status);
@@ -563,15 +563,15 @@ export default function Kitchen() {
             return (
               <Card
                 key={order.id}
-                className={`transition-all ${
+                className={`h-full min-w-0 overflow-hidden transition-all ${
                   isNew ? "ring-2 ring-primary animate-pulse" : ""
                 }`}
                 data-testid={`card-order-${order.id}`}
               >
-                <CardHeader className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3">
+                <CardHeader className="flex flex-col gap-3 p-4 pb-3 sm:p-5 sm:pb-3 md:flex-row md:items-start md:justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <CardTitle className="text-xl sm:text-2xl font-mono">
+                      <CardTitle className="break-words text-lg font-mono sm:text-xl lg:text-2xl">
                         {order.table ? `Mesa ${order.table.number}` : 
                          order.orderType === 'delivery' ? 'Delivery' : 
                          order.orderType === 'takeout' ? 'Balcão' : 'Pedido'}
@@ -610,11 +610,11 @@ export default function Kitchen() {
                       )}
                     </div>
                   </div>
-                  <Badge className={`${statusColors[order.status]} flex-shrink-0 self-start`}>
+                  <Badge className={`${statusColors[order.status]} flex-shrink-0 self-start md:self-auto`}>
                     {statusLabels[order.status]}
                   </Badge>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="min-w-0 flex-1 space-y-4 p-4 pt-1 sm:p-5 sm:pt-2">
                   <div className="space-y-3">
                     <h3 className="font-semibold text-xs sm:text-sm text-muted-foreground uppercase">
                       Itens do Pedido
@@ -624,14 +624,14 @@ export default function Kitchen() {
                         key={item.id}
                         className="bg-muted/50 rounded-md p-2 sm:p-3 space-y-2"
                       >
-                        <div className="flex justify-between items-start gap-2">
+                        <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex-shrink-0">
                                 {item.quantity}x
                               </span>
-                              <div className="flex-1">
-                                <p className="font-semibold text-sm sm:text-base break-words">{item.menuItem.name}</p>
+                              <div className="min-w-0 flex-1">
+                                <p className="break-words text-sm font-semibold sm:text-base">{item.menuItem.name}</p>
                                 {item.options && item.options.length > 0 && (
                                   <div className="mt-1 space-y-0.5">
                                     {item.options.map((option, idx) => (
@@ -645,7 +645,7 @@ export default function Kitchen() {
                               </div>
                             </div>
                           </div>
-                          <p className="font-mono font-semibold text-sm sm:text-base flex-shrink-0">
+                          <p className="flex-shrink-0 whitespace-nowrap text-right font-mono text-xs font-semibold sm:text-sm">
                             {formatKwanza(item.price)}
                           </p>
                         </div>
@@ -689,7 +689,7 @@ export default function Kitchen() {
                           Marcar como {statusLabels[nextStatus]}
                         </Button>
                       )}
-                      <div className="flex gap-2">
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                         <Button 
                           variant="outline" 
                           size="default"
@@ -765,7 +765,7 @@ export default function Kitchen() {
             </div>
           ) : stats ? (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -848,7 +848,7 @@ export default function Kitchen() {
                       {stats.topDishes.map((dish, index) => (
                         <div
                           key={dish.menuItem.id}
-                          className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-muted/50 rounded-lg"
+                           className="flex flex-col gap-3 rounded-lg bg-muted/50 p-3 sm:flex-row sm:items-center sm:gap-4 sm:p-4"
                           data-testid={`dish-rank-${index + 1}`}
                         >
                           <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
@@ -864,7 +864,7 @@ export default function Kitchen() {
                               </p>
                             </div>
                           </div>
-                          <div className="text-left sm:text-right pl-11 sm:pl-0 flex-shrink-0">
+                           <div className="flex-shrink-0 pl-11 text-left sm:pl-0 sm:text-right">
                             <p className="font-bold text-base sm:text-lg font-mono">
                               {formatKwanza(dish.totalRevenue)}
                             </p>
