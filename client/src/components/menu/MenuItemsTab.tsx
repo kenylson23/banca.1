@@ -514,7 +514,11 @@ export function MenuItemsTab() {
                     </div>
                   </div>
                 </HoverCardTrigger>
-                <HoverCardContent className="w-80" side="right" align="start">
+                <HoverCardContent
+                  className="w-80 pointer-events-none"
+                  side="right"
+                  align="start"
+                >
                   {item.imageUrl && (
                     <img 
                       src={item.imageUrl} 
