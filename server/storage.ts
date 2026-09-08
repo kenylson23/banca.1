@@ -5369,10 +5369,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           ...baseConditions,
-          or(
-            and(eq(tables.branchId, branchId), sql`${orders.tableId} IS NOT NULL`),
-            sql`${orders.tableId} IS NULL`
-          )
+          eq(orders.branchId, branchId)
         ))
         .orderBy(desc(orders.createdAt));
     } else {
@@ -5642,10 +5639,7 @@ export class DatabaseStorage implements IStorage {
 
     if (branchId) {
       conditions.push(
-        or(
-          eq(tables.branchId, branchId),
-          sql`${orders.tableId} IS NULL`
-        ) as any
+        eq(orders.branchId, branchId)
       );
     }
 
@@ -5715,10 +5709,7 @@ export class DatabaseStorage implements IStorage {
 
     if (branchId) {
       baseConditions.push(
-        or(
-          eq(tables.branchId, branchId),
-          sql`${orders.tableId} IS NULL`
-        ) as any
+        eq(orders.branchId, branchId)
       );
     }
 
@@ -6316,10 +6307,7 @@ export class DatabaseStorage implements IStorage {
     ];
 
     if (branchId !== null) {
-      orderConditions.push(or(
-        eq(orders.branchId, branchId),
-        sql`${orders.branchId} IS NULL`
-      ) as any);
+      orderConditions.push(eq(orders.branchId, branchId));
     }
 
     if (orderType && orderType !== 'all') {
@@ -6499,10 +6487,7 @@ export class DatabaseStorage implements IStorage {
     
     if (branchId !== null) {
       conditions.push(
-        or(
-          eq(financialCategories.branchId, branchId),
-          isNull(financialCategories.branchId)
-        )!
+        eq(financialCategories.branchId, branchId)
       );
     }
 
@@ -6630,10 +6615,7 @@ export class DatabaseStorage implements IStorage {
 
     if (branchId !== null) {
       conditions.push(
-        or(
-          eq(financialTransactions.branchId, branchId),
-          isNull(financialTransactions.branchId)
-        )!
+        eq(financialTransactions.branchId, branchId)
       );
     }
 
@@ -6754,10 +6736,7 @@ export class DatabaseStorage implements IStorage {
 
     if (branchId !== null) {
       transactionConditions.push(
-        or(
-          eq(financialTransactions.branchId, branchId),
-          isNull(financialTransactions.branchId)
-        )!
+        eq(financialTransactions.branchId, branchId)
       );
     }
 
@@ -6810,10 +6789,7 @@ export class DatabaseStorage implements IStorage {
 
     if (branchId !== null) {
       conditions.push(
-        or(
-          eq(cashRegisterShifts.branchId, branchId),
-          isNull(cashRegisterShifts.branchId)
-        )!
+        eq(cashRegisterShifts.branchId, branchId)
       );
     }
 
@@ -7069,10 +7045,7 @@ export class DatabaseStorage implements IStorage {
 
     if (branchId !== null) {
       conditions.push(
-        or(
-          eq(expenses.branchId, branchId),
-          isNull(expenses.branchId)
-        )!
+        eq(expenses.branchId, branchId)
       );
     }
 
@@ -7268,10 +7241,7 @@ export class DatabaseStorage implements IStorage {
 
     if (branchId !== null) {
       conditions.push(
-        or(
-          eq(financialTransactions.branchId, branchId),
-          isNull(financialTransactions.branchId)
-        )!
+        eq(financialTransactions.branchId, branchId)
       );
     }
 
@@ -10514,10 +10484,7 @@ export class DatabaseStorage implements IStorage {
     
     if (branchId) {
       query = query.where(
-        or(
-          eq(printerConfigurations.branchId, branchId),
-          isNull(printerConfigurations.branchId)
-        )
+        eq(printerConfigurations.branchId, branchId)
       ) as any;
     }
     
@@ -10597,10 +10564,7 @@ export class DatabaseStorage implements IStorage {
     
     if (branchId) {
       query = query.where(
-        or(
-          eq(printerConfigurations.branchId, branchId),
-          isNull(printerConfigurations.branchId)
-        )
+        eq(printerConfigurations.branchId, branchId)
       ) as any;
     }
     
