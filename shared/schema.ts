@@ -161,6 +161,14 @@ export type InsertBranch = z.infer<typeof insertBranchSchema>;
 export type UpdateBranch = z.infer<typeof updateBranchSchema>;
 export type Branch = typeof branches.$inferSelect;
 
+// Persistent invoice sequences, scoped to a branch or restaurant fallback.
+export const invoiceSequences = pgTable("invoice_sequences", {
+  scopeKey: varchar("scope_key", { length: 255 }).primaryKey(),
+  restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  branchId: varchar("branch_id").references(() => branches.id, { onDelete: 'cascade' }),
+  nextNumber: integer("next_number").notNull().default(1),
+});
+
 // User Role Enum
 // Roles hierarchy (from most to least privileged):
 // - superadmin: Full system access (all restaurants)
@@ -1221,6 +1229,7 @@ export const orders = pgTable("orders", {
   deliveryNotes: text("delivery_notes"),
   orderNotes: text("order_notes"),
   orderNumber: varchar("order_number", { length: 20 }),
+  invoiceNumber: integer("invoice_number"),
   orderTitle: varchar("order_title", { length: 200 }),
   status: orderStatusEnum("status").notNull().default('pendente'),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default('0'),
@@ -1260,6 +1269,7 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  invoiceNumber: true,
   subtotal: true,
   totalAmount: true,
   paymentStatus: true,

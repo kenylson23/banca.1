@@ -16,6 +16,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from '@/hooks/use-toast';
+import { generateInvoiceValidationCode, getInvoiceNumber } from '@/lib/invoice-validation';
 
 type OrderWithDetails = Order & {
   orderItems?: Array<OrderItem & { 
@@ -100,9 +101,17 @@ export function PrintInvoice({
       const effectiveDiscount = totalsOverride?.discount ?? combinedDiscount;
       const effectiveServiceCharge = totalsOverride?.serviceCharge ?? serviceCharge;
       const effectiveTotal = totalsOverride?.total ?? parseFloat(String(order.totalAmount || '0'));
+      const invoiceNumber = getInvoiceNumber(order);
+      const validationCode = generateInvoiceValidationCode({
+        invoiceNumber: order.invoiceNumber ?? invoiceNumber,
+        orderId: order.id,
+        date: order.createdAt,
+        total: effectiveTotal,
+      });
 
       await printerService.printInvoice('invoice', {
-        invoiceNumber: order.id.substring(0, 8).toUpperCase(),
+        invoiceNumber,
+        validationCode,
         date: order.createdAt
           ? format(new Date(order.createdAt), "dd/MM/yyyy", { locale: ptBR })
           : format(new Date(), "dd/MM/yyyy", { locale: ptBR }),
@@ -167,6 +176,13 @@ export function PrintInvoice({
     const effectiveDiscount = totalsOverride?.discount ?? combinedDiscount;
     const effectiveServiceCharge = totalsOverride?.serviceCharge ?? serviceCharge;
     const effectiveTotal = totalsOverride?.total ?? parseFloat(String(order.totalAmount || '0'));
+    const invoiceNumber = getInvoiceNumber(order);
+    const validationCode = generateInvoiceValidationCode({
+      invoiceNumber: order.invoiceNumber ?? invoiceNumber,
+      orderId: order.id,
+      date: order.createdAt,
+      total: effectiveTotal,
+    });
 
     const effectiveDiscountLabel = totalsOverride?.discountLabel || 'Desconto';
     const effectiveServiceChargeLabel = totalsOverride?.serviceChargeLabel || 'Taxa de Serviço';
@@ -176,7 +192,7 @@ export function PrintInvoice({
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Fatura #${order.id.substring(0, 8).toUpperCase()}</title>
+        <title>Fatura #${invoiceNumber}</title>
         <style>
           @media print {
             @page {
@@ -366,8 +382,9 @@ export function PrintInvoice({
           </div>
           <div class="invoice-info">
             <div class="doc-type">FATURA</div>
-            <div class="invoice-number">Nº ${order.id.substring(0, 8).toUpperCase()}</div>
+            <div class="invoice-number">Nº ${invoiceNumber}</div>
             <div class="invoice-number">${order.createdAt ? format(new Date(order.createdAt), "dd/MM/yyyy", { locale: ptBR }) : '-'}</div>
+            <div class="invoice-number">Código de validação: ${validationCode}</div>
           </div>
         </div>
 

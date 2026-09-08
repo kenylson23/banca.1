@@ -5,3 +5,4 @@
 - [Backend media and migrations](backend-media-and-migrations.md) — API-only deploys must own uploaded media, and startup migrations must follow actual table/column dependencies.
 - [Node runtime path compatibility](node-runtime-path-compatibility.md) — Railway may run Node 18; avoid relying on `import.meta.dirname` in deployable ESM code.
 - [Branch isolation](branch-isolation.md) — active-branch operational views must not fall back to restaurant-wide records.
+- [Invoice numbering](invoice-numbering.md) — branch-scoped invoice numbers are persistent; validation codes derive from the current printed total.

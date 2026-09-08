@@ -177,6 +177,7 @@ import {
   type GuestPayment,
   type InsertGuestPayment,
 } from "@shared/schema";
+import { allocateInvoiceNumber } from "./invoiceNumberGenerator";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
 import type { PgTransaction } from "drizzle-orm/pg-core";
@@ -2875,6 +2876,7 @@ export class DatabaseStorage implements IStorage {
 
   async createOrder(order: InsertOrder, items: PublicOrderItem[]): Promise<Order> {
     let restaurantId: string;
+    let resolvedBranchId = order.branchId ?? null;
     
     // For table orders, verify the table exists and get its restaurantId
     if (order.orderType === 'mesa' && order.tableId) {
@@ -2883,6 +2885,7 @@ export class DatabaseStorage implements IStorage {
         throw new Error('Table not found');
       }
       restaurantId = table.restaurantId;
+      resolvedBranchId = order.branchId ?? table.branchId ?? null;
     } else {
       // For delivery/takeout orders, get restaurantId from order
       restaurantId = order.restaurantId;
@@ -2988,6 +2991,8 @@ export class DatabaseStorage implements IStorage {
         ? (order.tableSessionId ?? (await this.getTableById(order.tableId))?.currentSessionId ?? null)
         : (order.tableSessionId ?? null);
 
+    const invoiceNumber = await allocateInvoiceNumber(restaurantId, resolvedBranchId);
+
     console.log('[DEBUG] createOrder derived values:', {
       orderId: order.id,
       tableId: order.tableId,
@@ -3000,7 +3005,7 @@ export class DatabaseStorage implements IStorage {
     const [newOrder] = await db.insert(orders).values({
       ...order,
       restaurantId: order.restaurantId || restaurantId,
-      branchId: order.branchId || null,
+      branchId: resolvedBranchId,
       tableId: order.tableId || null,
       tableSessionId: derivedTableSessionId,
       // Sempre string|null (nunca undefined)
@@ -3009,8 +3014,9 @@ export class DatabaseStorage implements IStorage {
       paymentStatus: 'nao_pago',
       subtotal: subtotal.toFixed(2),
       totalAmount: totalAmount.toFixed(2),
+      invoiceNumber,
     }).returning();
-    
+
     if (normalizedItems.length > 0) {
       for (const item of normalizedItems) {
         const { selectedOptions, ...itemData } = item;

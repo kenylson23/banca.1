@@ -958,6 +958,7 @@ class PrinterService {
     content: {
       invoiceNumber: string;
       date: string;
+      validationCode?: string;
       customerName?: string;
       customerPhone?: string;
       items: Array<{ name: string; quantity: number; price: string; total: string }>;
@@ -988,6 +989,9 @@ class PrinterService {
     // Cabeçalho
     encoder.align('center').bold(true).line('FATURA').bold(false);
     encoder.line(`Nº ${content.invoiceNumber}`);
+    if (content.validationCode) {
+      encoder.line(`Código: ${content.validationCode}`);
+    }
     encoder.line(content.date).newline();
 
     // Dados do cliente
