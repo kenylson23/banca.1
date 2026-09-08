@@ -179,7 +179,7 @@ import {
 } from "@shared/schema";
 import { allocateInvoiceNumber } from "./invoiceNumberGenerator";
 import { db } from "./db";
-import { eq, desc, sql, and, gte, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
+import { eq, desc, sql, and, gte, gt, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import { alias } from "drizzle-orm/pg-core";
 
