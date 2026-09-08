@@ -959,16 +959,22 @@ export default function CustomerMenu() {
 
             {/* Actions */}
             <div className="flex items-center gap-2">
-              {!currentTable?.currentSessionId && !hasJoinedTable && (
+              {!hasJoinedTable && (
                 <Button
                   variant="default"
                   size="sm"
                   className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => setIsJoinDialogOpen(true)}
+                  onClick={() => {
+                    const tableIsOccupied = Boolean(currentTable?.currentSessionId);
+                    setRequiresTablePin(tableIsOccupied);
+                    setSessionPin('');
+                    setPinAttemptsRemaining(null);
+                    setIsJoinDialogOpen(true);
+                  }}
                   data-testid="button-join-table"
                 >
                   <UserPlus className="h-4 w-4" />
-                  Ocupar Mesa
+                  {currentTable?.currentSessionId ? 'Entrar na mesa' : 'Ocupar Mesa'}
                 </Button>
               )}
 
