@@ -83,6 +83,37 @@ function clearSessionPinAttempts(req: any, tableId: string) {
   sessionPinAttempts.delete(getSessionPinAttemptKey(req, tableId));
 }
 
+async function resolveActiveTableSession<T extends { id: string; restaurantId: string; currentSessionId?: string | null }>(table: T): Promise<T> {
+  if (table.currentSessionId) {
+    return table;
+  }
+
+  const [activeSession] = await db
+    .select({
+      id: tableSessions.id,
+      status: tableSessions.status,
+    })
+    .from(tableSessions)
+    .where(and(
+      eq(tableSessions.tableId, table.id),
+      eq(tableSessions.restaurantId, table.restaurantId),
+      isNull(tableSessions.endedAt),
+    ))
+    .orderBy(desc(tableSessions.startedAt))
+    .limit(1);
+
+  if (!activeSession) {
+    return table;
+  }
+
+  return {
+    ...table,
+    currentSessionId: activeSession.id,
+    status: activeSession.status,
+    isOccupied: 1,
+  } as T;
+}
+
 // Twilio WhatsApp configuration
 const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
@@ -2818,7 +2849,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Número de mesa inválido" });
       }
       
-      const table = await storage.getTableByNumber(tableNumber, restaurantId);
+       const tableRecord = await storage.getTableByNumber(tableNumber, restaurantId);
+       const table = tableRecord ? await resolveActiveTableSession(tableRecord) : undefined;
       
       if (!table) {
         return res.status(404).json({ message: "Mesa não encontrada" });
@@ -2838,7 +2870,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Número de mesa inválido" });
       }
       
-      const table = await storage.getTableByNumber(tableNumber);
+       const tableRecord = await storage.getTableByNumber(tableNumber);
+       const table = tableRecord ? await resolveActiveTableSession(tableRecord) : undefined;
       
       if (!table) {
         return res.status(404).json({ message: "Mesa não encontrada" });
@@ -2892,7 +2925,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Número de mesa inválido" });
       }
       
-      const table = await storage.getTableByNumber(tableNumber);
+       const tableRecord = await storage.getTableByNumber(tableNumber);
+       const table = tableRecord ? await resolveActiveTableSession(tableRecord) : undefined;
       if (!table) {
         return res.status(404).json({ message: "Mesa não encontrada" });
       }
