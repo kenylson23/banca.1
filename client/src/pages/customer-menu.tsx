@@ -805,6 +805,11 @@ export default function CustomerMenu() {
         localStorage.setItem(storageKey, data.token);
         refreshToken();
       }
+
+      const joinedSessionId = data.guest?.sessionId || data.sessionId || currentTable.currentSessionId;
+      if (joinedSessionId && currentTable.id) {
+        localStorage.setItem(`joined-table-${currentTable.id}-${joinedSessionId}`, 'true');
+      }
       
       setHasJoinedTable(true);
       setRequiresTablePin(false);
@@ -856,6 +861,20 @@ export default function CustomerMenu() {
 
   useEffect(() => {
     if (!currentTable || hasJoinedTable || isJoiningTable || !guestToken) return;
+
+    // An active table must not be joined silently from a new browser/profile.
+    // The first browser stores membership for this exact session after joining;
+    // other browsers have the token but not this local membership marker and
+    // must provide the table PIN.
+    if (currentTable.currentSessionId) {
+      const membershipKey = `joined-table-${currentTable.id}-${currentTable.currentSessionId}`;
+      if (localStorage.getItem(membershipKey) !== 'true') {
+        setRequiresTablePin(true);
+        setIsJoinDialogOpen(true);
+        return;
+      }
+    }
+
     void joinTable();
   }, [currentTable?.id, currentTable?.currentSessionId, guestToken, hasJoinedTable]);
 
