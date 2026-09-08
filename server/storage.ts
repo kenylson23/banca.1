@@ -1455,28 +1455,11 @@ export class DatabaseStorage implements IStorage {
   // Table operations
   async getTables(restaurantId: string, branchId?: string | null): Promise<Table[]> {
     if (branchId) {
-      // Para mesas, usamos lógica de OVERRIDE:
-      // - Primeiro busca todas as mesas compartilhadas (branchId = null)
-      // - Depois busca mesas específicas da filial
-      // - Remove compartilhadas que foram sobrescritas por específicas
-      const sharedTables = await db.select().from(tables)
-        .where(and(eq(tables.restaurantId, restaurantId), isNull(tables.branchId)))
-        .orderBy(tables.number);
-      
-      const branchTables = await db.select().from(tables)
+      // A filial ativa é um limite de isolamento: nunca misture mesas
+      // compartilhadas ou de outra filial nesta consulta.
+      return await db.select().from(tables)
         .where(and(eq(tables.restaurantId, restaurantId), eq(tables.branchId, branchId)))
         .orderBy(tables.number);
-      
-      // Números de mesa que foram sobrescritos pela filial
-      const overriddenNumbers = new Set(branchTables.map((t: Table) => t.number));
-      
-      // Retorna mesas específicas + compartilhadas não sobrescritas
-      const result = [
-        ...branchTables,
-        ...sharedTables.filter((t: Table) => !overriddenNumbers.has(t.number))
-      ];
-      
-      return result.sort((a, b) => a.number - b.number);
     }
     return await db.select().from(tables).where(eq(tables.restaurantId, restaurantId)).orderBy(tables.number);
   }
@@ -2407,15 +2390,12 @@ export class DatabaseStorage implements IStorage {
   // Category operations
   async getCategories(restaurantId: string, branchId?: string | null): Promise<Category[]> {
     if (branchId) {
-      // Retorna categorias compartilhadas (branchId = null) + categorias específicas da filial
+      // Categorias são sempre isoladas pela filial ativa.
       return await db.select().from(categories)
         .where(
           and(
             eq(categories.restaurantId, restaurantId),
-            or(
-              isNull(categories.branchId),
-              eq(categories.branchId, branchId)
-            )
+            eq(categories.branchId, branchId)
           )
         )
         .orderBy(categories.displayOrder, categories.name);
@@ -2472,7 +2452,7 @@ export class DatabaseStorage implements IStorage {
   async getMenuItems(restaurantId: string, branchId?: string | null): Promise<Array<MenuItem & { category: Category; optionGroups?: Array<OptionGroup & { options: Option[] }> }>> {
     let results;
     if (branchId) {
-      // Retorna itens compartilhados (branchId = null) + itens específicos da filial
+      // Itens são sempre isolados pela filial ativa.
       results = await db
         .select()
         .from(menuItems)
@@ -2480,10 +2460,7 @@ export class DatabaseStorage implements IStorage {
         .where(
           and(
             eq(menuItems.restaurantId, restaurantId),
-            or(
-              isNull(menuItems.branchId),
-              eq(menuItems.branchId, branchId)
-            )
+            eq(menuItems.branchId, branchId)
           )
         )
         .orderBy(categories.displayOrder, categories.name, menuItems.displayOrder, menuItems.name);
@@ -2602,11 +2579,15 @@ export class DatabaseStorage implements IStorage {
       const branchTables = await this.getTables(restaurantId, branchId);
       const tableIds = branchTables.map((t: Table) => t.id);
       
-      // ISOLAMENTO DE DADOS: Filtra por restaurantId, branchId (específico + compartilhado), e mesas
-      const branchCondition = or(eq(orders.branchId, branchId), isNull(orders.branchId));  // Filial OU compartilhado
+      // Isolamento estrito: pedidos sem filial só podem aparecer quando
+      // estiverem ligados a uma mesa da filial ativa.
+      const branchCondition = or(
+        eq(orders.branchId, branchId),
+        and(isNull(orders.branchId), eq(tables.branchId, branchId))
+      );
       const tableCondition = tableIds.length > 0
-        ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId))  // Mesas da filial OU delivery/takeout
-        : sql`true`;  // Sem mesas, aceita qualquer tableId (já garantido por branchCondition)
+        ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId))
+        : isNull(orders.tableId);
       
       allOrders = await db
         .select()
@@ -2671,11 +2652,13 @@ export class DatabaseStorage implements IStorage {
       const branchTables = await this.getTables(restaurantId, branchId);
       const tableIds = branchTables.map((t: Table) => t.id);
       
-      // ISOLAMENTO DE DADOS: Filtra por restaurantId, branchId (específico + compartilhado), e mesas
-      const branchCondition = or(eq(orders.branchId, branchId), isNull(orders.branchId));  // Filial OU compartilhado
+      const branchCondition = or(
+        eq(orders.branchId, branchId),
+        and(isNull(orders.branchId), eq(tables.branchId, branchId))
+      );
       const tableCondition = tableIds.length > 0
-        ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId))  // Mesas da filial OU delivery/takeout
-        : sql`true`;  // Sem mesas, aceita qualquer tableId (já garantido por branchCondition)
+        ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId))
+        : isNull(orders.tableId);
       
       results = await db
         .select()
@@ -4162,7 +4145,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
           gte(orders.createdAt, today)
         ));
     } else {
@@ -4198,7 +4181,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
           gte(orders.createdAt, yesterday),
           sql`${orders.createdAt} < ${today}`
         ));
@@ -4268,7 +4251,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, today)
         ));
@@ -4363,7 +4346,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
@@ -4406,7 +4389,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
@@ -4495,7 +4478,7 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(tables, eq(orders.tableId, tables.id))
           .where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+            or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
             sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte(orders.createdAt, dayStart),
             sql`${orders.createdAt} <= ${dayEnd}`
@@ -4549,7 +4532,7 @@ export class DatabaseStorage implements IStorage {
          .leftJoin(tables, eq(orders.tableId, tables.id))
          .where(and(
            eq(orders.restaurantId, restaurantId),
-           or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+           or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
            sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
            gte(orders.createdAt, startDate),
            sql`${orders.createdAt} <= ${today}`
@@ -4615,7 +4598,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${endDate}`
@@ -4716,7 +4699,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
@@ -5220,7 +5203,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), sql`${orders.tableId} IS NULL`),
+          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${endDate}`
@@ -5305,7 +5288,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), sql`${orders.tableId} IS NULL`),
+          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
           eq(orders.status, 'cancelado'),
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${endDate}`
@@ -5450,7 +5433,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), sql`${orders.tableId} IS NULL`),
+          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${endDate}`
         ));
@@ -5555,7 +5538,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), sql`${orders.tableId} IS NULL`),
+          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${endDate}`
         ));
@@ -6232,13 +6215,7 @@ export class DatabaseStorage implements IStorage {
     ];
 
     if (branchId !== null) {
-      const branchCondition = or(
-        eq(menuVisits.branchId, branchId),
-        isNull(menuVisits.branchId)
-      );
-      if (branchCondition) {
-        conditions.push(branchCondition);
-      }
+      conditions.push(eq(menuVisits.branchId, branchId));
     }
 
     const allVisits = await db
@@ -8136,7 +8113,7 @@ export class DatabaseStorage implements IStorage {
     let conditions = [eq(customers.restaurantId, restaurantId)];
     
     if (branchId !== undefined && branchId !== null) {
-      conditions.push(or(eq(customers.branchId, branchId), isNull(customers.branchId))!);
+      conditions.push(eq(customers.branchId, branchId));
     }
     
     if (filters?.isActive !== undefined) {
@@ -8262,7 +8239,7 @@ export class DatabaseStorage implements IStorage {
     let conditions = [eq(customers.restaurantId, restaurantId)];
     
     if (branchId) {
-      conditions.push(or(eq(customers.branchId, branchId), isNull(customers.branchId))!);
+      conditions.push(eq(customers.branchId, branchId));
     }
 
     const allCustomers = await db
@@ -8680,7 +8657,7 @@ export class DatabaseStorage implements IStorage {
     let conditions = [eq(coupons.restaurantId, restaurantId)];
 
     if (branchId !== undefined && branchId !== null) {
-      conditions.push(or(eq(coupons.branchId, branchId), isNull(coupons.branchId))!);
+      conditions.push(eq(coupons.branchId, branchId));
     }
 
     if (filters?.isActive !== undefined) {
@@ -8769,7 +8746,7 @@ export class DatabaseStorage implements IStorage {
     let conditions = [eq(services.restaurantId, restaurantId)];
 
     if (branchId !== undefined && branchId !== null) {
-      conditions.push(or(eq(services.branchId, branchId), isNull(services.branchId))!);
+      conditions.push(eq(services.branchId, branchId));
     }
 
     return await db
@@ -8940,7 +8917,7 @@ export class DatabaseStorage implements IStorage {
     ];
 
     if (branchId !== undefined && branchId !== null) {
-      conditions.push(or(eq(services.branchId, branchId), isNull(services.branchId))!);
+      conditions.push(eq(services.branchId, branchId));
     }
 
     const allServices = await db
@@ -9151,7 +9128,7 @@ export class DatabaseStorage implements IStorage {
     let conditions = [eq(coupons.restaurantId, restaurantId)];
 
     if (branchId) {
-      conditions.push(or(eq(coupons.branchId, branchId), isNull(coupons.branchId))!);
+      conditions.push(eq(coupons.branchId, branchId));
     }
 
     const allCoupons = await db

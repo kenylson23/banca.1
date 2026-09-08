@@ -87,15 +87,21 @@ export function BranchSelector() {
     mutationFn: async (branchId: string) => {
       return await apiRequest('PATCH', '/api/auth/active-branch', { branchId });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/branches'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/menu'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/menu-items'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
+    onSuccess: async () => {
+      const isBranchScopedQuery = (query: { queryKey: readonly unknown[] }) => {
+        const key = query.queryKey[0];
+        return typeof key === 'string'
+          && key.startsWith('/api/')
+          && key !== '/api/auth/user'
+          && key !== '/api/branches';
+      };
+
+      // Do not leave data from the previous branch visible while the new
+      // branch requests are being fetched.
+      await queryClient.cancelQueries({ predicate: isBranchScopedQuery });
+      await queryClient.resetQueries({ predicate: isBranchScopedQuery });
+      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/branches'] });
       toast({
         title: "Sucesso",
         description: "Unidade alterada com sucesso",

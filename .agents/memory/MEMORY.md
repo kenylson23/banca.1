@@ -4,3 +4,4 @@
 - [Separate frontend/backend deployment](separate-frontend-backend-deploy.md) — cross-domain API calls need one base URL, an explicit CORS allowlist, and secure cross-site session cookies.
 - [Backend media and migrations](backend-media-and-migrations.md) — API-only deploys must own uploaded media, and startup migrations must follow actual table/column dependencies.
 - [Node runtime path compatibility](node-runtime-path-compatibility.md) — Railway may run Node 18; avoid relying on `import.meta.dirname` in deployable ESM code.
+- [Branch isolation](branch-isolation.md) — active-branch operational views must not fall back to restaurant-wide records.
