@@ -21,7 +21,7 @@ import {
   ShoppingCart, Plus, ClipboardList, Clock, ChefHat, 
   CheckCircle, Check, Search, MessageCircle, Utensils,
   X, Minus, User, Phone as PhoneIcon, ChevronRight, ShoppingBag,
-  FileText, Sparkles, Gift, Award, Tag, Percent, Loader2, Printer, ChevronLeft, ChevronRight
+  FileText, Sparkles, Gift, Award, Tag, Percent, Loader2, Printer, ChevronLeft
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -111,6 +111,10 @@ export default function CustomerMenu() {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   const [isJoiningTable, setIsJoiningTable] = useState(false);
+  const [hasJoinedTable, setHasJoinedTable] = useState(false);
+  const [requiresTablePin, setRequiresTablePin] = useState(false);
+  const [sessionPin, setSessionPin] = useState('');
+  const [pinAttemptsRemaining, setPinAttemptsRemaining] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'info' | 'review'>('cart');
@@ -778,14 +782,16 @@ export default function CustomerMenu() {
     });
   };
 
-  const handleJoinTable = async () => {
+  const joinTable = async (pin?: string) => {
     if (!currentTable || !tableNumber) return;
     setIsJoiningTable(true);
     try {
-      const response = await apiRequest('POST', `/api/public/tables/${tableNumber}/join`, {
+      const response = await apiRequestWithToken('POST', `/api/public/tables/${tableNumber}/join`, {
         name: customerName.trim() || undefined,
         customerCount: 1,
-      });
+        pin: pin?.trim() || undefined,
+        guestToken: guestToken || undefined,
+      }, { guestToken: guestToken || undefined });
       const data = await response.json();
       
       const effectiveRestaurantId = urlRestaurantId || currentTable?.restaurantId;
@@ -800,22 +806,58 @@ export default function CustomerMenu() {
         refreshToken();
       }
       
+      setHasJoinedTable(true);
+      setRequiresTablePin(false);
+      setSessionPin('');
+      setPinAttemptsRemaining(null);
       toast({
-        title: 'Mesa ocupada',
+        title: 'Mesa conectada',
         description: `Você entrou na mesa ${tableNumber}.`,
       });
       setIsJoinDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ['/api/public/tables', currentTable.restaurantId, tableNumber] });
+      return true;
     } catch (error: any) {
+      if (error.code === 'TABLE_PIN_REQUIRED') {
+        setRequiresTablePin(true);
+        setIsJoinDialogOpen(true);
+        return false;
+      }
+
+      if (error.code === 'INVALID_TABLE_PIN') {
+        setRequiresTablePin(true);
+        setPinAttemptsRemaining(error.attemptsRemaining ?? null);
+        return false;
+      }
+
+      if (error.code === 'TABLE_PIN_RATE_LIMITED') {
+        setRequiresTablePin(true);
+        setPinAttemptsRemaining(0);
+        toast({
+          title: 'Muitas tentativas',
+          description: error.message || 'Aguarde alguns minutos antes de tentar novamente.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+
       toast({
         title: 'Erro ao ocupar mesa',
         description: error.message || 'Tente novamente.',
         variant: 'destructive',
       });
+      return false;
     } finally {
       setIsJoiningTable(false);
     }
   };
+
+  const handleJoinTable = () => joinTable(sessionPin);
+
+  useEffect(() => {
+    if (!currentTable || hasJoinedTable || isJoiningTable || !guestToken) return;
+    void joinTable();
+  }, [currentTable?.id, currentTable?.currentSessionId, guestToken, hasJoinedTable]);
 
   if (!tableNumber) {
     return (
@@ -917,7 +959,7 @@ export default function CustomerMenu() {
 
             {/* Actions */}
             <div className="flex items-center gap-2">
-              {!currentTable?.currentSessionId && (
+              {!currentTable?.currentSessionId && !hasJoinedTable && (
                 <Button
                   variant="default"
                   size="sm"
@@ -1961,20 +2003,61 @@ export default function CustomerMenu() {
       )}
 
       {/* Join Table Confirmation Dialog */}
-      <Dialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen}>
+      <Dialog
+        open={isJoinDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && requiresTablePin && !hasJoinedTable) return;
+          setIsJoinDialogOpen(open);
+        }}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Ocupar Mesa {tableNumber}?</DialogTitle>
+            <DialogTitle>
+              {requiresTablePin ? 'Mesa já está em uso' : `Ocupar Mesa ${tableNumber}?`}
+            </DialogTitle>
             <DialogDescription>
-              Isso irá iniciar uma sessão nesta mesa. Outras pessoas poderão ver que a mesa está ocupada.
+              {requiresTablePin
+                ? 'Esta mesa já está em uso. Digite o PIN fornecido pelo restaurante para entrar na sessão.'
+                : 'Isso irá iniciar uma sessão nesta mesa. Outras pessoas poderão ver que a mesa está ocupada.'}
             </DialogDescription>
           </DialogHeader>
+          {requiresTablePin && (
+            <div className="space-y-2">
+              <Label htmlFor="table-session-pin">PIN da mesa</Label>
+              <Input
+                id="table-session-pin"
+                value={sessionPin}
+                onChange={(event) => setSessionPin(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="Digite os 6 dígitos"
+                maxLength={6}
+                autoFocus
+              />
+              {pinAttemptsRemaining !== null && (
+                <p className="text-xs text-muted-foreground">
+                  {pinAttemptsRemaining === 0
+                    ? 'Limite atingido. Aguarde alguns minutos antes de tentar novamente.'
+                    : `Tentativas restantes: ${pinAttemptsRemaining}`}
+                </p>
+              )}
+            </div>
+          )}
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setIsJoinDialogOpen(false)} disabled={isJoiningTable}>
-              Cancelar
-            </Button>
-            <Button onClick={handleJoinTable} disabled={isJoiningTable}>
-              {isJoiningTable ? 'Ocupando...' : 'Ocupar Mesa'}
+            {!requiresTablePin && (
+              <Button variant="outline" onClick={() => setIsJoinDialogOpen(false)} disabled={isJoiningTable}>
+                Cancelar
+              </Button>
+            )}
+            <Button
+              onClick={handleJoinTable}
+              disabled={
+                isJoiningTable
+                || (requiresTablePin && sessionPin.length !== 6)
+                || (requiresTablePin && pinAttemptsRemaining === 0)
+              }
+            >
+              {isJoiningTable ? 'Validando...' : requiresTablePin ? 'Entrar na mesa' : 'Ocupar Mesa'}
             </Button>
           </div>
         </DialogContent>

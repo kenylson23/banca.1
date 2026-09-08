@@ -44,7 +44,17 @@ export async function apiRequestWithToken(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Erro na requisição' }));
-    throw new Error(error.message || `Erro ${response.status}`);
+    const requestError = new Error(error.message || `Erro ${response.status}`) as Error & {
+      status?: number;
+      code?: string;
+      attemptsRemaining?: number;
+    };
+    Object.assign(requestError, {
+      status: response.status,
+      code: error.code,
+      attemptsRemaining: error.attemptsRemaining,
+    });
+    throw requestError;
   }
 
   return response;

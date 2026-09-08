@@ -51,6 +51,38 @@ import { nanoid } from "nanoid";
 import fs from "fs/promises";
 import twilio from "twilio";
 
+const sessionPinAttempts = new Map<string, { count: number; resetAt: number }>();
+const SESSION_PIN_MAX_ATTEMPTS = 5;
+const SESSION_PIN_WINDOW_MS = 15 * 60 * 1000;
+
+function getSessionPinAttemptKey(req: any, tableId: string): string {
+  return `${req.ip || req.socket?.remoteAddress || 'unknown'}:${tableId}`;
+}
+
+function getSessionPinAttemptState(req: any, tableId: string) {
+  const key = getSessionPinAttemptKey(req, tableId);
+  const now = Date.now();
+  const current = sessionPinAttempts.get(key);
+
+  if (!current || current.resetAt <= now) {
+    const fresh = { count: 0, resetAt: now + SESSION_PIN_WINDOW_MS };
+    sessionPinAttempts.set(key, fresh);
+    return { key, state: fresh };
+  }
+
+  return { key, state: current };
+}
+
+function registerFailedSessionPin(req: any, tableId: string) {
+  const { state } = getSessionPinAttemptState(req, tableId);
+  state.count += 1;
+  return Math.max(0, SESSION_PIN_MAX_ATTEMPTS - state.count);
+}
+
+function clearSessionPinAttempts(req: any, tableId: string) {
+  sessionPinAttempts.delete(getSessionPinAttemptKey(req, tableId));
+}
+
 // Twilio WhatsApp configuration
 const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
@@ -2866,10 +2898,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const requestedCustomerCount = req.body.customerCount ? Math.max(1, parseInt(req.body.customerCount)) : 1;
+      const { name, deviceInfo, pin, guestToken } = req.body;
       let sessionId: string = table.currentSessionId || '';
+      const hadActiveSession = Boolean(sessionId);
+
+      if (hadActiveSession) {
+        const existingGuest = guestToken
+          ? await storage.getTableGuestByToken(String(guestToken))
+          : undefined;
+
+        // A token already belonging to this active session is enough to
+        // restore the guest on a reload without asking for the PIN again.
+        if (existingGuest?.sessionId === sessionId && existingGuest.tableId === table.id) {
+          return res.json({
+            guest: existingGuest,
+            token: existingGuest.token,
+            table: {
+              id: table.id,
+              number: table.number,
+              restaurantId: table.restaurantId,
+            },
+          });
+        }
+
+        const { state } = getSessionPinAttemptState(req, table.id);
+        if (state.count >= SESSION_PIN_MAX_ATTEMPTS && state.resetAt > Date.now()) {
+          return res.status(429).json({
+            code: "TABLE_PIN_RATE_LIMITED",
+            message: "Muitas tentativas de PIN. Aguarde alguns minutos e tente novamente.",
+            attemptsRemaining: 0,
+          });
+        }
+
+        const normalizedPin = pin === undefined || pin === null ? "" : String(pin).trim();
+        if (!/^\d{6}$/.test(normalizedPin)) {
+          return res.status(409).json({
+            code: "TABLE_PIN_REQUIRED",
+            message: "Esta mesa já está em uso. Digite o PIN fornecido pelo restaurante.",
+          });
+        }
+
+        const isValidPin = await storage.validateSessionPin(sessionId, normalizedPin);
+        if (!isValidPin) {
+          const attemptsRemaining = registerFailedSessionPin(req, table.id);
+          if (attemptsRemaining === 0) {
+            return res.status(429).json({
+              code: "TABLE_PIN_RATE_LIMITED",
+              message: "Limite de tentativas atingido. Aguarde alguns minutos e tente novamente.",
+              attemptsRemaining,
+            });
+          }
+          return res.status(401).json({
+            code: "INVALID_TABLE_PIN",
+            message: "PIN inválido.",
+            attemptsRemaining,
+          });
+        }
+
+        clearSessionPinAttempts(req, table.id);
+      }
+
       if (!sessionId) {
         const session = await storage.startTableSession(table.restaurantId, table.id, {
-          customerName: req.body.name || 'Cliente',
+          customerName: name || undefined,
           customerCount: requestedCustomerCount,
         });
         sessionId = session.id;
@@ -2881,27 +2972,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .set({ customerCount: requestedCustomerCount })
           .where(eq(tables.id, table.id));
       }
-      
-      const { name, deviceInfo, pin } = req.body;
-      
-      if (pin) {
-        const isValidPin = await storage.validateSessionPin(sessionId, pin);
-        if (!isValidPin) {
-          return res.status(401).json({ message: "PIN inválido" });
-        }
-      }
-      
+
       const token = nanoid(32);
       const tokenExpiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000);
-      
-      const guest = await storage.createTableGuest(table.restaurantId, {
+
+      let guest;
+      if (!hadActiveSession) {
+        // startTableSession may already have created the first named guest.
+        // Reuse it so the first visitor receives one individual token only.
+        const sessionGuests = await storage.getTableGuests(sessionId);
+        const firstGuest = sessionGuests[0];
+        if (firstGuest && !firstGuest.token) {
+          await db.update(tableGuests)
+            .set({
+              token,
+              tokenExpiresAt,
+              name: name || firstGuest.name,
+              deviceInfo: deviceInfo || req.headers['user-agent'],
+            })
+            .where(eq(tableGuests.id, firstGuest.id));
+          guest = (await storage.getTableGuests(sessionId)).find(item => item.id === firstGuest.id);
+        }
+      }
+
+      guest ||= await storage.createTableGuest(table.restaurantId, {
         sessionId,
         tableId: table.id,
         name: name || undefined,
         token,
         deviceInfo: deviceInfo || req.headers['user-agent'],
       });
-      
+
       await db.update(tableGuests)
         .set({ tokenExpiresAt })
         .where(eq(tableGuests.id, guest.id));
@@ -2952,17 +3053,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Mesa sem sessão ativa" });
       }
       
-      const isValid = await storage.validateSessionPin(sessionId, pin);
-      if (!isValid) {
-        return res.status(401).json({ message: "PIN inválido" });
+      const { state } = getSessionPinAttemptState(req, table.id);
+      if (state.count >= SESSION_PIN_MAX_ATTEMPTS && state.resetAt > Date.now()) {
+        return res.status(429).json({
+          code: "TABLE_PIN_RATE_LIMITED",
+          message: "Muitas tentativas de PIN. Aguarde alguns minutos e tente novamente.",
+          attemptsRemaining: 0,
+        });
       }
-      
-      const sessionPin = await storage.getSessionPin(sessionId);
+
+      const normalizedPin = String(pin).trim();
+      const isValid = /^\d{6}$/.test(normalizedPin)
+        && await storage.validateSessionPin(sessionId, normalizedPin);
+      if (!isValid) {
+        const attemptsRemaining = registerFailedSessionPin(req, table.id);
+        return res.status(attemptsRemaining === 0 ? 429 : 401).json({
+          code: attemptsRemaining === 0 ? "TABLE_PIN_RATE_LIMITED" : "INVALID_TABLE_PIN",
+          message: attemptsRemaining === 0
+            ? "Limite de tentativas atingido. Aguarde alguns minutos e tente novamente."
+            : "PIN inválido",
+          attemptsRemaining,
+        });
+      }
+
+      clearSessionPinAttempts(req, table.id);
       
       res.json({ 
         valid: true, 
         sessionId,
-        pin: sessionPin,
         table: {
           id: table.id,
           number: table.number,
@@ -3141,21 +3259,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!validatedOrder.tableId) {
           return res.status(400).json({ message: "Mesa é obrigatória para pedidos do tipo mesa" });
         }
-        const table = await storage.getTableById(validatedOrder.tableId);
+        let table = await storage.getTableById(validatedOrder.tableId);
         if (!table) {
           return res.status(404).json({ message: "Mesa não encontrada" });
         }
         
-        // ✅ ABRIR MESA AUTOMATICAMENTE se estiver livre
-        if (table.status === 'livre') {
-          await storage.openTable(validatedOrder.tableId, validatedOrder.customerCount);
+        const sessionPin = req.headers['x-session-pin'] as string | undefined || req.body?.sessionPin as string | undefined;
+        const guestToken = req.headers['x-guest-token'] as string | undefined;
+        let sessionStartedForThisRequest = false;
+
+        // The first QR visitor can start a session without a PIN.
+        if (!table.currentSessionId) {
+          await storage.startTableSession(validatedOrder.restaurantId, validatedOrder.tableId, {
+            customerName: validatedOrder.customerName || undefined,
+            customerCount: validatedOrder.customerCount,
+          });
+          table = await storage.getTableById(validatedOrder.tableId);
+          sessionStartedForThisRequest = true;
         }
 
-        const sessionPin = req.headers['x-session-pin'] as string | undefined || req.body?.sessionPin as string | undefined;
-        if (sessionPin && table.currentSessionId) {
-          const isValidPin = await storage.validateSessionPin(table.currentSessionId, sessionPin);
-          if (!isValidPin) {
-            return res.status(401).json({ message: "PIN da mesa inválido" });
+        if (table?.currentSessionId && !sessionStartedForThisRequest) {
+          const tokenGuest = guestToken
+            ? await storage.getTableGuestByToken(guestToken)
+            : undefined;
+          const tokenBelongsToCurrentSession = tokenGuest?.sessionId === table.currentSessionId
+            && tokenGuest.tableId === table.id;
+
+          if (!tokenBelongsToCurrentSession) {
+            const { state } = getSessionPinAttemptState(req, table.id);
+            if (state.count >= SESSION_PIN_MAX_ATTEMPTS && state.resetAt > Date.now()) {
+              return res.status(429).json({
+                code: "TABLE_PIN_RATE_LIMITED",
+                message: "Muitas tentativas de PIN. Aguarde alguns minutos e tente novamente.",
+                attemptsRemaining: 0,
+              });
+            }
+
+            const normalizedPin = sessionPin ? String(sessionPin).trim() : "";
+            const isValidPin = /^\d{6}$/.test(normalizedPin)
+              && await storage.validateSessionPin(table.currentSessionId, normalizedPin);
+            if (!isValidPin) {
+              const attemptsRemaining = registerFailedSessionPin(req, table.id);
+              return res.status(attemptsRemaining === 0 ? 429 : 409).json({
+                code: attemptsRemaining === 0 ? "TABLE_PIN_RATE_LIMITED" : "TABLE_PIN_REQUIRED",
+                message: attemptsRemaining === 0
+                  ? "Limite de tentativas atingido. Aguarde alguns minutos e tente novamente."
+                  : "Esta mesa já está em uso. Digite o PIN fornecido pelo restaurante.",
+                attemptsRemaining,
+              });
+            }
+            clearSessionPinAttempts(req, table.id);
           }
         }
       }
@@ -3188,6 +3341,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   name: customer.name,
                   token: guestToken, // Salvar token também
                 });
+                await db.update(tableGuests)
+                  .set({ tokenExpiresAt: new Date(Date.now() + 4 * 60 * 60 * 1000) })
+                  .where(eq(tableGuests.id, newGuest.id));
                 detectedGuestId = newGuest.id;
                 
                 broadcastToClients({ 
@@ -3219,6 +3375,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 guestNumber: guestNumber,
                 token: guestToken,
               });
+              await db.update(tableGuests)
+                .set({ tokenExpiresAt: new Date(Date.now() + 4 * 60 * 60 * 1000) })
+                .where(eq(tableGuests.id, newGuest.id));
               detectedGuestId = newGuest.id;
               
               broadcastToClients({ 
@@ -3227,20 +3386,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
             }
           }
-          // OPÇÃO 3: Fallback - criar convidado anônimo sem token (última opção)
+          // Não criar convidados sem token: isso permitiria contornar o PIN
+          // enviando um pedido diretamente para esta rota.
           else {
-            const existingGuests = await storage.getTableGuests(table.currentSessionId);
-            const anonymousCount = existingGuests.filter(g => !g.customerId).length;
-            const guestNumber = anonymousCount + 1;
-            
-            const newGuest = await storage.createTableGuest(validatedOrder.restaurantId, {
-              sessionId: table.currentSessionId,
-              tableId: table.id,
-              customerId: null,
-              name: `Convidado ${guestNumber}`,
-              guestNumber: guestNumber,
+            return res.status(409).json({
+              code: "TABLE_PIN_REQUIRED",
+              message: "Valide o PIN da mesa antes de fazer um pedido.",
             });
-            detectedGuestId = newGuest.id;
           }
         }
       }
