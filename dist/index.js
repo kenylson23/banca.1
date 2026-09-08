@@ -173,6 +173,7 @@ __export(schema_exports, {
   inventoryCategoriesRelations: () => inventoryCategoriesRelations,
   inventoryItems: () => inventoryItems,
   inventoryItemsRelations: () => inventoryItemsRelations,
+  invoiceSequences: () => invoiceSequences,
   linkAnalytics: () => linkAnalytics,
   linkCustomerSchema: () => linkCustomerSchema,
   loginSchema: () => loginSchema,
@@ -322,7 +323,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-var sessions, restaurantStatusEnum, restaurants, insertRestaurantSchema, registerRestaurantSchema, updateRestaurantSlugSchema, updateRestaurantAppearanceSchema, branches, insertBranchSchema, updateBranchSchema, userRoleEnum, ROLE_PERMISSIONS, users, insertUserSchema, loginSchema, updateUserSchema, updateProfileSchema, updatePasswordSchema, adminResetPasswordSchema, resetRestaurantAdminCredentialsSchema, userAuditActionEnum, userAuditLogs, insertUserAuditLogSchema, printerTypeEnum, printerLanguageEnum, printerConfigurations, insertPrinterConfigurationSchema, updatePrinterConfigurationSchema, printHistory, insertPrintHistorySchema, tableStatusEnum, tableStatusGranularEnum, tables, insertTableSchema, updateTableStatusSchema, shiftStatusEnum, financialEventTypeEnum, eventSourceEnum, adjustmentTypeEnum, reportPeriodTypeEnum, paymentMethodEnum, financialShifts, insertFinancialShiftSchema, tableSessions, insertTableSessionSchema, tablePayments, insertTablePaymentSchema, guestStatusEnum, billSplitTypeEnum, discountTypeEnum, serviceChargeTypeEnum, tableGuests, insertTableGuestSchema, updateTableGuestSchema, tableBillSplits, insertTableBillSplitSchema, updateTableBillSplitSchema, guestPayments, insertGuestPaymentSchema, orderStatusEnum, orderTypeEnum, paymentStatusEnum, customerTierEnum, loyaltyTransactionTypeEnum, customers, insertCustomerSchema, updateCustomerSchema, customerSessions, insertCustomerSessionSchema, customerAuthRequestSchema, customerAuthVerifySchema, loyaltyPrograms, insertLoyaltyProgramSchema, updateLoyaltyProgramSchema, loyaltyTransactions, insertLoyaltyTransactionSchema, coupons, insertCouponSchema, updateCouponSchema, validateCouponSchema, couponUsages, insertCouponUsageSchema, orders, insertOrderSchema, publicOrderSchema, updateOrderStatusSchema, updateOrderMetadataSchema, applyDiscountSchema, applyServiceChargeSchema, applyDeliveryFeeSchema, applyPackagingFeeSchema, recordPaymentSchema, updateOrderItemQuantitySchema, reassignOrderItemSchema, orderItemAuditActionEnum, orderItemAuditLogs, insertOrderItemAuditLogSchema, linkCustomerSchema, applyCouponSchema, redeemLoyaltyPointsSchema, cancelOrderSchema, orderItems, insertOrderItemSchema, publicOrderItemSchema, orderItemOptions, insertOrderItemOptionSchema, financialEvents, insertFinancialEventSchema, orderAdjustments, insertOrderAdjustmentSchema, serviceContextEnum, services, insertServiceSchema, orderServices, insertOrderServiceSchema, paymentEvents, insertPaymentEventSchema, reportAggregations, insertReportAggregationSchema, categories, insertCategorySchema, updateCategorySchema, menuItems, insertMenuItemSchema, updateMenuItemSchema, optionGroupTypeEnum, optionGroups, insertOptionGroupSchema, updateOptionGroupSchema, options, insertOptionSchema, updateOptionSchema, messages, insertMessageSchema, menuVisits, insertMenuVisitSchema, customerReviews, insertCustomerReviewSchema, restaurantsRelations, branchesRelations, usersRelations, categoriesRelations, menuItemsRelations, tablesRelations, tableSessionsRelations, tablePaymentsRelations, ordersRelations, orderItemsRelations, orderItemAuditLogsRelations, optionGroupsRelations, optionsRelations, orderItemOptionsRelations, messagesRelations, menuVisitsRelations, customerReviewsRelations, financialShiftsRelations, financialEventsRelations, orderAdjustmentsRelations, paymentEventsRelations, reportAggregationsRelations, cashRegisters, insertCashRegisterSchema, updateCashRegisterSchema, cashRegisterShiftStatusEnum, cashRegisterShifts, insertCashRegisterShiftSchema, closeCashRegisterShiftSchema, transactionTypeEnum, transactionOriginEnum, financialCategories, insertFinancialCategorySchema, financialTransactions, insertFinancialTransactionSchema, expenses, insertExpenseSchema, updateExpenseSchema, cashRegistersRelations, cashRegisterShiftsRelations, financialCategoriesRelations, financialTransactionsRelations, expensesRelations, stockMovementTypeEnum, inventoryCategories, insertInventoryCategorySchema, updateInventoryCategorySchema, measurementUnits, insertMeasurementUnitSchema, updateMeasurementUnitSchema, inventoryItems, insertInventoryItemSchema, updateInventoryItemSchema, branchStock, stockMovements, insertStockMovementSchema, inventoryCategoriesRelations, measurementUnitsRelations, inventoryItemsRelations, branchStockRelations, stockMovementsRelations, recipeIngredients, insertRecipeIngredientSchema, updateRecipeIngredientSchema, recipeIngredientsRelations, customersRelations, customerSessionsRelations, loyaltyProgramsRelations, loyaltyTransactionsRelations, couponsRelations, couponUsagesRelations, subscriptionPlanEnum, subscriptionStatusEnum, subscriptionPaymentStatusEnum, billingIntervalEnum, subscriptionPlans, insertSubscriptionPlanSchema, updateSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, updateSubscriptionSchema, superAdminCreateSubscriptionSchema, superAdminUpdateSubscriptionSchema, subscriptionPayments, insertSubscriptionPaymentSchema, subscriptionUsage, insertSubscriptionUsageSchema, subscriptionPlansRelations, subscriptionsRelations, subscriptionPaymentsRelations, subscriptionUsageRelations, notificationTypeEnum, notificationChannelEnum, notifications, insertNotificationSchema, notificationPreferences, insertNotificationPreferencesSchema, updateNotificationPreferencesSchema, customerNotificationPreferences, updateCustomerNotificationPreferencesSchema, notificationsRelations, notificationPreferencesRelations, customerNotificationPreferencesRelations, linkAnalytics, insertLinkAnalyticsSchema, auditLogs2, insertAuditLogSchema, auditLogsRelations;
+var sessions, restaurantStatusEnum, restaurants, insertRestaurantSchema, registerRestaurantSchema, updateRestaurantSlugSchema, updateRestaurantAppearanceSchema, branches, insertBranchSchema, updateBranchSchema, invoiceSequences, userRoleEnum, ROLE_PERMISSIONS, users, insertUserSchema, loginSchema, updateUserSchema, updateProfileSchema, updatePasswordSchema, adminResetPasswordSchema, resetRestaurantAdminCredentialsSchema, userAuditActionEnum, userAuditLogs, insertUserAuditLogSchema, printerTypeEnum, printerLanguageEnum, printerConfigurations, insertPrinterConfigurationSchema, updatePrinterConfigurationSchema, printHistory, insertPrintHistorySchema, tableStatusEnum, tableStatusGranularEnum, tables, insertTableSchema, updateTableStatusSchema, shiftStatusEnum, financialEventTypeEnum, eventSourceEnum, adjustmentTypeEnum, reportPeriodTypeEnum, paymentMethodEnum, financialShifts, insertFinancialShiftSchema, tableSessions, insertTableSessionSchema, tablePayments, insertTablePaymentSchema, guestStatusEnum, billSplitTypeEnum, discountTypeEnum, serviceChargeTypeEnum, tableGuests, insertTableGuestSchema, updateTableGuestSchema, tableBillSplits, insertTableBillSplitSchema, updateTableBillSplitSchema, guestPayments, insertGuestPaymentSchema, orderStatusEnum, orderTypeEnum, paymentStatusEnum, customerTierEnum, loyaltyTransactionTypeEnum, customers, insertCustomerSchema, updateCustomerSchema, customerSessions, insertCustomerSessionSchema, customerAuthRequestSchema, customerAuthVerifySchema, loyaltyPrograms, insertLoyaltyProgramSchema, updateLoyaltyProgramSchema, loyaltyTransactions, insertLoyaltyTransactionSchema, coupons, insertCouponSchema, updateCouponSchema, validateCouponSchema, couponUsages, insertCouponUsageSchema, orders, insertOrderSchema, publicOrderSchema, updateOrderStatusSchema, updateOrderMetadataSchema, applyDiscountSchema, applyServiceChargeSchema, applyDeliveryFeeSchema, applyPackagingFeeSchema, recordPaymentSchema, updateOrderItemQuantitySchema, reassignOrderItemSchema, orderItemAuditActionEnum, orderItemAuditLogs, insertOrderItemAuditLogSchema, linkCustomerSchema, applyCouponSchema, redeemLoyaltyPointsSchema, cancelOrderSchema, orderItems, insertOrderItemSchema, publicOrderItemSchema, orderItemOptions, insertOrderItemOptionSchema, financialEvents, insertFinancialEventSchema, orderAdjustments, insertOrderAdjustmentSchema, serviceContextEnum, services, insertServiceSchema, orderServices, insertOrderServiceSchema, paymentEvents, insertPaymentEventSchema, reportAggregations, insertReportAggregationSchema, categories, insertCategorySchema, updateCategorySchema, menuItems, insertMenuItemSchema, updateMenuItemSchema, optionGroupTypeEnum, optionGroups, insertOptionGroupSchema, updateOptionGroupSchema, options, insertOptionSchema, updateOptionSchema, messages, insertMessageSchema, menuVisits, insertMenuVisitSchema, customerReviews, insertCustomerReviewSchema, restaurantsRelations, branchesRelations, usersRelations, categoriesRelations, menuItemsRelations, tablesRelations, tableSessionsRelations, tablePaymentsRelations, ordersRelations, orderItemsRelations, orderItemAuditLogsRelations, optionGroupsRelations, optionsRelations, orderItemOptionsRelations, messagesRelations, menuVisitsRelations, customerReviewsRelations, financialShiftsRelations, financialEventsRelations, orderAdjustmentsRelations, paymentEventsRelations, reportAggregationsRelations, cashRegisters, insertCashRegisterSchema, updateCashRegisterSchema, cashRegisterShiftStatusEnum, cashRegisterShifts, insertCashRegisterShiftSchema, closeCashRegisterShiftSchema, transactionTypeEnum, transactionOriginEnum, financialCategories, insertFinancialCategorySchema, financialTransactions, insertFinancialTransactionSchema, expenses, insertExpenseSchema, updateExpenseSchema, cashRegistersRelations, cashRegisterShiftsRelations, financialCategoriesRelations, financialTransactionsRelations, expensesRelations, stockMovementTypeEnum, inventoryCategories, insertInventoryCategorySchema, updateInventoryCategorySchema, measurementUnits, insertMeasurementUnitSchema, updateMeasurementUnitSchema, inventoryItems, insertInventoryItemSchema, updateInventoryItemSchema, branchStock, stockMovements, insertStockMovementSchema, inventoryCategoriesRelations, measurementUnitsRelations, inventoryItemsRelations, branchStockRelations, stockMovementsRelations, recipeIngredients, insertRecipeIngredientSchema, updateRecipeIngredientSchema, recipeIngredientsRelations, customersRelations, customerSessionsRelations, loyaltyProgramsRelations, loyaltyTransactionsRelations, couponsRelations, couponUsagesRelations, subscriptionPlanEnum, subscriptionStatusEnum, subscriptionPaymentStatusEnum, billingIntervalEnum, subscriptionPlans, insertSubscriptionPlanSchema, updateSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, updateSubscriptionSchema, superAdminCreateSubscriptionSchema, superAdminUpdateSubscriptionSchema, subscriptionPayments, insertSubscriptionPaymentSchema, subscriptionUsage, insertSubscriptionUsageSchema, subscriptionPlansRelations, subscriptionsRelations, subscriptionPaymentsRelations, subscriptionUsageRelations, notificationTypeEnum, notificationChannelEnum, notifications, insertNotificationSchema, notificationPreferences, insertNotificationPreferencesSchema, updateNotificationPreferencesSchema, customerNotificationPreferences, updateCustomerNotificationPreferencesSchema, notificationsRelations, notificationPreferencesRelations, customerNotificationPreferencesRelations, linkAnalytics, insertLinkAnalyticsSchema, auditLogs2, insertAuditLogSchema, auditLogsRelations;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -431,6 +432,12 @@ var init_schema = __esm({
       address: z.string().optional(),
       phone: z.string().optional(),
       isActive: z.number().optional()
+    });
+    invoiceSequences = pgTable("invoice_sequences", {
+      scopeKey: varchar("scope_key", { length: 255 }).primaryKey(),
+      restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: "cascade" }),
+      branchId: varchar("branch_id").references(() => branches.id, { onDelete: "cascade" }),
+      nextNumber: integer("next_number").notNull().default(1)
     });
     userRoleEnum = pgEnum("user_role", ["superadmin", "admin", "manager", "cashier", "waiter", "kitchen"]);
     ROLE_PERMISSIONS = {
@@ -1314,6 +1321,7 @@ var init_schema = __esm({
       deliveryNotes: text("delivery_notes"),
       orderNotes: text("order_notes"),
       orderNumber: varchar("order_number", { length: 20 }),
+      invoiceNumber: integer("invoice_number"),
       orderTitle: varchar("order_title", { length: 200 }),
       status: orderStatusEnum("status").notNull().default("pendente"),
       subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default("0"),
@@ -1352,6 +1360,7 @@ var init_schema = __esm({
       id: true,
       createdAt: true,
       updatedAt: true,
+      invoiceNumber: true,
       subtotal: true,
       totalAmount: true,
       paymentStatus: true,
@@ -3388,12 +3397,39 @@ var init_db = __esm({
   }
 });
 
+// server/invoiceNumberGenerator.ts
+import { sql as sql2 } from "drizzle-orm";
+function getInvoiceSequenceScope(restaurantId, branchId) {
+  return branchId ? `branch:${branchId}` : `restaurant:${restaurantId}`;
+}
+async function allocateInvoiceNumber(restaurantId, branchId) {
+  const scopeKey = getInvoiceSequenceScope(restaurantId, branchId);
+  const result = await db.execute(sql2`
+    INSERT INTO invoice_sequences (scope_key, restaurant_id, branch_id, next_number)
+    VALUES (${scopeKey}, ${restaurantId}, ${branchId ?? null}, 2)
+    ON CONFLICT (scope_key)
+    DO UPDATE SET next_number = invoice_sequences.next_number + 1
+    RETURNING next_number - 1 AS invoice_number
+  `);
+  const invoiceNumber = Number(result.rows?.[0]?.invoice_number);
+  if (!Number.isInteger(invoiceNumber) || invoiceNumber < 1) {
+    throw new Error("N\xE3o foi poss\xEDvel reservar o n\xFAmero da fatura");
+  }
+  return invoiceNumber;
+}
+var init_invoiceNumberGenerator = __esm({
+  "server/invoiceNumberGenerator.ts"() {
+    "use strict";
+    init_db();
+  }
+});
+
 // server/initDb.ts
 var initDb_exports = {};
 __export(initDb_exports, {
   ensureTablesExist: () => ensureTablesExist
 });
-import { sql as sql2 } from "drizzle-orm";
+import { sql as sql3 } from "drizzle-orm";
 async function ensureTablesExist() {
   if (isInitialized) {
     return;
@@ -3404,27 +3440,27 @@ async function ensureTablesExist() {
   initPromise2 = (async () => {
     try {
       await initializeConnection();
-      await db.execute(sql2`DO $$ BEGIN CREATE TYPE restaurant_status AS ENUM ('pendente', 'ativo', 'suspenso'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN CREATE TYPE user_role AS ENUM ('superadmin', 'admin', 'manager', 'cashier', 'waiter', 'kitchen'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN CREATE TYPE order_status AS ENUM ('pendente', 'em_preparo', 'pronto', 'servido', 'cancelado'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN CREATE TYPE order_type AS ENUM ('mesa', 'delivery', 'takeout', 'balcao', 'pdv'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN CREATE TYPE payment_status AS ENUM ('nao_pago', 'parcial', 'pago'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN CREATE TYPE payment_method AS ENUM ('dinheiro', 'multicaixa', 'transferencia', 'cartao'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN CREATE TYPE discount_type AS ENUM ('valor', 'percentual'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN CREATE TYPE bill_split_type AS ENUM ('igual', 'por_pessoa', 'personalizado'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN CREATE TYPE restaurant_status AS ENUM ('pendente', 'ativo', 'suspenso'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN CREATE TYPE user_role AS ENUM ('superadmin', 'admin', 'manager', 'cashier', 'waiter', 'kitchen'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN CREATE TYPE order_status AS ENUM ('pendente', 'em_preparo', 'pronto', 'servido', 'cancelado'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN CREATE TYPE order_type AS ENUM ('mesa', 'delivery', 'takeout', 'balcao', 'pdv'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN CREATE TYPE payment_status AS ENUM ('nao_pago', 'parcial', 'pago'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN CREATE TYPE payment_method AS ENUM ('dinheiro', 'multicaixa', 'transferencia', 'cartao'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN CREATE TYPE discount_type AS ENUM ('valor', 'percentual'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN CREATE TYPE bill_split_type AS ENUM ('igual', 'por_pessoa', 'personalizado'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN
         ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'cancelado';
       EXCEPTION WHEN others THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'manager';
       EXCEPTION WHEN others THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'cashier';
       EXCEPTION WHEN others THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'waiter';
       EXCEPTION WHEN others THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS restaurants (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS restaurants (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
         name VARCHAR(200) NOT NULL,
         slug VARCHAR(100) UNIQUE,
@@ -3438,37 +3474,37 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(), 
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE restaurants ADD COLUMN slug VARCHAR(100) UNIQUE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE restaurants ADD COLUMN logo_url TEXT; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE restaurants ADD COLUMN business_hours TEXT; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE restaurants ADD COLUMN description TEXT; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE restaurants ADD COLUMN primary_color VARCHAR(7) DEFAULT '#EA580C'; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE restaurants ADD COLUMN secondary_color VARCHAR(7) DEFAULT '#DC2626'; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE restaurants ADD COLUMN accent_color VARCHAR(7) DEFAULT '#0891B2'; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE restaurants ADD COLUMN hero_image_url TEXT; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE restaurants ADD COLUMN whatsapp_number VARCHAR(50); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE restaurants ADD COLUMN is_open INTEGER NOT NULL DEFAULT 1; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS users (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS users (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
         restaurant_id VARCHAR REFERENCES restaurants(id) ON DELETE CASCADE, 
         email VARCHAR(255) NOT NULL UNIQUE, 
@@ -3479,10 +3515,10 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(), 
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE users ADD COLUMN restaurant_id VARCHAR REFERENCES restaurants(id) ON DELETE CASCADE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS branches (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS branches (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE, 
         name VARCHAR(200) NOT NULL, 
@@ -3493,19 +3529,19 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(), 
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE users ADD COLUMN active_branch_id VARCHAR REFERENCES branches(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE users ADD COLUMN profile_image_url VARCHAR(500); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS sessions (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS sessions (
         sid VARCHAR PRIMARY KEY, 
         sess JSONB NOT NULL, 
         expire TIMESTAMP NOT NULL
       );`);
-      await db.execute(sql2`CREATE INDEX IF NOT EXISTS IDX_session_expire ON sessions (expire);`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS tables (
+      await db.execute(sql3`CREATE INDEX IF NOT EXISTS IDX_session_expire ON sessions (expire);`);
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS tables (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE, 
         number INTEGER NOT NULL, 
@@ -3513,67 +3549,67 @@ async function ensureTablesExist() {
         is_occupied INTEGER NOT NULL DEFAULT 0, 
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN restaurant_id VARCHAR REFERENCES restaurants(id) ON DELETE CASCADE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE tables DROP CONSTRAINT IF EXISTS tables_number_unique; 
       EXCEPTION WHEN undefined_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE tables DROP CONSTRAINT IF EXISTS tables_restaurant_branch_number_unique; 
       EXCEPTION WHEN undefined_object THEN null; END $$;`);
-      await db.execute(sql2`DROP INDEX IF EXISTS tables_restaurant_branch_number_idx;`);
-      await db.execute(sql2`CREATE UNIQUE INDEX IF NOT EXISTS tables_restaurant_branch_number_idx 
+      await db.execute(sql3`DROP INDEX IF EXISTS tables_restaurant_branch_number_idx;`);
+      await db.execute(sql3`CREATE UNIQUE INDEX IF NOT EXISTS tables_restaurant_branch_number_idx 
         ON tables (restaurant_id, COALESCE(branch_id, ''), number);`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         CREATE TYPE table_status AS ENUM ('livre', 'ocupada', 'em_andamento', 'aguardando_pagamento', 'encerrada');
       EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN status table_status NOT NULL DEFAULT 'livre'; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         CREATE TYPE table_status_enum AS ENUM ('disponivel', 'aguardando_pedido', 'em_consumo', 'aguardando_pgto', 'pagamento_parcial', 'reservada');
       EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN table_status table_status_enum DEFAULT 'disponivel'; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN current_session_id VARCHAR; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN position_x REAL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN position_y REAL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN total_amount DECIMAL(10, 2) DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN customer_name VARCHAR(200); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN customer_count INTEGER DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN last_activity TIMESTAMP; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN is_occupied INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN capacity INTEGER; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE tables ADD COLUMN area VARCHAR(100); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         CREATE TYPE shift_status AS ENUM ('aberto', 'fechado');
       EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS financial_shifts (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS financial_shifts (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
@@ -3587,7 +3623,7 @@ async function ensureTablesExist() {
         started_at TIMESTAMP DEFAULT NOW(),
         ended_at TIMESTAMP
       );`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS table_sessions (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS table_sessions (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         table_id VARCHAR NOT NULL REFERENCES tables(id) ON DELETE CASCADE,
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
@@ -3600,41 +3636,41 @@ async function ensureTablesExist() {
         ended_at TIMESTAMP,
         notes TEXT
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE table_sessions ADD COLUMN shift_id VARCHAR REFERENCES financial_shifts(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE table_sessions ADD COLUMN operator_id VARCHAR REFERENCES users(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE table_sessions ADD COLUMN session_totals JSONB; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE table_sessions ADD COLUMN closing_snapshot JSONB; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE table_sessions ADD COLUMN closed_by_id VARCHAR REFERENCES users(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         ALTER TABLE table_sessions ADD COLUMN discount DECIMAL(10, 2) DEFAULT 0;
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         ALTER TABLE table_sessions ADD COLUMN discount_type VARCHAR(20) DEFAULT 'valor';
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         ALTER TABLE table_sessions ADD COLUMN service_fee VARCHAR;
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         ALTER TABLE table_sessions ADD COLUMN service_fee_type VARCHAR;
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         ALTER TABLE table_sessions ADD COLUMN service_charge DECIMAL(10, 2) DEFAULT 0;
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         ALTER TABLE table_sessions ADD COLUMN service_charge_type VARCHAR(20) DEFAULT 'percentual';
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN CREATE TYPE guest_status AS ENUM ('ativo', 'aguardando_conta', 'pago', 'saiu'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS table_guests (
+      await db.execute(sql3`DO $$ BEGIN CREATE TYPE guest_status AS ENUM ('ativo', 'aguardando_conta', 'pago', 'saiu'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS table_guests (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         session_id VARCHAR NOT NULL REFERENCES table_sessions(id) ON DELETE CASCADE,
         table_id VARCHAR NOT NULL REFERENCES tables(id) ON DELETE CASCADE,
@@ -3649,7 +3685,7 @@ async function ensureTablesExist() {
         joined_at TIMESTAMP DEFAULT NOW(),
         left_at TIMESTAMP
       );`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS table_payments (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS table_payments (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         table_id VARCHAR NOT NULL REFERENCES tables(id) ON DELETE CASCADE,
         session_id VARCHAR REFERENCES table_sessions(id) ON DELETE CASCADE,
@@ -3659,19 +3695,19 @@ async function ensureTablesExist() {
         notes TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE table_payments ADD COLUMN operator_id VARCHAR REFERENCES users(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE table_payments ADD COLUMN payment_source VARCHAR(100); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE table_payments ADD COLUMN method_details JSONB; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE table_payments ADD COLUMN reconciliation_batch_id VARCHAR(100); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS table_bill_splits (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS table_bill_splits (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         session_id VARCHAR NOT NULL REFERENCES table_sessions(id) ON DELETE CASCADE,
         table_id VARCHAR NOT NULL REFERENCES tables(id) ON DELETE CASCADE,
@@ -3685,32 +3721,32 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         finalized_at TIMESTAMP
       );`);
-      await db.execute(sql2`CREATE INDEX IF NOT EXISTS idx_table_bill_splits_session ON table_bill_splits(session_id);`);
-      await db.execute(sql2`CREATE INDEX IF NOT EXISTS idx_table_bill_splits_table ON table_bill_splits(table_id);`);
-      await db.execute(sql2`CREATE INDEX IF NOT EXISTS idx_table_bill_splits_restaurant ON table_bill_splits(restaurant_id);`);
-      await db.execute(sql2`CREATE INDEX IF NOT EXISTS idx_table_bill_splits_created_at ON table_bill_splits(created_at);`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS categories (
+      await db.execute(sql3`CREATE INDEX IF NOT EXISTS idx_table_bill_splits_session ON table_bill_splits(session_id);`);
+      await db.execute(sql3`CREATE INDEX IF NOT EXISTS idx_table_bill_splits_table ON table_bill_splits(table_id);`);
+      await db.execute(sql3`CREATE INDEX IF NOT EXISTS idx_table_bill_splits_restaurant ON table_bill_splits(restaurant_id);`);
+      await db.execute(sql3`CREATE INDEX IF NOT EXISTS idx_table_bill_splits_created_at ON table_bill_splits(created_at);`);
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS categories (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE, 
         name VARCHAR(100) NOT NULL, 
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE categories ADD COLUMN restaurant_id VARCHAR REFERENCES restaurants(id) ON DELETE CASCADE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE categories ADD COLUMN branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE categories ADD COLUMN image_url TEXT; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE categories ADD COLUMN display_order INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE categories ADD COLUMN is_visible INTEGER NOT NULL DEFAULT 1; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS menu_items (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS menu_items (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE, 
         category_id VARCHAR NOT NULL REFERENCES categories(id) ON DELETE CASCADE, 
@@ -3721,37 +3757,37 @@ async function ensureTablesExist() {
         is_available INTEGER NOT NULL DEFAULT 1, 
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE menu_items ADD COLUMN restaurant_id VARCHAR REFERENCES restaurants(id) ON DELETE CASCADE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE menu_items ADD COLUMN branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE menu_items ADD COLUMN display_order INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE menu_items ADD COLUMN is_visible INTEGER NOT NULL DEFAULT 1; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE menu_items ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE menu_items ADD COLUMN original_price DECIMAL(10, 2); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE menu_items ADD COLUMN is_featured INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE menu_items ADD COLUMN is_new INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE menu_items ADD COLUMN tags TEXT[]; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE menu_items ADD COLUMN preparation_time INTEGER; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS orders (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS orders (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         table_id VARCHAR REFERENCES tables(id) ON DELETE CASCADE,
@@ -3770,92 +3806,92 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(), 
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN restaurant_id VARCHAR REFERENCES restaurants(id) ON DELETE CASCADE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN order_type order_type NOT NULL DEFAULT 'mesa'; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN delivery_address TEXT; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN delivery_notes TEXT; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN order_notes TEXT; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ALTER COLUMN table_id DROP NOT NULL; 
       EXCEPTION WHEN others THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN payment_method payment_method; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN paid_amount DECIMAL(10, 2) DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN is_synced INTEGER DEFAULT 1; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN created_by VARCHAR REFERENCES users(id); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN order_title VARCHAR(200); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN subtotal DECIMAL(10, 2) NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN discount DECIMAL(10, 2) DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN discount_type discount_type DEFAULT 'valor'; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN service_charge DECIMAL(10, 2) DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN delivery_fee DECIMAL(10, 2) DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN payment_status payment_status NOT NULL DEFAULT 'nao_pago'; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN change_amount DECIMAL(10, 2) DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN service_name VARCHAR(200); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN packaging_fee DECIMAL(10, 2) DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN table_session_id VARCHAR REFERENCES table_sessions(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN guest_id VARCHAR REFERENCES table_guests(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN refund_amount DECIMAL(10, 2) DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN cancellation_reason TEXT; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN cancelled_at TIMESTAMP; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN cancelled_by VARCHAR REFERENCES users(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN closed_by VARCHAR REFERENCES users(id); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN CREATE TYPE customer_tier AS ENUM ('bronze', 'prata', 'ouro', 'platina'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS customers (
+      await db.execute(sql3`DO $$ BEGIN CREATE TYPE customer_tier AS ENUM ('bronze', 'prata', 'ouro', 'platina'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS customers (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         branch_id VARCHAR REFERENCES branches(id) ON DELETE SET NULL,
@@ -3875,11 +3911,11 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN CREATE TYPE loyalty_transaction_type AS ENUM ('ganho', 'resgate', 'expiracao', 'ajuste', 'bonus'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN CREATE TYPE loyalty_transaction_type AS ENUM ('ganho', 'resgate', 'expiracao', 'ajuste', 'bonus'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN customer_id VARCHAR REFERENCES customers(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS coupons (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS coupons (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         branch_id VARCHAR REFERENCES branches(id) ON DELETE SET NULL,
@@ -3900,49 +3936,49 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      const hasTimesUsed = await db.execute(sql2`
+      const hasTimesUsed = await db.execute(sql3`
         SELECT column_name 
         FROM information_schema.columns 
         WHERE table_name = 'coupons' AND column_name = 'times_used'
       `);
       if (hasTimesUsed.rows.length > 0) {
-        await db.execute(sql2`ALTER TABLE coupons RENAME COLUMN times_used TO current_uses;`);
+        await db.execute(sql3`ALTER TABLE coupons RENAME COLUMN times_used TO current_uses;`);
       }
-      const hasUsageLimit = await db.execute(sql2`
+      const hasUsageLimit = await db.execute(sql3`
         SELECT column_name 
         FROM information_schema.columns 
         WHERE table_name = 'coupons' AND column_name = 'usage_limit'
       `);
       if (hasUsageLimit.rows.length > 0) {
-        await db.execute(sql2`ALTER TABLE coupons RENAME COLUMN usage_limit TO max_uses;`);
+        await db.execute(sql3`ALTER TABLE coupons RENAME COLUMN usage_limit TO max_uses;`);
       }
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE coupons ADD COLUMN max_uses_per_customer INTEGER DEFAULT 1; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      const hasCurrentUses = await db.execute(sql2`
+      const hasCurrentUses = await db.execute(sql3`
         SELECT column_name 
         FROM information_schema.columns 
         WHERE table_name = 'coupons' AND column_name = 'current_uses'
       `);
       if (hasCurrentUses.rows.length === 0) {
-        await db.execute(sql2`ALTER TABLE coupons ADD COLUMN current_uses INTEGER NOT NULL DEFAULT 0;`);
+        await db.execute(sql3`ALTER TABLE coupons ADD COLUMN current_uses INTEGER NOT NULL DEFAULT 0;`);
       }
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN coupon_id VARCHAR REFERENCES coupons(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN coupon_discount DECIMAL(10, 2) DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN loyalty_points_earned INTEGER DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN loyalty_points_redeemed INTEGER DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN loyalty_discount_amount DECIMAL(10, 2) DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS order_items (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS order_items (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
         order_id VARCHAR NOT NULL REFERENCES orders(id) ON DELETE CASCADE, 
         menu_item_id VARCHAR NOT NULL REFERENCES menu_items(id), 
@@ -3951,11 +3987,11 @@ async function ensureTablesExist() {
         notes TEXT, 
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE order_items ADD COLUMN guest_id VARCHAR REFERENCES table_guests(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN CREATE TYPE option_group_type AS ENUM ('single', 'multiple'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS option_groups (
+      await db.execute(sql3`DO $$ BEGIN CREATE TYPE option_group_type AS ENUM ('single', 'multiple'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS option_groups (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         menu_item_id VARCHAR NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
         name VARCHAR(200) NOT NULL,
@@ -3967,10 +4003,10 @@ async function ensureTablesExist() {
         display_order INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE option_groups ADD COLUMN unit VARCHAR(50); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS options (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS options (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         option_group_id VARCHAR NOT NULL REFERENCES option_groups(id) ON DELETE CASCADE,
         name VARCHAR(200) NOT NULL,
@@ -3980,10 +4016,10 @@ async function ensureTablesExist() {
         display_order INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE options ADD COLUMN is_recommended INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS order_item_options (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS order_item_options (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         order_item_id VARCHAR NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
         option_id VARCHAR NOT NULL REFERENCES options(id),
@@ -3993,7 +4029,7 @@ async function ensureTablesExist() {
         quantity INTEGER NOT NULL DEFAULT 1,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS messages (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS messages (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(), 
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE, 
         subject VARCHAR(255) NOT NULL, 
@@ -4002,7 +4038,7 @@ async function ensureTablesExist() {
         is_read INTEGER NOT NULL DEFAULT 0, 
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS menu_visits (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS menu_visits (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
@@ -4012,7 +4048,7 @@ async function ensureTablesExist() {
         referrer TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS customer_reviews (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS customer_reviews (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
@@ -4022,19 +4058,19 @@ async function ensureTablesExist() {
         comment TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         CREATE TYPE transaction_type AS ENUM ('receita', 'despesa', 'ajuste');
       EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         ALTER TYPE transaction_type ADD VALUE IF NOT EXISTS 'ajuste';
       EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         CREATE TYPE transaction_origin AS ENUM ('pdv', 'web', 'manual');
       EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         CREATE TYPE cash_register_shift_status AS ENUM ('aberto', 'fechado');
       EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS cash_registers (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS cash_registers (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
@@ -4045,7 +4081,7 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS financial_categories (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS financial_categories (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
@@ -4057,7 +4093,7 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS cash_register_shifts (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS cash_register_shifts (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
@@ -4075,7 +4111,7 @@ async function ensureTablesExist() {
         closed_at TIMESTAMP,
         notes TEXT
       );`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS financial_transactions (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS financial_transactions (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
@@ -4093,28 +4129,28 @@ async function ensureTablesExist() {
         note TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE financial_transactions ADD COLUMN origin transaction_origin NOT NULL DEFAULT 'manual'; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE financial_transactions ADD COLUMN description VARCHAR(500); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE financial_transactions ADD COLUMN reference_order_id VARCHAR REFERENCES orders(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE financial_transactions ALTER COLUMN cash_register_id DROP NOT NULL; 
       EXCEPTION WHEN others THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE financial_transactions ADD COLUMN total_installments INTEGER DEFAULT 1; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE financial_transactions ADD COLUMN installment_number INTEGER DEFAULT 1; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE financial_transactions ADD COLUMN parent_transaction_id VARCHAR REFERENCES financial_transactions(id) ON DELETE CASCADE; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS expenses (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS expenses (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
@@ -4128,10 +4164,10 @@ async function ensureTablesExist() {
         note TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         CREATE TYPE stock_movement_type AS ENUM ('entrada', 'saida', 'ajuste', 'transferencia'); 
       EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS inventory_categories (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS inventory_categories (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         name VARCHAR(200) NOT NULL,
@@ -4139,14 +4175,14 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS measurement_units (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS measurement_units (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         name VARCHAR(100) NOT NULL,
         abbreviation VARCHAR(20) NOT NULL,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS inventory_items (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS inventory_items (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         category_id VARCHAR REFERENCES inventory_categories(id) ON DELETE SET NULL,
@@ -4162,7 +4198,7 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS branch_stock (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS branch_stock (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         branch_id VARCHAR NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
@@ -4170,9 +4206,9 @@ async function ensureTablesExist() {
         quantity DECIMAL(10, 2) NOT NULL DEFAULT 0,
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE UNIQUE INDEX IF NOT EXISTS branch_stock_restaurant_branch_item_idx 
+      await db.execute(sql3`CREATE UNIQUE INDEX IF NOT EXISTS branch_stock_restaurant_branch_item_idx 
         ON branch_stock (restaurant_id, branch_id, inventory_item_id);`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS stock_movements (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS stock_movements (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         branch_id VARCHAR NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
@@ -4190,7 +4226,7 @@ async function ensureTablesExist() {
         recorded_by_user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS recipe_ingredients (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS recipe_ingredients (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         menu_item_id VARCHAR NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
@@ -4199,15 +4235,15 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE UNIQUE INDEX IF NOT EXISTS recipe_ingredients_menu_inventory_idx 
+      await db.execute(sql3`CREATE UNIQUE INDEX IF NOT EXISTS recipe_ingredients_menu_inventory_idx 
         ON recipe_ingredients (menu_item_id, inventory_item_id);`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         CREATE TYPE customer_tier AS ENUM ('bronze', 'prata', 'ouro', 'platina'); 
       EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         CREATE TYPE loyalty_transaction_type AS ENUM ('ganho', 'resgate', 'expiracao', 'ajuste', 'bonus'); 
       EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS customers (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS customers (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         branch_id VARCHAR REFERENCES branches(id) ON DELETE SET NULL,
@@ -4227,8 +4263,8 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE INDEX IF NOT EXISTS customers_phone_idx ON customers (restaurant_id, phone);`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS loyalty_programs (
+      await db.execute(sql3`CREATE INDEX IF NOT EXISTS customers_phone_idx ON customers (restaurant_id, phone);`);
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS loyalty_programs (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         is_active INTEGER NOT NULL DEFAULT 1,
@@ -4245,7 +4281,7 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS customer_sessions (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS customer_sessions (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         customer_id VARCHAR NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
@@ -4260,9 +4296,9 @@ async function ensureTablesExist() {
         is_active INTEGER NOT NULL DEFAULT 1,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE INDEX IF NOT EXISTS customer_sessions_token_idx ON customer_sessions (token);`);
-      await db.execute(sql2`CREATE INDEX IF NOT EXISTS customer_sessions_customer_idx ON customer_sessions (customer_id, is_active);`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS loyalty_transactions (
+      await db.execute(sql3`CREATE INDEX IF NOT EXISTS customer_sessions_token_idx ON customer_sessions (token);`);
+      await db.execute(sql3`CREATE INDEX IF NOT EXISTS customer_sessions_customer_idx ON customer_sessions (customer_id, is_active);`);
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS loyalty_transactions (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         customer_id VARCHAR NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -4274,37 +4310,37 @@ async function ensureTablesExist() {
         created_by VARCHAR REFERENCES users(id) ON DELETE SET NULL,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE INDEX IF NOT EXISTS loyalty_transactions_customer_idx ON loyalty_transactions (customer_id, created_at DESC);`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`CREATE INDEX IF NOT EXISTS loyalty_transactions_customer_idx ON loyalty_transactions (customer_id, created_at DESC);`);
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE coupons ADD COLUMN applicable_order_types TEXT[]; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE coupons ADD COLUMN created_by VARCHAR REFERENCES users(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      const nullValidFrom = await db.execute(sql2`
+      const nullValidFrom = await db.execute(sql3`
         SELECT COUNT(*) as count FROM coupons WHERE valid_from IS NULL
       `);
-      const nullValidUntil = await db.execute(sql2`
+      const nullValidUntil = await db.execute(sql3`
         SELECT COUNT(*) as count FROM coupons WHERE valid_until IS NULL
       `);
       const nullFromCount = Number(nullValidFrom.rows[0]?.count ?? 0);
       const nullUntilCount = Number(nullValidUntil.rows[0]?.count ?? 0);
       if (nullFromCount > 0) {
         console.warn(`Warning: Found ${nullFromCount} coupons with NULL valid_from, setting to current time`);
-        await db.execute(sql2`UPDATE coupons SET valid_from = NOW() WHERE valid_from IS NULL;`);
+        await db.execute(sql3`UPDATE coupons SET valid_from = NOW() WHERE valid_from IS NULL;`);
       }
       if (nullUntilCount > 0) {
         console.warn(`Warning: Found ${nullUntilCount} coupons with NULL valid_until, setting to 30 days from now`);
-        await db.execute(sql2`UPDATE coupons SET valid_until = NOW() + INTERVAL '30 days' WHERE valid_until IS NULL;`);
+        await db.execute(sql3`UPDATE coupons SET valid_until = NOW() + INTERVAL '30 days' WHERE valid_until IS NULL;`);
       }
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE coupons ALTER COLUMN valid_from SET NOT NULL; 
       EXCEPTION WHEN others THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE coupons ALTER COLUMN valid_until SET NOT NULL; 
       EXCEPTION WHEN others THEN null; END $$;`);
-      await db.execute(sql2`CREATE UNIQUE INDEX IF NOT EXISTS coupons_restaurant_code_idx ON coupons (restaurant_id, code);`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS coupon_usages (
+      await db.execute(sql3`CREATE UNIQUE INDEX IF NOT EXISTS coupons_restaurant_code_idx ON coupons (restaurant_id, code);`);
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS coupon_usages (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         coupon_id VARCHAR NOT NULL REFERENCES coupons(id) ON DELETE CASCADE,
@@ -4313,12 +4349,12 @@ async function ensureTablesExist() {
         discount_applied DECIMAL(10, 2) NOT NULL,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE INDEX IF NOT EXISTS coupon_usages_coupon_idx ON coupon_usages (coupon_id);`);
-      await db.execute(sql2`CREATE INDEX IF NOT EXISTS coupon_usages_customer_idx ON coupon_usages (customer_id);`);
-      await db.execute(sql2`DO $$ BEGIN CREATE TYPE subscription_status AS ENUM ('trial', 'ativa', 'cancelada', 'suspensa', 'expirada'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN CREATE TYPE subscription_payment_status AS ENUM ('pendente', 'pago', 'falhado', 'cancelado'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN CREATE TYPE billing_interval AS ENUM ('mensal', 'anual'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS subscription_plans (
+      await db.execute(sql3`CREATE INDEX IF NOT EXISTS coupon_usages_coupon_idx ON coupon_usages (coupon_id);`);
+      await db.execute(sql3`CREATE INDEX IF NOT EXISTS coupon_usages_customer_idx ON coupon_usages (customer_id);`);
+      await db.execute(sql3`DO $$ BEGIN CREATE TYPE subscription_status AS ENUM ('trial', 'ativa', 'cancelada', 'suspensa', 'expirada'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN CREATE TYPE subscription_payment_status AS ENUM ('pendente', 'pago', 'falhado', 'cancelado'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN CREATE TYPE billing_interval AS ENUM ('mensal', 'anual'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS subscription_plans (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(100) NOT NULL,
         slug VARCHAR(100) NOT NULL UNIQUE,
@@ -4342,40 +4378,40 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE subscription_plans ADD COLUMN stripe_price_id_monthly VARCHAR(255); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE subscription_plans ADD COLUMN stripe_price_id_annual VARCHAR(255); 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE subscription_plans ADD COLUMN max_customers INTEGER NOT NULL DEFAULT 100; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE subscription_plans ADD COLUMN has_loyalty_program INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE subscription_plans ADD COLUMN max_active_coupons INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE subscription_plans ADD COLUMN has_coupon_system INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE subscription_plans ADD COLUMN has_expense_tracking INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE subscription_plans ADD COLUMN max_expense_categories INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE subscription_plans ADD COLUMN has_inventory_module INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE subscription_plans ADD COLUMN max_inventory_items INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE subscription_plans ADD COLUMN has_stock_transfers INTEGER NOT NULL DEFAULT 0; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS subscriptions (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS subscriptions (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL UNIQUE REFERENCES restaurants(id) ON DELETE CASCADE,
         plan_id VARCHAR NOT NULL REFERENCES subscription_plans(id) ON DELETE RESTRICT,
@@ -4394,10 +4430,10 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE subscriptions ADD COLUMN currency VARCHAR(3) NOT NULL DEFAULT 'AOA'; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS subscription_payments (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS subscription_payments (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         subscription_id VARCHAR NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
@@ -4414,13 +4450,13 @@ async function ensureTablesExist() {
          failure_reason TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         ALTER TABLE subscription_payments ADD COLUMN failed_at TIMESTAMP;
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN
+      await db.execute(sql3`DO $$ BEGIN
         ALTER TABLE subscription_payments ADD COLUMN failure_reason TEXT;
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS subscription_usage (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS subscription_usage (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL UNIQUE REFERENCES restaurants(id) ON DELETE CASCADE,
         subscription_id VARCHAR NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
@@ -4433,13 +4469,13 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         CREATE TYPE notification_type AS ENUM ('new_order', 'order_status', 'order_cancelled', 'low_stock', 'new_customer', 'payment_received', 'subscription_alert', 'system'); 
       EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`DO $$ BEGIN 
+      await db.execute(sql3`DO $$ BEGIN 
         CREATE TYPE notification_channel AS ENUM ('in_app', 'whatsapp', 'email', 'push'); 
       EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS notifications (
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS notifications (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
@@ -4454,10 +4490,10 @@ async function ensureTablesExist() {
         sent_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT NOW()
       );`);
-      await db.execute(sql2`CREATE INDEX IF NOT EXISTS idx_notifications_restaurant ON notifications (restaurant_id);`);
-      await db.execute(sql2`CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications (user_id);`);
-      await db.execute(sql2`CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications (restaurant_id, is_read);`);
-      await db.execute(sql2`CREATE TABLE IF NOT EXISTS notification_preferences (
+      await db.execute(sql3`CREATE INDEX IF NOT EXISTS idx_notifications_restaurant ON notifications (restaurant_id);`);
+      await db.execute(sql3`CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications (user_id);`);
+      await db.execute(sql3`CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications (restaurant_id, is_read);`);
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS notification_preferences (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
         user_id VARCHAR REFERENCES users(id) ON DELETE CASCADE,
@@ -4471,7 +4507,7 @@ async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
-      const checkPlans = await db.execute(sql2`SELECT COUNT(*) as count FROM subscription_plans`);
+      const checkPlans = await db.execute(sql3`SELECT COUNT(*) as count FROM subscription_plans`);
       const planCount = parseInt(checkPlans.rows[0].count);
       if (planCount === 0) {
         const plans = [
@@ -4647,7 +4683,7 @@ async function ensureTablesExist() {
           }
         ];
         for (const plan of plans) {
-          await db.execute(sql2`
+          await db.execute(sql3`
             INSERT INTO subscription_plans (
               name, slug, description,
               price_monthly_kz, price_annual_kz,
@@ -4675,13 +4711,13 @@ async function ensureTablesExist() {
       }
       isInitialized = true;
       try {
-        await db.execute(sql2`
+        await db.execute(sql3`
           ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_number VARCHAR(20);
         `);
-        await db.execute(sql2`
+        await db.execute(sql3`
           CREATE INDEX IF NOT EXISTS idx_orders_order_number ON orders(order_number);
         `);
-        await db.execute(sql2`
+        await db.execute(sql3`
           CREATE INDEX IF NOT EXISTS idx_orders_created_restaurant ON orders(restaurant_id, created_at DESC);
         `);
       } catch (migrationError) {
@@ -4991,13 +5027,13 @@ __export(storage_exports, {
   orders: () => orders,
   printHistory: () => printHistory,
   printerConfigurations: () => printerConfigurations,
-  sql: () => sql4,
+  sql: () => sql5,
   storage: () => storage,
   tableGuests: () => tableGuests
 });
-import { eq, desc, sql as sql3, and, gte as gte2, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
+import { eq, desc, sql as sql4, and, gte as gte2, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { eq as eq2, and as and2, or as or2, desc as desc2, sql as sql4 } from "drizzle-orm";
+import { eq as eq2, and as and2, or as or2, desc as desc2, sql as sql5 } from "drizzle-orm";
 function generateSlug(name) {
   return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
@@ -5006,6 +5042,7 @@ var init_storage = __esm({
   "server/storage.ts"() {
     "use strict";
     init_schema();
+    init_invoiceNumberGenerator();
     init_db();
     init_db();
     DatabaseStorage = class {
@@ -5077,7 +5114,7 @@ var init_storage = __esm({
           0
         );
         const guestPaymentsAgg = await db.select({
-          total: sql3`COALESCE(SUM(${guestPayments.amount}), 0)`
+          total: sql4`COALESCE(SUM(${guestPayments.amount}), 0)`
         }).from(guestPayments).where(eq(guestPayments.sessionId, sessionId));
         const guestPaidSum = parseFloat(guestPaymentsAgg?.[0]?.total || "0") || 0;
         const totalPaidFromPayments = Math.max(tablePaidSum, guestPaidSum);
@@ -5339,14 +5376,14 @@ var init_storage = __esm({
           const searchTerm = `%${search.trim().toLowerCase()}%`;
           conditions.push(
             or(
-              sql3`LOWER(${users.email}) LIKE ${searchTerm}`,
-              sql3`LOWER(${users.firstName}) LIKE ${searchTerm}`,
-              sql3`LOWER(${users.lastName}) LIKE ${searchTerm}`
+              sql4`LOWER(${users.email}) LIKE ${searchTerm}`,
+              sql4`LOWER(${users.firstName}) LIKE ${searchTerm}`,
+              sql4`LOWER(${users.lastName}) LIKE ${searchTerm}`
             )
           );
         }
         const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
-        const [countResult] = await db.select({ count: sql3`count(*)::int` }).from(users).where(whereClause);
+        const [countResult] = await db.select({ count: sql4`count(*)::int` }).from(users).where(whereClause);
         const total = countResult?.count || 0;
         const totalPages = Math.ceil(total / limit);
         const result = await db.select().from(users).where(whereClause).orderBy(desc(users.createdAt)).limit(limit).offset(offset);
@@ -5388,14 +5425,7 @@ var init_storage = __esm({
       // Table operations
       async getTables(restaurantId, branchId) {
         if (branchId) {
-          const sharedTables = await db.select().from(tables).where(and(eq(tables.restaurantId, restaurantId), isNull(tables.branchId))).orderBy(tables.number);
-          const branchTables = await db.select().from(tables).where(and(eq(tables.restaurantId, restaurantId), eq(tables.branchId, branchId))).orderBy(tables.number);
-          const overriddenNumbers = new Set(branchTables.map((t) => t.number));
-          const result = [
-            ...branchTables,
-            ...sharedTables.filter((t) => !overriddenNumbers.has(t.number))
-          ];
-          return result.sort((a, b) => a.number - b.number);
+          return await db.select().from(tables).where(and(eq(tables.restaurantId, restaurantId), eq(tables.branchId, branchId))).orderBy(tables.number);
         }
         return await db.select().from(tables).where(eq(tables.restaurantId, restaurantId)).orderBy(tables.number);
       }
@@ -5549,28 +5579,37 @@ var init_storage = __esm({
         }
       }
       async startTableSession(restaurantId, tableId, sessionData) {
-        const table2 = await this.getTableById(tableId);
-        if (!table2) {
-          throw new Error("Table not found");
-        }
-        const pin = Math.floor(1e5 + Math.random() * 9e5).toString();
-        const [session2] = await db.insert(tableSessions).values({
-          tableId,
-          restaurantId,
-          customerName: sessionData.customerName,
-          customerCount: sessionData.customerCount,
-          status: "ocupada",
-          pin
-        }).returning();
-        await db.update(tables).set({
-          status: "ocupada",
-          tableStatus: "aguardando_pedido",
-          currentSessionId: session2.id,
-          customerName: sessionData.customerName,
-          customerCount: sessionData.customerCount || 0,
-          lastActivity: /* @__PURE__ */ new Date(),
-          isOccupied: 1
-        }).where(eq(tables.id, tableId));
+        const session2 = await db.transaction(async (tx) => {
+          const [table2] = await tx.select().from(tables).where(and(eq(tables.id, tableId), eq(tables.restaurantId, restaurantId))).for("update");
+          if (!table2) {
+            throw new Error("Table not found");
+          }
+          if (table2.currentSessionId || table2.status !== "livre" || table2.isOccupied === 1) {
+            const error = new Error("Esta mesa j\xE1 est\xE1 ocupada e n\xE3o pode ser usada por outra pessoa.");
+            error.code = "TABLE_ALREADY_OCCUPIED";
+            error.statusCode = 409;
+            throw error;
+          }
+          const pin = Math.floor(1e5 + Math.random() * 9e5).toString();
+          const [newSession] = await tx.insert(tableSessions).values({
+            tableId,
+            restaurantId,
+            customerName: sessionData.customerName,
+            customerCount: sessionData.customerCount,
+            status: "ocupada",
+            pin
+          }).returning();
+          await tx.update(tables).set({
+            status: "ocupada",
+            tableStatus: "aguardando_pedido",
+            currentSessionId: newSession.id,
+            customerName: sessionData.customerName,
+            customerCount: sessionData.customerCount || 0,
+            lastActivity: /* @__PURE__ */ new Date(),
+            isOccupied: 1
+          }).where(eq(tables.id, tableId));
+          return newSession;
+        });
         if (sessionData.customerName && sessionData.customerName.trim()) {
           await this.createTableGuest(restaurantId, {
             sessionId: session2.id,
@@ -6062,10 +6101,7 @@ var init_storage = __esm({
           return await db.select().from(categories).where(
             and(
               eq(categories.restaurantId, restaurantId),
-              or(
-                isNull(categories.branchId),
-                eq(categories.branchId, branchId)
-              )
+              eq(categories.branchId, branchId)
             )
           ).orderBy(categories.displayOrder, categories.name);
         }
@@ -6111,10 +6147,7 @@ var init_storage = __esm({
           results = await db.select().from(menuItems).leftJoin(categories, eq(menuItems.categoryId, categories.id)).where(
             and(
               eq(menuItems.restaurantId, restaurantId),
-              or(
-                isNull(menuItems.branchId),
-                eq(menuItems.branchId, branchId)
-              )
+              eq(menuItems.branchId, branchId)
             )
           ).orderBy(categories.displayOrder, categories.name, menuItems.displayOrder, menuItems.name);
         } else {
@@ -6200,8 +6233,8 @@ var init_storage = __esm({
         if (branchId) {
           const branchTables = await this.getTables(restaurantId, branchId);
           const tableIds = branchTables.map((t) => t.id);
-          const branchCondition = or(eq(orders.branchId, branchId), isNull(orders.branchId));
-          const tableCondition = tableIds.length > 0 ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId)) : sql3`true`;
+          const branchCondition = eq(orders.branchId, branchId);
+          const tableCondition = tableIds.length > 0 ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId)) : isNull(orders.tableId);
           allOrders = await db.select().from(orders).leftJoin(customers, eq(orders.customerId, customers.id)).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             branchCondition,
@@ -6239,8 +6272,8 @@ var init_storage = __esm({
         if (branchId) {
           const branchTables = await this.getTables(restaurantId, branchId);
           const tableIds = branchTables.map((t) => t.id);
-          const branchCondition = or(eq(orders.branchId, branchId), isNull(orders.branchId));
-          const tableCondition = tableIds.length > 0 ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId)) : sql3`true`;
+          const branchCondition = eq(orders.branchId, branchId);
+          const tableCondition = tableIds.length > 0 ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId)) : isNull(orders.tableId);
           results = await db.select().from(orders).leftJoin(customers, eq(orders.customerId, customers.id)).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             branchCondition,
@@ -6362,8 +6395,8 @@ var init_storage = __esm({
             eq(orders.restaurantId, restaurantId),
             or(
               eq(orders.id, trimmedSearch),
-              sql3`LOWER(${orders.customerName}) LIKE LOWER(${`%${trimmedSearch}%`})`,
-              sql3`${orders.customerPhone} LIKE ${`%${trimmedSearch}%`}`
+              sql4`LOWER(${orders.customerName}) LIKE LOWER(${`%${trimmedSearch}%`})`,
+              sql4`${orders.customerPhone} LIKE ${`%${trimmedSearch}%`}`
             )
           )
         ).orderBy(desc(orders.createdAt)).limit(20);
@@ -6391,12 +6424,14 @@ var init_storage = __esm({
       }
       async createOrder(order, items) {
         let restaurantId;
-        if (order.orderType === "mesa" && order.tableId) {
+        let resolvedBranchId = order.branchId ?? null;
+        if (order.orderType === "mesa" && order.tableId && !order.tableSessionId) {
           const table2 = await this.getTableById(order.tableId);
           if (!table2) {
             throw new Error("Table not found");
           }
           restaurantId = table2.restaurantId;
+          resolvedBranchId = order.branchId ?? table2.branchId ?? null;
         } else {
           restaurantId = order.restaurantId;
         }
@@ -6462,6 +6497,7 @@ var init_storage = __esm({
           }
         }
         const derivedTableSessionId = order.orderType === "mesa" && order.tableId ? order.tableSessionId ?? (await this.getTableById(order.tableId))?.currentSessionId ?? null : order.tableSessionId ?? null;
+        const invoiceNumber = await allocateInvoiceNumber(restaurantId, resolvedBranchId);
         console.log("[DEBUG] createOrder derived values:", {
           orderId: order.id,
           tableId: order.tableId,
@@ -6473,7 +6509,7 @@ var init_storage = __esm({
         const [newOrder] = await db.insert(orders).values({
           ...order,
           restaurantId: order.restaurantId || restaurantId,
-          branchId: order.branchId || null,
+          branchId: resolvedBranchId,
           tableId: order.tableId || null,
           tableSessionId: derivedTableSessionId,
           // Sempre string|null (nunca undefined)
@@ -6481,7 +6517,8 @@ var init_storage = __esm({
           status: "pendente",
           paymentStatus: "nao_pago",
           subtotal: subtotal.toFixed(2),
-          totalAmount: totalAmount.toFixed(2)
+          totalAmount: totalAmount.toFixed(2),
+          invoiceNumber
         }).returning();
         if (normalizedItems.length > 0) {
           for (const item of normalizedItems) {
@@ -6891,7 +6928,7 @@ var init_storage = __esm({
                   cashRegisterId = cashRegister.id;
                   shiftId = activeShift.id;
                   await tx.update(cashRegisters).set({
-                    currentBalance: sql3`${cashRegisters.currentBalance} + ${parseFloat(data.amount)}`,
+                    currentBalance: sql4`${cashRegisters.currentBalance} + ${parseFloat(data.amount)}`,
                     updatedAt: /* @__PURE__ */ new Date()
                   }).where(eq(cashRegisters.id, cashRegister.id));
                 }
@@ -6979,7 +7016,7 @@ var init_storage = __esm({
       }
       async calculateOrderTotal(orderId) {
         const [result] = await db.select({
-          subtotal: sql3`
+          subtotal: sql4`
           COALESCE(
             SUM(
               (${orderItems.price}::numeric + 
@@ -7127,7 +7164,7 @@ var init_storage = __esm({
                   cashRegisterId = cashRegister.id;
                   shiftId = activeShift.id;
                   await tx.update(cashRegisters).set({
-                    currentBalance: sql3`${cashRegisters.currentBalance} - ${paidAmount}`,
+                    currentBalance: sql4`${cashRegisters.currentBalance} - ${paidAmount}`,
                     updatedAt: /* @__PURE__ */ new Date()
                   }).where(eq(cashRegisters.id, cashRegister.id));
                 }
@@ -7181,21 +7218,21 @@ var init_storage = __esm({
         let todayStatsQuery;
         if (branchId) {
           todayStatsQuery = await db.select({
-            completedOrders: sql3`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-            completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
-            cancelledOrders: sql3`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
-            cancelledRevenue: sql3`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
+            completedOrders: sql4`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
+            completedRevenue: sql4`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
+            cancelledOrders: sql4`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
+            cancelledRevenue: sql4`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
           }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+            eq(orders.branchId, branchId),
             gte2(orders.createdAt, today)
           ));
         } else {
           todayStatsQuery = await db.select({
-            completedOrders: sql3`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-            completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
-            cancelledOrders: sql3`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
-            cancelledRevenue: sql3`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
+            completedOrders: sql4`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
+            completedRevenue: sql4`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
+            cancelledOrders: sql4`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
+            cancelledRevenue: sql4`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
           }).from(orders).where(and(
             eq(orders.restaurantId, restaurantId),
             gte2(orders.createdAt, today)
@@ -7209,22 +7246,22 @@ var init_storage = __esm({
         let yesterdayStatsQuery;
         if (branchId) {
           yesterdayStatsQuery = await db.select({
-            completedOrders: sql3`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-            completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
+            completedOrders: sql4`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
+            completedRevenue: sql4`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
           }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+            eq(orders.branchId, branchId),
             gte2(orders.createdAt, yesterday),
-            sql3`${orders.createdAt} < ${today}`
+            sql4`${orders.createdAt} < ${today}`
           ));
         } else {
           yesterdayStatsQuery = await db.select({
-            completedOrders: sql3`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-            completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
+            completedOrders: sql4`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
+            completedRevenue: sql4`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
           }).from(orders).where(and(
             eq(orders.restaurantId, restaurantId),
             gte2(orders.createdAt, yesterday),
-            sql3`${orders.createdAt} < ${today}`
+            sql4`${orders.createdAt} < ${today}`
           ));
         }
         const yesterdayStats = yesterdayStatsQuery[0] || { completedOrders: 0, completedRevenue: "0" };
@@ -7253,14 +7290,14 @@ var init_storage = __esm({
         if (branchId) {
           todayOrderIdsQuery = await db.select({ id: orders.id }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-            sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
+            eq(orders.branchId, branchId),
+            sql4`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, today)
           ));
         } else {
           todayOrderIdsQuery = await db.select({ id: orders.id }).from(orders).where(and(
             eq(orders.restaurantId, restaurantId),
-            sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
+            sql4`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, today)
           ));
         }
@@ -7269,9 +7306,9 @@ var init_storage = __esm({
         if (todayOrderIds.length > 0) {
           const dishStats = await db.select({
             menuItemId: orderItems.menuItemId,
-            count: sql3`cast(sum(${orderItems.quantity}) as int)`,
-            revenue: sql3`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`
-          }).from(orderItems).where(sql3`${orderItems.orderId} = ANY(ARRAY[${sql3.join(todayOrderIds.map((id) => sql3`${id}`), sql3`, `)}])`).groupBy(orderItems.menuItemId).orderBy(desc(sql3`sum(${orderItems.quantity})`)).limit(5);
+            count: sql4`cast(sum(${orderItems.quantity}) as int)`,
+            revenue: sql4`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`
+          }).from(orderItems).where(sql4`${orderItems.orderId} = ANY(ARRAY[${sql4.join(todayOrderIds.map((id) => sql4`${id}`), sql4`, `)}])`).groupBy(orderItems.menuItemId).orderBy(desc(sql4`sum(${orderItems.quantity})`)).limit(5);
           topDishes = await Promise.all(
             dishStats.map(async (stat) => {
               const item = await this.getMenuItemById(stat.menuItemId);
@@ -7303,26 +7340,26 @@ var init_storage = __esm({
         let periodStatsQuery;
         if (branchId) {
           periodStatsQuery = await db.select({
-            completedOrders: sql3`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-            completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
-            cancelledOrders: sql3`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
-            cancelledRevenue: sql3`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
+            completedOrders: sql4`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
+            completedRevenue: sql4`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
+            cancelledOrders: sql4`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
+            cancelledRevenue: sql4`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
           }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
+            eq(orders.branchId, branchId),
             gte2(orders.createdAt, periodStart),
-            sql3`${orders.createdAt} <= ${periodEnd}`
+            sql4`${orders.createdAt} <= ${periodEnd}`
           ));
         } else {
           periodStatsQuery = await db.select({
-            completedOrders: sql3`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-            completedRevenue: sql3`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
-            cancelledOrders: sql3`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
-            cancelledRevenue: sql3`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
+            completedOrders: sql4`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
+            completedRevenue: sql4`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
+            cancelledOrders: sql4`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
+            cancelledRevenue: sql4`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`
           }).from(orders).where(and(
             eq(orders.restaurantId, restaurantId),
             gte2(orders.createdAt, periodStart),
-            sql3`${orders.createdAt} <= ${periodEnd}`
+            sql4`${orders.createdAt} <= ${periodEnd}`
           ));
         }
         const periodStats = periodStatsQuery[0] || { completedOrders: 0, completedRevenue: "0", cancelledOrders: 0, cancelledRevenue: "0" };
@@ -7337,17 +7374,17 @@ var init_storage = __esm({
         if (branchId) {
           orderIdsQuery = await db.select({ id: orders.id }).from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-            sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
+            eq(orders.branchId, branchId),
+            sql4`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, periodStart),
-            sql3`${orders.createdAt} <= ${periodEnd}`
+            sql4`${orders.createdAt} <= ${periodEnd}`
           ));
         } else {
           orderIdsQuery = await db.select({ id: orders.id }).from(orders).where(and(
             eq(orders.restaurantId, restaurantId),
-            sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
+            sql4`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, periodStart),
-            sql3`${orders.createdAt} <= ${periodEnd}`
+            sql4`${orders.createdAt} <= ${periodEnd}`
           ));
         }
         const orderIds = orderIdsQuery.map((row) => row.id);
@@ -7355,9 +7392,9 @@ var init_storage = __esm({
         if (orderIds.length > 0) {
           const dishStats = await db.select({
             menuItemId: orderItems.menuItemId,
-            count: sql3`cast(sum(${orderItems.quantity}) as int)`,
-            revenue: sql3`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`
-          }).from(orderItems).where(sql3`${orderItems.orderId} = ANY(ARRAY[${sql3.join(orderIds.map((id) => sql3`${id}`), sql3`, `)}])`).groupBy(orderItems.menuItemId).orderBy(desc(sql3`sum(${orderItems.quantity})`)).limit(10);
+            count: sql4`cast(sum(${orderItems.quantity}) as int)`,
+            revenue: sql4`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`
+          }).from(orderItems).where(sql4`${orderItems.orderId} = ANY(ARRAY[${sql4.join(orderIds.map((id) => sql4`${id}`), sql4`, `)}])`).groupBy(orderItems.menuItemId).orderBy(desc(sql4`sum(${orderItems.quantity})`)).limit(10);
           topDishes = await Promise.all(
             dishStats.map(async (stat) => {
               const item = await this.getMenuItemById(stat.menuItemId);
@@ -7396,17 +7433,17 @@ var init_storage = __esm({
           if (branchId) {
             dayOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
               eq(orders.restaurantId, restaurantId),
-              or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-              sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
+              eq(orders.branchId, branchId),
+              sql4`${orders.status} IS DISTINCT FROM 'cancelado'`,
               gte2(orders.createdAt, dayStart),
-              sql3`${orders.createdAt} <= ${dayEnd}`
+              sql4`${orders.createdAt} <= ${dayEnd}`
             ));
           } else {
             dayOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
               eq(orders.restaurantId, restaurantId),
-              sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
+              sql4`${orders.status} IS DISTINCT FROM 'cancelado'`,
               gte2(orders.createdAt, dayStart),
-              sql3`${orders.createdAt} <= ${dayEnd}`
+              sql4`${orders.createdAt} <= ${dayEnd}`
             ));
           }
           const dayOrders = dayOrdersData.map((row) => row.orders);
@@ -7432,17 +7469,17 @@ var init_storage = __esm({
         if (branchId) {
           ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-            sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
+            eq(orders.branchId, branchId),
+            sql4`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, startDate),
-            sql3`${orders.createdAt} <= ${today}`
+            sql4`${orders.createdAt} <= ${today}`
           ));
         } else {
           ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
+            sql4`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, startDate),
-            sql3`${orders.createdAt} <= ${today}`
+            sql4`${orders.createdAt} <= ${today}`
           ));
         }
         const allOrders = ordersData.map((row) => row.orders);
@@ -7476,17 +7513,17 @@ var init_storage = __esm({
         if (branchId) {
           ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-            sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
+            eq(orders.branchId, branchId),
+            sql4`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, startDate),
-            sql3`${orders.createdAt} <= ${endDate}`
+            sql4`${orders.createdAt} <= ${endDate}`
           ));
         } else {
           ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
+            sql4`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, startDate),
-            sql3`${orders.createdAt} <= ${endDate}`
+            sql4`${orders.createdAt} <= ${endDate}`
           ));
         }
         console.log(`[HeatmapDateRange] Pedidos encontrados no per\xEDodo: ${ordersData.length}`);
@@ -7541,17 +7578,17 @@ var init_storage = __esm({
         if (branchId) {
           periodOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), isNull(orders.tableId)),
-            sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
+            eq(orders.branchId, branchId),
+            sql4`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, periodStart),
-            sql3`${orders.createdAt} <= ${periodEnd}`
+            sql4`${orders.createdAt} <= ${periodEnd}`
           ));
         } else {
           periodOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
+            sql4`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, periodStart),
-            sql3`${orders.createdAt} <= ${periodEnd}`
+            sql4`${orders.createdAt} <= ${periodEnd}`
           ));
         }
         const periodOrders = periodOrdersData.map((row) => row.orders);
@@ -7568,9 +7605,9 @@ var init_storage = __esm({
         if (orderIds.length > 0) {
           const dishStats = await db.select({
             menuItemId: orderItems.menuItemId,
-            count: sql3`cast(sum(${orderItems.quantity}) as int)`,
-            revenue: sql3`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`
-          }).from(orderItems).where(sql3`${orderItems.orderId} = ANY(ARRAY[${sql3.join(orderIds.map((id) => sql3`${id}`), sql3`, `)}])`).groupBy(orderItems.menuItemId).orderBy(desc(sql3`sum(${orderItems.quantity})`)).limit(10);
+            count: sql4`cast(sum(${orderItems.quantity}) as int)`,
+            revenue: sql4`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`
+          }).from(orderItems).where(sql4`${orderItems.orderId} = ANY(ARRAY[${sql4.join(orderIds.map((id) => sql4`${id}`), sql4`, `)}])`).groupBy(orderItems.menuItemId).orderBy(desc(sql4`sum(${orderItems.quantity})`)).limit(10);
           topDishes = await Promise.all(
             dishStats.map(async (stat) => {
               const item = await this.getMenuItemById(stat.menuItemId);
@@ -7794,7 +7831,7 @@ var init_storage = __esm({
         const allOrders = await db.select().from(orders).where(and(
           ne(orders.status, "cancelado"),
           gte2(orders.createdAt, start),
-          sql3`${orders.createdAt} <= ${end}`
+          sql4`${orders.createdAt} <= ${end}`
         ));
         const totalOrders = allOrders.length;
         const totalRevenue = allOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount), 0);
@@ -7836,7 +7873,7 @@ var init_storage = __esm({
         }
         const allShifts = await db.select().from(financialShifts).leftJoin(restaurants, eq(financialShifts.restaurantId, restaurants.id)).where(and(
           gte2(financialShifts.startedAt, start),
-          sql3`${financialShifts.startedAt} <= ${end}`
+          sql4`${financialShifts.startedAt} <= ${end}`
         ));
         const shiftsMap = /* @__PURE__ */ new Map();
         allShifts.forEach((shift) => {
@@ -7869,17 +7906,17 @@ var init_storage = __esm({
         if (branchId) {
           periodOrders = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
-            sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
+            eq(orders.branchId, branchId),
+            sql4`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, startDate),
-            sql3`${orders.createdAt} <= ${endDate}`
+            sql4`${orders.createdAt} <= ${endDate}`
           ));
         } else {
           periodOrders = await db.select().from(orders).where(and(
             eq(orders.restaurantId, restaurantId),
-            sql3`${orders.status} IS DISTINCT FROM 'cancelado'`,
+            sql4`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte2(orders.createdAt, startDate),
-            sql3`${orders.createdAt} <= ${endDate}`
+            sql4`${orders.createdAt} <= ${endDate}`
           ));
         }
         const periodOrdersRaw = periodOrders.map((row) => row.orders || row);
@@ -7930,17 +7967,17 @@ var init_storage = __esm({
         if (branchId) {
           cancelledOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
+            eq(orders.branchId, branchId),
             eq(orders.status, "cancelado"),
             gte2(orders.createdAt, startDate),
-            sql3`${orders.createdAt} <= ${endDate}`
+            sql4`${orders.createdAt} <= ${endDate}`
           )).orderBy(desc(orders.createdAt));
         } else {
           cancelledOrdersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
             eq(orders.status, "cancelado"),
             gte2(orders.createdAt, startDate),
-            sql3`${orders.createdAt} <= ${endDate}`
+            sql4`${orders.createdAt} <= ${endDate}`
           )).orderBy(desc(orders.createdAt));
         }
         const cancelledOrdersRaw = cancelledOrdersData.map((row) => row.orders || row);
@@ -7972,7 +8009,7 @@ var init_storage = __esm({
         let baseConditions = [
           eq(orders.restaurantId, restaurantId),
           gte2(orders.createdAt, startDate),
-          sql3`${orders.createdAt} <= ${endDate}`
+          sql4`${orders.createdAt} <= ${endDate}`
         ];
         if (status === "cancelado") {
           baseConditions.push(eq(orders.status, "cancelado"));
@@ -7988,10 +8025,7 @@ var init_storage = __esm({
         if (branchId) {
           ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             ...baseConditions,
-            or(
-              and(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NOT NULL`),
-              sql3`${orders.tableId} IS NULL`
-            )
+            eq(orders.branchId, branchId)
           )).orderBy(desc(orders.createdAt));
         } else {
           ordersData = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(...baseConditions)).orderBy(desc(orders.createdAt));
@@ -8016,15 +8050,15 @@ var init_storage = __esm({
         if (branchId) {
           periodOrdersRaw = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
+            eq(orders.branchId, branchId),
             gte2(orders.createdAt, startDate),
-            sql3`${orders.createdAt} <= ${endDate}`
+            sql4`${orders.createdAt} <= ${endDate}`
           ));
         } else {
           periodOrdersRaw = await db.select().from(orders).where(and(
             eq(orders.restaurantId, restaurantId),
             gte2(orders.createdAt, startDate),
-            sql3`${orders.createdAt} <= ${endDate}`
+            sql4`${orders.createdAt} <= ${endDate}`
           ));
         }
         const periodOrders = periodOrdersRaw.map((row) => row.orders || row);
@@ -8033,10 +8067,10 @@ var init_storage = __esm({
         if (orderIds.length > 0) {
           const productStats = await db.select({
             menuItemId: orderItems.menuItemId,
-            quantity: sql3`cast(sum(${orderItems.quantity}) as int)`,
-            revenue: sql3`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`,
-            ordersCount: sql3`cast(count(distinct ${orderItems.orderId}) as int)`
-          }).from(orderItems).where(sql3`${orderItems.orderId} = ANY(ARRAY[${sql3.join(orderIds.map((id) => sql3`${id}`), sql3`, `)}])`).groupBy(orderItems.menuItemId).orderBy(desc(sql3`sum(${orderItems.quantity})`)).limit(20);
+            quantity: sql4`cast(sum(${orderItems.quantity}) as int)`,
+            revenue: sql4`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`,
+            ordersCount: sql4`cast(count(distinct ${orderItems.orderId}) as int)`
+          }).from(orderItems).where(sql4`${orderItems.orderId} = ANY(ARRAY[${sql4.join(orderIds.map((id) => sql4`${id}`), sql4`, `)}])`).groupBy(orderItems.menuItemId).orderBy(desc(sql4`sum(${orderItems.quantity})`)).limit(20);
           topProducts = await Promise.all(
             productStats.map(async (stat) => {
               const item = await this.getMenuItemById(stat.menuItemId);
@@ -8054,8 +8088,8 @@ var init_storage = __esm({
           const categoryStats = await db.select({
             categoryId: menuItems.categoryId,
             menuItemId: orderItems.menuItemId,
-            revenue: sql3`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`
-          }).from(orderItems).leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id)).where(sql3`${orderItems.orderId} = ANY(ARRAY[${sql3.join(orderIds.map((id) => sql3`${id}`), sql3`, `)}])`).groupBy(menuItems.categoryId, orderItems.menuItemId);
+            revenue: sql4`cast(sum(${orderItems.quantity} * ${orderItems.price}) as text)`
+          }).from(orderItems).leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id)).where(sql4`${orderItems.orderId} = ANY(ARRAY[${sql4.join(orderIds.map((id) => sql4`${id}`), sql4`, `)}])`).groupBy(menuItems.categoryId, orderItems.menuItemId);
           for (const stat of categoryStats) {
             const category = await this.getCategoryById(stat.categoryId);
             if (category) {
@@ -8081,15 +8115,15 @@ var init_storage = __esm({
         if (branchId) {
           periodOrdersRaw = await db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), sql3`${orders.tableId} IS NULL`),
+            eq(orders.branchId, branchId),
             gte2(orders.createdAt, startDate),
-            sql3`${orders.createdAt} <= ${endDate}`
+            sql4`${orders.createdAt} <= ${endDate}`
           ));
         } else {
           periodOrdersRaw = await db.select().from(orders).where(and(
             eq(orders.restaurantId, restaurantId),
             gte2(orders.createdAt, startDate),
-            sql3`${orders.createdAt} <= ${endDate}`
+            sql4`${orders.createdAt} <= ${endDate}`
           ));
         }
         const periodOrders = periodOrdersRaw.map((row) => row.orders || row);
@@ -8144,23 +8178,20 @@ var init_storage = __esm({
         const conditions = [
           eq(orders.restaurantId, restaurantId),
           gte2(orders.createdAt, startDate),
-          sql3`${orders.createdAt} <= ${endDate}`
+          sql4`${orders.createdAt} <= ${endDate}`
         ];
         if (periodFilter && periodFilter !== "all") {
           if (periodFilter === "morning") {
-            conditions.push(sql3`EXTRACT(HOUR FROM ${orders.createdAt}) >= 6 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 12`);
+            conditions.push(sql4`EXTRACT(HOUR FROM ${orders.createdAt}) >= 6 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 12`);
           } else if (periodFilter === "afternoon") {
-            conditions.push(sql3`EXTRACT(HOUR FROM ${orders.createdAt}) >= 12 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 18`);
+            conditions.push(sql4`EXTRACT(HOUR FROM ${orders.createdAt}) >= 12 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 18`);
           } else if (periodFilter === "night") {
-            conditions.push(sql3`EXTRACT(HOUR FROM ${orders.createdAt}) >= 18 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 24`);
+            conditions.push(sql4`EXTRACT(HOUR FROM ${orders.createdAt}) >= 18 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 24`);
           }
         }
         if (branchId) {
           conditions.push(
-            or(
-              eq(tables.branchId, branchId),
-              sql3`${orders.tableId} IS NULL`
-            )
+            eq(orders.branchId, branchId)
           );
         }
         if (orderStatus && orderStatus !== "all") {
@@ -8188,23 +8219,20 @@ var init_storage = __esm({
         const baseConditions = [
           eq(orders.restaurantId, restaurantId),
           gte2(orders.createdAt, startDate),
-          sql3`${orders.createdAt} <= ${endDate}`
+          sql4`${orders.createdAt} <= ${endDate}`
         ];
         if (periodFilter && periodFilter !== "all") {
           if (periodFilter === "morning") {
-            baseConditions.push(sql3`EXTRACT(HOUR FROM ${orders.createdAt}) >= 6 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 12`);
+            baseConditions.push(sql4`EXTRACT(HOUR FROM ${orders.createdAt}) >= 6 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 12`);
           } else if (periodFilter === "afternoon") {
-            baseConditions.push(sql3`EXTRACT(HOUR FROM ${orders.createdAt}) >= 12 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 18`);
+            baseConditions.push(sql4`EXTRACT(HOUR FROM ${orders.createdAt}) >= 12 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 18`);
           } else if (periodFilter === "night") {
-            baseConditions.push(sql3`EXTRACT(HOUR FROM ${orders.createdAt}) >= 18 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 24`);
+            baseConditions.push(sql4`EXTRACT(HOUR FROM ${orders.createdAt}) >= 18 AND EXTRACT(HOUR FROM ${orders.createdAt}) < 24`);
           }
         }
         if (branchId) {
           baseConditions.push(
-            or(
-              eq(tables.branchId, branchId),
-              sql3`${orders.tableId} IS NULL`
-            )
+            eq(orders.branchId, branchId)
           );
         }
         if (orderStatus && orderStatus !== "all") {
@@ -8228,7 +8256,7 @@ var init_storage = __esm({
         const validConditions = [
           ...baseConditions,
           // Exclude cancelled orders in the query
-          sql3`${orders.status} != 'cancelado'`
+          sql4`${orders.status} != 'cancelado'`
         ];
         let validQuery = db.select().from(orders).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(...validConditions)).$dynamic();
         const validResults = await validQuery;
@@ -8363,7 +8391,7 @@ var init_storage = __esm({
           conditions.push(gte2(financialShifts.startedAt, startDate));
         }
         if (endDate) {
-          conditions.push(sql3`${financialShifts.endedAt} <= ${endDate}`);
+          conditions.push(sql4`${financialShifts.endedAt} <= ${endDate}`);
         }
         return await db.select().from(financialShifts).where(and(...conditions)).orderBy(desc(financialShifts.startedAt));
       }
@@ -8417,7 +8445,7 @@ var init_storage = __esm({
           if (filters.shiftId) conditions.push(eq(financialEvents.shiftId, filters.shiftId));
           if (filters.operatorId) conditions.push(eq(financialEvents.operatorId, filters.operatorId));
           if (filters.startDate) conditions.push(gte2(financialEvents.createdAt, filters.startDate));
-          if (filters.endDate) conditions.push(sql3`${financialEvents.createdAt} <= ${filters.endDate}`);
+          if (filters.endDate) conditions.push(sql4`${financialEvents.createdAt} <= ${filters.endDate}`);
         }
         return await db.select().from(financialEvents).where(and(...conditions)).orderBy(desc(financialEvents.createdAt));
       }
@@ -8446,7 +8474,7 @@ var init_storage = __esm({
           if (filters.orderId) conditions.push(eq(paymentEvents.orderId, filters.orderId));
           if (filters.sessionId) conditions.push(eq(paymentEvents.sessionId, filters.sessionId));
           if (filters.startDate) conditions.push(gte2(paymentEvents.createdAt, filters.startDate));
-          if (filters.endDate) conditions.push(sql3`${paymentEvents.createdAt} <= ${filters.endDate}`);
+          if (filters.endDate) conditions.push(sql4`${paymentEvents.createdAt} <= ${filters.endDate}`);
         }
         return await db.select().from(paymentEvents).where(and(...conditions)).orderBy(desc(paymentEvents.createdAt));
       }
@@ -8472,7 +8500,7 @@ var init_storage = __esm({
           conditions.push(gte2(reportAggregations.periodStart, startDate));
         }
         if (endDate) {
-          conditions.push(sql3`${reportAggregations.periodEnd} <= ${endDate}`);
+          conditions.push(sql4`${reportAggregations.periodEnd} <= ${endDate}`);
         }
         return await db.select().from(reportAggregations).where(and(...conditions)).orderBy(desc(reportAggregations.periodStart));
       }
@@ -8501,16 +8529,10 @@ var init_storage = __esm({
         let conditions = [
           eq(menuVisits.restaurantId, restaurantId),
           gte2(menuVisits.createdAt, startDate),
-          sql3`${menuVisits.createdAt} <= ${endDate}`
+          sql4`${menuVisits.createdAt} <= ${endDate}`
         ];
         if (branchId !== null) {
-          const branchCondition = or(
-            eq(menuVisits.branchId, branchId),
-            isNull(menuVisits.branchId)
-          );
-          if (branchCondition) {
-            conditions.push(branchCondition);
-          }
+          conditions.push(eq(menuVisits.branchId, branchId));
         }
         const allVisits = await db.select().from(menuVisits).where(and(...conditions));
         const totalVisits = allVisits.length;
@@ -8549,7 +8571,7 @@ var init_storage = __esm({
           conditions.push(gte2(customerReviews.createdAt, startDate));
         }
         if (endDate) {
-          conditions.push(sql3`${customerReviews.createdAt} <= ${endDate}`);
+          conditions.push(sql4`${customerReviews.createdAt} <= ${endDate}`);
         }
         let query = db.select().from(customerReviews).where(and(...conditions)).orderBy(desc(customerReviews.createdAt));
         if (limit) {
@@ -8570,13 +8592,10 @@ var init_storage = __esm({
           eq(orders.paymentStatus, "pago"),
           ne(orders.status, "cancelado"),
           gte2(orders.createdAt, startDate),
-          sql3`${orders.createdAt} <= ${endDate}`
+          sql4`${orders.createdAt} <= ${endDate}`
         ];
         if (branchId !== null) {
-          orderConditions.push(or(
-            eq(orders.branchId, branchId),
-            sql3`${orders.branchId} IS NULL`
-          ));
+          orderConditions.push(eq(orders.branchId, branchId));
         }
         if (orderType && orderType !== "all") {
           if (orderType === "pdv") {
@@ -8705,10 +8724,7 @@ var init_storage = __esm({
         ];
         if (branchId !== null) {
           conditions.push(
-            or(
-              eq(financialCategories.branchId, branchId),
-              isNull(financialCategories.branchId)
-            )
+            eq(financialCategories.branchId, branchId)
           );
         }
         if (type) {
@@ -8725,7 +8741,7 @@ var init_storage = __esm({
         return newCategory;
       }
       async deleteFinancialCategory(id, restaurantId) {
-        const usageCount = await db.select({ count: sql3`count(*)` }).from(financialTransactions).where(eq(financialTransactions.categoryId, id));
+        const usageCount = await db.select({ count: sql4`count(*)` }).from(financialTransactions).where(eq(financialTransactions.categoryId, id));
         if (usageCount[0].count > 0) {
           return {
             success: false,
@@ -8771,7 +8787,7 @@ var init_storage = __esm({
           }).returning();
           if (data.cashRegisterId) {
             await tx.update(cashRegisters).set({
-              currentBalance: sql3`${cashRegisters.currentBalance} + ${amountChange}`,
+              currentBalance: sql4`${cashRegisters.currentBalance} + ${amountChange}`,
               updatedAt: /* @__PURE__ */ new Date()
             }).where(eq(cashRegisters.id, data.cashRegisterId));
           }
@@ -8783,17 +8799,14 @@ var init_storage = __esm({
         let conditions = [eq(financialTransactions.restaurantId, restaurantId)];
         if (branchId !== null) {
           conditions.push(
-            or(
-              eq(financialTransactions.branchId, branchId),
-              isNull(financialTransactions.branchId)
-            )
+            eq(financialTransactions.branchId, branchId)
           );
         }
         if (filters?.startDate) {
           conditions.push(gte2(financialTransactions.occurredAt, filters.startDate));
         }
         if (filters?.endDate) {
-          conditions.push(sql3`${financialTransactions.occurredAt} <= ${filters.endDate}`);
+          conditions.push(sql4`${financialTransactions.occurredAt} <= ${filters.endDate}`);
         }
         if (filters?.cashRegisterId) {
           conditions.push(eq(financialTransactions.cashRegisterId, filters.cashRegisterId));
@@ -8830,7 +8843,7 @@ var init_storage = __esm({
         await db.transaction(async (tx) => {
           await tx.delete(financialTransactions).where(eq(financialTransactions.id, id));
           await tx.update(cashRegisters).set({
-            currentBalance: sql3`${cashRegisters.currentBalance} + ${amountChange}`,
+            currentBalance: sql4`${cashRegisters.currentBalance} + ${amountChange}`,
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq(cashRegisters.id, transaction.cashRegisterId));
         });
@@ -8856,17 +8869,14 @@ var init_storage = __esm({
         let transactionConditions = [eq(financialTransactions.restaurantId, restaurantId)];
         if (branchId !== null) {
           transactionConditions.push(
-            or(
-              eq(financialTransactions.branchId, branchId),
-              isNull(financialTransactions.branchId)
-            )
+            eq(financialTransactions.branchId, branchId)
           );
         }
         if (startDate) {
           transactionConditions.push(gte2(financialTransactions.occurredAt, startDate));
         }
         if (endDate) {
-          transactionConditions.push(sql3`${financialTransactions.occurredAt} <= ${endDate}`);
+          transactionConditions.push(sql4`${financialTransactions.occurredAt} <= ${endDate}`);
         }
         if (cashRegisterId) {
           transactionConditions.push(eq(financialTransactions.cashRegisterId, cashRegisterId));
@@ -8888,10 +8898,7 @@ var init_storage = __esm({
         let conditions = [eq(cashRegisterShifts.restaurantId, restaurantId)];
         if (branchId !== null) {
           conditions.push(
-            or(
-              eq(cashRegisterShifts.branchId, branchId),
-              isNull(cashRegisterShifts.branchId)
-            )
+            eq(cashRegisterShifts.branchId, branchId)
           );
         }
         if (filters?.cashRegisterId) {
@@ -8989,7 +8996,7 @@ var init_storage = __esm({
             note: data.notes
           });
           await tx.update(cashRegisters).set({
-            currentBalance: sql3`${cashRegisters.currentBalance} + ${data.openingAmount}`,
+            currentBalance: sql4`${cashRegisters.currentBalance} + ${data.openingAmount}`,
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq(cashRegisters.id, data.cashRegisterId));
           return shift;
@@ -9040,10 +9047,7 @@ var init_storage = __esm({
         let conditions = [eq(expenses.restaurantId, restaurantId)];
         if (branchId !== null) {
           conditions.push(
-            or(
-              eq(expenses.branchId, branchId),
-              isNull(expenses.branchId)
-            )
+            eq(expenses.branchId, branchId)
           );
         }
         if (filters?.categoryId) {
@@ -9055,7 +9059,7 @@ var init_storage = __esm({
         if (filters?.endDate) {
           const endOfDay = new Date(filters.endDate);
           endOfDay.setHours(23, 59, 59, 999);
-          conditions.push(sql3`${expenses.occurredAt} <= ${endOfDay}`);
+          conditions.push(sql4`${expenses.occurredAt} <= ${endOfDay}`);
         }
         const results = await db.select({
           expense: expenses,
@@ -9165,13 +9169,10 @@ var init_storage = __esm({
         ];
         const endOfDay = new Date(endDate);
         endOfDay.setHours(23, 59, 59, 999);
-        conditions.push(sql3`${financialTransactions.occurredAt} <= ${endOfDay}`);
+        conditions.push(sql4`${financialTransactions.occurredAt} <= ${endOfDay}`);
         if (branchId !== null) {
           conditions.push(
-            or(
-              eq(financialTransactions.branchId, branchId),
-              isNull(financialTransactions.branchId)
-            )
+            eq(financialTransactions.branchId, branchId)
           );
         }
         const transactions = await db.select({
@@ -9416,7 +9417,7 @@ var init_storage = __esm({
         if (filters?.endDate) {
           const endOfDay = new Date(filters.endDate);
           endOfDay.setHours(23, 59, 59, 999);
-          conditions.push(sql3`${stockMovements.createdAt} <= ${endOfDay}`);
+          conditions.push(sql4`${stockMovements.createdAt} <= ${endOfDay}`);
         }
         const movements = await db.select({
           movement: stockMovements,
@@ -9725,7 +9726,7 @@ var init_storage = __esm({
       async getCustomers(restaurantId, branchId, filters) {
         let conditions = [eq(customers.restaurantId, restaurantId)];
         if (branchId !== void 0 && branchId !== null) {
-          conditions.push(or(eq(customers.branchId, branchId), isNull(customers.branchId)));
+          conditions.push(eq(customers.branchId, branchId));
         }
         if (filters?.isActive !== void 0) {
           conditions.push(eq(customers.isActive, filters.isActive));
@@ -9794,7 +9795,7 @@ var init_storage = __esm({
       async getCustomerStats(restaurantId, branchId) {
         let conditions = [eq(customers.restaurantId, restaurantId)];
         if (branchId) {
-          conditions.push(or(eq(customers.branchId, branchId), isNull(customers.branchId)));
+          conditions.push(eq(customers.branchId, branchId));
         }
         const allCustomers = await db.select().from(customers).where(and(...conditions));
         const now = /* @__PURE__ */ new Date();
@@ -9967,7 +9968,7 @@ var init_storage = __esm({
           conditions.push(gte2(loyaltyTransactions.createdAt, filters.startDate));
         }
         if (filters?.endDate) {
-          conditions.push(sql3`${loyaltyTransactions.createdAt} <= ${filters.endDate}`);
+          conditions.push(sql4`${loyaltyTransactions.createdAt} <= ${filters.endDate}`);
         }
         const transactions = await db.select().from(loyaltyTransactions).leftJoin(customers, eq(loyaltyTransactions.customerId, customers.id)).where(and(...conditions)).orderBy(desc(loyaltyTransactions.createdAt));
         return transactions.map((t) => ({
@@ -9978,7 +9979,7 @@ var init_storage = __esm({
       async createLoyaltyTransaction(restaurantId, data) {
         const [transaction] = await db.insert(loyaltyTransactions).values({ ...data, restaurantId }).returning();
         await db.update(customers).set({
-          loyaltyPoints: sql3`${customers.loyaltyPoints} + ${data.points}`,
+          loyaltyPoints: sql4`${customers.loyaltyPoints} + ${data.points}`,
           updatedAt: /* @__PURE__ */ new Date()
         }).where(eq(customers.id, data.customerId));
         return transaction;
@@ -10022,7 +10023,7 @@ var init_storage = __esm({
       async getCoupons(restaurantId, branchId, filters) {
         let conditions = [eq(coupons.restaurantId, restaurantId)];
         if (branchId !== void 0 && branchId !== null) {
-          conditions.push(or(eq(coupons.branchId, branchId), isNull(coupons.branchId)));
+          conditions.push(eq(coupons.branchId, branchId));
         }
         if (filters?.isActive !== void 0) {
           conditions.push(eq(coupons.isActive, filters.isActive));
@@ -10075,7 +10076,7 @@ var init_storage = __esm({
       async getServices(restaurantId, branchId) {
         let conditions = [eq(services.restaurantId, restaurantId)];
         if (branchId !== void 0 && branchId !== null) {
-          conditions.push(or(eq(services.branchId, branchId), isNull(services.branchId)));
+          conditions.push(eq(services.branchId, branchId));
         }
         return await db.select().from(services).where(and(...conditions)).orderBy(services.displayOrder, desc(services.createdAt));
       }
@@ -10154,7 +10155,7 @@ var init_storage = __esm({
           eq(services.active, 1)
         ];
         if (branchId !== void 0 && branchId !== null) {
-          conditions.push(or(eq(services.branchId, branchId), isNull(services.branchId)));
+          conditions.push(eq(services.branchId, branchId));
         }
         const allServices = await db.select().from(services).where(and(...conditions)).orderBy(services.displayOrder);
         return allServices.filter((service) => {
@@ -10213,7 +10214,7 @@ var init_storage = __esm({
           }
         }
         if (customerId && coupon.maxUsesPerCustomer) {
-          const usageCount = await db.select({ count: sql3`count(*)` }).from(couponUsages).where(
+          const usageCount = await db.select({ count: sql4`count(*)` }).from(couponUsages).where(
             and(
               eq(couponUsages.couponId, coupon.id),
               eq(couponUsages.customerId, customerId)
@@ -10242,7 +10243,7 @@ var init_storage = __esm({
           customerId: customerId || null,
           discountApplied: discountApplied?.toFixed(2) || "0"
         }).returning();
-        await db.update(coupons).set({ currentUses: sql3`${coupons.currentUses} + 1` }).where(eq(coupons.id, couponId));
+        await db.update(coupons).set({ currentUses: sql4`${coupons.currentUses} + 1` }).where(eq(coupons.id, couponId));
         return usage;
       }
       // ===== COUPON USAGE OPERATIONS =====
@@ -10258,7 +10259,7 @@ var init_storage = __esm({
           conditions.push(gte2(couponUsages.createdAt, filters.startDate));
         }
         if (filters?.endDate) {
-          conditions.push(sql3`${couponUsages.createdAt} <= ${filters.endDate}`);
+          conditions.push(sql4`${couponUsages.createdAt} <= ${filters.endDate}`);
         }
         const usages = await db.select().from(couponUsages).leftJoin(coupons, eq(couponUsages.couponId, coupons.id)).leftJoin(customers, eq(couponUsages.customerId, customers.id)).leftJoin(orders, eq(couponUsages.orderId, orders.id)).where(and(...conditions)).orderBy(desc(couponUsages.createdAt));
         return usages.map((u) => ({
@@ -10271,7 +10272,7 @@ var init_storage = __esm({
       async getCouponStats(restaurantId, branchId) {
         let conditions = [eq(coupons.restaurantId, restaurantId)];
         if (branchId) {
-          conditions.push(or(eq(coupons.branchId, branchId), isNull(coupons.branchId)));
+          conditions.push(eq(coupons.branchId, branchId));
         }
         const allCoupons = await db.select().from(coupons).where(and(...conditions));
         const now = /* @__PURE__ */ new Date();
@@ -10600,28 +10601,28 @@ var init_storage = __esm({
           }
         }
         const { plan, ...subscription } = subscriptionData;
-        const branchesCount = await db.select({ count: sql3`count(*)` }).from(branches).where(eq(branches.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
-        const tablesCount = await db.select({ count: sql3`count(*)` }).from(tables).where(eq(tables.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
-        const menuItemsCount = await db.select({ count: sql3`count(*)` }).from(menuItems).where(eq(menuItems.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
-        const usersCount = await db.select({ count: sql3`count(*)` }).from(users).where(eq(users.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
+        const branchesCount = await db.select({ count: sql4`count(*)` }).from(branches).where(eq(branches.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
+        const tablesCount = await db.select({ count: sql4`count(*)` }).from(tables).where(eq(tables.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
+        const menuItemsCount = await db.select({ count: sql4`count(*)` }).from(menuItems).where(eq(menuItems.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
+        const usersCount = await db.select({ count: sql4`count(*)` }).from(users).where(eq(users.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
         const startOfMonth = /* @__PURE__ */ new Date();
         startOfMonth.setDate(1);
         startOfMonth.setHours(0, 0, 0, 0);
-        const ordersThisMonth = await db.select({ count: sql3`count(*)` }).from(orders).where(
+        const ordersThisMonth = await db.select({ count: sql4`count(*)` }).from(orders).where(
           and(
             eq(orders.restaurantId, restaurantId),
             gte2(orders.createdAt, startOfMonth),
             ne(orders.status, "cancelado")
           )
         ).then((result2) => Number(result2[0]?.count || 0));
-        const customersCount = await db.select({ count: sql3`count(*)` }).from(customers).where(eq(customers.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
-        const activeCouponsCount = await db.select({ count: sql3`count(*)` }).from(coupons).where(
+        const customersCount = await db.select({ count: sql4`count(*)` }).from(customers).where(eq(customers.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
+        const activeCouponsCount = await db.select({ count: sql4`count(*)` }).from(coupons).where(
           and(
             eq(coupons.restaurantId, restaurantId),
             eq(coupons.isActive, 1)
           )
         ).then((result2) => Number(result2[0]?.count || 0));
-        const inventoryItemsCount = await db.select({ count: sql3`count(*)` }).from(inventoryItems).where(eq(inventoryItems.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
+        const inventoryItemsCount = await db.select({ count: sql4`count(*)` }).from(inventoryItems).where(eq(inventoryItems.restaurantId, restaurantId)).then((result2) => Number(result2[0]?.count || 0));
         const usage = {
           branches: branchesCount,
           tables: tablesCount,
@@ -10683,11 +10684,11 @@ var init_storage = __esm({
           throw new Error("Subscri\xE7\xE3o n\xE3o encontrada");
         }
         const { plan: _, ...subscription } = subscriptionData;
-        const branchesCount = await db.select({ count: sql3`count(*)` }).from(branches).where(eq(branches.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
-        const tablesCount = await db.select({ count: sql3`count(*)` }).from(tables).where(eq(tables.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
-        const menuItemsCount = await db.select({ count: sql3`count(*)` }).from(menuItems).where(eq(menuItems.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
-        const usersCount = await db.select({ count: sql3`count(*)` }).from(users).where(eq(users.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
-        const ordersCount = await db.select({ count: sql3`count(*)` }).from(orders).where(
+        const branchesCount = await db.select({ count: sql4`count(*)` }).from(branches).where(eq(branches.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
+        const tablesCount = await db.select({ count: sql4`count(*)` }).from(tables).where(eq(tables.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
+        const menuItemsCount = await db.select({ count: sql4`count(*)` }).from(menuItems).where(eq(menuItems.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
+        const usersCount = await db.select({ count: sql4`count(*)` }).from(users).where(eq(users.restaurantId, restaurantId)).then((result) => Number(result[0]?.count || 0));
+        const ordersCount = await db.select({ count: sql4`count(*)` }).from(orders).where(
           and(
             eq(orders.restaurantId, restaurantId),
             gte2(orders.createdAt, subscription.currentPeriodStart),
@@ -10785,7 +10786,7 @@ var init_storage = __esm({
             )
           );
         }
-        const result = await db.select({ count: sql3`count(*)` }).from(notifications).where(and(...conditions));
+        const result = await db.select({ count: sql4`count(*)` }).from(notifications).where(and(...conditions));
         return Number(result[0]?.count || 0);
       }
       async createNotification(restaurantId, data) {
@@ -10912,7 +10913,7 @@ var init_storage = __esm({
             if (guestIds.length > 0) {
               const paidAgg = await db.select({
                 guestId: guestPayments.guestId,
-                paid: sql3`COALESCE(SUM(${guestPayments.amount}), 0)`
+                paid: sql4`COALESCE(SUM(${guestPayments.amount}), 0)`
               }).from(guestPayments).where(and(eq(guestPayments.sessionId, sessionId), inArray(guestPayments.guestId, guestIds))).groupBy(guestPayments.guestId);
               const paidMap = new Map(paidAgg.map((r) => [r.guestId, parseFloat(r.paid || "0") || 0]));
               return guests.map((g) => ({
@@ -10939,7 +10940,7 @@ var init_storage = __esm({
               if (guestIds.length > 0) {
                 const paidAgg = await db.select({
                   guestId: guestPayments.guestId,
-                  paid: sql3`COALESCE(SUM(${guestPayments.amount}), 0)`
+                  paid: sql4`COALESCE(SUM(${guestPayments.amount}), 0)`
                 }).from(guestPayments).where(and(eq(guestPayments.sessionId, sessionId), inArray(guestPayments.guestId, guestIds))).groupBy(guestPayments.guestId);
                 const paidMap = new Map(paidAgg.map((r) => [r.guestId, parseFloat(r.paid || "0") || 0]));
                 return flattened.map((g) => ({
@@ -10987,7 +10988,7 @@ var init_storage = __esm({
           let guestNumber = data.guestNumber;
           if (!Number.isFinite(guestNumber)) {
             if (data.sessionId) {
-              const maxGuestNumber = await db.select({ maxNum: sql3`COALESCE(MAX(${tableGuests.guestNumber}), 0)` }).from(tableGuests).where(eq(tableGuests.sessionId, data.sessionId)).then((rows) => rows[0]?.maxNum ?? 0);
+              const maxGuestNumber = await db.select({ maxNum: sql4`COALESCE(MAX(${tableGuests.guestNumber}), 0)` }).from(tableGuests).where(eq(tableGuests.sessionId, data.sessionId)).then((rows) => rows[0]?.maxNum ?? 0);
               guestNumber = maxGuestNumber + 1;
             } else {
               guestNumber = 1;
@@ -11093,7 +11094,7 @@ var init_storage = __esm({
         const guest = await this.getTableGuestById(data.guestId);
         if (guest) {
           const paidAgg = await db.select({
-            paid: sql3`COALESCE(SUM(${guestPayments.amount}), 0)`
+            paid: sql4`COALESCE(SUM(${guestPayments.amount}), 0)`
           }).from(guestPayments).where(eq(guestPayments.guestId, data.guestId));
           const newPaid = parseFloat(paidAgg?.[0]?.paid || "0") || 0;
           await db.update(tableGuests).set({ paidAmount: newPaid.toFixed(2) }).where(eq(tableGuests.id, data.guestId));
@@ -11142,10 +11143,7 @@ var init_storage = __esm({
         let query = db.select().from(printerConfigurations).where(eq(printerConfigurations.restaurantId, restaurantId));
         if (branchId) {
           query = query.where(
-            or(
-              eq(printerConfigurations.branchId, branchId),
-              isNull(printerConfigurations.branchId)
-            )
+            eq(printerConfigurations.branchId, branchId)
           );
         }
         return await query.orderBy(desc(printerConfigurations.createdAt));
@@ -11199,10 +11197,7 @@ var init_storage = __esm({
         );
         if (branchId) {
           query = query.where(
-            or(
-              eq(printerConfigurations.branchId, branchId),
-              isNull(printerConfigurations.branchId)
-            )
+            eq(printerConfigurations.branchId, branchId)
           );
         }
         return await query;
@@ -11231,9 +11226,9 @@ var init_storage = __esm({
         startDate.setDate(startDate.getDate() - days);
         const stats = await db.select({
           printerType: printHistory.printerType,
-          totalPrints: sql3`count(*)`,
-          successfulPrints: sql3`count(*) filter (where ${printHistory.success} = 1)`,
-          failedPrints: sql3`count(*) filter (where ${printHistory.success} = 0)`
+          totalPrints: sql4`count(*)`,
+          successfulPrints: sql4`count(*) filter (where ${printHistory.success} = 1)`,
+          failedPrints: sql4`count(*) filter (where ${printHistory.success} = 0)`
         }).from(printHistory).where(
           and(
             eq(printHistory.restaurantId, restaurantId),
@@ -11398,7 +11393,7 @@ __export(check_subscriptions_exports, {
   checkExpiringSubscriptions: () => checkExpiringSubscriptions,
   generateReport: () => generateReport
 });
-import { eq as eq4, and as and4, lte, gte as gte4, sql as sql6 } from "drizzle-orm";
+import { eq as eq4, and as and4, lte, gte as gte4, sql as sql7 } from "drizzle-orm";
 async function checkExpiredSubscriptions() {
   console.log("\u{1F50D} Checking for expired subscriptions...");
   const now = /* @__PURE__ */ new Date();
@@ -11412,7 +11407,7 @@ async function checkExpiredSubscriptions() {
   }).from(subscriptions).innerJoin(restaurants, eq4(subscriptions.restaurantId, restaurants.id)).innerJoin(subscriptionPlans, eq4(subscriptions.planId, subscriptionPlans.id)).where(
     and4(
       lte(subscriptions.currentPeriodEnd, now),
-      sql6`${subscriptions.status} IN ('trial', 'ativa')`
+      sql7`${subscriptions.status} IN ('trial', 'ativa')`
     )
   );
   if (expiredSubs.length === 0) {
@@ -11462,7 +11457,7 @@ async function checkExpiringSubscriptions() {
     and4(
       lte(subscriptions.currentPeriodEnd, in7Days),
       gte4(subscriptions.currentPeriodEnd, now),
-      sql6`${subscriptions.status} IN ('trial', 'ativa')`
+      sql7`${subscriptions.status} IN ('trial', 'ativa')`
     )
   ).orderBy(subscriptions.currentPeriodEnd);
   if (expiringSubs.length === 0) {
@@ -11502,7 +11497,7 @@ async function generateReport() {
   console.log("\u2550".repeat(60));
   const statusCounts = await db.select({
     status: subscriptions.status,
-    count: sql6`count(*)::int`
+    count: sql7`count(*)::int`
   }).from(subscriptions).groupBy(subscriptions.status);
   console.log("\n\u{1F4C8} Status das Subscri\xE7\xF5es:");
   for (const row of statusCounts) {
@@ -11511,7 +11506,7 @@ async function generateReport() {
   }
   const planCounts = await db.select({
     planName: subscriptionPlans.name,
-    count: sql6`count(*)::int`
+    count: sql7`count(*)::int`
   }).from(subscriptions).innerJoin(subscriptionPlans, eq4(subscriptions.planId, subscriptionPlans.id)).groupBy(subscriptionPlans.name);
   console.log("\n\u{1F4B3} Subscri\xE7\xF5es por Plano:");
   for (const row of planCounts) {
@@ -11703,7 +11698,7 @@ __export(auto_migrate_exports, {
   runAutoMigrations: () => runAutoMigrations,
   runAutoMigrationsSafe: () => runAutoMigrationsSafe
 });
-import { sql as sql8 } from "drizzle-orm";
+import { sql as sql9 } from "drizzle-orm";
 import fs4 from "fs";
 import path5 from "path";
 import { fileURLToPath as fileURLToPath4 } from "url";
@@ -11717,7 +11712,7 @@ function findMigrationsDirectory() {
 }
 async function ensureMigrationsTable() {
   try {
-    await db.execute(sql8`
+    await db.execute(sql9`
       CREATE TABLE IF NOT EXISTS migrations (
         id SERIAL PRIMARY KEY,
         filename VARCHAR(255) UNIQUE NOT NULL,
@@ -11734,7 +11729,7 @@ async function ensureMigrationsTable() {
 }
 async function getAppliedMigrations() {
   try {
-    const result = await db.execute(sql8`
+    const result = await db.execute(sql9`
       SELECT filename FROM migrations ORDER BY applied_at
     `);
     return new Set((result.rows || []).map((row) => row.filename));
@@ -11744,7 +11739,7 @@ async function getAppliedMigrations() {
   }
 }
 async function recordMigration(filename) {
-  await db.execute(sql8`
+  await db.execute(sql9`
     INSERT INTO migrations (filename) 
     VALUES (${filename})
     ON CONFLICT (filename) DO NOTHING
@@ -11753,7 +11748,7 @@ async function recordMigration(filename) {
 async function executeMigration(filename, migrationSQL) {
   console.log(`   \u{1F504} Aplicando: ${filename}`);
   try {
-    await db.execute(sql8.raw(migrationSQL));
+    await db.execute(sql9.raw(migrationSQL));
     await recordMigration(filename);
     console.log(`   \u2705 Aplicada: ${filename}`);
   } catch (error) {
@@ -11871,13 +11866,13 @@ function setupMigrationEndpoint(app2) {
   app2.get("/api/internal/migrations/status", async (req, res) => {
     try {
       const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      const { sql: sql9 } = await import("drizzle-orm");
+      const { sql: sql10 } = await import("drizzle-orm");
       const fs5 = await import("fs");
       const path7 = await import("path");
       const { fileURLToPath: fileURLToPath5 } = await import("url");
       const __filename2 = fileURLToPath5(import.meta.url);
       const __dirname3 = path7.dirname(__filename2);
-      const appliedResult = await db2.execute(sql9`
+      const appliedResult = await db2.execute(sql10`
         SELECT filename, applied_at 
         FROM migrations 
         ORDER BY applied_at DESC
@@ -11923,12 +11918,12 @@ init_storage();
 init_db();
 init_schema();
 import { createServer } from "http";
-import { eq as eq5, sql as sql7, and as and5, isNull as isNull2, or as or3, asc, inArray as inArray2 } from "drizzle-orm";
+import { eq as eq5, sql as sql8, and as and5, isNull as isNull2, or as or3, desc as desc3, asc, inArray as inArray2 } from "drizzle-orm";
 
 // server/orderNumberGenerator.ts
 init_db();
 init_schema();
-import { sql as sql5, and as and3, gte as gte3, eq as eq3 } from "drizzle-orm";
+import { sql as sql6, and as and3, gte as gte3, eq as eq3 } from "drizzle-orm";
 function getCurrentShift() {
   const now = /* @__PURE__ */ new Date();
   const hour = now.getHours();
@@ -11978,7 +11973,7 @@ async function generateOrderNumber(restaurantId, orderType) {
         eq3(orders.orderType, orderType),
         gte3(orders.createdAt, shift.start)
       )
-    ).orderBy(sql5`${orders.createdAt} DESC`).limit(1);
+    ).orderBy(sql6`${orders.createdAt} DESC`).limit(1);
     let nextNumber = 1;
     if (lastOrder.length > 0 && lastOrder[0].orderNumber) {
       const lastNumber = parseInt(lastOrder[0].orderNumber.substring(1));
@@ -12171,6 +12166,53 @@ import { nanoid } from "nanoid";
 import fs2 from "fs/promises";
 import twilio from "twilio";
 import { z as z2 } from "zod";
+var sessionPinAttempts = /* @__PURE__ */ new Map();
+var SESSION_PIN_MAX_ATTEMPTS = 5;
+var SESSION_PIN_WINDOW_MS = 15 * 60 * 1e3;
+function getSessionPinAttemptKey(req, tableId) {
+  return `${req.ip || req.socket?.remoteAddress || "unknown"}:${tableId}`;
+}
+function getSessionPinAttemptState(req, tableId) {
+  const key = getSessionPinAttemptKey(req, tableId);
+  const now = Date.now();
+  const current = sessionPinAttempts.get(key);
+  if (!current || current.resetAt <= now) {
+    const fresh = { count: 0, resetAt: now + SESSION_PIN_WINDOW_MS };
+    sessionPinAttempts.set(key, fresh);
+    return { key, state: fresh };
+  }
+  return { key, state: current };
+}
+function registerFailedSessionPin(req, tableId) {
+  const { state } = getSessionPinAttemptState(req, tableId);
+  state.count += 1;
+  return Math.max(0, SESSION_PIN_MAX_ATTEMPTS - state.count);
+}
+function clearSessionPinAttempts(req, tableId) {
+  sessionPinAttempts.delete(getSessionPinAttemptKey(req, tableId));
+}
+async function resolveActiveTableSession(table2) {
+  if (table2.currentSessionId) {
+    return table2;
+  }
+  const [activeSession] = await db.select({
+    id: tableSessions.id,
+    status: tableSessions.status
+  }).from(tableSessions).where(and5(
+    eq5(tableSessions.tableId, table2.id),
+    eq5(tableSessions.restaurantId, table2.restaurantId),
+    isNull2(tableSessions.endedAt)
+  )).orderBy(desc3(tableSessions.startedAt)).limit(1);
+  if (!activeSession) {
+    return table2;
+  }
+  return {
+    ...table2,
+    currentSessionId: activeSession.id,
+    status: activeSession.status,
+    isOccupied: 1
+  };
+}
 var twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN) : null;
 var TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || "";
 async function sendWhatsAppOTP(phoneNumber, otpCode, restaurantName) {
@@ -12592,8 +12634,8 @@ async function registerRoutes(app2) {
           path: migrationPath
         });
       }
-      const sql9 = fs5.readFileSync(migrationPath, "utf8");
-      const statements = sql9.split(";").map((s) => s.trim()).filter((s) => s.length > 0 && !s.startsWith("--"));
+      const sql10 = fs5.readFileSync(migrationPath, "utf8");
+      const statements = sql10.split(";").map((s) => s.trim()).filter((s) => s.length > 0 && !s.startsWith("--"));
       let executed = 0;
       const errors = [];
       for (const statement of statements) {
@@ -12673,7 +12715,7 @@ async function registerRoutes(app2) {
       }
       console.log("\u{1F504} [RECALC] Recalculando todas as sess\xF5es abertas...");
       const openSessions = await db.select().from(tableSessions).where(
-        sql7`${tableSessions.status} != 'fechada'`
+        sql8`${tableSessions.status} != 'fechada'`
       );
       const results = [];
       for (const session2 of openSessions) {
@@ -12721,17 +12763,17 @@ async function registerRoutes(app2) {
           or3(
             eq5(tableSessions.discount, "0"),
             eq5(tableSessions.discount, "0.00"),
-            sql7`${tableSessions.discount} IS NULL`
+            sql8`${tableSessions.discount} IS NULL`
           ),
           or3(
             eq5(tableSessions.serviceCharge, "0"),
             eq5(tableSessions.serviceCharge, "0.00"),
-            sql7`${tableSessions.serviceCharge} IS NULL`
+            sql8`${tableSessions.serviceCharge} IS NULL`
           ),
           // Tem valor pago
-          sql7`CAST(${tableSessions.paidAmount} AS NUMERIC) > 0`,
+          sql8`CAST(${tableSessions.paidAmount} AS NUMERIC) > 0`,
           // Não está fechada
-          sql7`${tableSessions.status} != 'fechada'`
+          sql8`${tableSessions.status} != 'fechada'`
         )
       );
       const toFix = [];
@@ -12765,7 +12807,7 @@ async function registerRoutes(app2) {
       console.log("\u{1F4BE} [FIX-SESSIONS] Criando backup...");
       const timestamp2 = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-").slice(0, 19);
       const backupName = `table_sessions_backup_${timestamp2.replace(/-/g, "_")}`;
-      await db.execute(sql7.raw(`
+      await db.execute(sql8.raw(`
         CREATE TABLE IF NOT EXISTS ${backupName} AS 
         SELECT * FROM table_sessions
       `));
@@ -13633,7 +13675,7 @@ async function registerRoutes(app2) {
           if (!restaurantId) {
             return res2.status(400).json({ error: "Restaurant ID inv\xE1lido" });
           }
-          const summaryResult = await db.execute(sql7`
+          const summaryResult = await db.execute(sql8`
         SELECT 
           COUNT(*) as total_clicks,
           COUNT(DISTINCT session_id) as unique_visitors,
@@ -13648,7 +13690,7 @@ async function registerRoutes(app2) {
         FROM link_analytics
         WHERE restaurant_id = ${restaurantId}
       `);
-          const sourcesResult = await db.execute(sql7`
+          const sourcesResult = await db.execute(sql8`
         SELECT 
           COALESCE(source, 'Direto') as source,
           COUNT(*) as clicks
@@ -13717,7 +13759,7 @@ async function registerRoutes(app2) {
           if (!sessionId || !restaurantId) {
             return res2.status(400).json({ error: "Session ID e Restaurant ID obrigat\xF3rios" });
           }
-          await db.execute(sql7`
+          await db.execute(sql8`
         UPDATE link_analytics 
         SET converted = 1
         WHERE session_id = ${sessionId} 
@@ -14271,7 +14313,8 @@ async function registerRoutes(app2) {
       if (isNaN(tableNumber)) {
         return res.status(400).json({ message: "N\xFAmero de mesa inv\xE1lido" });
       }
-      const table2 = await storage.getTableByNumber(tableNumber, restaurantId);
+      const tableRecord = await storage.getTableByNumber(tableNumber, restaurantId);
+      const table2 = tableRecord ? await resolveActiveTableSession(tableRecord) : void 0;
       if (!table2) {
         return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
       }
@@ -14286,7 +14329,8 @@ async function registerRoutes(app2) {
       if (isNaN(tableNumber)) {
         return res.status(400).json({ message: "N\xFAmero de mesa inv\xE1lido" });
       }
-      const table2 = await storage.getTableByNumber(tableNumber);
+      const tableRecord = await storage.getTableByNumber(tableNumber);
+      const table2 = tableRecord ? await resolveActiveTableSession(tableRecord) : void 0;
       if (!table2) {
         return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
       }
@@ -14326,32 +14370,101 @@ async function registerRoutes(app2) {
       if (isNaN(tableNumber)) {
         return res.status(400).json({ message: "N\xFAmero de mesa inv\xE1lido" });
       }
-      const table2 = await storage.getTableByNumber(tableNumber);
+      const tableRecord = await storage.getTableByNumber(tableNumber);
+      const table2 = tableRecord ? await resolveActiveTableSession(tableRecord) : void 0;
       if (!table2) {
         return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
       }
       const requestedCustomerCount = req.body.customerCount ? Math.max(1, parseInt(req.body.customerCount)) : 1;
+      const { name, deviceInfo, pin, guestToken } = req.body;
       let sessionId = table2.currentSessionId || "";
+      const hadActiveSession = Boolean(sessionId);
+      if (hadActiveSession) {
+        const existingGuest = guestToken ? await storage.getTableGuestByToken(String(guestToken)) : void 0;
+        if (existingGuest?.sessionId === sessionId && existingGuest.tableId === table2.id) {
+          return res.json({
+            guest: existingGuest,
+            token: existingGuest.token,
+            table: {
+              id: table2.id,
+              number: table2.number,
+              restaurantId: table2.restaurantId
+            }
+          });
+        }
+        const { state } = getSessionPinAttemptState(req, table2.id);
+        if (state.count >= SESSION_PIN_MAX_ATTEMPTS && state.resetAt > Date.now()) {
+          return res.status(429).json({
+            code: "TABLE_PIN_RATE_LIMITED",
+            message: "Muitas tentativas de PIN. Aguarde alguns minutos e tente novamente.",
+            attemptsRemaining: 0
+          });
+        }
+        const normalizedPin = pin === void 0 || pin === null ? "" : String(pin).trim();
+        if (!/^\d{6}$/.test(normalizedPin)) {
+          return res.status(409).json({
+            code: "TABLE_PIN_REQUIRED",
+            message: "Esta mesa j\xE1 est\xE1 em uso. Digite o PIN fornecido pelo restaurante."
+          });
+        }
+        const isValidPin = await storage.validateSessionPin(sessionId, normalizedPin);
+        if (!isValidPin) {
+          const attemptsRemaining = registerFailedSessionPin(req, table2.id);
+          if (attemptsRemaining === 0) {
+            return res.status(429).json({
+              code: "TABLE_PIN_RATE_LIMITED",
+              message: "Limite de tentativas atingido. Aguarde alguns minutos e tente novamente.",
+              attemptsRemaining
+            });
+          }
+          return res.status(401).json({
+            code: "INVALID_TABLE_PIN",
+            message: "PIN inv\xE1lido.",
+            attemptsRemaining
+          });
+        }
+        clearSessionPinAttempts(req, table2.id);
+      }
       if (!sessionId) {
-        const session2 = await storage.startTableSession(table2.restaurantId, table2.id, {
-          customerName: req.body.name || "Cliente",
-          customerCount: requestedCustomerCount
-        });
-        sessionId = session2.id;
+        try {
+          const session2 = await storage.startTableSession(table2.restaurantId, table2.id, {
+            customerName: name || void 0,
+            customerCount: requestedCustomerCount
+          });
+          sessionId = session2.id;
+        } catch (error) {
+          if (error?.code === "TABLE_ALREADY_OCCUPIED") {
+            const latestTable = await storage.getTableById(table2.id);
+            if (latestTable?.currentSessionId) {
+              return res.status(409).json({
+                code: "TABLE_PIN_REQUIRED",
+                message: "Esta mesa j\xE1 est\xE1 em uso. Digite o PIN fornecido pelo restaurante."
+              });
+            }
+          }
+          throw error;
+        }
       } else if (req.body.customerCount) {
         await db.update(tableSessions).set({ customerCount: requestedCustomerCount }).where(eq5(tableSessions.id, sessionId));
         await db.update(tables).set({ customerCount: requestedCustomerCount }).where(eq5(tables.id, table2.id));
       }
-      const { name, deviceInfo, pin } = req.body;
-      if (pin) {
-        const isValidPin = await storage.validateSessionPin(sessionId, pin);
-        if (!isValidPin) {
-          return res.status(401).json({ message: "PIN inv\xE1lido" });
-        }
-      }
       const token = nanoid(32);
       const tokenExpiresAt = new Date(Date.now() + 4 * 60 * 60 * 1e3);
-      const guest = await storage.createTableGuest(table2.restaurantId, {
+      let guest;
+      if (!hadActiveSession) {
+        const sessionGuests = await storage.getTableGuests(sessionId);
+        const firstGuest = sessionGuests[0];
+        if (firstGuest && !firstGuest.token) {
+          await db.update(tableGuests).set({
+            token,
+            tokenExpiresAt,
+            name: name || firstGuest.name,
+            deviceInfo: deviceInfo || req.headers["user-agent"]
+          }).where(eq5(tableGuests.id, firstGuest.id));
+          guest = (await storage.getTableGuests(sessionId)).find((item) => item.id === firstGuest.id);
+        }
+      }
+      guest ||= await storage.createTableGuest(table2.restaurantId, {
         sessionId,
         tableId: table2.id,
         name: name || void 0,
@@ -14378,7 +14491,11 @@ async function registerRoutes(app2) {
         }
       });
     } catch (error) {
-      res.status(500).json({ message: error.message || "Erro ao entrar na mesa" });
+      const statusCode = error?.statusCode === 409 ? 409 : 500;
+      res.status(statusCode).json({
+        code: error?.code,
+        message: error.message || "Erro ao entrar na mesa"
+      });
     }
   });
   app2.post("/api/public/tables/:number/validate-pin", async (req, res) => {
@@ -14399,15 +14516,28 @@ async function registerRoutes(app2) {
       if (!sessionId) {
         return res.status(400).json({ message: "Mesa sem sess\xE3o ativa" });
       }
-      const isValid = await storage.validateSessionPin(sessionId, pin);
-      if (!isValid) {
-        return res.status(401).json({ message: "PIN inv\xE1lido" });
+      const { state } = getSessionPinAttemptState(req, table2.id);
+      if (state.count >= SESSION_PIN_MAX_ATTEMPTS && state.resetAt > Date.now()) {
+        return res.status(429).json({
+          code: "TABLE_PIN_RATE_LIMITED",
+          message: "Muitas tentativas de PIN. Aguarde alguns minutos e tente novamente.",
+          attemptsRemaining: 0
+        });
       }
-      const sessionPin = await storage.getSessionPin(sessionId);
+      const normalizedPin = String(pin).trim();
+      const isValid = /^\d{6}$/.test(normalizedPin) && await storage.validateSessionPin(sessionId, normalizedPin);
+      if (!isValid) {
+        const attemptsRemaining = registerFailedSessionPin(req, table2.id);
+        return res.status(attemptsRemaining === 0 ? 429 : 401).json({
+          code: attemptsRemaining === 0 ? "TABLE_PIN_RATE_LIMITED" : "INVALID_TABLE_PIN",
+          message: attemptsRemaining === 0 ? "Limite de tentativas atingido. Aguarde alguns minutos e tente novamente." : "PIN inv\xE1lido",
+          attemptsRemaining
+        });
+      }
+      clearSessionPinAttempts(req, table2.id);
       res.json({
         valid: true,
         sessionId,
-        pin: sessionPin,
         table: {
           id: table2.id,
           number: table2.number,
@@ -14547,24 +14677,56 @@ async function registerRoutes(app2) {
         if (!validatedOrder.tableId) {
           return res.status(400).json({ message: "Mesa \xE9 obrigat\xF3ria para pedidos do tipo mesa" });
         }
-        const table2 = await storage.getTableById(validatedOrder.tableId);
+        const tableRecord = await storage.getTableById(validatedOrder.tableId);
+        const table2 = tableRecord ? await resolveActiveTableSession(tableRecord) : void 0;
         if (!table2) {
           return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
         }
-        if (table2.status === "livre") {
-          await storage.openTable(validatedOrder.tableId, validatedOrder.customerCount);
+        if (table2.restaurantId !== validatedOrder.restaurantId) {
+          return res.status(403).json({ message: "Mesa n\xE3o pertence a este restaurante" });
         }
         const sessionPin = req.headers["x-session-pin"] || req.body?.sessionPin;
-        if (sessionPin && table2.currentSessionId) {
-          const isValidPin = await storage.validateSessionPin(table2.currentSessionId, sessionPin);
-          if (!isValidPin) {
-            return res.status(401).json({ message: "PIN da mesa inv\xE1lido" });
+        const guestToken = req.headers["x-guest-token"];
+        if (!table2.currentSessionId) {
+          return res.status(409).json({
+            code: "TABLE_JOIN_REQUIRED",
+            message: "Entre na mesa antes de enviar o pedido."
+          });
+        }
+        if (table2.currentSessionId) {
+          const tokenGuest = guestToken ? await storage.getTableGuestByToken(guestToken) : void 0;
+          const tokenBelongsToCurrentSession = tokenGuest?.sessionId === table2.currentSessionId && tokenGuest.tableId === table2.id;
+          if (!tokenBelongsToCurrentSession) {
+            const { state } = getSessionPinAttemptState(req, table2.id);
+            if (state.count >= SESSION_PIN_MAX_ATTEMPTS && state.resetAt > Date.now()) {
+              return res.status(429).json({
+                code: "TABLE_PIN_RATE_LIMITED",
+                message: "Muitas tentativas de PIN. Aguarde alguns minutos e tente novamente.",
+                attemptsRemaining: 0
+              });
+            }
+            const normalizedPin = sessionPin ? String(sessionPin).trim() : "";
+            const isValidPin = /^\d{6}$/.test(normalizedPin) && await storage.validateSessionPin(table2.currentSessionId, normalizedPin);
+            if (!isValidPin) {
+              const attemptsRemaining = registerFailedSessionPin(req, table2.id);
+              return res.status(attemptsRemaining === 0 ? 429 : 409).json({
+                code: attemptsRemaining === 0 ? "TABLE_PIN_RATE_LIMITED" : "TABLE_PIN_REQUIRED",
+                message: attemptsRemaining === 0 ? "Limite de tentativas atingido. Aguarde alguns minutos e tente novamente." : "Esta mesa j\xE1 est\xE1 em uso. Digite o PIN fornecido pelo restaurante.",
+                attemptsRemaining
+              });
+            }
+            clearSessionPinAttempts(req, table2.id);
           }
+          validatedOrder = {
+            ...validatedOrder,
+            tableSessionId: table2.currentSessionId
+          };
         }
       }
       let detectedGuestId = null;
       if (validatedOrder.orderType === "mesa" && validatedOrder.tableId) {
-        const table2 = await storage.getTableById(validatedOrder.tableId);
+        const tableRecord = await storage.getTableById(validatedOrder.tableId);
+        const table2 = tableRecord ? await resolveActiveTableSession(tableRecord) : void 0;
         if (table2?.currentSessionId) {
           const guestToken = req.headers["x-guest-token"];
           if (validatedOrder.customerId) {
@@ -14583,6 +14745,7 @@ async function registerRoutes(app2) {
                   token: guestToken
                   // Salvar token também
                 });
+                await db.update(tableGuests).set({ tokenExpiresAt: new Date(Date.now() + 4 * 60 * 60 * 1e3) }).where(eq5(tableGuests.id, newGuest.id));
                 detectedGuestId = newGuest.id;
                 broadcastToClients({
                   type: "guest_joined",
@@ -14607,6 +14770,7 @@ async function registerRoutes(app2) {
                 guestNumber,
                 token: guestToken
               });
+              await db.update(tableGuests).set({ tokenExpiresAt: new Date(Date.now() + 4 * 60 * 60 * 1e3) }).where(eq5(tableGuests.id, newGuest.id));
               detectedGuestId = newGuest.id;
               broadcastToClients({
                 type: "guest_joined",
@@ -14614,17 +14778,10 @@ async function registerRoutes(app2) {
               });
             }
           } else {
-            const existingGuests = await storage.getTableGuests(table2.currentSessionId);
-            const anonymousCount = existingGuests.filter((g) => !g.customerId).length;
-            const guestNumber = anonymousCount + 1;
-            const newGuest = await storage.createTableGuest(validatedOrder.restaurantId, {
-              sessionId: table2.currentSessionId,
-              tableId: table2.id,
-              customerId: null,
-              name: `Convidado ${guestNumber}`,
-              guestNumber
+            return res.status(409).json({
+              code: "TABLE_PIN_REQUIRED",
+              message: "Valide o PIN da mesa antes de fazer um pedido."
             });
-            detectedGuestId = newGuest.id;
           }
         }
       }
@@ -15349,10 +15506,10 @@ async function registerRoutes(app2) {
         return res.status(400).json({ message: "Coordenadas devem estar entre 0 e 100" });
       }
       await db.execute(
-        sql7`UPDATE tables SET position_x = ${x}, position_y = ${y} WHERE id = ${id}`
+        sql8`UPDATE tables SET position_x = ${x}, position_y = ${y} WHERE id = ${id}`
       );
       const checkResult = await db.execute(
-        sql7`SELECT id FROM tables WHERE id = ${id}`
+        sql8`SELECT id FROM tables WHERE id = ${id}`
       );
       if (checkResult.rows.length === 0) {
         return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
@@ -15379,7 +15536,11 @@ async function registerRoutes(app2) {
       broadcastToClients({ type: "table_session_started", data: session2 });
       res.json(session2);
     } catch (error) {
-      res.status(500).json({ message: error.message || "Failed to start table session" });
+      const statusCode = error?.statusCode === 409 ? 409 : 500;
+      res.status(statusCode).json({
+        code: error?.code,
+        message: error.message || "Failed to start table session"
+      });
     }
   });
   app2.post("/api/tables/:id/close-session", isOperational, async (req, res) => {
@@ -21065,13 +21226,13 @@ Stack: ${errorStack}
         const sessionId = session2.id;
         const guests = await db.select().from(tableGuests).where(eq5(tableGuests.sessionId, sessionId));
         const paidAgg = await db.select({
-          paid: sql7`COALESCE(SUM(${guestPayments.amount}), 0)`
+          paid: sql8`COALESCE(SUM(${guestPayments.amount}), 0)`
         }).from(guestPayments).where(eq5(guestPayments.sessionId, sessionId));
         const correctSessionPaid = parseFloat(paidAgg?.[0]?.paid || "0") || 0;
         const guestIds = guests.map((g) => g.id).filter(Boolean);
         const paidByGuest = guestIds.length > 0 ? await db.select({
           guestId: guestPayments.guestId,
-          paid: sql7`COALESCE(SUM(${guestPayments.amount}), 0)`
+          paid: sql8`COALESCE(SUM(${guestPayments.amount}), 0)`
         }).from(guestPayments).where(and5(eq5(guestPayments.sessionId, sessionId), inArray2(guestPayments.guestId, guestIds))).groupBy(guestPayments.guestId) : [];
         const paidMap = new Map(paidByGuest.map((r) => [r.guestId, parseFloat(r.paid || "0") || 0]));
         let guestsFixed = 0;
@@ -21127,13 +21288,13 @@ Stack: ${errorStack}
         await db.delete(guestPayments).where(inArray2(guestPayments.id, dupIdsToDelete));
       }
       const paidAgg = await db.select({
-        paid: sql7`COALESCE(SUM(${guestPayments.amount}), 0)`
+        paid: sql8`COALESCE(SUM(${guestPayments.amount}), 0)`
       }).from(guestPayments).where(eq5(guestPayments.sessionId, sessionId));
       const correctSessionPaid = parseFloat(paidAgg?.[0]?.paid || "0") || 0;
       const guestIds = guests.map((g) => g.id).filter(Boolean);
       const paidByGuest = guestIds.length > 0 ? await db.select({
         guestId: guestPayments.guestId,
-        paid: sql7`COALESCE(SUM(${guestPayments.amount}), 0)`
+        paid: sql8`COALESCE(SUM(${guestPayments.amount}), 0)`
       }).from(guestPayments).where(and5(eq5(guestPayments.sessionId, sessionId), inArray2(guestPayments.guestId, guestIds))).groupBy(guestPayments.guestId) : [];
       const paidMap = new Map(paidByGuest.map((r) => [r.guestId, parseFloat(r.paid || "0") || 0]));
       const guestUpdates = [];
@@ -21423,8 +21584,8 @@ app.use((req, res, next) => {
   }
   try {
     console.log("\u{1F527} Corrigindo pedidos sem tableSessionId...");
-    const { db: db2, sql: sql9 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
-    await db2.execute(sql9`
+    const { db: db2, sql: sql10 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
+    await db2.execute(sql10`
       UPDATE orders
       SET table_session_id = (
         SELECT tg.session_id

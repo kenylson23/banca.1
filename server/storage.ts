@@ -2901,7 +2901,7 @@ export class DatabaseStorage implements IStorage {
     let resolvedBranchId = order.branchId ?? null;
     
     // For table orders, verify the table exists and get its restaurantId
-    if (order.orderType === 'mesa' && order.tableId) {
+    if (order.orderType === 'mesa' && order.tableId && !order.tableSessionId) {
       const table = await this.getTableById(order.tableId);
       if (!table) {
         throw new Error('Table not found');

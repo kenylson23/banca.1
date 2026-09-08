@@ -743,6 +743,26 @@ export default function CustomerMenu() {
       return;
     }
 
+    if (!hasJoinedTable) {
+      const tableIsOccupied = Boolean(
+        currentTable.currentSessionId
+        || currentTable.isOccupied === 1
+        || currentTable.status !== 'livre'
+      );
+      setRequiresTablePin(tableIsOccupied);
+      setSessionPin('');
+      setPinAttemptsRemaining(null);
+      setIsJoinDialogOpen(true);
+      toast({
+        title: tableIsOccupied ? 'PIN necessário' : 'Entre na mesa primeiro',
+        description: tableIsOccupied
+          ? 'Digite o PIN da mesa antes de enviar o pedido.'
+          : 'Confirme a entrada na mesa antes de enviar o pedido.',
+        variant: tableIsOccupied ? 'destructive' : 'default',
+      });
+      return;
+    }
+
     const orderItems = items.map(item => {
       const basePrice = parseFloat(item.menuItem.price);
       const optionsPrice = item.selectedOptions.reduce((sum, opt) => {

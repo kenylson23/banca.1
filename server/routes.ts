@@ -3313,26 +3313,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!validatedOrder.tableId) {
           return res.status(400).json({ message: "Mesa é obrigatória para pedidos do tipo mesa" });
         }
-        let table = await storage.getTableById(validatedOrder.tableId);
+        const tableRecord = await storage.getTableById(validatedOrder.tableId);
+        const table = tableRecord ? await resolveActiveTableSession(tableRecord) : undefined;
         if (!table) {
           return res.status(404).json({ message: "Mesa não encontrada" });
+        }
+        if (table.restaurantId !== validatedOrder.restaurantId) {
+          return res.status(403).json({ message: "Mesa não pertence a este restaurante" });
         }
         
         const sessionPin = req.headers['x-session-pin'] as string | undefined || req.body?.sessionPin as string | undefined;
         const guestToken = req.headers['x-guest-token'] as string | undefined;
-        let sessionStartedForThisRequest = false;
 
-        // The first QR visitor can start a session without a PIN.
+        // Session creation belongs to the QR join flow. Do not silently open
+        // a table session while creating an order.
         if (!table.currentSessionId) {
-          await storage.startTableSession(validatedOrder.restaurantId, validatedOrder.tableId, {
-            customerName: validatedOrder.customerName || undefined,
-            customerCount: validatedOrder.customerCount,
+          return res.status(409).json({
+            code: "TABLE_JOIN_REQUIRED",
+            message: "Entre na mesa antes de enviar o pedido.",
           });
-          table = await storage.getTableById(validatedOrder.tableId);
-          sessionStartedForThisRequest = true;
         }
 
-        if (table?.currentSessionId && !sessionStartedForThisRequest) {
+        if (table.currentSessionId) {
           const tokenGuest = guestToken
             ? await storage.getTableGuestByToken(guestToken)
             : undefined;
@@ -3364,6 +3366,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             clearSessionPinAttempts(req, table.id);
           }
+
+          validatedOrder = {
+            ...validatedOrder,
+            tableSessionId: table.currentSessionId,
+          };
         }
       }
       
@@ -3371,7 +3378,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let detectedGuestId: string | null = null;
       
       if (validatedOrder.orderType === 'mesa' && validatedOrder.tableId) {
-        const table = await storage.getTableById(validatedOrder.tableId);
+        const tableRecord = await storage.getTableById(validatedOrder.tableId);
+        const table = tableRecord ? await resolveActiveTableSession(tableRecord) : undefined;
         
         if (table?.currentSessionId) {
           const guestToken = req.headers['x-guest-token'] as string | undefined;
