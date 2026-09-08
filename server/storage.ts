@@ -2581,10 +2581,7 @@ export class DatabaseStorage implements IStorage {
       
       // Isolamento estrito: pedidos sem filial só podem aparecer quando
       // estiverem ligados a uma mesa da filial ativa.
-      const branchCondition = or(
-        eq(orders.branchId, branchId),
-        and(isNull(orders.branchId), eq(tables.branchId, branchId))
-      );
+      const branchCondition = eq(orders.branchId, branchId);
       const tableCondition = tableIds.length > 0
         ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId))
         : isNull(orders.tableId);
@@ -2652,10 +2649,7 @@ export class DatabaseStorage implements IStorage {
       const branchTables = await this.getTables(restaurantId, branchId);
       const tableIds = branchTables.map((t: Table) => t.id);
       
-      const branchCondition = or(
-        eq(orders.branchId, branchId),
-        and(isNull(orders.branchId), eq(tables.branchId, branchId))
-      );
+      const branchCondition = eq(orders.branchId, branchId);
       const tableCondition = tableIds.length > 0
         ? or(inArray(orders.tableId, tableIds), isNull(orders.tableId))
         : isNull(orders.tableId);
@@ -4145,7 +4139,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
+          eq(orders.branchId, branchId),
           gte(orders.createdAt, today)
         ));
     } else {
@@ -4181,7 +4175,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
+          eq(orders.branchId, branchId),
           gte(orders.createdAt, yesterday),
           sql`${orders.createdAt} < ${today}`
         ));
@@ -4251,7 +4245,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
+          eq(orders.branchId, branchId),
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, today)
         ));
@@ -4346,7 +4340,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
+          eq(orders.branchId, branchId),
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
@@ -4389,7 +4383,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
+          eq(orders.branchId, branchId),
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
@@ -4478,7 +4472,7 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(tables, eq(orders.tableId, tables.id))
           .where(and(
             eq(orders.restaurantId, restaurantId),
-            or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
+            eq(orders.branchId, branchId),
             sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
             gte(orders.createdAt, dayStart),
             sql`${orders.createdAt} <= ${dayEnd}`
@@ -4532,7 +4526,7 @@ export class DatabaseStorage implements IStorage {
          .leftJoin(tables, eq(orders.tableId, tables.id))
          .where(and(
            eq(orders.restaurantId, restaurantId),
-           or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
+           eq(orders.branchId, branchId),
            sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
            gte(orders.createdAt, startDate),
            sql`${orders.createdAt} <= ${today}`
@@ -4598,7 +4592,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
+          eq(orders.branchId, branchId),
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${endDate}`
@@ -4699,7 +4693,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
+          eq(orders.branchId, branchId),
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
@@ -5203,7 +5197,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
+          eq(orders.branchId, branchId),
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${endDate}`
@@ -5288,7 +5282,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
+          eq(orders.branchId, branchId),
           eq(orders.status, 'cancelado'),
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${endDate}`
@@ -5433,7 +5427,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
+          eq(orders.branchId, branchId),
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${endDate}`
         ));
@@ -5538,7 +5532,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
-          or(eq(tables.branchId, branchId), eq(orders.branchId, branchId)),
+          eq(orders.branchId, branchId),
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${endDate}`
         ));

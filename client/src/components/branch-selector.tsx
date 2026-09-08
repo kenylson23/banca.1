@@ -91,7 +91,16 @@ export function BranchSelector() {
       const isBranchScopedQuery = (query: { queryKey: readonly unknown[] }) => {
         const key = query.queryKey[0];
         return typeof key === 'string'
-          && key.startsWith('/api/')
+          && (
+            key.startsWith('/api/')
+            || [
+              'menu-items',
+              'table-guests',
+              'favorite-products',
+              'printer-configurations',
+              'tables',
+            ].includes(key)
+          )
           && key !== '/api/auth/user'
           && key !== '/api/branches';
       };
@@ -102,6 +111,9 @@ export function BranchSelector() {
       await queryClient.resetQueries({ predicate: isBranchScopedQuery });
       await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
       await queryClient.invalidateQueries({ queryKey: ['/api/branches'] });
+      // Local dialogs, selections and forms can hold objects from the old
+      // branch even after their queries are reset.
+      window.location.reload();
       toast({
         title: "Sucesso",
         description: "Unidade alterada com sucesso",
