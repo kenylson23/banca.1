@@ -1657,33 +1657,55 @@ export class DatabaseStorage implements IStorage {
   }
 
   async startTableSession(restaurantId: string, tableId: string, sessionData: { customerName?: string; customerCount?: number }): Promise<any> {
-    const table = await this.getTableById(tableId);
-    if (!table) {
-      throw new Error('Table not found');
-    }
+    // The table row is the lock for opening a session. Without a transaction
+    // and FOR UPDATE, two concurrent requests can both observe a free table
+    // and create two active sessions for it.
+    const session = await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const [table] = await tx
+        .select()
+        .from(tables)
+        .where(and(eq(tables.id, tableId), eq(tables.restaurantId, restaurantId)))
+        .for('update');
 
-    const pin = Math.floor(100000 + Math.random() * 900000).toString();
+      if (!table) {
+        throw new Error('Table not found');
+      }
 
-    const [session] = await db.insert(tableSessions).values({
-      tableId,
-      restaurantId,
-      customerName: sessionData.customerName,
-      customerCount: sessionData.customerCount,
-      status: 'ocupada',
-      pin,
-    }).returning();
+      if (table.currentSessionId || table.status !== 'livre' || table.isOccupied === 1) {
+        const error = new Error('Esta mesa já está ocupada e não pode ser usada por outra pessoa.') as Error & {
+          code?: string;
+          statusCode?: number;
+        };
+        error.code = 'TABLE_ALREADY_OCCUPIED';
+        error.statusCode = 409;
+        throw error;
+      }
 
-    await db.update(tables)
-      .set({
-        status: 'ocupada',
-        tableStatus: 'aguardando_pedido',
-        currentSessionId: session.id,
+      const pin = Math.floor(100000 + Math.random() * 900000).toString();
+
+      const [newSession] = await tx.insert(tableSessions).values({
+        tableId,
+        restaurantId,
         customerName: sessionData.customerName,
-        customerCount: sessionData.customerCount || 0,
-        lastActivity: new Date(),
-        isOccupied: 1,
-      })
-      .where(eq(tables.id, tableId));
+        customerCount: sessionData.customerCount,
+        status: 'ocupada',
+        pin,
+      }).returning();
+
+      await tx.update(tables)
+        .set({
+          status: 'ocupada',
+          tableStatus: 'aguardando_pedido',
+          currentSessionId: newSession.id,
+          customerName: sessionData.customerName,
+          customerCount: sessionData.customerCount || 0,
+          lastActivity: new Date(),
+          isOccupied: 1,
+        })
+        .where(eq(tables.id, tableId));
+
+      return newSession;
+    });
 
     if (sessionData.customerName && sessionData.customerName.trim()) {
       await this.createTableGuest(restaurantId, {

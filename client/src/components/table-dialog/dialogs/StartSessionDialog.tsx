@@ -71,7 +71,13 @@ export function StartSessionDialog({
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.message || 'Erro ao iniciar sessão');
+        const requestError = new Error(error.message || 'Erro ao iniciar sessão') as Error & {
+          status?: number;
+          code?: string;
+        };
+        requestError.status = res.status;
+        requestError.code = error.code;
+        throw requestError;
       }
 
       return res.json();
@@ -127,9 +133,16 @@ export function StartSessionDialog({
       onSuccess?.();
       onOpenChange(false);
     },
-    onError: (error: Error) => {
+    onError: (error: Error & { status?: number; code?: string }) => {
+      if (error.status === 409 || error.code === 'TABLE_ALREADY_OCCUPIED') {
+        queryClient.invalidateQueries({ queryKey: [`/api/tables/${table.id}`] });
+        queryClient.invalidateQueries({ queryKey: ['/api/tables'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/tables/with-orders'] });
+        setShowCapacityWarning(false);
+        onOpenChange(false);
+      }
       toast({
-        title: 'Erro ao Iniciar Sessão',
+        title: error.code === 'TABLE_ALREADY_OCCUPIED' ? 'Mesa já ocupada' : 'Erro ao Iniciar Sessão',
         description: error.message,
         variant: 'destructive',
       });

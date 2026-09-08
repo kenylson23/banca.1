@@ -2959,11 +2959,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (!sessionId) {
-        const session = await storage.startTableSession(table.restaurantId, table.id, {
-          customerName: name || undefined,
-          customerCount: requestedCustomerCount,
-        });
-        sessionId = session.id;
+        try {
+          const session = await storage.startTableSession(table.restaurantId, table.id, {
+            customerName: name || undefined,
+            customerCount: requestedCustomerCount,
+          });
+          sessionId = session.id;
+        } catch (error: any) {
+          // Another guest may have opened the table between the initial read
+          // and this request. In that case, use the same protected PIN flow
+          // as any other attempt to join an already occupied table.
+          if (error?.code === 'TABLE_ALREADY_OCCUPIED') {
+            const latestTable = await storage.getTableById(table.id);
+            if (latestTable?.currentSessionId) {
+              return res.status(409).json({
+                code: "TABLE_PIN_REQUIRED",
+                message: "Esta mesa já está em uso. Digite o PIN fornecido pelo restaurante.",
+              });
+            }
+          }
+          throw error;
+        }
       } else if (req.body.customerCount) {
         await db.update(tableSessions)
           .set({ customerCount: requestedCustomerCount })
@@ -3027,7 +3043,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Erro ao entrar na mesa" });
+      const statusCode = error?.statusCode === 409 ? 409 : 500;
+      res.status(statusCode).json({
+        code: error?.code,
+        message: error.message || "Erro ao entrar na mesa",
+      });
     }
   });
 
@@ -4363,7 +4383,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(session);
     } catch (error: any) {
-      res.status(500).json({ message: error.message || "Failed to start table session" });
+      const statusCode = error?.statusCode === 409 ? 409 : 500;
+      res.status(statusCode).json({
+        code: error?.code,
+        message: error.message || "Failed to start table session",
+      });
     }
   });
 

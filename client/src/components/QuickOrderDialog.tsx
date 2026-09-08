@@ -271,7 +271,13 @@ export function QuickOrderDialog({
         });
         
         if (!sessionResponse.ok) {
-          throw new Error('Não foi possível iniciar a sessão da mesa');
+          const errorData = await sessionResponse.json().catch(() => ({}));
+          const error = new Error(
+            errorData.message || 'Não foi possível iniciar a sessão da mesa'
+          ) as Error & { status?: number; code?: string };
+          error.status = sessionResponse.status;
+          error.code = errorData.code;
+          throw error;
         }
         
         const sessionData = await sessionResponse.json();
