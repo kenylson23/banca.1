@@ -389,29 +389,6 @@ const uploadProfileImage = multer({
   }
 });
 
-const paymentProofStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, path.join(uploadRoot, 'payment-proofs'));
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `${nanoid()}-${Date.now()}${ext}`);
-  },
-});
-
-const uploadPaymentProof = multer({
-  storage: paymentProofStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    const allowedExtensions = /\.(jpeg|jpg|png|webp|pdf)$/i;
-    const allowedMimeTypes = /image\/(jpeg|png|webp)|application\/pdf/i;
-    if (allowedExtensions.test(path.extname(file.originalname)) && allowedMimeTypes.test(file.mimetype)) {
-      return cb(null, true);
-    }
-    cb(new Error('Envie uma imagem (JPG, PNG, WEBP) ou um PDF até 5 MB.'));
-  },
-});
-
 // Helper function to delete old image files
 async function deleteOldImage(imageUrl: string | null | undefined, type: 'restaurants' | 'menu-items' | 'profile-images' = 'restaurants') {
   if (!imageUrl) return;
@@ -3304,22 +3281,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(orders);
     } catch (error) {
       res.status(500).json({ message: "Erro ao buscar pedidos" });
-    }
-  });
-
-  // Public upload used by the checkout before the order is created.
-  // The returned URL is stored on the order and reviewed by an operator.
-  app.post("/api/public/payment-proofs", uploadPaymentProof.single('proof'), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ message: "O comprovativo é obrigatório" });
-      }
-      res.status(201).json({
-        url: `/uploads/payment-proofs/${req.file.filename}`,
-        originalName: req.file.originalname,
-      });
-    } catch (error: any) {
-      res.status(400).json({ message: error.message || "Não foi possível enviar o comprovativo" });
     }
   });
 

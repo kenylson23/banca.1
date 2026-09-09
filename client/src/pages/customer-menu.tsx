@@ -120,9 +120,6 @@ export default function CustomerMenu() {
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'info' | 'review'>('cart');
   const [paymentMethod, setPaymentMethod] = useState<'transferencia' | 'multicaixa' | 'cartao'>('multicaixa');
   const [paymentReference, setPaymentReference] = useState('');
-  const [paymentProofUrl, setPaymentProofUrl] = useState('');
-  const [paymentProofName, setPaymentProofName] = useState('');
-  const [isUploadingProof, setIsUploadingProof] = useState(false);
   const [billRequested, setBillRequested] = useState(() => {
     if (typeof window !== 'undefined' && tableNumber) {
       return localStorage.getItem(`bill_requested_${tableNumber}`) === 'true';
@@ -499,7 +496,6 @@ export default function CustomerMenu() {
          totalAmount,
          paymentMethod,
          paymentReference: paymentReference.trim(),
-         paymentProofUrl,
         items: orderData.items,
       };
       
@@ -526,8 +522,6 @@ export default function CustomerMenu() {
       setUsePoints(false);
       setPointsToRedeem(0);
        setPaymentReference('');
-       setPaymentProofUrl('');
-       setPaymentProofName('');
       // Keep customerName, customerPhone, and identifiedCustomer for convenience on next order
       setIsCartOpen(false);
       setCheckoutStep('cart');
@@ -544,30 +538,6 @@ export default function CustomerMenu() {
       });
     },
   });
-
-  const handlePaymentProofChange = async (file?: File) => {
-    if (!file) return;
-    setIsUploadingProof(true);
-    setPaymentProofName(file.name);
-    try {
-      const formData = new FormData();
-      formData.append('proof', file);
-      const response = await apiFetch('/api/public/payment-proofs', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Não foi possível enviar o comprovativo');
-      setPaymentProofUrl(data.url);
-      toast({ title: 'Comprovativo anexado', description: 'Será verificado pelo funcionário.' });
-    } catch (error: any) {
-      setPaymentProofName('');
-      setPaymentProofUrl('');
-      toast({ title: 'Erro no comprovativo', description: error.message, variant: 'destructive' });
-    } finally {
-      setIsUploadingProof(false);
-    }
-  };
 
   const requestBillMutation = useMutation({
     mutationFn: async () => {
@@ -798,10 +768,10 @@ export default function CustomerMenu() {
       return;
     }
 
-    if (!paymentReference.trim() || !paymentProofUrl) {
+    if (!paymentReference.trim()) {
       toast({
         title: 'Dados de pagamento incompletos',
-        description: 'Informe a referência e anexe o comprovativo para enviar o pedido.',
+        description: 'Informe a referência do pagamento para enviar o pedido.',
         variant: 'destructive',
       });
       return;
@@ -1679,23 +1649,6 @@ export default function CustomerMenu() {
                                   className="border-gray-200 bg-white text-gray-900"
                                   data-testid="input-payment-reference"
                                 />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor="payment-proof" className="text-sm text-gray-700">Comprovativo</Label>
-                                <Input
-                                  id="payment-proof"
-                                  type="file"
-                                  accept="image/jpeg,image/png,image/webp,application/pdf"
-                                  onChange={(e) => handlePaymentProofChange(e.target.files?.[0])}
-                                  disabled={isUploadingProof}
-                                  className="border-gray-200 bg-white text-gray-900 file:mr-3 file:rounded file:border-0 file:bg-gray-100 file:px-2 file:py-1"
-                                  data-testid="input-payment-proof"
-                                />
-                                <p className="text-xs text-gray-600">
-                                  {isUploadingProof ? 'A enviar comprovativo...' : paymentProofName
-                                    ? `Anexado: ${paymentProofName}`
-                                    : 'JPG, PNG, WEBP ou PDF até 5 MB'}
-                                </p>
                               </div>
                             </CardContent>
                           </Card>

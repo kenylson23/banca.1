@@ -1323,7 +1323,7 @@ export const publicOrderSchema = createInsertSchema(orders).omit({
   // Allow customers to select payment method for delivery/takeout
   paymentMethod: z.enum(['multicaixa', 'transferencia', 'cartao']),
   paymentReference: z.string().trim().min(1, "A referência do pagamento é obrigatória").max(200),
-  paymentProofUrl: z.string().trim().min(1, "O comprovativo do pagamento é obrigatório"),
+  paymentProofUrl: z.string().trim().optional().nullable(),
 });
 
 export const updateOrderStatusSchema = z.object({
