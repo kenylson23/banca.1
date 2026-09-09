@@ -40,6 +40,7 @@ const orderTypeIcons = {
 };
 
 const statusColors = {
+  aguardando_confirmacao: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",
   pendente: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
   em_preparo: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
   pronto: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
@@ -47,6 +48,7 @@ const statusColors = {
 };
 
 const statusLabels = {
+  aguardando_confirmacao: "Aguardando confirmação",
   pendente: "Pendente",
   em_preparo: "Em Preparo",
   pronto: "Pronto",
@@ -219,6 +221,22 @@ export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(
               >
                 {statusLabels[order.status as keyof typeof statusLabels]}
               </Badge>
+              {order.status === "aguardando_confirmacao" && (
+                <div className="w-full rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                  <strong>{order.paymentMethod === "multicaixa" ? "Multicaixa Express" : order.paymentMethod === "transferencia" ? "Transferência bancária" : "Cartão / POS"}</strong>
+                  {order.paymentReference && <span className="ml-2">Ref.: {order.paymentReference}</span>}
+                  {order.paymentProofUrl && (
+                    <a
+                      href={order.paymentProofUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="ml-2 underline"
+                    >
+                      Ver comprovativo
+                    </a>
+                  )}
+                </div>
+              )}
 
               <Badge
                 className={
@@ -313,11 +331,11 @@ export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(
               variant="default"
               size="sm"
               onClick={onAccept}
-              disabled={order.status !== "pendente"}
+              disabled={order.status !== "pendente" && order.status !== "aguardando_confirmacao"}
               data-testid={`button-accept-${order.id}`}
             >
               <CheckIcon className="h-4 w-4 mr-1" weight="bold" />
-              Aceitar
+              {order.status === "aguardando_confirmacao" ? "Confirmar pagamento" : "Aceitar"}
             </Button>
           </div>
         </div>

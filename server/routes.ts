@@ -235,6 +235,7 @@ import {
   insertOptionSchema,
   updateOptionSchema,
   updateOrderMetadataSchema,
+  paymentConfirmationSchema,
   updateOrderItemQuantitySchema,
   reassignOrderItemSchema,
   applyDiscountSchema,
@@ -279,7 +280,7 @@ import { z } from "zod";
 // Configure multer for file uploads
 const uploadRoot = path.resolve(process.env.UPLOAD_DIR || 'uploads');
 const legacyUploadRoot = path.resolve('client/public/uploads');
-for (const uploadType of ['restaurants', 'menu-items', 'profile-images']) {
+for (const uploadType of ['restaurants', 'menu-items', 'profile-images', 'payment-proofs']) {
   fsSync.mkdirSync(path.join(uploadRoot, uploadType), { recursive: true });
 }
 
@@ -386,6 +387,29 @@ const uploadProfileImage = multer({
       cb(new Error('Apenas imagens são permitidas (jpeg, jpg, png, gif, webp)'));
     }
   }
+});
+
+const paymentProofStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, path.join(uploadRoot, 'payment-proofs'));
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${nanoid()}-${Date.now()}${ext}`);
+  },
+});
+
+const uploadPaymentProof = multer({
+  storage: paymentProofStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowedExtensions = /\.(jpeg|jpg|png|webp|pdf)$/i;
+    const allowedMimeTypes = /image\/(jpeg|png|webp)|application\/pdf/i;
+    if (allowedExtensions.test(path.extname(file.originalname)) && allowedMimeTypes.test(file.mimetype)) {
+      return cb(null, true);
+    }
+    cb(new Error('Envie uma imagem (JPG, PNG, WEBP) ou um PDF até 5 MB.'));
+  },
 });
 
 // Helper function to delete old image files
@@ -3283,6 +3307,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public upload used by the checkout before the order is created.
+  // The returned URL is stored on the order and reviewed by an operator.
+  app.post("/api/public/payment-proofs", uploadPaymentProof.single('proof'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "O comprovativo é obrigatório" });
+      }
+      res.status(201).json({
+        url: `/uploads/payment-proofs/${req.file.filename}`,
+        originalName: req.file.originalname,
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Não foi possível enviar o comprovativo" });
+    }
+  });
+
   // Public order creation route (for customers)
   // This route does NOT require authentication and does NOT set createdBy
   // Customers use a simple checkout without advanced controls (discounts, service charges, payments)
@@ -3600,7 +3640,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Use verified items with server-calculated prices
-      const order = await storage.createOrder(validatedOrder, verifiedItems);
+      const order = await storage.createOrder({
+        ...validatedOrder,
+        status: 'aguardando_confirmacao',
+        paymentStatus: 'nao_pago',
+        paymentSubmittedAt: new Date(),
+      }, verifiedItems);
 
       // Apply coupon usage if valid
       if (appliedCouponId && couponDiscount > 0) {
@@ -3625,7 +3670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updatedOrder = await storage.calculateOrderTotal(order.id);
       
-      broadcastToClients({ type: 'new_order', data: updatedOrder });
+      broadcastToClients({ type: 'payment_submitted', data: updatedOrder });
 
       // Update table payment status after order creation
       if (order.tableId) {
@@ -7120,7 +7165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const restaurantId = currentUser.restaurantId;
       const branchId = currentUser.activeBranchId || null;
-      const orders = await storage.getKitchenOrders(restaurantId, branchId);
+      const orders = await storage.getKitchenOrders(restaurantId, branchId, false);
       res.json(orders);
     } catch (error) {
       console.error("[GET /api/orders/kitchen] Failed to fetch orders:", error);
@@ -7314,6 +7359,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Order status update error:', error);
       res.status(500).json({ message: "Failed to update order status" });
+    }
+  });
+
+  // Payment verification is deliberately separate from the kitchen status flow.
+  // Confirming a payment is the only operation that releases a public order
+  // from "aguardando_confirmacao" into the kitchen's "pendente" queue.
+  app.patch("/api/orders/:id/payment-confirmation", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const restaurantId = currentUser.restaurantId;
+      if (!restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const { action, reason } = paymentConfirmationSchema.parse(req.body);
+      const [order] = await db
+        .select()
+        .from(schema.orders)
+        .where(and(
+          eq(schema.orders.id, req.params.id),
+          eq(schema.orders.restaurantId, restaurantId),
+        ));
+
+      if (!order) {
+        return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+      if (order.status !== 'aguardando_confirmacao') {
+        return res.status(409).json({ message: "Este pedido já não aguarda confirmação de pagamento" });
+      }
+      if (action === 'reject' && !reason?.trim()) {
+        return res.status(400).json({ message: "Informe o motivo da rejeição" });
+      }
+
+      const [updated] = await db
+        .update(schema.orders)
+        .set(action === 'confirm'
+          ? {
+              status: 'pendente',
+              paymentStatus: 'pago',
+              paidAmount: order.totalAmount,
+              paymentConfirmedAt: new Date(),
+              paymentConfirmedBy: currentUser.id,
+              paymentRejectionReason: null,
+              updatedAt: new Date(),
+            }
+          : {
+              status: 'aguardando_confirmacao',
+              paymentStatus: 'nao_pago',
+              paymentRejectionReason: reason?.trim() || null,
+              updatedAt: new Date(),
+            })
+        .where(eq(schema.orders.id, order.id))
+        .returning();
+
+      await storage.createPaymentEvent(restaurantId, {
+        orderId: order.id,
+        sessionId: order.tableSessionId,
+        amount: order.totalAmount,
+        paymentMethod: order.paymentMethod!,
+        paymentSource: action === 'confirm' ? 'manual_confirmation' : 'manual_rejection',
+        methodDetails: {
+          reference: order.paymentReference,
+          proofUrl: order.paymentProofUrl,
+          reason: reason || null,
+        },
+        operatorId: currentUser.id,
+        notes: action === 'confirm'
+          ? 'Pagamento confirmado manualmente pelo operador'
+          : `Pagamento rejeitado: ${reason}`,
+      });
+
+      broadcastToClients({
+        type: action === 'confirm' ? 'payment_confirmed' : 'payment_rejected',
+        data: updated,
+      });
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error('Payment confirmation error:', error);
+      res.status(500).json({ message: "Não foi possível atualizar a confirmação do pagamento" });
     }
   });
 

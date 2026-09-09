@@ -152,6 +152,32 @@ export default function PDV() {
     },
   });
 
+  const confirmPaymentMutation = useMutation({
+    mutationFn: async ({ orderId, action }: { orderId: string; action: "confirm" | "reject" }) => {
+      const response = await apiRequest("PATCH", `/api/orders/${orderId}/payment-confirmation`, {
+        action,
+        ...(action === "reject" ? { reason: "Comprovativo não validado pelo operador" } : {}),
+      });
+      return response.json();
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({
+        title: variables.action === "confirm" ? "Pagamento confirmado" : "Pagamento rejeitado",
+        description: variables.action === "confirm"
+          ? "O pedido foi liberado para a cozinha."
+          : "O pedido continua pendente para nova verificação.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro na confirmação",
+        description: error.message || "Não foi possível atualizar o pagamento.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const renderOrdersList = () => {
     if (isLoading) {
       return (
@@ -204,7 +230,13 @@ export default function PDV() {
               }}
               onCancel={() => cancelOrderMutation.mutate(order.id)}
               onPay={() => setLocation(`/orders/${order.id}?mode=checkout`)}
-              onAccept={() => updateOrderStatusMutation.mutate({ orderId: order.id, status: "em_preparo" })}
+               onAccept={() => {
+                 if (order.status === "aguardando_confirmacao") {
+                   confirmPaymentMutation.mutate({ orderId: order.id, action: "confirm" });
+                 } else {
+                   updateOrderStatusMutation.mutate({ orderId: order.id, status: "em_preparo" });
+                 }
+               }}
             />
           ))}
         </AnimatePresence>

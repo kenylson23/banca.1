@@ -907,7 +907,7 @@ export type GuestPayment = typeof guestPayments.$inferSelect;
 // ===== ORDERS SECTION =====
 
 // Order Status Enum
-export const orderStatusEnum = pgEnum('order_status', ['pendente', 'em_preparo', 'pronto', 'servido', 'cancelado']);
+export const orderStatusEnum = pgEnum('order_status', ['aguardando_confirmacao', 'pendente', 'em_preparo', 'pronto', 'servido', 'cancelado']);
 
 // Order Type Enum
 export const orderTypeEnum = pgEnum('order_type', ['mesa', 'delivery', 'takeout', 'balcao', 'pdv']);
@@ -1246,6 +1246,12 @@ export const orders = pgTable("orders", {
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   paymentStatus: paymentStatusEnum("payment_status").notNull().default('nao_pago'),
   paymentMethod: paymentMethodEnum("payment_method"),
+  paymentReference: varchar("payment_reference", { length: 200 }),
+  paymentProofUrl: text("payment_proof_url"),
+  paymentSubmittedAt: timestamp("payment_submitted_at"),
+  paymentConfirmedAt: timestamp("payment_confirmed_at"),
+  paymentConfirmedBy: varchar("payment_confirmed_by").references(() => users.id, { onDelete: 'set null' }),
+  paymentRejectionReason: text("payment_rejection_reason"),
   paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default('0'),
   changeAmount: decimal("change_amount", { precision: 10, scale: 2 }).default('0'),
   refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }).default('0'),
@@ -1315,11 +1321,18 @@ export const publicOrderSchema = createInsertSchema(orders).omit({
   tableSessionId: z.string().optional().nullable(),
   couponId: z.string().optional().nullable(),
   // Allow customers to select payment method for delivery/takeout
-  paymentMethod: z.enum(['dinheiro', 'multicaixa', 'transferencia', 'cartao']).optional().nullable(),
+  paymentMethod: z.enum(['multicaixa', 'transferencia', 'cartao']),
+  paymentReference: z.string().trim().min(1, "A referência do pagamento é obrigatória").max(200),
+  paymentProofUrl: z.string().trim().min(1, "O comprovativo do pagamento é obrigatório"),
 });
 
 export const updateOrderStatusSchema = z.object({
-  status: z.enum(['pendente', 'em_preparo', 'pronto', 'servido', 'cancelado']),
+  status: z.enum(['aguardando_confirmacao', 'pendente', 'em_preparo', 'pronto', 'servido', 'cancelado']),
+});
+
+export const paymentConfirmationSchema = z.object({
+  action: z.enum(['confirm', 'reject']),
+  reason: z.string().trim().max(500).optional(),
 });
 
 export const updateOrderMetadataSchema = z.object({

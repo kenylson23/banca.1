@@ -118,6 +118,11 @@ export default function CustomerMenu() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'info' | 'review'>('cart');
+  const [paymentMethod, setPaymentMethod] = useState<'transferencia' | 'multicaixa' | 'cartao'>('multicaixa');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentProofUrl, setPaymentProofUrl] = useState('');
+  const [paymentProofName, setPaymentProofName] = useState('');
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
   const [billRequested, setBillRequested] = useState(() => {
     if (typeof window !== 'undefined' && tableNumber) {
       return localStorage.getItem(`bill_requested_${tableNumber}`) === 'true';
@@ -490,8 +495,11 @@ export default function CustomerMenu() {
         orderNotes: orderData.orderNotes || undefined,
         couponCode: orderData.couponCode,
         redeemPoints: orderData.redeemPoints,
-        status: 'pendente',
-        totalAmount,
+         status: 'aguardando_confirmacao',
+         totalAmount,
+         paymentMethod,
+         paymentReference: paymentReference.trim(),
+         paymentProofUrl,
         items: orderData.items,
       };
       
@@ -509,7 +517,7 @@ export default function CustomerMenu() {
       setIsShareDialogOpen(true);
       toast({
         title: 'Pedido enviado!',
-        description: 'Seu pedido foi enviado para a cozinha.',
+        description: 'Seu pedido aguarda a confirmação manual do pagamento.',
       });
       clearCart();
       // Reset coupon and points state but preserve customer info for future orders
@@ -517,6 +525,9 @@ export default function CustomerMenu() {
       setCouponValidation(null);
       setUsePoints(false);
       setPointsToRedeem(0);
+       setPaymentReference('');
+       setPaymentProofUrl('');
+       setPaymentProofName('');
       // Keep customerName, customerPhone, and identifiedCustomer for convenience on next order
       setIsCartOpen(false);
       setCheckoutStep('cart');
@@ -533,6 +544,30 @@ export default function CustomerMenu() {
       });
     },
   });
+
+  const handlePaymentProofChange = async (file?: File) => {
+    if (!file) return;
+    setIsUploadingProof(true);
+    setPaymentProofName(file.name);
+    try {
+      const formData = new FormData();
+      formData.append('proof', file);
+      const response = await apiFetch('/api/public/payment-proofs', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Não foi possível enviar o comprovativo');
+      setPaymentProofUrl(data.url);
+      toast({ title: 'Comprovativo anexado', description: 'Será verificado pelo funcionário.' });
+    } catch (error: any) {
+      setPaymentProofName('');
+      setPaymentProofUrl('');
+      toast({ title: 'Erro no comprovativo', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsUploadingProof(false);
+    }
+  };
 
   const requestBillMutation = useMutation({
     mutationFn: async () => {
@@ -759,6 +794,15 @@ export default function CustomerMenu() {
           ? 'Digite o PIN da mesa antes de enviar o pedido.'
           : 'Confirme a entrada na mesa antes de enviar o pedido.',
         variant: tableIsOccupied ? 'destructive' : 'default',
+      });
+      return;
+    }
+
+    if (!paymentReference.trim() || !paymentProofUrl) {
+      toast({
+        title: 'Dados de pagamento incompletos',
+        description: 'Informe a referência e anexe o comprovativo para enviar o pedido.',
+        variant: 'destructive',
       });
       return;
     }
@@ -1603,6 +1647,58 @@ export default function CustomerMenu() {
                               </span>
                             </div>
                           )}
+                          <Card className="border-amber-200 bg-amber-50/60">
+                            <CardContent className="p-4 space-y-4">
+                              <div>
+                                <h3 className="font-semibold text-amber-900">Confirmação do pagamento</h3>
+                                <p className="text-xs text-amber-800 mt-1">
+                                  O pedido só será enviado para preparação depois de um funcionário verificar o pagamento.
+                                </p>
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="payment-method" className="text-sm text-gray-700">Método usado</Label>
+                                <select
+                                  id="payment-method"
+                                  value={paymentMethod}
+                                  onChange={(e) => setPaymentMethod(e.target.value as typeof paymentMethod)}
+                                  className="h-10 w-full rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-900"
+                                  data-testid="select-payment-method"
+                                >
+                                  <option value="multicaixa">Multicaixa Express</option>
+                                  <option value="transferencia">Transferência bancária</option>
+                                  <option value="cartao">Cartão / POS</option>
+                                </select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="payment-reference" className="text-sm text-gray-700">Referência / número da operação</Label>
+                                <Input
+                                  id="payment-reference"
+                                  value={paymentReference}
+                                  onChange={(e) => setPaymentReference(e.target.value)}
+                                  placeholder="Ex.: referência Multicaixa ou número do talão"
+                                  className="border-gray-200 bg-white text-gray-900"
+                                  data-testid="input-payment-reference"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="payment-proof" className="text-sm text-gray-700">Comprovativo</Label>
+                                <Input
+                                  id="payment-proof"
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                                  onChange={(e) => handlePaymentProofChange(e.target.files?.[0])}
+                                  disabled={isUploadingProof}
+                                  className="border-gray-200 bg-white text-gray-900 file:mr-3 file:rounded file:border-0 file:bg-gray-100 file:px-2 file:py-1"
+                                  data-testid="input-payment-proof"
+                                />
+                                <p className="text-xs text-gray-600">
+                                  {isUploadingProof ? 'A enviar comprovativo...' : paymentProofName
+                                    ? `Anexado: ${paymentProofName}`
+                                    : 'JPG, PNG, WEBP ou PDF até 5 MB'}
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
                           <Card className="border-gray-200" style={{ backgroundColor: 'white' }}>
                             <CardContent className="p-4">
                               <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -1680,7 +1776,7 @@ export default function CustomerMenu() {
                             <>
                               {checkoutStep === 'cart' && 'Continuar'}
                               {checkoutStep === 'info' && 'Revisar Pedido'}
-                              {checkoutStep === 'review' && 'Confirmar Pedido'}
+                               {checkoutStep === 'review' && 'Enviar para confirmação'}
                             </>
                           )}
                         </Button>
