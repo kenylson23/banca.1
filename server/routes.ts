@@ -7987,7 +7987,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/orders/:id/cancel", isAuthenticated, async (req, res) => {
+  const cancelOrderHandler = async (req: any, res: any) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId) {
@@ -8025,6 +8025,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const errorMessage = error instanceof Error ? error.message : "Erro ao cancelar pedido";
       res.status(500).json({ message: errorMessage });
     }
+  };
+
+  // Canonical cancellation endpoint.
+  app.post("/api/orders/:id/cancel", isAuthenticated, cancelOrderHandler);
+
+  // Compatibility for older table-management bundles that still send
+  // PATCH /api/orders/:id with status: "cancelled".
+  app.patch("/api/orders/:id", isAuthenticated, async (req, res, next) => {
+    if (req.body?.status !== "cancelled" && req.body?.status !== "cancelado") {
+      return next();
+    }
+    req.body = {
+      cancellationReason: req.body.cancellationReason || "Cancelado pelo operador",
+    };
+    return cancelOrderHandler(req, res);
   });
 
   app.put("/api/orders/:id/customer", isAuthenticated, async (req, res) => {
