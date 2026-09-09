@@ -10,6 +10,13 @@ Ask before making major changes.
 Do not make changes to the folder `Z`.
 Do not make changes to the file `Y`.
 
+## Running on Replit
+
+- The configured workflow is `Start application` and runs `npm run dev`.
+- The development server is exposed on port `5000`.
+- The project requires `DATABASE_URL` and `SESSION_SECRET`; the existing Replit environment provides these values.
+- Database migrations run automatically when the server starts.
+
 ## Recent Changes
 
 ### Subscription & Billing System (November 2025)
