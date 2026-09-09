@@ -114,6 +114,41 @@ async function resolveActiveTableSession<T extends { id: string; restaurantId: s
   } as T;
 }
 
+async function releasePaidOrderToKitchen(order: any): Promise<void> {
+  if (order?.paymentStatus !== 'pago') {
+    return;
+  }
+
+  const kitchenOrder = (await storage.getKitchenOrders(
+    order.restaurantId,
+    order.branchId || null,
+    true
+  )).find(kitchenOrder => kitchenOrder.id === order.id) || order;
+
+  broadcastToClients({ type: 'new_order', data: kitchenOrder });
+
+  try {
+    const kitchenPrinters = await storage.getActivePrintersByType(
+      kitchenOrder.restaurantId,
+      'kitchen',
+      kitchenOrder.branchId || undefined
+    );
+    const autoPrintPrinters = kitchenPrinters.filter(printer => printer.autoPrint === 1);
+
+    if (autoPrintPrinters.length > 0) {
+      broadcastToClients({
+        type: 'auto_print_order',
+        data: {
+          order: kitchenOrder,
+          printers: autoPrintPrinters,
+        },
+      });
+    }
+  } catch (printError) {
+    console.error('[AUTO-PRINT] Error checking printers for paid order:', printError);
+  }
+}
+
 // Twilio WhatsApp configuration
 const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
@@ -3370,6 +3405,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           validatedOrder = {
             ...validatedOrder,
+            // QR orders inherit the table's branch. Do not trust a branch
+            // supplied by the public client.
+            branchId: table.branchId ?? null,
             tableSessionId: table.currentSessionId,
           };
         }
@@ -4665,6 +4703,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           paymentMethod: method as any,
           receivedAmount
         }, currentUser.id);
+
+        if (updatedOrder.paymentStatus === 'pago') {
+          await releasePaidOrderToKitchen(updatedOrder);
+          broadcastToClients({
+            type: 'order_payment_completed',
+            data: {
+              orderId: updatedOrder.id,
+              totalAmount: updatedOrder.totalAmount,
+              paymentMethod: updatedOrder.paymentMethod,
+            },
+          });
+        } else {
+          broadcastToClients({
+            type: 'order_payment_recorded',
+            data: {
+              orderId: updatedOrder.id,
+              paidAmount: updatedOrder.paidAmount,
+              paymentStatus: updatedOrder.paymentStatus,
+            },
+          });
+        }
 
         if (guestId && order.tableSessionId) {
           await db.insert(guestPayments).values({
@@ -7262,34 +7321,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.autoUpdateTableStatusOnOrderCreated(validatedOrder.tableId);
       }
       
-      // Broadcast new order to WebSocket clients
-      broadcastToClients({ type: 'new_order', data: order });
-
-      // Check for auto-print enabled printers
-      try {
-        const kitchenPrinters = await storage.getActivePrintersByType(
-          restaurantId,
-          'kitchen',
-          currentUser.activeBranchId || undefined
-        );
-        
-        const autoPrintPrinters = kitchenPrinters.filter(p => p.autoPrint === 1);
-        
-        if (autoPrintPrinters.length > 0) {
-          // Broadcast auto-print event to connected clients
-          broadcastToClients({
-            type: 'auto_print_order',
-            data: {
-              order,
-              printers: autoPrintPrinters,
-            },
-          });
-          
-        }
-      } catch (printError) {
-        console.error('[AUTO-PRINT] Error checking printers:', printError);
-        // Don't fail the order creation if auto-print fails
-      }
+      // Only paid orders are released to the kitchen and auto-print flow.
+      await releasePaidOrderToKitchen(order);
 
       res.json(order);
     } catch (error) {
@@ -7436,6 +7469,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: action === 'confirm' ? 'payment_confirmed' : 'payment_rejected',
         data: updated,
       });
+      if (action === 'confirm') {
+        await releasePaidOrderToKitchen(updated);
+      }
       res.json(updated);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -7999,6 +8035,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updated = await storage.recordPayment(restaurantId, req.params.id, payment, currentUser.id);
       
       if (updated.paymentStatus === 'pago') {
+        await releasePaidOrderToKitchen(updated);
         broadcastToClients({ 
           type: 'order_payment_completed', 
           data: { 

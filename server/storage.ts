@@ -2641,6 +2641,7 @@ export class DatabaseStorage implements IStorage {
   // Order operations
   async getKitchenOrders(restaurantId: string, branchId?: string | null, includeAwaitingConfirmation = true): Promise<Array<Order & { customer: Customer | null; table: Table | null; orderItems: Array<OrderItem & { menuItem: MenuItem; options?: OrderItemOption[] }> }>> {
     const visibleStatus = includeAwaitingConfirmation ? undefined : sql`${orders.status} <> 'aguardando_confirmacao'`;
+    const paidCondition = eq(orders.paymentStatus, 'pago');
     let allOrders;
     if (branchId) {
       // Busca IDs das mesas da filial usando lógica de override
@@ -2663,6 +2664,7 @@ export class DatabaseStorage implements IStorage {
           eq(orders.restaurantId, restaurantId),
           branchCondition,  // CRÍTICO: Garante isolamento de filial
           tableCondition,
+          paidCondition,
           ...(visibleStatus ? [visibleStatus] : [])
         ))
         .orderBy(desc(orders.createdAt));
@@ -2674,6 +2676,7 @@ export class DatabaseStorage implements IStorage {
         .leftJoin(tables, eq(orders.tableId, tables.id))
         .where(and(
           eq(orders.restaurantId, restaurantId),
+          paidCondition,
           ...(visibleStatus ? [visibleStatus] : [])
         ))
         .orderBy(desc(orders.createdAt));

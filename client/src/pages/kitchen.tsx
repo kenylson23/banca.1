@@ -13,6 +13,7 @@ import { useWebSocket } from "@/hooks/useWebSocket";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { apiFetch } from "@/lib/api-url";
 import { formatKwanza } from "@/lib/formatters";
+import { printerService } from "@/lib/printer-service";
 import { PrintOrder } from "@/components/PrintOrder";
 import { KitchenOrderDialog } from "@/components/KitchenOrderDialog";
 import type { Order, OrderItem, MenuItem, Table, OrderItemOption } from "@shared/schema";
@@ -175,7 +176,44 @@ export default function Kitchen() {
 
   // WebSocket handler for real-time updates
   const handleWebSocketMessage = useCallback((message: any) => {
-    if (message.type === 'new_order' || message.type === 'order_status_updated') {
+    if (message.type === 'auto_print_order') {
+      const order = message.data?.order;
+      const kitchenPrinters = message.data?.printers;
+      const localPrinter = printerService.getPrinter('kitchen');
+
+      if (
+        order &&
+        localPrinter &&
+        Array.isArray(kitchenPrinters) &&
+        kitchenPrinters.length > 0
+      ) {
+        void printerService.printKitchenOrder('kitchen', {
+          orderNumber: order.orderNumber || order.id.slice(0, 8).toUpperCase(),
+          orderType: order.orderType || 'mesa',
+          customerName: order.customerName || order.customer?.name,
+          tableNumber: order.table?.number,
+          items: (order.orderItems || []).map((item: any) => ({
+            name: item.menuItem?.name || item.name || 'Item',
+            quantity: item.quantity,
+            selectedOptions: (item.options || []).map((option: any) => ({
+              optionName: option.optionName,
+              quantity: option.quantity || 1,
+            })),
+          })),
+          notes: order.orderNotes,
+          createdAt: new Date(order.createdAt || Date.now()).toISOString(),
+        }).catch((error) => {
+          console.error('[AUTO-PRINT] Failed to print paid order:', error);
+        });
+      }
+    }
+
+    if (
+      message.type === 'new_order' ||
+      message.type === 'order_status_updated' ||
+      message.type === 'order_payment_completed' ||
+      message.type === 'order_payment_recorded'
+    ) {
       // Invalidate kitchen orders to refetch
       queryClient.invalidateQueries({ queryKey: ["/api/orders/kitchen"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/kitchen"] });

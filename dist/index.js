@@ -215,6 +215,7 @@ __export(schema_exports, {
   orderTypeEnum: () => orderTypeEnum,
   orders: () => orders,
   ordersRelations: () => ordersRelations,
+  paymentConfirmationSchema: () => paymentConfirmationSchema,
   paymentEvents: () => paymentEvents,
   paymentEventsRelations: () => paymentEventsRelations,
   paymentMethodEnum: () => paymentMethodEnum,
@@ -323,7 +324,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-var sessions, restaurantStatusEnum, restaurants, insertRestaurantSchema, registerRestaurantSchema, updateRestaurantSlugSchema, updateRestaurantAppearanceSchema, branches, insertBranchSchema, updateBranchSchema, invoiceSequences, userRoleEnum, ROLE_PERMISSIONS, users, insertUserSchema, loginSchema, updateUserSchema, updateProfileSchema, updatePasswordSchema, adminResetPasswordSchema, resetRestaurantAdminCredentialsSchema, userAuditActionEnum, userAuditLogs, insertUserAuditLogSchema, printerTypeEnum, printerLanguageEnum, printerConfigurations, insertPrinterConfigurationSchema, updatePrinterConfigurationSchema, printHistory, insertPrintHistorySchema, tableStatusEnum, tableStatusGranularEnum, tables, insertTableSchema, updateTableStatusSchema, shiftStatusEnum, financialEventTypeEnum, eventSourceEnum, adjustmentTypeEnum, reportPeriodTypeEnum, paymentMethodEnum, financialShifts, insertFinancialShiftSchema, tableSessions, insertTableSessionSchema, tablePayments, insertTablePaymentSchema, guestStatusEnum, billSplitTypeEnum, discountTypeEnum, serviceChargeTypeEnum, tableGuests, insertTableGuestSchema, updateTableGuestSchema, tableBillSplits, insertTableBillSplitSchema, updateTableBillSplitSchema, guestPayments, insertGuestPaymentSchema, orderStatusEnum, orderTypeEnum, paymentStatusEnum, customerTierEnum, loyaltyTransactionTypeEnum, customers, insertCustomerSchema, updateCustomerSchema, customerSessions, insertCustomerSessionSchema, customerAuthRequestSchema, customerAuthVerifySchema, loyaltyPrograms, insertLoyaltyProgramSchema, updateLoyaltyProgramSchema, loyaltyTransactions, insertLoyaltyTransactionSchema, coupons, insertCouponSchema, updateCouponSchema, validateCouponSchema, couponUsages, insertCouponUsageSchema, orders, insertOrderSchema, publicOrderSchema, updateOrderStatusSchema, updateOrderMetadataSchema, applyDiscountSchema, applyServiceChargeSchema, applyDeliveryFeeSchema, applyPackagingFeeSchema, recordPaymentSchema, updateOrderItemQuantitySchema, reassignOrderItemSchema, orderItemAuditActionEnum, orderItemAuditLogs, insertOrderItemAuditLogSchema, linkCustomerSchema, applyCouponSchema, redeemLoyaltyPointsSchema, cancelOrderSchema, orderItems, insertOrderItemSchema, publicOrderItemSchema, orderItemOptions, insertOrderItemOptionSchema, financialEvents, insertFinancialEventSchema, orderAdjustments, insertOrderAdjustmentSchema, serviceContextEnum, services, insertServiceSchema, orderServices, insertOrderServiceSchema, paymentEvents, insertPaymentEventSchema, reportAggregations, insertReportAggregationSchema, categories, insertCategorySchema, updateCategorySchema, menuItems, insertMenuItemSchema, updateMenuItemSchema, optionGroupTypeEnum, optionGroups, insertOptionGroupSchema, updateOptionGroupSchema, options, insertOptionSchema, updateOptionSchema, messages, insertMessageSchema, menuVisits, insertMenuVisitSchema, customerReviews, insertCustomerReviewSchema, restaurantsRelations, branchesRelations, usersRelations, categoriesRelations, menuItemsRelations, tablesRelations, tableSessionsRelations, tablePaymentsRelations, ordersRelations, orderItemsRelations, orderItemAuditLogsRelations, optionGroupsRelations, optionsRelations, orderItemOptionsRelations, messagesRelations, menuVisitsRelations, customerReviewsRelations, financialShiftsRelations, financialEventsRelations, orderAdjustmentsRelations, paymentEventsRelations, reportAggregationsRelations, cashRegisters, insertCashRegisterSchema, updateCashRegisterSchema, cashRegisterShiftStatusEnum, cashRegisterShifts, insertCashRegisterShiftSchema, closeCashRegisterShiftSchema, transactionTypeEnum, transactionOriginEnum, financialCategories, insertFinancialCategorySchema, financialTransactions, insertFinancialTransactionSchema, expenses, insertExpenseSchema, updateExpenseSchema, cashRegistersRelations, cashRegisterShiftsRelations, financialCategoriesRelations, financialTransactionsRelations, expensesRelations, stockMovementTypeEnum, inventoryCategories, insertInventoryCategorySchema, updateInventoryCategorySchema, measurementUnits, insertMeasurementUnitSchema, updateMeasurementUnitSchema, inventoryItems, insertInventoryItemSchema, updateInventoryItemSchema, branchStock, stockMovements, insertStockMovementSchema, inventoryCategoriesRelations, measurementUnitsRelations, inventoryItemsRelations, branchStockRelations, stockMovementsRelations, recipeIngredients, insertRecipeIngredientSchema, updateRecipeIngredientSchema, recipeIngredientsRelations, customersRelations, customerSessionsRelations, loyaltyProgramsRelations, loyaltyTransactionsRelations, couponsRelations, couponUsagesRelations, subscriptionPlanEnum, subscriptionStatusEnum, subscriptionPaymentStatusEnum, billingIntervalEnum, subscriptionPlans, insertSubscriptionPlanSchema, updateSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, updateSubscriptionSchema, superAdminCreateSubscriptionSchema, superAdminUpdateSubscriptionSchema, subscriptionPayments, insertSubscriptionPaymentSchema, subscriptionUsage, insertSubscriptionUsageSchema, subscriptionPlansRelations, subscriptionsRelations, subscriptionPaymentsRelations, subscriptionUsageRelations, notificationTypeEnum, notificationChannelEnum, notifications, insertNotificationSchema, notificationPreferences, insertNotificationPreferencesSchema, updateNotificationPreferencesSchema, customerNotificationPreferences, updateCustomerNotificationPreferencesSchema, notificationsRelations, notificationPreferencesRelations, customerNotificationPreferencesRelations, linkAnalytics, insertLinkAnalyticsSchema, auditLogs2, insertAuditLogSchema, auditLogsRelations;
+var sessions, restaurantStatusEnum, restaurants, insertRestaurantSchema, registerRestaurantSchema, updateRestaurantSlugSchema, updateRestaurantAppearanceSchema, branches, insertBranchSchema, updateBranchSchema, invoiceSequences, userRoleEnum, ROLE_PERMISSIONS, users, insertUserSchema, loginSchema, updateUserSchema, updateProfileSchema, updatePasswordSchema, adminResetPasswordSchema, resetRestaurantAdminCredentialsSchema, userAuditActionEnum, userAuditLogs, insertUserAuditLogSchema, printerTypeEnum, printerLanguageEnum, printerConfigurations, insertPrinterConfigurationSchema, updatePrinterConfigurationSchema, printHistory, insertPrintHistorySchema, tableStatusEnum, tableStatusGranularEnum, tables, insertTableSchema, updateTableStatusSchema, shiftStatusEnum, financialEventTypeEnum, eventSourceEnum, adjustmentTypeEnum, reportPeriodTypeEnum, paymentMethodEnum, financialShifts, insertFinancialShiftSchema, tableSessions, insertTableSessionSchema, tablePayments, insertTablePaymentSchema, guestStatusEnum, billSplitTypeEnum, discountTypeEnum, serviceChargeTypeEnum, tableGuests, insertTableGuestSchema, updateTableGuestSchema, tableBillSplits, insertTableBillSplitSchema, updateTableBillSplitSchema, guestPayments, insertGuestPaymentSchema, orderStatusEnum, orderTypeEnum, paymentStatusEnum, customerTierEnum, loyaltyTransactionTypeEnum, customers, insertCustomerSchema, updateCustomerSchema, customerSessions, insertCustomerSessionSchema, customerAuthRequestSchema, customerAuthVerifySchema, loyaltyPrograms, insertLoyaltyProgramSchema, updateLoyaltyProgramSchema, loyaltyTransactions, insertLoyaltyTransactionSchema, coupons, insertCouponSchema, updateCouponSchema, validateCouponSchema, couponUsages, insertCouponUsageSchema, orders, insertOrderSchema, publicOrderSchema, updateOrderStatusSchema, paymentConfirmationSchema, updateOrderMetadataSchema, applyDiscountSchema, applyServiceChargeSchema, applyDeliveryFeeSchema, applyPackagingFeeSchema, recordPaymentSchema, updateOrderItemQuantitySchema, reassignOrderItemSchema, orderItemAuditActionEnum, orderItemAuditLogs, insertOrderItemAuditLogSchema, linkCustomerSchema, applyCouponSchema, redeemLoyaltyPointsSchema, cancelOrderSchema, orderItems, insertOrderItemSchema, publicOrderItemSchema, orderItemOptions, insertOrderItemOptionSchema, financialEvents, insertFinancialEventSchema, orderAdjustments, insertOrderAdjustmentSchema, serviceContextEnum, services, insertServiceSchema, orderServices, insertOrderServiceSchema, paymentEvents, insertPaymentEventSchema, reportAggregations, insertReportAggregationSchema, categories, insertCategorySchema, updateCategorySchema, menuItems, insertMenuItemSchema, updateMenuItemSchema, optionGroupTypeEnum, optionGroups, insertOptionGroupSchema, updateOptionGroupSchema, options, insertOptionSchema, updateOptionSchema, messages, insertMessageSchema, menuVisits, insertMenuVisitSchema, customerReviews, insertCustomerReviewSchema, restaurantsRelations, branchesRelations, usersRelations, categoriesRelations, menuItemsRelations, tablesRelations, tableSessionsRelations, tablePaymentsRelations, ordersRelations, orderItemsRelations, orderItemAuditLogsRelations, optionGroupsRelations, optionsRelations, orderItemOptionsRelations, messagesRelations, menuVisitsRelations, customerReviewsRelations, financialShiftsRelations, financialEventsRelations, orderAdjustmentsRelations, paymentEventsRelations, reportAggregationsRelations, cashRegisters, insertCashRegisterSchema, updateCashRegisterSchema, cashRegisterShiftStatusEnum, cashRegisterShifts, insertCashRegisterShiftSchema, closeCashRegisterShiftSchema, transactionTypeEnum, transactionOriginEnum, financialCategories, insertFinancialCategorySchema, financialTransactions, insertFinancialTransactionSchema, expenses, insertExpenseSchema, updateExpenseSchema, cashRegistersRelations, cashRegisterShiftsRelations, financialCategoriesRelations, financialTransactionsRelations, expensesRelations, stockMovementTypeEnum, inventoryCategories, insertInventoryCategorySchema, updateInventoryCategorySchema, measurementUnits, insertMeasurementUnitSchema, updateMeasurementUnitSchema, inventoryItems, insertInventoryItemSchema, updateInventoryItemSchema, branchStock, stockMovements, insertStockMovementSchema, inventoryCategoriesRelations, measurementUnitsRelations, inventoryItemsRelations, branchStockRelations, stockMovementsRelations, recipeIngredients, insertRecipeIngredientSchema, updateRecipeIngredientSchema, recipeIngredientsRelations, customersRelations, customerSessionsRelations, loyaltyProgramsRelations, loyaltyTransactionsRelations, couponsRelations, couponUsagesRelations, subscriptionPlanEnum, subscriptionStatusEnum, subscriptionPaymentStatusEnum, billingIntervalEnum, subscriptionPlans, insertSubscriptionPlanSchema, updateSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, updateSubscriptionSchema, superAdminCreateSubscriptionSchema, superAdminUpdateSubscriptionSchema, subscriptionPayments, insertSubscriptionPaymentSchema, subscriptionUsage, insertSubscriptionUsageSchema, subscriptionPlansRelations, subscriptionsRelations, subscriptionPaymentsRelations, subscriptionUsageRelations, notificationTypeEnum, notificationChannelEnum, notifications, insertNotificationSchema, notificationPreferences, insertNotificationPreferencesSchema, updateNotificationPreferencesSchema, customerNotificationPreferences, updateCustomerNotificationPreferencesSchema, notificationsRelations, notificationPreferencesRelations, customerNotificationPreferencesRelations, linkAnalytics, insertLinkAnalyticsSchema, auditLogs2, insertAuditLogSchema, auditLogsRelations;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -1060,7 +1061,7 @@ var init_schema = __esm({
       amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inv\xE1lido"),
       paymentMethod: z.string().min(1, "M\xE9todo de pagamento \xE9 obrigat\xF3rio")
     });
-    orderStatusEnum = pgEnum("order_status", ["pendente", "em_preparo", "pronto", "servido", "cancelado"]);
+    orderStatusEnum = pgEnum("order_status", ["aguardando_confirmacao", "pendente", "em_preparo", "pronto", "servido", "cancelado"]);
     orderTypeEnum = pgEnum("order_type", ["mesa", "delivery", "takeout", "balcao", "pdv"]);
     paymentStatusEnum = pgEnum("payment_status", ["nao_pago", "parcial", "pago"]);
     customerTierEnum = pgEnum("customer_tier", ["bronze", "prata", "ouro", "platina"]);
@@ -1338,6 +1339,12 @@ var init_schema = __esm({
       totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
       paymentStatus: paymentStatusEnum("payment_status").notNull().default("nao_pago"),
       paymentMethod: paymentMethodEnum("payment_method"),
+      paymentReference: varchar("payment_reference", { length: 200 }),
+      paymentProofUrl: text("payment_proof_url"),
+      paymentSubmittedAt: timestamp("payment_submitted_at"),
+      paymentConfirmedAt: timestamp("payment_confirmed_at"),
+      paymentConfirmedBy: varchar("payment_confirmed_by").references(() => users.id, { onDelete: "set null" }),
+      paymentRejectionReason: text("payment_rejection_reason"),
       paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default("0"),
       changeAmount: decimal("change_amount", { precision: 10, scale: 2 }).default("0"),
       refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }).default("0"),
@@ -1401,10 +1408,16 @@ var init_schema = __esm({
       tableSessionId: z.string().optional().nullable(),
       couponId: z.string().optional().nullable(),
       // Allow customers to select payment method for delivery/takeout
-      paymentMethod: z.enum(["dinheiro", "multicaixa", "transferencia", "cartao"]).optional().nullable()
+      paymentMethod: z.enum(["multicaixa", "transferencia", "cartao"]),
+      paymentReference: z.string().trim().min(1, "A refer\xEAncia do pagamento \xE9 obrigat\xF3ria").max(200),
+      paymentProofUrl: z.string().trim().optional().nullable()
     });
     updateOrderStatusSchema = z.object({
-      status: z.enum(["pendente", "em_preparo", "pronto", "servido", "cancelado"])
+      status: z.enum(["aguardando_confirmacao", "pendente", "em_preparo", "pronto", "servido", "cancelado"])
+    });
+    paymentConfirmationSchema = z.object({
+      action: z.enum(["confirm", "reject"]),
+      reason: z.string().trim().max(500).optional()
     });
     updateOrderMetadataSchema = z.object({
       orderTitle: z.string().max(200).optional(),
@@ -3442,7 +3455,7 @@ async function ensureTablesExist() {
       await initializeConnection();
       await db.execute(sql3`DO $$ BEGIN CREATE TYPE restaurant_status AS ENUM ('pendente', 'ativo', 'suspenso'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql3`DO $$ BEGIN CREATE TYPE user_role AS ENUM ('superadmin', 'admin', 'manager', 'cashier', 'waiter', 'kitchen'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-      await db.execute(sql3`DO $$ BEGIN CREATE TYPE order_status AS ENUM ('pendente', 'em_preparo', 'pronto', 'servido', 'cancelado'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN CREATE TYPE order_status AS ENUM ('aguardando_confirmacao', 'pendente', 'em_preparo', 'pronto', 'servido', 'cancelado'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql3`DO $$ BEGIN CREATE TYPE order_type AS ENUM ('mesa', 'delivery', 'takeout', 'balcao', 'pdv'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql3`DO $$ BEGIN CREATE TYPE payment_status AS ENUM ('nao_pago', 'parcial', 'pago'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql3`DO $$ BEGIN CREATE TYPE payment_method AS ENUM ('dinheiro', 'multicaixa', 'transferencia', 'cartao'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
@@ -3450,6 +3463,9 @@ async function ensureTablesExist() {
       await db.execute(sql3`DO $$ BEGIN CREATE TYPE bill_split_type AS ENUM ('igual', 'por_pessoa', 'personalizado'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql3`DO $$ BEGIN
         ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'cancelado';
+      EXCEPTION WHEN others THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN
+        ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'aguardando_confirmacao';
       EXCEPTION WHEN others THEN null; END $$;`);
       await db.execute(sql3`DO $$ BEGIN
         ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'manager';
@@ -3889,6 +3905,24 @@ async function ensureTablesExist() {
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE orders ADD COLUMN closed_by VARCHAR REFERENCES users(id); 
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN
+        ALTER TABLE orders ADD COLUMN payment_reference VARCHAR(200);
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN
+        ALTER TABLE orders ADD COLUMN payment_proof_url TEXT;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN
+        ALTER TABLE orders ADD COLUMN payment_submitted_at TIMESTAMP;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN
+        ALTER TABLE orders ADD COLUMN payment_confirmed_at TIMESTAMP;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN
+        ALTER TABLE orders ADD COLUMN payment_confirmed_by VARCHAR REFERENCES users(id) ON DELETE SET NULL;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql3`DO $$ BEGIN
+        ALTER TABLE orders ADD COLUMN payment_rejection_reason TEXT;
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       await db.execute(sql3`DO $$ BEGIN CREATE TYPE customer_tier AS ENUM ('bronze', 'prata', 'ouro', 'platina'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
       await db.execute(sql3`CREATE TABLE IF NOT EXISTS customers (
@@ -5130,6 +5164,35 @@ var init_storage = __esm({
           pendingAmount: Math.max(0, totalAmountAdjusted - paidAmountCapped).toFixed(2)
         };
       }
+      async releaseOrdersForPaidTableSession(sessionId, confirmedBy) {
+        const session2 = await this.getSessionById(sessionId);
+        if (!session2) return [];
+        const totalAmount = parseFloat(session2.totalAmount || "0") || 0;
+        const paidAmount = parseFloat(session2.paidAmount || "0") || 0;
+        if (totalAmount <= 0 || paidAmount < totalAmount - 0.01) {
+          return [];
+        }
+        const awaitingOrders = await db.select().from(orders).where(and(
+          eq(orders.tableSessionId, sessionId),
+          eq(orders.status, "aguardando_confirmacao")
+        ));
+        const releasedOrders = [];
+        for (const order of awaitingOrders) {
+          const [releasedOrder] = await db.update(orders).set({
+            status: "pendente",
+            paymentStatus: "pago",
+            paidAmount: order.totalAmount,
+            paymentConfirmedAt: /* @__PURE__ */ new Date(),
+            paymentConfirmedBy: confirmedBy || null,
+            paymentRejectionReason: null,
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq(orders.id, order.id)).returning();
+          if (releasedOrder) {
+            releasedOrders.push(releasedOrder);
+          }
+        }
+        return releasedOrders;
+      }
       // Restaurant operations
       async getRestaurants() {
         return await db.select().from(restaurants).orderBy(restaurants.createdAt);
@@ -6228,7 +6291,9 @@ var init_storage = __esm({
         }
       }
       // Order operations
-      async getKitchenOrders(restaurantId, branchId) {
+      async getKitchenOrders(restaurantId, branchId, includeAwaitingConfirmation = true) {
+        const visibleStatus = includeAwaitingConfirmation ? void 0 : sql4`${orders.status} <> 'aguardando_confirmacao'`;
+        const paidCondition = eq(orders.paymentStatus, "pago");
         let allOrders;
         if (branchId) {
           const branchTables = await this.getTables(restaurantId, branchId);
@@ -6239,10 +6304,16 @@ var init_storage = __esm({
             eq(orders.restaurantId, restaurantId),
             branchCondition,
             // CRÍTICO: Garante isolamento de filial
-            tableCondition
+            tableCondition,
+            paidCondition,
+            ...visibleStatus ? [visibleStatus] : []
           )).orderBy(desc(orders.createdAt));
         } else {
-          allOrders = await db.select().from(orders).leftJoin(customers, eq(orders.customerId, customers.id)).leftJoin(tables, eq(orders.tableId, tables.id)).where(eq(orders.restaurantId, restaurantId)).orderBy(desc(orders.createdAt));
+          allOrders = await db.select().from(orders).leftJoin(customers, eq(orders.customerId, customers.id)).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
+            eq(orders.restaurantId, restaurantId),
+            paidCondition,
+            ...visibleStatus ? [visibleStatus] : []
+          )).orderBy(desc(orders.createdAt));
         }
         const ordersWithItems = await Promise.all(
           allOrders.map(async (orderRow) => {
@@ -6514,7 +6585,7 @@ var init_storage = __esm({
           tableSessionId: derivedTableSessionId,
           // Sempre string|null (nunca undefined)
           guestId: derivedGuestId,
-          status: "pendente",
+          status: order.status || "pendente",
           paymentStatus: "nao_pago",
           subtotal: subtotal.toFixed(2),
           totalAmount: totalAmount.toFixed(2),
@@ -11917,6 +11988,7 @@ import path6 from "path";
 init_storage();
 init_db();
 init_schema();
+init_schema();
 import { createServer } from "http";
 import { eq as eq5, sql as sql8, and as and5, isNull as isNull2, or as or3, desc as desc3, asc, inArray as inArray2 } from "drizzle-orm";
 
@@ -12213,6 +12285,36 @@ async function resolveActiveTableSession(table2) {
     isOccupied: 1
   };
 }
+async function releasePaidOrderToKitchen(order) {
+  if (order?.paymentStatus !== "pago") {
+    return;
+  }
+  const kitchenOrder = (await storage.getKitchenOrders(
+    order.restaurantId,
+    order.branchId || null,
+    true
+  )).find((kitchenOrder2) => kitchenOrder2.id === order.id) || order;
+  broadcastToClients({ type: "new_order", data: kitchenOrder });
+  try {
+    const kitchenPrinters = await storage.getActivePrintersByType(
+      kitchenOrder.restaurantId,
+      "kitchen",
+      kitchenOrder.branchId || void 0
+    );
+    const autoPrintPrinters = kitchenPrinters.filter((printer) => printer.autoPrint === 1);
+    if (autoPrintPrinters.length > 0) {
+      broadcastToClients({
+        type: "auto_print_order",
+        data: {
+          order: kitchenOrder,
+          printers: autoPrintPrinters
+        }
+      });
+    }
+  } catch (printError) {
+    console.error("[AUTO-PRINT] Error checking printers for paid order:", printError);
+  }
+}
 var twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN) : null;
 var TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || "";
 async function sendWhatsAppOTP(phoneNumber, otpCode, restaurantName) {
@@ -12294,7 +12396,7 @@ Obrigado pela prefer\xEAncia!`,
 }
 var uploadRoot = path2.resolve(process.env.UPLOAD_DIR || "uploads");
 var legacyUploadRoot = path2.resolve("client/public/uploads");
-for (const uploadType of ["restaurants", "menu-items", "profile-images"]) {
+for (const uploadType of ["restaurants", "menu-items", "profile-images", "payment-proofs"]) {
   fsSync.mkdirSync(path2.join(uploadRoot, uploadType), { recursive: true });
 }
 var restaurantStorage = multer.diskStorage({
@@ -14719,6 +14821,9 @@ async function registerRoutes(app2) {
           }
           validatedOrder = {
             ...validatedOrder,
+            // QR orders inherit the table's branch. Do not trust a branch
+            // supplied by the public client.
+            branchId: table2.branchId ?? null,
             tableSessionId: table2.currentSessionId
           };
         }
@@ -14890,7 +14995,12 @@ async function registerRoutes(app2) {
           }
         }
       }
-      const order = await storage.createOrder(validatedOrder, verifiedItems);
+      const order = await storage.createOrder({
+        ...validatedOrder,
+        status: "aguardando_confirmacao",
+        paymentStatus: "nao_pago",
+        paymentSubmittedAt: /* @__PURE__ */ new Date()
+      }, verifiedItems);
       if (appliedCouponId && couponDiscount > 0) {
         await storage.applyCouponToOrder(
           validatedOrder.restaurantId,
@@ -14910,7 +15020,7 @@ async function registerRoutes(app2) {
         );
       }
       const updatedOrder = await storage.calculateOrderTotal(order.id);
-      broadcastToClients({ type: "new_order", data: updatedOrder });
+      broadcastToClients({ type: "payment_submitted", data: updatedOrder });
       if (order.tableId) {
         await storage.autoUpdateTablePaymentStatus(order.tableId);
       }
@@ -15728,6 +15838,26 @@ async function registerRoutes(app2) {
           paymentMethod: method,
           receivedAmount
         }, currentUser.id);
+        if (updatedOrder.paymentStatus === "pago") {
+          await releasePaidOrderToKitchen(updatedOrder);
+          broadcastToClients({
+            type: "order_payment_completed",
+            data: {
+              orderId: updatedOrder.id,
+              totalAmount: updatedOrder.totalAmount,
+              paymentMethod: updatedOrder.paymentMethod
+            }
+          });
+        } else {
+          broadcastToClients({
+            type: "order_payment_recorded",
+            data: {
+              orderId: updatedOrder.id,
+              paidAmount: updatedOrder.paidAmount,
+              paymentStatus: updatedOrder.paymentStatus
+            }
+          });
+        }
         if (guestId && order.tableSessionId) {
           await db.insert(guestPayments).values({
             guestId,
@@ -15854,6 +15984,16 @@ async function registerRoutes(app2) {
         const validation = await storage.validateSessionClosure(table2.currentSessionId);
         if (validation.canClose) {
           console.log(`[TablePayment] \u2705 Pagamento completo detectado. Mesa pode ser fechada manualmente.`);
+          const releasedOrders = await storage.releaseOrdersForPaidTableSession(
+            table2.currentSessionId,
+            currentUser.id
+          );
+          for (const releasedOrder of releasedOrders) {
+            broadcastToClients({
+              type: "order_status_updated",
+              data: { id: releasedOrder.id, status: releasedOrder.status }
+            });
+          }
           broadcastToClients({
             type: "table_payment_complete",
             data: {
@@ -15916,6 +16056,16 @@ async function registerRoutes(app2) {
             });
             if (table2.currentSessionId) {
               await storage.recalculateSessionTotals(table2.currentSessionId);
+              const releasedOrders = await storage.releaseOrdersForPaidTableSession(
+                table2.currentSessionId,
+                currentUser.id
+              );
+              for (const releasedOrder of releasedOrders) {
+                broadcastToClients({
+                  type: "order_status_updated",
+                  data: { id: releasedOrder.id, status: releasedOrder.status }
+                });
+              }
             }
             return res.json(payment);
           }
@@ -16022,6 +16172,16 @@ async function registerRoutes(app2) {
           paidAmount: result?.paidAmount,
           pendingAmount: result?.pendingAmount
         });
+        const releasedOrders = await storage.releaseOrdersForPaidTableSession(
+          guest.sessionId,
+          currentUser.id
+        );
+        for (const releasedOrder of releasedOrders) {
+          broadcastToClients({
+            type: "order_status_updated",
+            data: { id: releasedOrder.id, status: releasedOrder.status }
+          });
+        }
       }
       console.log("\u{1F50D} [GUEST PAYMENT] Verificando se mesa deve fechar automaticamente...");
       await storage.autoUpdateTableStatusOnPayment(guest.tableId);
@@ -16097,6 +16257,16 @@ async function registerRoutes(app2) {
       });
       if (targetSessionId) {
         await storage.recalculateSessionTotals(targetSessionId);
+        const releasedOrders = await storage.releaseOrdersForPaidTableSession(
+          targetSessionId,
+          currentUser.id
+        );
+        for (const releasedOrder of releasedOrders) {
+          broadcastToClients({
+            type: "order_status_updated",
+            data: { id: releasedOrder.id, status: releasedOrder.status }
+          });
+        }
         await storage.autoUpdateTableStatusOnPayment(req.params.id);
       }
       broadcastToClients({ type: "table_payment_added", data: payment });
@@ -17589,7 +17759,7 @@ async function registerRoutes(app2) {
       }
       const restaurantId = currentUser.restaurantId;
       const branchId = currentUser.activeBranchId || null;
-      const orders2 = await storage.getKitchenOrders(restaurantId, branchId);
+      const orders2 = await storage.getKitchenOrders(restaurantId, branchId, false);
       res.json(orders2);
     } catch (error) {
       console.error("[GET /api/orders/kitchen] Failed to fetch orders:", error);
@@ -17664,26 +17834,7 @@ async function registerRoutes(app2) {
       if (validatedOrder.tableId) {
         await storage.autoUpdateTableStatusOnOrderCreated(validatedOrder.tableId);
       }
-      broadcastToClients({ type: "new_order", data: order });
-      try {
-        const kitchenPrinters = await storage.getActivePrintersByType(
-          restaurantId,
-          "kitchen",
-          currentUser.activeBranchId || void 0
-        );
-        const autoPrintPrinters = kitchenPrinters.filter((p) => p.autoPrint === 1);
-        if (autoPrintPrinters.length > 0) {
-          broadcastToClients({
-            type: "auto_print_order",
-            data: {
-              order,
-              printers: autoPrintPrinters
-            }
-          });
-        }
-      } catch (printError) {
-        console.error("[AUTO-PRINT] Error checking printers:", printError);
-      }
+      await releasePaidOrderToKitchen(order);
       res.json(order);
     } catch (error) {
       if (error instanceof z2.ZodError) {
@@ -17746,6 +17897,71 @@ async function registerRoutes(app2) {
     } catch (error) {
       console.error("Order status update error:", error);
       res.status(500).json({ message: "Failed to update order status" });
+    }
+  });
+  app2.patch("/api/orders/:id/payment-confirmation", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      const restaurantId = currentUser.restaurantId;
+      if (!restaurantId) {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      const { action, reason } = paymentConfirmationSchema.parse(req.body);
+      const [order] = await db.select().from(orders).where(and5(
+        eq5(orders.id, req.params.id),
+        eq5(orders.restaurantId, restaurantId)
+      ));
+      if (!order) {
+        return res.status(404).json({ message: "Pedido n\xE3o encontrado" });
+      }
+      if (order.status !== "aguardando_confirmacao") {
+        return res.status(409).json({ message: "Este pedido j\xE1 n\xE3o aguarda confirma\xE7\xE3o de pagamento" });
+      }
+      if (action === "reject" && !reason?.trim()) {
+        return res.status(400).json({ message: "Informe o motivo da rejei\xE7\xE3o" });
+      }
+      const [updated] = await db.update(orders).set(action === "confirm" ? {
+        status: "pendente",
+        paymentStatus: "pago",
+        paidAmount: order.totalAmount,
+        paymentConfirmedAt: /* @__PURE__ */ new Date(),
+        paymentConfirmedBy: currentUser.id,
+        paymentRejectionReason: null,
+        updatedAt: /* @__PURE__ */ new Date()
+      } : {
+        status: "aguardando_confirmacao",
+        paymentStatus: "nao_pago",
+        paymentRejectionReason: reason?.trim() || null,
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq5(orders.id, order.id)).returning();
+      await storage.createPaymentEvent(restaurantId, {
+        orderId: order.id,
+        sessionId: order.tableSessionId,
+        amount: order.totalAmount,
+        paymentMethod: order.paymentMethod,
+        paymentSource: action === "confirm" ? "manual_confirmation" : "manual_rejection",
+        methodDetails: {
+          reference: order.paymentReference,
+          proofUrl: order.paymentProofUrl,
+          reason: reason || null
+        },
+        operatorId: currentUser.id,
+        notes: action === "confirm" ? "Pagamento confirmado manualmente pelo operador" : `Pagamento rejeitado: ${reason}`
+      });
+      broadcastToClients({
+        type: action === "confirm" ? "payment_confirmed" : "payment_rejected",
+        data: updated
+      });
+      if (action === "confirm") {
+        await releasePaidOrderToKitchen(updated);
+      }
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z2.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Payment confirmation error:", error);
+      res.status(500).json({ message: "N\xE3o foi poss\xEDvel atualizar a confirma\xE7\xE3o do pagamento" });
     }
   });
   app2.get("/api/orders/:id", isAuthenticated, async (req, res) => {
@@ -18184,6 +18400,7 @@ Stack: ${errorStack}
       }
       const updated = await storage.recordPayment(restaurantId, req.params.id, payment, currentUser.id);
       if (updated.paymentStatus === "pago") {
+        await releasePaidOrderToKitchen(updated);
         broadcastToClients({
           type: "order_payment_completed",
           data: {
@@ -18211,7 +18428,7 @@ Stack: ${errorStack}
       res.status(500).json({ message: "Erro ao registrar pagamento" });
     }
   });
-  app2.post("/api/orders/:id/cancel", isAuthenticated, async (req, res) => {
+  const cancelOrderHandler = async (req, res) => {
     try {
       const currentUser = req.user;
       if (!currentUser.restaurantId) {
@@ -18243,6 +18460,16 @@ Stack: ${errorStack}
       const errorMessage = error instanceof Error ? error.message : "Erro ao cancelar pedido";
       res.status(500).json({ message: errorMessage });
     }
+  };
+  app2.post("/api/orders/:id/cancel", isAuthenticated, cancelOrderHandler);
+  app2.patch("/api/orders/:id", isAuthenticated, async (req, res, next) => {
+    if (req.body?.status !== "cancelled" && req.body?.status !== "cancelado") {
+      return next();
+    }
+    req.body = {
+      cancellationReason: req.body.cancellationReason || "Cancelado pelo operador"
+    };
+    return cancelOrderHandler(req, res);
   });
   app2.put("/api/orders/:id/customer", isAuthenticated, async (req, res) => {
     try {
