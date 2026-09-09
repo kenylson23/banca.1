@@ -4843,6 +4843,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (validation.canClose) {
           console.log(`[TablePayment] ✅ Pagamento completo detectado. Mesa pode ser fechada manualmente.`);
+          const releasedOrders = await storage.releaseOrdersForPaidTableSession(
+            table.currentSessionId,
+            currentUser.id,
+          );
+          for (const releasedOrder of releasedOrders) {
+            broadcastToClients({
+              type: 'order_status_updated',
+              data: { id: releasedOrder.id, status: releasedOrder.status },
+            });
+          }
           broadcastToClients({ 
             type: 'table_payment_complete', 
             data: { 
@@ -4907,6 +4917,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
             if (table.currentSessionId) {
               await storage.recalculateSessionTotals(table.currentSessionId);
+              const releasedOrders = await storage.releaseOrdersForPaidTableSession(
+                table.currentSessionId,
+                currentUser.id,
+              );
+              for (const releasedOrder of releasedOrders) {
+                broadcastToClients({
+                  type: 'order_status_updated',
+                  data: { id: releasedOrder.id, status: releasedOrder.status },
+                });
+              }
             }
             return res.json(payment);
           }
@@ -5055,6 +5075,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           paidAmount: result?.paidAmount,
           pendingAmount: result?.pendingAmount
         });
+
+        const releasedOrders = await storage.releaseOrdersForPaidTableSession(
+          guest.sessionId,
+          currentUser.id,
+        );
+        for (const releasedOrder of releasedOrders) {
+          broadcastToClients({
+            type: 'order_status_updated',
+            data: { id: releasedOrder.id, status: releasedOrder.status },
+          });
+        }
       }
 
       // ✅ CORREÇÃO CONFLITO #12: Verificar auto-fechamento após pagamento individual
@@ -5155,6 +5186,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ✅ Usa o motor de recálculo partilhado
       if (targetSessionId) {
         await storage.recalculateSessionTotals(targetSessionId);
+        const releasedOrders = await storage.releaseOrdersForPaidTableSession(
+          targetSessionId,
+          currentUser.id,
+        );
+        for (const releasedOrder of releasedOrders) {
+          broadcastToClients({
+            type: 'order_status_updated',
+            data: { id: releasedOrder.id, status: releasedOrder.status },
+          });
+        }
         
         // Auto-update table status
         await storage.autoUpdateTableStatusOnPayment(req.params.id);

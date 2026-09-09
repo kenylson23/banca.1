@@ -194,6 +194,7 @@ function generateSlug(name: string): string {
 
 export interface IStorage {
   recalculateSessionTotals(sessionId: string): Promise<any>;
+  releaseOrdersForPaidTableSession(sessionId: string, confirmedBy?: string | null): Promise<Order[]>;
   // Restaurant operations
   getRestaurants(): Promise<Restaurant[]>;
   getRestaurantById(id: string): Promise<Restaurant | undefined>;
@@ -999,6 +1000,49 @@ export class DatabaseStorage implements IStorage {
       pendingAmount: Math.max(0, totalAmountAdjusted - paidAmountCapped).toFixed(2),
     };
   }
+
+  async releaseOrdersForPaidTableSession(sessionId: string, confirmedBy?: string | null): Promise<Order[]> {
+    const session = await this.getSessionById(sessionId);
+    if (!session) return [];
+
+    const totalAmount = parseFloat(session.totalAmount || '0') || 0;
+    const paidAmount = parseFloat(session.paidAmount || '0') || 0;
+    if (totalAmount <= 0 || paidAmount < totalAmount - 0.01) {
+      return [];
+    }
+
+    const awaitingOrders = await db
+      .select()
+      .from(orders)
+      .where(and(
+        eq(orders.tableSessionId, sessionId),
+        eq(orders.status, 'aguardando_confirmacao'),
+      ));
+
+    const releasedOrders: Order[] = [];
+    for (const order of awaitingOrders) {
+      const [releasedOrder] = await db
+        .update(orders)
+        .set({
+          status: 'pendente',
+          paymentStatus: 'pago',
+          paidAmount: order.totalAmount,
+          paymentConfirmedAt: new Date(),
+          paymentConfirmedBy: confirmedBy || null,
+          paymentRejectionReason: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, order.id))
+        .returning();
+
+      if (releasedOrder) {
+        releasedOrders.push(releasedOrder);
+      }
+    }
+
+    return releasedOrders;
+  }
+
   // Restaurant operations
   async getRestaurants(): Promise<Restaurant[]> {
     return await db.select().from(restaurants).orderBy(restaurants.createdAt);
