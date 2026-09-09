@@ -13,8 +13,8 @@ export function useTableMutations({ tableId }: UseTableMutationsProps) {
 
   const cancelOrderMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      const response = await apiRequest('PATCH', `/api/orders/${orderId}`, {
-        status: 'cancelled',
+      const response = await apiRequest('POST', `/api/orders/${orderId}/cancel`, {
+        cancellationReason: 'Cancelado pelo operador',
       });
       return response.json();
     },
