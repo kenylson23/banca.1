@@ -30,6 +30,13 @@ export const sessions = pgTable(
 // Restaurant Status Enum
 export const restaurantStatusEnum = pgEnum('restaurant_status', ['pendente', 'ativo', 'suspenso']);
 
+export const restaurantPaymentMethodSchema = z.object({
+  id: z.string().min(1).max(100),
+  name: z.string().trim().min(1).max(100),
+  reference: z.string().trim().min(1, "A referência é obrigatória").max(200),
+});
+export type RestaurantPaymentMethod = z.infer<typeof restaurantPaymentMethodSchema>;
+
 // Restaurants - Multi-tenant support
 export const restaurants = pgTable("restaurants", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -42,6 +49,7 @@ export const restaurants = pgTable("restaurants", {
   logoUrl: text("logo_url"),
   businessHours: text("business_hours"),
   description: text("description"),
+  paymentMethods: jsonb("payment_methods").$type<RestaurantPaymentMethod[]>().notNull().default(sql`'[]'::jsonb`),
   status: restaurantStatusEnum("status").notNull().default('pendente'),
   isOpen: integer("is_open").notNull().default(1), // 0 = fechado, 1 = aberto
   primaryColor: varchar("primary_color", { length: 7 }).default('#EA580C'),
@@ -123,6 +131,12 @@ export const updateRestaurantAppearanceSchema = z.object({
 });
 
 export type UpdateRestaurantAppearance = z.infer<typeof updateRestaurantAppearanceSchema>;
+
+export const updateRestaurantPaymentMethodsSchema = z.object({
+  paymentMethods: z.array(restaurantPaymentMethodSchema).max(20),
+});
+
+export type UpdateRestaurantPaymentMethods = z.infer<typeof updateRestaurantPaymentMethodsSchema>;
 
 // Branches - Filiais/Unidades do Restaurante
 export const branches = pgTable("branches", {
@@ -1245,7 +1259,7 @@ export const orders = pgTable("orders", {
   loyaltyDiscountAmount: decimal("loyalty_discount_amount", { precision: 10, scale: 2 }).default('0'),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   paymentStatus: paymentStatusEnum("payment_status").notNull().default('nao_pago'),
-  paymentMethod: paymentMethodEnum("payment_method"),
+  paymentMethod: varchar("payment_method", { length: 100 }),
   paymentReference: varchar("payment_reference", { length: 200 }),
   paymentProofUrl: text("payment_proof_url"),
   paymentSubmittedAt: timestamp("payment_submitted_at"),
@@ -1322,7 +1336,7 @@ export const publicOrderSchema = createInsertSchema(orders).omit({
   tableId: z.string().optional().nullable(),
   tableSessionId: z.string().optional().nullable(),
   couponId: z.string().optional().nullable(),
-  paymentMethod: z.enum(['multicaixa', 'transferencia', 'cartao']).optional(),
+  paymentMethod: z.string().trim().min(1).max(100).optional(),
   paymentReference: z.string().trim().max(200).optional(),
   paymentProofUrl: z.string().trim().optional().nullable(),
 });

@@ -236,6 +236,7 @@ __export(schema_exports, {
   reportAggregationsRelations: () => reportAggregationsRelations,
   reportPeriodTypeEnum: () => reportPeriodTypeEnum,
   resetRestaurantAdminCredentialsSchema: () => resetRestaurantAdminCredentialsSchema,
+  restaurantPaymentMethodSchema: () => restaurantPaymentMethodSchema,
   restaurantStatusEnum: () => restaurantStatusEnum,
   restaurants: () => restaurants,
   restaurantsRelations: () => restaurantsRelations,
@@ -295,6 +296,7 @@ __export(schema_exports, {
   updateProfileSchema: () => updateProfileSchema,
   updateRecipeIngredientSchema: () => updateRecipeIngredientSchema,
   updateRestaurantAppearanceSchema: () => updateRestaurantAppearanceSchema,
+  updateRestaurantPaymentMethodsSchema: () => updateRestaurantPaymentMethodsSchema,
   updateRestaurantSlugSchema: () => updateRestaurantSlugSchema,
   updateSubscriptionPlanSchema: () => updateSubscriptionPlanSchema,
   updateSubscriptionSchema: () => updateSubscriptionSchema,
@@ -324,7 +326,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-var sessions, restaurantStatusEnum, restaurants, insertRestaurantSchema, registerRestaurantSchema, updateRestaurantSlugSchema, updateRestaurantAppearanceSchema, branches, insertBranchSchema, updateBranchSchema, invoiceSequences, userRoleEnum, ROLE_PERMISSIONS, users, insertUserSchema, loginSchema, updateUserSchema, updateProfileSchema, updatePasswordSchema, adminResetPasswordSchema, resetRestaurantAdminCredentialsSchema, userAuditActionEnum, userAuditLogs, insertUserAuditLogSchema, printerTypeEnum, printerLanguageEnum, printerConfigurations, insertPrinterConfigurationSchema, updatePrinterConfigurationSchema, printHistory, insertPrintHistorySchema, tableStatusEnum, tableStatusGranularEnum, tables, insertTableSchema, updateTableStatusSchema, shiftStatusEnum, financialEventTypeEnum, eventSourceEnum, adjustmentTypeEnum, reportPeriodTypeEnum, paymentMethodEnum, financialShifts, insertFinancialShiftSchema, tableSessions, insertTableSessionSchema, tablePayments, insertTablePaymentSchema, guestStatusEnum, billSplitTypeEnum, discountTypeEnum, serviceChargeTypeEnum, tableGuests, insertTableGuestSchema, updateTableGuestSchema, tableBillSplits, insertTableBillSplitSchema, updateTableBillSplitSchema, guestPayments, insertGuestPaymentSchema, orderStatusEnum, orderTypeEnum, paymentStatusEnum, customerTierEnum, loyaltyTransactionTypeEnum, customers, insertCustomerSchema, updateCustomerSchema, customerSessions, insertCustomerSessionSchema, customerAuthRequestSchema, customerAuthVerifySchema, loyaltyPrograms, insertLoyaltyProgramSchema, updateLoyaltyProgramSchema, loyaltyTransactions, insertLoyaltyTransactionSchema, coupons, insertCouponSchema, updateCouponSchema, validateCouponSchema, couponUsages, insertCouponUsageSchema, orders, insertOrderSchema, publicOrderSchema, updateOrderStatusSchema, paymentConfirmationSchema, updateOrderMetadataSchema, applyDiscountSchema, applyServiceChargeSchema, applyDeliveryFeeSchema, applyPackagingFeeSchema, recordPaymentSchema, updateOrderItemQuantitySchema, reassignOrderItemSchema, orderItemAuditActionEnum, orderItemAuditLogs, insertOrderItemAuditLogSchema, linkCustomerSchema, applyCouponSchema, redeemLoyaltyPointsSchema, cancelOrderSchema, orderItems, insertOrderItemSchema, publicOrderItemSchema, orderItemOptions, insertOrderItemOptionSchema, financialEvents, insertFinancialEventSchema, orderAdjustments, insertOrderAdjustmentSchema, serviceContextEnum, services, insertServiceSchema, orderServices, insertOrderServiceSchema, paymentEvents, insertPaymentEventSchema, reportAggregations, insertReportAggregationSchema, categories, insertCategorySchema, updateCategorySchema, menuItems, insertMenuItemSchema, updateMenuItemSchema, optionGroupTypeEnum, optionGroups, insertOptionGroupSchema, updateOptionGroupSchema, options, insertOptionSchema, updateOptionSchema, messages, insertMessageSchema, menuVisits, insertMenuVisitSchema, customerReviews, insertCustomerReviewSchema, restaurantsRelations, branchesRelations, usersRelations, categoriesRelations, menuItemsRelations, tablesRelations, tableSessionsRelations, tablePaymentsRelations, ordersRelations, orderItemsRelations, orderItemAuditLogsRelations, optionGroupsRelations, optionsRelations, orderItemOptionsRelations, messagesRelations, menuVisitsRelations, customerReviewsRelations, financialShiftsRelations, financialEventsRelations, orderAdjustmentsRelations, paymentEventsRelations, reportAggregationsRelations, cashRegisters, insertCashRegisterSchema, updateCashRegisterSchema, cashRegisterShiftStatusEnum, cashRegisterShifts, insertCashRegisterShiftSchema, closeCashRegisterShiftSchema, transactionTypeEnum, transactionOriginEnum, financialCategories, insertFinancialCategorySchema, financialTransactions, insertFinancialTransactionSchema, expenses, insertExpenseSchema, updateExpenseSchema, cashRegistersRelations, cashRegisterShiftsRelations, financialCategoriesRelations, financialTransactionsRelations, expensesRelations, stockMovementTypeEnum, inventoryCategories, insertInventoryCategorySchema, updateInventoryCategorySchema, measurementUnits, insertMeasurementUnitSchema, updateMeasurementUnitSchema, inventoryItems, insertInventoryItemSchema, updateInventoryItemSchema, branchStock, stockMovements, insertStockMovementSchema, inventoryCategoriesRelations, measurementUnitsRelations, inventoryItemsRelations, branchStockRelations, stockMovementsRelations, recipeIngredients, insertRecipeIngredientSchema, updateRecipeIngredientSchema, recipeIngredientsRelations, customersRelations, customerSessionsRelations, loyaltyProgramsRelations, loyaltyTransactionsRelations, couponsRelations, couponUsagesRelations, subscriptionPlanEnum, subscriptionStatusEnum, subscriptionPaymentStatusEnum, billingIntervalEnum, subscriptionPlans, insertSubscriptionPlanSchema, updateSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, updateSubscriptionSchema, superAdminCreateSubscriptionSchema, superAdminUpdateSubscriptionSchema, subscriptionPayments, insertSubscriptionPaymentSchema, subscriptionUsage, insertSubscriptionUsageSchema, subscriptionPlansRelations, subscriptionsRelations, subscriptionPaymentsRelations, subscriptionUsageRelations, notificationTypeEnum, notificationChannelEnum, notifications, insertNotificationSchema, notificationPreferences, insertNotificationPreferencesSchema, updateNotificationPreferencesSchema, customerNotificationPreferences, updateCustomerNotificationPreferencesSchema, notificationsRelations, notificationPreferencesRelations, customerNotificationPreferencesRelations, linkAnalytics, insertLinkAnalyticsSchema, auditLogs2, insertAuditLogSchema, auditLogsRelations;
+var sessions, restaurantStatusEnum, restaurantPaymentMethodSchema, restaurants, insertRestaurantSchema, registerRestaurantSchema, updateRestaurantSlugSchema, updateRestaurantAppearanceSchema, updateRestaurantPaymentMethodsSchema, branches, insertBranchSchema, updateBranchSchema, invoiceSequences, userRoleEnum, ROLE_PERMISSIONS, users, insertUserSchema, loginSchema, updateUserSchema, updateProfileSchema, updatePasswordSchema, adminResetPasswordSchema, resetRestaurantAdminCredentialsSchema, userAuditActionEnum, userAuditLogs, insertUserAuditLogSchema, printerTypeEnum, printerLanguageEnum, printerConfigurations, insertPrinterConfigurationSchema, updatePrinterConfigurationSchema, printHistory, insertPrintHistorySchema, tableStatusEnum, tableStatusGranularEnum, tables, insertTableSchema, updateTableStatusSchema, shiftStatusEnum, financialEventTypeEnum, eventSourceEnum, adjustmentTypeEnum, reportPeriodTypeEnum, paymentMethodEnum, financialShifts, insertFinancialShiftSchema, tableSessions, insertTableSessionSchema, tablePayments, insertTablePaymentSchema, guestStatusEnum, billSplitTypeEnum, discountTypeEnum, serviceChargeTypeEnum, tableGuests, insertTableGuestSchema, updateTableGuestSchema, tableBillSplits, insertTableBillSplitSchema, updateTableBillSplitSchema, guestPayments, insertGuestPaymentSchema, orderStatusEnum, orderTypeEnum, paymentStatusEnum, customerTierEnum, loyaltyTransactionTypeEnum, customers, insertCustomerSchema, updateCustomerSchema, customerSessions, insertCustomerSessionSchema, customerAuthRequestSchema, customerAuthVerifySchema, loyaltyPrograms, insertLoyaltyProgramSchema, updateLoyaltyProgramSchema, loyaltyTransactions, insertLoyaltyTransactionSchema, coupons, insertCouponSchema, updateCouponSchema, validateCouponSchema, couponUsages, insertCouponUsageSchema, orders, insertOrderSchema, publicOrderSchema, updateOrderStatusSchema, paymentConfirmationSchema, updateOrderMetadataSchema, applyDiscountSchema, applyServiceChargeSchema, applyDeliveryFeeSchema, applyPackagingFeeSchema, recordPaymentSchema, updateOrderItemQuantitySchema, reassignOrderItemSchema, orderItemAuditActionEnum, orderItemAuditLogs, insertOrderItemAuditLogSchema, linkCustomerSchema, applyCouponSchema, redeemLoyaltyPointsSchema, cancelOrderSchema, orderItems, insertOrderItemSchema, publicOrderItemSchema, orderItemOptions, insertOrderItemOptionSchema, financialEvents, insertFinancialEventSchema, orderAdjustments, insertOrderAdjustmentSchema, serviceContextEnum, services, insertServiceSchema, orderServices, insertOrderServiceSchema, paymentEvents, insertPaymentEventSchema, reportAggregations, insertReportAggregationSchema, categories, insertCategorySchema, updateCategorySchema, menuItems, insertMenuItemSchema, updateMenuItemSchema, optionGroupTypeEnum, optionGroups, insertOptionGroupSchema, updateOptionGroupSchema, options, insertOptionSchema, updateOptionSchema, messages, insertMessageSchema, menuVisits, insertMenuVisitSchema, customerReviews, insertCustomerReviewSchema, restaurantsRelations, branchesRelations, usersRelations, categoriesRelations, menuItemsRelations, tablesRelations, tableSessionsRelations, tablePaymentsRelations, ordersRelations, orderItemsRelations, orderItemAuditLogsRelations, optionGroupsRelations, optionsRelations, orderItemOptionsRelations, messagesRelations, menuVisitsRelations, customerReviewsRelations, financialShiftsRelations, financialEventsRelations, orderAdjustmentsRelations, paymentEventsRelations, reportAggregationsRelations, cashRegisters, insertCashRegisterSchema, updateCashRegisterSchema, cashRegisterShiftStatusEnum, cashRegisterShifts, insertCashRegisterShiftSchema, closeCashRegisterShiftSchema, transactionTypeEnum, transactionOriginEnum, financialCategories, insertFinancialCategorySchema, financialTransactions, insertFinancialTransactionSchema, expenses, insertExpenseSchema, updateExpenseSchema, cashRegistersRelations, cashRegisterShiftsRelations, financialCategoriesRelations, financialTransactionsRelations, expensesRelations, stockMovementTypeEnum, inventoryCategories, insertInventoryCategorySchema, updateInventoryCategorySchema, measurementUnits, insertMeasurementUnitSchema, updateMeasurementUnitSchema, inventoryItems, insertInventoryItemSchema, updateInventoryItemSchema, branchStock, stockMovements, insertStockMovementSchema, inventoryCategoriesRelations, measurementUnitsRelations, inventoryItemsRelations, branchStockRelations, stockMovementsRelations, recipeIngredients, insertRecipeIngredientSchema, updateRecipeIngredientSchema, recipeIngredientsRelations, customersRelations, customerSessionsRelations, loyaltyProgramsRelations, loyaltyTransactionsRelations, couponsRelations, couponUsagesRelations, subscriptionPlanEnum, subscriptionStatusEnum, subscriptionPaymentStatusEnum, billingIntervalEnum, subscriptionPlans, insertSubscriptionPlanSchema, updateSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, updateSubscriptionSchema, superAdminCreateSubscriptionSchema, superAdminUpdateSubscriptionSchema, subscriptionPayments, insertSubscriptionPaymentSchema, subscriptionUsage, insertSubscriptionUsageSchema, subscriptionPlansRelations, subscriptionsRelations, subscriptionPaymentsRelations, subscriptionUsageRelations, notificationTypeEnum, notificationChannelEnum, notifications, insertNotificationSchema, notificationPreferences, insertNotificationPreferencesSchema, updateNotificationPreferencesSchema, customerNotificationPreferences, updateCustomerNotificationPreferencesSchema, notificationsRelations, notificationPreferencesRelations, customerNotificationPreferencesRelations, linkAnalytics, insertLinkAnalyticsSchema, auditLogs2, insertAuditLogSchema, auditLogsRelations;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -338,6 +340,11 @@ var init_schema = __esm({
       (table2) => [index("IDX_session_expire").on(table2.expire)]
     );
     restaurantStatusEnum = pgEnum("restaurant_status", ["pendente", "ativo", "suspenso"]);
+    restaurantPaymentMethodSchema = z.object({
+      id: z.string().min(1).max(100),
+      name: z.string().trim().min(1).max(100),
+      reference: z.string().trim().min(1, "A refer\xEAncia \xE9 obrigat\xF3ria").max(200)
+    });
     restaurants = pgTable("restaurants", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
       name: varchar("name", { length: 200 }).notNull(),
@@ -349,6 +356,7 @@ var init_schema = __esm({
       logoUrl: text("logo_url"),
       businessHours: text("business_hours"),
       description: text("description"),
+      paymentMethods: jsonb("payment_methods").$type().notNull().default(sql`'[]'::jsonb`),
       status: restaurantStatusEnum("status").notNull().default("pendente"),
       isOpen: integer("is_open").notNull().default(1),
       // 0 = fechado, 1 = aberto
@@ -402,6 +410,9 @@ var init_schema = __esm({
       whatsappNumber: z.string().regex(/^(\+244|244)?\s*[9][0-9]{2}\s*[0-9]{3}\s*[0-9]{3}$|^(\+244|244)?[9][0-9]{8}$/, "Formato de telefone angolano inv\xE1lido").optional(),
       businessHours: z.string().optional(),
       isOpen: z.number().min(0).max(1).optional()
+    });
+    updateRestaurantPaymentMethodsSchema = z.object({
+      paymentMethods: z.array(restaurantPaymentMethodSchema).max(20)
     });
     branches = pgTable("branches", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1338,7 +1349,7 @@ var init_schema = __esm({
       loyaltyDiscountAmount: decimal("loyalty_discount_amount", { precision: 10, scale: 2 }).default("0"),
       totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
       paymentStatus: paymentStatusEnum("payment_status").notNull().default("nao_pago"),
-      paymentMethod: paymentMethodEnum("payment_method"),
+      paymentMethod: varchar("payment_method", { length: 100 }),
       paymentReference: varchar("payment_reference", { length: 200 }),
       paymentProofUrl: text("payment_proof_url"),
       paymentSubmittedAt: timestamp("payment_submitted_at"),
@@ -1407,7 +1418,7 @@ var init_schema = __esm({
       tableId: z.string().optional().nullable(),
       tableSessionId: z.string().optional().nullable(),
       couponId: z.string().optional().nullable(),
-      paymentMethod: z.enum(["multicaixa", "transferencia", "cartao"]).optional(),
+      paymentMethod: z.string().trim().min(1).max(100).optional(),
       paymentReference: z.string().trim().max(200).optional(),
       paymentProofUrl: z.string().trim().optional().nullable()
     });
@@ -5214,6 +5225,10 @@ var init_storage = __esm({
       }
       async updateRestaurantAppearance(restaurantId, data) {
         const [updated] = await db.update(restaurants).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(eq(restaurants.id, restaurantId)).returning();
+        return updated;
+      }
+      async updateRestaurantPaymentMethods(restaurantId, data) {
+        const [updated] = await db.update(restaurants).set({ paymentMethods: data.paymentMethods, updatedAt: /* @__PURE__ */ new Date() }).where(eq(restaurants.id, restaurantId)).returning();
         return updated;
       }
       async createRestaurant(data) {
@@ -13627,6 +13642,26 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Erro ao atualizar apar\xEAncia do restaurante" });
     }
   });
+  app2.patch("/api/restaurants/payment-methods", isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      const data = updateRestaurantPaymentMethodsSchema.parse(req.body);
+      const ids = data.paymentMethods.map((method) => method.id);
+      if (new Set(ids).size !== ids.length) {
+        return res.status(400).json({ message: "Os m\xE9todos de pagamento n\xE3o podem ter identificadores repetidos" });
+      }
+      const restaurant = await storage.updateRestaurantPaymentMethods(currentUser.restaurantId, data);
+      res.json(restaurant);
+    } catch (error) {
+      if (error instanceof z2.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Erro ao atualizar formas de pagamento" });
+    }
+  });
   app2.put("/api/restaurants/:id/business-hours", isAdmin, async (req, res) => {
     try {
       const currentUser = req.user;
@@ -14774,6 +14809,21 @@ async function registerRoutes(app2) {
           validatedOrder = { ...validatedOrder, orderType: "takeout" };
         }
       }
+      const restaurant = await storage.getRestaurantById(validatedOrder.restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurante n\xE3o encontrado" });
+      }
+      const configuredPaymentMethods = restaurant.paymentMethods || [];
+      const selectedPaymentMethod = validatedOrder.paymentMethod ? configuredPaymentMethods.find((method) => method.id === validatedOrder.paymentMethod) : void 0;
+      if (validatedOrder.paymentMethod && !selectedPaymentMethod) {
+        return res.status(400).json({ message: "Esta forma de pagamento n\xE3o est\xE1 dispon\xEDvel neste restaurante" });
+      }
+      if (selectedPaymentMethod) {
+        validatedOrder = {
+          ...validatedOrder,
+          paymentReference: selectedPaymentMethod.reference || void 0
+        };
+      }
       if (validatedOrder.orderType === "mesa") {
         if (!validatedOrder.tableId) {
           return res.status(400).json({ message: "Mesa \xE9 obrigat\xF3ria para pedidos do tipo mesa" });
@@ -14920,7 +14970,7 @@ async function registerRoutes(app2) {
           return res.status(400).json({ message: "Pedidos para retirada n\xE3o podem estar associados a uma mesa" });
         }
       }
-      if (validatedOrder.orderType === "mesa") {
+      if (validatedOrder.orderType === "mesa" && !selectedPaymentMethod) {
         validatedOrder.paymentMethod = void 0;
         validatedOrder.paymentReference = void 0;
         validatedOrder.paymentProofUrl = void 0;

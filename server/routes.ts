@@ -1903,6 +1903,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Payment methods shown in the public and customer menus
+  app.patch('/api/restaurants/payment-methods', isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const data = schema.updateRestaurantPaymentMethodsSchema.parse(req.body);
+      const ids = data.paymentMethods.map((method) => method.id);
+      if (new Set(ids).size !== ids.length) {
+        return res.status(400).json({ message: "Os métodos de pagamento não podem ter identificadores repetidos" });
+      }
+
+      const restaurant = await storage.updateRestaurantPaymentMethods(currentUser.restaurantId, data);
+      res.json(restaurant);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Erro ao atualizar formas de pagamento" });
+    }
+  });
+
   // Update business hours
   app.put('/api/restaurants/:id/business-hours', isAdmin, async (req, res) => {
     try {
@@ -3344,6 +3368,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      const restaurant = await storage.getRestaurantById(validatedOrder.restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurante não encontrado" });
+      }
+
+      const configuredPaymentMethods = restaurant.paymentMethods || [];
+      const selectedPaymentMethod = validatedOrder.paymentMethod
+        ? configuredPaymentMethods.find((method) => method.id === validatedOrder.paymentMethod)
+        : undefined;
+
+      if (validatedOrder.paymentMethod && !selectedPaymentMethod) {
+        return res.status(400).json({ message: "Esta forma de pagamento não está disponível neste restaurante" });
+      }
+
+      // The configured reference is the account/number the customer should use.
+      // It is copied to the order so staff can see which payment details were shown.
+      if (selectedPaymentMethod) {
+        validatedOrder = {
+          ...validatedOrder,
+          paymentReference: selectedPaymentMethod.reference || undefined,
+        };
+      }
+
       // Validate based on order type
       if (validatedOrder.orderType === 'mesa') {
         if (!validatedOrder.tableId) {
@@ -3531,9 +3578,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Table QR orders only request service. Payment details must be entered
-      // by an attendant, so never trust or persist payment data from the QR client.
-      if (validatedOrder.orderType === 'mesa') {
+      // Table QR orders can optionally identify the payment method selected by
+      // the restaurant, while staff still confirms the payment in person.
+      if (validatedOrder.orderType === 'mesa' && !selectedPaymentMethod) {
         validatedOrder.paymentMethod = undefined;
         validatedOrder.paymentReference = undefined;
         validatedOrder.paymentProofUrl = undefined;

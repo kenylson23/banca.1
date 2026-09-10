@@ -138,7 +138,7 @@ export default function PublicMenu() {
     // Checkout wizard states - 3 etapas
     const [checkoutStep, setCheckoutStep] = useState(1); // 1=Carrinho, 2=Entrega, 3=Pagamento/atendimento
    const [isCouponExpanded, setIsCouponExpanded] = useState(false);
-   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao'>('dinheiro');
+   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   
   const { toast } = useToast();
   const { isAuthenticated, customer: authCustomer, logout } = useCustomerAuth();
@@ -202,6 +202,13 @@ export default function PublicMenu() {
   });
 
   const restaurantId = restaurant?.id;
+  const configuredPaymentMethods = restaurant?.paymentMethods || [];
+
+  useEffect(() => {
+    if (selectedPaymentMethod && !configuredPaymentMethods.some((method) => method.id === selectedPaymentMethod)) {
+      setSelectedPaymentMethod('');
+    }
+  }, [configuredPaymentMethods, selectedPaymentMethod]);
 
   const { data: resolvedTable } = useQuery({
     queryKey: ['/api/public/tables', restaurantId, tableNumberFromQuery],
@@ -407,7 +414,7 @@ export default function PublicMenu() {
       deliveryAddress?: string;
       deliveryNotes?: string;
       couponCode?: string;
-      paymentMethod?: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
+      paymentMethod?: string;
       items: Array<{ 
         menuItemId: string; 
         quantity: number; 
@@ -425,7 +432,7 @@ export default function PublicMenu() {
         deliveryAddress: orderData.deliveryAddress,
         deliveryNotes: orderData.deliveryNotes,
         couponCode: orderData.couponCode,
-        ...(orderData.orderType !== 'mesa' ? { paymentMethod: orderData.paymentMethod } : {}),
+        ...(orderData.paymentMethod ? { paymentMethod: orderData.paymentMethod } : {}),
         status: 'pendente',
         totalAmount,
         items: orderData.items,
@@ -467,6 +474,28 @@ export default function PublicMenu() {
           title: 'Pedido enviado!',
           description: successMessage,
         });
+
+        const payment = configuredPaymentMethods.find((method) => method.id === selectedPaymentMethod);
+        const whatsappNumber = (restaurant?.whatsappNumber || restaurant?.phone || '').replace(/\D/g, '');
+        if (whatsappNumber) {
+          const orderLines = items.map((item) => `• ${item.quantity}x ${item.menuItem.name}`).join('\n');
+          const whatsappMessage = [
+            `Olá, ${restaurant?.name || ''}!`,
+            `Acabei de fazer o pedido ${data.orderNumber || data.id}.`,
+            '',
+            orderLines,
+            '',
+            `Total: ${formatKwanza(calculateFinalTotal())}`,
+            `Pagamento: ${payment?.name || 'A combinar'}`,
+            payment?.reference ? `Referência: ${payment.reference}` : '',
+            customerName ? `Cliente: ${customerName}` : '',
+            customerPhone ? `Contacto: ${customerPhone}` : '',
+            orderType === 'delivery' ? `Endereço: ${deliveryAddress}` : '',
+            '',
+            'Estou a enviar o comprovativo de pagamento nesta conversa.',
+          ].filter(Boolean).join('\n');
+          window.location.assign(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`);
+        }
         
         clearCart();
         setCustomerName('');
@@ -591,6 +620,15 @@ export default function PublicMenu() {
       return;
     }
 
+    if (orderType !== 'mesa' && !selectedPaymentMethod) {
+      toast({
+        title: 'Forma de pagamento obrigatória',
+        description: 'Escolha uma das formas de pagamento disponibilizadas pelo restaurante.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const orderItems = items.map(item => {
       const basePrice = parseFloat(item.menuItem.price);
       const optionsPrice = item.selectedOptions.reduce((sum, opt) => {
@@ -627,7 +665,7 @@ export default function PublicMenu() {
       deliveryAddress: orderType === 'delivery' ? deliveryAddress.trim() : undefined,
       deliveryNotes: orderType === 'delivery' && deliveryNotes.trim() ? deliveryNotes.trim() : undefined,
       couponCode: couponValidation?.valid ? couponCode.trim() : undefined,
-      ...(orderType !== 'mesa' ? { paymentMethod: selectedPaymentMethod } : {}),
+      ...(selectedPaymentMethod ? { paymentMethod: selectedPaymentMethod } : {}),
       items: orderItems,
     });
   };
@@ -1364,19 +1402,14 @@ export default function PublicMenu() {
                              </div>
                            </div>
 
-                            {/* Pagamento presencial para mesa; seleção de método para delivery/retirada */}
+                            {/* Métodos definidos pelo administrador do restaurante */}
                             {orderType === 'mesa' ? (
                               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
                                 <div className="flex items-center gap-2 text-amber-900">
                                   <CreditCard className="h-4 w-4" />
-                                  <span className="text-sm font-semibold">Pagamento acompanhado pelo atendente</span>
+                                  <span className="text-sm font-semibold">Forma de pagamento</span>
                                 </div>
-                                <p className="text-xs leading-relaxed text-amber-800">
-                                  Não informe método, referência ou comprovativo. Envie o pedido e aguarde o atendente para realizar o pagamento na mesa, na presença de um funcionário.
-                                </p>
-                                <div className="rounded-lg border border-amber-200 bg-white/70 p-3 text-xs text-amber-900">
-                                  O pedido só será enviado para preparação depois que o atendente registrar o pagamento.
-                                </div>
+                                <p className="text-xs leading-relaxed text-amber-800">Escolha uma opção, se já souber como pretende pagar. O atendente confirma o pagamento na mesa.</p>
                               </div>
                             ) : (
                             <div className="space-y-2">
@@ -1384,63 +1417,32 @@ export default function PublicMenu() {
                                 <CreditCard className="h-4 w-4" />
                                 Forma de Pagamento
                               </Label>
-                              <div className="grid grid-cols-2 gap-2">
-                               <button
-                                 type="button"
-                                 onClick={() => setSelectedPaymentMethod('dinheiro')}
-                                 className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 ${
-                                   selectedPaymentMethod === 'dinheiro' 
-                                     ? 'border-green-500 bg-green-50' 
-                                     : 'border-gray-200 hover:border-gray-300'
-                                 }`}
-                                 data-testid="payment-dinheiro"
-                               >
-                                 <Banknote className={`h-5 w-5 ${selectedPaymentMethod === 'dinheiro' ? 'text-green-600' : 'text-gray-500'}`} />
-                                 <span className={`text-xs font-medium ${selectedPaymentMethod === 'dinheiro' ? 'text-green-700' : 'text-gray-600'}`}>Dinheiro</span>
-                               </button>
-                               <button
-                                 type="button"
-                                 onClick={() => setSelectedPaymentMethod('multicaixa')}
-                                 className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 ${
-                                   selectedPaymentMethod === 'multicaixa' 
-                                     ? 'border-green-500 bg-green-50' 
-                                     : 'border-gray-200 hover:border-gray-300'
-                                 }`}
-                                 data-testid="payment-multicaixa"
-                               >
-                                 <Smartphone className={`h-5 w-5 ${selectedPaymentMethod === 'multicaixa' ? 'text-green-600' : 'text-gray-500'}`} />
-                                 <span className={`text-xs font-medium ${selectedPaymentMethod === 'multicaixa' ? 'text-green-700' : 'text-gray-600'}`}>Multicaixa</span>
-                               </button>
-                               <button
-                                 type="button"
-                                 onClick={() => setSelectedPaymentMethod('transferencia')}
-                                 className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 ${
-                                   selectedPaymentMethod === 'transferencia' 
-                                     ? 'border-green-500 bg-green-50' 
-                                     : 'border-gray-200 hover:border-gray-300'
-                                 }`}
-                                 data-testid="payment-transferencia"
-                               >
-                                 <Building2 className={`h-5 w-5 ${selectedPaymentMethod === 'transferencia' ? 'text-green-600' : 'text-gray-500'}`} />
-                                 <span className={`text-xs font-medium ${selectedPaymentMethod === 'transferencia' ? 'text-green-700' : 'text-gray-600'}`}>Transferência</span>
-                               </button>
-                               <button
-                                 type="button"
-                                 onClick={() => setSelectedPaymentMethod('cartao')}
-                                 className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 ${
-                                   selectedPaymentMethod === 'cartao' 
-                                     ? 'border-green-500 bg-green-50' 
-                                     : 'border-gray-200 hover:border-gray-300'
-                                 }`}
-                                 data-testid="payment-cartao"
-                               >
-                                 <CreditCard className={`h-5 w-5 ${selectedPaymentMethod === 'cartao' ? 'text-green-600' : 'text-gray-500'}`} />
-                                 <span className={`text-xs font-medium ${selectedPaymentMethod === 'cartao' ? 'text-green-700' : 'text-gray-600'}`}>Cartão</span>
-                               </button>
-                             </div>
-                              <p className="text-xs text-gray-500 text-center">
-                                {orderType === 'delivery' ? 'Pagamento na entrega' : 'Pagamento na retirada'}
-                              </p>
+                              {configuredPaymentMethods.length === 0 ? (
+                                <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                                  O restaurante ainda não configurou formas de pagamento. Peça ao administrador para configurar esta opção.
+                                </p>
+                              ) : (
+                                <div className="grid grid-cols-2 gap-2">
+                                  {configuredPaymentMethods.map((method) => (
+                                    <button
+                                      key={method.id}
+                                      type="button"
+                                      onClick={() => setSelectedPaymentMethod(method.id)}
+                                      className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 ${
+                                        selectedPaymentMethod === method.id
+                                          ? 'border-green-500 bg-green-50'
+                                          : 'border-gray-200 hover:border-gray-300'
+                                      }`}
+                                      data-testid={`payment-${method.id}`}
+                                    >
+                                      <CreditCard className={`h-5 w-5 ${selectedPaymentMethod === method.id ? 'text-green-600' : 'text-gray-500'}`} />
+                                      <span className={`text-xs font-medium text-center ${selectedPaymentMethod === method.id ? 'text-green-700' : 'text-gray-600'}`}>{method.name}</span>
+                                      <span className="text-[10px] text-gray-500 text-center break-words">{method.reference}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              <p className="text-xs text-gray-500 text-center">A referência será enviada ao restaurante com o pedido.</p>
                             </div>
                             )}
 

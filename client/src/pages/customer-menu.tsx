@@ -21,7 +21,7 @@ import {
   ShoppingCart, Plus, ClipboardList, Clock, ChefHat, 
   CheckCircle, Check, Search, MessageCircle, Utensils,
   X, Minus, User, Phone as PhoneIcon, ChevronRight, ShoppingBag,
-  FileText, Sparkles, Gift, Award, Tag, Percent, Loader2, Printer, ChevronLeft
+  FileText, Sparkles, Gift, Award, Tag, Percent, Loader2, Printer, ChevronLeft, CreditCard
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -157,6 +157,7 @@ export default function CustomerMenu() {
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   const [usePoints, setUsePoints] = useState(false);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
    // Resolve restaurantId from URL search params if present (e.g., /mesa/5?r=uuid)
    const searchParams = new URLSearchParams(window.location.search);
    const urlRestaurantId = searchParams.get('r');
@@ -188,6 +189,13 @@ export default function CustomerMenu() {
       gcTime: 600000,
       retry: 1,
     });
+    const configuredPaymentMethods = restaurant?.paymentMethods || [];
+
+    useEffect(() => {
+      if (selectedPaymentMethod && !configuredPaymentMethods.some((method) => method.id === selectedPaymentMethod)) {
+        setSelectedPaymentMethod('');
+      }
+    }, [configuredPaymentMethods, selectedPaymentMethod]);
 
     const { data: menuItems, isLoading: menuLoading } = useQuery<MenuItemWithOptions[]>({
       queryKey: ['/api/public/menu-items', effectiveRestaurantId],
@@ -466,6 +474,7 @@ export default function CustomerMenu() {
       customerName: string; 
       customerPhone: string; 
       orderNotes?: string;
+      paymentMethod?: string;
       couponCode?: string;
       redeemPoints?: number;
       items: Array<{ 
@@ -488,6 +497,7 @@ export default function CustomerMenu() {
         customerName: orderData.customerName,
         customerPhone: orderData.customerPhone,
         orderNotes: orderData.orderNotes || undefined,
+        paymentMethod: orderData.paymentMethod || undefined,
         couponCode: orderData.couponCode,
         redeemPoints: orderData.redeemPoints,
          totalAmount,
@@ -508,8 +518,28 @@ export default function CustomerMenu() {
       setIsShareDialogOpen(true);
       toast({
         title: 'Pedido enviado!',
-        description: 'Aguarde o atendente para realizar e acompanhar o pagamento.',
+        description: 'O WhatsApp do restaurante será aberto para enviar o comprovativo.',
       });
+      const payment = configuredPaymentMethods.find((method) => method.id === selectedPaymentMethod);
+      const whatsappNumber = (restaurant?.whatsappNumber || restaurant?.phone || '').replace(/\D/g, '');
+      if (whatsappNumber) {
+        const orderLines = items.map((item) => `• ${item.quantity}x ${item.menuItem.name}`).join('\n');
+        const whatsappMessage = [
+          `Olá, ${restaurant?.name || ''}!`,
+          `Acabei de fazer o pedido ${data.orderNumber || data.id} na mesa ${tableNumber}.`,
+          '',
+          orderLines,
+          '',
+          `Total: ${formatKwanza(calculateFinalTotal())}`,
+          `Pagamento: ${payment?.name || 'A combinar'}`,
+          payment?.reference ? `Referência: ${payment.reference}` : '',
+          customerName ? `Cliente: ${customerName}` : '',
+          customerPhone ? `Contacto: ${customerPhone}` : '',
+          '',
+          'Estou a enviar o comprovativo de pagamento nesta conversa.',
+        ].filter(Boolean).join('\n');
+        window.location.assign(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`);
+      }
       clearCart();
       // Reset coupon and points state but preserve customer info for future orders
       setCouponCode('');
@@ -762,6 +792,15 @@ export default function CustomerMenu() {
       return;
     }
 
+    if (configuredPaymentMethods.length > 0 && !selectedPaymentMethod) {
+      toast({
+        title: 'Forma de pagamento obrigatória',
+        description: 'Escolha uma das formas de pagamento disponibilizadas pelo restaurante.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const orderItems = items.map(item => {
       const basePrice = parseFloat(item.menuItem.price);
       const optionsPrice = item.selectedOptions.reduce((sum, opt) => {
@@ -797,6 +836,7 @@ export default function CustomerMenu() {
       orderNotes: orderNotes.trim() || undefined,
       couponCode: couponValidation?.valid ? couponCode.trim() : undefined,
       redeemPoints: validatedRedeemPoints,
+      paymentMethod: selectedPaymentMethod || undefined,
       items: orderItems,
     });
   };
@@ -1474,6 +1514,42 @@ export default function CustomerMenu() {
                               );
                             })}
                           </div>
+
+                          {/* Formas de pagamento configuradas pelo restaurante */}
+                          <Card className="border-gray-200 bg-white">
+                            <CardContent className="p-4 space-y-3">
+                              <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                                <CreditCard className="h-4 w-4" style={{ color: branding.primaryColor }} />
+                                Forma de pagamento
+                              </div>
+                              {configuredPaymentMethods.length === 0 ? (
+                                <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                                  O restaurante ainda não configurou formas de pagamento.
+                                </p>
+                              ) : (
+                                <div className="grid grid-cols-2 gap-2">
+                                  {configuredPaymentMethods.map((method) => (
+                                    <button
+                                      key={method.id}
+                                      type="button"
+                                      onClick={() => setSelectedPaymentMethod(method.id)}
+                                      className={`rounded-lg border-2 p-3 text-center transition-all ${
+                                        selectedPaymentMethod === method.id
+                                          ? 'border-green-500 bg-green-50'
+                                          : 'border-gray-200 hover:border-gray-300'
+                                      }`}
+                                      data-testid={`customer-payment-${method.id}`}
+                                    >
+                                      <CreditCard className={`mx-auto mb-1 h-5 w-5 ${selectedPaymentMethod === method.id ? 'text-green-600' : 'text-gray-500'}`} />
+                                      <span className="block text-xs font-medium text-gray-700">{method.name}</span>
+                                      <span className="mt-1 block break-words text-[10px] text-gray-500">{method.reference}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              <p className="text-xs text-gray-500">A referência será enviada ao restaurante juntamente com o pedido.</p>
+                            </CardContent>
+                          </Card>
 
                           {/* Cupom de Desconto */}
                           <Collapsible>

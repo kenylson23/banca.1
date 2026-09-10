@@ -59,6 +59,7 @@ import {
   type Restaurant,
   type InsertRestaurant,
   type UpdateRestaurantAppearance,
+  type UpdateRestaurantPaymentMethods,
   type Branch,
   type InsertBranch,
   type UpdateBranch,
@@ -204,6 +205,7 @@ export interface IStorage {
   updateRestaurantStatus(id: string, status: 'pendente' | 'ativo' | 'suspenso'): Promise<Restaurant>;
   updateRestaurantSlug(restaurantId: string, slug: string): Promise<Restaurant>;
   updateRestaurantAppearance(restaurantId: string, data: UpdateRestaurantAppearance): Promise<Restaurant>;
+  updateRestaurantPaymentMethods(restaurantId: string, data: UpdateRestaurantPaymentMethods): Promise<Restaurant>;
   deleteRestaurant(id: string): Promise<void>;
   generateMissingSlugs(): Promise<void>;
   
@@ -1076,6 +1078,15 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(restaurants)
       .set({ ...data, updatedAt: new Date() })
+      .where(eq(restaurants.id, restaurantId))
+      .returning();
+    return updated;
+  }
+
+  async updateRestaurantPaymentMethods(restaurantId: string, data: UpdateRestaurantPaymentMethods): Promise<Restaurant> {
+    const [updated] = await db
+      .update(restaurants)
+      .set({ paymentMethods: data.paymentMethods, updatedAt: new Date() })
       .where(eq(restaurants.id, restaurantId))
       .returning();
     return updated;
