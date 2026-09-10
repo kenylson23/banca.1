@@ -9,11 +9,12 @@ import { buildReceiptHtml, type ReceiptDocument } from "@/components/ReceiptPrev
 export interface PrintOrderProps {
   order: any;
   restaurantName?: string;
+  label?: string;
   variant?: "default" | "outline" | "ghost";
   size?: "default" | "sm" | "lg" | "icon";
 }
 
-export function PrintOrder({ order, restaurantName = "NaBancada", variant = "outline", size = "sm" }: PrintOrderProps) {
+export function PrintOrder({ order, restaurantName = "NaBancada", label = "Imprimir", variant = "outline", size = "sm" }: PrintOrderProps) {
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
 
   if (!order || !order.id) {
@@ -30,7 +31,7 @@ export function PrintOrder({ order, restaurantName = "NaBancada", variant = "out
     customerPhone: order.customerPhone,
     tableNumber: order.table?.number,
     deliveryAddress: order.deliveryAddress,
-    items: (order.orderItems || []).map((item: any) => ({
+    items: (order.orderItems || order.items || []).map((item: any) => ({
       name: item.menuItem?.name || item.name || "Item",
       quantity: item.quantity,
       unitPrice: parseFloat(item.price),
@@ -102,7 +103,7 @@ export function PrintOrder({ order, restaurantName = "NaBancada", variant = "out
       data-testid={order?.id ? `button-print-order-${order.id}` : "button-print-order-disabled"}
     >
       <Printer className={size === "icon" ? "h-4 w-4" : "mr-2 h-4 w-4"} />
-      {size === "icon" ? <span className="sr-only">Imprimir</span> : "Imprimir"}
+      {size === "icon" ? <span className="sr-only">{label}</span> : label}
     </Button>
   );
 }

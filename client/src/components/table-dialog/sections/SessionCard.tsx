@@ -15,14 +15,14 @@ import {
   ChevronDown,
   ChevronUp,
   ShoppingBag,
-  TrendingDown,
-  Plus,
-  Minus,
+  Receipt,
 } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { PrintInvoice } from '@/components/PrintInvoice';
+import { PrintOrder } from '@/components/PrintOrder';
 
 interface SessionCardProps {
   session: {
@@ -41,10 +41,13 @@ export function SessionCard({ session, tableId }: SessionCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Buscar detalhes da sessão quando expandir
-  const { data: ordersByGuest, isLoading } = useQuery({
-    queryKey: [`/api/tables/${tableId}/orders-by-guest`, session.id],
+  const { data: ordersByGuest, isLoading } = useQuery<{
+    ordersByGuest?: any[];
+  }>({
+    queryKey: [`/api/tables/${tableId}/orders-by-guest?sessionId=${encodeURIComponent(session.id)}`],
     enabled: isExpanded,
   });
+  const guestGroups = ordersByGuest?.ordersByGuest || [];
 
   // Calcular duração da sessão
   const duration = session.endedAt 
@@ -139,19 +142,18 @@ export function SessionCard({ session, tableId }: SessionCardProps) {
             <div className="flex items-center justify-center py-8">
               <div className="h-8 w-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
             </div>
-          ) : ordersByGuest && ordersByGuest.length > 0 ? (
+          ) : guestGroups.length > 0 ? (
             <div className="space-y-4">
-              {/* Seção: Itens Consumidos */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <ShoppingBag className="h-4 w-4 text-primary" />
-                  <h4 className="font-semibold">Itens Consumidos</h4>
-                </div>
+              {guestGroups.map((og: any) => (
+                <div key={og.guest.id} className="space-y-3">
+                  {/* Seção: Itens Consumidos */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <ShoppingBag className="h-4 w-4 text-primary" />
+                      <h4 className="font-semibold">Itens Consumidos</h4>
+                    </div>
 
-                <div className="space-y-3">
-                  {ordersByGuest.map((og: any) => (
                     <div 
-                      key={og.guest.id}
                       className="p-3 rounded-lg bg-muted/50 space-y-2"
                     >
                       {/* Guest Header */}
@@ -186,44 +188,38 @@ export function SessionCard({ session, tableId }: SessionCardProps) {
                         ))}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
-              {/* Seção: Cálculos (se houver descontos/taxas) */}
-              {ordersByGuest.some((og: any) => og.discounts || og.additions) && (
-                <>
-                  <Separator />
-                  <div>
+                  <div className="rounded-lg border bg-background p-3">
                     <div className="flex items-center gap-2 mb-3">
-                      <TrendingDown className="h-4 w-4 text-primary" />
-                      <h4 className="font-semibold">Ajustes</h4>
+                      <Receipt className="h-4 w-4 text-primary" />
+                      <h4 className="font-semibold">Documentos da sessão</h4>
                     </div>
-                    <div className="space-y-2 text-sm">
-                      {ordersByGuest.flatMap((og: any) => [
-                        ...(og.discounts || []).map((d: any) => (
-                          <div key={d.id} className="flex justify-between text-green-600">
-                            <span className="flex items-center gap-1">
-                              <Minus className="h-3 w-3" />
-                              {d.label}
-                            </span>
-                            <span>-{formatKwanza(d.value)}</span>
+                    <div className="space-y-2">
+                      {(og.orders || []).map((order: any) => (
+                        <div key={order.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/40 p-2">
+                          <span className="text-sm">
+                            Comanda #{(order.orderNumber || order.id || '').toString().slice(-8).toUpperCase()}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <PrintOrder
+                              order={order}
+                              label="Comanda"
+                              size="sm"
+                              variant="outline"
+                            />
+                            <PrintInvoice
+                              order={order}
+                              size="sm"
+                              variant="outline"
+                            />
                           </div>
-                        )),
-                        ...(og.additions || []).map((a: any) => (
-                          <div key={a.id} className="flex justify-between text-blue-600">
-                            <span className="flex items-center gap-1">
-                              <Plus className="h-3 w-3" />
-                              {a.label}
-                            </span>
-                            <span>+{formatKwanza(a.value)}</span>
-                          </div>
-                        ))
-                      ])}
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </>
-              )}
+                </div>
+              ))}
             </div>
           ) : (
             <div className="text-center py-6 text-muted-foreground">

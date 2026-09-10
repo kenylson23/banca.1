@@ -5964,10 +5964,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!table) {
         return res.status(404).json({ message: "Mesa não encontrada" });
       }
+
+      // Permite consultar uma sessão encerrada sem misturá-la com a sessão atual.
+      // A validação por mesa/restaurante evita que o parâmetro seja usado para
+      // consultar pedidos de outra mesa.
+      const requestedSessionId = typeof req.query.sessionId === 'string'
+        ? req.query.sessionId
+        : null;
+      const sessionId = requestedSessionId || table.currentSessionId || null;
+
+      if (requestedSessionId) {
+        const requestedSession = await db
+          .select({ id: tableSessions.id })
+          .from(tableSessions)
+          .where(and(
+            eq(tableSessions.id, requestedSessionId),
+            eq(tableSessions.tableId, table.id),
+            eq(tableSessions.restaurantId, table.restaurantId),
+          ))
+          .limit(1);
+
+        if (requestedSession.length === 0) {
+          return res.status(404).json({ message: "Sessão não encontrada para esta mesa" });
+        }
+      }
       
-      // Get guests for current session
-      const guests = table.currentSessionId 
-        ? await storage.getTableGuests(table.currentSessionId)
+      // Get guests for the requested session (or the active session).
+      const guests = sessionId
+        ? await storage.getTableGuests(sessionId)
         : [];
       
       // 🔧 FIX: Get ONLY orders from CURRENT SESSION, not all table orders
@@ -5979,10 +6003,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentGuestIds = guests.map(g => g.id);
       
       
-      const orders = table.currentSessionId
+      const orders = sessionId
         ? allTableOrders.filter((order: any) => {
-            // ✅ REGRA 1: APENAS pedidos com tableSessionId da sessão atual
-            if (order.tableSessionId === table.currentSessionId) {
+            // ✅ REGRA 1: APENAS pedidos da sessão solicitada
+            if (order.tableSessionId === sessionId) {
               return true;
             }
 
@@ -6164,7 +6188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               status: 'ativo',
               totalSpent: anonymousSubtotal.toFixed(2),
               paidAmount: '0.00',
-              sessionId: table.currentSessionId,
+              sessionId,
               joinedAt: null,
             },
             orders: anonymousOrders,
@@ -6174,19 +6198,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Buscar valor já pago na sessão para precisão total
-      const session = table.currentSessionId 
-        ? (await db.select().from(tableSessions).where(eq(tableSessions.id, table.currentSessionId)).limit(1))[0]
+      const session = sessionId
+        ? (await db.select().from(tableSessions).where(eq(tableSessions.id, sessionId)).limit(1))[0]
         : null;
 
       // ✅ Forçar recalcular paidAmount a partir dos pagamentos reais da sessão
       let paidAmount = session?.paidAmount || '0.00';
-      if (table.currentSessionId) {
+      if (sessionId) {
         // Fonte de verdade da mesa: tablePayments. O checkout completo
         // registra pagamentos gerais apenas nesta tabela; pagamentos
         // individuais também possuem um registro correspondente aqui.
         const tablePays = await db.select()
           .from(tablePayments)
-          .where(eq(tablePayments.sessionId, table.currentSessionId));
+          .where(eq(tablePayments.sessionId, sessionId));
 
         const totalPaidFromPayments = tablePays.reduce(
           (sum: number, payment: { amount: string | null }) =>
@@ -6199,7 +6223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!session || Math.abs(parseFloat(session.paidAmount || '0') - totalPaidFromPayments) > 0.009) {
           await db.update(tableSessions)
             .set({ paidAmount })
-            .where(eq(tableSessions.id, table.currentSessionId));
+            .where(eq(tableSessions.id, sessionId));
         }
       }
 
@@ -6285,7 +6309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         anonymousOrders,
         totalAmount: totalAmount.toFixed(2),
         paidAmount,
-        currentSessionId: table.currentSessionId, // 🔧 FIX: Return sessionId for frontend queries
+        currentSessionId: sessionId,
       });
     } catch (error) {
       console.error('Error in orders-by-guest:', error);

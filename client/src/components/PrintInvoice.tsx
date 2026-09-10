@@ -81,11 +81,11 @@ export function PrintInvoice({
         cartao: 'Cartão',
       };
 
-      const items = order.orderItems?.map(item => ({
+       const items = (order.orderItems || (order as any).items || []).map((item: any) => ({
         name: item.menuItem?.name || 'Item',
         quantity: item.quantity,
-        price: formatKwanza(item.price),
-        total: formatKwanza(parseFloat(item.price) * item.quantity),
+         price: formatKwanza(item.price || item.menuItem?.price || '0'),
+         total: formatKwanza(parseFloat(item.price || item.menuItem?.price || '0') * item.quantity),
       })) || [];
 
       const paymentInfo = order.payments && order.payments.length > 0
