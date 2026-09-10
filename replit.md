@@ -16,6 +16,9 @@ Do not make changes to the file `Y`.
 - The development server is exposed on port `5000`.
 - The project requires `DATABASE_URL` and `SESSION_SECRET`; the existing Replit environment provides these values.
 - Database migrations run automatically when the server starts.
+- For a clean dependency install, use `npm ci`.
+- The production deployment uses `npm run build` followed by `npm start`.
+- Keep package tarball URLs in `package-lock.json` on the public npm registry; Replit's internal package firewall host is not reachable by external deployment builders.
 
 ## Recent Changes
 
