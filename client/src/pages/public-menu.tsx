@@ -409,6 +409,7 @@ export default function PublicMenu() {
       restaurantId: string;
       orderType: 'delivery' | 'takeout' | 'mesa';
       tableId?: string;
+      branchId?: string;
       customerName: string;
       customerPhone: string;
       deliveryAddress?: string;
@@ -427,6 +428,7 @@ export default function PublicMenu() {
         restaurantId: orderData.restaurantId,
         orderType: orderData.orderType,
         tableId: orderData.tableId,
+        ...(orderData.branchId ? { branchId: orderData.branchId } : {}),
         customerName: orderData.customerName,
         customerPhone: orderData.customerPhone,
         deliveryAddress: orderData.deliveryAddress,
@@ -643,6 +645,12 @@ export default function PublicMenu() {
         selectedOptions: item.selectedOptions,
       };
     });
+    const itemBranchIds = new Set(
+      items
+        .map(item => item.menuItem.branchId)
+        .filter((branchId): branchId is string => Boolean(branchId)),
+    );
+    const branchId = itemBranchIds.size === 1 ? Array.from(itemBranchIds)[0] : undefined;
 
     // ✅ Obter tableId da URL (QR Code) ou resolver por tableNumber
     const tableId = tableIdFromUrl || resolvedTable?.id;
@@ -660,6 +668,7 @@ export default function PublicMenu() {
       restaurantId: restaurant.id,
       orderType,
       tableId: tableId || undefined,
+      branchId,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
       deliveryAddress: orderType === 'delivery' ? deliveryAddress.trim() : undefined,

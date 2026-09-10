@@ -6307,7 +6307,7 @@ var init_storage = __esm({
       // Order operations
       async getKitchenOrders(restaurantId, branchId, includeAwaitingConfirmation = true) {
         const visibleStatus = includeAwaitingConfirmation ? void 0 : sql4`${orders.status} <> 'aguardando_confirmacao'`;
-        const paidCondition = eq(orders.paymentStatus, "pago");
+        const paidCondition = includeAwaitingConfirmation ? void 0 : eq(orders.paymentStatus, "pago");
         let allOrders;
         if (branchId) {
           const branchTables = await this.getTables(restaurantId, branchId);
@@ -6319,13 +6319,13 @@ var init_storage = __esm({
             branchCondition,
             // CRÍTICO: Garante isolamento de filial
             tableCondition,
-            paidCondition,
+            ...paidCondition ? [paidCondition] : [],
             ...visibleStatus ? [visibleStatus] : []
           )).orderBy(desc(orders.createdAt));
         } else {
           allOrders = await db.select().from(orders).leftJoin(customers, eq(orders.customerId, customers.id)).leftJoin(tables, eq(orders.tableId, tables.id)).where(and(
             eq(orders.restaurantId, restaurantId),
-            paidCondition,
+            ...paidCondition ? [paidCondition] : [],
             ...visibleStatus ? [visibleStatus] : []
           )).orderBy(desc(orders.createdAt));
         }
@@ -14985,11 +14985,15 @@ async function registerRoutes(app2) {
         }
       }
       const verifiedItems = [];
+      const menuItemBranchIds = /* @__PURE__ */ new Set();
       let orderTotal = 0;
       for (const item of validatedItems) {
         const menuItem = await storage.getMenuItemById(item.menuItemId);
         if (!menuItem) {
           return res.status(400).json({ message: `Item do menu n\xE3o encontrado: ${item.menuItemId}` });
+        }
+        if (menuItem.branchId) {
+          menuItemBranchIds.add(menuItem.branchId);
         }
         const serverPrice = parseFloat(menuItem.price);
         let optionsPrice = 0;
@@ -15015,6 +15019,16 @@ async function registerRoutes(app2) {
           guestId: finalGuestId
           // ← Vincula item ao guest
         });
+      }
+      if (validatedOrder.orderType !== "mesa") {
+        const publicBranches = await storage.getBranches(validatedOrder.restaurantId);
+        const requestedBranch = validatedOrder.branchId ? publicBranches.find((branch) => branch.id === validatedOrder.branchId) : void 0;
+        const itemBranchId = menuItemBranchIds.size === 1 ? Array.from(menuItemBranchIds)[0] : void 0;
+        const publicBranch = itemBranchId ? publicBranches.find((branch) => branch.id === itemBranchId) : requestedBranch || publicBranches.find((branch) => branch.isMain === 1) || publicBranches[0];
+        validatedOrder = {
+          ...validatedOrder,
+          branchId: publicBranch?.id ?? null
+        };
       }
       let couponDiscount = 0;
       let appliedCouponId = null;

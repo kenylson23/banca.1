@@ -3460,21 +3460,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // The public menu is restaurant-wide and does not expose a branch
-      // selector. Associate non-table orders with the main branch so they
-      // remain visible in the branch-scoped POS without trusting a client-
-      // supplied branchId.
-      if (validatedOrder.orderType !== 'mesa') {
-        const publicBranches = await storage.getBranches(validatedOrder.restaurantId);
-        const publicBranch = publicBranches.find(branch => branch.isMain === 1) || publicBranches[0];
-        if (publicBranch) {
-          validatedOrder = {
-            ...validatedOrder,
-            branchId: publicBranch.id,
-          };
-        }
-      }
-      
       // ✅ NOVO: Auto-detecção de guest quando cliente faz pedido (Universal - funciona em TODOS os planos)
       let detectedGuestId: string | null = null;
       
@@ -3615,12 +3600,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // SERVER-SIDE PRICE VERIFICATION: Fetch menu items and calculate real prices
       // This prevents price manipulation attacks
       const verifiedItems: typeof validatedItems = [];
+      const menuItemBranchIds = new Set<string>();
       let orderTotal = 0;
       
       for (const item of validatedItems) {
         const menuItem = await storage.getMenuItemById(item.menuItemId);
         if (!menuItem) {
           return res.status(400).json({ message: `Item do menu não encontrado: ${item.menuItemId}` });
+        }
+        if (menuItem.branchId) {
+          menuItemBranchIds.add(menuItem.branchId);
         }
         
         // Use server-side price from database (ignore client-provided price)
@@ -3658,6 +3647,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           price: verifiedItemPrice, // Override with verified price
           guestId: finalGuestId, // ← Vincula item ao guest
         });
+      }
+
+      // Public menus can contain items from different branches, so the
+      // browser must not be trusted to choose an arbitrary branch. When all
+      // selected items belong to one branch, use that branch so a delivery
+      // order reaches the matching POS queue. Shared items (branchId null)
+      // continue to use the restaurant's main branch.
+      if (validatedOrder.orderType !== 'mesa') {
+        const publicBranches = await storage.getBranches(validatedOrder.restaurantId);
+        const requestedBranch = validatedOrder.branchId
+          ? publicBranches.find(branch => branch.id === validatedOrder.branchId)
+          : undefined;
+        const itemBranchId = menuItemBranchIds.size === 1
+          ? Array.from(menuItemBranchIds)[0]
+          : undefined;
+        const publicBranch = itemBranchId
+          ? publicBranches.find(branch => branch.id === itemBranchId)
+          : requestedBranch || publicBranches.find(branch => branch.isMain === 1) || publicBranches[0];
+
+        validatedOrder = {
+          ...validatedOrder,
+          branchId: publicBranch?.id ?? null,
+        };
       }
 
       // Validate and apply coupon if provided (server-side verification)
