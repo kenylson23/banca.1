@@ -136,7 +136,7 @@ export default function PublicMenu() {
    const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   
     // Checkout wizard states - 3 etapas
-    const [checkoutStep, setCheckoutStep] = useState(1); // 1=Carrinho, 2=Entrega, 3=Pagamento
+    const [checkoutStep, setCheckoutStep] = useState(1); // 1=Carrinho, 2=Entrega, 3=Pagamento/atendimento
    const [isCouponExpanded, setIsCouponExpanded] = useState(false);
    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao'>('dinheiro');
   
@@ -407,7 +407,7 @@ export default function PublicMenu() {
       deliveryAddress?: string;
       deliveryNotes?: string;
       couponCode?: string;
-      paymentMethod: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
+      paymentMethod?: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
       items: Array<{ 
         menuItemId: string; 
         quantity: number; 
@@ -425,7 +425,7 @@ export default function PublicMenu() {
         deliveryAddress: orderData.deliveryAddress,
         deliveryNotes: orderData.deliveryNotes,
         couponCode: orderData.couponCode,
-        paymentMethod: orderData.paymentMethod,
+        ...(orderData.orderType !== 'mesa' ? { paymentMethod: orderData.paymentMethod } : {}),
         status: 'pendente',
         totalAmount,
         items: orderData.items,
@@ -441,9 +441,11 @@ export default function PublicMenu() {
           trackConversion(restaurant.id).catch(() => {});
         }
         
-        const successMessage = orderType === 'delivery' 
-          ? 'Seu pedido será entregue em breve.'
-          : 'Seu pedido estará pronto para retirada em breve.';
+        const successMessage = orderType === 'mesa'
+          ? 'Aguarde o atendente para realizar e acompanhar o pagamento.'
+          : orderType === 'delivery'
+            ? 'Seu pedido será entregue em breve.'
+            : 'Seu pedido estará pronto para retirada em breve.';
         
         const storedOrder: StoredOrder = {
           id: data.id,
@@ -625,7 +627,7 @@ export default function PublicMenu() {
       deliveryAddress: orderType === 'delivery' ? deliveryAddress.trim() : undefined,
       deliveryNotes: orderType === 'delivery' && deliveryNotes.trim() ? deliveryNotes.trim() : undefined,
       couponCode: couponValidation?.valid ? couponCode.trim() : undefined,
-      paymentMethod: selectedPaymentMethod,
+      ...(orderType !== 'mesa' ? { paymentMethod: selectedPaymentMethod } : {}),
       items: orderItems,
     });
   };
@@ -863,7 +865,7 @@ export default function PublicMenu() {
                            </div>
                            <div>
                              <SheetTitle className="text-base font-bold text-gray-900" data-testid="text-cart-title">
-                               {checkoutStep === 1 ? 'Seu Pedido' : checkoutStep === 2 ? 'Entrega' : 'Pagamento'}
+                                {checkoutStep === 1 ? 'Seu Pedido' : checkoutStep === 2 ? (orderType === 'mesa' ? 'Atendimento' : 'Entrega') : (orderType === 'mesa' ? 'Confirmação' : 'Pagamento')}
                              </SheetTitle>
                              <p className="text-[11px] text-gray-500">
                                Etapa {checkoutStep} de 3
@@ -1309,7 +1311,7 @@ export default function PublicMenu() {
                            data-testid="button-continue-to-payment"
                          >
                            <div className="flex items-center justify-between w-full">
-                             <span>Continuar para Pagamento</span>
+                              <span>{orderType === 'mesa' ? 'Continuar' : 'Continuar para Pagamento'}</span>
                              <ChevronRight className="h-4 w-4" />
                            </div>
                          </Button>
@@ -1362,13 +1364,27 @@ export default function PublicMenu() {
                              </div>
                            </div>
 
-                           {/* Método de Pagamento */}
-                           <div className="space-y-2">
-                             <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                               <CreditCard className="h-4 w-4" />
-                               Forma de Pagamento
-                             </Label>
-                             <div className="grid grid-cols-2 gap-2">
+                            {/* Pagamento presencial para mesa; seleção de método para delivery/retirada */}
+                            {orderType === 'mesa' ? (
+                              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+                                <div className="flex items-center gap-2 text-amber-900">
+                                  <CreditCard className="h-4 w-4" />
+                                  <span className="text-sm font-semibold">Pagamento acompanhado pelo atendente</span>
+                                </div>
+                                <p className="text-xs leading-relaxed text-amber-800">
+                                  Não informe método, referência ou comprovativo. Envie o pedido e aguarde o atendente para realizar o pagamento na mesa, na presença de um funcionário.
+                                </p>
+                                <div className="rounded-lg border border-amber-200 bg-white/70 p-3 text-xs text-amber-900">
+                                  O pedido só será enviado para preparação depois que o atendente registrar o pagamento.
+                                </div>
+                              </div>
+                            ) : (
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                                <CreditCard className="h-4 w-4" />
+                                Forma de Pagamento
+                              </Label>
+                              <div className="grid grid-cols-2 gap-2">
                                <button
                                  type="button"
                                  onClick={() => setSelectedPaymentMethod('dinheiro')}
@@ -1422,10 +1438,11 @@ export default function PublicMenu() {
                                  <span className={`text-xs font-medium ${selectedPaymentMethod === 'cartao' ? 'text-green-700' : 'text-gray-600'}`}>Cartão</span>
                                </button>
                              </div>
-                             <p className="text-xs text-gray-500 text-center">
-                               {orderType === 'delivery' ? 'Pagamento na entrega' : 'Pagamento na retirada'}
-                             </p>
-                           </div>
+                              <p className="text-xs text-gray-500 text-center">
+                                {orderType === 'delivery' ? 'Pagamento na entrega' : 'Pagamento na retirada'}
+                              </p>
+                            </div>
+                            )}
 
                            {/* Seção recolhível: Cupom */}
                            <div className="rounded-lg border border-gray-200 overflow-hidden">
@@ -1520,8 +1537,8 @@ export default function PublicMenu() {
                              </div>
                            ) : (
                              <div className="flex items-center gap-2">
-                               <SiWhatsapp className="h-4 w-4" />
-                               Finalizar Pedido
+                                <SiWhatsapp className="h-4 w-4" />
+                                {orderType === 'mesa' ? 'Solicitar atendimento para pagamento' : 'Finalizar Pedido'}
                              </div>
                            )}
                          </Button>
