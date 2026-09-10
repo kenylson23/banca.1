@@ -6197,35 +6197,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Buscar valor já pago na sessão para precisão total
+      // Buscar a sessão e reconciliar os totais antes de responder.
+      // O total persistido já inclui descontos/taxas e o paidAmount é
+      // reconciliado com os pagamentos reais, com limite no total final.
       const session = sessionId
         ? (await db.select().from(tableSessions).where(eq(tableSessions.id, sessionId)).limit(1))[0]
         : null;
-
-      // ✅ Forçar recalcular paidAmount a partir dos pagamentos reais da sessão
-      let paidAmount = session?.paidAmount || '0.00';
-      if (sessionId) {
-        // Fonte de verdade da mesa: tablePayments. O checkout completo
-        // registra pagamentos gerais apenas nesta tabela; pagamentos
-        // individuais também possuem um registro correspondente aqui.
-        const tablePays = await db.select()
-          .from(tablePayments)
-          .where(eq(tablePayments.sessionId, sessionId));
-
-        const totalPaidFromPayments = tablePays.reduce(
-          (sum: number, payment: { amount: string | null }) =>
-            sum + parseFloat(payment.amount || '0'),
-          0
-        );
-
-        paidAmount = totalPaidFromPayments.toFixed(2);
-
-        if (!session || Math.abs(parseFloat(session.paidAmount || '0') - totalPaidFromPayments) > 0.009) {
-          await db.update(tableSessions)
-            .set({ paidAmount })
-            .where(eq(tableSessions.id, sessionId));
-        }
-      }
+      const sessionTotals = sessionId
+        ? await storage.recalculateSessionTotals(sessionId)
+        : null;
+      const paidAmount = sessionTotals?.paidAmount || session?.paidAmount || '0.00';
 
       // ✅ Total da mesa: considerar ajustes de sessão + ajustes individuais por convidado
       // Base: subtotal dos pedidos da sessão
@@ -6301,9 +6282,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .filter((og: any) => og.guest?.id !== 'anonymous')
         .reduce((sum: number, og: any) => sum + parseFloat(og.subtotal || '0'), 0);
       
+      const hasSessionAdjustments = sessionDiscount > 0 || sessionServiceCharge > 0;
       const totalAmount = hasAnyGuestAdjustments
         ? totalFromGuestsWithIndividualAdjustments + anonymousSubtotal
-        : Math.max(totalAfterSession, assignedGuestsSubtotal + anonymousSubtotal);
+        // Quando existe desconto/taxa global, o valor ajustado é o total
+        // devido. Não o substituir pelo subtotal bruto dos convidados.
+        : hasSessionAdjustments
+          ? totalAfterSession
+          : Math.max(totalAfterSession, assignedGuestsSubtotal + anonymousSubtotal);
       res.json({
         ordersByGuest,
         anonymousOrders,

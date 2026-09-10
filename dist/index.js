@@ -16826,11 +16826,23 @@ async function registerRoutes(app2) {
       if (!table2) {
         return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
       }
-      const guests = table2.currentSessionId ? await storage.getTableGuests(table2.currentSessionId) : [];
+      const requestedSessionId = typeof req.query.sessionId === "string" ? req.query.sessionId : null;
+      const sessionId = requestedSessionId || table2.currentSessionId || null;
+      if (requestedSessionId) {
+        const requestedSession = await db.select({ id: tableSessions.id }).from(tableSessions).where(and5(
+          eq5(tableSessions.id, requestedSessionId),
+          eq5(tableSessions.tableId, table2.id),
+          eq5(tableSessions.restaurantId, table2.restaurantId)
+        )).limit(1);
+        if (requestedSession.length === 0) {
+          return res.status(404).json({ message: "Sess\xE3o n\xE3o encontrada para esta mesa" });
+        }
+      }
+      const guests = sessionId ? await storage.getTableGuests(sessionId) : [];
       const allTableOrders = await storage.getOrdersByTableId(table2.restaurantId, table2.id);
       const currentGuestIds = guests.map((g) => g.id);
-      const orders2 = table2.currentSessionId ? allTableOrders.filter((order) => {
-        if (order.tableSessionId === table2.currentSessionId) {
+      const orders2 = sessionId ? allTableOrders.filter((order) => {
+        if (order.tableSessionId === sessionId) {
           return true;
         }
         if (!order.tableSessionId && order.guestId && currentGuestIds.includes(order.guestId)) {
@@ -16955,7 +16967,7 @@ async function registerRoutes(app2) {
               status: "ativo",
               totalSpent: anonymousSubtotal2.toFixed(2),
               paidAmount: "0.00",
-              sessionId: table2.currentSessionId,
+              sessionId,
               joinedAt: null
             },
             orders: anonymousOrders,
@@ -16963,19 +16975,9 @@ async function registerRoutes(app2) {
           });
         }
       }
-      const session2 = table2.currentSessionId ? (await db.select().from(tableSessions).where(eq5(tableSessions.id, table2.currentSessionId)).limit(1))[0] : null;
-      let paidAmount = session2?.paidAmount || "0.00";
-      if (table2.currentSessionId) {
-        const tablePays = await db.select().from(tablePayments).where(eq5(tablePayments.sessionId, table2.currentSessionId));
-        const totalPaidFromPayments = tablePays.reduce(
-          (sum, payment) => sum + parseFloat(payment.amount || "0"),
-          0
-        );
-        paidAmount = totalPaidFromPayments.toFixed(2);
-        if (!session2 || Math.abs(parseFloat(session2.paidAmount || "0") - totalPaidFromPayments) > 9e-3) {
-          await db.update(tableSessions).set({ paidAmount }).where(eq5(tableSessions.id, table2.currentSessionId));
-        }
-      }
+      const session2 = sessionId ? (await db.select().from(tableSessions).where(eq5(tableSessions.id, sessionId)).limit(1))[0] : null;
+      const sessionTotals = sessionId ? await storage.recalculateSessionTotals(sessionId) : null;
+      const paidAmount = sessionTotals?.paidAmount || session2?.paidAmount || "0.00";
       const subtotalBeforeAdjustments = orders2.filter((o) => o.status !== "cancelado").reduce((sum, o) => sum + calculateOrderTotal(o), 0);
       const sessionDiscount = parseFloat(session2?.discount || "0");
       const sessionDiscountType = session2?.discountType || "valor";
@@ -17023,14 +17025,14 @@ async function registerRoutes(app2) {
         return sum + (Number.isFinite(v) ? v : 0);
       }, 0);
       const assignedGuestsSubtotal = ordersByGuest.filter((og) => og.guest?.id !== "anonymous").reduce((sum, og) => sum + parseFloat(og.subtotal || "0"), 0);
-      const totalAmount = hasAnyGuestAdjustments ? totalFromGuestsWithIndividualAdjustments + anonymousSubtotal : Math.max(totalAfterSession, assignedGuestsSubtotal + anonymousSubtotal);
+      const hasSessionAdjustments = sessionDiscount > 0 || sessionServiceCharge > 0;
+      const totalAmount = hasAnyGuestAdjustments ? totalFromGuestsWithIndividualAdjustments + anonymousSubtotal : hasSessionAdjustments ? totalAfterSession : Math.max(totalAfterSession, assignedGuestsSubtotal + anonymousSubtotal);
       res.json({
         ordersByGuest,
         anonymousOrders,
         totalAmount: totalAmount.toFixed(2),
         paidAmount,
-        currentSessionId: table2.currentSessionId
-        // 🔧 FIX: Return sessionId for frontend queries
+        currentSessionId: sessionId
       });
     } catch (error) {
       console.error("Error in orders-by-guest:", error);

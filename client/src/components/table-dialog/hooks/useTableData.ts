@@ -94,14 +94,15 @@ export function useTableData({ tableId, isOpen }: UseTableDataProps) {
       }, 0);
     }
 
-    // 🔧 FIX: Garantir coerência matemática mesmo para sessões existentes
-    // O total nunca pode ser menor que a soma dos subtotais individuais
+    // O backend devolve o total final da sessão, já com descontos/taxas.
+    // Não comparar com os subtotais brutos: isso desfaz o ajuste e volta a
+    // cobrar o valor original na aba de pagamentos.
     const sumOfSubtotals = (ordersByGuestData?.ordersByGuest || []).reduce(
       (sum: number, og: any) => sum + parseFloat(og.subtotal || '0'),
       0
     );
 
-    return Math.max(backendTotal, sumOfSubtotals);
+    return backendTotal > 0 ? backendTotal : sumOfSubtotals;
   }, [ordersByGuestData, tableOrders]);
 
   const totalOrders = tableOrders.length;

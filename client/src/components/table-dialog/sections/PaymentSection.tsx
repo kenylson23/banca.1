@@ -277,7 +277,11 @@ export function PaymentSection({
     return sum + parseFloat(og?.subtotal || '0');
   }, 0);
 
-  const realTotalAmount = Math.max(totalAmount || 0, sumOfSessionGuestSubtotals, sumOfOrdersByGuestSubtotals);
+  // `totalAmount` é o total final da sessão (já com descontos/taxas).
+  // Os subtotais abaixo são apenas fallback para dados antigos sem total.
+  const realTotalAmount = totalAmount > 0
+    ? totalAmount
+    : Math.max(0, sumOfSessionGuestSubtotals, sumOfOrdersByGuestSubtotals);
 
   // Total pago: sessionPaidAmount também inclui pagamentos gerais feitos pelo
   // checkout completo, então não pode ser ignorado quando existem convidados.
