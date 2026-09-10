@@ -45,6 +45,7 @@ type TransactionWithDetails = FinancialTransaction & {
   cashRegister: CashRegister | null;
   category: FinancialCategory | null;
   recordedBy: User | null;
+  source?: 'financial_transaction' | 'table_payment';
 };
 
 type FinancialSummary = {
@@ -625,6 +626,11 @@ function TransactionsList({
                           {transaction.type === 'receita' ? 'Receita' : 'Despesa'}
                         </Badge>
                       )}
+                      {transaction.source === 'table_payment' && (
+                        <Badge variant="outline" className="text-xs">
+                          Mesa
+                        </Badge>
+                      )}
                     </div>
                     
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -660,14 +666,16 @@ function TransactionsList({
                     )}
                   </div>
                   
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onDelete(transaction.id)}
-                    data-testid={`button-delete-${transaction.id}`}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  {transaction.source !== 'table_payment' && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onDelete(transaction.id)}
+                      data-testid={`button-delete-${transaction.id}`}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
                 </div>
               </motion.div>
             ))}

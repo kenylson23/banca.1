@@ -8908,12 +8908,94 @@ var init_storage = __esm({
           category: financialCategories,
           recordedBy: users
         }).from(financialTransactions).leftJoin(cashRegisters, eq(financialTransactions.cashRegisterId, cashRegisters.id)).leftJoin(financialCategories, eq(financialTransactions.categoryId, financialCategories.id)).leftJoin(users, eq(financialTransactions.recordedByUserId, users.id)).where(and(...conditions)).orderBy(desc(financialTransactions.occurredAt));
-        return results.map((r) => ({
+        const financialResults = results.map((r) => ({
           ...r.transaction,
-          cashRegister: r.cashRegister,
-          category: r.category,
-          recordedBy: r.recordedBy
+          cashRegister: r.cashRegister || null,
+          category: r.category || null,
+          recordedBy: r.recordedBy || null,
+          source: "financial_transaction"
         }));
+        if (filters?.type === "despesa" || filters?.cashRegisterId) {
+          return financialResults;
+        }
+        const tablePaymentConditions = [
+          eq(tablePayments.restaurantId, restaurantId)
+        ];
+        if (branchId !== null) {
+          tablePaymentConditions.push(eq(tables.branchId, branchId));
+        }
+        if (filters?.startDate) {
+          tablePaymentConditions.push(gte2(tablePayments.createdAt, filters.startDate));
+        }
+        if (filters?.endDate) {
+          tablePaymentConditions.push(sql4`${tablePayments.createdAt} <= ${filters.endDate}`);
+        }
+        if (filters?.paymentMethod) {
+          tablePaymentConditions.push(eq(tablePayments.paymentMethod, filters.paymentMethod));
+        }
+        const tablePaymentResults = await db.select({
+          payment: tablePayments,
+          table: tables,
+          recordedBy: users
+        }).from(tablePayments).innerJoin(tables, eq(tablePayments.tableId, tables.id)).leftJoin(users, eq(tablePayments.operatorId, users.id)).where(and(...tablePaymentConditions)).orderBy(desc(tablePayments.createdAt));
+        const orderPayments = financialResults.filter(
+          (transaction) => transaction.referenceOrderId || /Pedido #[\w-]+/i.test(transaction.description || "")
+        );
+        const tablePaymentCategory = {
+          id: "table-payment-revenue",
+          restaurantId,
+          branchId,
+          type: "receita",
+          name: "Pagamentos de mesas",
+          description: "Pagamentos recebidos no checkout de mesas",
+          isDefault: 0,
+          isArchived: 0,
+          createdAt: null,
+          updatedAt: null
+        };
+        const tableResults = tablePaymentResults.filter(({ payment }) => {
+          if (filters?.categoryId && filters.categoryId !== tablePaymentCategory.id) {
+            return false;
+          }
+          const note = payment.notes || "";
+          const orderShortId = note.match(/Pagamento via Pedido #([\w-]+)/i)?.[1];
+          if (!orderShortId) {
+            return true;
+          }
+          const amount = Number(payment.amount || 0).toFixed(2);
+          return !orderPayments.some((transaction) => {
+            const transactionOrderId = transaction.referenceOrderId || "";
+            const transactionShortId = transactionOrderId.slice(0, orderShortId.length);
+            return transactionShortId.toLowerCase() === orderShortId.toLowerCase() && Number(transaction.amount || 0).toFixed(2) === amount && transaction.paymentMethod === payment.paymentMethod;
+          });
+        }).map(({ payment, table: table2, recordedBy }) => ({
+          id: `table-payment:${payment.id}`,
+          restaurantId,
+          branchId: table2.branchId || null,
+          cashRegisterId: null,
+          shiftId: null,
+          categoryId: tablePaymentCategory.id,
+          recordedByUserId: payment.operatorId || null,
+          type: "receita",
+          origin: "web",
+          description: `Pagamento de mesa #${table2.number}`,
+          paymentMethod: payment.paymentMethod,
+          amount: payment.amount,
+          referenceOrderId: null,
+          occurredAt: payment.createdAt || /* @__PURE__ */ new Date(0),
+          note: payment.notes || null,
+          totalInstallments: 1,
+          installmentNumber: 1,
+          parentTransactionId: null,
+          createdAt: payment.createdAt || /* @__PURE__ */ new Date(0),
+          cashRegister: null,
+          category: tablePaymentCategory,
+          recordedBy: recordedBy || null,
+          source: "table_payment"
+        }));
+        return [...financialResults, ...tableResults].sort(
+          (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime()
+        );
       }
       async deleteFinancialTransaction(id, restaurantId) {
         const [transaction] = await db.select().from(financialTransactions).where(and(
@@ -8933,7 +9015,7 @@ var init_storage = __esm({
           }).where(eq(cashRegisters.id, transaction.cashRegisterId));
         });
       }
-      async getFinancialSummary(restaurantId, branchId, startDate, endDate, cashRegisterId) {
+      async getFinancialSummary(restaurantId, branchId, startDate, endDate, cashRegisterId, filters) {
         let registerConditions = [
           eq(cashRegisters.restaurantId, restaurantId),
           eq(cashRegisters.isActive, 1)
@@ -8951,22 +9033,14 @@ var init_storage = __esm({
           name: r.name,
           balance: r.currentBalance
         }));
-        let transactionConditions = [eq(financialTransactions.restaurantId, restaurantId)];
-        if (branchId !== null) {
-          transactionConditions.push(
-            eq(financialTransactions.branchId, branchId)
-          );
-        }
-        if (startDate) {
-          transactionConditions.push(gte2(financialTransactions.occurredAt, startDate));
-        }
-        if (endDate) {
-          transactionConditions.push(sql4`${financialTransactions.occurredAt} <= ${endDate}`);
-        }
-        if (cashRegisterId) {
-          transactionConditions.push(eq(financialTransactions.cashRegisterId, cashRegisterId));
-        }
-        const transactions = await db.select().from(financialTransactions).where(and(...transactionConditions));
+        const transactions = await this.getFinancialTransactions(restaurantId, branchId, {
+          startDate,
+          endDate,
+          cashRegisterId,
+          paymentMethod: filters?.paymentMethod,
+          categoryId: filters?.categoryId,
+          type: filters?.type
+        });
         const totalIncome = transactions.filter((t) => t.type === "receita").reduce((sum, t) => sum + parseFloat(t.amount), 0);
         const totalExpense = transactions.filter((t) => t.type === "despesa").reduce((sum, t) => sum + parseFloat(t.amount), 0);
         const netResult = totalIncome - totalExpense;
@@ -9248,45 +9322,35 @@ var init_storage = __esm({
       }
       // Financial Reports
       async getFinancialReport(restaurantId, branchId, startDate, endDate) {
-        let conditions = [
-          eq(financialTransactions.restaurantId, restaurantId),
-          gte2(financialTransactions.occurredAt, startDate)
-        ];
         const endOfDay = new Date(endDate);
         endOfDay.setHours(23, 59, 59, 999);
-        conditions.push(sql4`${financialTransactions.occurredAt} <= ${endOfDay}`);
-        if (branchId !== null) {
-          conditions.push(
-            eq(financialTransactions.branchId, branchId)
-          );
-        }
-        const transactions = await db.select({
-          transaction: financialTransactions,
-          category: financialCategories
-        }).from(financialTransactions).leftJoin(financialCategories, eq(financialTransactions.categoryId, financialCategories.id)).where(and(...conditions));
-        const totalRevenue = transactions.filter((t) => t.transaction.type === "receita").reduce((sum, t) => sum + parseFloat(t.transaction.amount), 0);
-        const totalExpenses = transactions.filter((t) => t.transaction.type === "despesa").reduce((sum, t) => sum + parseFloat(t.transaction.amount), 0);
-        const totalAdjustments = transactions.filter((t) => t.transaction.type === "ajuste").reduce((sum, t) => sum + parseFloat(t.transaction.amount), 0);
+        const transactions = await this.getFinancialTransactions(restaurantId, branchId, {
+          startDate,
+          endDate: endOfDay
+        });
+        const totalRevenue = transactions.filter((t) => t.type === "receita").reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        const totalExpenses = transactions.filter((t) => t.type === "despesa").reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        const totalAdjustments = transactions.filter((t) => t.type === "ajuste").reduce((sum, t) => sum + parseFloat(t.amount), 0);
         const netBalance = totalRevenue - totalExpenses + totalAdjustments;
         const revenueByMethodMap = {};
-        transactions.filter((t) => t.transaction.type === "receita").forEach((t) => {
-          const method = t.transaction.paymentMethod;
+        transactions.filter((t) => t.type === "receita").forEach((t) => {
+          const method = t.paymentMethod;
           if (!revenueByMethodMap[method]) {
             revenueByMethodMap[method] = 0;
           }
-          revenueByMethodMap[method] += parseFloat(t.transaction.amount);
+          revenueByMethodMap[method] += parseFloat(t.amount);
         });
         const revenueByMethod = Object.entries(revenueByMethodMap).map(([method, total]) => ({
           method,
           total: total.toFixed(2)
         }));
         const expensesByCategoryMap = {};
-        transactions.filter((t) => t.transaction.type === "despesa").forEach((t) => {
+        transactions.filter((t) => t.type === "despesa").forEach((t) => {
           const category = t.category?.name || "Sem categoria";
           if (!expensesByCategoryMap[category]) {
             expensesByCategoryMap[category] = 0;
           }
-          expensesByCategoryMap[category] += parseFloat(t.transaction.amount);
+          expensesByCategoryMap[category] += parseFloat(t.amount);
         });
         const expensesByCategory = Object.entries(expensesByCategoryMap).map(([category, total]) => ({
           category,
@@ -9294,14 +9358,14 @@ var init_storage = __esm({
         }));
         const transactionsByDayMap = {};
         transactions.forEach((t) => {
-          const date = new Date(t.transaction.occurredAt).toISOString().split("T")[0];
+          const date = new Date(t.occurredAt).toISOString().split("T")[0];
           if (!transactionsByDayMap[date]) {
             transactionsByDayMap[date] = { revenue: 0, expenses: 0 };
           }
-          if (t.transaction.type === "receita") {
-            transactionsByDayMap[date].revenue += parseFloat(t.transaction.amount);
-          } else if (t.transaction.type === "despesa") {
-            transactionsByDayMap[date].expenses += parseFloat(t.transaction.amount);
+          if (t.type === "receita") {
+            transactionsByDayMap[date].revenue += parseFloat(t.amount);
+          } else if (t.type === "despesa") {
+            transactionsByDayMap[date].expenses += parseFloat(t.amount);
           }
         });
         const transactionsByDay = Object.entries(transactionsByDayMap).map(([date, data]) => ({
@@ -16416,7 +16480,17 @@ async function registerRoutes(app2) {
       }
       const restaurantId = currentUser.restaurantId;
       const sessions2 = await storage.getTableSessions(restaurantId, req.params.id);
-      res.json(sessions2);
+      const recalculatedSessions = await Promise.all(
+        sessions2.map(async (session2) => {
+          const totals = await storage.recalculateSessionTotals(session2.id);
+          return totals ? {
+            ...session2,
+            totalAmount: totals.totalAmount,
+            paidAmount: totals.paidAmount
+          } : session2;
+        })
+      );
+      res.json(recalculatedSessions);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch table sessions" });
     }
@@ -19816,6 +19890,9 @@ Stack: ${errorStack}
       if (req.query.type) {
         filters.type = req.query.type;
       }
+      if (req.query.categoryId) {
+        filters.categoryId = req.query.categoryId;
+      }
       const transactions = await storage.getFinancialTransactions(restaurantId, branchId, filters);
       res.json(transactions);
     } catch (error) {
@@ -19936,12 +20013,16 @@ Stack: ${errorStack}
       const startDate = req.query.startDate ? new Date(req.query.startDate) : void 0;
       const endDate = req.query.endDate ? new Date(req.query.endDate) : void 0;
       const cashRegisterId = req.query.cashRegisterId;
+      const paymentMethod = req.query.paymentMethod;
+      const categoryId = req.query.categoryId;
+      const type = req.query.type;
       const summary = await storage.getFinancialSummary(
         restaurantId,
         branchId,
         startDate,
         endDate,
-        cashRegisterId
+        cashRegisterId,
+        { paymentMethod, categoryId, type }
       );
       res.json(summary);
     } catch (error) {

@@ -595,9 +595,16 @@ export interface IStorage {
     type?: 'receita' | 'despesa' | 'ajuste';
     paymentMethod?: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
     shiftId?: string;
+    cashRegisterId?: string;
+    categoryId?: string;
     startDate?: Date;
     endDate?: Date;
-  }): Promise<Array<FinancialTransaction & { category: FinancialCategory; recordedBy: User }>>;
+  }): Promise<Array<FinancialTransaction & {
+    cashRegister: CashRegister | null;
+    category: FinancialCategory | null;
+    recordedBy: User | null;
+    source?: 'financial_transaction' | 'table_payment';
+  }>>;
   getFinancialTransactionById(id: string): Promise<FinancialTransaction | undefined>;
   createFinancialTransaction(restaurantId: string, userId: string, data: InsertFinancialTransaction): Promise<FinancialTransaction>;
   
@@ -6700,6 +6707,7 @@ export class DatabaseStorage implements IStorage {
       cashRegisterId?: string;
       paymentMethod?: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
       type?: 'receita' | 'despesa';
+      categoryId?: string;
     }
   ): Promise<Array<FinancialTransaction & { 
     cashRegister: CashRegister; 
@@ -6748,12 +6756,118 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(desc(financialTransactions.occurredAt));
 
-    return results.map((r: any) => ({
+    const financialResults = results.map((r: any) => ({
       ...r.transaction,
-      cashRegister: r.cashRegister!,
-      category: r.category!,
-      recordedBy: r.recordedBy!,
+      cashRegister: r.cashRegister || null,
+      category: r.category || null,
+      recordedBy: r.recordedBy || null,
+      source: 'financial_transaction' as const,
     }));
+
+    if ((filters?.type && filters.type !== 'receita') || filters?.cashRegisterId) {
+      return financialResults;
+    }
+
+    // Table checkout payments are the source of truth for payments made at a
+    // table. Payments made through an order are also copied to
+    // financial_transactions, so those rows must be excluded from this
+    // second source to avoid counting the same payment twice.
+    const tablePaymentConditions = [
+      eq(tablePayments.restaurantId, restaurantId),
+    ];
+
+    if (branchId !== null) {
+      tablePaymentConditions.push(eq(tables.branchId, branchId));
+    }
+    if (filters?.startDate) {
+      tablePaymentConditions.push(gte(tablePayments.createdAt, filters.startDate));
+    }
+    if (filters?.endDate) {
+      tablePaymentConditions.push(sql`${tablePayments.createdAt} <= ${filters.endDate}`);
+    }
+    if (filters?.paymentMethod) {
+      tablePaymentConditions.push(eq(tablePayments.paymentMethod, filters.paymentMethod));
+    }
+
+    const tablePaymentResults: Array<{ payment: any; table: any; recordedBy: User | null }> = await db
+      .select({
+        payment: tablePayments,
+        table: tables,
+        recordedBy: users,
+      })
+      .from(tablePayments)
+      .innerJoin(tables, eq(tablePayments.tableId, tables.id))
+      .leftJoin(users, eq(tablePayments.operatorId, users.id))
+      .where(and(...tablePaymentConditions))
+      .orderBy(desc(tablePayments.createdAt));
+
+    const orderPayments = financialResults.filter((transaction: any) =>
+      transaction.referenceOrderId || /Pedido #[\w-]+/i.test(transaction.description || '')
+    );
+
+    const tablePaymentCategory: FinancialCategory = {
+      id: 'table-payment-revenue',
+      restaurantId,
+      branchId,
+      type: 'receita',
+      name: 'Pagamentos de mesas',
+      description: 'Pagamentos recebidos no checkout de mesas',
+      isDefault: 0,
+      isArchived: 0,
+      createdAt: null,
+      updatedAt: null,
+    } as FinancialCategory;
+
+    const tableResults = tablePaymentResults
+      .filter(({ payment }) => {
+        if (filters?.categoryId && filters.categoryId !== tablePaymentCategory.id) {
+          return false;
+        }
+
+        const note = payment.notes || '';
+        const orderShortId = note.match(/Pagamento via Pedido #([\w-]+)/i)?.[1];
+        if (!orderShortId) {
+          return true;
+        }
+
+        const amount = Number(payment.amount || 0).toFixed(2);
+        return !orderPayments.some((transaction: any) => {
+          const transactionOrderId = transaction.referenceOrderId || '';
+          const transactionShortId = transactionOrderId.slice(0, orderShortId.length);
+          return transactionShortId.toLowerCase() === orderShortId.toLowerCase()
+            && Number(transaction.amount || 0).toFixed(2) === amount
+            && transaction.paymentMethod === payment.paymentMethod;
+        });
+      })
+      .map(({ payment, table, recordedBy }: any) => ({
+        id: `table-payment:${payment.id}`,
+        restaurantId,
+        branchId: table.branchId || null,
+        cashRegisterId: null,
+        shiftId: null,
+        categoryId: tablePaymentCategory.id,
+        recordedByUserId: payment.operatorId || null,
+        type: 'receita' as const,
+        origin: 'web' as const,
+        description: `Pagamento de mesa #${table.number}`,
+        paymentMethod: payment.paymentMethod,
+        amount: payment.amount,
+        referenceOrderId: null,
+        occurredAt: payment.createdAt || new Date(0),
+        note: payment.notes || null,
+        totalInstallments: 1,
+        installmentNumber: 1,
+        parentTransactionId: null,
+        createdAt: payment.createdAt || new Date(0),
+        cashRegister: null,
+        category: tablePaymentCategory,
+        recordedBy: recordedBy || null,
+        source: 'table_payment' as const,
+      }));
+
+    return [...financialResults, ...tableResults].sort(
+      (a: any, b: any) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime()
+    );
   }
 
   async deleteFinancialTransaction(id: string, restaurantId: string): Promise<void> {
@@ -6793,7 +6907,12 @@ export class DatabaseStorage implements IStorage {
     branchId: string | null,
     startDate?: Date,
     endDate?: Date,
-    cashRegisterId?: string
+    cashRegisterId?: string,
+    filters?: {
+      paymentMethod?: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
+      categoryId?: string;
+      type?: 'receita' | 'despesa';
+    }
   ): Promise<{
     totalBalance: string;
     cashRegisterBalances: Array<{ id: string; name: string; balance: string }>;
@@ -6827,30 +6946,14 @@ export class DatabaseStorage implements IStorage {
       balance: r.currentBalance,
     }));
 
-    let transactionConditions = [eq(financialTransactions.restaurantId, restaurantId)];
-
-    if (branchId !== null) {
-      transactionConditions.push(
-        eq(financialTransactions.branchId, branchId)
-      );
-    }
-
-    if (startDate) {
-      transactionConditions.push(gte(financialTransactions.occurredAt, startDate));
-    }
-
-    if (endDate) {
-      transactionConditions.push(sql`${financialTransactions.occurredAt} <= ${endDate}`);
-    }
-
-    if (cashRegisterId) {
-      transactionConditions.push(eq(financialTransactions.cashRegisterId, cashRegisterId));
-    }
-
-    const transactions = await db
-      .select()
-      .from(financialTransactions)
-      .where(and(...transactionConditions));
+    const transactions = await this.getFinancialTransactions(restaurantId, branchId, {
+      startDate,
+      endDate,
+      cashRegisterId,
+      paymentMethod: filters?.paymentMethod,
+      categoryId: filters?.categoryId,
+      type: filters?.type,
+    });
 
     const totalIncome = transactions
       .filter((t: FinancialTransaction) => t.type === 'receita')
@@ -7325,53 +7428,36 @@ export class DatabaseStorage implements IStorage {
     expensesByCategory: Array<{ category: string; total: string }>;
     transactionsByDay: Array<{ date: string; revenue: string; expenses: string }>;
   }> {
-    let conditions = [
-      eq(financialTransactions.restaurantId, restaurantId),
-      gte(financialTransactions.occurredAt, startDate),
-    ];
-
     const endOfDay = new Date(endDate);
     endOfDay.setHours(23, 59, 59, 999);
-    conditions.push(sql`${financialTransactions.occurredAt} <= ${endOfDay}`);
-
-    if (branchId !== null) {
-      conditions.push(
-        eq(financialTransactions.branchId, branchId)
-      );
-    }
-
-    const transactions = await db
-      .select({
-        transaction: financialTransactions,
-        category: financialCategories,
-      })
-      .from(financialTransactions)
-      .leftJoin(financialCategories, eq(financialTransactions.categoryId, financialCategories.id))
-      .where(and(...conditions));
+    const transactions = await this.getFinancialTransactions(restaurantId, branchId, {
+      startDate,
+      endDate: endOfDay,
+    });
 
     const totalRevenue = transactions
-      .filter((t: any) => t.transaction.type === 'receita')
-      .reduce((sum: number, t: any) => sum + parseFloat(t.transaction.amount), 0);
+      .filter((t: any) => t.type === 'receita')
+      .reduce((sum: number, t: any) => sum + parseFloat(t.amount), 0);
 
     const totalExpenses = transactions
-      .filter((t: any) => t.transaction.type === 'despesa')
-      .reduce((sum: number, t: any) => sum + parseFloat(t.transaction.amount), 0);
+      .filter((t: any) => t.type === 'despesa')
+      .reduce((sum: number, t: any) => sum + parseFloat(t.amount), 0);
 
     const totalAdjustments = transactions
-      .filter((t: any) => t.transaction.type === 'ajuste')
-      .reduce((sum: number, t: any) => sum + parseFloat(t.transaction.amount), 0);
+      .filter((t: any) => t.type === 'ajuste')
+      .reduce((sum: number, t: any) => sum + parseFloat(t.amount), 0);
 
     const netBalance = totalRevenue - totalExpenses + totalAdjustments;
 
     const revenueByMethodMap: Record<string, number> = {};
     transactions
-      .filter((t: any) => t.transaction.type === 'receita')
+      .filter((t: any) => t.type === 'receita')
       .forEach((t: any) => {
-        const method = t.transaction.paymentMethod;
+        const method = t.paymentMethod;
         if (!revenueByMethodMap[method]) {
           revenueByMethodMap[method] = 0;
         }
-        revenueByMethodMap[method] += parseFloat(t.transaction.amount);
+        revenueByMethodMap[method] += parseFloat(t.amount);
       });
 
     const revenueByMethod = Object.entries(revenueByMethodMap).map(([method, total]) => ({
@@ -7381,13 +7467,13 @@ export class DatabaseStorage implements IStorage {
 
     const expensesByCategoryMap: Record<string, number> = {};
     transactions
-      .filter((t: any) => t.transaction.type === 'despesa')
+      .filter((t: any) => t.type === 'despesa')
       .forEach((t: any) => {
         const category = t.category?.name || 'Sem categoria';
         if (!expensesByCategoryMap[category]) {
           expensesByCategoryMap[category] = 0;
         }
-        expensesByCategoryMap[category] += parseFloat(t.transaction.amount);
+        expensesByCategoryMap[category] += parseFloat(t.amount);
       });
 
     const expensesByCategory = Object.entries(expensesByCategoryMap).map(([category, total]) => ({
@@ -7397,14 +7483,14 @@ export class DatabaseStorage implements IStorage {
 
     const transactionsByDayMap: Record<string, { revenue: number; expenses: number }> = {};
     transactions.forEach((t: any) => {
-      const date = new Date(t.transaction.occurredAt).toISOString().split('T')[0];
+      const date = new Date(t.occurredAt).toISOString().split('T')[0];
       if (!transactionsByDayMap[date]) {
         transactionsByDayMap[date] = { revenue: 0, expenses: 0 };
       }
-      if (t.transaction.type === 'receita') {
-        transactionsByDayMap[date].revenue += parseFloat(t.transaction.amount);
-      } else if (t.transaction.type === 'despesa') {
-        transactionsByDayMap[date].expenses += parseFloat(t.transaction.amount);
+      if (t.type === 'receita') {
+        transactionsByDayMap[date].revenue += parseFloat(t.amount);
+      } else if (t.type === 'despesa') {
+        transactionsByDayMap[date].expenses += parseFloat(t.amount);
       }
     });
 

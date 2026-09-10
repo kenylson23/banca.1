@@ -9767,6 +9767,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.query.type) {
         filters.type = req.query.type as 'receita' | 'despesa';
       }
+      if (req.query.categoryId) {
+        filters.categoryId = req.query.categoryId as string;
+      }
 
       const transactions = await storage.getFinancialTransactions(restaurantId, branchId, filters);
       
@@ -9907,13 +9910,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
       const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
       const cashRegisterId = req.query.cashRegisterId as string | undefined;
+      const paymentMethod = req.query.paymentMethod as 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao' | undefined;
+      const categoryId = req.query.categoryId as string | undefined;
+      const type = req.query.type as 'receita' | 'despesa' | undefined;
 
       const summary = await storage.getFinancialSummary(
         restaurantId,
         branchId,
         startDate,
         endDate,
-        cashRegisterId
+        cashRegisterId,
+        { paymentMethod, categoryId, type }
       );
       
       res.json(summary);
