@@ -13,6 +13,7 @@
     "db:migrate": "bash scripts/migrate.sh run",
     "db:migrate:status": "bash scripts/migrate.sh status",
     "db:migrate:list": "bash scripts/migrate.sh list",
+    "db:recalculate-sessions": "tsx scripts/recalculate-all-table-sessions.ts",
     "db:ensure-table-session-columns": "node scripts/ensure-table-session-columns.js",
     "generate:secret": "node scripts/generate-session-secret.js",
     "admin:create": "tsx scripts/create-superadmin.ts",

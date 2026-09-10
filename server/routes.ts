@@ -5432,7 +5432,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const restaurantId = currentUser.restaurantId!;
       const sessions = await storage.getTableSessions(restaurantId, req.params.id);
-      res.json(sessions);
+      // Reconciliar também sessões encerradas para que o histórico use o
+      // total final com descontos/taxas, em vez do subtotal antigo gravado.
+      const recalculatedSessions = await Promise.all(
+        sessions.map(async (session) => {
+          const totals = await storage.recalculateSessionTotals(session.id);
+          return totals
+            ? {
+                ...session,
+                totalAmount: totals.totalAmount,
+                paidAmount: totals.paidAmount,
+              }
+            : session;
+        }),
+      );
+      res.json(recalculatedSessions);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch table sessions" });
     }
