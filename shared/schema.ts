@@ -1297,7 +1297,9 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
 // Public order schema for customer checkout (omits advanced controls)
 // This schema is used for /api/public/orders to prevent customers from setting
 // professional features like discounts, service charges, etc.
-// Note: paymentMethod is allowed so customers can select how they want to pay on delivery/takeout
+// Payment details are optional here because table customers must wait for an
+// attendant to process payment in person. Delivery/takeout validation is
+// enforced conditionally by the public order route.
 export const publicOrderSchema = createInsertSchema(orders).omit({
   id: true,
   createdAt: true,
@@ -1320,9 +1322,8 @@ export const publicOrderSchema = createInsertSchema(orders).omit({
   tableId: z.string().optional().nullable(),
   tableSessionId: z.string().optional().nullable(),
   couponId: z.string().optional().nullable(),
-  // Allow customers to select payment method for delivery/takeout
-  paymentMethod: z.enum(['multicaixa', 'transferencia', 'cartao']),
-  paymentReference: z.string().trim().min(1, "A referência do pagamento é obrigatória").max(200),
+  paymentMethod: z.enum(['multicaixa', 'transferencia', 'cartao']).optional(),
+  paymentReference: z.string().trim().max(200).optional(),
   paymentProofUrl: z.string().trim().optional().nullable(),
 });
 

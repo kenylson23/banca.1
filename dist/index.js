@@ -1407,9 +1407,8 @@ var init_schema = __esm({
       tableId: z.string().optional().nullable(),
       tableSessionId: z.string().optional().nullable(),
       couponId: z.string().optional().nullable(),
-      // Allow customers to select payment method for delivery/takeout
-      paymentMethod: z.enum(["multicaixa", "transferencia", "cartao"]),
-      paymentReference: z.string().trim().min(1, "A refer\xEAncia do pagamento \xE9 obrigat\xF3ria").max(200),
+      paymentMethod: z.enum(["multicaixa", "transferencia", "cartao"]).optional(),
+      paymentReference: z.string().trim().max(200).optional(),
       paymentProofUrl: z.string().trim().optional().nullable()
     });
     updateOrderStatusSchema = z.object({
@@ -14891,6 +14890,9 @@ async function registerRoutes(app2) {
         }
       }
       if (validatedOrder.orderType === "delivery") {
+        if (!validatedOrder.paymentMethod || !validatedOrder.paymentReference?.trim()) {
+          return res.status(400).json({ message: "M\xE9todo e refer\xEAncia de pagamento s\xE3o obrigat\xF3rios para pedidos delivery" });
+        }
         if (!validatedOrder.deliveryAddress) {
           return res.status(400).json({ message: "Endere\xE7o de entrega \xE9 obrigat\xF3rio para delivery" });
         }
@@ -14905,6 +14907,9 @@ async function registerRoutes(app2) {
         }
       }
       if (validatedOrder.orderType === "takeout") {
+        if (!validatedOrder.paymentMethod || !validatedOrder.paymentReference?.trim()) {
+          return res.status(400).json({ message: "M\xE9todo e refer\xEAncia de pagamento s\xE3o obrigat\xF3rios para pedidos de retirada" });
+        }
         if (!validatedOrder.customerName?.trim()) {
           return res.status(400).json({ message: "Nome \xE9 obrigat\xF3rio para retirada" });
         }
@@ -14914,6 +14919,11 @@ async function registerRoutes(app2) {
         if (validatedOrder.tableId) {
           return res.status(400).json({ message: "Pedidos para retirada n\xE3o podem estar associados a uma mesa" });
         }
+      }
+      if (validatedOrder.orderType === "mesa") {
+        validatedOrder.paymentMethod = void 0;
+        validatedOrder.paymentReference = void 0;
+        validatedOrder.paymentProofUrl = void 0;
       }
       if (!validatedOrder.customerId && validatedOrder.customerPhone) {
         const existingCustomer = await storage.getCustomerByPhone(
@@ -14999,7 +15009,7 @@ async function registerRoutes(app2) {
         ...validatedOrder,
         status: "aguardando_confirmacao",
         paymentStatus: "nao_pago",
-        paymentSubmittedAt: /* @__PURE__ */ new Date()
+        ...validatedOrder.orderType !== "mesa" ? { paymentSubmittedAt: /* @__PURE__ */ new Date() } : {}
       }, verifiedItems);
       if (appliedCouponId && couponDiscount > 0) {
         await storage.applyCouponToOrder(
@@ -15989,6 +15999,7 @@ async function registerRoutes(app2) {
             currentUser.id
           );
           for (const releasedOrder of releasedOrders) {
+            await releasePaidOrderToKitchen(releasedOrder);
             broadcastToClients({
               type: "order_status_updated",
               data: { id: releasedOrder.id, status: releasedOrder.status }
@@ -16061,6 +16072,7 @@ async function registerRoutes(app2) {
                 currentUser.id
               );
               for (const releasedOrder of releasedOrders) {
+                await releasePaidOrderToKitchen(releasedOrder);
                 broadcastToClients({
                   type: "order_status_updated",
                   data: { id: releasedOrder.id, status: releasedOrder.status }
@@ -16177,6 +16189,7 @@ async function registerRoutes(app2) {
           currentUser.id
         );
         for (const releasedOrder of releasedOrders) {
+          await releasePaidOrderToKitchen(releasedOrder);
           broadcastToClients({
             type: "order_status_updated",
             data: { id: releasedOrder.id, status: releasedOrder.status }
@@ -16262,6 +16275,7 @@ async function registerRoutes(app2) {
           currentUser.id
         );
         for (const releasedOrder of releasedOrders) {
+          await releasePaidOrderToKitchen(releasedOrder);
           broadcastToClients({
             type: "order_status_updated",
             data: { id: releasedOrder.id, status: releasedOrder.status }
@@ -17916,6 +17930,9 @@ async function registerRoutes(app2) {
       }
       if (order.status !== "aguardando_confirmacao") {
         return res.status(409).json({ message: "Este pedido j\xE1 n\xE3o aguarda confirma\xE7\xE3o de pagamento" });
+      }
+      if (action === "confirm" && order.orderType === "mesa" && !order.paymentMethod) {
+        return res.status(409).json({ message: "Registre o pagamento da mesa pelo caixa, na presen\xE7a do cliente" });
       }
       if (action === "reject" && !reason?.trim()) {
         return res.status(400).json({ message: "Informe o motivo da rejei\xE7\xE3o" });

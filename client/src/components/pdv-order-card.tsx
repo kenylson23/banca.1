@@ -223,7 +223,11 @@ export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(
               </Badge>
               {order.status === "aguardando_confirmacao" && (
                 <div className="w-full rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-                  <strong>{order.paymentMethod === "multicaixa" ? "Multicaixa Express" : order.paymentMethod === "transferencia" ? "Transferência bancária" : "Cartão / POS"}</strong>
+                  {order.paymentMethod ? (
+                    <strong>{order.paymentMethod === "multicaixa" ? "Multicaixa Express" : order.paymentMethod === "transferencia" ? "Transferência bancária" : "Cartão / POS"}</strong>
+                  ) : (
+                    <strong>Aguardando atendimento para pagamento</strong>
+                  )}
                   {order.paymentReference && <span className="ml-2">Ref.: {order.paymentReference}</span>}
                   {order.paymentProofUrl && (
                     <a
@@ -335,7 +339,9 @@ export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(
               data-testid={`button-accept-${order.id}`}
             >
               <CheckIcon className="h-4 w-4 mr-1" weight="bold" />
-              {order.status === "aguardando_confirmacao" ? "Confirmar pagamento" : "Aceitar"}
+              {order.status === "aguardando_confirmacao"
+                ? (order.orderType === "mesa" && !order.paymentMethod ? "Registrar pagamento" : "Confirmar pagamento")
+                : "Aceitar"}
             </Button>
           </div>
         </div>

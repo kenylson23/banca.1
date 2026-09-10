@@ -232,7 +232,11 @@ export default function PDV() {
               onPay={() => setLocation(`/orders/${order.id}?mode=checkout`)}
                onAccept={() => {
                  if (order.status === "aguardando_confirmacao") {
-                   confirmPaymentMutation.mutate({ orderId: order.id, action: "confirm" });
+                    if (order.orderType === "mesa" && !order.paymentMethod) {
+                      setLocation(`/orders/${order.id}?mode=checkout`);
+                    } else {
+                      confirmPaymentMutation.mutate({ orderId: order.id, action: "confirm" });
+                    }
                  } else {
                    updateOrderStatusMutation.mutate({ orderId: order.id, status: "em_preparo" });
                  }

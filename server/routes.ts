@@ -3326,9 +3326,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { items, couponCode, redeemPoints, ...orderData } = req.body;
       
-      // Use publicOrderSchema which blocks professional fields while allowing payment method
+      // Use publicOrderSchema which blocks professional fields while keeping
+      // payment details optional for table orders paid in the attendant's presence.
       // (blocks: discount, discountType, serviceCharge, deliveryFee, createdBy)
-      // (allows: paymentMethod - so customers can select how they want to pay on delivery/takeout)
       let validatedOrder = publicOrderSchema.parse(orderData);
       
       const validatedItems = z.array(publicOrderItemSchema).parse(items);
@@ -3499,6 +3499,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (validatedOrder.orderType === 'delivery') {
+        if (!validatedOrder.paymentMethod || !validatedOrder.paymentReference?.trim()) {
+          return res.status(400).json({ message: "Método e referência de pagamento são obrigatórios para pedidos delivery" });
+        }
         if (!validatedOrder.deliveryAddress) {
           return res.status(400).json({ message: "Endereço de entrega é obrigatório para delivery" });
         }
@@ -3514,6 +3517,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (validatedOrder.orderType === 'takeout') {
+        if (!validatedOrder.paymentMethod || !validatedOrder.paymentReference?.trim()) {
+          return res.status(400).json({ message: "Método e referência de pagamento são obrigatórios para pedidos de retirada" });
+        }
         if (!validatedOrder.customerName?.trim()) {
           return res.status(400).json({ message: "Nome é obrigatório para retirada" });
         }
@@ -3523,6 +3529,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (validatedOrder.tableId) {
           return res.status(400).json({ message: "Pedidos para retirada não podem estar associados a uma mesa" });
         }
+      }
+
+      // Table QR orders only request service. Payment details must be entered
+      // by an attendant, so never trust or persist payment data from the QR client.
+      if (validatedOrder.orderType === 'mesa') {
+        validatedOrder.paymentMethod = undefined;
+        validatedOrder.paymentReference = undefined;
+        validatedOrder.paymentProofUrl = undefined;
       }
 
       // Auto-link customer by phone if not already provided
@@ -3643,7 +3657,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...validatedOrder,
         status: 'aguardando_confirmacao',
         paymentStatus: 'nao_pago',
-        paymentSubmittedAt: new Date(),
+        ...(validatedOrder.orderType !== 'mesa' ? { paymentSubmittedAt: new Date() } : {}),
       }, verifiedItems);
 
       // Apply coupon usage if valid
@@ -4907,6 +4921,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             currentUser.id,
           );
           for (const releasedOrder of releasedOrders) {
+            await releasePaidOrderToKitchen(releasedOrder);
             broadcastToClients({
               type: 'order_status_updated',
               data: { id: releasedOrder.id, status: releasedOrder.status },
@@ -4981,6 +4996,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 currentUser.id,
               );
               for (const releasedOrder of releasedOrders) {
+                await releasePaidOrderToKitchen(releasedOrder);
                 broadcastToClients({
                   type: 'order_status_updated',
                   data: { id: releasedOrder.id, status: releasedOrder.status },
@@ -5140,6 +5156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currentUser.id,
         );
         for (const releasedOrder of releasedOrders) {
+          await releasePaidOrderToKitchen(releasedOrder);
           broadcastToClients({
             type: 'order_status_updated',
             data: { id: releasedOrder.id, status: releasedOrder.status },
@@ -5250,6 +5267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currentUser.id,
         );
         for (const releasedOrder of releasedOrders) {
+          await releasePaidOrderToKitchen(releasedOrder);
           broadcastToClients({
             type: 'order_status_updated',
             data: { id: releasedOrder.id, status: releasedOrder.status },
@@ -7422,6 +7440,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (order.status !== 'aguardando_confirmacao') {
         return res.status(409).json({ message: "Este pedido já não aguarda confirmação de pagamento" });
+      }
+      if (action === 'confirm' && order.orderType === 'mesa' && !order.paymentMethod) {
+        return res.status(409).json({ message: "Registre o pagamento da mesa pelo caixa, na presença do cliente" });
       }
       if (action === 'reject' && !reason?.trim()) {
         return res.status(400).json({ message: "Informe o motivo da rejeição" });

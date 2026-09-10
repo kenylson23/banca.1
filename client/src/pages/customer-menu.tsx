@@ -118,8 +118,6 @@ export default function CustomerMenu() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'info' | 'review'>('cart');
-  const [paymentMethod, setPaymentMethod] = useState<'transferencia' | 'multicaixa' | 'cartao'>('multicaixa');
-  const [paymentReference, setPaymentReference] = useState('');
   const [billRequested, setBillRequested] = useState(() => {
     if (typeof window !== 'undefined' && tableNumber) {
       return localStorage.getItem(`bill_requested_${tableNumber}`) === 'true';
@@ -492,10 +490,7 @@ export default function CustomerMenu() {
         orderNotes: orderData.orderNotes || undefined,
         couponCode: orderData.couponCode,
         redeemPoints: orderData.redeemPoints,
-         status: 'aguardando_confirmacao',
          totalAmount,
-         paymentMethod,
-         paymentReference: paymentReference.trim(),
         items: orderData.items,
       };
       
@@ -513,7 +508,7 @@ export default function CustomerMenu() {
       setIsShareDialogOpen(true);
       toast({
         title: 'Pedido enviado!',
-        description: 'Seu pedido aguarda a confirmação manual do pagamento.',
+        description: 'Aguarde o atendente para realizar e acompanhar o pagamento.',
       });
       clearCart();
       // Reset coupon and points state but preserve customer info for future orders
@@ -521,7 +516,6 @@ export default function CustomerMenu() {
       setCouponValidation(null);
       setUsePoints(false);
       setPointsToRedeem(0);
-       setPaymentReference('');
       // Keep customerName, customerPhone, and identifiedCustomer for convenience on next order
       setIsCartOpen(false);
       setCheckoutStep('cart');
@@ -764,15 +758,6 @@ export default function CustomerMenu() {
           ? 'Digite o PIN da mesa antes de enviar o pedido.'
           : 'Confirme a entrada na mesa antes de enviar o pedido.',
         variant: tableIsOccupied ? 'destructive' : 'default',
-      });
-      return;
-    }
-
-    if (!paymentReference.trim()) {
-      toast({
-        title: 'Dados de pagamento incompletos',
-        description: 'Informe a referência do pagamento para enviar o pedido.',
-        variant: 'destructive',
       });
       return;
     }
@@ -1618,37 +1603,15 @@ export default function CustomerMenu() {
                             </div>
                           )}
                           <Card className="border-amber-200 bg-amber-50/60">
-                            <CardContent className="p-4 space-y-4">
+                            <CardContent className="p-4 space-y-3">
                               <div>
-                                <h3 className="font-semibold text-amber-900">Confirmação do pagamento</h3>
+                                <h3 className="font-semibold text-amber-900">Pagamento acompanhado pelo atendente</h3>
                                 <p className="text-xs text-amber-800 mt-1">
-                                  O pedido só será enviado para preparação depois de um funcionário verificar o pagamento.
+                                  Depois de enviar o pedido, aguarde o atendente. O pagamento será feito na mesa, na presença de um funcionário.
                                 </p>
                               </div>
-                              <div className="space-y-2">
-                                <Label htmlFor="payment-method" className="text-sm text-gray-700">Método usado</Label>
-                                <select
-                                  id="payment-method"
-                                  value={paymentMethod}
-                                  onChange={(e) => setPaymentMethod(e.target.value as typeof paymentMethod)}
-                                  className="h-10 w-full rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-900"
-                                  data-testid="select-payment-method"
-                                >
-                                  <option value="multicaixa">Multicaixa Express</option>
-                                  <option value="transferencia">Transferência bancária</option>
-                                  <option value="cartao">Cartão / POS</option>
-                                </select>
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor="payment-reference" className="text-sm text-gray-700">Referência / número da operação</Label>
-                                <Input
-                                  id="payment-reference"
-                                  value={paymentReference}
-                                  onChange={(e) => setPaymentReference(e.target.value)}
-                                  placeholder="Ex.: referência Multicaixa ou número do talão"
-                                  className="border-gray-200 bg-white text-gray-900"
-                                  data-testid="input-payment-reference"
-                                />
+                              <div className="rounded-md border border-amber-200 bg-white/70 p-3 text-xs text-amber-900">
+                                O pedido só será enviado para preparação depois que o atendente registrar o pagamento.
                               </div>
                             </CardContent>
                           </Card>
@@ -1729,7 +1692,7 @@ export default function CustomerMenu() {
                             <>
                               {checkoutStep === 'cart' && 'Continuar'}
                               {checkoutStep === 'info' && 'Revisar Pedido'}
-                               {checkoutStep === 'review' && 'Enviar para confirmação'}
+                                {checkoutStep === 'review' && 'Solicitar atendimento para pagamento'}
                             </>
                           )}
                         </Button>
