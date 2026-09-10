@@ -1826,7 +1826,7 @@ export class DatabaseStorage implements IStorage {
       if (preferredType === 'igual' || guestsWithOrders.length === 0) {
         // Sugerir divisão igual considerando total de pessoas declaradas (incluindo acompanhantes virtuais)
         const amountPerGuest = totalPeopleCount > 0 ? totalSession / totalPeopleCount : totalSession;
-        
+
         const allocations = guests.map(g => ({
           guestId: g.id,
           guestName: g.name || `Convidado ${g.guestNumber || ''}`,
@@ -1848,7 +1848,7 @@ export class DatabaseStorage implements IStorage {
             });
           }
         }
-        
+
         return {
           splitType: 'igual',
           allocations,
@@ -3763,25 +3763,25 @@ export class DatabaseStorage implements IStorage {
         let cashRegisterId: string | null = null;
         let shiftId: string | null = null;
 
-        if (data.paymentMethod === 'dinheiro') {
-          const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, order.branchId || null);
-          
-          if (activeCashRegisters.length > 0) {
-            const cashRegister = activeCashRegisters[0];
-            const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
-            
-            if (activeShift && cashRegister) {
-              cashRegisterId = cashRegister.id;
-              shiftId = activeShift.id;
+        // Todos os métodos de pagamento devem ser vinculados ao caixa ativo.
+        // O saldo do caixa é a posição financeira operacional, não apenas o
+        // dinheiro físico; restringir este fluxo a dinheiro fazia vendas por
+        // Multicaixa, transferência e cartão desaparecerem do saldo.
+        const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, order.branchId || null);
+        if (activeCashRegisters.length > 0) {
+          const cashRegister = activeCashRegisters[0];
+          const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
+          if (activeShift && cashRegister) {
+            cashRegisterId = cashRegister.id;
+            shiftId = activeShift.id;
 
-              await tx
-                .update(cashRegisters)
-                .set({
-                  currentBalance: sql`${cashRegisters.currentBalance} + ${parseFloat(data.amount)}`,
-                  updatedAt: new Date(),
-                })
-                .where(eq(cashRegisters.id, cashRegister.id));
-            }
+            await tx
+              .update(cashRegisters)
+              .set({
+                currentBalance: sql`${cashRegisters.currentBalance} + ${parseFloat(data.amount)}`,
+                updatedAt: new Date(),
+              })
+              .where(eq(cashRegisters.id, cashRegister.id));
           }
         }
 
@@ -4139,30 +4139,28 @@ export class DatabaseStorage implements IStorage {
           refundCategoryId = category.id;
         }
 
-        // Encontrar caixa ativo se o pagamento foi em dinheiro
+        // O estorno deve usar o mesmo caixa do recebimento, independentemente
+        // do método de pagamento utilizado.
         let cashRegisterId: string | null = null;
         let shiftId: string | null = null;
 
-        if (order.paymentMethod === 'dinheiro') {
-          const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, order.branchId || null);
+        const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, order.branchId || null);
+        if (activeCashRegisters.length > 0) {
+          const cashRegister = activeCashRegisters[0];
+          const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
           
-          if (activeCashRegisters.length > 0) {
-            const cashRegister = activeCashRegisters[0];
-            const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
-            
-            if (activeShift && cashRegister) {
-              cashRegisterId = cashRegister.id;
-              shiftId = activeShift.id;
+          if (activeShift && cashRegister) {
+            cashRegisterId = cashRegister.id;
+            shiftId = activeShift.id;
 
-              // Deduzir do saldo do caixa
-              await tx
-                .update(cashRegisters)
-                .set({
-                  currentBalance: sql`${cashRegisters.currentBalance} - ${paidAmount}`,
-                  updatedAt: new Date(),
-                })
-                .where(eq(cashRegisters.id, cashRegister.id));
-            }
+            // Deduzir do saldo do caixa
+            await tx
+              .update(cashRegisters)
+              .set({
+                currentBalance: sql`${cashRegisters.currentBalance} - ${paidAmount}`,
+                updatedAt: new Date(),
+              })
+              .where(eq(cashRegisters.id, cashRegister.id));
           }
         }
 
@@ -6796,24 +6794,23 @@ export class DatabaseStorage implements IStorage {
       let cashRegisterId: string | null = null;
       let shiftId: string | null = null;
 
-      if (paymentMethod === 'dinheiro') {
-        const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, branchId);
-        const cashRegister = activeCashRegisters[0];
+      // Todos os métodos de pagamento de mesa devem compor o saldo do caixa.
+      const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, branchId);
+      const cashRegister = activeCashRegisters[0];
 
-        if (cashRegister) {
-          const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
-          if (activeShift) {
-            cashRegisterId = cashRegister.id;
-            shiftId = activeShift.id;
+      if (cashRegister) {
+        const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
+        if (activeShift) {
+          cashRegisterId = cashRegister.id;
+          shiftId = activeShift.id;
 
-            await tx
-              .update(cashRegisters)
-              .set({
-                currentBalance: sql`${cashRegisters.currentBalance} + ${isRefund ? -Number(amount) : Number(amount)}`,
-                updatedAt: new Date(),
-              })
-              .where(eq(cashRegisters.id, cashRegister.id));
-          }
+          await tx
+            .update(cashRegisters)
+            .set({
+              currentBalance: sql`${cashRegisters.currentBalance} + ${isRefund ? -Number(amount) : Number(amount)}`,
+              updatedAt: new Date(),
+            })
+            .where(eq(cashRegisters.id, cashRegister.id));
         }
       }
 
@@ -7176,17 +7173,13 @@ export class DatabaseStorage implements IStorage {
         .from(financialTransactions)
         .where(eq(financialTransactions.shiftId, shift.id));
 
-      const cashTransactions = shiftTransactions.filter(
-        (transaction: FinancialTransaction) => transaction.paymentMethod === 'dinheiro'
-      );
-
       return {
         ...shift,
-        totalRevenues: cashTransactions
+        totalRevenues: shiftTransactions
           .filter((transaction: FinancialTransaction) => transaction.type === 'receita')
           .reduce((sum: number, transaction: FinancialTransaction) => sum + parseFloat(transaction.amount), 0)
           .toFixed(2),
-        totalExpenses: cashTransactions
+        totalExpenses: shiftTransactions
           .filter((transaction: FinancialTransaction) => transaction.type === 'despesa')
           .reduce((sum: number, transaction: FinancialTransaction) => sum + parseFloat(transaction.amount), 0)
           .toFixed(2),
@@ -7342,19 +7335,17 @@ export class DatabaseStorage implements IStorage {
       .from(financialTransactions)
       .where(eq(financialTransactions.shiftId, shiftId));
 
-    const cashTransactions = allTransactions.filter((t: FinancialTransaction) => 
-      t.paymentMethod === 'dinheiro'
-    );
-
-    const totalRevenues = cashTransactions
+    // O saldo do caixa inclui todos os métodos de pagamento registrados no
+    // turno, portanto o fechamento deve reconciliar todas as transações.
+    const totalRevenues = allTransactions
       .filter((t: FinancialTransaction) => t.type === 'receita')
       .reduce((sum: number, t: FinancialTransaction) => sum + parseFloat(t.amount), 0);
 
-    const totalExpenses = cashTransactions
+    const totalExpenses = allTransactions
       .filter((t: FinancialTransaction) => t.type === 'despesa')
       .reduce((sum: number, t: FinancialTransaction) => sum + parseFloat(t.amount), 0);
 
-    const totalAdjustments = cashTransactions
+    const totalAdjustments = allTransactions
       .filter((t: FinancialTransaction) => t.type === 'ajuste')
       .reduce((sum: number, t: FinancialTransaction) => sum + parseFloat(t.amount), 0);
 
