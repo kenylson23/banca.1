@@ -6548,11 +6548,160 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(cashRegisters.branchId, branchId));
     }
 
-    return await db
+    const registers = await db
       .select()
       .from(cashRegisters)
       .where(and(...conditions))
       .orderBy(desc(cashRegisters.createdAt));
+
+    const { registers: reconciledRegisters } = await this.reconcileCashRegisterBalances(
+      restaurantId,
+      branchId,
+      registers,
+    );
+
+    return reconciledRegisters;
+  }
+
+  /**
+   * Rebuilds displayed cash balances from the complete financial history.
+   *
+   * current_balance is kept for backwards compatibility and for fast writes,
+   * but it cannot recover legacy table payments that were recorded while no
+   * shift was open. Payments may also exist in both table_payments and
+   * financial_transactions, so the latter is treated as the source for rows
+   * already linked to a register and the table payment is only added when it
+   * is not represented by a linked financial transaction.
+   */
+  private async reconcileCashRegisterBalances(
+    restaurantId: string,
+    branchId: string | null,
+    registers: CashRegister[],
+  ): Promise<{ registers: CashRegister[]; unallocatedBalance: number }> {
+    if (registers.length === 0) {
+      return { registers, unallocatedBalance: 0 };
+    }
+
+    const transactionConditions = [eq(financialTransactions.restaurantId, restaurantId)];
+    if (branchId !== null) {
+      transactionConditions.push(eq(financialTransactions.branchId, branchId));
+    }
+
+    const transactions = await db
+      .select()
+      .from(financialTransactions)
+      .where(and(...transactionConditions));
+
+    const balances = new Map(
+      registers.map((register) => [
+        register.id,
+        Number.parseFloat(register.initialBalance || '0'),
+      ]),
+    );
+
+    for (const transaction of transactions) {
+      if (!transaction.cashRegisterId || !balances.has(transaction.cashRegisterId)) {
+        continue;
+      }
+
+      const amount = Number.parseFloat(transaction.amount || '0');
+      if (!Number.isFinite(amount)) {
+        continue;
+      }
+
+      const signedAmount = transaction.type === 'despesa' ? -amount : amount;
+      balances.set(
+        transaction.cashRegisterId,
+        (balances.get(transaction.cashRegisterId) || 0) + signedAmount,
+      );
+    }
+
+    const tablePaymentConditions = [eq(tablePayments.restaurantId, restaurantId)];
+    if (branchId !== null) {
+      tablePaymentConditions.push(eq(tables.branchId, branchId));
+    }
+
+    const legacyPayments = await db
+      .select({
+        payment: tablePayments,
+        table: tables,
+      })
+      .from(tablePayments)
+      .innerJoin(tables, eq(tablePayments.tableId, tables.id))
+      .where(and(...tablePaymentConditions));
+
+    const linkedTransactions = transactions.filter((transaction) => Boolean(transaction.cashRegisterId));
+    let unallocatedBalance = 0;
+
+    // A legacy payment has no register id. When there is only one possible
+    // register, or one active register for the branch, it can be reconciled
+    // safely to that register. Otherwise it remains visible in the summary
+    // total without being assigned to the wrong physical register.
+    const activeRegisterIds = new Set<string>();
+    const activeShifts = await db
+      .select({ cashRegisterId: cashRegisterShifts.cashRegisterId })
+      .from(cashRegisterShifts)
+      .where(and(
+        eq(cashRegisterShifts.restaurantId, restaurantId),
+        eq(cashRegisterShifts.status, 'aberto'),
+      ));
+    for (const shift of activeShifts) {
+      if (balances.has(shift.cashRegisterId)) {
+        activeRegisterIds.add(shift.cashRegisterId);
+      }
+    }
+
+    const fallbackRegisterId = registers.length === 1
+      ? registers[0].id
+      : activeRegisterIds.size === 1
+        ? Array.from(activeRegisterIds)[0]
+        : null;
+
+    for (const { payment } of legacyPayments) {
+      const paymentAmount = Number.parseFloat(payment.amount || '0');
+      if (!Number.isFinite(paymentAmount) || paymentAmount === 0) {
+        continue;
+      }
+
+      const note = payment.notes || '';
+      const orderShortId = note.match(/Pagamento via Pedido #([\w-]+)/i)?.[1];
+      const representedByLinkedTransaction = linkedTransactions.some((transaction) => {
+        const samePayment = (transaction.note || '').includes(payment.id);
+        if (samePayment) {
+          return true;
+        }
+
+        if (!orderShortId) {
+          return false;
+        }
+
+        const referenceOrderId = transaction.referenceOrderId || '';
+        return referenceOrderId.slice(0, orderShortId.length).toLowerCase() === orderShortId.toLowerCase()
+          && Number.parseFloat(transaction.amount || '0').toFixed(2) === paymentAmount.toFixed(2)
+          && transaction.paymentMethod === payment.paymentMethod;
+      });
+
+      if (representedByLinkedTransaction) {
+        continue;
+      }
+
+      if (fallbackRegisterId) {
+        balances.set(
+          fallbackRegisterId,
+          (balances.get(fallbackRegisterId) || 0) + paymentAmount,
+        );
+      } else {
+        unallocatedBalance += paymentAmount;
+      }
+    }
+
+    return {
+      registers: registers.map((register) => ({
+        ...register,
+        currentBalance: (balances.get(register.id) || 0).toFixed(2),
+      })),
+      unallocatedBalance,
+    };
   }
 
   async getCashRegisterById(id: string, restaurantId: string): Promise<CashRegister | undefined> {
@@ -7078,9 +7227,15 @@ export class DatabaseStorage implements IStorage {
       .from(cashRegisters)
       .where(and(...registerConditions));
 
-    const totalBalance = registers.reduce((sum: number, r: CashRegister) => sum + parseFloat(r.currentBalance), 0);
+    const { registers: reconciledRegisters, unallocatedBalance } =
+      await this.reconcileCashRegisterBalances(restaurantId, branchId, registers);
 
-    const cashRegisterBalances = registers.map((r: CashRegister) => ({
+    const totalBalance = reconciledRegisters.reduce(
+      (sum: number, r: CashRegister) => sum + parseFloat(r.currentBalance),
+      unallocatedBalance,
+    );
+
+    const cashRegisterBalances = reconciledRegisters.map((r: CashRegister) => ({
       id: r.id,
       name: r.name,
       balance: r.currentBalance,
