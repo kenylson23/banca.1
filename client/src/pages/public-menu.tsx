@@ -1443,6 +1443,14 @@ export default function PublicMenu() {
                                 </div>
                               )}
                               <p className="text-xs text-gray-500 text-center">A referência será enviada ao restaurante com o pedido.</p>
+                               {selectedPaymentMethod && (
+                                 <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-green-800">
+                                   <SiWhatsapp className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
+                                   <p className="text-xs leading-relaxed">
+                                     Depois de clicar em <strong>“Finalizar Pedido”</strong>, o WhatsApp do restaurante será aberto automaticamente. Envie o comprovativo de pagamento nesta conversa.
+                                   </p>
+                                 </div>
+                               )}
                             </div>
                             )}
 
