@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { 
@@ -38,6 +38,7 @@ import { ShimmerSkeleton } from "@/components/shimmer-skeleton";
 import { PrinterStatusBadge } from "@/components/PrinterStatusBadge";
 import { formatKwanza } from "@/lib/formatters";
 import { motion, AnimatePresence } from "framer-motion";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 type OrderType = "balcao" | "delivery" | "mesas";
 type OrderFilter = "all" | "pendente" | "em_curso";
@@ -67,6 +68,20 @@ export default function PDV() {
   const { data: user } = useQuery<{ restaurantId: string }>({
     queryKey: ["/api/auth/user"],
   });
+
+  const handleWebSocketMessage = useCallback((message: { type: string }) => {
+    if (
+      message.type === "new_order" ||
+      message.type === "payment_submitted" ||
+      message.type === "payment_confirmed" ||
+      message.type === "payment_rejected" ||
+      message.type === "order_status_updated"
+    ) {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+    }
+  }, []);
+
+  useWebSocket(handleWebSocketMessage);
 
   const typeMapping: Record<OrderType, string> = {
     balcao: "balcao",

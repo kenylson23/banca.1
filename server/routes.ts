@@ -3459,6 +3459,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         }
       }
+
+      // The public menu is restaurant-wide and does not expose a branch
+      // selector. Associate non-table orders with the main branch so they
+      // remain visible in the branch-scoped POS without trusting a client-
+      // supplied branchId.
+      if (validatedOrder.orderType !== 'mesa') {
+        const publicBranches = await storage.getBranches(validatedOrder.restaurantId);
+        const publicBranch = publicBranches.find(branch => branch.isMain === 1) || publicBranches[0];
+        if (publicBranch) {
+          validatedOrder = {
+            ...validatedOrder,
+            branchId: publicBranch.id,
+          };
+        }
+      }
       
       // ✅ NOVO: Auto-detecção de guest quando cliente faz pedido (Universal - funciona em TODOS os planos)
       let detectedGuestId: string | null = null;
