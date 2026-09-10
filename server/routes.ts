@@ -4863,6 +4863,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amount: `-${amount}`,
         paymentMethod: 'dinheiro',
         notes: `REEMBOLSO: ${reason || 'Não especificado'}`,
+        operatorId: currentUser.id,
       });
 
       broadcastToClients({ type: 'table_payment_refunded', data: { tableId, amount, reason } });
@@ -4969,6 +4970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amount, // Valor já com desconto aplicado pelo frontend
         paymentMethod,
         notes: receivedAmount ? `Valor recebido: ${receivedAmount}. ${notes || ''}` : notes,
+        operatorId: currentUser.id,
       });
       
 
@@ -5062,6 +5064,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               amount,
               paymentMethod,
               notes: receivedAmount ? `Valor recebido: ${receivedAmount}. ${notes || ''}` : notes,
+              operatorId: currentUser.id,
             });
             if (table.currentSessionId) {
               await storage.recalculateSessionTotals(table.currentSessionId);
@@ -5197,10 +5200,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionId: guest.sessionId,
         amount: amount,
         paymentMethod,
+        operatorId: currentUser.id,
         notes: receivedAmount 
           ? `Pagamento de ${guest.name || 'Convidado'} - Valor recebido: ${receivedAmount} Kz. ${notes || ''}` 
           : `Pagamento de ${guest.name || 'Convidado'}. ${notes || ''}`,
       }).returning();
+
+      await storage.recordTablePaymentFinancialTransaction(
+        restaurantId,
+        currentUser.id,
+        tablePayment
+      );
       
       // Create guest payment (links payment to specific guest and updates guest paidAmount)
       const guestPayment = await storage.createGuestPayment(restaurantId, {
@@ -5330,6 +5340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amount,
         paymentMethod,
         notes,
+        operatorId: currentUser.id,
       });
       
 
@@ -8202,8 +8213,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Pedido já está cancelado" });
       }
 
+      // Branches are an operational isolation boundary. A user may only
+      // cancel orders from the branch currently selected in their session.
+      if (
+        currentUser.role !== 'superadmin' &&
+        currentUser.activeBranchId &&
+        order.branchId !== currentUser.activeBranchId
+      ) {
+        return res.status(403).json({ message: "Este pedido não pertence à filial ativa" });
+      }
+
       const { cancellationReason } = cancelOrderSchema.parse(req.body);
-      const cancelled = await storage.cancelOrder(restaurantId, req.params.id, cancellationReason, currentUser.id);
+      const cancelled = await storage.cancelOrder(
+        restaurantId,
+        req.params.id,
+        cancellationReason,
+        currentUser.id,
+        currentUser.activeBranchId
+      );
       
       broadcastToClients({ 
         type: 'order_cancelled', 
@@ -8225,11 +8252,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Canonical cancellation endpoint.
-  app.post("/api/orders/:id/cancel", isAuthenticated, cancelOrderHandler);
+  app.post("/api/orders/:id/cancel", isCashierOrAbove, cancelOrderHandler);
 
   // Compatibility for older table-management bundles that still send
   // PATCH /api/orders/:id with status: "cancelled".
-  app.patch("/api/orders/:id", isAuthenticated, async (req, res, next) => {
+  app.patch("/api/orders/:id", isCashierOrAbove, async (req, res, next) => {
     if (req.body?.status !== "cancelled" && req.body?.status !== "cancelado") {
       return next();
     }

@@ -77,11 +77,27 @@ export default function FinancialCashRegisters() {
     queryKey: ["/api/cash-register-shifts"],
   });
 
+  const todayFinancialRange = useMemo(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+
+    return {
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+    };
+  }, []);
+
+  const { data: todaySummary, isLoading: summaryLoading } = useQuery<{
+    totalBalance: string;
+    netResult: string;
+  }>({
+    queryKey: ["/api/financial/summary", todayFinancialRange],
+  });
+
   const activeShifts = shifts?.filter(s => s.status === 'aberto') || [];
   const recentClosedShifts = shifts?.filter(s => s.status === 'fechado').slice(0, 10) || [];
-
-  // Mock sparkline data
-  const sparklineData = [65, 70, 68, 75, 73, 78, 80];
 
   // Calculate KPIs
   const kpiData = useMemo(() => {
@@ -100,29 +116,13 @@ export default function FinancialCashRegisters() {
       return hasActiveShift;
     }).length;
 
-    // Calculate today's movement from shifts
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayShifts = shifts.filter(s => {
-      if (!s.openedAt) return false;
-      const shiftDate = new Date(s.openedAt);
-      shiftDate.setHours(0, 0, 0, 0);
-      return shiftDate.getTime() === today.getTime();
-    });
-    
-    const todayMovement = todayShifts.reduce((sum, shift) => {
-      const revenues = parseFloat(shift.totalRevenues || "0");
-      const expenses = parseFloat(shift.totalExpenses || "0");
-      return sum + revenues - expenses;
-    }, 0);
-
     return {
-      totalBalance,
+      totalBalance: parseFloat(todaySummary?.totalBalance || totalBalance.toFixed(2)),
       activeRegisters,
       activeShifts: activeShifts.length,
-      todayMovement,
+      todayMovement: parseFloat(todaySummary?.netResult || "0"),
     };
-  }, [cashRegisters, shifts, activeShifts]);
+  }, [cashRegisters, shifts, activeShifts, todaySummary]);
 
   // Convert shifts to activity feed format
   const activities = useMemo(() => {
@@ -301,7 +301,7 @@ export default function FinancialCashRegisters() {
     },
   ];
 
-  const isLoading = registersLoading || shiftsLoading;
+  const isLoading = registersLoading || shiftsLoading || summaryLoading;
 
   return (
     <div className="min-h-screen">
@@ -356,27 +356,18 @@ export default function FinancialCashRegisters() {
               prefix="Kz "
               decimals={2}
               icon={Wallet}
-              sparklineData={sparklineData}
-              change={8.2}
-              changeLabel="vs. último período"
               data-testid="kpi-total-balance"
             />
             <AdvancedKpiCard
               title="Caixas Ativas"
               value={kpiData.activeRegisters}
               icon={Settings}
-              sparklineData={sparklineData}
-              change={12.5}
-              changeLabel="vs. último período"
               data-testid="kpi-active-registers"
             />
             <AdvancedKpiCard
               title="Turnos Ativos"
               value={kpiData.activeShifts}
               icon={Clock}
-              sparklineData={sparklineData}
-              change={5.3}
-              changeLabel="vs. último período"
               data-testid="kpi-active-shifts"
             />
             <AdvancedKpiCard
@@ -385,9 +376,6 @@ export default function FinancialCashRegisters() {
               prefix="Kz "
               decimals={2}
               icon={TrendingUp}
-              sparklineData={sparklineData}
-              change={kpiData.todayMovement >= 0 ? 15.8 : -8.4}
-              changeLabel="vs. ontem"
               data-testid="kpi-today-movement"
             />
           </motion.div>

@@ -289,7 +289,7 @@ export interface IStorage {
     receivedAmount?: string;
   }, userId?: string): Promise<Order>;
   calculateOrderTotal(orderId: string): Promise<Order>;
-  cancelOrder(restaurantId: string, orderId: string, cancellationReason: string, userId?: string): Promise<Order>;
+  cancelOrder(restaurantId: string, orderId: string, cancellationReason: string, userId?: string, branchId?: string | null): Promise<Order>;
   
   // Stats operations
   getTodayStats(restaurantId: string, branchId?: string | null): Promise<{
@@ -607,6 +607,18 @@ export interface IStorage {
   }>>;
   getFinancialTransactionById(id: string): Promise<FinancialTransaction | undefined>;
   createFinancialTransaction(restaurantId: string, userId: string, data: InsertFinancialTransaction): Promise<FinancialTransaction>;
+  recordTablePaymentFinancialTransaction(
+    restaurantId: string,
+    userId: string,
+    payment: {
+      id: string;
+      tableId: string;
+      amount: string;
+      paymentMethod: string;
+      notes?: string | null;
+      createdAt?: Date | null;
+    }
+  ): Promise<FinancialTransaction>;
   
   // Expense operations
   getExpenses(restaurantId: string, branchId: string | null, filters?: {
@@ -2202,6 +2214,10 @@ export class DatabaseStorage implements IStorage {
           }
         }
       }
+    }
+
+    if (payment.operatorId) {
+      await this.recordTablePaymentFinancialTransaction(restaurantId, payment.operatorId, newPayment);
     }
 
     return newPayment;
@@ -3968,16 +3984,21 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async cancelOrder(restaurantId: string, orderId: string, cancellationReason: string, userId?: string): Promise<Order> {
-    return await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+  async cancelOrder(restaurantId: string, orderId: string, cancellationReason: string, userId?: string, branchId?: string | null): Promise<Order> {
+    const cancelledOrder = await db.transaction(async (tx: PgTransaction<any, any, any>) => {
       // 1. Buscar o pedido com lock para evitar concorrência
+      const orderConditions = [
+        eq(orders.id, orderId),
+        eq(orders.restaurantId, restaurantId),
+      ];
+      if (branchId) {
+        orderConditions.push(eq(orders.branchId, branchId));
+      }
+
       const [order] = await tx
         .select()
         .from(orders)
-        .where(and(
-          eq(orders.id, orderId),
-          eq(orders.restaurantId, restaurantId)
-        ))
+        .where(and(...orderConditions))
         .for('update');
 
       if (!order) {
@@ -4201,6 +4222,14 @@ export class DatabaseStorage implements IStorage {
 
       return cancelledOrder;
     });
+
+    // Keep the table/session total in sync with the non-cancelled orders.
+    // This runs after the transaction so the recalculation sees the committed status.
+    if (cancelledOrder?.tableId) {
+      await this.calculateTableTotal(restaurantId, cancelledOrder.tableId);
+    }
+
+    return cancelledOrder;
   }
 
   // Stats operations
@@ -6698,6 +6727,120 @@ export class DatabaseStorage implements IStorage {
     return transaction;
   }
 
+  async recordTablePaymentFinancialTransaction(
+    restaurantId: string,
+    userId: string,
+    payment: {
+      id: string;
+      tableId: string;
+      amount: string;
+      paymentMethod: string;
+      notes?: string | null;
+      createdAt?: Date | null;
+    }
+  ): Promise<FinancialTransaction> {
+    const paymentAmount = parseFloat(payment.amount);
+    if (!Number.isFinite(paymentAmount) || paymentAmount === 0) {
+      throw new Error('Valor de pagamento inválido para lançamento financeiro');
+    }
+
+    const [table] = await db
+      .select()
+      .from(tables)
+      .where(and(
+        eq(tables.id, payment.tableId),
+        eq(tables.restaurantId, restaurantId)
+      ))
+      .limit(1);
+
+    if (!table) {
+      throw new Error('Mesa não encontrada para lançamento financeiro');
+    }
+
+    const isRefund = paymentAmount < 0;
+    const amount = Math.abs(paymentAmount).toFixed(2);
+    const type: 'receita' | 'despesa' = isRefund ? 'despesa' : 'receita';
+    const categoryName = isRefund ? 'Estornos e Reembolsos' : 'Vendas Mesa';
+    const paymentMethod = payment.paymentMethod as 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
+    const branchId = table.branchId || null;
+
+    return await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const [existingCategory] = await tx
+        .select()
+        .from(financialCategories)
+        .where(and(
+          eq(financialCategories.restaurantId, restaurantId),
+          eq(financialCategories.type, type),
+          eq(financialCategories.name, categoryName)
+        ))
+        .limit(1);
+
+      let categoryId = existingCategory?.id;
+      if (!categoryId) {
+        const [category] = await tx
+          .insert(financialCategories)
+          .values({
+            restaurantId,
+            branchId,
+            type,
+            name: categoryName,
+            description: isRefund
+              ? 'Estornos de pagamentos de mesas'
+              : 'Receitas de pagamentos de mesas',
+            isDefault: isRefund ? 0 : 1,
+          })
+          .returning();
+        categoryId = category.id;
+      }
+
+      let cashRegisterId: string | null = null;
+      let shiftId: string | null = null;
+
+      if (paymentMethod === 'dinheiro') {
+        const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, branchId);
+        const cashRegister = activeCashRegisters[0];
+
+        if (cashRegister) {
+          const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
+          if (activeShift) {
+            cashRegisterId = cashRegister.id;
+            shiftId = activeShift.id;
+
+            await tx
+              .update(cashRegisters)
+              .set({
+                currentBalance: sql`${cashRegisters.currentBalance} + ${isRefund ? -Number(amount) : Number(amount)}`,
+                updatedAt: new Date(),
+              })
+              .where(eq(cashRegisters.id, cashRegister.id));
+          }
+        }
+      }
+
+      const [transaction] = await tx
+        .insert(financialTransactions)
+        .values({
+          restaurantId,
+          recordedByUserId: userId,
+          branchId,
+          cashRegisterId,
+          shiftId,
+          categoryId,
+          type,
+          origin: 'pdv',
+          description: `${isRefund ? 'Estorno' : 'Venda'} - Mesa ${table.number}`,
+          paymentMethod,
+          amount,
+          referenceOrderId: null,
+          occurredAt: payment.createdAt || new Date(),
+          note: `${payment.notes || ''}${payment.notes ? ' ' : ''}Pagamento de mesa ${payment.id}`,
+        })
+        .returning();
+
+      return transaction;
+    });
+  }
+
   async getFinancialTransactions(
     restaurantId: string,
     branchId: string | null,
@@ -7016,11 +7159,38 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(desc(cashRegisterShifts.openedAt));
 
-    return results.map((r: any) => ({
-      ...r.shift,
-      cashRegister: r.cashRegister!,
-      openedBy: r.openedBy!,
-      closedBy: r.closedBy || undefined,
+    return await Promise.all(results.map(async (r: any) => {
+      const shift = {
+        ...r.shift,
+        cashRegister: r.cashRegister!,
+        openedBy: r.openedBy!,
+        closedBy: r.closedBy || undefined,
+      };
+
+      if (shift.status !== 'aberto') {
+        return shift;
+      }
+
+      const shiftTransactions = await db
+        .select()
+        .from(financialTransactions)
+        .where(eq(financialTransactions.shiftId, shift.id));
+
+      const cashTransactions = shiftTransactions.filter(
+        (transaction: FinancialTransaction) => transaction.paymentMethod === 'dinheiro'
+      );
+
+      return {
+        ...shift,
+        totalRevenues: cashTransactions
+          .filter((transaction: FinancialTransaction) => transaction.type === 'receita')
+          .reduce((sum: number, transaction: FinancialTransaction) => sum + parseFloat(transaction.amount), 0)
+          .toFixed(2),
+        totalExpenses: cashTransactions
+          .filter((transaction: FinancialTransaction) => transaction.type === 'despesa')
+          .reduce((sum: number, transaction: FinancialTransaction) => sum + parseFloat(transaction.amount), 0)
+          .toFixed(2),
+      };
     }));
   }
 

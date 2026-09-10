@@ -202,6 +202,48 @@ const isValidStatusTransition = (currentStatus: string, newStatus: string): bool
 };
 
 const orderStatusConfig = {
+  aguardando_confirmacao: {
+    label: 'Aguardando confirmação',
+    color: `bg-[${COLORS.primary.DEFAULT}]`,
+    gradient: 'from-indigo-500 to-indigo-600',
+    lightColor: `bg-[${COLORS.primary.bg}]`,
+    textColor: `text-[${COLORS.primary.dark}]`,
+  },
+  pendente: {
+    label: 'Novo',
+    color: `bg-[${COLORS.primary.DEFAULT}]`,
+    gradient: 'from-indigo-500 to-indigo-600',
+    lightColor: `bg-[${COLORS.primary.bg}]`,
+    textColor: `text-[${COLORS.primary.dark}]`,
+  },
+  em_preparo: {
+    label: 'Preparando',
+    color: `bg-[${COLORS.warning.DEFAULT}]`,
+    gradient: 'from-amber-500 to-amber-600',
+    lightColor: `bg-[${COLORS.warning.bg}]`,
+    textColor: `text-[${COLORS.warning.dark}]`,
+  },
+  pronto: {
+    label: 'Pronto',
+    color: `bg-[${COLORS.success.DEFAULT}]`,
+    gradient: 'from-emerald-500 to-emerald-600',
+    lightColor: `bg-[${COLORS.success.bg}]`,
+    textColor: `text-[${COLORS.success.dark}]`,
+  },
+  servido: {
+    label: 'Completo',
+    color: `bg-[${COLORS.success.DEFAULT}]`,
+    gradient: 'from-emerald-600 to-emerald-700',
+    lightColor: `bg-[${COLORS.success.bg}]`,
+    textColor: `text-[${COLORS.success.dark}]`,
+  },
+  cancelado: {
+    label: 'Cancelado',
+    color: `bg-[${COLORS.neutral.medium}]`,
+    gradient: 'from-gray-500 to-gray-600',
+    lightColor: `bg-[${COLORS.neutral.bg}]`,
+    textColor: `text-[${COLORS.neutral.medium}]`,
+  },
   pending: { 
     label: 'Novo', 
     color: `bg-[${COLORS.primary.DEFAULT}]`,
@@ -245,6 +287,12 @@ const orderStatusConfig = {
     textColor: `text-[${COLORS.neutral.medium}]`,
   },
 };
+
+const isOrderCancellationDisabled = (status: string | null | undefined) =>
+  status === 'cancelado' ||
+  status === 'cancelled' ||
+  status === 'servido' ||
+  status === 'completed';
 
 export function TableDetailsDialog({
   open,
@@ -593,6 +641,8 @@ export function TableDetailsDialog({
     onSuccess: () => {
       debouncedInvalidateQueries([
         [`/api/tables/${table?.id}/orders-by-guest`],
+        [`/api/tables/${table?.id}`],
+        ['/api/tables/with-orders'],
         ['/api/tables'],
         ['/api/orders'],
       ]);
@@ -1498,7 +1548,7 @@ export function TableDetailsDialog({
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem 
                                       onClick={() => setOrderToEdit(order)}
-                                      disabled={order.status === 'cancelled' || order.status === 'completed'}
+                                      disabled={isOrderCancellationDisabled(order.status)}
                                     >
                                       <Pencil className="h-4 w-4 mr-2" />
                                       Editar Pedido
@@ -1511,7 +1561,7 @@ export function TableDetailsDialog({
                                     <DropdownMenuItem 
                                       className="text-red-600 focus:text-red-600"
                                       onClick={() => setOrderToCancel(order)}
-                                      disabled={order.status === 'cancelled' || order.status === 'completed'}
+                                      disabled={isOrderCancellationDisabled(order.status)}
                                     >
                                       <X className="h-4 w-4 mr-2" />
                                       Cancelar Pedido
