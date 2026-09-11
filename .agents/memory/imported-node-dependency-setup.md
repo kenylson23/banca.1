@@ -14,3 +14,9 @@ Deployment builds may not reach Replit's internal package firewall host. If a lo
 **Why:** The Replit workspace can install those URLs locally, while an external deployment builder fails with a DNS/network error.
 
 **How to apply:** Search the lockfile for `replit.internal` after setup and ensure no internal tarball URL remains; then validate with a clean `npm ci` using the public registry and run the production build.
+
+Build-time packages referenced by Vite, PostCSS, Tailwind, or their config files must be regular dependencies when the deployment builder installs with `--omit=dev`; moving only the obvious CLI package is not enough if a config plugin is loaded during compilation.
+
+**Why:** A production-only install can fail after Vite starts when a Tailwind/PostCSS plugin remains in `devDependencies`, even though the first missing package was fixed.
+
+**How to apply:** Reproduce the publisher's install mode in a clean directory with `npm ci --omit=dev` and run the full production build before declaring deployment fixed.

@@ -17,7 +17,7 @@ Do not make changes to the file `Y`.
 - The project requires `DATABASE_URL` and `SESSION_SECRET`; the existing Replit environment provides these values.
 - Database migrations run automatically when the server starts.
 - For a clean dependency install, use `npm ci`.
-- The production deployment installs development dependencies before running `npm run build`, then starts with `npm start`; this is required because Vite and esbuild are development dependencies.
+- The production deployment uses `npm install --omit=dev` followed by `npm run build` and `npm start`; build tools are production dependencies so this works with the publisher's production install mode.
 - Keep package tarball URLs in `package-lock.json` on the public npm registry; Replit's internal package firewall host is not reachable by external deployment builders.
 
 ## Recent Changes

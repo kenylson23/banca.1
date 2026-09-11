@@ -40,4 +40,4 @@ externalPort = 80
 [deployment]
 deploymentTarget = "autoscale"
 run = ["npm", "start"]
-build = ["bash", "-c", "npm install --include=dev && npm run build"]
+build = ["bash", "-c", "npm install --omit=dev --registry=https://registry.npmjs.org/ --no-audit --no-fund && npm run build"]
