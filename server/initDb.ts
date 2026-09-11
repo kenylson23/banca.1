@@ -1568,28 +1568,28 @@ export async function ensureTablesExist() {
           `);
         }
 
-         // Existing databases may already have an Enterprise plan created
-         // before the standard feature list was added. Keep that plan's
-         // unlimited limits while repairing its feature access in place.
-         await db.execute(sql`
-           UPDATE subscription_plans
-           SET features = '[
-             "tudo_ilimitado", "servidor_dedicado", "white_label",
-             "integracao_personalizada", "treinamento_presencial",
-             "sla_garantido", "suporte_24_7", "gerente_conta_dedicado",
-             "pdv", "gestao_mesas", "menu_digital", "qr_code",
-             "cozinha_tempo_real", "relatorios_basicos", "impressao_recibos",
-             "fidelidade", "cupons", "gestao_clientes", "delivery_takeout",
-             "relatorios_avancados", "dashboard_analytics", "gestao_despesas",
-             "multi_filial", "inventario", "relatorios_financeiros",
-             "api_integracoes", "exportacao_dados", "customizacao_visual",
-             "multiplos_turnos", "suporte_whatsapp"
-           ]'::jsonb,
-           updated_at = NOW()
-           WHERE slug = 'enterprise'
-         `);
-        
       }
+
+      // Existing databases may already have an Enterprise plan created
+      // before the standard feature list was added. Keep that plan's
+      // unlimited limits while repairing its feature access in place.
+      await db.execute(sql`
+        UPDATE subscription_plans
+        SET features = '[
+          "tudo_ilimitado", "servidor_dedicado", "white_label",
+          "integracao_personalizada", "treinamento_presencial",
+          "sla_garantido", "suporte_24_7", "gerente_conta_dedicado",
+          "pdv", "gestao_mesas", "menu_digital", "qr_code",
+          "cozinha_tempo_real", "relatorios_basicos", "impressao_recibos",
+          "fidelidade", "cupons", "gestao_clientes", "delivery_takeout",
+          "relatorios_avancados", "dashboard_analytics", "gestao_despesas",
+          "multi_filial", "inventario", "relatorios_financeiros",
+          "api_integracoes", "exportacao_dados", "customizacao_visual",
+          "multiplos_turnos", "suporte_whatsapp"
+        ]'::jsonb,
+        updated_at = NOW()
+        WHERE slug = 'enterprise'
+      `);
       
       isInitialized = true;
       

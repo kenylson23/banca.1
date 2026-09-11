@@ -42,7 +42,7 @@ export function useFeatureAccess(feature: Feature): FeatureAccessResult {
   });
 
    const features = normalizeFeatures(subscription?.plan?.features);
-   const hasAccess = features.includes(feature) || subscription?.plan?.slug === 'enterprise';
+   const hasAccess = hasEnterpriseAccess(subscription?.plan) || features.includes(feature);
 
   return {
     hasAccess,
@@ -70,7 +70,7 @@ export function useMultipleFeatureAccess(requiredFeatures: Feature[]): FeatureAc
 
    const features = normalizeFeatures(subscription?.plan?.features);
    const hasAccess = requiredFeatures.every(
-     feature => features.includes(feature) || subscription?.plan?.slug === 'enterprise',
+     feature => hasEnterpriseAccess(subscription?.plan) || features.includes(feature),
    );
 
   return {
@@ -99,7 +99,7 @@ export function useAnyFeatureAccess(anyOfFeatures: Feature[]): FeatureAccessResu
 
    const features = normalizeFeatures(subscription?.plan?.features);
    const hasAccess = anyOfFeatures.some(
-     feature => features.includes(feature) || subscription?.plan?.slug === 'enterprise',
+     feature => hasEnterpriseAccess(subscription?.plan) || features.includes(feature),
    );
 
   return {
@@ -128,4 +128,10 @@ function normalizeFeatures(value: unknown): string[] {
   }
 
   return [];
+}
+
+function hasEnterpriseAccess(plan: { slug?: unknown; name?: unknown } | null | undefined): boolean {
+  const slug = String(plan?.slug || '').trim().toLowerCase();
+  const name = String(plan?.name || '').trim().toLowerCase();
+  return slug === 'enterprise' || name === 'enterprise';
 }

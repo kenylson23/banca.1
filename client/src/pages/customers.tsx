@@ -78,11 +78,25 @@ export default function Customers() {
 
   // Check if customer management feature is available in the plan
   const hasCustomerManagement = useMemo(() => {
-    if (!subscription?.plan?.features) return false;
-    const features = Array.isArray(subscription.plan.features) 
-      ? subscription.plan.features 
-      : JSON.parse(subscription.plan.features || '[]');
-    return features.includes('gestao_clientes') || subscription?.plan?.slug === 'enterprise';
+    const plan = subscription?.plan;
+    if (!plan) return false;
+
+    const planSlug = String(plan.slug || '').trim().toLowerCase();
+    const planName = String(plan.name || '').trim().toLowerCase();
+    if (planSlug === 'enterprise' || planName === 'enterprise') return true;
+
+    if (!plan.features) return false;
+    const features = Array.isArray(plan.features)
+      ? plan.features
+      : (() => {
+          try {
+            const parsed = JSON.parse(plan.features);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch {
+            return [];
+          }
+        })();
+    return features.includes('gestao_clientes');
   }, [subscription]);
 
   const handleSubmit = (e: React.FormEvent) => {
