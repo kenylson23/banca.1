@@ -100,7 +100,9 @@ export default function Customers() {
     if (editingCustomer) {
       updateCustomerMutation.mutate({ id: editingCustomer.id, data: formData });
     } else {
-      createCustomerMutation.mutate(formData);
+      createCustomerMutation.mutate(formData, {
+        onSuccess: resetForm,
+      });
     }
   };
 
@@ -109,7 +111,7 @@ export default function Customers() {
       name: "",
       phone: "",
       email: "",
-       nif: "",
+      nif: "",
     });
     setEditingCustomer(null);
     setIsDialogOpen(false);
