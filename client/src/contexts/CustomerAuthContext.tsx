@@ -26,6 +26,7 @@ interface CustomerAuthContextType {
   customer: CustomerInfo | null;
   loyalty: LoyaltyInfo | null;
   token: string | null;
+  loginWithPhone: (phone: string, restaurantId: string) => Promise<boolean>;
   requestOtp: (phone: string, restaurantId: string) => Promise<{ success: boolean; customerId?: string; otpCode?: string; message?: string }>;
   verifyOtp: (phone: string, restaurantId: string, otpCode: string) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -86,6 +87,29 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
       setIsLoading(false);
     }
   }, [checkAuth]);
+
+  const loginWithPhone = async (phone: string, restaurantId: string) => {
+    try {
+      const response = await apiRequest('POST', '/api/public/customer-auth/login-phone', {
+        phone,
+        restaurantId,
+      });
+      const data = await response.json();
+
+      if (data.success && data.token) {
+        localStorage.setItem(STORAGE_KEY, data.token);
+        setToken(data.token);
+        setCustomer(data.customer);
+        setLoyalty(data.loyalty);
+        setIsAuthenticated(true);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      return false;
+    }
+  };
 
   const requestOtp = async (phone: string, restaurantId: string) => {
     try {
@@ -177,6 +201,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
         customer,
         loyalty,
         token,
+        loginWithPhone,
         requestOtp,
         verifyOtp,
         logout,

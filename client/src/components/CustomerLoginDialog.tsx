@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
-import { User, Phone, KeyRound, Loader2, Gift, LogOut, Crown, Star, TrendingUp, Award, Sparkles, Percent, ShoppingBag, Package, Tag, History, ChevronRight } from 'lucide-react';
+import { User, Phone, Loader2, Gift, LogOut, Crown, Star, TrendingUp, Award, Sparkles, Percent, ShoppingBag, Package, Tag, History, ChevronRight } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { Progress } from '@/components/ui/progress';
 import { motion } from 'framer-motion';
@@ -28,7 +28,7 @@ interface CustomerLoginDialogProps {
   primaryColor?: string;
 }
 
-type Step = 'phone' | 'otp' | 'profile';
+type Step = 'phone' | 'profile';
 
 export function CustomerLoginDialog({ 
   open, 
@@ -41,18 +41,15 @@ export function CustomerLoginDialog({
     isAuthenticated, 
     customer, 
     loyalty, 
-    requestOtp, 
-    verifyOtp, 
+    loginWithPhone,
     logout 
   } = useCustomerAuth();
   
   const [step, setStep] = useState<Step>(isAuthenticated ? 'profile' : 'phone');
   const [phone, setPhone] = useState('');
-  const [otpCode, setOtpCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [devOtpCode, setDevOtpCode] = useState<string | null>(null);
 
-  const handleRequestOtp = async () => {
+  const handlePhoneLogin = async () => {
     if (!phone || phone.length < 9) {
       toast({
         title: 'Telefone inválido',
@@ -64,49 +61,8 @@ export function CustomerLoginDialog({
 
     setIsLoading(true);
     try {
-      const result = await requestOtp(phone, restaurantId);
-      
-      if (result.success) {
-        setStep('otp');
-        if (result.otpCode) {
-          setDevOtpCode(result.otpCode);
-        }
-        toast({
-          title: 'Código enviado',
-          description: 'Verifique seu telefone para o código de verificação',
-        });
-      } else {
-        toast({
-          title: 'Erro',
-          description: result.message || 'Não foi possível enviar o código',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível enviar o código de verificação',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      const success = await loginWithPhone(phone, restaurantId);
 
-  const handleVerifyOtp = async () => {
-    if (!otpCode || otpCode.length !== 6) {
-      toast({
-        title: 'Código inválido',
-        description: 'O código deve ter 6 dígitos',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const success = await verifyOtp(phone, restaurantId, otpCode);
-      
       if (success) {
         setStep('profile');
         toast({
@@ -115,15 +71,15 @@ export function CustomerLoginDialog({
         });
       } else {
         toast({
-          title: 'Código inválido',
-          description: 'O código está incorreto ou expirou',
+          title: 'Erro',
+          description: 'Não foi possível entrar com este telefone',
           variant: 'destructive',
         });
       }
     } catch (error) {
       toast({
         title: 'Erro',
-        description: 'Não foi possível verificar o código',
+        description: 'Não foi possível entrar com este telefone',
         variant: 'destructive',
       });
     } finally {
@@ -135,8 +91,6 @@ export function CustomerLoginDialog({
     await logout();
     setStep('phone');
     setPhone('');
-    setOtpCode('');
-    setDevOtpCode(null);
     toast({
       title: 'Logout realizado',
       description: 'Até a próxima!',
@@ -253,7 +207,7 @@ export function CustomerLoginDialog({
       </div>
       
       <Button 
-        onClick={handleRequestOtp} 
+        onClick={handlePhoneLogin}
         disabled={isLoading || phone.length < 9}
         className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-white font-semibold shadow-md shadow-amber-500/30"
         data-testid="button-request-otp"
@@ -261,7 +215,7 @@ export function CustomerLoginDialog({
         {isLoading ? (
           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
         ) : null}
-        Receber Código
+        Entrar com telefone
       </Button>
       
       <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-lg p-3">
@@ -272,77 +226,6 @@ export function CustomerLoginDialog({
           </p>
         </div>
       </div>
-    </div>
-  );
-
-  const renderOtpStep = () => (
-    <div className="space-y-4">
-      <div className="text-center mb-6">
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center mx-auto mb-4 shadow-sm border border-amber-500/30">
-          <KeyRound className="w-8 h-8 text-amber-500" />
-        </div>
-        <p className="text-sm text-neutral-300">
-          Digite o código de 6 dígitos enviado para <span className="font-semibold text-white">{phone}</span>
-        </p>
-      </div>
-
-      {devOtpCode && (
-        <div className="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 rounded-lg p-3 text-center">
-          <p className="text-xs text-amber-500 mb-1 font-medium">Código de teste (dev)</p>
-          <p className="text-lg font-mono font-bold text-amber-400">{devOtpCode}</p>
-        </div>
-      )}
-      
-      <div className="space-y-2">
-        <Label htmlFor="otp" className="text-neutral-200 font-medium">Código de Verificação</Label>
-        <Input
-          id="otp"
-          type="text"
-          inputMode="numeric"
-          placeholder="000000"
-          value={otpCode}
-          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-          className="text-center text-2xl tracking-widest font-mono h-14 bg-neutral-800 border-neutral-700 text-white placeholder:text-neutral-600 focus:border-amber-500 focus:ring-amber-500"
-          maxLength={6}
-          data-testid="input-otp-code"
-        />
-      </div>
-      
-      <div className="flex gap-2">
-        <Button 
-          variant="outline" 
-          onClick={() => {
-            setStep('phone');
-            setOtpCode('');
-            setDevOtpCode(null);
-          }}
-          className="flex-1 h-11 border-neutral-700 bg-neutral-800 hover:bg-neutral-700 text-white"
-          data-testid="button-back-to-phone"
-        >
-          Voltar
-        </Button>
-        <Button 
-          onClick={handleVerifyOtp} 
-          disabled={isLoading || otpCode.length !== 6}
-          className="flex-1 h-11 bg-amber-500 hover:bg-amber-600 text-white font-semibold shadow-md shadow-amber-500/30"
-          data-testid="button-verify-otp"
-        >
-          {isLoading ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : null}
-          Verificar
-        </Button>
-      </div>
-      
-      <Button 
-        variant="ghost" 
-        onClick={handleRequestOtp}
-        disabled={isLoading}
-        className="w-full text-sm hover:bg-amber-500/10 text-amber-500"
-        data-testid="button-resend-otp"
-      >
-        Reenviar código
-      </Button>
     </div>
   );
 
@@ -707,13 +590,11 @@ export function CustomerLoginDialog({
           </DialogTitle>
           <DialogDescription className="text-sm text-neutral-400">
             {step === 'phone' && 'Entre com seu telefone para ver seus pontos e benefícios'}
-            {step === 'otp' && 'Confirme seu acesso com o código enviado'}
             {step === 'profile' && 'Seus pontos e benefícios de fidelidade'}
           </DialogDescription>
         </DialogHeader>
         
         {step === 'phone' && renderPhoneStep()}
-        {step === 'otp' && renderOtpStep()}
         {step === 'profile' && renderProfileStep()}
       </DialogContent>
     </Dialog>

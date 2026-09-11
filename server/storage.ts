@@ -712,6 +712,7 @@ export interface IStorage {
   // Customer Session operations (for multi-device authentication)
   getOrCreateCustomerByPhone(restaurantId: string, phone: string): Promise<Customer>;
   createCustomerSession(customerId: string, restaurantId: string, deviceInfo?: string, ipAddress?: string): Promise<CustomerSession>;
+  createCustomerPhoneSession(customerId: string, restaurantId: string, deviceInfo?: string, ipAddress?: string): Promise<CustomerSession>;
   verifyCustomerOtp(customerId: string, restaurantId: string, otpCode: string): Promise<CustomerSession | null>;
   getCustomerSessionByToken(token: string): Promise<(CustomerSession & { customer: Customer }) | null>;
   refreshCustomerSession(token: string): Promise<CustomerSession | null>;
@@ -8804,6 +8805,34 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     
+    return session;
+  }
+
+  async createCustomerPhoneSession(
+    customerId: string,
+    restaurantId: string,
+    deviceInfo?: string,
+    ipAddress?: string
+  ): Promise<CustomerSession> {
+    const token = `cs_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    const [session] = await db
+      .insert(customerSessions)
+      .values({
+        customerId,
+        restaurantId,
+        token,
+        otpCode: null,
+        otpExpiresAt: null,
+        otpAttempts: 0,
+        deviceInfo,
+        ipAddress,
+        expiresAt,
+        isActive: 1,
+      })
+      .returning();
+
     return session;
   }
 

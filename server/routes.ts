@@ -3939,6 +3939,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== CUSTOMER AUTHENTICATION (Multi-device login) =====
+
+  // Direct phone login for the public menu. The customer can access loyalty
+  // data without waiting for an OTP; the session remains server-side and
+  // expires after 30 days like the previous verified sessions.
+  app.post("/api/public/customer-auth/login-phone", async (req, res) => {
+    try {
+      const { phone, restaurantId } = req.body;
+
+      if (!phone || !restaurantId) {
+        return res.status(400).json({ message: "Telefone e ID do restaurante são obrigatórios" });
+      }
+
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurante não encontrado" });
+      }
+
+      const normalizedPhone = phone.replace(/[\s\-\(\)]/g, '');
+      const customer = await storage.getOrCreateCustomerByPhone(restaurantId, normalizedPhone);
+      const deviceInfo = req.headers['user-agent'] || 'Unknown device';
+      const ipAddress = req.ip || req.socket.remoteAddress || 'Unknown';
+      const session = await storage.createCustomerPhoneSession(
+        customer.id,
+        restaurantId,
+        deviceInfo,
+        ipAddress
+      );
+      const loyaltyProgram = await storage.getLoyaltyProgram(restaurantId);
+
+      res.json({
+        success: true,
+        token: session.token,
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+          email: customer.email,
+          loyaltyPoints: customer.loyaltyPoints,
+          tier: customer.tier,
+          totalSpent: customer.totalSpent,
+          visitCount: customer.visitCount,
+        },
+        loyalty: loyaltyProgram && loyaltyProgram.isActive === 1 ? {
+          isActive: true,
+          pointsPerCurrency: loyaltyProgram.pointsPerCurrency,
+          currencyPerPoint: loyaltyProgram.currencyPerPoint,
+          minPointsToRedeem: loyaltyProgram.minPointsToRedeem,
+        } : null,
+        expiresAt: session.expiresAt,
+      });
+    } catch (error) {
+      console.error('Customer phone login error:', error);
+      res.status(500).json({ message: "Erro ao entrar com o telefone" });
+    }
+  });
   
   // Request OTP code for customer login
   app.post("/api/public/customer-auth/request-otp", async (req, res) => {
