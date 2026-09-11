@@ -5,20 +5,26 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useToast } from './use-toast';
+import { useAuth } from './useAuth';
 import type { Customer } from '@shared/schema';
 
 export function useCustomersOffline() {
   const { toast } = useToast();
+  const { user } = useAuth();
 
-  // Fetch customers (online only)
+  // Wait for the authenticated session before loading protected customer data.
+  // Otherwise the first request can receive a 401 while auth is still booting,
+  // leaving the page stuck displaying an empty list.
   const { data: customers, isLoading, refetch } = useQuery<Customer[]>({
-    queryKey: ['/api/customers'],
+    queryKey: ['/api/customers', { branchId: user?.activeBranchId ?? null }],
+    enabled: !!user?.restaurantId,
     queryFn: async () => {
       const response = await apiRequest('GET', '/api/customers');
       const result = await response.json();
       return Array.isArray(result) ? result : [];
     },
-    staleTime: 30000, // 30 seconds
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   // Ensure customers is always an array
