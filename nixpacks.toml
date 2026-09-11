@@ -1,0 +1,17 @@
+# Keep Railway's Nixpacks build deterministic and avoid its automatic npm ci
+# path, which can fail while unpacking this project's optional native packages.
+
+[variables]
+NPM_CONFIG_PRODUCTION = "false"
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm install --include=dev --no-audit --no-fund"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "NODE_ENV=production SERVE_STATIC=true node dist/index.js"
