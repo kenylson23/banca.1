@@ -6990,11 +6990,20 @@ var init_storage = __esm({
           if (!lockedOrder) {
             throw new Error("Order not found");
           }
+          if (data.confirmPayment && lockedOrder.status !== "aguardando_confirmacao") {
+            throw new Error("Este pedido j\xE1 n\xE3o aguarda confirma\xE7\xE3o de pagamento");
+          }
           const [updated] = await tx.update(orders).set({
             paidAmount: newPaidAmount.toFixed(2),
             changeAmount: Math.max(0, changeAmount).toFixed(2),
             paymentStatus,
             paymentMethod: data.paymentMethod,
+            ...data.confirmPayment ? {
+              status: "pendente",
+              paymentConfirmedAt: /* @__PURE__ */ new Date(),
+              paymentConfirmedBy: data.confirmPayment.confirmedBy,
+              paymentRejectionReason: null
+            } : {},
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq(orders.id, orderId)).returning();
           if (updated.tableId) {
@@ -18445,20 +18454,28 @@ async function registerRoutes(app2) {
       if (action === "reject" && !reason?.trim()) {
         return res.status(400).json({ message: "Informe o motivo da rejei\xE7\xE3o" });
       }
-      const [updated] = await db.update(orders).set(action === "confirm" ? {
-        status: "pendente",
-        paymentStatus: "pago",
-        paidAmount: order.totalAmount,
-        paymentConfirmedAt: /* @__PURE__ */ new Date(),
-        paymentConfirmedBy: currentUser.id,
-        paymentRejectionReason: null,
-        updatedAt: /* @__PURE__ */ new Date()
-      } : {
-        status: "aguardando_confirmacao",
-        paymentStatus: "nao_pago",
-        paymentRejectionReason: reason?.trim() || null,
-        updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq5(orders.id, order.id)).returning();
+      let updated;
+      if (action === "confirm") {
+        updated = await storage.recordPayment(
+          restaurantId,
+          order.id,
+          {
+            amount: order.totalAmount,
+            paymentMethod: order.paymentMethod,
+            confirmPayment: {
+              confirmedBy: currentUser.id
+            }
+          },
+          currentUser.id
+        );
+      } else {
+        [updated] = await db.update(orders).set({
+          status: "aguardando_confirmacao",
+          paymentStatus: "nao_pago",
+          paymentRejectionReason: reason?.trim() || null,
+          updatedAt: /* @__PURE__ */ new Date()
+        }).where(eq5(orders.id, order.id)).returning();
+      }
       await storage.createPaymentEvent(restaurantId, {
         orderId: order.id,
         sessionId: order.tableSessionId,
@@ -18484,6 +18501,9 @@ async function registerRoutes(app2) {
     } catch (error) {
       if (error instanceof z2.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
+      }
+      if (error instanceof Error && error.message === "Este pedido j\xE1 n\xE3o aguarda confirma\xE7\xE3o de pagamento") {
+        return res.status(409).json({ message: error.message });
       }
       console.error("Payment confirmation error:", error);
       res.status(500).json({ message: "N\xE3o foi poss\xEDvel atualizar a confirma\xE7\xE3o do pagamento" });

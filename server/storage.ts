@@ -287,6 +287,9 @@ export interface IStorage {
     amount: string;
     paymentMethod: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
     receivedAmount?: string;
+    confirmPayment?: {
+      confirmedBy: string;
+    };
   }, userId?: string): Promise<Order>;
   calculateOrderTotal(orderId: string): Promise<Order>;
   cancelOrder(restaurantId: string, orderId: string, cancellationReason: string, userId?: string, branchId?: string | null): Promise<Order>;
@@ -3609,6 +3612,9 @@ export class DatabaseStorage implements IStorage {
     amount: string;
     paymentMethod: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
     receivedAmount?: string;
+    confirmPayment?: {
+      confirmedBy: string;
+    };
   }, userId?: string): Promise<Order> {
     const order = await this.getOrderById(restaurantId, orderId);
     if (!order) {
@@ -3662,6 +3668,9 @@ export class DatabaseStorage implements IStorage {
       if (!lockedOrder) {
         throw new Error('Order not found');
       }
+      if (data.confirmPayment && lockedOrder.status !== 'aguardando_confirmacao') {
+        throw new Error('Este pedido já não aguarda confirmação de pagamento');
+      }
 
       const [updated] = await tx
         .update(orders)
@@ -3670,6 +3679,14 @@ export class DatabaseStorage implements IStorage {
           changeAmount: Math.max(0, changeAmount).toFixed(2),
           paymentStatus,
           paymentMethod: data.paymentMethod,
+          ...(data.confirmPayment
+            ? {
+                status: 'pendente' as const,
+                paymentConfirmedAt: new Date(),
+                paymentConfirmedBy: data.confirmPayment.confirmedBy,
+                paymentRejectionReason: null,
+              }
+            : {}),
           updatedAt: new Date()
         })
         .where(eq(orders.id, orderId))

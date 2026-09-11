@@ -7616,26 +7616,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Informe o motivo da rejeição" });
       }
 
-      const [updated] = await db
-        .update(schema.orders)
-        .set(action === 'confirm'
-          ? {
-              status: 'pendente',
-              paymentStatus: 'pago',
-              paidAmount: order.totalAmount,
-              paymentConfirmedAt: new Date(),
-              paymentConfirmedBy: currentUser.id,
-              paymentRejectionReason: null,
-              updatedAt: new Date(),
-            }
-          : {
-              status: 'aguardando_confirmacao',
-              paymentStatus: 'nao_pago',
-              paymentRejectionReason: reason?.trim() || null,
-              updatedAt: new Date(),
-            })
-        .where(eq(schema.orders.id, order.id))
-        .returning();
+      let updated: any;
+      if (action === 'confirm') {
+        // Use the same transactional payment path as cashier payments. Besides
+        // marking the order as paid, it updates the linked customer's
+        // totalSpent/visitCount exactly once and protects against concurrent
+        // confirmation requests.
+        updated = await storage.recordPayment(
+          restaurantId,
+          order.id,
+          {
+            amount: order.totalAmount,
+            paymentMethod: order.paymentMethod as any,
+            confirmPayment: {
+              confirmedBy: currentUser.id,
+            },
+          },
+          currentUser.id
+        );
+      } else {
+        [updated] = await db
+          .update(schema.orders)
+          .set({
+            status: 'aguardando_confirmacao',
+            paymentStatus: 'nao_pago',
+            paymentRejectionReason: reason?.trim() || null,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.orders.id, order.id))
+          .returning();
+      }
 
       await storage.createPaymentEvent(restaurantId, {
         orderId: order.id,
@@ -7665,6 +7675,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
+      }
+      if (
+        error instanceof Error
+        && error.message === "Este pedido já não aguarda confirmação de pagamento"
+      ) {
+        return res.status(409).json({ message: error.message });
       }
       console.error('Payment confirmation error:', error);
       res.status(500).json({ message: "Não foi possível atualizar a confirmação do pagamento" });
