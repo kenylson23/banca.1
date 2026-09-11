@@ -1332,7 +1332,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  app.get('/api/auth/user', isAuthenticated, async (req, res) => {
+  app.get('/api/auth/user', async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.json(null);
+    }
+
     try {
       const user = req.user as User;
       
