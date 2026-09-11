@@ -29,6 +29,7 @@ export function useCustomersOffline() {
       name: string;
       phone?: string;
       email?: string;
+      nif?: string;
       address?: string;
       birthDate?: string;
       notes?: string;
@@ -77,6 +78,7 @@ export function useCustomersOffline() {
         name?: string;
         phone?: string;
         email?: string;
+        nif?: string;
         address?: string;
         birthDate?: string;
         notes?: string;

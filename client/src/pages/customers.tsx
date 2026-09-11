@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomersOffline } from "@/hooks/useCustomersOffline";
-import { Trash2, UserPlus, Search, Users, TrendingUp, Star, Phone, Mail, Award, DollarSign, Calendar, Sparkles, UserCheck, WifiOff, Wifi, Lock, ArrowUpCircle, ChevronDown, Settings2, Check } from "lucide-react";
+import { Trash2, UserPlus, Search, Users, TrendingUp, Star, Phone, Mail, Award, DollarSign, Calendar, Sparkles, UserCheck, WifiOff, Wifi, Lock, ArrowUpCircle, FileText } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
 import { formatKwanza } from "@/lib/formatters";
@@ -39,18 +38,12 @@ export default function Customers() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
     email: "",
-    address: "",
-    defaultDiscount: "",
-    defaultDiscountType: "valor",
-    defaultServiceCharge: "",
-    defaultServiceName: "",
-    defaultPackagingFee: "",
+    nif: "",
   });
 
   // Check subscription to see if customer management is available
@@ -116,15 +109,9 @@ export default function Customers() {
       name: "",
       phone: "",
       email: "",
-      address: "",
-      defaultDiscount: "",
-      defaultDiscountType: "valor",
-      defaultServiceCharge: "",
-      defaultServiceName: "",
-      defaultPackagingFee: "",
+       nif: "",
     });
     setEditingCustomer(null);
-    setShowAdvanced(false);
     setIsDialogOpen(false);
   };
 
@@ -134,19 +121,8 @@ export default function Customers() {
       name: customer.name,
       phone: customer.phone || "",
       email: customer.email || "",
-      address: customer.address || "",
-      defaultDiscount: customer.defaultDiscount?.toString() || "",
-      defaultDiscountType: customer.defaultDiscountType || "valor",
-      defaultServiceCharge: customer.defaultServiceCharge?.toString() || "",
-      defaultServiceName: customer.defaultServiceName || "",
-      defaultPackagingFee: customer.defaultPackagingFee?.toString() || "",
+      nif: customer.nif || "",
     });
-    setShowAdvanced(Boolean(
-      customer.defaultDiscount ||
-      customer.defaultServiceCharge ||
-      customer.defaultServiceName ||
-      customer.defaultPackagingFee
-    ));
     setIsDialogOpen(true);
   };
 
@@ -313,189 +289,106 @@ export default function Customers() {
                 <span className="sm:inline">Novo</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[460px] max-h-[90vh] overflow-y-auto rounded-2xl p-0 gap-0" data-testid="dialog-create-customer">
-              <div className="border-b bg-gradient-to-br from-primary/10 via-background to-background px-5 py-4 pr-12">
+            <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto rounded-2xl p-0 gap-0" data-testid="dialog-create-customer">
+              <div className="border-b bg-muted/20 px-6 py-5 pr-12">
                 <DialogHeader className="space-y-1">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                      <UserPlus className="h-5 w-5" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
+                      <UserPlus className="h-5 w-5" strokeWidth={2} />
                     </div>
                     <div className="min-w-0">
-                      <DialogTitle className="text-lg">
+                      <DialogTitle className="text-xl tracking-tight">
                         {editingCustomer ? 'Editar cliente' : 'Novo cliente'}
                       </DialogTitle>
-                      <DialogDescription className="mt-1 text-xs">
-                        {editingCustomer ? 'Atualize apenas o que mudou.' : 'Preencha os dados essenciais para começar.'}
+                      <DialogDescription className="mt-1 text-sm">
+                        {editingCustomer ? 'Atualize os dados do cliente.' : 'Preencha os dados essenciais do cliente.'}
                       </DialogDescription>
                     </div>
                   </div>
                 </DialogHeader>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4 p-5">
-                <div className="space-y-1.5">
-                  <Label htmlFor="name" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <form onSubmit={handleSubmit} className="space-y-5 p-6">
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-sm font-medium">
                     Nome completo <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="name"
-                    placeholder="Ex.: João Manuel"
+                    placeholder="Digite o nome completo"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
                     autoFocus
-                    className="h-10 rounded-xl"
+                    className="h-11 rounded-lg"
                     data-testid="input-customer-name"
                   />
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="phone" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone" className="text-sm font-medium">
                       Telefone
                     </Label>
                     <div className="relative">
-                      <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.8} />
                       <Input
                         id="phone"
                         type="tel"
                         placeholder="+244 900 000 000"
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        className="h-10 rounded-xl pl-9"
+                        className="h-11 rounded-lg pl-9"
                         data-testid="input-customer-phone"
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-sm font-medium">
                       Email
                     </Label>
                     <div className="relative">
-                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.8} />
                       <Input
                         id="email"
                         type="email"
                         placeholder="email@exemplo.com"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="h-10 rounded-xl pl-9"
+                        className="h-11 rounded-lg pl-9"
                         data-testid="input-customer-email"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="address" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Endereço <span className="font-normal normal-case tracking-normal">(opcional)</span>
+                <div className="space-y-2">
+                  <Label htmlFor="nif" className="text-sm font-medium">
+                    NIF
                   </Label>
-                  <Input
-                    id="address"
-                    placeholder="Rua, número ou bairro"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="h-10 rounded-xl"
-                    data-testid="input-customer-address"
-                  />
+                  <div className="relative">
+                    <FileText className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.8} />
+                    <Input
+                      id="nif"
+                      placeholder="Digite o NIF"
+                      value={formData.nif}
+                      onChange={(e) => setFormData({ ...formData, nif: e.target.value })}
+                      className="h-11 rounded-lg pl-9"
+                      data-testid="input-customer-nif"
+                    />
+                  </div>
                 </div>
 
-                <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced} className="rounded-xl border bg-muted/20">
-                  <CollapsibleTrigger asChild>
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between gap-3 px-3.5 py-3 text-left transition-colors hover:bg-muted/40"
-                      data-testid="button-toggle-customer-preferences"
-                    >
-                      <span className="flex items-center gap-2">
-                        <Settings2 className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium">Preferências de pedido</span>
-                        <span className="text-xs text-muted-foreground">Opcional</span>
-                      </span>
-                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
-                    </button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-3 border-t px-3.5 pb-3.5 pt-3">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="defaultDiscount" className="text-xs text-muted-foreground">Desconto padrão</Label>
-                        <Input
-                          id="defaultDiscount"
-                          type="number"
-                          step="0.01"
-                          placeholder="0,00"
-                          value={formData.defaultDiscount}
-                          onChange={(e) => setFormData({ ...formData, defaultDiscount: e.target.value })}
-                          className="h-9 rounded-lg"
-                          data-testid="input-default-discount"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="defaultDiscountType" className="text-xs text-muted-foreground">Tipo de desconto</Label>
-                        <select
-                          id="defaultDiscountType"
-                          value={formData.defaultDiscountType}
-                          onChange={(e) => setFormData({ ...formData, defaultDiscountType: e.target.value as any })}
-                          className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
-                          data-testid="select-discount-type"
-                        >
-                          <option value="valor">Valor (Kz)</option>
-                          <option value="percentual">Percentual (%)</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="defaultServiceCharge" className="text-xs text-muted-foreground">Taxa de serviço</Label>
-                        <Input
-                          id="defaultServiceCharge"
-                          type="number"
-                          step="0.01"
-                          placeholder="0,00"
-                          value={formData.defaultServiceCharge}
-                          onChange={(e) => setFormData({ ...formData, defaultServiceCharge: e.target.value })}
-                          className="h-9 rounded-lg"
-                          data-testid="input-default-service-charge"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="defaultPackagingFee" className="text-xs text-muted-foreground">Taxa de embalagem</Label>
-                        <Input
-                          id="defaultPackagingFee"
-                          type="number"
-                          step="0.01"
-                          placeholder="0,00"
-                          value={formData.defaultPackagingFee}
-                          onChange={(e) => setFormData({ ...formData, defaultPackagingFee: e.target.value })}
-                          className="h-9 rounded-lg"
-                          data-testid="input-default-packaging-fee"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="defaultServiceName" className="text-xs text-muted-foreground">Nome da taxa</Label>
-                      <Input
-                        id="defaultServiceName"
-                        placeholder="Ex.: Serviço de mesa"
-                        value={formData.defaultServiceName}
-                        onChange={(e) => setFormData({ ...formData, defaultServiceName: e.target.value })}
-                        className="h-9 rounded-lg"
-                        data-testid="input-service-name"
-                      />
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-
-                <DialogFooter className="mt-2 -mx-5 -mb-5 border-t bg-muted/20 px-5 py-3">
+                <DialogFooter className="mt-7 -mx-6 -mb-6 border-t bg-muted/20 px-6 py-4">
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     onClick={() => {
                       setIsDialogOpen(false);
                       resetForm();
                     }}
-                    className="h-10 rounded-xl"
+                    className="h-10 rounded-lg px-5"
                     data-testid="button-cancel"
                   >
                     Cancelar
@@ -503,16 +396,13 @@ export default function Customers() {
                   <Button
                     type="submit"
                     disabled={createCustomerMutation.isPending || updateCustomerMutation.isPending}
-                    className="h-10 min-w-[132px] rounded-xl gap-2"
+                    className="h-10 min-w-[148px] rounded-lg bg-primary px-5 font-semibold shadow-sm transition-colors hover:bg-primary/90"
                     data-testid="button-submit-customer"
                   >
                     {createCustomerMutation.isPending || updateCustomerMutation.isPending ? (
                       'Salvando...'
                     ) : (
-                      <>
-                        <Check className="h-4 w-4" />
-                        {editingCustomer ? 'Salvar alterações' : 'Criar cliente'}
-                      </>
+                      editingCustomer ? 'Salvar alterações' : 'Cadastrar cliente'
                     )}
                   </Button>
                 </DialogFooter>
