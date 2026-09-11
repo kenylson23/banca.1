@@ -14,7 +14,8 @@ export function useCustomersOffline() {
   const { data: customers, isLoading, refetch } = useQuery<Customer[]>({
     queryKey: ['/api/customers'],
     queryFn: async () => {
-      const result = await apiRequest('GET', '/api/customers');
+      const response = await apiRequest('GET', '/api/customers');
+      const result = await response.json();
       return Array.isArray(result) ? result : [];
     },
     staleTime: 30000, // 30 seconds
