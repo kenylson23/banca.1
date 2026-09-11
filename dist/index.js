@@ -1095,6 +1095,7 @@ var init_schema = __esm({
       name: varchar("name", { length: 200 }).notNull(),
       phone: varchar("phone", { length: 50 }),
       email: varchar("email", { length: 255 }),
+      nif: varchar("nif", { length: 30 }),
       cpf: varchar("cpf", { length: 14 }),
       birthDate: timestamp("birth_date"),
       address: text("address"),
@@ -1128,6 +1129,7 @@ var init_schema = __esm({
       name: z.string().min(1, "Nome \xE9 obrigat\xF3rio"),
       phone: z.string().optional(),
       email: z.string().email("Email inv\xE1lido").optional().or(z.literal("")),
+      nif: z.string().optional(),
       birthDate: z.string().optional(),
       branchId: z.string().optional().nullable(),
       address: z.string().optional(),
@@ -1138,6 +1140,7 @@ var init_schema = __esm({
       name: z.string().min(1, "Nome \xE9 obrigat\xF3rio").optional(),
       phone: z.string().optional(),
       email: z.string().email("Email inv\xE1lido").optional().or(z.literal("")),
+      nif: z.string().optional(),
       birthDate: z.string().optional(),
       address: z.string().optional(),
       notes: z.string().optional(),
@@ -4720,7 +4723,29 @@ async function ensureTablesExist() {
               "treinamento_presencial",
               "sla_garantido",
               "suporte_24_7",
-              "gerente_conta_dedicado"
+              "gerente_conta_dedicado",
+              "pdv",
+              "gestao_mesas",
+              "menu_digital",
+              "qr_code",
+              "cozinha_tempo_real",
+              "relatorios_basicos",
+              "impressao_recibos",
+              "fidelidade",
+              "cupons",
+              "gestao_clientes",
+              "delivery_takeout",
+              "relatorios_avancados",
+              "dashboard_analytics",
+              "gestao_despesas",
+              "multi_filial",
+              "inventario",
+              "relatorios_financeiros",
+              "api_integracoes",
+              "exportacao_dados",
+              "customizacao_visual",
+              "multiplos_turnos",
+              "suporte_whatsapp"
             ]),
             isActive: 1,
             displayOrder: 4
@@ -4753,6 +4778,23 @@ async function ensureTablesExist() {
           `);
         }
       }
+      await db.execute(sql3`
+        UPDATE subscription_plans
+        SET features = '[
+          "tudo_ilimitado", "servidor_dedicado", "white_label",
+          "integracao_personalizada", "treinamento_presencial",
+          "sla_garantido", "suporte_24_7", "gerente_conta_dedicado",
+          "pdv", "gestao_mesas", "menu_digital", "qr_code",
+          "cozinha_tempo_real", "relatorios_basicos", "impressao_recibos",
+          "fidelidade", "cupons", "gestao_clientes", "delivery_takeout",
+          "relatorios_avancados", "dashboard_analytics", "gestao_despesas",
+          "multi_filial", "inventario", "relatorios_financeiros",
+          "api_integracoes", "exportacao_dados", "customizacao_visual",
+          "multiplos_turnos", "suporte_whatsapp"
+        ]'::jsonb,
+        updated_at = NOW()
+        WHERE slug = 'enterprise'
+      `);
       isInitialized = true;
       try {
         await db.execute(sql3`
@@ -5984,6 +6026,9 @@ var init_storage = __esm({
             }
           }
         }
+        if (payment.operatorId) {
+          await this.recordTablePaymentFinancialTransaction(restaurantId, payment.operatorId, newPayment);
+        }
         return newPayment;
       }
       async getSessionById(sessionId) {
@@ -7004,19 +7049,17 @@ var init_storage = __esm({
             }
             let cashRegisterId = null;
             let shiftId = null;
-            if (data.paymentMethod === "dinheiro") {
-              const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, order.branchId || null);
-              if (activeCashRegisters.length > 0) {
-                const cashRegister = activeCashRegisters[0];
-                const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
-                if (activeShift && cashRegister) {
-                  cashRegisterId = cashRegister.id;
-                  shiftId = activeShift.id;
-                  await tx.update(cashRegisters).set({
-                    currentBalance: sql4`${cashRegisters.currentBalance} + ${parseFloat(data.amount)}`,
-                    updatedAt: /* @__PURE__ */ new Date()
-                  }).where(eq(cashRegisters.id, cashRegister.id));
-                }
+            const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, order.branchId || null);
+            if (activeCashRegisters.length > 0) {
+              const cashRegister = activeCashRegisters[0];
+              const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
+              if (activeShift && cashRegister) {
+                cashRegisterId = cashRegister.id;
+                shiftId = activeShift.id;
+                await tx.update(cashRegisters).set({
+                  currentBalance: sql4`${cashRegisters.currentBalance} + ${parseFloat(data.amount)}`,
+                  updatedAt: /* @__PURE__ */ new Date()
+                }).where(eq(cashRegisters.id, cashRegister.id));
               }
             }
             await tx.insert(financialTransactions).values({
@@ -7146,12 +7189,16 @@ var init_storage = __esm({
         }).where(eq(orders.id, orderId)).returning();
         return updated;
       }
-      async cancelOrder(restaurantId, orderId, cancellationReason, userId) {
-        return await db.transaction(async (tx) => {
-          const [order] = await tx.select().from(orders).where(and(
+      async cancelOrder(restaurantId, orderId, cancellationReason, userId, branchId) {
+        const cancelledOrder = await db.transaction(async (tx) => {
+          const orderConditions = [
             eq(orders.id, orderId),
             eq(orders.restaurantId, restaurantId)
-          )).for("update");
+          ];
+          if (branchId) {
+            orderConditions.push(eq(orders.branchId, branchId));
+          }
+          const [order] = await tx.select().from(orders).where(and(...orderConditions)).for("update");
           if (!order) {
             throw new Error("Pedido n\xE3o encontrado");
           }
@@ -7240,19 +7287,17 @@ var init_storage = __esm({
             }
             let cashRegisterId = null;
             let shiftId = null;
-            if (order.paymentMethod === "dinheiro") {
-              const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, order.branchId || null);
-              if (activeCashRegisters.length > 0) {
-                const cashRegister = activeCashRegisters[0];
-                const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
-                if (activeShift && cashRegister) {
-                  cashRegisterId = cashRegister.id;
-                  shiftId = activeShift.id;
-                  await tx.update(cashRegisters).set({
-                    currentBalance: sql4`${cashRegisters.currentBalance} - ${paidAmount}`,
-                    updatedAt: /* @__PURE__ */ new Date()
-                  }).where(eq(cashRegisters.id, cashRegister.id));
-                }
+            const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, order.branchId || null);
+            if (activeCashRegisters.length > 0) {
+              const cashRegister = activeCashRegisters[0];
+              const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
+              if (activeShift && cashRegister) {
+                cashRegisterId = cashRegister.id;
+                shiftId = activeShift.id;
+                await tx.update(cashRegisters).set({
+                  currentBalance: sql4`${cashRegisters.currentBalance} - ${paidAmount}`,
+                  updatedAt: /* @__PURE__ */ new Date()
+                }).where(eq(cashRegisters.id, cashRegister.id));
               }
             }
             await tx.insert(financialTransactions).values({
@@ -7283,7 +7328,7 @@ var init_storage = __esm({
             };
             await this.restoreStockForOrder(restaurantId, order.branchId, orderWithItems, userId, tx);
           }
-          const [cancelledOrder] = await tx.update(orders).set({
+          const [cancelledOrder2] = await tx.update(orders).set({
             status: "cancelado",
             cancellationReason,
             cancelledAt: /* @__PURE__ */ new Date(),
@@ -7291,8 +7336,12 @@ var init_storage = __esm({
             refundAmount: paidAmount.toFixed(2),
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq(orders.id, orderId)).returning();
-          return cancelledOrder;
+          return cancelledOrder2;
         });
+        if (cancelledOrder?.tableId) {
+          await this.calculateTableTotal(restaurantId, cancelledOrder.tableId);
+        }
+        return cancelledOrder;
       }
       // Stats operations
       async getTodayStats(restaurantId, branchId) {
@@ -8764,7 +8813,111 @@ var init_storage = __esm({
         if (branchId !== null) {
           conditions.push(eq(cashRegisters.branchId, branchId));
         }
-        return await db.select().from(cashRegisters).where(and(...conditions)).orderBy(desc(cashRegisters.createdAt));
+        const registers = await db.select().from(cashRegisters).where(and(...conditions)).orderBy(desc(cashRegisters.createdAt));
+        const { registers: reconciledRegisters } = await this.reconcileCashRegisterBalances(
+          restaurantId,
+          branchId,
+          registers
+        );
+        return reconciledRegisters;
+      }
+      /**
+       * Rebuilds displayed cash balances from the complete financial history.
+       *
+       * current_balance is kept for backwards compatibility and for fast writes,
+       * but it cannot recover legacy table payments that were recorded while no
+       * shift was open. Payments may also exist in both table_payments and
+       * financial_transactions, so the latter is treated as the source for rows
+       * already linked to a register and the table payment is only added when it
+       * is not represented by a linked financial transaction.
+       */
+      async reconcileCashRegisterBalances(restaurantId, branchId, registers) {
+        if (registers.length === 0) {
+          return { registers, unallocatedBalance: 0 };
+        }
+        const transactionConditions = [eq(financialTransactions.restaurantId, restaurantId)];
+        if (branchId !== null) {
+          transactionConditions.push(eq(financialTransactions.branchId, branchId));
+        }
+        const transactions = await db.select().from(financialTransactions).where(and(...transactionConditions));
+        const balances = new Map(
+          registers.map((register) => [
+            register.id,
+            Number.parseFloat(register.initialBalance || "0")
+          ])
+        );
+        for (const transaction of transactions) {
+          if (!transaction.cashRegisterId || !balances.has(transaction.cashRegisterId)) {
+            continue;
+          }
+          const amount = Number.parseFloat(transaction.amount || "0");
+          if (!Number.isFinite(amount)) {
+            continue;
+          }
+          const signedAmount = transaction.type === "despesa" ? -amount : amount;
+          balances.set(
+            transaction.cashRegisterId,
+            (balances.get(transaction.cashRegisterId) || 0) + signedAmount
+          );
+        }
+        const tablePaymentConditions = [eq(tablePayments.restaurantId, restaurantId)];
+        if (branchId !== null) {
+          tablePaymentConditions.push(eq(tables.branchId, branchId));
+        }
+        const legacyPayments = await db.select({
+          payment: tablePayments,
+          table: tables
+        }).from(tablePayments).innerJoin(tables, eq(tablePayments.tableId, tables.id)).where(and(...tablePaymentConditions));
+        const linkedTransactions = transactions.filter((transaction) => Boolean(transaction.cashRegisterId));
+        let unallocatedBalance = 0;
+        const activeRegisterIds = /* @__PURE__ */ new Set();
+        const activeShifts = await db.select({ cashRegisterId: cashRegisterShifts.cashRegisterId }).from(cashRegisterShifts).where(and(
+          eq(cashRegisterShifts.restaurantId, restaurantId),
+          eq(cashRegisterShifts.status, "aberto")
+        ));
+        for (const shift of activeShifts) {
+          if (balances.has(shift.cashRegisterId)) {
+            activeRegisterIds.add(shift.cashRegisterId);
+          }
+        }
+        const fallbackRegisterId = registers.length === 1 ? registers[0].id : activeRegisterIds.size === 1 ? Array.from(activeRegisterIds)[0] : null;
+        for (const { payment } of legacyPayments) {
+          const paymentAmount = Number.parseFloat(payment.amount || "0");
+          if (!Number.isFinite(paymentAmount) || paymentAmount === 0) {
+            continue;
+          }
+          const note = payment.notes || "";
+          const orderShortId = note.match(/Pagamento via Pedido #([\w-]+)/i)?.[1];
+          const representedByLinkedTransaction = linkedTransactions.some((transaction) => {
+            const samePayment = (transaction.note || "").includes(payment.id);
+            if (samePayment) {
+              return true;
+            }
+            if (!orderShortId) {
+              return false;
+            }
+            const referenceOrderId = transaction.referenceOrderId || "";
+            return referenceOrderId.slice(0, orderShortId.length).toLowerCase() === orderShortId.toLowerCase() && Number.parseFloat(transaction.amount || "0").toFixed(2) === paymentAmount.toFixed(2) && transaction.paymentMethod === payment.paymentMethod;
+          });
+          if (representedByLinkedTransaction) {
+            continue;
+          }
+          if (fallbackRegisterId) {
+            balances.set(
+              fallbackRegisterId,
+              (balances.get(fallbackRegisterId) || 0) + paymentAmount
+            );
+          } else {
+            unallocatedBalance += paymentAmount;
+          }
+        }
+        return {
+          registers: registers.map((register) => ({
+            ...register,
+            currentBalance: (balances.get(register.id) || 0).toFixed(2)
+          })),
+          unallocatedBalance
+        };
       }
       async getCashRegisterById(id, restaurantId) {
         const [cashRegister] = await db.select().from(cashRegisters).where(and(
@@ -8880,6 +9033,76 @@ var init_storage = __esm({
         });
         return transaction;
       }
+      async recordTablePaymentFinancialTransaction(restaurantId, userId, payment) {
+        const paymentAmount = parseFloat(payment.amount);
+        if (!Number.isFinite(paymentAmount) || paymentAmount === 0) {
+          throw new Error("Valor de pagamento inv\xE1lido para lan\xE7amento financeiro");
+        }
+        const [table2] = await db.select().from(tables).where(and(
+          eq(tables.id, payment.tableId),
+          eq(tables.restaurantId, restaurantId)
+        )).limit(1);
+        if (!table2) {
+          throw new Error("Mesa n\xE3o encontrada para lan\xE7amento financeiro");
+        }
+        const isRefund = paymentAmount < 0;
+        const amount = Math.abs(paymentAmount).toFixed(2);
+        const type = isRefund ? "despesa" : "receita";
+        const categoryName = isRefund ? "Estornos e Reembolsos" : "Vendas Mesa";
+        const paymentMethod = payment.paymentMethod;
+        const branchId = table2.branchId || null;
+        return await db.transaction(async (tx) => {
+          const [existingCategory] = await tx.select().from(financialCategories).where(and(
+            eq(financialCategories.restaurantId, restaurantId),
+            eq(financialCategories.type, type),
+            eq(financialCategories.name, categoryName)
+          )).limit(1);
+          let categoryId = existingCategory?.id;
+          if (!categoryId) {
+            const [category] = await tx.insert(financialCategories).values({
+              restaurantId,
+              branchId,
+              type,
+              name: categoryName,
+              description: isRefund ? "Estornos de pagamentos de mesas" : "Receitas de pagamentos de mesas",
+              isDefault: isRefund ? 0 : 1
+            }).returning();
+            categoryId = category.id;
+          }
+          let cashRegisterId = null;
+          let shiftId = null;
+          const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, branchId);
+          const cashRegister = activeCashRegisters[0];
+          if (cashRegister) {
+            const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
+            if (activeShift) {
+              cashRegisterId = cashRegister.id;
+              shiftId = activeShift.id;
+              await tx.update(cashRegisters).set({
+                currentBalance: sql4`${cashRegisters.currentBalance} + ${isRefund ? -Number(amount) : Number(amount)}`,
+                updatedAt: /* @__PURE__ */ new Date()
+              }).where(eq(cashRegisters.id, cashRegister.id));
+            }
+          }
+          const [transaction] = await tx.insert(financialTransactions).values({
+            restaurantId,
+            recordedByUserId: userId,
+            branchId,
+            cashRegisterId,
+            shiftId,
+            categoryId,
+            type,
+            origin: "pdv",
+            description: `${isRefund ? "Estorno" : "Venda"} - Mesa ${table2.number}`,
+            paymentMethod,
+            amount,
+            referenceOrderId: null,
+            occurredAt: payment.createdAt || /* @__PURE__ */ new Date(),
+            note: `${payment.notes || ""}${payment.notes ? " " : ""}Pagamento de mesa ${payment.id}`
+          }).returning();
+          return transaction;
+        });
+      }
       async getFinancialTransactions(restaurantId, branchId, filters) {
         let conditions = [eq(financialTransactions.restaurantId, restaurantId)];
         if (branchId !== null) {
@@ -8915,7 +9138,7 @@ var init_storage = __esm({
           recordedBy: r.recordedBy || null,
           source: "financial_transaction"
         }));
-        if (filters?.type === "despesa" || filters?.cashRegisterId) {
+        if (filters?.type && filters.type !== "receita" || filters?.cashRegisterId) {
           return financialResults;
         }
         const tablePaymentConditions = [
@@ -9027,8 +9250,12 @@ var init_storage = __esm({
           registerConditions.push(eq(cashRegisters.id, cashRegisterId));
         }
         const registers = await db.select().from(cashRegisters).where(and(...registerConditions));
-        const totalBalance = registers.reduce((sum, r) => sum + parseFloat(r.currentBalance), 0);
-        const cashRegisterBalances = registers.map((r) => ({
+        const { registers: reconciledRegisters, unallocatedBalance } = await this.reconcileCashRegisterBalances(restaurantId, branchId, registers);
+        const totalBalance = reconciledRegisters.reduce(
+          (sum, r) => sum + parseFloat(r.currentBalance),
+          unallocatedBalance
+        );
+        const cashRegisterBalances = reconciledRegisters.map((r) => ({
           id: r.id,
           name: r.name,
           balance: r.currentBalance
@@ -9074,11 +9301,22 @@ var init_storage = __esm({
           openedBy: openedByUsers,
           closedBy: closedByUsers
         }).from(cashRegisterShifts).leftJoin(cashRegisters, eq(cashRegisterShifts.cashRegisterId, cashRegisters.id)).leftJoin(openedByUsers, eq(cashRegisterShifts.openedByUserId, openedByUsers.id)).leftJoin(closedByUsers, eq(cashRegisterShifts.closedByUserId, closedByUsers.id)).where(and(...conditions)).orderBy(desc(cashRegisterShifts.openedAt));
-        return results.map((r) => ({
-          ...r.shift,
-          cashRegister: r.cashRegister,
-          openedBy: r.openedBy,
-          closedBy: r.closedBy || void 0
+        return await Promise.all(results.map(async (r) => {
+          const shift = {
+            ...r.shift,
+            cashRegister: r.cashRegister,
+            openedBy: r.openedBy,
+            closedBy: r.closedBy || void 0
+          };
+          if (shift.status !== "aberto") {
+            return shift;
+          }
+          const shiftTransactions = await db.select().from(financialTransactions).where(eq(financialTransactions.shiftId, shift.id));
+          return {
+            ...shift,
+            totalRevenues: shiftTransactions.filter((transaction) => transaction.type === "receita").reduce((sum, transaction) => sum + parseFloat(transaction.amount), 0).toFixed(2),
+            totalExpenses: shiftTransactions.filter((transaction) => transaction.type === "despesa").reduce((sum, transaction) => sum + parseFloat(transaction.amount), 0).toFixed(2)
+          };
         }));
       }
       async getActiveCashRegisterShift(cashRegisterId, restaurantId) {
@@ -9171,12 +9409,9 @@ var init_storage = __esm({
           throw new Error("Turno n\xE3o encontrado ou j\xE1 fechado.");
         }
         const allTransactions = await db.select().from(financialTransactions).where(eq(financialTransactions.shiftId, shiftId));
-        const cashTransactions = allTransactions.filter(
-          (t) => t.paymentMethod === "dinheiro"
-        );
-        const totalRevenues = cashTransactions.filter((t) => t.type === "receita").reduce((sum, t) => sum + parseFloat(t.amount), 0);
-        const totalExpenses = cashTransactions.filter((t) => t.type === "despesa").reduce((sum, t) => sum + parseFloat(t.amount), 0);
-        const totalAdjustments = cashTransactions.filter((t) => t.type === "ajuste").reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        const totalRevenues = allTransactions.filter((t) => t.type === "receita").reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        const totalExpenses = allTransactions.filter((t) => t.type === "despesa").reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        const totalAdjustments = allTransactions.filter((t) => t.type === "ajuste").reduce((sum, t) => sum + parseFloat(t.amount), 0);
         const closingAmountExpected = totalRevenues - totalExpenses + totalAdjustments;
         const closingAmountCounted = parseFloat(data.closingAmountCounted);
         const difference = closingAmountCounted - closingAmountExpected;
@@ -10665,7 +10900,29 @@ var init_storage = __esm({
               "treinamento_presencial",
               "sla_garantido",
               "suporte_24_7",
-              "gerente_conta_dedicado"
+              "gerente_conta_dedicado",
+              "pdv",
+              "gestao_mesas",
+              "menu_digital",
+              "qr_code",
+              "cozinha_tempo_real",
+              "relatorios_basicos",
+              "impressao_recibos",
+              "fidelidade",
+              "cupons",
+              "gestao_clientes",
+              "delivery_takeout",
+              "relatorios_avancados",
+              "dashboard_analytics",
+              "gestao_despesas",
+              "multi_filial",
+              "inventario",
+              "relatorios_financeiros",
+              "api_integracoes",
+              "exportacao_dados",
+              "customizacao_visual",
+              "multiplos_turnos",
+              "suporte_whatsapp"
             ],
             isActive: 1,
             displayOrder: 4
@@ -10691,6 +10948,7 @@ var init_storage = __esm({
           ...data,
           restaurantId
         }).returning();
+        await this.invalidateSubscriptionCaches(restaurantId);
         return subscription;
       }
       async updateSubscription(restaurantId, data) {
@@ -10702,6 +10960,7 @@ var init_storage = __esm({
           if (!updated) {
             throw new Error("Subscri\xE7\xE3o n\xE3o encontrada");
           }
+          await this.invalidateSubscriptionCaches(restaurantId);
           return updated;
         } catch (error) {
           if (error.message === "Subscri\xE7\xE3o n\xE3o encontrada") throw error;
@@ -10718,7 +10977,15 @@ var init_storage = __esm({
         if (!canceled) {
           throw new Error("Subscri\xE7\xE3o n\xE3o encontrada");
         }
+        await this.invalidateSubscriptionCaches(restaurantId);
         return canceled;
+      }
+      async invalidateSubscriptionCaches(restaurantId) {
+        const { cache: cache2, CacheKeys: CacheKeys2 } = await Promise.resolve().then(() => (init_cache(), cache_exports));
+        await Promise.all([
+          cache2.delete(CacheKeys2.subscription(restaurantId)),
+          cache2.delete(CacheKeys2.subscriptionLimits(restaurantId))
+        ]);
       }
       async checkSubscriptionLimits(restaurantId) {
         const { cache: cache2, CacheKeys: CacheKeys2, CacheTTL: CacheTTL2 } = await Promise.resolve().then(() => (init_cache(), cache_exports));
@@ -12217,12 +12484,16 @@ async function checkCanCreateOrder(storage2, restaurantId) {
 }
 async function checkCanAddCustomer(storage2, restaurantId) {
   const limits = await storage2.checkSubscriptionLimits(restaurantId);
-  const planFeatures = Array.isArray(limits.plan.features) ? limits.plan.features : typeof limits.plan.features === "string" ? JSON.parse(limits.plan.features) : [];
-  if (!planFeatures.includes("gestao_clientes")) {
+  const planFeatures = normalizePlanFeatures(limits.plan.features);
+  const isEnterprise = isEnterprisePlan(limits.plan);
+  if (!isEnterprise && !planFeatures.includes("gestao_clientes")) {
     throw new PlanFeatureError(
       `A gest\xE3o de clientes n\xE3o est\xE1 dispon\xEDvel no plano ${limits.plan.name}. Fa\xE7a upgrade para o plano Profissional ou superior para gerenciar clientes, programas de fidelidade e hist\xF3rico de compras.`,
       "customers"
     );
+  }
+  if (isEnterprise) {
+    return;
   }
   if (!limits.canAddCustomer) {
     throw new PlanLimitError(
@@ -12231,6 +12502,26 @@ async function checkCanAddCustomer(storage2, restaurantId) {
       limits.usage.customers,
       limits.plan.maxCustomers
     );
+  }
+}
+function isEnterprisePlan(plan) {
+  const identifiers = [plan.slug, plan.name].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean);
+  const isNamedEnterprise = identifiers.some((identifier) => identifier.includes("enterprise"));
+  const isKnownLowerTier = identifiers.some((identifier) => identifier === "basico" || identifier.startsWith("basico ") || identifier === "profissional" || identifier.startsWith("profissional ") || identifier === "empresarial" || identifier.startsWith("empresarial "));
+  return isNamedEnterprise || !isKnownLowerTier && normalizePlanFeatures(plan.features).includes("tudo_ilimitado");
+}
+function normalizePlanFeatures(value) {
+  if (Array.isArray(value)) {
+    return value.filter((feature) => typeof feature === "string");
+  }
+  if (typeof value !== "string") {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((feature) => typeof feature === "string") : [];
+  } catch {
+    return [];
   }
 }
 async function checkCanUseLoyaltyProgram(storage2, restaurantId) {
@@ -13237,7 +13528,10 @@ async function registerRoutes(app2) {
       });
     });
   });
-  app2.get("/api/auth/user", isAuthenticated, async (req, res) => {
+  app2.get("/api/auth/user", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.json(null);
+    }
     try {
       const user = req.user;
       const userWithoutPassword = {
@@ -16033,7 +16327,8 @@ async function registerRoutes(app2) {
         sessionId: table2.currentSessionId,
         amount: `-${amount}`,
         paymentMethod: "dinheiro",
-        notes: `REEMBOLSO: ${reason || "N\xE3o especificado"}`
+        notes: `REEMBOLSO: ${reason || "N\xE3o especificado"}`,
+        operatorId: currentUser.id
       });
       broadcastToClients({ type: "table_payment_refunded", data: { tableId, amount, reason } });
       res.json({ success: true, payment });
@@ -16109,7 +16404,8 @@ async function registerRoutes(app2) {
         amount,
         // Valor já com desconto aplicado pelo frontend
         paymentMethod,
-        notes: receivedAmount ? `Valor recebido: ${receivedAmount}. ${notes || ""}` : notes
+        notes: receivedAmount ? `Valor recebido: ${receivedAmount}. ${notes || ""}` : notes,
+        operatorId: currentUser.id
       });
       if (table2.currentSessionId) {
         const result = await storage.recalculateSessionTotals(table2.currentSessionId);
@@ -16191,7 +16487,8 @@ async function registerRoutes(app2) {
               sessionId: table2.currentSessionId,
               amount,
               paymentMethod,
-              notes: receivedAmount ? `Valor recebido: ${receivedAmount}. ${notes || ""}` : notes
+              notes: receivedAmount ? `Valor recebido: ${receivedAmount}. ${notes || ""}` : notes,
+              operatorId: currentUser.id
             });
             if (table2.currentSessionId) {
               await storage.recalculateSessionTotals(table2.currentSessionId);
@@ -16294,8 +16591,14 @@ async function registerRoutes(app2) {
         sessionId: guest.sessionId,
         amount,
         paymentMethod,
+        operatorId: currentUser.id,
         notes: receivedAmount ? `Pagamento de ${guest.name || "Convidado"} - Valor recebido: ${receivedAmount} Kz. ${notes || ""}` : `Pagamento de ${guest.name || "Convidado"}. ${notes || ""}`
       }).returning();
+      await storage.recordTablePaymentFinancialTransaction(
+        restaurantId,
+        currentUser.id,
+        tablePayment
+      );
       const guestPayment = await storage.createGuestPayment(restaurantId, {
         guestId,
         sessionId: guest.sessionId,
@@ -16394,7 +16697,8 @@ async function registerRoutes(app2) {
         sessionId: targetSessionId,
         amount,
         paymentMethod,
-        notes
+        notes,
+        operatorId: currentUser.id
       });
       if (targetSessionId) {
         await storage.recalculateSessionTotals(targetSessionId);
@@ -18599,8 +18903,17 @@ Stack: ${errorStack}
       if (order.status === "cancelado" || order.cancellationReason && order.cancellationReason !== "") {
         return res.status(400).json({ message: "Pedido j\xE1 est\xE1 cancelado" });
       }
+      if (currentUser.role !== "superadmin" && currentUser.activeBranchId && order.branchId !== currentUser.activeBranchId) {
+        return res.status(403).json({ message: "Este pedido n\xE3o pertence \xE0 filial ativa" });
+      }
       const { cancellationReason } = cancelOrderSchema.parse(req.body);
-      const cancelled = await storage.cancelOrder(restaurantId, req.params.id, cancellationReason, currentUser.id);
+      const cancelled = await storage.cancelOrder(
+        restaurantId,
+        req.params.id,
+        cancellationReason,
+        currentUser.id,
+        currentUser.activeBranchId
+      );
       broadcastToClients({
         type: "order_cancelled",
         data: {
@@ -18618,8 +18931,8 @@ Stack: ${errorStack}
       res.status(500).json({ message: errorMessage });
     }
   };
-  app2.post("/api/orders/:id/cancel", isAuthenticated, cancelOrderHandler);
-  app2.patch("/api/orders/:id", isAuthenticated, async (req, res, next) => {
+  app2.post("/api/orders/:id/cancel", isCashierOrAbove, cancelOrderHandler);
+  app2.patch("/api/orders/:id", isCashierOrAbove, async (req, res, next) => {
     if (req.body?.status !== "cancelled" && req.body?.status !== "cancelado") {
       return next();
     }
