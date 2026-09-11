@@ -2,39 +2,6 @@ modules = ["nodejs-20", "web"]
 run = "npm run dev"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
-[nix]
-channel = "stable-25_05"
-packages = ["unzip"]
-
-[deployment]
-deploymentTarget = "autoscale"
-build = ["npm", "run", "build"]
-run = ["npm", "run", "start"]
-
-[[ports]]
-localPort = 5000
-externalPort = 80
-
-[[ports]]
-localPort = 5001
-externalPort = 3002
-
-[[ports]]
-localPort = 5432
-externalPort = 3000
-exposeLocalhost = true
-
-[[ports]]
-localPort = 5904
-externalPort = 3001
-
-[[ports]]
-localPort = 24678
-externalPort = 3003
-
-[env]
-PORT = "5000"
-
 [workflows]
 runButton = "Project"
 
@@ -56,10 +23,5 @@ task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
 
-[agent]
-integrations = ["javascript_database:1.0.0", "javascript_websocket:1.0.0", "javascript_log_in_with_replit:1.0.0"]
-
-[userenv]
-
-[userenv.development]
-DEBUG_AUTH = "true"
+[workflows.workflow.metadata]
+outputType = "webview"

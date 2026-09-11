@@ -49,8 +49,8 @@ export function CustomerLoginDialog({
   const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handlePhoneLogin = async () => {
-    if (!phone || phone.length < 9) {
+  const handlePhoneLogin = async (phoneValue = phone) => {
+    if (!phoneValue || phoneValue.length < 9) {
       toast({
         title: 'Telefone inválido',
         description: 'Por favor, insira um número de telefone válido',
@@ -61,7 +61,7 @@ export function CustomerLoginDialog({
 
     setIsLoading(true);
     try {
-      const success = await loginWithPhone(phone, restaurantId);
+      const success = await loginWithPhone(phoneValue, restaurantId);
 
       if (success) {
         setStep('profile');
@@ -199,24 +199,34 @@ export function CustomerLoginDialog({
             type="tel"
             placeholder="9XX XXX XXX"
             value={phone}
-            onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 9))}
+            onChange={(e) => {
+              const nextPhone = e.target.value.replace(/\D/g, '').slice(0, 9);
+              setPhone(nextPhone);
+
+              if (nextPhone.length === 9 && !isLoading) {
+                void handlePhoneLogin(nextPhone);
+              }
+            }}
             className="pl-10 h-11 bg-neutral-800 border-neutral-700 text-white placeholder:text-neutral-500 focus:border-amber-500 focus:ring-amber-500"
             data-testid="input-customer-phone"
           />
         </div>
       </div>
       
-      <Button 
-        onClick={handlePhoneLogin}
-        disabled={isLoading || phone.length < 9}
-        className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-white font-semibold shadow-md shadow-amber-500/30"
-        data-testid="button-request-otp"
+      <div
+        className="flex min-h-11 items-center justify-center rounded-md border border-amber-500/30 bg-amber-500/10 px-3 text-sm text-amber-100"
+        aria-live="polite"
+        data-testid="customer-phone-login-status"
       >
         {isLoading ? (
-          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-        ) : null}
-        Entrar com telefone
-      </Button>
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Entrando...
+          </>
+        ) : (
+          'Digite o número completo para entrar automaticamente'
+        )}
+      </div>
       
       <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-lg p-3">
         <div className="flex items-start gap-2">
