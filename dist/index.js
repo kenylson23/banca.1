@@ -10241,6 +10241,23 @@ var init_storage = __esm({
         }).returning();
         return session2;
       }
+      async createCustomerPhoneSession(customerId, restaurantId, deviceInfo, ipAddress) {
+        const token = `cs_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1e3);
+        const [session2] = await db.insert(customerSessions).values({
+          customerId,
+          restaurantId,
+          token,
+          otpCode: null,
+          otpExpiresAt: null,
+          otpAttempts: 0,
+          deviceInfo,
+          ipAddress,
+          expiresAt,
+          isActive: 1
+        }).returning();
+        return session2;
+      }
       async verifyCustomerOtp(customerId, restaurantId, otpCode) {
         const [session2] = await db.select().from(customerSessions).where(
           and(
@@ -15590,6 +15607,53 @@ async function registerRoutes(app2) {
     } catch (error) {
       console.error("Loyalty calculation error:", error);
       res.status(500).json({ message: "Erro ao calcular pontos" });
+    }
+  });
+  app2.post("/api/public/customer-auth/login-phone", async (req, res) => {
+    try {
+      const { phone, restaurantId } = req.body;
+      if (!phone || !restaurantId) {
+        return res.status(400).json({ message: "Telefone e ID do restaurante s\xE3o obrigat\xF3rios" });
+      }
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ message: "Restaurante n\xE3o encontrado" });
+      }
+      const normalizedPhone = phone.replace(/[\s\-\(\)]/g, "");
+      const customer = await storage.getOrCreateCustomerByPhone(restaurantId, normalizedPhone);
+      const deviceInfo = req.headers["user-agent"] || "Unknown device";
+      const ipAddress = req.ip || req.socket.remoteAddress || "Unknown";
+      const session2 = await storage.createCustomerPhoneSession(
+        customer.id,
+        restaurantId,
+        deviceInfo,
+        ipAddress
+      );
+      const loyaltyProgram = await storage.getLoyaltyProgram(restaurantId);
+      res.json({
+        success: true,
+        token: session2.token,
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+          email: customer.email,
+          loyaltyPoints: customer.loyaltyPoints,
+          tier: customer.tier,
+          totalSpent: customer.totalSpent,
+          visitCount: customer.visitCount
+        },
+        loyalty: loyaltyProgram && loyaltyProgram.isActive === 1 ? {
+          isActive: true,
+          pointsPerCurrency: loyaltyProgram.pointsPerCurrency,
+          currencyPerPoint: loyaltyProgram.currencyPerPoint,
+          minPointsToRedeem: loyaltyProgram.minPointsToRedeem
+        } : null,
+        expiresAt: session2.expiresAt
+      });
+    } catch (error) {
+      console.error("Customer phone login error:", error);
+      res.status(500).json({ message: "Erro ao entrar com o telefone" });
     }
   });
   app2.post("/api/public/customer-auth/request-otp", async (req, res) => {
