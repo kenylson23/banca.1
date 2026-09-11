@@ -17,7 +17,7 @@ import {
   ChartBar,
   X
 } from '@phosphor-icons/react';
-import { useNavigate } from 'wouter';
+import { useLocation } from 'wouter';
 
 interface UpgradeDialogProps {
   open: boolean;
@@ -80,7 +80,7 @@ export function UpgradeDialog({
   featureLabel,
   featureDescription,
 }: UpgradeDialogProps) {
-  const navigate = useNavigate();
+  const [, navigate] = useLocation();
   const Icon = featureIcons[feature];
   const benefits = featureBenefits[feature];
 

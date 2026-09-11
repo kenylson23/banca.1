@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { useLocation } from 'wouter';
 import { useFeatureAccess, Feature } from '@/hooks/useFeatureAccess';
 import { 
-  AlertCircle,
   RocketLaunch,
   CheckCircle,
   Lock

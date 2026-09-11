@@ -91,9 +91,7 @@ export async function checkCanAddCustomer(storage: IStorage, restaurantId: strin
   const limits = await storage.checkSubscriptionLimits(restaurantId);
   
   // First check if the plan has customer management feature
-  const planFeatures = Array.isArray(limits.plan.features) 
-    ? limits.plan.features 
-    : (typeof limits.plan.features === 'string' ? JSON.parse(limits.plan.features) : []);
+  const planFeatures = normalizePlanFeatures(limits.plan.features);
   
   // Enterprise includes all product features even for databases created
   // before the complete Enterprise feature list was persisted.
@@ -134,6 +132,25 @@ function isEnterprisePlan(plan: { slug?: unknown; name?: unknown }): boolean {
       identifier.startsWith('enterprise-') ||
       identifier.startsWith('enterprise_')
     ));
+}
+
+function normalizePlanFeatures(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((feature): feature is string => typeof feature === 'string');
+  }
+
+  if (typeof value !== 'string') {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((feature): feature is string => typeof feature === 'string')
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function checkCanUseLoyaltyProgram(storage: IStorage, restaurantId: string): Promise<void> {
