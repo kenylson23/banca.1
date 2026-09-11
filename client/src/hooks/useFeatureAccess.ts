@@ -41,8 +41,8 @@ export function useFeatureAccess(feature: Feature): FeatureAccessResult {
     retry: false,
   });
 
-  const features = subscription?.plan?.features || [];
-  const hasAccess = features.includes(feature);
+   const features = normalizeFeatures(subscription?.plan?.features);
+   const hasAccess = features.includes(feature) || subscription?.plan?.slug === 'enterprise';
 
   return {
     hasAccess,
@@ -68,8 +68,10 @@ export function useMultipleFeatureAccess(requiredFeatures: Feature[]): FeatureAc
     retry: false,
   });
 
-  const features = subscription?.plan?.features || [];
-  const hasAccess = requiredFeatures.every(feature => features.includes(feature));
+   const features = normalizeFeatures(subscription?.plan?.features);
+   const hasAccess = requiredFeatures.every(
+     feature => features.includes(feature) || subscription?.plan?.slug === 'enterprise',
+   );
 
   return {
     hasAccess,
@@ -95,8 +97,10 @@ export function useAnyFeatureAccess(anyOfFeatures: Feature[]): FeatureAccessResu
     retry: false,
   });
 
-  const features = subscription?.plan?.features || [];
-  const hasAccess = anyOfFeatures.some(feature => features.includes(feature));
+   const features = normalizeFeatures(subscription?.plan?.features);
+   const hasAccess = anyOfFeatures.some(
+     feature => features.includes(feature) || subscription?.plan?.slug === 'enterprise',
+   );
 
   return {
     hasAccess,
@@ -105,4 +109,23 @@ export function useAnyFeatureAccess(anyOfFeatures: Feature[]): FeatureAccessResu
     planSlug: subscription?.plan?.slug,
     features,
   };
+}
+
+function normalizeFeatures(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((feature): feature is string => typeof feature === 'string');
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed)
+        ? parsed.filter((feature): feature is string => typeof feature === 'string')
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
 }

@@ -82,7 +82,7 @@ export default function Customers() {
     const features = Array.isArray(subscription.plan.features) 
       ? subscription.plan.features 
       : JSON.parse(subscription.plan.features || '[]');
-    return features.includes('gestao_clientes');
+    return features.includes('gestao_clientes') || subscription?.plan?.slug === 'enterprise';
   }, [subscription]);
 
   const handleSubmit = (e: React.FormEvent) => {

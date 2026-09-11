@@ -95,7 +95,9 @@ export async function checkCanAddCustomer(storage: IStorage, restaurantId: strin
     ? limits.plan.features 
     : (typeof limits.plan.features === 'string' ? JSON.parse(limits.plan.features) : []);
   
-  if (!planFeatures.includes('gestao_clientes')) {
+  // Enterprise includes all product features even for databases created
+  // before the complete Enterprise feature list was persisted.
+  if (limits.plan.slug !== 'enterprise' && !planFeatures.includes('gestao_clientes')) {
     throw new PlanFeatureError(
       `A gestão de clientes não está disponível no plano ${limits.plan.name}. Faça upgrade para o plano Profissional ou superior para gerenciar clientes, programas de fidelidade e histórico de compras.`,
       'customers' as any
