@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomersOffline } from "@/hooks/useCustomersOffline";
-import { Trash2, UserPlus, Search, Users, TrendingUp, Star, Phone, Mail, Award, DollarSign, Calendar, Sparkles, UserCheck, WifiOff, Wifi, Lock, ArrowUpCircle } from "lucide-react";
+import { Trash2, UserPlus, Search, Users, TrendingUp, Star, Phone, Mail, Award, DollarSign, Calendar, Sparkles, UserCheck, WifiOff, Wifi, Lock, ArrowUpCircle, ChevronDown, Settings2, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
 import { formatKwanza } from "@/lib/formatters";
@@ -39,6 +39,7 @@ export default function Customers() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [formData, setFormData] = useState({
     name: "",
@@ -123,6 +124,7 @@ export default function Customers() {
       defaultPackagingFee: "",
     });
     setEditingCustomer(null);
+    setShowAdvanced(false);
     setIsDialogOpen(false);
   };
 
@@ -139,6 +141,12 @@ export default function Customers() {
       defaultServiceName: customer.defaultServiceName || "",
       defaultPackagingFee: customer.defaultPackagingFee?.toString() || "",
     });
+    setShowAdvanced(Boolean(
+      customer.defaultDiscount ||
+      customer.defaultServiceCharge ||
+      customer.defaultServiceName ||
+      customer.defaultPackagingFee
+    ));
     setIsDialogOpen(true);
   };
 
@@ -305,116 +313,131 @@ export default function Customers() {
                 <span className="sm:inline">Novo</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]" data-testid="dialog-create-customer">
-              <DialogHeader className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                    <UserPlus className="h-6 w-6 text-primary" />
+            <DialogContent className="sm:max-w-[460px] max-h-[90vh] overflow-y-auto rounded-2xl p-0 gap-0" data-testid="dialog-create-customer">
+              <div className="border-b bg-gradient-to-br from-primary/10 via-background to-background px-5 py-4 pr-12">
+                <DialogHeader className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                      <UserPlus className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <DialogTitle className="text-lg">
+                        {editingCustomer ? 'Editar cliente' : 'Novo cliente'}
+                      </DialogTitle>
+                      <DialogDescription className="mt-1 text-xs">
+                        {editingCustomer ? 'Atualize apenas o que mudou.' : 'Preencha os dados essenciais para começar.'}
+                      </DialogDescription>
+                    </div>
                   </div>
-                  <div>
-                    <DialogTitle className="text-xl">
-                      {editingCustomer ? 'Editar Cliente' : 'Novo Cliente'}
-                    </DialogTitle>
-                    <DialogDescription className="text-sm">
-                      {editingCustomer ? 'Atualize os dados do cliente' : 'Adicione um novo cliente ao sistema'}
-                    </DialogDescription>
-                  </div>
+                </DialogHeader>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4 p-5">
+                <div className="space-y-1.5">
+                  <Label htmlFor="name" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Nome completo <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="name"
+                    placeholder="Ex.: João Manuel"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                    autoFocus
+                    className="h-10 rounded-xl"
+                    data-testid="input-customer-name"
+                  />
                 </div>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-6 pt-4">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name" className="flex items-center gap-2 text-sm font-medium">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      Nome Completo *
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="phone" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Telefone
                     </Label>
-                    <Input
-                      id="name"
-                      placeholder="Digite o nome completo"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      required
-                      className="h-11"
-                      data-testid="input-customer-name"
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="phone" className="flex items-center gap-2 text-sm font-medium">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        Telefone
-                      </Label>
+                    <div className="relative">
+                      <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         id="phone"
                         type="tel"
                         placeholder="+244 900 000 000"
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        className="h-11"
+                        className="h-10 rounded-xl pl-9"
                         data-testid="input-customer-phone"
                       />
                     </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="email" className="flex items-center gap-2 text-sm font-medium">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        Email
-                      </Label>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Email
+                    </Label>
+                    <div className="relative">
+                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         id="email"
                         type="email"
                         placeholder="email@exemplo.com"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="h-11"
+                        className="h-10 rounded-xl pl-9"
                         data-testid="input-customer-email"
                       />
                     </div>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="address" className="flex items-center gap-2 text-sm font-medium">
-                      <span className="text-muted-foreground">📍</span>
-                      Endereço
-                    </Label>
-                    <Input
-                      id="address"
-                      placeholder="Rua, número, bairro..."
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      className="h-11"
-                      data-testid="input-customer-address"
-                    />
-                  </div>
+                </div>
 
-                  <Separator className="my-4" />
-                  
-                  <div className="space-y-3">
-                    <p className="text-sm font-semibold text-foreground">Configurações Padrão de Pedido</p>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="defaultDiscount" className="text-sm font-medium">Desconto Padrão</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="address" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Endereço <span className="font-normal normal-case tracking-normal">(opcional)</span>
+                  </Label>
+                  <Input
+                    id="address"
+                    placeholder="Rua, número ou bairro"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    className="h-10 rounded-xl"
+                    data-testid="input-customer-address"
+                  />
+                </div>
+
+                <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced} className="rounded-xl border bg-muted/20">
+                  <CollapsibleTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-3 px-3.5 py-3 text-left transition-colors hover:bg-muted/40"
+                      data-testid="button-toggle-customer-preferences"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Settings2 className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium">Preferências de pedido</span>
+                        <span className="text-xs text-muted-foreground">Opcional</span>
+                      </span>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-3 border-t px-3.5 pb-3.5 pt-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="defaultDiscount" className="text-xs text-muted-foreground">Desconto padrão</Label>
                         <Input
                           id="defaultDiscount"
                           type="number"
                           step="0.01"
-                          placeholder="0.00"
+                          placeholder="0,00"
                           value={formData.defaultDiscount}
                           onChange={(e) => setFormData({ ...formData, defaultDiscount: e.target.value })}
-                          className="h-11"
+                          className="h-9 rounded-lg"
                           data-testid="input-default-discount"
                         />
                       </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="defaultDiscountType" className="text-sm font-medium">Tipo</Label>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="defaultDiscountType" className="text-xs text-muted-foreground">Tipo de desconto</Label>
                         <select
                           id="defaultDiscountType"
                           value={formData.defaultDiscountType}
                           onChange={(e) => setFormData({ ...formData, defaultDiscountType: e.target.value as any })}
-                          className="h-11 px-3 rounded-md border border-input bg-background text-sm"
+                          className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
                           data-testid="select-discount-type"
                         >
                           <option value="valor">Valor (Kz)</option>
@@ -422,58 +445,57 @@ export default function Customers() {
                         </select>
                       </div>
                     </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="defaultServiceCharge" className="text-sm font-medium">Taxa de Serviço Padrão</Label>
-                      <Input
-                        id="defaultServiceCharge"
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={formData.defaultServiceCharge}
-                        onChange={(e) => setFormData({ ...formData, defaultServiceCharge: e.target.value })}
-                        className="h-11"
-                        data-testid="input-default-service-charge"
-                      />
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="defaultServiceCharge" className="text-xs text-muted-foreground">Taxa de serviço</Label>
+                        <Input
+                          id="defaultServiceCharge"
+                          type="number"
+                          step="0.01"
+                          placeholder="0,00"
+                          value={formData.defaultServiceCharge}
+                          onChange={(e) => setFormData({ ...formData, defaultServiceCharge: e.target.value })}
+                          className="h-9 rounded-lg"
+                          data-testid="input-default-service-charge"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="defaultPackagingFee" className="text-xs text-muted-foreground">Taxa de embalagem</Label>
+                        <Input
+                          id="defaultPackagingFee"
+                          type="number"
+                          step="0.01"
+                          placeholder="0,00"
+                          value={formData.defaultPackagingFee}
+                          onChange={(e) => setFormData({ ...formData, defaultPackagingFee: e.target.value })}
+                          className="h-9 rounded-lg"
+                          data-testid="input-default-packaging-fee"
+                        />
+                      </div>
                     </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="defaultServiceName" className="text-sm font-medium">Nome da Taxa (opcional)</Label>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="defaultServiceName" className="text-xs text-muted-foreground">Nome da taxa</Label>
                       <Input
                         id="defaultServiceName"
-                        placeholder="ex: Garçom"
+                        placeholder="Ex.: Serviço de mesa"
                         value={formData.defaultServiceName}
                         onChange={(e) => setFormData({ ...formData, defaultServiceName: e.target.value })}
-                        className="h-11"
+                        className="h-9 rounded-lg"
                         data-testid="input-service-name"
                       />
                     </div>
+                  </CollapsibleContent>
+                </Collapsible>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="defaultPackagingFee" className="text-sm font-medium">Taxa de Embalagem Padrão</Label>
-                      <Input
-                        id="defaultPackagingFee"
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={formData.defaultPackagingFee}
-                        onChange={(e) => setFormData({ ...formData, defaultPackagingFee: e.target.value })}
-                        className="h-11"
-                        data-testid="input-default-packaging-fee"
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                <DialogFooter className="gap-2 sm:gap-0">
+                <DialogFooter className="mt-2 -mx-5 -mb-5 border-t bg-muted/20 px-5 py-3">
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     onClick={() => {
                       setIsDialogOpen(false);
                       resetForm();
                     }}
-                    className="h-11"
+                    className="h-10 rounded-xl"
                     data-testid="button-cancel"
                   >
                     Cancelar
@@ -481,17 +503,15 @@ export default function Customers() {
                   <Button
                     type="submit"
                     disabled={createCustomerMutation.isPending || updateCustomerMutation.isPending}
-                    className="h-11 min-w-[100px]"
+                    className="h-10 min-w-[132px] rounded-xl gap-2"
                     data-testid="button-submit-customer"
                   >
                     {createCustomerMutation.isPending || updateCustomerMutation.isPending ? (
-                      <>
-                        <span className="mr-2">⏳</span>
-                        Salvando...
-                      </>
+                      'Salvando...'
                     ) : (
                       <>
-                        {editingCustomer ? '💾 Atualizar' : '✨ Criar'}
+                        <Check className="h-4 w-4" />
+                        {editingCustomer ? 'Salvar alterações' : 'Criar cliente'}
                       </>
                     )}
                   </Button>
