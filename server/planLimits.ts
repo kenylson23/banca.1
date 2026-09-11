@@ -122,16 +122,21 @@ export async function checkCanAddCustomer(storage: IStorage, restaurantId: strin
   }
 }
 
-function isEnterprisePlan(plan: { slug?: unknown; name?: unknown }): boolean {
-  return [plan.slug, plan.name]
+function isEnterprisePlan(plan: { slug?: unknown; name?: unknown; features?: unknown }): boolean {
+  const identifiers = [plan.slug, plan.name]
     .map((value) => String(value || '').trim().toLowerCase())
     .filter(Boolean)
-    .some((identifier) => (
-      identifier === 'enterprise' ||
-      identifier.startsWith('enterprise ') ||
-      identifier.startsWith('enterprise-') ||
-      identifier.startsWith('enterprise_')
-    ));
+  const isNamedEnterprise = identifiers.some((identifier) => identifier.includes('enterprise'));
+  const isKnownLowerTier = identifiers.some((identifier) => (
+    identifier === 'basico' ||
+    identifier.startsWith('basico ') ||
+    identifier === 'profissional' ||
+    identifier.startsWith('profissional ') ||
+    identifier === 'empresarial' ||
+    identifier.startsWith('empresarial ')
+  ));
+
+  return isNamedEnterprise || (!isKnownLowerTier && normalizePlanFeatures(plan.features).includes('tudo_ilimitado'));
 }
 
 function normalizePlanFeatures(value: unknown): string[] {

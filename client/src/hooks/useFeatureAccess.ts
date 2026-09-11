@@ -168,15 +168,25 @@ function normalizeFeatures(value: unknown): string[] {
   return [];
 }
 
-export function hasEnterpriseAccess(plan: { slug?: unknown; name?: unknown } | null | undefined): boolean {
+export function hasEnterpriseAccess(plan: {
+  slug?: unknown;
+  name?: unknown;
+  features?: unknown;
+} | null | undefined): boolean {
   const identifiers = [plan?.slug, plan?.name]
     .map((value) => String(value || '').trim().toLowerCase())
     .filter(Boolean);
 
-  return identifiers.some((identifier) => (
-    identifier === 'enterprise' ||
-    identifier.startsWith('enterprise ') ||
-    identifier.startsWith('enterprise-') ||
-    identifier.startsWith('enterprise_')
+  const isNamedEnterprise = identifiers.some((identifier) => identifier.includes('enterprise'));
+  const isKnownLowerTier = identifiers.some((identifier) => (
+    identifier === 'basico' ||
+    identifier.startsWith('basico ') ||
+    identifier === 'profissional' ||
+    identifier.startsWith('profissional ') ||
+    identifier === 'empresarial' ||
+    identifier.startsWith('empresarial ')
   ));
+  const features = normalizeFeatures(plan?.features);
+
+  return isNamedEnterprise || (!isKnownLowerTier && features.includes('tudo_ilimitado'));
 }

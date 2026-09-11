@@ -7,3 +7,4 @@
 - [Branch isolation](branch-isolation.md) — active-branch operational views must not fall back to restaurant-wide records.
 - [Invoice numbering](invoice-numbering.md) — branch-scoped invoice numbers are persistent; validation codes derive from the current printed total.
 - [Imported Node dependency setup](imported-node-dependency-setup.md) — installing explicit npm package ranges may rewrite manifests to newer versions; restore tracked manifests when setup should stay non-invasive.
+- [Enterprise plan normalization](enterprise-plan-normalization.md) — Enterprise access must recognize legacy identifiers and unlimited-feature markers without promoting lower tiers.
