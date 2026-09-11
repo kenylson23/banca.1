@@ -9938,6 +9938,7 @@ export class DatabaseStorage implements IStorage {
         restaurantId,
       })
       .returning();
+    await this.invalidateSubscriptionCaches(restaurantId);
     return subscription;
   }
 
@@ -9956,6 +9957,7 @@ export class DatabaseStorage implements IStorage {
         throw new Error("Subscrição não encontrada");
       }
 
+      await this.invalidateSubscriptionCaches(restaurantId);
       return updated;
     } catch (error: any) {
       if (error.message === "Subscrição não encontrada") throw error;
@@ -9979,7 +9981,16 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Subscrição não encontrada");
     }
 
+    await this.invalidateSubscriptionCaches(restaurantId);
     return canceled;
+  }
+
+  private async invalidateSubscriptionCaches(restaurantId: string): Promise<void> {
+    const { cache, CacheKeys } = await import('./cache.js');
+    await Promise.all([
+      cache.delete(CacheKeys.subscription(restaurantId)),
+      cache.delete(CacheKeys.subscriptionLimits(restaurantId)),
+    ]);
   }
 
   async checkSubscriptionLimits(restaurantId: string): Promise<{

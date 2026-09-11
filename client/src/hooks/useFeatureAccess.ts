@@ -39,16 +39,20 @@ export function useFeatureAccess(feature: Feature): FeatureAccessResult {
   const { data: subscription, isLoading } = useQuery<any>({
     queryKey: ['/api/subscription'],
     retry: false,
+    staleTime: 30_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
-   const features = normalizeFeatures(subscription?.plan?.features);
-   const hasAccess = hasEnterpriseAccess(subscription?.plan) || features.includes(feature);
+    const plan = resolveSubscriptionPlan(subscription);
+    const features = normalizeFeatures(plan?.features ?? subscription?.features);
+    const hasAccess = hasEnterpriseAccess(plan) || features.includes(feature);
 
   return {
     hasAccess,
     isLoading,
-    planName: subscription?.plan?.name,
-    planSlug: subscription?.plan?.slug,
+    planName: plan?.name,
+    planSlug: plan?.slug,
     features,
   };
 }
@@ -66,18 +70,22 @@ export function useMultipleFeatureAccess(requiredFeatures: Feature[]): FeatureAc
   const { data: subscription, isLoading } = useQuery<any>({
     queryKey: ['/api/subscription'],
     retry: false,
+    staleTime: 30_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
-   const features = normalizeFeatures(subscription?.plan?.features);
+    const plan = resolveSubscriptionPlan(subscription);
+    const features = normalizeFeatures(plan?.features ?? subscription?.features);
    const hasAccess = requiredFeatures.every(
-     feature => hasEnterpriseAccess(subscription?.plan) || features.includes(feature),
+      feature => hasEnterpriseAccess(plan) || features.includes(feature),
    );
 
   return {
     hasAccess,
     isLoading,
-    planName: subscription?.plan?.name,
-    planSlug: subscription?.plan?.slug,
+    planName: plan?.name,
+    planSlug: plan?.slug,
     features,
   };
 }
@@ -95,20 +103,50 @@ export function useAnyFeatureAccess(anyOfFeatures: Feature[]): FeatureAccessResu
   const { data: subscription, isLoading } = useQuery<any>({
     queryKey: ['/api/subscription'],
     retry: false,
+    staleTime: 30_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
-   const features = normalizeFeatures(subscription?.plan?.features);
-   const hasAccess = anyOfFeatures.some(
-     feature => hasEnterpriseAccess(subscription?.plan) || features.includes(feature),
+    const plan = resolveSubscriptionPlan(subscription);
+    const features = normalizeFeatures(plan?.features ?? subscription?.features);
+    const hasAccess = anyOfFeatures.some(
+      feature => hasEnterpriseAccess(plan) || features.includes(feature),
    );
 
   return {
     hasAccess,
     isLoading,
-    planName: subscription?.plan?.name,
-    planSlug: subscription?.plan?.slug,
+    planName: plan?.name,
+    planSlug: plan?.slug,
     features,
   };
+}
+
+export function resolveSubscriptionPlan(subscription: any): Record<string, any> | null {
+  const plan = subscription?.plan;
+
+  if (plan && typeof plan === 'object') {
+    return plan;
+  }
+
+  if (typeof plan === 'string') {
+    return {
+      name: plan,
+      slug: subscription?.planSlug,
+      features: subscription?.features,
+    };
+  }
+
+  if (subscription?.planName || subscription?.planSlug || subscription?.features) {
+    return {
+      name: subscription.planName,
+      slug: subscription.planSlug,
+      features: subscription.features,
+    };
+  }
+
+  return null;
 }
 
 function normalizeFeatures(value: unknown): string[] {
@@ -130,8 +168,15 @@ function normalizeFeatures(value: unknown): string[] {
   return [];
 }
 
-function hasEnterpriseAccess(plan: { slug?: unknown; name?: unknown } | null | undefined): boolean {
-  const slug = String(plan?.slug || '').trim().toLowerCase();
-  const name = String(plan?.name || '').trim().toLowerCase();
-  return slug === 'enterprise' || name === 'enterprise';
+export function hasEnterpriseAccess(plan: { slug?: unknown; name?: unknown } | null | undefined): boolean {
+  const identifiers = [plan?.slug, plan?.name]
+    .map((value) => String(value || '').trim().toLowerCase())
+    .filter(Boolean);
+
+  return identifiers.some((identifier) => (
+    identifier === 'enterprise' ||
+    identifier.startsWith('enterprise ') ||
+    identifier.startsWith('enterprise-') ||
+    identifier.startsWith('enterprise_')
+  ));
 }

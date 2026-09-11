@@ -25,6 +25,7 @@ import { motion } from "framer-motion";
 import { formatKwanza } from "@/lib/formatters";
 import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
 import { ActivityFeed } from "@/components/activity-feed";
+import { hasEnterpriseAccess, resolveSubscriptionPlan } from "@/hooks/useFeatureAccess";
 import type { Customer } from "@shared/schema";
 
 type CustomerStats = {
@@ -55,6 +56,9 @@ export default function Customers() {
   const { data: subscription } = useQuery<any>({
     queryKey: ['/api/subscription'],
     retry: false,
+    staleTime: 30_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   // Use offline-capable hook
@@ -78,12 +82,10 @@ export default function Customers() {
 
   // Check if customer management feature is available in the plan
   const hasCustomerManagement = useMemo(() => {
-    const plan = subscription?.plan;
+    const plan = resolveSubscriptionPlan(subscription);
     if (!plan) return false;
 
-    const planSlug = String(plan.slug || '').trim().toLowerCase();
-    const planName = String(plan.name || '').trim().toLowerCase();
-    if (planSlug === 'enterprise' || planName === 'enterprise') return true;
+    if (hasEnterpriseAccess(plan)) return true;
 
     if (!plan.features) return false;
     const features = Array.isArray(plan.features)
@@ -206,7 +208,7 @@ export default function Customers() {
             <div className="text-center space-y-2 max-w-md">
               <h2 className="text-2xl font-bold">Funcionalidade Bloqueada</h2>
               <p className="text-muted-foreground">
-                A gestão de clientes não está disponível no plano <span className="font-semibold">{subscription.plan?.name}</span>.
+                A gestão de clientes não está disponível no plano <span className="font-semibold">{resolveSubscriptionPlan(subscription)?.name || 'atual'}</span>.
               </p>
               <p className="text-sm text-muted-foreground">
                 Faça upgrade para o plano <span className="font-semibold text-primary">Profissional</span> ou superior para gerenciar clientes, programas de fidelidade e histórico de compras.

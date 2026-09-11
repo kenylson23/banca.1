@@ -97,15 +97,20 @@ export async function checkCanAddCustomer(storage: IStorage, restaurantId: strin
   
   // Enterprise includes all product features even for databases created
   // before the complete Enterprise feature list was persisted.
-  const planSlug = String(limits.plan.slug || '').trim().toLowerCase();
-  const planName = String(limits.plan.name || '').trim().toLowerCase();
-  const isEnterprise = planSlug === 'enterprise' || planName === 'enterprise';
+  const isEnterprise = isEnterprisePlan(limits.plan);
 
   if (!isEnterprise && !planFeatures.includes('gestao_clientes')) {
     throw new PlanFeatureError(
       `A gestão de clientes não está disponível no plano ${limits.plan.name}. Faça upgrade para o plano Profissional ou superior para gerenciar clientes, programas de fidelidade e histórico de compras.`,
       'customers' as any
     );
+  }
+
+  // Legacy Enterprise rows may still have an old customer cap even though
+  // Enterprise is defined as unlimited. Do not block existing Enterprise
+  // restaurants because of stale feature/limit columns.
+  if (isEnterprise) {
+    return;
   }
   
   // Then check the customer limit
@@ -117,6 +122,18 @@ export async function checkCanAddCustomer(storage: IStorage, restaurantId: strin
       limits.plan.maxCustomers
     );
   }
+}
+
+function isEnterprisePlan(plan: { slug?: unknown; name?: unknown }): boolean {
+  return [plan.slug, plan.name]
+    .map((value) => String(value || '').trim().toLowerCase())
+    .filter(Boolean)
+    .some((identifier) => (
+      identifier === 'enterprise' ||
+      identifier.startsWith('enterprise ') ||
+      identifier.startsWith('enterprise-') ||
+      identifier.startsWith('enterprise_')
+    ));
 }
 
 export async function checkCanUseLoyaltyProgram(storage: IStorage, restaurantId: string): Promise<void> {
