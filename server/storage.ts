@@ -193,6 +193,13 @@ function generateSlug(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+function normalizeCustomerPhone(phone: string): string {
+  const digits = String(phone || '').replace(/\D/g, '');
+  return digits.startsWith('244') && digits.length === 12
+    ? digits.slice(3)
+    : digits;
+}
+
 export interface IStorage {
   recalculateSessionTotals(sessionId: string): Promise<any>;
   releaseOrdersForPaidTableSession(sessionId: string, confirmedBy?: string | null): Promise<Order[]>;
@@ -1061,6 +1068,28 @@ export class DatabaseStorage implements IStorage {
         .returning();
 
       if (releasedOrder) {
+        if (releasedOrder.customerId) {
+          const [customer] = await db
+            .select()
+            .from(customers)
+            .where(eq(customers.id, releasedOrder.customerId))
+            .for('update');
+
+          if (customer) {
+            const totalSpent = Number(customer.totalSpent || 0) + Number(releasedOrder.totalAmount || 0);
+            const visitCount = Number(customer.visitCount || 0) + 1;
+
+            await db
+              .update(customers)
+              .set({
+                totalSpent: totalSpent.toFixed(2),
+                visitCount,
+                lastVisit: new Date(),
+                updatedAt: new Date(),
+              })
+              .where(eq(customers.id, releasedOrder.customerId));
+          }
+        }
         releasedOrders.push(releasedOrder);
       }
     }
@@ -8602,10 +8631,22 @@ export class DatabaseStorage implements IStorage {
     let query = db.select().from(customers).where(and(...conditions));
     
     const results = await query.orderBy(desc(customers.createdAt));
+    const paidCustomerStats = await this.getPaidCustomerStats(restaurantId, branchId);
+    const enrichedResults = results.map((customer: Customer) => {
+      const paidStats = paidCustomerStats.get(customer.id);
+      if (!paidStats) return customer;
+
+      return {
+        ...customer,
+        totalSpent: paidStats.totalSpent.toFixed(2),
+        visitCount: paidStats.visitCount,
+        lastVisit: paidStats.lastVisit || customer.lastVisit,
+      };
+    });
     
     if (filters?.search) {
       const searchTerm = filters.search.toLowerCase();
-      return results.filter((c: Customer) => 
+      return enrichedResults.filter((c: Customer) =>
         c.name.toLowerCase().includes(searchTerm) ||
         c.phone?.toLowerCase().includes(searchTerm) ||
         c.email?.toLowerCase().includes(searchTerm) ||
@@ -8613,7 +8654,54 @@ export class DatabaseStorage implements IStorage {
       );
     }
     
-    return results;
+    return enrichedResults;
+  }
+
+  private async getPaidCustomerStats(
+    restaurantId: string,
+    branchId: string | null | undefined,
+  ): Promise<Map<string, { totalSpent: number; visitCount: number; lastVisit: Date | null }>> {
+    const conditions = [
+      eq(orders.restaurantId, restaurantId),
+      eq(orders.paymentStatus, 'pago'),
+      ne(orders.status, 'cancelado'),
+      isNotNull(orders.customerId),
+    ];
+
+    if (branchId !== undefined && branchId !== null) {
+      conditions.push(eq(orders.branchId, branchId));
+    }
+
+    type PaidCustomerStatsRow = {
+      customerId: string | null;
+      totalSpent: string | null;
+      visitCount: string | null;
+      lastVisit: Date | null;
+    };
+
+    const rows = await db
+      .select({
+        customerId: orders.customerId,
+        totalSpent: sql<string>`COALESCE(SUM(${orders.totalAmount}::numeric), 0)`,
+        visitCount: sql<string>`COUNT(*)`,
+        lastVisit: sql<Date | null>`MAX(COALESCE(${orders.paymentConfirmedAt}, ${orders.updatedAt}))`,
+      })
+      .from(orders)
+      .where(and(...conditions))
+      .groupBy(orders.customerId) as PaidCustomerStatsRow[];
+
+    return new Map(
+      rows
+        .filter((row): row is PaidCustomerStatsRow & { customerId: string } => Boolean(row.customerId))
+        .map((row): [string, { totalSpent: number; visitCount: number; lastVisit: Date | null }] => [
+          row.customerId,
+          {
+            totalSpent: Number(row.totalSpent || 0),
+            visitCount: Number(row.visitCount || 0),
+            lastVisit: row.lastVisit || null,
+          },
+        ]),
+    );
   }
 
   async getCustomerById(id: string): Promise<Customer | undefined> {
@@ -8622,11 +8710,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCustomerByPhone(restaurantId: string, phone: string): Promise<Customer | undefined> {
-    const [customer] = await db
+    const normalizedPhone = normalizeCustomerPhone(phone);
+    const candidates = await db
       .select()
       .from(customers)
-      .where(and(eq(customers.restaurantId, restaurantId), eq(customers.phone, phone)));
-    return customer;
+      .where(eq(customers.restaurantId, restaurantId));
+
+    return candidates.find((customer: Customer) =>
+      normalizeCustomerPhone(customer.phone || '') === normalizedPhone
+    );
   }
 
   async getCustomerByCpf(restaurantId: string, cpf: string): Promise<Customer | undefined> {
@@ -8736,7 +8828,20 @@ export class DatabaseStorage implements IStorage {
       topCustomers: [] as Array<Customer & { orderCount: number }>,
     };
 
-    const topCustomersData = allCustomers
+    const paidCustomerStats = await this.getPaidCustomerStats(restaurantId, branchId);
+    const enrichedCustomers = allCustomers.map((customer: Customer) => {
+      const paidStats = paidCustomerStats.get(customer.id);
+      if (!paidStats) return customer;
+
+      return {
+        ...customer,
+        totalSpent: paidStats.totalSpent.toFixed(2),
+        visitCount: paidStats.visitCount,
+        lastVisit: paidStats.lastVisit || customer.lastVisit,
+      };
+    });
+
+    const topCustomersData = enrichedCustomers
       .sort((a: Customer, b: Customer) => parseFloat(b.totalSpent) - parseFloat(a.totalSpent))
       .slice(0, 5)
       .map((c: Customer) => ({
