@@ -7483,12 +7483,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Automatically set createdBy and branchId to track which admin created the order
-      const validatedOrder = insertOrderSchema.parse({
+      let validatedOrder = insertOrderSchema.parse({
         ...orderData,
         createdBy: currentUser.id,
         branchId: currentUser.activeBranchId || orderData.branchId || null,
         restaurantId: restaurantId,
       });
+
+      // Orders created from the cashier can contain a customer's phone without
+      // an explicitly selected customer. Resolve the same phone identity used
+      // by the public menu so paid orders contribute to customer metrics.
+      if (!validatedOrder.customerId && validatedOrder.customerPhone?.trim()) {
+        const existingCustomer = await storage.getCustomerByPhone(
+          restaurantId,
+          validatedOrder.customerPhone.trim(),
+        );
+        if (existingCustomer) {
+          validatedOrder = {
+            ...validatedOrder,
+            customerId: existingCustomer.id,
+          };
+        }
+      }
+
       const validatedItems = z.array(publicOrderItemSchema).parse(items);
 
       // Generate order number based on type and shift

@@ -3665,6 +3665,13 @@ export class DatabaseStorage implements IStorage {
 
     const newPaidAmount = Math.min(currentPaid + paymentAmount, total);
 
+    // Repair the missing customer link while processing legacy cashier orders.
+    // This keeps future payments, loyalty updates, cancellation handling, and
+    // customer order history consistent after the first payment is recorded.
+    const customerFromPhone = !order.customerId && order.customerPhone?.trim()
+      ? await this.getCustomerByPhone(restaurantId, order.customerPhone.trim())
+      : undefined;
+
     let changeAmount = 0;
     if (data.receivedAmount !== undefined && data.receivedAmount !== null && data.receivedAmount !== '') {
       const received = parseFloat(data.receivedAmount);
@@ -3701,6 +3708,8 @@ export class DatabaseStorage implements IStorage {
         throw new Error('Este pedido já não aguarda confirmação de pagamento');
       }
 
+      const resolvedCustomerId = lockedOrder.customerId || customerFromPhone?.id || null;
+
       const [updated] = await tx
         .update(orders)
         .set({ 
@@ -3708,6 +3717,9 @@ export class DatabaseStorage implements IStorage {
           changeAmount: Math.max(0, changeAmount).toFixed(2),
           paymentStatus,
           paymentMethod: data.paymentMethod,
+          ...(resolvedCustomerId && !lockedOrder.customerId
+            ? { customerId: resolvedCustomerId }
+            : {}),
           ...(data.confirmPayment
             ? {
                 status: 'pendente' as const,
@@ -8665,43 +8677,74 @@ export class DatabaseStorage implements IStorage {
       eq(orders.restaurantId, restaurantId),
       eq(orders.paymentStatus, 'pago'),
       ne(orders.status, 'cancelado'),
-      isNotNull(orders.customerId),
     ];
 
     if (branchId !== undefined && branchId !== null) {
       conditions.push(eq(orders.branchId, branchId));
     }
 
-    type PaidCustomerStatsRow = {
-      customerId: string | null;
-      totalSpent: string | null;
-      visitCount: string | null;
-      lastVisit: Date | null;
-    };
+    // Older cashier orders may have customerPhone but no customerId. Join
+    // those orders by the normalized phone as a read-time compatibility
+    // fallback, so existing paid sales are visible without a data migration.
+    const normalizedCustomerPhone = sql<string>`CASE
+      WHEN length(regexp_replace(COALESCE(${customers.phone}, ''), '[^0-9]', '', 'g')) = 12
+        AND left(regexp_replace(COALESCE(${customers.phone}, ''), '[^0-9]', '', 'g'), 3) = '244'
+      THEN substring(regexp_replace(COALESCE(${customers.phone}, ''), '[^0-9]', '', 'g') from 4)
+      ELSE regexp_replace(COALESCE(${customers.phone}, ''), '[^0-9]', '', 'g')
+    END`;
+    const normalizedOrderPhone = sql<string>`CASE
+      WHEN length(regexp_replace(COALESCE(${orders.customerPhone}, ''), '[^0-9]', '', 'g')) = 12
+        AND left(regexp_replace(COALESCE(${orders.customerPhone}, ''), '[^0-9]', '', 'g'), 3) = '244'
+      THEN substring(regexp_replace(COALESCE(${orders.customerPhone}, ''), '[^0-9]', '', 'g') from 4)
+      ELSE regexp_replace(COALESCE(${orders.customerPhone}, ''), '[^0-9]', '', 'g')
+    END`;
 
     const rows = await db
       .select({
         customerId: orders.customerId,
-        totalSpent: sql<string>`COALESCE(SUM(${orders.totalAmount}::numeric), 0)`,
-        visitCount: sql<string>`COUNT(*)`,
-        lastVisit: sql<Date | null>`MAX(COALESCE(${orders.paymentConfirmedAt}, ${orders.updatedAt}))`,
+        phoneCustomerId: customers.id,
+        totalAmount: orders.totalAmount,
+        paymentConfirmedAt: orders.paymentConfirmedAt,
+        updatedAt: orders.updatedAt,
       })
       .from(orders)
-      .where(and(...conditions))
-      .groupBy(orders.customerId) as PaidCustomerStatsRow[];
+      .leftJoin(
+        customers,
+        and(
+          eq(customers.restaurantId, orders.restaurantId),
+          isNull(orders.customerId),
+          isNotNull(orders.customerPhone),
+          isNotNull(customers.phone),
+          sql`${normalizedCustomerPhone} <> ''`,
+          sql`${normalizedOrderPhone} <> ''`,
+          sql`${normalizedCustomerPhone} = ${normalizedOrderPhone}`,
+        ),
+      )
+      .where(and(
+        ...conditions,
+        or(isNotNull(orders.customerId), isNotNull(customers.id)),
+      ));
 
-    return new Map(
-      rows
-        .filter((row): row is PaidCustomerStatsRow & { customerId: string } => Boolean(row.customerId))
-        .map((row): [string, { totalSpent: number; visitCount: number; lastVisit: Date | null }] => [
-          row.customerId,
-          {
-            totalSpent: Number(row.totalSpent || 0),
-            visitCount: Number(row.visitCount || 0),
-            lastVisit: row.lastVisit || null,
-          },
-        ]),
-    );
+    const stats = new Map<string, { totalSpent: number; visitCount: number; lastVisit: Date | null }>();
+    for (const row of rows) {
+      const customerId = row.customerId || row.phoneCustomerId;
+      if (!customerId) continue;
+
+      const current = stats.get(customerId) || {
+        totalSpent: 0,
+        visitCount: 0,
+        lastVisit: null,
+      };
+      current.totalSpent += Number(row.totalAmount || 0);
+      current.visitCount += 1;
+      const visitDate = row.paymentConfirmedAt || row.updatedAt || null;
+      if (visitDate && (!current.lastVisit || visitDate > current.lastVisit)) {
+        current.lastVisit = visitDate;
+      }
+      stats.set(customerId, current);
+    }
+
+    return stats;
   }
 
   async getCustomerById(id: string): Promise<Customer | undefined> {
