@@ -1,0 +1,11 @@
+[phases.install]
+cmds = [
+  "sed -i 's#http://package-firewall.replit.internal/npm/#https://registry.npmjs.org/#g' package-lock.json",
+  "npm ci --omit=dev --no-audit --no-fund"
+]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "SERVE_STATIC=true NODE_ENV=production node dist/index.js"

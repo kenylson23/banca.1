@@ -1,6 +1,6 @@
 # Deploy completo (Railway)
 
-**Build command:** `npm install --registry=https://registry.npmjs.org/ --no-audit --no-fund && npm run build`
+**Build command:** `npm run build`
 **Start command:** `SERVE_STATIC=true NODE_ENV=production node dist/index.js`
 
 O Railway serve o frontend React, a API Express e o WebSocket no mesmo domínio.
@@ -33,10 +33,9 @@ O Railway serve o frontend React, a API Express e o WebSocket no mesmo domínio.
 7. As migrações e a criação/verificação das tabelas são executadas no startup.
 8. O startup não cria mais um superadmin com senha conhecida. Para criar o primeiro, execute `npm run admin:create` em um ambiente com acesso ao mesmo `DATABASE_URL`.
 
-> O comando de build força o registry público porque o ambiente Replit pode gravar URLs
-> internas no `package-lock.json`; essas URLs não são acessíveis durante o build no Railway.
-> Usamos `npm install` em vez de `npm ci` porque o cache do Nixpacks pode montar
-> `/app/node_modules/.cache`; o `npm ci` tenta apagar essa montagem e falha com `EBUSY`.
+> O Nixpacks executa `npm ci --omit=dev` uma única vez na fase de instalação.
+> As ferramentas de compilação estão em `dependencies`, por isso o build funciona
+> mesmo quando as dependências de desenvolvimento são omitidas.
 
 ## Frontend separado na Vercel (opcional)
 

@@ -20,3 +20,9 @@ Build-time packages referenced by Vite, PostCSS, Tailwind, or their config files
 **Why:** A production-only install can fail after Vite starts when a Tailwind/PostCSS plugin remains in `devDependencies`, even though the first missing package was fixed.
 
 **How to apply:** Reproduce the publisher's install mode in a clean directory with `npm ci --omit=dev` and run the full production build before declaring deployment fixed.
+
+Nixpacks deployments should own dependency installation in the install phase and keep the Railway build command limited to the project build script; repeating `npm install` during the build can trigger npm's `Exit handler never called` failure and hide missing build binaries.
+
+**Why:** The external builder may run its install phase before the configured build command, so a second install is unnecessary and can fail independently of the application compilation.
+
+**How to apply:** Define one explicit install phase, run the build only after it succeeds, and test the exact clean-install sequence with the deployment's Node runtime.
