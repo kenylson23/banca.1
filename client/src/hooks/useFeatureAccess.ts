@@ -190,3 +190,14 @@ export function hasEnterpriseAccess(plan: {
 
   return isNamedEnterprise || (!isKnownLowerTier && features.includes('tudo_ilimitado'));
 }
+
+export function hasPlanFeature(
+  plan: {
+    slug?: unknown;
+    name?: unknown;
+    features?: unknown;
+  } | null | undefined,
+  feature: string,
+): boolean {
+  return Boolean(plan) && (hasEnterpriseAccess(plan) || normalizeFeatures(plan?.features).includes(feature));
+}

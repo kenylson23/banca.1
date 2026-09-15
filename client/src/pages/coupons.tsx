@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { hasPlanFeature } from "@/hooks/useFeatureAccess";
 import { Plus, Search, Tag, TrendingUp, Percent, Trash2, Calendar, ShoppingBag, TicketPercent, Clock, DollarSign, AlertCircle, CheckCircle2, Lock, ArrowUpCircle, Gift } from "lucide-react";
 import {
   Dialog,
@@ -240,12 +241,8 @@ export default function Coupons() {
   // Check if coupon system feature is available in the plan
   const hasCouponSystem = useMemo(() => {
     if (!subscription?.plan) return false;
-    // Check both the flag and the features array
-    if (subscription.plan.hasCouponSystem === 1) return true;
-    const features = Array.isArray(subscription.plan.features) 
-      ? subscription.plan.features 
-      : JSON.parse(subscription.plan.features || '[]');
-    return features.includes('cupons');
+    return hasPlanFeature(subscription.plan, 'cupons') ||
+      subscription.plan.hasCouponSystem === 1;
   }, [subscription]);
 
   // Show feature locked message if coupon system is not available in the plan

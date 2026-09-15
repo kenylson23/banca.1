@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { hasPlanFeature } from "@/hooks/useFeatureAccess";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -152,12 +153,8 @@ export default function Loyalty() {
   // Check if loyalty program feature is available in the plan
   const hasLoyaltyProgram = useMemo(() => {
     if (!subscription?.plan) return false;
-    // Check both the flag and the features array
-    if (subscription.plan.hasLoyaltyProgram === 1) return true;
-    const features = Array.isArray(subscription.plan.features) 
-      ? subscription.plan.features 
-      : JSON.parse(subscription.plan.features || '[]');
-    return features.includes('fidelidade');
+    return hasPlanFeature(subscription.plan, 'fidelidade') ||
+      subscription.plan.hasLoyaltyProgram === 1;
   }, [subscription]);
 
   // Show feature locked message if loyalty program is not available in the plan

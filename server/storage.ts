@@ -10334,16 +10334,31 @@ export class DatabaseStorage implements IStorage {
 
     // Helper to check if limit is unlimited (999999 means unlimited)
     const isUnlimited = (limit: number) => limit >= 999999;
+    const planIdentifiers = [plan.slug, plan.name]
+      .map((value) => String(value || '').trim().toLowerCase())
+      .filter(Boolean);
+    const planFeatures = Array.isArray(plan.features)
+      ? plan.features.filter((feature): feature is string => typeof feature === 'string')
+      : [];
+    const isEnterprise = planIdentifiers.some((identifier) => identifier.includes('enterprise')) ||
+      (!planIdentifiers.some((identifier) => (
+        identifier === 'basico' ||
+        identifier.startsWith('basico ') ||
+        identifier === 'profissional' ||
+        identifier.startsWith('profissional ') ||
+        identifier === 'empresarial' ||
+        identifier.startsWith('empresarial ')
+      )) && planFeatures.includes('tudo_ilimitado'));
 
     const withinLimits = {
-      branches: isUnlimited(plan.maxBranches) || branchesCount < plan.maxBranches,
-      tables: isUnlimited(plan.maxTables) || tablesCount < plan.maxTables,
-      menuItems: isUnlimited(plan.maxMenuItems) || menuItemsCount < plan.maxMenuItems,
-      users: isUnlimited(plan.maxUsers) || usersCount < plan.maxUsers,
-      orders: isUnlimited(plan.maxOrdersPerMonth) || ordersThisMonth < plan.maxOrdersPerMonth,
-      customers: isUnlimited(plan.maxCustomers) || customersCount < plan.maxCustomers,
-      coupons: isUnlimited(plan.maxActiveCoupons) || activeCouponsCount < plan.maxActiveCoupons,
-      inventoryItems: isUnlimited(plan.maxInventoryItems) || inventoryItemsCount < plan.maxInventoryItems,
+      branches: isEnterprise || isUnlimited(plan.maxBranches) || branchesCount < plan.maxBranches,
+      tables: isEnterprise || isUnlimited(plan.maxTables) || tablesCount < plan.maxTables,
+      menuItems: isEnterprise || isUnlimited(plan.maxMenuItems) || menuItemsCount < plan.maxMenuItems,
+      users: isEnterprise || isUnlimited(plan.maxUsers) || usersCount < plan.maxUsers,
+      orders: isEnterprise || isUnlimited(plan.maxOrdersPerMonth) || ordersThisMonth < plan.maxOrdersPerMonth,
+      customers: isEnterprise || isUnlimited(plan.maxCustomers) || customersCount < plan.maxCustomers,
+      coupons: isEnterprise || isUnlimited(plan.maxActiveCoupons) || activeCouponsCount < plan.maxActiveCoupons,
+      inventoryItems: isEnterprise || isUnlimited(plan.maxInventoryItems) || inventoryItemsCount < plan.maxInventoryItems,
     };
 
     const result = {

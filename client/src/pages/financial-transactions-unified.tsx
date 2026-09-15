@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { hasPlanFeature } from "@/hooks/useFeatureAccess";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { buildApiUrl } from "@/lib/api-url";
@@ -81,7 +82,8 @@ export default function FinancialTransactionsUnified() {
   // Check if expense tracking feature is available in the plan
   const hasExpenseTracking = useMemo(() => {
     if (!subscription?.plan) return false;
-    return subscription.plan.hasExpenseTracking === 1;
+    return hasPlanFeature(subscription.plan, 'gestao_despesas') ||
+      subscription.plan.hasExpenseTracking === 1;
   }, [subscription]);
 
   // Construir parâmetros de query

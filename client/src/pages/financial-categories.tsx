@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { hasPlanFeature } from "@/hooks/useFeatureAccess";
 import { buildApiUrl } from "@/lib/api-url";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -69,7 +70,8 @@ export default function FinancialCategories() {
   // Check if expense tracking feature is available in the plan
   const hasExpenseTracking = useMemo(() => {
     if (!subscription?.plan) return false;
-    return subscription.plan.hasExpenseTracking === 1;
+    return hasPlanFeature(subscription.plan, 'gestao_despesas') ||
+      subscription.plan.hasExpenseTracking === 1;
   }, [subscription]);
 
   const createCategoryMutation = useMutation({

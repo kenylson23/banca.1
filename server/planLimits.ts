@@ -25,7 +25,7 @@ export class PlanFeatureError extends Error {
 export async function checkCanAddUser(storage: IStorage, restaurantId: string): Promise<void> {
   const limits = await storage.checkSubscriptionLimits(restaurantId);
   
-  if (!limits.canAddUser) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.canAddUser) {
     throw new PlanLimitError(
       `Limite de usuários atingido. O plano ${limits.plan.name} permite até ${limits.plan.maxUsers} usuários e você já possui ${limits.usage.users}.`,
       'users',
@@ -38,7 +38,7 @@ export async function checkCanAddUser(storage: IStorage, restaurantId: string): 
 export async function checkCanAddBranch(storage: IStorage, restaurantId: string): Promise<void> {
   const limits = await storage.checkSubscriptionLimits(restaurantId);
   
-  if (!limits.canAddBranch) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.canAddBranch) {
     throw new PlanLimitError(
       `Limite de filiais atingido. O plano ${limits.plan.name} permite até ${limits.plan.maxBranches} filiais e você já possui ${limits.usage.branches}.`,
       'branches',
@@ -51,7 +51,7 @@ export async function checkCanAddBranch(storage: IStorage, restaurantId: string)
 export async function checkCanAddTable(storage: IStorage, restaurantId: string): Promise<void> {
   const limits = await storage.checkSubscriptionLimits(restaurantId);
   
-  if (!limits.canAddTable) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.canAddTable) {
     throw new PlanLimitError(
       `Limite de mesas atingido. O plano ${limits.plan.name} permite até ${limits.plan.maxTables} mesas e você já possui ${limits.usage.tables}.`,
       'tables',
@@ -64,7 +64,7 @@ export async function checkCanAddTable(storage: IStorage, restaurantId: string):
 export async function checkCanAddMenuItem(storage: IStorage, restaurantId: string): Promise<void> {
   const limits = await storage.checkSubscriptionLimits(restaurantId);
   
-  if (!limits.canAddMenuItem) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.canAddMenuItem) {
     throw new PlanLimitError(
       `Limite de produtos no menu atingido. O plano ${limits.plan.name} permite até ${limits.plan.maxMenuItems} produtos e você já possui ${limits.usage.menuItems}.`,
       'menuItems',
@@ -77,7 +77,7 @@ export async function checkCanAddMenuItem(storage: IStorage, restaurantId: strin
 export async function checkCanCreateOrder(storage: IStorage, restaurantId: string): Promise<void> {
   const limits = await storage.checkSubscriptionLimits(restaurantId);
   
-  if (!limits.canCreateOrder) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.canCreateOrder) {
     throw new PlanLimitError(
       `Limite de pedidos mensais atingido. O plano ${limits.plan.name} permite até ${limits.plan.maxOrdersPerMonth} pedidos por mês e você já criou ${limits.usage.ordersThisMonth}.`,
       'orders',
@@ -95,7 +95,7 @@ export async function checkCanAddCustomer(storage: IStorage, restaurantId: strin
   
   // Enterprise includes all product features even for databases created
   // before the complete Enterprise feature list was persisted.
-  const isEnterprise = isEnterprisePlan(limits.plan);
+  const isEnterprise = hasEnterpriseAccess(limits.plan);
 
   if (!isEnterprise && !planFeatures.includes('gestao_clientes')) {
     throw new PlanFeatureError(
@@ -122,7 +122,7 @@ export async function checkCanAddCustomer(storage: IStorage, restaurantId: strin
   }
 }
 
-function isEnterprisePlan(plan: { slug?: unknown; name?: unknown; features?: unknown }): boolean {
+export function hasEnterpriseAccess(plan: { slug?: unknown; name?: unknown; features?: unknown }): boolean {
   const identifiers = [plan.slug, plan.name]
     .map((value) => String(value || '').trim().toLowerCase())
     .filter(Boolean)
@@ -161,7 +161,7 @@ function normalizePlanFeatures(value: unknown): string[] {
 export async function checkCanUseLoyaltyProgram(storage: IStorage, restaurantId: string): Promise<void> {
   const limits = await storage.checkSubscriptionLimits(restaurantId);
   
-  if (!limits.plan.hasLoyaltyProgram) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.plan.hasLoyaltyProgram) {
     throw new PlanFeatureError(
       `O programa de fidelidade não está disponível no plano ${limits.plan.name}. Faça upgrade para o plano Profissional ou superior.`,
       'loyalty'
@@ -172,7 +172,7 @@ export async function checkCanUseLoyaltyProgram(storage: IStorage, restaurantId:
 export async function checkCanUseCouponSystem(storage: IStorage, restaurantId: string): Promise<void> {
   const limits = await storage.checkSubscriptionLimits(restaurantId);
   
-  if (!limits.plan.hasCouponSystem) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.plan.hasCouponSystem) {
     throw new PlanFeatureError(
       `O sistema de cupons não está disponível no plano ${limits.plan.name}. Faça upgrade para o plano Profissional ou superior.`,
       'coupons'
@@ -182,15 +182,16 @@ export async function checkCanUseCouponSystem(storage: IStorage, restaurantId: s
 
 export async function checkCanCreateCoupon(storage: IStorage, restaurantId: string): Promise<void> {
   const limits = await storage.checkSubscriptionLimits(restaurantId);
+  const isEnterprise = hasEnterpriseAccess(limits.plan);
   
-  if (!limits.plan.hasCouponSystem) {
+  if (!isEnterprise && !limits.plan.hasCouponSystem) {
     throw new PlanFeatureError(
       `O sistema de cupons não está disponível no plano ${limits.plan.name}. Faça upgrade para o plano Profissional ou superior.`,
       'coupons'
     );
   }
   
-  if (!limits.canAddCoupon) {
+  if (!isEnterprise && !limits.canAddCoupon) {
     throw new PlanLimitError(
       `Limite de cupons ativos atingido. O plano ${limits.plan.name} permite até ${limits.plan.maxActiveCoupons} cupons ativos e você já possui ${limits.usage.activeCoupons}.`,
       'coupons',
@@ -203,7 +204,7 @@ export async function checkCanCreateCoupon(storage: IStorage, restaurantId: stri
 export async function checkCanUseExpenseTracking(storage: IStorage, restaurantId: string): Promise<void> {
   const limits = await storage.checkSubscriptionLimits(restaurantId);
   
-  if (!limits.plan.hasExpenseTracking) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.plan.hasExpenseTracking) {
     throw new PlanFeatureError(
       `A gestão de despesas não está disponível no plano ${limits.plan.name}. Faça upgrade para o plano Profissional ou superior.`,
       'expenses'
@@ -214,7 +215,7 @@ export async function checkCanUseExpenseTracking(storage: IStorage, restaurantId
 export async function checkCanUseInventoryModule(storage: IStorage, restaurantId: string): Promise<void> {
   const limits = await storage.checkSubscriptionLimits(restaurantId);
   
-  if (!limits.plan.hasInventoryModule) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.plan.hasInventoryModule) {
     throw new PlanFeatureError(
       `O módulo de inventário não está disponível no plano ${limits.plan.name}. Faça upgrade para o plano Empresarial ou superior.`,
       'inventory'
@@ -224,15 +225,16 @@ export async function checkCanUseInventoryModule(storage: IStorage, restaurantId
 
 export async function checkCanAddInventoryItem(storage: IStorage, restaurantId: string): Promise<void> {
   const limits = await storage.checkSubscriptionLimits(restaurantId);
+  const isEnterprise = hasEnterpriseAccess(limits.plan);
   
-  if (!limits.plan.hasInventoryModule) {
+  if (!isEnterprise && !limits.plan.hasInventoryModule) {
     throw new PlanFeatureError(
       `O módulo de inventário não está disponível no plano ${limits.plan.name}. Faça upgrade para o plano Empresarial ou superior.`,
       'inventory'
     );
   }
   
-  if (!limits.canAddInventoryItem) {
+  if (!isEnterprise && !limits.canAddInventoryItem) {
     throw new PlanLimitError(
       `Limite de itens de inventário atingido. O plano ${limits.plan.name} permite até ${limits.plan.maxInventoryItems} itens e você já possui ${limits.usage.inventoryItems}.`,
       'inventoryItems',
@@ -245,7 +247,7 @@ export async function checkCanAddInventoryItem(storage: IStorage, restaurantId: 
 export async function checkCanUseStockTransfers(storage: IStorage, restaurantId: string): Promise<void> {
   const limits = await storage.checkSubscriptionLimits(restaurantId);
   
-  if (!limits.plan.hasStockTransfers) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.plan.hasStockTransfers) {
     throw new PlanFeatureError(
       `As transferências de estoque não estão disponíveis no plano ${limits.plan.name}. Faça upgrade para o plano Empresarial ou superior.`,
       'stockTransfers'

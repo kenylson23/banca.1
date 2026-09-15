@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { hasPlanFeature } from "@/hooks/useFeatureAccess";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
@@ -510,12 +511,8 @@ export default function InventoryPage() {
   // Check if inventory module feature is available in the plan
   const hasInventoryModule = useMemo(() => {
     if (!subscription?.plan) return false;
-    // Check both the flag and the features array
-    if (subscription.plan.hasInventoryModule === 1) return true;
-    const features = Array.isArray(subscription.plan.features) 
-      ? subscription.plan.features 
-      : JSON.parse(subscription.plan.features || '[]');
-    return features.includes('inventario');
+    return hasPlanFeature(subscription.plan, 'inventario') ||
+      subscription.plan.hasInventoryModule === 1;
   }, [subscription]);
 
   // Show feature locked message if inventory module is not available in the plan
