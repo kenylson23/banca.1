@@ -1,3 +1,35 @@
-modules = ["nodejs-20", "web"]
+modules = ["nodejs-20", "web", "python-base-3.13"]
 run = "npm run dev"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
+[[ports]]
+localPort = 24678
+externalPort = 80
