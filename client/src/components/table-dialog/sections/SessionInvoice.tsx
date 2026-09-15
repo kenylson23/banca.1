@@ -40,7 +40,7 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
 
   const qrPayload = useMemo(() => JSON.stringify({
     tipo: 'fatura-mesa',
-    numero: data?.invoiceNumber,
+    numero: data?.invoiceReference,
     codigo: data?.validation.code,
     total: data?.totals.total,
   }), [data]);
@@ -119,7 +119,7 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `fatura-mesa-${data.table.number}-${data.invoiceNumber}.pdf`;
+      anchor.download = `fatura-mesa-${data.table.number}-${data.invoiceReference.replace(/[^a-z0-9]+/gi, '-')}.pdf`;
       anchor.click();
       URL.revokeObjectURL(url);
     } catch (error) {
@@ -134,7 +134,7 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
           <div className="flex items-center gap-2">
             {data.restaurant.logoUrl ? <img src={data.restaurant.logoUrl} alt="" className="h-10 w-10 rounded-lg object-contain ring-1 ring-border" /> : <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-lg font-bold text-primary-foreground">{data.restaurant.name.slice(0, 1).toUpperCase()}</div>}
             <div>
-              <p className="font-semibold">Fatura da mesa Nº {String(data.invoiceNumber).padStart(6, '0')}</p>
+              <p className="font-semibold">Fatura da mesa Nº {data.invoiceReference}</p>
               <p className="text-xs text-muted-foreground">{data.restaurant.name}{data.branch ? ` · ${data.branch.name}` : ''} · Código: {data.validation.code}</p>
             </div>
           </div>
@@ -205,7 +205,7 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
            if (!payment) return null;
            return (
              <PrintTablePayment
-               payment={{ id: payment.id, amount: payment.amount, paymentMethod: payment.paymentMethod, createdAt: payment.createdAt, notes: payment.notes || undefined }}
+               payment={{ id: payment.id, amount: payment.amount, paymentMethod: payment.paymentMethod, createdAt: payment.createdAt, notes: payment.notes || undefined, invoiceReference: data.invoiceReference }}
                tableName={`Mesa ${data.table.number}`}
                onPrintComplete={() => setPrintingPaymentId(null)}
                autoPrint

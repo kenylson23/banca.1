@@ -89,6 +89,7 @@ export type TableInvoiceDocument = {
   currency: 'AOA';
   issuedAt: string;
   invoiceNumber: number;
+  invoiceReference: string;
   restaurant: TableInvoiceRestaurant;
   branch: TableInvoiceBranch;
   table: {

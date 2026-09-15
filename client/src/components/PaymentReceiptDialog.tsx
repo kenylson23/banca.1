@@ -39,6 +39,7 @@ interface PaymentData {
   receivedAmount?: number;
   notes?: string;
   createdAt: string;
+  invoiceReference?: string;
 }
 
 interface CalculateTotals {
@@ -233,7 +234,7 @@ export function PaymentReceiptDialog({
     const printDateTime = new Date().toLocaleString("pt-PT");
     const operatorName = localStorage.getItem("userName") || "Sistema";
 
-    const paymentId = payment?.id || "SEM-ID";
+    const invoiceReference = payment?.invoiceReference || "Sessão sem referência";
     const paymentDate = payment?.createdAt ? new Date(payment.createdAt).toLocaleString("pt-PT") : printDateTime;
     const paymentMethodLabel = getPaymentMethodLabel(payment?.paymentMethod || "");
     const paymentNotes = payment?.notes ? `<div class="info-line"><strong>Observações:</strong><span>${payment.notes}</span></div>` : "";
@@ -289,7 +290,7 @@ export function PaymentReceiptDialog({
           </div>
 
           <div class="invoice-info">
-            <div class="info-line"><strong>Fatura Nº:</strong><span>${paymentId}</span></div>
+            <div class="info-line"><strong>Fatura Nº:</strong><span>${invoiceReference}</span></div>
             <div class="info-line"><strong>Data:</strong><span>${paymentDate}</span></div>
             <div class="info-line"><strong>Mesa:</strong><span>${table.number}${table.area ? ` (${table.area})` : ""}</span></div>
             <div class="info-line"><strong>Convidados:</strong><span>${safeOrdersByGuest.length}</span></div>
@@ -345,7 +346,7 @@ export function PaymentReceiptDialog({
             ` : ""}
           </div>
 
-          <div class="validation-code">Código de Validação: ${paymentId}</div>
+          <div class="validation-code">Documento: ${invoiceReference}</div>
           <div class="footer">Obrigado pela sua visita!<br>Volte sempre!</div>
         </body>
       </html>
@@ -355,7 +356,7 @@ export function PaymentReceiptDialog({
   const handleDownloadPDF = async () => {
     setIsGeneratingPDF(true);
     try {
-      const paymentId = payment?.id || "SEM-ID";
+      const invoiceReference = payment?.invoiceReference || "Sessão sem referência";
       const paymentMethodLabel = getPaymentMethodLabel(payment?.paymentMethod || "");
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -395,7 +396,7 @@ export function PaymentReceiptDialog({
 
       addText("FATURA DE PAGAMENTO", 14, true, "center");
       yPos += 5;
-      addText(`Fatura Nº: ${paymentId}`, 10, true);
+      addText(`Fatura Nº: ${invoiceReference}`, 10, true);
       addText(`Data: ${payment?.createdAt ? new Date(payment.createdAt).toLocaleString("pt-PT") : new Date().toLocaleString("pt-PT")}`, 10);
       addText(`Mesa: ${table.number}${table.area ? ` (${table.area})` : ""}`, 10);
        addText(`Convidados: ${safeOrdersByGuest.length}`, 10);
@@ -514,7 +515,7 @@ export function PaymentReceiptDialog({
       yPos += 5;
       addLine();
 
-      addText(`Código de Validação: ${paymentId}`, 9, false, "center");
+      addText(`Documento: ${invoiceReference}`, 9, false, "center");
       yPos += 5;
       addText("Obrigado pela sua visita!", 10, true, "center");
       addText("Volte sempre!", 10, false, "center");

@@ -51,6 +51,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { PaymentSuccessDialog } from "@/components/PaymentSuccessDialog";
 import { PaymentReceiptDialog } from "@/components/PaymentReceiptDialog";
+import { formatTableInvoiceNumber } from "@shared/table-invoice-number";
 import { CheckoutSummaryPanel } from "@/components/CheckoutSummaryPanel";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { invalidateAfterPayment } from "@/lib/tableInvalidations";
@@ -749,6 +750,11 @@ export default function TableCheckoutV2() {
           ?? data?.results?.[0]?.tablePayment
           ?? data?.results?.[0]?.guestPayment
           ?? data;
+        const paymentWithInvoice = {
+          ...payment,
+          invoiceReference: payment?.invoiceReference
+            || formatTableInvoiceNumber(sessionData?.invoiceNumber, sessionData?.startedAt),
+        };
         // Congelar os dados antes das invalidações: no pagamento individual,
         // o convidado passa a "pago" e a seleção é removida, o que faria
         // calculateTotals voltar para zero enquanto a fatura ainda está aberta.
@@ -763,7 +769,7 @@ export default function TableCheckoutV2() {
 
         setReceiptTotals(calculateTotals);
         setReceiptOrdersByGuest(billedOrders);
-        setPaymentData(payment);
+        setPaymentData(paymentWithInvoice);
       setShowSuccessDialog(true);
       
       if (!id) return;

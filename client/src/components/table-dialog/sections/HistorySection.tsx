@@ -27,6 +27,7 @@ import { SessionCard } from './SessionCard';
 import { TableStatistics } from './TableStatistics';
 import { Button } from '@/components/ui/button';
 import { PrintTablePayment } from '@/components/PrintTablePayment';
+import { formatTableInvoiceNumber } from '@shared/table-invoice-number';
 
 interface HistorySectionProps {
   table: Table;
@@ -172,7 +173,7 @@ export function HistorySection({ table }: HistorySectionProps) {
                         </div>
                         <div>
                           <CardTitle className="text-lg">
-                            Pagamento #{payment.id.slice(0, 8)}
+                            {formatTableInvoiceNumber(payment.invoiceNumber, payment.sessionStartedAt)}
                           </CardTitle>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Clock className="w-3 h-3" />
@@ -249,6 +250,8 @@ export function HistorySection({ table }: HistorySectionProps) {
                       createdAt: paymentToPrint.createdAt,
                       notes: paymentToPrint.notes,
                       sessionId: paymentToPrint.sessionId,
+                      invoiceReference: paymentToPrint.invoiceReference
+                        || formatTableInvoiceNumber(paymentToPrint.invoiceNumber, paymentToPrint.sessionStartedAt),
                       guestName: paymentToPrint.guestName,
                       items: paymentToPrint.items || [],
                     }}

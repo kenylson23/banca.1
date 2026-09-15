@@ -180,6 +180,7 @@ import {
 } from "@shared/schema";
 import { allocateInvoiceNumber, allocateTableSessionInvoiceNumber } from "./invoiceNumberGenerator";
 import { normalizePaymentMethod } from "@shared/payment-methods";
+import { formatTableInvoiceNumber } from "@shared/table-invoice-number";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, gt, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
 import type { PgTransaction } from "drizzle-orm/pg-core";
@@ -2320,9 +2321,12 @@ export class DatabaseStorage implements IStorage {
       notes: tablePayments.notes,
       createdAt: tablePayments.createdAt,
       guestName: tableGuests.name,
+      invoiceNumber: tableSessions.invoiceNumber,
+      sessionStartedAt: tableSessions.startedAt,
     })
       .from(tablePayments)
       .leftJoin(tableGuests, eq(tablePayments.guestId, tableGuests.id))
+      .leftJoin(tableSessions, eq(tablePayments.sessionId, tableSessions.id))
       .where(and(...conditions))
       .orderBy(desc(tablePayments.createdAt));
       
@@ -7156,14 +7160,16 @@ export class DatabaseStorage implements IStorage {
       tablePaymentConditions.push(eq(tablePayments.paymentMethod, filters.paymentMethod));
     }
 
-    const tablePaymentResults: Array<{ payment: any; table: any; recordedBy: User | null }> = await db
+    const tablePaymentResults: Array<{ payment: any; table: any; session: any; recordedBy: User | null }> = await db
       .select({
         payment: tablePayments,
         table: tables,
+        session: tableSessions,
         recordedBy: users,
       })
       .from(tablePayments)
       .innerJoin(tables, eq(tablePayments.tableId, tables.id))
+      .leftJoin(tableSessions, eq(tablePayments.sessionId, tableSessions.id))
       .leftJoin(users, eq(tablePayments.operatorId, users.id))
       .where(and(...tablePaymentConditions))
       .orderBy(desc(tablePayments.createdAt));
@@ -7206,7 +7212,7 @@ export class DatabaseStorage implements IStorage {
             && transaction.paymentMethod === payment.paymentMethod;
         });
       })
-      .map(({ payment, table, recordedBy }: any) => ({
+      .map(({ payment, table, session, recordedBy }: any) => ({
         id: `table-payment:${payment.id}`,
         restaurantId,
         branchId: table.branchId || null,
@@ -7221,7 +7227,10 @@ export class DatabaseStorage implements IStorage {
         amount: payment.amount,
         referenceOrderId: null,
         occurredAt: payment.createdAt || new Date(0),
-        note: payment.notes || null,
+        note: `${payment.notes || ''}${payment.notes ? ' · ' : ''}Fatura Nº ${formatTableInvoiceNumber(session?.invoiceNumber, session?.startedAt)}`,
+        invoiceReference: session?.invoiceNumber
+          ? formatTableInvoiceNumber(session.invoiceNumber, session.startedAt)
+          : null,
         totalInstallments: 1,
         installmentNumber: 1,
         parentTransactionId: null,

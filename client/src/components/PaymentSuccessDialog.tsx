@@ -46,6 +46,7 @@ interface PaymentData {
   receivedAmount?: number;
   notes?: string;
   createdAt: string;
+  invoiceReference?: string;
 }
 
 interface Table {
@@ -442,7 +443,7 @@ export function PaymentSuccessDialog({
           <div class="invoice-info">
             <div class="info-line">
               <strong>Fatura Nº:</strong>
-              <span>${payment.id.substring(0, 8).toUpperCase()}</span>
+              <span>${payment.invoiceReference || 'Sessão sem referência'}</span>
             </div>
             <div class="info-line">
               <strong>Data:</strong>
@@ -547,7 +548,7 @@ export function PaymentSuccessDialog({
 
           <!-- VALIDATION CODE -->
           <div class="validation-code">
-            Código de Validação: ${payment.id.substring(0, 8).toUpperCase()}
+            Documento: ${payment.invoiceReference || 'Sessão sem referência'}
           </div>
 
           <!-- FOOTER -->
@@ -626,7 +627,7 @@ export function PaymentSuccessDialog({
       addText('FATURA DE PAGAMENTO', 14, true, 'center');
       yPos += 5;
 
-      addText(`Fatura Nº: ${payment.id.substring(0, 8).toUpperCase()}`, 10, true);
+      addText(`Fatura Nº: ${payment.invoiceReference || 'Sessão sem referência'}`, 10, true);
       addText(`Data: ${new Date(payment.createdAt).toLocaleString('pt-PT')}`, 10);
       addText(`Mesa: ${table.number}${table.area ? ` (${table.area})` : ''}`, 10);
       addText(`Convidados: ${safeOrdersByGuest.length}`, 10);
@@ -755,7 +756,7 @@ export function PaymentSuccessDialog({
       addLine();
 
       // FOOTER
-      addText(`Código de Validação: ${payment.id.substring(0, 8).toUpperCase()}`, 9, false, 'center');
+      addText(`Documento: ${payment.invoiceReference || 'Sessão sem referência'}`, 9, false, 'center');
       yPos += 5;
       addText('Obrigado pela sua visita!', 10, true, 'center');
       addText('Volte sempre!', 10, false, 'center');

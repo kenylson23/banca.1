@@ -47,6 +47,7 @@ type TransactionWithDetails = FinancialTransaction & {
   category: FinancialCategory | null;
   recordedBy: User | null;
   source?: 'financial_transaction' | 'table_payment';
+  invoiceReference?: string | null;
 };
 
 type FinancialSummary = {
@@ -648,6 +649,11 @@ function TransactionsList({
                     {transaction.note && (
                       <p className="text-xs text-muted-foreground mt-1 truncate">
                         {transaction.note}
+                      </p>
+                    )}
+                    {transaction.invoiceReference && (
+                      <p className="text-xs font-medium text-primary mt-1">
+                        Fatura Nº {transaction.invoiceReference}
                       </p>
                     )}
                   </div>

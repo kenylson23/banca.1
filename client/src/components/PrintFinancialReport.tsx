@@ -20,6 +20,7 @@ type TransactionWithDetails = FinancialTransaction & {
   cashRegister: CashRegister | null;
   category: FinancialCategory | null;
   recordedBy: User | null;
+  invoiceReference?: string | null;
 };
 
 type FinancialSummary = {
@@ -86,7 +87,7 @@ export function PrintFinancialReport({
       const txList = transactions.map(tx => ({
         date: format(new Date(tx.occurredAt || new Date()), "dd/MM/yy HH:mm", { locale: ptBR }),
         type: tx.type === 'receita' ? 'Receita' : 'Despesa',
-        description: tx.category?.name || 'Sem categoria',
+        description: `${tx.category?.name || 'Sem categoria'}${tx.invoiceReference ? ` · ${tx.invoiceReference}` : ''}`,
         amount: `${tx.type === 'receita' ? '+' : '-'} ${formatKwanza(tx.amount)}`,
       }));
 
@@ -293,7 +294,7 @@ export function PrintFinancialReport({
                   <tr>
                     <td>${format(new Date(transaction.occurredAt || new Date()), "dd/MM/yy HH:mm", { locale: ptBR })}</td>
                     <td>${isIncome ? 'Receita' : 'Despesa'}</td>
-                    <td>${transaction.category?.name || '-'}</td>
+                    <td>${transaction.category?.name || '-'}${transaction.invoiceReference ? `<br><small>Fatura Nº ${transaction.invoiceReference}</small>` : ''}</td>
                     <td>${paymentMethodLabels[transaction.paymentMethod as keyof typeof paymentMethodLabels] || transaction.paymentMethod}</td>
                     <td>${transaction.cashRegister?.name || '-'}</td>
                     <td style="text-align: right;" class="${isIncome ? 'income' : 'expense'}">

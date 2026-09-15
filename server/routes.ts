@@ -30,6 +30,7 @@ import { allocateTableSessionInvoiceNumber } from './invoiceNumberGenerator';
 import { generateInvoiceValidationCode } from '@shared/invoice-validation';
 import { getPaymentMethodLabel, normalizePaymentMethod } from '@shared/payment-methods';
 import { summarizeSessionInvoice } from '@shared/session-invoice';
+import { formatTableInvoiceNumber } from '@shared/table-invoice-number';
 import type {
   TableInvoiceDocument,
   TableInvoiceAdjustment,
@@ -284,6 +285,7 @@ async function buildTableInvoiceDocument(
     date: sessionForInvoice.startedAt,
     total: totalAmount,
   });
+  const invoiceReference = formatTableInvoiceNumber(invoiceNumber, sessionForInvoice.startedAt);
   const audit = [
     ...sessionAuditRows.map((row) => {
     const details = (row.details || {}) as Record<string, any>;
@@ -332,6 +334,7 @@ async function buildTableInvoiceDocument(
     currency: 'AOA',
     issuedAt: new Date().toISOString(),
     invoiceNumber,
+    invoiceReference,
     restaurant: {
       id: restaurant.id,
       name: restaurant.name,
@@ -5966,7 +5969,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename=fatura-mesa-${document.table.number}-${document.invoiceNumber}.pdf`,
+        `attachment; filename=fatura-mesa-${document.table.number}-${document.invoiceReference.replace(/[^a-z0-9]+/gi, '-')}.pdf`,
       );
       pdf.pipe(res);
 
@@ -5977,7 +5980,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       pdf.fontSize(11).font('Helvetica-Bold').text('FATURA DA MESA', { align: 'center' });
       pdf.moveDown(0.6);
       pdf.fontSize(10).font('Helvetica')
-        .text(`Fatura Nº ${String(document.invoiceNumber).padStart(6, '0')}  |  Mesa ${document.table.number}`)
+        .text(`Fatura Nº ${document.invoiceReference}  |  Mesa ${document.table.number}`)
         .text(`Emissão: ${new Date(document.issuedAt).toLocaleString('pt-AO')}`)
         .text(`Sessão iniciada: ${new Date(document.session.startedAt).toLocaleString('pt-AO')}`);
       if (document.restaurant.address) pdf.text(`Endereço: ${document.restaurant.address}`);
@@ -6021,7 +6024,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const pdfQrCode = await QRCode.toDataURL(JSON.stringify({
         tipo: 'fatura-mesa',
-        numero: document.invoiceNumber,
+        numero: document.invoiceReference,
         codigo: document.validation.code,
         total: document.totals.total,
       }), {

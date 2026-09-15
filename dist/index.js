@@ -3494,6 +3494,22 @@ var init_payment_methods = __esm({
   }
 });
 
+// shared/table-invoice-number.ts
+function formatTableInvoiceNumber(invoiceNumber, date) {
+  const number = Number(invoiceNumber);
+  if (!Number.isInteger(number) || number < 1) {
+    return "FT AOA/----/------";
+  }
+  const parsedDate = date ? new Date(date) : null;
+  const year = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate.getFullYear() : (/* @__PURE__ */ new Date()).getFullYear();
+  return `FT AOA/${year}/${String(number).padStart(6, "0")}`;
+}
+var init_table_invoice_number = __esm({
+  "shared/table-invoice-number.ts"() {
+    "use strict";
+  }
+});
+
 // shared/planAccess.ts
 function normalizePlanFeatures(value) {
   if (Array.isArray(value)) {
@@ -5235,6 +5251,7 @@ var init_storage = __esm({
     init_schema();
     init_invoiceNumberGenerator();
     init_payment_methods();
+    init_table_invoice_number();
     init_db();
     init_planAccess();
     init_db();
@@ -5261,12 +5278,15 @@ var init_storage = __esm({
         const guestsSubtotal = guests.reduce((sum, g) => {
           return sum + parseFloat(g.subtotal || "0");
         }, 0);
-        const subtotalBeforeAdjustments = ordersSubtotal > 0 ? ordersSubtotal : guestsSubtotal;
+        const storedSessionTotal = parseFloat(session2.totalAmount || "0") || 0;
+        const hasCalculatedSubtotal = ordersSubtotal > 0 || guestsSubtotal > 0;
+        const useStoredTotalFallback = !hasCalculatedSubtotal && storedSessionTotal > 0;
+        const subtotalBeforeAdjustments = hasCalculatedSubtotal ? ordersSubtotal > 0 ? ordersSubtotal : guestsSubtotal : storedSessionTotal;
         let totalAmountAdjusted = subtotalBeforeAdjustments;
-        if (sessionDiscount > 0) {
+        if (!useStoredTotalFallback && sessionDiscount > 0) {
           totalAmountAdjusted = sessionDiscountType === "percentual" ? totalAmountAdjusted * (1 - Math.min(sessionDiscount, 100) / 100) : Math.max(0, totalAmountAdjusted - sessionDiscount);
         }
-        if (sessionServiceCharge > 0) {
+        if (!useStoredTotalFallback && sessionServiceCharge > 0) {
           totalAmountAdjusted = sessionServiceChargeType === "percentual" ? totalAmountAdjusted * (1 + sessionServiceCharge / 100) : totalAmountAdjusted + sessionServiceCharge;
         }
         const hasGuestAdjustments = guests.some((g) => {
@@ -5274,7 +5294,7 @@ var init_storage = __esm({
           const s = parseFloat(g.serviceCharge || "0");
           return Number.isFinite(d) && d > 0 || Number.isFinite(s) && s > 0;
         });
-        if (hasGuestAdjustments) {
+        if (hasGuestAdjustments && !useStoredTotalFallback) {
           const baseSubtotal = ordersSubtotal > 0 ? ordersSubtotal : guestsSubtotal;
           let totalWithGuestAdjustments = baseSubtotal;
           if (sessionDiscount > 0) {
@@ -5310,7 +5330,7 @@ var init_storage = __esm({
           total: sql4`COALESCE(SUM(${guestPayments.amount}), 0)`
         }).from(guestPayments).where(eq(guestPayments.sessionId, sessionId));
         const guestPaidSum = parseFloat(guestPaymentsAgg?.[0]?.total || "0") || 0;
-        const totalPaidFromPayments = Math.max(tablePaidSum, guestPaidSum);
+        const totalPaidFromPayments = payments.length > 0 ? tablePaidSum : guestPaidSum;
         const paidAmountCapped = totalAmountAdjusted > 0 ? Math.min(totalPaidFromPayments, totalAmountAdjusted) : totalPaidFromPayments;
         await db.update(tableSessions).set({
           totalAmount: totalAmountAdjusted.toFixed(2),
@@ -6190,8 +6210,10 @@ var init_storage = __esm({
           paymentMethod: tablePayments.paymentMethod,
           notes: tablePayments.notes,
           createdAt: tablePayments.createdAt,
-          guestName: tableGuests.name
-        }).from(tablePayments).leftJoin(tableGuests, eq(tablePayments.guestId, tableGuests.id)).where(and(...conditions)).orderBy(desc(tablePayments.createdAt));
+          guestName: tableGuests.name,
+          invoiceNumber: tableSessions.invoiceNumber,
+          sessionStartedAt: tableSessions.startedAt
+        }).from(tablePayments).leftJoin(tableGuests, eq(tablePayments.guestId, tableGuests.id)).leftJoin(tableSessions, eq(tablePayments.sessionId, tableSessions.id)).where(and(...conditions)).orderBy(desc(tablePayments.createdAt));
         return results;
       }
       // ✅ NOVO: Atualizar subtotal de um guest específico
@@ -7126,7 +7148,7 @@ var init_storage = __esm({
             paidAmount: newPaidAmount.toFixed(2),
             changeAmount: Math.max(0, changeAmount).toFixed(2),
             paymentStatus,
-            paymentMethod: data.paymentMethod,
+            paymentMethod: normalizePaymentMethod(data.paymentMethod),
             ...resolvedCustomerId && !lockedOrder.customerId ? { customerId: resolvedCustomerId } : {},
             ...data.confirmPayment ? {
               status: "pendente",
@@ -7144,7 +7166,7 @@ var init_storage = __esm({
                 tableId: updated.tableId,
                 sessionId: table2.currentSessionId,
                 amount: data.amount,
-                paymentMethod: data.paymentMethod,
+                paymentMethod: normalizePaymentMethod(data.paymentMethod),
                 notes: `Pagamento via Pedido #${orderId.substring(0, 8)}`,
                 operatorId: userId || null
               });
@@ -9298,8 +9320,9 @@ var init_storage = __esm({
         const tablePaymentResults = await db.select({
           payment: tablePayments,
           table: tables,
+          session: tableSessions,
           recordedBy: users
-        }).from(tablePayments).innerJoin(tables, eq(tablePayments.tableId, tables.id)).leftJoin(users, eq(tablePayments.operatorId, users.id)).where(and(...tablePaymentConditions)).orderBy(desc(tablePayments.createdAt));
+        }).from(tablePayments).innerJoin(tables, eq(tablePayments.tableId, tables.id)).leftJoin(tableSessions, eq(tablePayments.sessionId, tableSessions.id)).leftJoin(users, eq(tablePayments.operatorId, users.id)).where(and(...tablePaymentConditions)).orderBy(desc(tablePayments.createdAt));
         const orderPayments = financialResults.filter(
           (transaction) => transaction.referenceOrderId || /Pedido #[\w-]+/i.test(transaction.description || "")
         );
@@ -9330,7 +9353,7 @@ var init_storage = __esm({
             const transactionShortId = transactionOrderId.slice(0, orderShortId.length);
             return transactionShortId.toLowerCase() === orderShortId.toLowerCase() && Number(transaction.amount || 0).toFixed(2) === amount && transaction.paymentMethod === payment.paymentMethod;
           });
-        }).map(({ payment, table: table2, recordedBy }) => ({
+        }).map(({ payment, table: table2, session: session2, recordedBy }) => ({
           id: `table-payment:${payment.id}`,
           restaurantId,
           branchId: table2.branchId || null,
@@ -9345,7 +9368,8 @@ var init_storage = __esm({
           amount: payment.amount,
           referenceOrderId: null,
           occurredAt: payment.createdAt || /* @__PURE__ */ new Date(0),
-          note: payment.notes || null,
+          note: `${payment.notes || ""}${payment.notes ? " \xB7 " : ""}Fatura N\xBA ${formatTableInvoiceNumber(session2?.invoiceNumber, session2?.startedAt)}`,
+          invoiceReference: session2?.invoiceNumber ? formatTableInvoiceNumber(session2.invoiceNumber, session2.startedAt) : null,
           totalInstallments: 1,
           installmentNumber: 1,
           parentTransactionId: null,
@@ -12674,6 +12698,27 @@ function generateInvoiceValidationCode(input) {
 
 // server/routes.ts
 init_payment_methods();
+
+// shared/session-invoice.ts
+function summarizeSessionInvoice(totalAmountInput, payments) {
+  const totalAmount = Math.max(0, Number(totalAmountInput ?? 0) || 0);
+  const netPaidAmount = payments.reduce(
+    (sum, payment) => sum + (Number(payment.amount ?? 0) || 0),
+    0
+  );
+  const paidAmount = Math.min(Math.max(netPaidAmount, 0), totalAmount);
+  const pendingAmount = Math.max(0, totalAmount - paidAmount);
+  const paymentStatus = paidAmount >= totalAmount - 0.01 && totalAmount > 0 ? "pago" : paidAmount > 0 ? "parcial" : "pendente";
+  return {
+    totalAmount: totalAmount.toFixed(2),
+    paidAmount: paidAmount.toFixed(2),
+    pendingAmount: pendingAmount.toFixed(2),
+    paymentStatus
+  };
+}
+
+// server/routes.ts
+init_table_invoice_number();
 init_auth();
 
 // server/planLimits.ts
@@ -12859,6 +12904,302 @@ import { z as z2 } from "zod";
 var sessionPinAttempts = /* @__PURE__ */ new Map();
 var SESSION_PIN_MAX_ATTEMPTS = 5;
 var SESSION_PIN_WINDOW_MS = 15 * 60 * 1e3;
+function money(value) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+function fixedMoney(value) {
+  return money(value).toFixed(2);
+}
+function adjustmentAmount(value, type, base) {
+  const amount = money(value);
+  return type === "percentual" ? base * Math.min(Math.max(amount, 0), 100) / 100 : amount;
+}
+function customerFromGuest(guest) {
+  const customer = guest?.customer;
+  if (customer) {
+    return {
+      id: customer.id ?? null,
+      name: customer.name,
+      phone: customer.phone ?? null,
+      email: customer.email ?? null,
+      nif: customer.nif ?? null,
+      address: customer.address ?? null
+    };
+  }
+  if (guest?.name) {
+    return {
+      id: null,
+      name: guest.name,
+      phone: null,
+      email: null,
+      nif: null,
+      address: null
+    };
+  }
+  return null;
+}
+async function buildTableInvoiceDocument(restaurantId, sessionId) {
+  const [session2] = await db.select().from(tableSessions).where(eq5(tableSessions.id, sessionId)).limit(1);
+  const effectiveRestaurantId = restaurantId || session2?.restaurantId;
+  if (!session2 || !effectiveRestaurantId || restaurantId && session2.restaurantId !== restaurantId) {
+    throw new Error("Sess\xE3o n\xE3o encontrada");
+  }
+  const [table2] = await db.select().from(tables).where(eq5(tables.id, session2.tableId)).limit(1);
+  const [restaurant] = await db.select().from(restaurants).where(eq5(restaurants.id, effectiveRestaurantId)).limit(1);
+  if (!table2 || !restaurant) {
+    throw new Error("Mesa ou restaurante n\xE3o encontrado");
+  }
+  const [branch] = table2.branchId ? await db.select().from(branches).where(eq5(branches.id, table2.branchId)).limit(1) : [];
+  const totals = await storage.recalculateSessionTotals(sessionId);
+  const [freshSession] = await db.select().from(tableSessions).where(eq5(tableSessions.id, sessionId)).limit(1);
+  const sessionForInvoice = freshSession || session2;
+  let invoiceNumber = sessionForInvoice.invoiceNumber;
+  if (invoiceNumber == null) {
+    invoiceNumber = await allocateTableSessionInvoiceNumber(effectiveRestaurantId, table2.branchId);
+    await db.update(tableSessions).set({ invoiceNumber }).where(eq5(tableSessions.id, sessionId));
+  }
+  const [rawPayments, guests, rawOrders] = await Promise.all([
+    db.select().from(tablePayments).where(eq5(tablePayments.sessionId, sessionId)).orderBy(asc(tablePayments.createdAt)),
+    storage.getTableGuests(sessionId),
+    storage.getOrdersBySessionId(effectiveRestaurantId, sessionId)
+  ]);
+  const paymentOperatorIds = Array.from(new Set(rawPayments.map((payment) => payment.operatorId).filter(Boolean)));
+  const paymentOperators = paymentOperatorIds.length ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray2(users.id, paymentOperatorIds)) : [];
+  const paymentOperatorNames = new Map(paymentOperators.map((operator) => [operator.id, `${operator.firstName || ""} ${operator.lastName || ""}`.trim() || "Usu\xE1rio desconhecido"]));
+  const sessionAuditRows = await db.select({
+    id: auditLogs2.id,
+    action: auditLogs2.action,
+    actorId: auditLogs2.actorId,
+    details: auditLogs2.details,
+    createdAt: auditLogs2.createdAt
+  }).from(auditLogs2).where(and5(
+    eq5(auditLogs2.restaurantId, Number(effectiveRestaurantId)),
+    eq5(auditLogs2.entityType, "table_session"),
+    eq5(auditLogs2.entityId, sessionId)
+  )).orderBy(asc(auditLogs2.createdAt));
+  const itemAuditRows = await db.select({
+    id: orderItemAuditLogs.id,
+    action: orderItemAuditLogs.action,
+    actorId: orderItemAuditLogs.actorUserId,
+    reason: orderItemAuditLogs.reason,
+    itemDetails: orderItemAuditLogs.itemDetails,
+    createdAt: orderItemAuditLogs.createdAt
+  }).from(orderItemAuditLogs).where(and5(
+    eq5(orderItemAuditLogs.restaurantId, effectiveRestaurantId),
+    eq5(orderItemAuditLogs.sessionId, sessionId)
+  )).orderBy(asc(orderItemAuditLogs.createdAt));
+  const cancellationActorIds = rawOrders.map((order) => order.cancelledBy).filter(Boolean);
+  const auditActorIds = Array.from(new Set([
+    ...sessionAuditRows.map((row) => row.actorId),
+    ...itemAuditRows.map((row) => row.actorId),
+    ...cancellationActorIds
+  ].filter(Boolean)));
+  const auditActors = auditActorIds.length ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray2(users.id, auditActorIds)) : [];
+  const auditActorNames = new Map(auditActors.map((actor) => [actor.id, `${actor.firstName || ""} ${actor.lastName || ""}`.trim() || "Usu\xE1rio desconhecido"]));
+  const orders2 = rawOrders.filter((order) => order.status !== "cancelado");
+  const guestMap = new Map(guests.map((guest) => [guest.id, guest]));
+  const items = orders2.flatMap(
+    (order) => (order.orderItems || []).map((item) => {
+      const guest = item.guestId ? guestMap.get(item.guestId) : null;
+      const unitPrice = money(item.price);
+      return {
+        id: item.id,
+        orderId: order.id,
+        orderNumber: order.orderNumber ?? null,
+        guestId: item.guestId ?? order.guestId ?? null,
+        guestName: guest?.name ?? null,
+        name: item.menuItem?.name || item.name || "Item",
+        quantity: item.quantity || 0,
+        unitPrice: fixedMoney(unitPrice),
+        total: fixedMoney(unitPrice * (item.quantity || 0)),
+        notes: item.notes ?? null,
+        options: (item.options || []).map((option) => ({
+          name: option.optionName,
+          groupName: option.optionGroupName,
+          priceAdjustment: fixedMoney(option.priceAdjustment),
+          quantity: option.quantity || 1
+        }))
+      };
+    })
+  );
+  const orderSubtotal = orders2.reduce((sum, order) => {
+    const storedTotal = money(order.totalAmount);
+    if (storedTotal > 0) return sum + storedTotal;
+    return sum + (order.orderItems || []).reduce(
+      (itemSum, item) => itemSum + money(item.price) * (item.quantity || 0),
+      0
+    );
+  }, 0);
+  const discounts = [];
+  const fees = [];
+  const sessionDiscount = adjustmentAmount(sessionForInvoice.discount, sessionForInvoice.discountType, orderSubtotal);
+  const sessionFeeBase = Math.max(0, orderSubtotal - sessionDiscount);
+  const sessionFee = adjustmentAmount(sessionForInvoice.serviceCharge, sessionForInvoice.serviceChargeType, sessionFeeBase);
+  if (sessionDiscount > 0) {
+    discounts.push({
+      label: sessionForInvoice.discountType === "percentual" ? `Desconto da sess\xE3o (${sessionForInvoice.discount}%)` : "Desconto da sess\xE3o",
+      amount: fixedMoney(sessionDiscount),
+      type: sessionForInvoice.discountType === "percentual" ? "percentual" : "valor",
+      scope: "sessao"
+    });
+  }
+  if (sessionFee > 0) {
+    fees.push({
+      label: sessionForInvoice.serviceChargeType === "percentual" ? `Taxa de servi\xE7o (${sessionForInvoice.serviceCharge}%)` : "Taxa de servi\xE7o",
+      amount: fixedMoney(sessionFee),
+      type: sessionForInvoice.serviceChargeType === "percentual" ? "percentual" : "valor",
+      scope: "sessao"
+    });
+  }
+  for (const guest of guests) {
+    const guestSubtotal = money(guest.subtotal);
+    const guestDiscount = adjustmentAmount(guest.discount, guest.discountType, guestSubtotal);
+    const guestFee = adjustmentAmount(guest.serviceCharge, guest.serviceChargeType, Math.max(0, guestSubtotal - guestDiscount));
+    if (guestDiscount > 0) {
+      discounts.push({
+        label: `Desconto de ${guest.name || `Convidado ${guest.guestNumber || ""}`}`,
+        amount: fixedMoney(guestDiscount),
+        type: guest.discountType === "percentual" ? "percentual" : "valor",
+        scope: "convidado",
+        guestId: guest.id
+      });
+    }
+    if (guestFee > 0) {
+      fees.push({
+        label: `Taxa de ${guest.name || `Convidado ${guest.guestNumber || ""}`}`,
+        amount: fixedMoney(guestFee),
+        type: guest.serviceChargeType === "percentual" ? "percentual" : "valor",
+        scope: "convidado",
+        guestId: guest.id
+      });
+    }
+  }
+  const totalAmount = money(totals?.totalAmount ?? sessionForInvoice.totalAmount);
+  const paymentSummary = summarizeSessionInvoice(totalAmount, rawPayments);
+  const primaryGuest = guests.find((guest) => guest.customer || guest.name);
+  const customer = customerFromGuest(primaryGuest) || (sessionForInvoice.customerName ? { id: null, name: sessionForInvoice.customerName, phone: null, email: null, nif: null, address: null } : null);
+  const validationCode = generateInvoiceValidationCode({
+    invoiceNumber,
+    sessionId,
+    date: sessionForInvoice.startedAt,
+    total: totalAmount
+  });
+  const invoiceReference = formatTableInvoiceNumber(invoiceNumber, sessionForInvoice.startedAt);
+  const audit = [
+    ...sessionAuditRows.map((row) => {
+      const details = row.details || {};
+      const actionLabels = {
+        session_discount_applied: "Desconto aplicado",
+        session_adjustment_applied: "Ajuste aplicado",
+        session_closed: "Mesa fechada",
+        session_force_closed: "Mesa fechada com pend\xEAncia",
+        table_invoice_reprinted: "Fatura reimpressa"
+      };
+      return {
+        id: row.id,
+        action: row.action,
+        label: actionLabels[row.action] || row.action,
+        actorName: row.actorId ? auditActorNames.get(row.actorId) || "Usu\xE1rio desconhecido" : null,
+        reason: details.reason || details.reasons?.join?.(", ") || null,
+        createdAt: (row.createdAt || /* @__PURE__ */ new Date()).toISOString(),
+        details
+      };
+    }),
+    ...itemAuditRows.map((row) => ({
+      id: row.id,
+      action: row.action,
+      label: row.action === "item_removed" ? "Item removido/cancelado" : "Ajuste de item",
+      actorName: auditActorNames.get(row.actorId) || "Usu\xE1rio desconhecido",
+      reason: row.reason || null,
+      createdAt: (row.createdAt || /* @__PURE__ */ new Date()).toISOString(),
+      details: { itemDetails: row.itemDetails }
+    })),
+    ...rawOrders.filter((order) => order.status === "cancelado" && order.cancellationReason).map((order) => ({
+      id: `cancellation-${order.id}`,
+      action: "order_cancelled",
+      label: "Pedido cancelado",
+      actorName: order.cancelledBy ? auditActorNames.get(order.cancelledBy) || "Usu\xE1rio desconhecido" : null,
+      reason: order.cancellationReason,
+      createdAt: (order.cancelledAt || order.updatedAt || order.createdAt || /* @__PURE__ */ new Date()).toISOString(),
+      details: { orderId: order.id, orderNumber: order.orderNumber ?? null }
+    }))
+  ].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const reprintEntries = audit.filter((entry) => entry.action === "table_invoice_reprinted");
+  return {
+    documentType: "table-invoice",
+    currency: "AOA",
+    issuedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    invoiceNumber,
+    invoiceReference,
+    restaurant: {
+      id: restaurant.id,
+      name: restaurant.name,
+      address: restaurant.address ?? null,
+      phone: restaurant.phone ?? null,
+      nif: null,
+      logoUrl: restaurant.logoUrl ?? null
+    },
+    branch: branch ? {
+      id: branch.id,
+      name: branch.name,
+      address: branch.address ?? null,
+      phone: branch.phone ?? null
+    } : null,
+    table: { id: table2.id, number: table2.number, area: table2.area ?? null },
+    session: {
+      id: sessionForInvoice.id,
+      startedAt: (sessionForInvoice.startedAt || /* @__PURE__ */ new Date()).toISOString(),
+      endedAt: sessionForInvoice.endedAt?.toISOString() ?? null,
+      status: sessionForInvoice.status,
+      customerName: sessionForInvoice.customerName ?? null,
+      customerCount: sessionForInvoice.customerCount ?? null
+    },
+    customer,
+    guests: guests.map((guest) => ({
+      id: guest.id,
+      name: guest.name || `Convidado ${guest.guestNumber || ""}`.trim(),
+      guestNumber: guest.guestNumber ?? null,
+      seatNumber: guest.seatNumber ?? null,
+      status: guest.status,
+      customer: customerFromGuest(guest),
+      subtotal: fixedMoney(guest.subtotal),
+      discount: fixedMoney(guest.discount),
+      serviceCharge: fixedMoney(guest.serviceCharge)
+    })),
+    items,
+    discounts,
+    fees,
+    payments: rawPayments.map((payment) => {
+      const method = normalizePaymentMethod(payment.paymentMethod);
+      return {
+        id: payment.id,
+        amount: fixedMoney(payment.amount),
+        paymentMethod: method,
+        paymentMethodLabel: getPaymentMethodLabel(method),
+        createdAt: (payment.createdAt || /* @__PURE__ */ new Date()).toISOString(),
+        notes: payment.notes ?? null,
+        operatorName: payment.operatorId ? paymentOperatorNames.get(payment.operatorId) || "Usu\xE1rio desconhecido" : null
+      };
+    }),
+    audit,
+    reprints: {
+      count: reprintEntries.length,
+      lastPrintedAt: reprintEntries.length ? reprintEntries[reprintEntries.length - 1].createdAt : null,
+      lastPrintedBy: reprintEntries.length ? reprintEntries[reprintEntries.length - 1].actorName : null
+    },
+    totals: {
+      subtotal: fixedMoney(orderSubtotal),
+      discount: fixedMoney(discounts.reduce((sum, adjustment) => sum + money(adjustment.amount), 0)),
+      fees: fixedMoney(fees.reduce((sum, adjustment) => sum + money(adjustment.amount), 0)),
+      total: paymentSummary.totalAmount,
+      paid: paymentSummary.paidAmount,
+      pending: paymentSummary.pendingAmount,
+      paymentStatus: paymentSummary.paymentStatus
+    },
+    validation: { code: validationCode, algorithm: "fnv1a-base36" }
+  };
+}
 function getSessionPinAttemptKey(req, tableId) {
   return `${req.ip || req.socket?.remoteAddress || "unknown"}:${tableId}`;
 }
@@ -14028,8 +14369,8 @@ async function registerRoutes(app2) {
       if (!currentUser.restaurantId) {
         return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
       }
-      const branches3 = await storage.getBranches(currentUser.restaurantId);
-      res.json(branches3);
+      const branches2 = await storage.getBranches(currentUser.restaurantId);
+      res.json(branches2);
     } catch (error) {
       res.status(500).json({ message: "Erro ao buscar filiais" });
     }
@@ -14091,10 +14432,10 @@ async function registerRoutes(app2) {
   app2.get("/api/superadmin/restaurants", isSuperAdmin, async (req, res) => {
     try {
       console.log("\u{1F50D} [SUPERADMIN] Buscando restaurantes...");
-      const restaurants3 = await storage.getRestaurants();
-      console.log(`\u{1F4CA} [SUPERADMIN] Encontrados ${restaurants3.length} restaurantes`);
+      const restaurants2 = await storage.getRestaurants();
+      console.log(`\u{1F4CA} [SUPERADMIN] Encontrados ${restaurants2.length} restaurantes`);
       const enrichedRestaurants = await Promise.all(
-        restaurants3.map(async (restaurant) => {
+        restaurants2.map(async (restaurant) => {
           const subscription = await storage.getSubscriptionByRestaurantId(restaurant.id);
           if (subscription) {
             const plan = await storage.getSubscriptionPlanById(subscription.planId);
@@ -16465,6 +16806,19 @@ async function registerRoutes(app2) {
         }
       }
       await storage.endTableSession(restaurantId, req.params.id);
+      await db.insert(auditLogs2).values({
+        restaurantId: Number(restaurantId),
+        actorId: currentUser.id ? String(currentUser.id) : null,
+        action: req.body.forceClose ? "session_force_closed" : "session_closed",
+        entityType: "table_session",
+        entityId: table2.currentSessionId,
+        details: {
+          tableId: table2.id,
+          tableNumber: table2.number,
+          pendingAmount: validation.totalPending,
+          reason: req.body.reason || null
+        }
+      });
       const updatedTable = await storage.getTableById(req.params.id);
       broadcastToClients({ type: "table_session_ended", data: updatedTable });
       res.json({ success: true, table: updatedTable });
@@ -16693,6 +17047,21 @@ async function registerRoutes(app2) {
         }
         if (Object.keys(updates).length > 1) {
           await db.update(tableSessions).set(updates).where(eq5(tableSessions.id, table2.currentSessionId));
+          if (discount && parseFloat(discount) > 0) {
+            await db.insert(auditLogs2).values({
+              restaurantId: Number(restaurantId),
+              actorId: currentUser.id ? String(currentUser.id) : null,
+              action: "session_discount_applied",
+              entityType: "table_session",
+              entityId: table2.currentSessionId,
+              details: {
+                tableId: table2.id,
+                discount,
+                discountType: discountType || "valor",
+                reason: notes || null
+              }
+            });
+          }
         }
       }
       const payment = await storage.addTablePayment(restaurantId, {
@@ -17103,61 +17472,125 @@ async function registerRoutes(app2) {
       if (!restaurantId && currentUser.role !== "superadmin") {
         return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
       }
-      const sessionId = req.params.sessionId;
-      const [session2] = await db.select().from(tableSessions).where(eq5(tableSessions.id, sessionId)).limit(1);
-      if (!session2) {
-        return res.status(404).json({ message: "Sess\xE3o n\xE3o encontrada" });
-      }
-      if (currentUser.role !== "superadmin" && session2.restaurantId !== restaurantId) {
-        return res.status(403).json({ message: "Sess\xE3o n\xE3o pertence ao restaurante" });
-      }
-      const totals = await storage.recalculateSessionTotals(sessionId);
-      const [freshSession] = await db.select().from(tableSessions).where(eq5(tableSessions.id, sessionId)).limit(1);
-      const sessionForInvoice = freshSession || session2;
-      let invoiceNumber = sessionForInvoice.invoiceNumber;
-      if (invoiceNumber == null) {
-        const [table2] = await db.select({ branchId: tables.branchId }).from(tables).where(eq5(tables.id, sessionForInvoice.tableId)).limit(1);
-        invoiceNumber = await allocateTableSessionInvoiceNumber(
-          sessionForInvoice.restaurantId,
-          table2?.branchId
-        );
-        await db.update(tableSessions).set({ invoiceNumber }).where(eq5(tableSessions.id, sessionId));
-      }
-      const payments = await db.select().from(tablePayments).where(eq5(tablePayments.sessionId, sessionId)).orderBy(asc(tablePayments.createdAt));
-      const orders2 = await storage.getOrdersBySessionId(sessionForInvoice.restaurantId, sessionId);
-      const totalAmount = parseFloat(totals?.totalAmount ?? sessionForInvoice.totalAmount ?? "0") || 0;
-      const paidAmount = payments.reduce((sum, payment) => sum + (parseFloat(payment.amount || "0") || 0), 0);
-      const pendingAmount = Math.max(0, totalAmount - paidAmount);
-      const status = paidAmount >= totalAmount - 0.01 && totalAmount > 0 ? "pago" : paidAmount > 0 ? "parcial" : "pendente";
-      return res.json({
-        session: {
-          ...sessionForInvoice,
-          invoiceNumber,
-          totalAmount: totalAmount.toFixed(2),
-          paidAmount: Math.min(Math.max(paidAmount, 0), totalAmount).toFixed(2),
-          pendingAmount: pendingAmount.toFixed(2),
-          paymentStatus: status
-        },
-        validationCode: generateInvoiceValidationCode({
-          invoiceNumber,
-          sessionId,
-          date: sessionForInvoice.startedAt,
-          total: totalAmount
-        }),
-        orders: orders2,
-        payments: payments.map((payment) => {
-          const method = normalizePaymentMethod(payment.paymentMethod);
-          return {
-            ...payment,
-            paymentMethod: method,
-            paymentMethodLabel: getPaymentMethodLabel(method),
-            amount: (parseFloat(payment.amount || "0") || 0).toFixed(2)
-          };
-        })
-      });
+      const document = await buildTableInvoiceDocument(restaurantId || req.user.restaurantId, req.params.sessionId);
+      return res.json(document);
     } catch (error) {
       console.error("[SESSION INVOICE] Erro ao montar fatura:", error);
-      res.status(500).json({ message: error.message || "Erro ao carregar fatura da sess\xE3o" });
+      res.status(error.message === "Sess\xE3o n\xE3o encontrada" ? 404 : 500).json({ message: error.message || "Erro ao carregar fatura da sess\xE3o" });
+    }
+  });
+  app2.post("/api/table-sessions/:sessionId/invoice/reprint", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      const restaurantId = currentUser.restaurantId;
+      if (!restaurantId && currentUser.role !== "superadmin") {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      const document = await buildTableInvoiceDocument(restaurantId || currentUser.restaurantId, req.params.sessionId);
+      const [entry] = await db.insert(auditLogs2).values({
+        restaurantId: Number(restaurantId || currentUser.restaurantId),
+        actorId: currentUser.id ? String(currentUser.id) : null,
+        action: "table_invoice_reprinted",
+        entityType: "table_session",
+        entityId: req.params.sessionId,
+        details: {
+          invoiceNumber: document.invoiceNumber,
+          tableId: document.table.id,
+          tableNumber: document.table.number,
+          total: document.totals.total,
+          reason: req.body?.reason || "Reimpress\xE3o solicitada pelo operador"
+        }
+      }).returning();
+      res.json({
+        success: true,
+        reprint: {
+          id: entry.id,
+          printedAt: entry.createdAt,
+          printedBy: `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || "Usu\xE1rio atual"
+        }
+      });
+    } catch (error) {
+      res.status(error.message === "Sess\xE3o n\xE3o encontrada" ? 404 : 500).json({ message: error.message || "Erro ao registar reimpress\xE3o" });
+    }
+  });
+  app2.get("/api/table-sessions/:sessionId/invoice/pdf", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      const restaurantId = currentUser.restaurantId;
+      if (!restaurantId && currentUser.role !== "superadmin") {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      const document = await buildTableInvoiceDocument(
+        restaurantId || currentUser.restaurantId,
+        req.params.sessionId
+      );
+      const pdf = new PDFDocument({ size: "A4", margin: 42 });
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=fatura-mesa-${document.table.number}-${document.invoiceReference.replace(/[^a-z0-9]+/gi, "-")}.pdf`
+      );
+      pdf.pipe(res);
+      pdf.fontSize(19).font("Helvetica-Bold").text(document.restaurant.name, { align: "center" });
+      if (document.branch) {
+        pdf.fontSize(10).font("Helvetica").text(document.branch.name, { align: "center" });
+      }
+      pdf.fontSize(11).font("Helvetica-Bold").text("FATURA DA MESA", { align: "center" });
+      pdf.moveDown(0.6);
+      pdf.fontSize(10).font("Helvetica").text(`Fatura N\xBA ${document.invoiceReference}  |  Mesa ${document.table.number}`).text(`Emiss\xE3o: ${new Date(document.issuedAt).toLocaleString("pt-AO")}`).text(`Sess\xE3o iniciada: ${new Date(document.session.startedAt).toLocaleString("pt-AO")}`);
+      if (document.restaurant.address) pdf.text(`Endere\xE7o: ${document.restaurant.address}`);
+      if (document.restaurant.phone) pdf.text(`Telefone: ${document.restaurant.phone}`);
+      if (document.customer) {
+        pdf.moveDown(0.4).font("Helvetica-Bold").text("CLIENTE");
+        pdf.font("Helvetica").text(document.customer.name);
+        if (document.customer.phone) pdf.text(`Telefone: ${document.customer.phone}`);
+        if (document.customer.nif) pdf.text(`NIF: ${document.customer.nif}`);
+      }
+      pdf.moveDown(0.8).font("Helvetica-Bold").text("ITENS");
+      pdf.font("Helvetica");
+      for (const item of document.items) {
+        const options3 = item.options.length ? ` (${item.options.map((option) => option.name).join(", ")})` : "";
+        pdf.text(`${item.quantity}x ${item.name}${options3}  ${item.total} AOA`);
+      }
+      if (document.items.length === 0) pdf.text("Sem itens registados");
+      pdf.moveDown(0.8).font("Helvetica-Bold").text("TOTAIS");
+      pdf.font("Helvetica").text(`Subtotal: ${document.totals.subtotal} AOA`);
+      for (const discount of document.discounts) {
+        pdf.text(`${discount.label}: - ${discount.amount} AOA`);
+      }
+      for (const fee of document.fees) {
+        pdf.text(`${fee.label}: + ${fee.amount} AOA`);
+      }
+      pdf.font("Helvetica-Bold").text(`TOTAL: ${document.totals.total} AOA`);
+      pdf.font("Helvetica").text(`Pago: ${document.totals.paid} AOA`);
+      pdf.text(`Saldo pendente: ${document.totals.pending} AOA`);
+      pdf.moveDown(0.8).font("Helvetica-Bold").text("PAGAMENTOS");
+      pdf.font("Helvetica");
+      for (const payment of document.payments) {
+        pdf.text(`${payment.paymentMethodLabel} \u2014 ${payment.amount} AOA \u2014 ${new Date(payment.createdAt).toLocaleString("pt-AO")}`);
+      }
+      if (document.payments.length === 0) pdf.text("Nenhum pagamento registado");
+      const pdfQrCode = await QRCode.toDataURL(JSON.stringify({
+        tipo: "fatura-mesa",
+        numero: document.invoiceReference,
+        codigo: document.validation.code,
+        total: document.totals.total
+      }), {
+        width: 180,
+        margin: 1,
+        errorCorrectionLevel: "M"
+      });
+      pdf.moveDown(1.2);
+      pdf.image(pdfQrCode, {
+        fit: [82, 82],
+        align: "center",
+        valign: "center"
+      });
+      pdf.moveDown(0.3).fontSize(9).text(`C\xF3digo de valida\xE7\xE3o: ${document.validation.code}`, { align: "center" }).text("Documento emitido a partir da estrutura TableInvoiceDocument", { align: "center" });
+      pdf.end();
+    } catch (error) {
+      console.error("[SESSION INVOICE PDF] Erro ao gerar PDF:", error);
+      res.status(error.message === "Sess\xE3o n\xE3o encontrada" ? 404 : 500).json({ message: error.message || "Erro ao gerar PDF da fatura" });
     }
   });
   app2.get("/api/tables/:id/payments", isCashierOrAbove, async (req, res) => {

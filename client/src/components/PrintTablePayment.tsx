@@ -19,6 +19,7 @@ interface PrintTablePaymentProps {
     createdAt: string;
     notes?: string;
     sessionId?: string;
+    invoiceReference?: string;
     guestName?: string;
     items?: Array<{ name: string; quantity: number; price: string }>;
   };
@@ -123,7 +124,7 @@ export function PrintTablePayment({
       { text: '' },
       { text: `Mesa: ${tableName}`, bold: true },
       { text: `Data: ${format(new Date(payment.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}` },
-      { text: `Recibo: #${payment.id.slice(0, 8).toUpperCase()}` },
+      { text: `Fatura Nº: ${payment.invoiceReference || 'Sessão sem referência'}` },
       { text: '' },
       { text: '--------------------------------', alignment: 'center' },
       { text: 'DETALHES DO CONSUMO', alignment: 'center', bold: true },
@@ -223,7 +224,7 @@ export function PrintTablePayment({
         
         <div class="info-row"><span class="bold">Mesa:</span> ${tableName}</div>
         <div class="info-row"><span class="bold">Data:</span> ${format(new Date(payment.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</div>
-        <div class="info-row"><span class="bold">Recibo:</span> #${payment.id.slice(0, 8).toUpperCase()}</div>
+        <div class="info-row"><span class="bold">Fatura Nº:</span> ${payment.invoiceReference || 'Sessão sem referência'}</div>
         <div class="info-row"><span class="bold">Cliente:</span> ${payment.guestName || 'Mesa Completa'}</div>
         
         <div class="separator"></div>

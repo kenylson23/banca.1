@@ -65,7 +65,7 @@ export function renderTableInvoiceHtml(
 
   return `<!doctype html>
     <html lang="pt"><head><meta charset="utf-8">
-    <title>Fatura ${escapeHtml(document.invoiceNumber)}</title>
+    <title>${escapeHtml(document.invoiceReference)}</title>
     <style>
       @page { size: ${isThermal ? '80mm auto' : 'A4'}; margin: ${isThermal ? '4mm' : '12mm'}; }
       @media print { body { margin: 0; box-shadow: none; } .no-print { display:none !important; } }
@@ -88,7 +88,7 @@ export function renderTableInvoiceHtml(
       <header><div class="brand">${logo}<div><h1>${escapeHtml(document.restaurant.name)}</h1>
         ${document.branch ? `<div>${escapeHtml(document.branch.name)}</div>` : ''}
         <div class="muted">${escapeHtml(document.restaurant.address || '')}${document.restaurant.phone ? ` · ${escapeHtml(document.restaurant.phone)}` : ''}</div>
-      </div></div><div class="meta"><strong>FATURA DA MESA</strong><span class="number">Nº ${escapeHtml(String(document.invoiceNumber).padStart(6, '0'))}</span><span>${escapeHtml(dateLabel(document.issuedAt))}</span><span class="status">${paymentStatusLabels[document.totals.paymentStatus]}</span></div></header>
+      </div></div><div class="meta"><strong>FATURA DA MESA</strong><span class="number">Nº ${escapeHtml(document.invoiceReference)}</span><span>${escapeHtml(dateLabel(document.issuedAt))}</span><span class="status">${paymentStatusLabels[document.totals.paymentStatus]}</span></div></header>
       <div class="grid"><div class="info"><label>Mesa</label><strong>${escapeHtml(document.table.number)}${document.table.area ? ` · ${escapeHtml(document.table.area)}` : ''}</strong></div>
         <div class="info"><label>Sessão iniciada</label><strong>${escapeHtml(dateLabel(document.session.startedAt))}</strong></div><div class="info"><label>Moeda</label><strong>AOA · Kwanza</strong></div></div>
       ${document.customer ? `<section><h2>Identificação</h2><div class="customer"><div><label>Cliente</label><strong>${escapeHtml(document.customer.name)}</strong></div>${document.customer.phone ? `<div><label>Telefone</label><strong>${escapeHtml(document.customer.phone)}</strong></div>` : ''}${document.customer.nif ? `<div><label>NIF</label><strong>${escapeHtml(document.customer.nif)}</strong></div>` : ''}${document.customer.address ? `<div class="wide"><label>Endereço</label><strong>${escapeHtml(document.customer.address)}</strong></div>` : ''}</div></section>` : ''}
@@ -100,13 +100,13 @@ export function renderTableInvoiceHtml(
         <div class="line"><span>Saldo pendente</span><span class="pending">${moneyLabel(document.totals.pending)}</span></div>
       </section>
       <section><h2>Pagamentos separados</h2><div class="payments">${paymentRows}</div></section>
-      <footer class="footer">${qrCode}<div class="muted">Documento emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura Nº ${escapeHtml(String(document.invoiceNumber).padStart(6, '0'))}</div></footer>
+      <footer class="footer">${qrCode}<div class="muted">Documento emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura Nº ${escapeHtml(document.invoiceReference)}</div></footer>
     </body></html>`;
 }
 
 export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
   return {
-    invoiceNumber: String(document.invoiceNumber).padStart(6, '0'),
+    invoiceNumber: document.invoiceReference,
     validationCode: document.validation.code,
     date: dateLabel(document.issuedAt),
     customerName: document.customer?.name,

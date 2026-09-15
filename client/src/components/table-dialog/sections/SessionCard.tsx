@@ -21,6 +21,7 @@ import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { formatTableInvoiceNumber } from '@shared/table-invoice-number';
 import { PrintOrder } from '@/components/PrintOrder';
 import { SessionInvoice } from './SessionInvoice';
 
@@ -33,6 +34,7 @@ interface SessionCardProps {
     customerCount: number | null;
     totalAmount: string;
     status: string;
+    invoiceNumber: number | null;
   };
   tableId: string;
   tableNumber?: string | number;
@@ -98,6 +100,13 @@ export function SessionCard({ session, tableId, tableNumber = tableId }: Session
 
             {/* Info Grid */}
             <div className="grid grid-cols-3 gap-4 mt-3">
+              <div className="flex items-center gap-2 col-span-3">
+                <Receipt className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm">
+                  <span className="text-muted-foreground mr-1">Fatura:</span>
+                  <span className="font-semibold">{formatTableInvoiceNumber(session.invoiceNumber, session.startedAt)}</span>
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm">
