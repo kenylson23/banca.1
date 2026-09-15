@@ -3,8 +3,8 @@ name: Legacy migration blockers
 description: Existing startup migration failures unrelated to payment configuration.
 ---
 
-The startup migration runner still reports two historical schema mismatches: the audit-log migration expects a restaurant foreign key type that does not match the current restaurants table, and the order-item audit migration references a missing moved_at column.
+Historical audit migrations must tolerate two schema generations: existing audit logs may use a different restaurant ID type than restaurants.id, and item audit timestamps may be named created_at or moved_at.
 
-**Why:** These failures predate the restaurant payment-method work and can obscure whether newer migrations succeeded; the runner continues and applies compatible migrations.
+**Why:** These tables may already exist outside the migration ledger, so CREATE TABLE IF NOT EXISTS does not reconcile their columns before later constraints and indexes run.
 
-**How to apply:** Treat successful newer migrations and these legacy errors separately. Do not rewrite the historical migrations as part of unrelated feature work; investigate them in a dedicated schema-maintenance task.
+**How to apply:** Align an existing audit foreign-key column with the referenced catalog type before adding the constraint; use NOT VALID when preserving legacy rows is more important than blocking startup, and choose timestamp indexes conditionally. Validate legacy constraints after data cleanup.

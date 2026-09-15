@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS order_item_audit_logs (
   new_guest_id VARCHAR,
   reason TEXT,
   moved_by VARCHAR NOT NULL,
-  moved_at TIMESTAMP DEFAULT NOW(),
+  created_at TIMESTAMP DEFAULT NOW(),
   
   CONSTRAINT fk_order_item
     FOREIGN KEY(order_item_id) 
@@ -38,4 +38,26 @@ CREATE TABLE IF NOT EXISTS order_item_audit_logs (
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_order_item_audit_logs_order_item_id ON order_item_audit_logs(order_item_id);
 CREATE INDEX IF NOT EXISTS idx_order_item_audit_logs_restaurant_id ON order_item_audit_logs(restaurant_id);
-CREATE INDEX IF NOT EXISTS idx_order_item_audit_logs_moved_at ON order_item_audit_logs(moved_at);
+
+-- The original version used moved_at, while the current table uses created_at.
+-- Pick the column present so this remains safe for either existing schema.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'order_item_audit_logs'
+      AND column_name = 'created_at'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_order_item_audit_logs_created_at
+      ON order_item_audit_logs(created_at);
+  ELSIF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'order_item_audit_logs'
+      AND column_name = 'moved_at'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_order_item_audit_logs_moved_at
+      ON order_item_audit_logs(moved_at);
+  END IF;
+END $$;

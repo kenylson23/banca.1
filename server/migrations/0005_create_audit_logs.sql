@@ -4,7 +4,7 @@
 
 CREATE TABLE IF NOT EXISTS audit_logs (
   id SERIAL PRIMARY KEY,
-  restaurant_id VARCHAR(255) NOT NULL,
+  restaurant_id VARCHAR NOT NULL,
   actor_id VARCHAR(255),
   action VARCHAR(100) NOT NULL,
   entity_type VARCHAR(50) NOT NULL,
@@ -12,6 +12,41 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   details JSONB,
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Existing databases may have created this table from an older Drizzle schema
+-- where restaurant_id was INTEGER. Match the actual restaurants.id type before
+-- adding the foreign key, without changing any values.
+DO $$
+DECLARE
+  restaurants_id_type TEXT;
+  audit_logs_restaurant_id_type TEXT;
+BEGIN
+  SELECT format_type(a.atttypid, a.atttypmod)
+    INTO restaurants_id_type
+  FROM pg_attribute a
+  WHERE a.attrelid = 'restaurants'::regclass
+    AND a.attname = 'id'
+    AND NOT a.attisdropped;
+
+  SELECT format_type(a.atttypid, a.atttypmod)
+    INTO audit_logs_restaurant_id_type
+  FROM pg_attribute a
+  WHERE a.attrelid = 'audit_logs'::regclass
+    AND a.attname = 'restaurant_id'
+    AND NOT a.attisdropped;
+
+  IF restaurants_id_type IS NULL THEN
+    RAISE EXCEPTION 'restaurants.id does not exist';
+  END IF;
+
+  IF audit_logs_restaurant_id_type IS DISTINCT FROM restaurants_id_type THEN
+    EXECUTE format(
+      'ALTER TABLE audit_logs ALTER COLUMN restaurant_id TYPE %s USING restaurant_id::text::%s',
+      restaurants_id_type,
+      restaurants_id_type
+    );
+  END IF;
+END $$;
 
 -- Adicionar foreign keys separadamente (mais seguro)
 DO $$ 
@@ -21,7 +56,8 @@ BEGIN
   ) THEN
     ALTER TABLE audit_logs 
     ADD CONSTRAINT audit_logs_restaurant_id_fkey 
-    FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE;
+    FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
+    NOT VALID;
   END IF;
 
   IF NOT EXISTS (
