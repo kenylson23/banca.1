@@ -3450,6 +3450,38 @@ var init_invoiceNumberGenerator = __esm({
   }
 });
 
+// shared/planAccess.ts
+function normalizePlanFeatures(value) {
+  if (Array.isArray(value)) {
+    return value.filter((feature) => typeof feature === "string");
+  }
+  if (typeof value !== "string") {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((feature) => typeof feature === "string") : [];
+  } catch {
+    return [];
+  }
+}
+function hasEnterpriseAccess(plan) {
+  const identifiers = [plan?.slug, plan?.name].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean);
+  const isNamedEnterprise = identifiers.some((identifier) => identifier.includes("enterprise"));
+  const isKnownLowerTier = identifiers.some((identifier) => identifier === "basico" || identifier.startsWith("basico ") || identifier === "profissional" || identifier.startsWith("profissional ") || identifier === "empresarial" || identifier.startsWith("empresarial "));
+  return isNamedEnterprise || !isKnownLowerTier && normalizePlanFeatures(plan?.features).includes("tudo_ilimitado");
+}
+function canUsePlanLimit(plan, limit, usage) {
+  return hasEnterpriseAccess(plan) || limit >= UNLIMITED_PLAN_LIMIT || usage < limit;
+}
+var UNLIMITED_PLAN_LIMIT;
+var init_planAccess = __esm({
+  "shared/planAccess.ts"() {
+    "use strict";
+    UNLIMITED_PLAN_LIMIT = 999999;
+  }
+});
+
 // server/initDb.ts
 var initDb_exports = {};
 __export(initDb_exports, {
@@ -4792,8 +4824,24 @@ async function ensureTablesExist() {
           "api_integracoes", "exportacao_dados", "customizacao_visual",
           "multiplos_turnos", "suporte_whatsapp"
         ]'::jsonb,
+        max_branches = 999999,
+        max_tables = 999999,
+        max_menu_items = 999999,
+        max_orders_per_month = 999999,
+        max_users = 999999,
+        max_customers = 999999,
+        history_retention_days = 999999,
+        has_loyalty_program = 1,
+        max_active_coupons = 999999,
+        has_coupon_system = 1,
+        has_expense_tracking = 1,
+        max_expense_categories = 999999,
+        has_inventory_module = 1,
+        max_inventory_items = 999999,
+        has_stock_transfers = 1,
         updated_at = NOW()
-        WHERE slug = 'enterprise'
+        WHERE lower(slug) LIKE '%enterprise%'
+           OR lower(name) LIKE '%enterprise%'
       `);
       isInitialized = true;
       try {
@@ -5123,6 +5171,10 @@ import { eq as eq2, and as and2, or as or2, desc as desc2, sql as sql5 } from "d
 function generateSlug(name) {
   return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
+function normalizeCustomerPhone(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  return digits.startsWith("244") && digits.length === 12 ? digits.slice(3) : digits;
+}
 var DatabaseStorage, storage;
 var init_storage = __esm({
   "server/storage.ts"() {
@@ -5130,6 +5182,7 @@ var init_storage = __esm({
     init_schema();
     init_invoiceNumberGenerator();
     init_db();
+    init_planAccess();
     init_db();
     DatabaseStorage = class {
       async recalculateSessionTotals(sessionId) {
@@ -5240,6 +5293,19 @@ var init_storage = __esm({
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq(orders.id, order.id)).returning();
           if (releasedOrder) {
+            if (releasedOrder.customerId) {
+              const [customer] = await db.select().from(customers).where(eq(customers.id, releasedOrder.customerId)).for("update");
+              if (customer) {
+                const totalSpent = Number(customer.totalSpent || 0) + Number(releasedOrder.totalAmount || 0);
+                const visitCount = Number(customer.visitCount || 0) + 1;
+                await db.update(customers).set({
+                  totalSpent: totalSpent.toFixed(2),
+                  visitCount,
+                  lastVisit: /* @__PURE__ */ new Date(),
+                  updatedAt: /* @__PURE__ */ new Date()
+                }).where(eq(customers.id, releasedOrder.customerId));
+              }
+            }
             releasedOrders.push(releasedOrder);
           }
         }
@@ -6966,6 +7032,7 @@ var init_storage = __esm({
           throw new Error(`Payment amount (${paymentAmount.toFixed(2)}) exceeds remaining balance (${remainingBalance.toFixed(2)})`);
         }
         const newPaidAmount = Math.min(currentPaid + paymentAmount, total);
+        const customerFromPhone = !order.customerId && order.customerPhone?.trim() ? await this.getCustomerByPhone(restaurantId, order.customerPhone.trim()) : void 0;
         let changeAmount = 0;
         if (data.receivedAmount !== void 0 && data.receivedAmount !== null && data.receivedAmount !== "") {
           const received = parseFloat(data.receivedAmount);
@@ -6993,11 +7060,13 @@ var init_storage = __esm({
           if (data.confirmPayment && lockedOrder.status !== "aguardando_confirmacao") {
             throw new Error("Este pedido j\xE1 n\xE3o aguarda confirma\xE7\xE3o de pagamento");
           }
+          const resolvedCustomerId = lockedOrder.customerId || customerFromPhone?.id || null;
           const [updated] = await tx.update(orders).set({
             paidAmount: newPaidAmount.toFixed(2),
             changeAmount: Math.max(0, changeAmount).toFixed(2),
             paymentStatus,
             paymentMethod: data.paymentMethod,
+            ...resolvedCustomerId && !lockedOrder.customerId ? { customerId: resolvedCustomerId } : {},
             ...data.confirmPayment ? {
               status: "pendente",
               paymentConfirmedAt: /* @__PURE__ */ new Date(),
@@ -10126,21 +10195,96 @@ var init_storage = __esm({
         }
         let query = db.select().from(customers).where(and(...conditions));
         const results = await query.orderBy(desc(customers.createdAt));
+        const paidCustomerStats = await this.getPaidCustomerStats(restaurantId, branchId);
+        const enrichedResults = results.map((customer) => {
+          const paidStats = paidCustomerStats.get(customer.id);
+          if (!paidStats) return customer;
+          return {
+            ...customer,
+            totalSpent: paidStats.totalSpent.toFixed(2),
+            visitCount: paidStats.visitCount,
+            lastVisit: paidStats.lastVisit || customer.lastVisit
+          };
+        });
         if (filters?.search) {
           const searchTerm = filters.search.toLowerCase();
-          return results.filter(
+          return enrichedResults.filter(
             (c) => c.name.toLowerCase().includes(searchTerm) || c.phone?.toLowerCase().includes(searchTerm) || c.email?.toLowerCase().includes(searchTerm) || c.cpf?.toLowerCase().includes(searchTerm)
           );
         }
-        return results;
+        return enrichedResults;
+      }
+      async getPaidCustomerStats(restaurantId, branchId) {
+        const conditions = [
+          eq(orders.restaurantId, restaurantId),
+          eq(orders.paymentStatus, "pago"),
+          ne(orders.status, "cancelado")
+        ];
+        if (branchId !== void 0 && branchId !== null) {
+          conditions.push(eq(orders.branchId, branchId));
+        }
+        const normalizedCustomerPhone = sql4`CASE
+      WHEN length(regexp_replace(COALESCE(${customers.phone}, ''), '[^0-9]', '', 'g')) = 12
+        AND left(regexp_replace(COALESCE(${customers.phone}, ''), '[^0-9]', '', 'g'), 3) = '244'
+      THEN substring(regexp_replace(COALESCE(${customers.phone}, ''), '[^0-9]', '', 'g') from 4)
+      ELSE regexp_replace(COALESCE(${customers.phone}, ''), '[^0-9]', '', 'g')
+    END`;
+        const normalizedOrderPhone = sql4`CASE
+      WHEN length(regexp_replace(COALESCE(${orders.customerPhone}, ''), '[^0-9]', '', 'g')) = 12
+        AND left(regexp_replace(COALESCE(${orders.customerPhone}, ''), '[^0-9]', '', 'g'), 3) = '244'
+      THEN substring(regexp_replace(COALESCE(${orders.customerPhone}, ''), '[^0-9]', '', 'g') from 4)
+      ELSE regexp_replace(COALESCE(${orders.customerPhone}, ''), '[^0-9]', '', 'g')
+    END`;
+        const rows = await db.select({
+          customerId: orders.customerId,
+          phoneCustomerId: customers.id,
+          totalAmount: orders.totalAmount,
+          paymentConfirmedAt: orders.paymentConfirmedAt,
+          updatedAt: orders.updatedAt
+        }).from(orders).leftJoin(
+          customers,
+          and(
+            eq(customers.restaurantId, orders.restaurantId),
+            isNull(orders.customerId),
+            isNotNull(orders.customerPhone),
+            isNotNull(customers.phone),
+            sql4`${normalizedCustomerPhone} <> ''`,
+            sql4`${normalizedOrderPhone} <> ''`,
+            sql4`${normalizedCustomerPhone} = ${normalizedOrderPhone}`
+          )
+        ).where(and(
+          ...conditions,
+          or(isNotNull(orders.customerId), isNotNull(customers.id))
+        ));
+        const stats = /* @__PURE__ */ new Map();
+        for (const row of rows) {
+          const customerId = row.customerId || row.phoneCustomerId;
+          if (!customerId) continue;
+          const current = stats.get(customerId) || {
+            totalSpent: 0,
+            visitCount: 0,
+            lastVisit: null
+          };
+          current.totalSpent += Number(row.totalAmount || 0);
+          current.visitCount += 1;
+          const visitDate = row.paymentConfirmedAt || row.updatedAt || null;
+          if (visitDate && (!current.lastVisit || visitDate > current.lastVisit)) {
+            current.lastVisit = visitDate;
+          }
+          stats.set(customerId, current);
+        }
+        return stats;
       }
       async getCustomerById(id) {
         const [customer] = await db.select().from(customers).where(eq(customers.id, id));
         return customer;
       }
       async getCustomerByPhone(restaurantId, phone) {
-        const [customer] = await db.select().from(customers).where(and(eq(customers.restaurantId, restaurantId), eq(customers.phone, phone)));
-        return customer;
+        const normalizedPhone = normalizeCustomerPhone(phone);
+        const candidates = await db.select().from(customers).where(eq(customers.restaurantId, restaurantId));
+        return candidates.find(
+          (customer) => normalizeCustomerPhone(customer.phone || "") === normalizedPhone
+        );
       }
       async getCustomerByCpf(restaurantId, cpf) {
         const [customer] = await db.select().from(customers).where(and(eq(customers.restaurantId, restaurantId), eq(customers.cpf, cpf)));
@@ -10199,7 +10343,18 @@ var init_storage = __esm({
           newThisMonth: allCustomers.filter((c) => c.createdAt && c.createdAt >= firstDayOfMonth).length,
           topCustomers: []
         };
-        const topCustomersData = allCustomers.sort((a, b) => parseFloat(b.totalSpent) - parseFloat(a.totalSpent)).slice(0, 5).map((c) => ({
+        const paidCustomerStats = await this.getPaidCustomerStats(restaurantId, branchId);
+        const enrichedCustomers = allCustomers.map((customer) => {
+          const paidStats = paidCustomerStats.get(customer.id);
+          if (!paidStats) return customer;
+          return {
+            ...customer,
+            totalSpent: paidStats.totalSpent.toFixed(2),
+            visitCount: paidStats.visitCount,
+            lastVisit: paidStats.lastVisit || customer.lastVisit
+          };
+        });
+        const topCustomersData = enrichedCustomers.sort((a, b) => parseFloat(b.totalSpent) - parseFloat(a.totalSpent)).slice(0, 5).map((c) => ({
           ...c,
           orderCount: c.visitCount
         }));
@@ -10918,6 +11073,14 @@ var init_storage = __esm({
             maxUsers: 999999,
             maxCustomers: 999999,
             historyRetentionDays: 999999,
+            hasLoyaltyProgram: 1,
+            maxActiveCoupons: 999999,
+            hasCouponSystem: 1,
+            hasExpenseTracking: 1,
+            maxExpenseCategories: 999999,
+            hasInventoryModule: 1,
+            maxInventoryItems: 999999,
+            hasStockTransfers: 1,
             features: [
               "tudo_ilimitado",
               "servidor_dedicado",
@@ -11075,16 +11238,15 @@ var init_storage = __esm({
           activeCoupons: activeCouponsCount,
           inventoryItems: inventoryItemsCount
         };
-        const isUnlimited = (limit) => limit >= 999999;
         const withinLimits = {
-          branches: isUnlimited(plan.maxBranches) || branchesCount < plan.maxBranches,
-          tables: isUnlimited(plan.maxTables) || tablesCount < plan.maxTables,
-          menuItems: isUnlimited(plan.maxMenuItems) || menuItemsCount < plan.maxMenuItems,
-          users: isUnlimited(plan.maxUsers) || usersCount < plan.maxUsers,
-          orders: isUnlimited(plan.maxOrdersPerMonth) || ordersThisMonth < plan.maxOrdersPerMonth,
-          customers: isUnlimited(plan.maxCustomers) || customersCount < plan.maxCustomers,
-          coupons: isUnlimited(plan.maxActiveCoupons) || activeCouponsCount < plan.maxActiveCoupons,
-          inventoryItems: isUnlimited(plan.maxInventoryItems) || inventoryItemsCount < plan.maxInventoryItems
+          branches: canUsePlanLimit(plan, plan.maxBranches, branchesCount),
+          tables: canUsePlanLimit(plan, plan.maxTables, tablesCount),
+          menuItems: canUsePlanLimit(plan, plan.maxMenuItems, menuItemsCount),
+          users: canUsePlanLimit(plan, plan.maxUsers, usersCount),
+          orders: canUsePlanLimit(plan, plan.maxOrdersPerMonth, ordersThisMonth),
+          customers: canUsePlanLimit(plan, plan.maxCustomers, customersCount),
+          coupons: canUsePlanLimit(plan, plan.maxActiveCoupons, activeCouponsCount),
+          inventoryItems: canUsePlanLimit(plan, plan.maxInventoryItems, inventoryItemsCount)
         };
         const result = {
           plan,
@@ -12437,6 +12599,7 @@ async function generateOrderNumber(restaurantId, orderType) {
 init_auth();
 
 // server/planLimits.ts
+init_planAccess();
 var PlanLimitError = class extends Error {
   constructor(message, limitType, current, max) {
     super(message);
@@ -12455,7 +12618,7 @@ var PlanFeatureError = class extends Error {
 };
 async function checkCanAddUser(storage2, restaurantId) {
   const limits = await storage2.checkSubscriptionLimits(restaurantId);
-  if (!limits.canAddUser) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.canAddUser) {
     throw new PlanLimitError(
       `Limite de usu\xE1rios atingido. O plano ${limits.plan.name} permite at\xE9 ${limits.plan.maxUsers} usu\xE1rios e voc\xEA j\xE1 possui ${limits.usage.users}.`,
       "users",
@@ -12466,7 +12629,7 @@ async function checkCanAddUser(storage2, restaurantId) {
 }
 async function checkCanAddBranch(storage2, restaurantId) {
   const limits = await storage2.checkSubscriptionLimits(restaurantId);
-  if (!limits.canAddBranch) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.canAddBranch) {
     throw new PlanLimitError(
       `Limite de filiais atingido. O plano ${limits.plan.name} permite at\xE9 ${limits.plan.maxBranches} filiais e voc\xEA j\xE1 possui ${limits.usage.branches}.`,
       "branches",
@@ -12477,7 +12640,7 @@ async function checkCanAddBranch(storage2, restaurantId) {
 }
 async function checkCanAddTable(storage2, restaurantId) {
   const limits = await storage2.checkSubscriptionLimits(restaurantId);
-  if (!limits.canAddTable) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.canAddTable) {
     throw new PlanLimitError(
       `Limite de mesas atingido. O plano ${limits.plan.name} permite at\xE9 ${limits.plan.maxTables} mesas e voc\xEA j\xE1 possui ${limits.usage.tables}.`,
       "tables",
@@ -12488,7 +12651,7 @@ async function checkCanAddTable(storage2, restaurantId) {
 }
 async function checkCanAddMenuItem(storage2, restaurantId) {
   const limits = await storage2.checkSubscriptionLimits(restaurantId);
-  if (!limits.canAddMenuItem) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.canAddMenuItem) {
     throw new PlanLimitError(
       `Limite de produtos no menu atingido. O plano ${limits.plan.name} permite at\xE9 ${limits.plan.maxMenuItems} produtos e voc\xEA j\xE1 possui ${limits.usage.menuItems}.`,
       "menuItems",
@@ -12499,7 +12662,7 @@ async function checkCanAddMenuItem(storage2, restaurantId) {
 }
 async function checkCanCreateOrder(storage2, restaurantId) {
   const limits = await storage2.checkSubscriptionLimits(restaurantId);
-  if (!limits.canCreateOrder) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.canCreateOrder) {
     throw new PlanLimitError(
       `Limite de pedidos mensais atingido. O plano ${limits.plan.name} permite at\xE9 ${limits.plan.maxOrdersPerMonth} pedidos por m\xEAs e voc\xEA j\xE1 criou ${limits.usage.ordersThisMonth}.`,
       "orders",
@@ -12511,7 +12674,7 @@ async function checkCanCreateOrder(storage2, restaurantId) {
 async function checkCanAddCustomer(storage2, restaurantId) {
   const limits = await storage2.checkSubscriptionLimits(restaurantId);
   const planFeatures = normalizePlanFeatures(limits.plan.features);
-  const isEnterprise = isEnterprisePlan(limits.plan);
+  const isEnterprise = hasEnterpriseAccess(limits.plan);
   if (!isEnterprise && !planFeatures.includes("gestao_clientes")) {
     throw new PlanFeatureError(
       `A gest\xE3o de clientes n\xE3o est\xE1 dispon\xEDvel no plano ${limits.plan.name}. Fa\xE7a upgrade para o plano Profissional ou superior para gerenciar clientes, programas de fidelidade e hist\xF3rico de compras.`,
@@ -12530,29 +12693,9 @@ async function checkCanAddCustomer(storage2, restaurantId) {
     );
   }
 }
-function isEnterprisePlan(plan) {
-  const identifiers = [plan.slug, plan.name].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean);
-  const isNamedEnterprise = identifiers.some((identifier) => identifier.includes("enterprise"));
-  const isKnownLowerTier = identifiers.some((identifier) => identifier === "basico" || identifier.startsWith("basico ") || identifier === "profissional" || identifier.startsWith("profissional ") || identifier === "empresarial" || identifier.startsWith("empresarial "));
-  return isNamedEnterprise || !isKnownLowerTier && normalizePlanFeatures(plan.features).includes("tudo_ilimitado");
-}
-function normalizePlanFeatures(value) {
-  if (Array.isArray(value)) {
-    return value.filter((feature) => typeof feature === "string");
-  }
-  if (typeof value !== "string") {
-    return [];
-  }
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.filter((feature) => typeof feature === "string") : [];
-  } catch {
-    return [];
-  }
-}
 async function checkCanUseLoyaltyProgram(storage2, restaurantId) {
   const limits = await storage2.checkSubscriptionLimits(restaurantId);
-  if (!limits.plan.hasLoyaltyProgram) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.plan.hasLoyaltyProgram) {
     throw new PlanFeatureError(
       `O programa de fidelidade n\xE3o est\xE1 dispon\xEDvel no plano ${limits.plan.name}. Fa\xE7a upgrade para o plano Profissional ou superior.`,
       "loyalty"
@@ -12561,7 +12704,7 @@ async function checkCanUseLoyaltyProgram(storage2, restaurantId) {
 }
 async function checkCanUseCouponSystem(storage2, restaurantId) {
   const limits = await storage2.checkSubscriptionLimits(restaurantId);
-  if (!limits.plan.hasCouponSystem) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.plan.hasCouponSystem) {
     throw new PlanFeatureError(
       `O sistema de cupons n\xE3o est\xE1 dispon\xEDvel no plano ${limits.plan.name}. Fa\xE7a upgrade para o plano Profissional ou superior.`,
       "coupons"
@@ -12570,13 +12713,14 @@ async function checkCanUseCouponSystem(storage2, restaurantId) {
 }
 async function checkCanCreateCoupon(storage2, restaurantId) {
   const limits = await storage2.checkSubscriptionLimits(restaurantId);
-  if (!limits.plan.hasCouponSystem) {
+  const isEnterprise = hasEnterpriseAccess(limits.plan);
+  if (!isEnterprise && !limits.plan.hasCouponSystem) {
     throw new PlanFeatureError(
       `O sistema de cupons n\xE3o est\xE1 dispon\xEDvel no plano ${limits.plan.name}. Fa\xE7a upgrade para o plano Profissional ou superior.`,
       "coupons"
     );
   }
-  if (!limits.canAddCoupon) {
+  if (!isEnterprise && !limits.canAddCoupon) {
     throw new PlanLimitError(
       `Limite de cupons ativos atingido. O plano ${limits.plan.name} permite at\xE9 ${limits.plan.maxActiveCoupons} cupons ativos e voc\xEA j\xE1 possui ${limits.usage.activeCoupons}.`,
       "coupons",
@@ -12587,7 +12731,7 @@ async function checkCanCreateCoupon(storage2, restaurantId) {
 }
 async function checkCanUseExpenseTracking(storage2, restaurantId) {
   const limits = await storage2.checkSubscriptionLimits(restaurantId);
-  if (!limits.plan.hasExpenseTracking) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.plan.hasExpenseTracking) {
     throw new PlanFeatureError(
       `A gest\xE3o de despesas n\xE3o est\xE1 dispon\xEDvel no plano ${limits.plan.name}. Fa\xE7a upgrade para o plano Profissional ou superior.`,
       "expenses"
@@ -12596,7 +12740,7 @@ async function checkCanUseExpenseTracking(storage2, restaurantId) {
 }
 async function checkCanUseInventoryModule(storage2, restaurantId) {
   const limits = await storage2.checkSubscriptionLimits(restaurantId);
-  if (!limits.plan.hasInventoryModule) {
+  if (!hasEnterpriseAccess(limits.plan) && !limits.plan.hasInventoryModule) {
     throw new PlanFeatureError(
       `O m\xF3dulo de invent\xE1rio n\xE3o est\xE1 dispon\xEDvel no plano ${limits.plan.name}. Fa\xE7a upgrade para o plano Empresarial ou superior.`,
       "inventory"
@@ -12605,13 +12749,14 @@ async function checkCanUseInventoryModule(storage2, restaurantId) {
 }
 async function checkCanAddInventoryItem(storage2, restaurantId) {
   const limits = await storage2.checkSubscriptionLimits(restaurantId);
-  if (!limits.plan.hasInventoryModule) {
+  const isEnterprise = hasEnterpriseAccess(limits.plan);
+  if (!isEnterprise && !limits.plan.hasInventoryModule) {
     throw new PlanFeatureError(
       `O m\xF3dulo de invent\xE1rio n\xE3o est\xE1 dispon\xEDvel no plano ${limits.plan.name}. Fa\xE7a upgrade para o plano Empresarial ou superior.`,
       "inventory"
     );
   }
-  if (!limits.canAddInventoryItem) {
+  if (!isEnterprise && !limits.canAddInventoryItem) {
     throw new PlanLimitError(
       `Limite de itens de invent\xE1rio atingido. O plano ${limits.plan.name} permite at\xE9 ${limits.plan.maxInventoryItems} itens e voc\xEA j\xE1 possui ${limits.usage.inventoryItems}.`,
       "inventoryItems",
@@ -18347,12 +18492,24 @@ async function registerRoutes(app2) {
           });
         }
       }
-      const validatedOrder = insertOrderSchema.parse({
+      let validatedOrder = insertOrderSchema.parse({
         ...orderData,
         createdBy: currentUser.id,
         branchId: currentUser.activeBranchId || orderData.branchId || null,
         restaurantId
       });
+      if (!validatedOrder.customerId && validatedOrder.customerPhone?.trim()) {
+        const existingCustomer = await storage.getCustomerByPhone(
+          restaurantId,
+          validatedOrder.customerPhone.trim()
+        );
+        if (existingCustomer) {
+          validatedOrder = {
+            ...validatedOrder,
+            customerId: existingCustomer.id
+          };
+        }
+      }
       const validatedItems = z2.array(publicOrderItemSchema).parse(items);
       const orderNumber = await generateOrderNumber(
         restaurantId,
