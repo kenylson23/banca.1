@@ -1571,8 +1571,11 @@ export async function ensureTablesExist() {
       }
 
       // Existing databases may already have an Enterprise plan created
-      // before the standard feature list was added. Keep that plan's
-      // unlimited limits while repairing its feature access in place.
+      // before the complete plan definition was added. Repair the complete
+      // canonical definition in place so subscriptions that already point to
+      // this plan receive the same access as new Enterprise subscriptions.
+      // Do not include "empresarial" here: it is an intentionally separate
+      // lower tier.
       await db.execute(sql`
         UPDATE subscription_plans
         SET features = '[
@@ -1587,8 +1590,24 @@ export async function ensureTablesExist() {
           "api_integracoes", "exportacao_dados", "customizacao_visual",
           "multiplos_turnos", "suporte_whatsapp"
         ]'::jsonb,
+        max_branches = 999999,
+        max_tables = 999999,
+        max_menu_items = 999999,
+        max_orders_per_month = 999999,
+        max_users = 999999,
+        max_customers = 999999,
+        history_retention_days = 999999,
+        has_loyalty_program = 1,
+        max_active_coupons = 999999,
+        has_coupon_system = 1,
+        has_expense_tracking = 1,
+        max_expense_categories = 999999,
+        has_inventory_module = 1,
+        max_inventory_items = 999999,
+        has_stock_transfers = 1,
         updated_at = NOW()
-        WHERE slug = 'enterprise'
+        WHERE lower(slug) LIKE '%enterprise%'
+           OR lower(name) LIKE '%enterprise%'
       `);
       
       isInitialized = true;
