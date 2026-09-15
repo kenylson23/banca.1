@@ -137,6 +137,53 @@ async function buildTableInvoiceDocument(
     storage.getTableGuests(sessionId),
     storage.getOrdersBySessionId(effectiveRestaurantId, sessionId),
   ]);
+  const paymentOperatorIds = Array.from(new Set(rawPayments.map((payment: any) => payment.operatorId).filter(Boolean)));
+  const paymentOperators = paymentOperatorIds.length
+    ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray(users.id, paymentOperatorIds))
+    : [];
+  const paymentOperatorNames = new Map(paymentOperators.map((operator) => [operator.id, `${operator.firstName || ''} ${operator.lastName || ''}`.trim() || 'Usuário desconhecido']));
+  const sessionAuditRows = await db
+    .select({
+      id: schema.auditLogs.id,
+      action: schema.auditLogs.action,
+      actorId: schema.auditLogs.actorId,
+      details: schema.auditLogs.details,
+      createdAt: schema.auditLogs.createdAt,
+    })
+    .from(schema.auditLogs)
+    .where(and(
+      eq(schema.auditLogs.restaurantId, Number(effectiveRestaurantId)),
+      eq(schema.auditLogs.entityType, 'table_session'),
+      eq(schema.auditLogs.entityId, sessionId),
+    ))
+    .orderBy(asc(schema.auditLogs.createdAt));
+  const itemAuditRows = await db
+    .select({
+      id: schema.orderItemAuditLogs.id,
+      action: schema.orderItemAuditLogs.action,
+      actorId: schema.orderItemAuditLogs.actorUserId,
+      reason: schema.orderItemAuditLogs.reason,
+      itemDetails: schema.orderItemAuditLogs.itemDetails,
+      createdAt: schema.orderItemAuditLogs.createdAt,
+    })
+    .from(schema.orderItemAuditLogs)
+    .where(and(
+      eq(schema.orderItemAuditLogs.restaurantId, effectiveRestaurantId),
+      eq(schema.orderItemAuditLogs.sessionId, sessionId),
+    ))
+    .orderBy(asc(schema.orderItemAuditLogs.createdAt));
+  const cancellationActorIds = rawOrders
+    .map((order: any) => order.cancelledBy)
+    .filter(Boolean);
+  const auditActorIds = Array.from(new Set([
+    ...sessionAuditRows.map((row) => row.actorId),
+    ...itemAuditRows.map((row) => row.actorId),
+    ...cancellationActorIds,
+  ].filter(Boolean))) as string[];
+  const auditActors = auditActorIds.length
+    ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray(users.id, auditActorIds))
+    : [];
+  const auditActorNames = new Map(auditActors.map((actor) => [actor.id, `${actor.firstName || ''} ${actor.lastName || ''}`.trim() || 'Usuário desconhecido']));
   const orders = rawOrders.filter((order: any) => order.status !== 'cancelado');
   const guestMap = new Map(guests.map((guest: any) => [guest.id, guest]));
 
@@ -237,6 +284,48 @@ async function buildTableInvoiceDocument(
     date: sessionForInvoice.startedAt,
     total: totalAmount,
   });
+  const audit = [
+    ...sessionAuditRows.map((row) => {
+    const details = (row.details || {}) as Record<string, any>;
+    const actionLabels: Record<string, string> = {
+      session_discount_applied: 'Desconto aplicado',
+      session_adjustment_applied: 'Ajuste aplicado',
+      session_closed: 'Mesa fechada',
+      session_force_closed: 'Mesa fechada com pendência',
+      table_invoice_reprinted: 'Fatura reimpressa',
+    };
+    return {
+      id: row.id,
+      action: row.action,
+      label: actionLabels[row.action] || row.action,
+      actorName: row.actorId ? auditActorNames.get(row.actorId) || 'Usuário desconhecido' : null,
+      reason: details.reason || details.reasons?.join?.(', ') || null,
+      createdAt: (row.createdAt || new Date()).toISOString(),
+      details,
+    };
+    }),
+    ...itemAuditRows.map((row) => ({
+      id: row.id,
+      action: row.action,
+      label: row.action === 'item_removed' ? 'Item removido/cancelado' : 'Ajuste de item',
+      actorName: auditActorNames.get(row.actorId) || 'Usuário desconhecido',
+      reason: row.reason || null,
+      createdAt: (row.createdAt || new Date()).toISOString(),
+      details: { itemDetails: row.itemDetails },
+    })),
+    ...rawOrders
+      .filter((order: any) => order.status === 'cancelado' && order.cancellationReason)
+      .map((order: any) => ({
+        id: `cancellation-${order.id}`,
+        action: 'order_cancelled',
+        label: 'Pedido cancelado',
+        actorName: order.cancelledBy ? auditActorNames.get(order.cancelledBy) || 'Usuário desconhecido' : null,
+        reason: order.cancellationReason,
+        createdAt: (order.cancelledAt || order.updatedAt || order.createdAt || new Date()).toISOString(),
+        details: { orderId: order.id, orderNumber: order.orderNumber ?? null },
+      })),
+  ].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const reprintEntries = audit.filter((entry) => entry.action === 'table_invoice_reprinted');
 
   return {
     documentType: 'table-invoice',
@@ -290,8 +379,15 @@ async function buildTableInvoiceDocument(
         paymentMethodLabel: getPaymentMethodLabel(method),
         createdAt: (payment.createdAt || new Date()).toISOString(),
         notes: payment.notes ?? null,
+        operatorName: payment.operatorId ? paymentOperatorNames.get(payment.operatorId) || 'Usuário desconhecido' : null,
       };
     }),
+    audit,
+    reprints: {
+      count: reprintEntries.length,
+      lastPrintedAt: reprintEntries.length ? reprintEntries[reprintEntries.length - 1].createdAt : null,
+      lastPrintedBy: reprintEntries.length ? reprintEntries[reprintEntries.length - 1].actorName : null,
+    },
     totals: {
       subtotal: fixedMoney(orderSubtotal),
       discount: fixedMoney(discounts.reduce((sum, adjustment) => sum + money(adjustment.amount), 0)),
@@ -4983,6 +5079,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       await storage.endTableSession(restaurantId, req.params.id);
+      await db.insert(schema.auditLogs).values({
+        restaurantId: Number(restaurantId),
+        actorId: currentUser.id ? String(currentUser.id) : null,
+        action: req.body.forceClose ? 'session_force_closed' : 'session_closed',
+        entityType: 'table_session',
+        entityId: table.currentSessionId,
+        details: {
+          tableId: table.id,
+          tableNumber: table.number,
+          pendingAmount: validation.totalPending,
+          reason: req.body.reason || null,
+        },
+      });
       
       const updatedTable = await storage.getTableById(req.params.id);
       broadcastToClients({ type: 'table_session_ended', data: updatedTable });
@@ -5271,6 +5380,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await db.update(tableSessions)
             .set(updates)
             .where(eq(tableSessions.id, table.currentSessionId));
+          if (discount && parseFloat(discount) > 0) {
+            await db.insert(schema.auditLogs).values({
+              restaurantId: Number(restaurantId),
+              actorId: currentUser.id ? String(currentUser.id) : null,
+              action: 'session_discount_applied',
+              entityType: 'table_session',
+              entityId: table.currentSessionId,
+              details: {
+                tableId: table.id,
+                discount,
+                discountType: discountType || 'valor',
+                reason: notes || null,
+              },
+            });
+          }
         }
       }
       
@@ -5788,6 +5912,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('[SESSION INVOICE] Erro ao montar fatura:', error);
       res.status(error.message === 'Sessão não encontrada' ? 404 : 500).json({ message: error.message || "Erro ao carregar fatura da sessão" });
+    }
+  });
+
+  app.post("/api/table-sessions/:sessionId/invoice/reprint", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const restaurantId = currentUser.restaurantId;
+      if (!restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      const document = await buildTableInvoiceDocument(restaurantId || currentUser.restaurantId!, req.params.sessionId);
+      const [entry] = await db.insert(schema.auditLogs).values({
+        restaurantId: Number(restaurantId || currentUser.restaurantId),
+        actorId: currentUser.id ? String(currentUser.id) : null,
+        action: 'table_invoice_reprinted',
+        entityType: 'table_session',
+        entityId: req.params.sessionId,
+        details: {
+          invoiceNumber: document.invoiceNumber,
+          tableId: document.table.id,
+          tableNumber: document.table.number,
+          total: document.totals.total,
+          reason: req.body?.reason || 'Reimpressão solicitada pelo operador',
+        },
+      }).returning();
+      res.json({
+        success: true,
+        reprint: {
+          id: entry.id,
+          printedAt: entry.createdAt,
+          printedBy: `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || 'Usuário atual',
+        },
+      });
+    } catch (error: any) {
+      res.status(error.message === 'Sessão não encontrada' ? 404 : 500).json({ message: error.message || "Erro ao registar reimpressão" });
     }
   });
 

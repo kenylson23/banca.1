@@ -60,6 +60,7 @@ import { GuestsSection } from './sections/GuestsSection';
 import { OrdersSection } from './sections/OrdersSection';
 import { PaymentSection } from './sections/PaymentSection';
 import { HistorySection } from './sections/HistorySection';
+import { SessionInvoice } from './sections/SessionInvoice';
 import { StartSessionDialog } from './dialogs/StartSessionDialog';
 import { AddPersonDialog } from './dialogs/AddPersonDialog';
 import { QuickOrderDialog } from '@/components/QuickOrderDialog';
@@ -84,7 +85,7 @@ interface TableDialogPOSModernProps {
   onNavigate?: (table: Table) => void;
 }
 
-type NavigationSection = 'overview' | 'guests' | 'orders' | 'payment' | 'split' | 'history';
+type NavigationSection = 'overview' | 'guests' | 'orders' | 'payment' | 'split' | 'history' | 'invoice';
 
 interface NavigationItem {
   id: NavigationSection;
@@ -318,6 +319,12 @@ export function TableDialogPOSModern({
       label: 'Histórico',
       icon: <History className="w-5 h-5" />,
       shortcut: '6',
+    },
+    {
+      id: 'invoice',
+      label: 'Fatura final',
+      icon: <Receipt className="w-5 h-5" />,
+       shortcut: '7',
     },
   ], [guestsCount, ordersCount]);
 
@@ -1287,6 +1294,19 @@ export function TableDialogPOSModern({
                     
                     {activeSection === 'history' && (
                       <HistorySection table={currentTable} />
+                    )}
+                    {activeSection === 'invoice' && (
+                      currentTable.currentSessionId ? (
+                        <div className="space-y-4">
+                          <div>
+                            <h2 className="text-2xl font-bold">Fatura final</h2>
+                            <p className="text-muted-foreground">Consulte o total final, todos os pagamentos, recibos individuais e o histórico da mesa.</p>
+                          </div>
+                          <SessionInvoice sessionId={currentTable.currentSessionId} tableNumber={currentTable.number} />
+                        </div>
+                      ) : (
+                        <Card><CardContent className="py-12 text-center text-muted-foreground">Esta mesa não possui uma sessão para emitir fatura.</CardContent></Card>
+                      )
                     )}
                   </motion.div>
                 </AnimatePresence>

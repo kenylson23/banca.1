@@ -71,6 +71,17 @@ export type TableInvoicePayment = {
   paymentMethodLabel: string;
   createdAt: string;
   notes: string | null;
+  operatorName?: string | null;
+};
+
+export type TableInvoiceAuditEntry = {
+  id: string | number;
+  action: string;
+  label: string;
+  actorName: string | null;
+  reason: string | null;
+  createdAt: string;
+  details?: Record<string, unknown> | null;
 };
 
 export type TableInvoiceDocument = {
@@ -99,6 +110,12 @@ export type TableInvoiceDocument = {
   discounts: TableInvoiceAdjustment[];
   fees: TableInvoiceAdjustment[];
   payments: TableInvoicePayment[];
+  audit: TableInvoiceAuditEntry[];
+  reprints: {
+    count: number;
+    lastPrintedAt: string | null;
+    lastPrintedBy: string | null;
+  };
   totals: {
     subtotal: TableInvoiceMoney;
     discount: TableInvoiceMoney;
