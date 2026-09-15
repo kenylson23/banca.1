@@ -29,3 +29,15 @@ export async function allocateInvoiceNumber(
 
   return invoiceNumber;
 }
+
+/**
+ * Session invoices share the same branch-scoped sequence as order invoices.
+ * This keeps every financial document reference unique within a branch while
+ * allowing a table session to have one stable number across reprints.
+ */
+export async function allocateTableSessionInvoiceNumber(
+  restaurantId: string,
+  branchId?: string | null,
+): Promise<number> {
+  return allocateInvoiceNumber(restaurantId, branchId);
+}

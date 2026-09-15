@@ -704,6 +704,7 @@ export const tableSessions = pgTable("table_sessions", {
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   shiftId: varchar("shift_id").references(() => financialShifts.id, { onDelete: 'set null' }),
   operatorId: varchar("operator_id").references(() => users.id, { onDelete: 'set null' }),
+  invoiceNumber: integer("invoice_number"),
   customerName: varchar("customer_name", { length: 200 }),
   customerCount: integer("customer_count"),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull().default('0'),
