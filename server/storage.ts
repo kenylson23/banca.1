@@ -923,17 +923,24 @@ export class DatabaseStorage implements IStorage {
     const guestsSubtotal = guests.reduce((sum: any, g: any) => {
       return sum + parseFloat(g.subtotal || '0');
     }, 0);
-    const subtotalBeforeAdjustments = ordersSubtotal > 0 ? ordersSubtotal : guestsSubtotal;
+    const storedSessionTotal = parseFloat(session.totalAmount || '0') || 0;
+    const hasCalculatedSubtotal = ordersSubtotal > 0 || guestsSubtotal > 0;
+    // Keep a valid persisted total when the order/guest rows are temporarily
+    // unavailable. This avoids turning a paid session into a zero-value bill.
+    const useStoredTotalFallback = !hasCalculatedSubtotal && storedSessionTotal > 0;
+    const subtotalBeforeAdjustments = hasCalculatedSubtotal
+      ? (ordersSubtotal > 0 ? ordersSubtotal : guestsSubtotal)
+      : storedSessionTotal;
 
     let totalAmountAdjusted = subtotalBeforeAdjustments;
 
-    if (sessionDiscount > 0) {
+    if (!useStoredTotalFallback && sessionDiscount > 0) {
       totalAmountAdjusted = sessionDiscountType === 'percentual'
         ? totalAmountAdjusted * (1 - Math.min(sessionDiscount, 100) / 100)
         : Math.max(0, totalAmountAdjusted - sessionDiscount);
     }
 
-    if (sessionServiceCharge > 0) {
+    if (!useStoredTotalFallback && sessionServiceCharge > 0) {
       totalAmountAdjusted = sessionServiceChargeType === 'percentual'
         ? totalAmountAdjusted * (1 + sessionServiceCharge / 100)
         : totalAmountAdjusted + sessionServiceCharge;
@@ -945,7 +952,7 @@ export class DatabaseStorage implements IStorage {
       return (Number.isFinite(d) && d > 0) || (Number.isFinite(s) && s > 0);
     });
 
-    if (hasGuestAdjustments) {
+    if (hasGuestAdjustments && !useStoredTotalFallback) {
       // ✅ CORREÇÃO: quando há ajustes por convidado, partir do subtotal já calculado
       // (ordersSubtotal ou guestsSubtotal) e aplicar os ajustes individuais.
       // Antes, o código somava guestsSubtotal em cima do totalAmountAdjusted,
@@ -1014,7 +1021,9 @@ export class DatabaseStorage implements IStorage {
       .where(eq(guestPayments.sessionId, sessionId));
 
     const guestPaidSum = parseFloat((guestPaymentsAgg?.[0]?.total as any) || '0') || 0;
-    const totalPaidFromPayments = Math.max(tablePaidSum, guestPaidSum);
+    // table_payments is the source of truth. guest_payments is only a legacy
+    // fallback for sessions that have no table payment rows yet.
+    const totalPaidFromPayments = payments.length > 0 ? tablePaidSum : guestPaidSum;
 
     const paidAmountCapped = totalAmountAdjusted > 0
       ? Math.min(totalPaidFromPayments, totalAmountAdjusted)
@@ -3726,7 +3735,7 @@ export class DatabaseStorage implements IStorage {
           paidAmount: newPaidAmount.toFixed(2),
           changeAmount: Math.max(0, changeAmount).toFixed(2),
           paymentStatus,
-          paymentMethod: data.paymentMethod,
+          paymentMethod: normalizePaymentMethod(data.paymentMethod),
           ...(resolvedCustomerId && !lockedOrder.customerId
             ? { customerId: resolvedCustomerId }
             : {}),
@@ -3757,7 +3766,7 @@ export class DatabaseStorage implements IStorage {
             tableId: updated.tableId,
             sessionId: table.currentSessionId,
             amount: data.amount,
-            paymentMethod: data.paymentMethod,
+            paymentMethod: normalizePaymentMethod(data.paymentMethod),
             notes: `Pagamento via Pedido #${orderId.substring(0, 8)}`,
             operatorId: userId || null,
           });

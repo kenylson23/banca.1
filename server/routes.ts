@@ -29,6 +29,7 @@ import { generateOrderNumber, formatOrderDisplay } from './orderNumberGenerator'
 import { allocateTableSessionInvoiceNumber } from './invoiceNumberGenerator';
 import { generateInvoiceValidationCode } from '@shared/invoice-validation';
 import { getPaymentMethodLabel, normalizePaymentMethod } from '@shared/payment-methods';
+import { summarizeSessionInvoice } from '@shared/session-invoice';
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import {
   checkCanAddCustomer,
@@ -5577,22 +5578,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .orderBy(asc(tablePayments.createdAt));
       const orders = await storage.getOrdersBySessionId(sessionForInvoice.restaurantId, sessionId);
       const totalAmount = parseFloat(totals?.totalAmount ?? sessionForInvoice.totalAmount ?? '0') || 0;
-      const paidAmount = payments.reduce((sum, payment) => sum + (parseFloat(payment.amount || '0') || 0), 0);
-      const pendingAmount = Math.max(0, totalAmount - paidAmount);
-      const status = paidAmount >= totalAmount - 0.01 && totalAmount > 0
-        ? 'pago'
-        : paidAmount > 0
-          ? 'parcial'
-          : 'pendente';
+      const paymentSummary = summarizeSessionInvoice(totalAmount, payments);
 
       return res.json({
         session: {
           ...sessionForInvoice,
           invoiceNumber,
-          totalAmount: totalAmount.toFixed(2),
-          paidAmount: Math.min(Math.max(paidAmount, 0), totalAmount).toFixed(2),
-          pendingAmount: pendingAmount.toFixed(2),
-          paymentStatus: status,
+          ...paymentSummary,
         },
         validationCode: generateInvoiceValidationCode({
           invoiceNumber,
