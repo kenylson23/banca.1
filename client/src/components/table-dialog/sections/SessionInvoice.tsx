@@ -1,9 +1,11 @@
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { CreditCard, Download, Loader2, Printer, Receipt } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CreditCard, Download, Eye, Loader2, Printer, Receipt, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatKwanza } from '@/lib/formatters';
@@ -11,7 +13,8 @@ import { apiFetch } from '@/lib/api-url';
 import { printerService } from '@/lib/printer-service';
 import { usePrinter } from '@/hooks/usePrinter';
 import { useToast } from '@/hooks/use-toast';
-import { renderTableInvoiceHtml, tableInvoiceToThermalPayload } from '@/lib/table-invoice-renderer';
+import QRCode from 'qrcode';
+import { renderTableInvoiceHtml, tableInvoiceToThermalPayload, type TableInvoicePaper } from '@/lib/table-invoice-renderer';
 import type { TableInvoiceDocument } from '@shared/table-invoice-document';
 
 const statusLabels = { pendente: 'Pendente', parcial: 'Parcial', pago: 'Pago' } as const;
@@ -28,6 +31,26 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
   const { getPrinterByType } = usePrinter();
   const { toast } = useToast();
   const thermalPrinter = getPrinterByType('invoice');
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [paper, setPaper] = useState<TableInvoicePaper>('a4');
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
+
+  const qrPayload = useMemo(() => JSON.stringify({
+    tipo: 'fatura-mesa',
+    numero: data?.invoiceNumber,
+    codigo: data?.validation.code,
+    total: data?.totals.total,
+  }), [data]);
+
+  useEffect(() => {
+    if (!data) return;
+    QRCode.toDataURL(qrPayload, {
+      width: 240,
+      margin: 1,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#17202a', light: '#ffffff' },
+    }).then(setQrCodeDataUrl).catch(() => setQrCodeDataUrl(''));
+  }, [data, qrPayload]);
 
   if (isLoading) {
     return <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> A carregar fatura...</div>;
@@ -36,13 +59,21 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
     return <p className="py-3 text-sm text-muted-foreground">Não foi possível carregar a fatura desta sessão.</p>;
   }
 
-  const printBrowser = () => {
+  const printBrowser = (selectedPaper: TableInvoicePaper = 'a4') => {
     const printWindow = window.open('', '_blank', 'width=800,height=900');
     if (!printWindow) return;
-    printWindow.document.write(renderTableInvoiceHtml(data));
+    printWindow.document.write(renderTableInvoiceHtml(data, { paper: selectedPaper, qrCodeDataUrl }));
     printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
+    window.setTimeout(() => {
+      if (!printWindow.closed) {
+        printWindow.focus();
+        printWindow.print();
+      }
+    }, 500);
   };
 
   const printThermal = async () => {
@@ -76,7 +107,7 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
       <CardContent className="space-y-3 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Receipt className="h-4 w-4 text-primary" />
+            {data.restaurant.logoUrl ? <img src={data.restaurant.logoUrl} alt="" className="h-10 w-10 rounded-lg object-contain ring-1 ring-border" /> : <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-lg font-bold text-primary-foreground">{data.restaurant.name.slice(0, 1).toUpperCase()}</div>}
             <div>
               <p className="font-semibold">Fatura da mesa Nº {String(data.invoiceNumber).padStart(6, '0')}</p>
               <p className="text-xs text-muted-foreground">{data.restaurant.name}{data.branch ? ` · ${data.branch.name}` : ''} · Código: {data.validation.code}</p>
@@ -84,7 +115,9 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge className={statusColors[data.totals.paymentStatus]}>{statusLabels[data.totals.paymentStatus]}</Badge>
-            <Button size="sm" variant="outline" onClick={printBrowser}><Printer className="mr-2 h-4 w-4" /> Imprimir</Button>
+            <Button size="sm" variant="outline" onClick={() => setPreviewOpen(true)}><Eye className="mr-2 h-4 w-4" /> Pré-visualizar</Button>
+            <Button size="sm" variant="outline" onClick={() => printBrowser('a4')}><Printer className="mr-2 h-4 w-4" /> Imprimir A4</Button>
+            <Button size="sm" variant="outline" onClick={() => printBrowser('a4')}><RotateCcw className="mr-2 h-4 w-4" /> Reimprimir</Button>
             {thermalPrinter?.status === 'connected' && <Button size="sm" variant="outline" onClick={printThermal}><Receipt className="mr-2 h-4 w-4" /> Térmica</Button>}
             <Button size="sm" variant="outline" onClick={downloadPdf}><Download className="mr-2 h-4 w-4" /> PDF</Button>
           </div>
@@ -105,6 +138,31 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
           )) : <p className="text-muted-foreground">Nenhum pagamento registado.</p>}
         </div>
       </CardContent>
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="flex max-h-[94vh] w-[calc(100%-1rem)] max-w-5xl flex-col gap-3 overflow-hidden p-4 sm:p-6">
+          <DialogHeader className="pr-8">
+            <DialogTitle>Pré-visualização da fatura</DialogTitle>
+            <DialogDescription>Confirme o documento antes de imprimir ou reimprimir.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 p-2">
+            <div className="flex items-center gap-1">
+              <Button type="button" size="sm" variant={paper === 'a4' ? 'default' : 'ghost'} onClick={() => setPaper('a4')}>A4</Button>
+              <Button type="button" size="sm" variant={paper === '80mm' ? 'default' : 'ghost'} onClick={() => setPaper('80mm')}>80 mm</Button>
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={() => printBrowser(paper)}><Printer className="mr-2 h-4 w-4" /> Imprimir {paper === 'a4' ? 'A4' : '80 mm'}</Button>
+              <Button type="button" size="sm" onClick={() => printBrowser(paper)}><RotateCcw className="mr-2 h-4 w-4" /> Reimprimir</Button>
+            </div>
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto rounded-lg bg-slate-100 p-3 sm:p-6">
+            <iframe
+              title="Pré-visualização da fatura"
+              srcDoc={renderTableInvoiceHtml(data, { paper, qrCodeDataUrl })}
+              className={`mx-auto block min-h-[680px] border-0 bg-white shadow-md ${paper === 'a4' ? 'w-full max-w-[794px]' : 'w-[302px]'}`}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

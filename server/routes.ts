@@ -5860,7 +5860,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (document.payments.length === 0) pdf.text('Nenhum pagamento registado');
 
-      pdf.moveDown(1.2).fontSize(9)
+      const pdfQrCode = await QRCode.toDataURL(JSON.stringify({
+        tipo: 'fatura-mesa',
+        numero: document.invoiceNumber,
+        codigo: document.validation.code,
+        total: document.totals.total,
+      }), {
+        width: 180,
+        margin: 1,
+        errorCorrectionLevel: 'M',
+      });
+      pdf.moveDown(1.2);
+      pdf.image(pdfQrCode, {
+        fit: [82, 82],
+        align: 'center',
+        valign: 'center',
+      });
+      pdf.moveDown(0.3).fontSize(9)
         .text(`Código de validação: ${document.validation.code}`, { align: 'center' })
         .text('Documento emitido a partir da estrutura TableInvoiceDocument', { align: 'center' });
       pdf.end();
