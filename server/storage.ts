@@ -178,7 +178,8 @@ import {
   type GuestPayment,
   type InsertGuestPayment,
 } from "@shared/schema";
-import { allocateInvoiceNumber } from "./invoiceNumberGenerator";
+import { allocateInvoiceNumber, allocateTableSessionInvoiceNumber } from "./invoiceNumberGenerator";
+import { normalizePaymentMethod } from "@shared/payment-methods";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, gt, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
 import type { PgTransaction } from "drizzle-orm/pg-core";
@@ -1768,6 +1769,12 @@ export class DatabaseStorage implements IStorage {
     // The table row is the lock for opening a session. Without a transaction
     // and FOR UPDATE, two concurrent requests can both observe a free table
     // and create two active sessions for it.
+    const tableForInvoice = await this.getTableById(tableId);
+    if (!tableForInvoice || tableForInvoice.restaurantId !== restaurantId) {
+      throw new Error('Table not found');
+    }
+    const invoiceNumber = await allocateTableSessionInvoiceNumber(restaurantId, tableForInvoice.branchId);
+
     const session = await db.transaction(async (tx: PgTransaction<any, any, any>) => {
       const [table] = await tx
         .select()
@@ -1796,6 +1803,7 @@ export class DatabaseStorage implements IStorage {
         restaurantId,
         customerName: sessionData.customerName,
         customerCount: sessionData.customerCount,
+        invoiceNumber,
         status: 'ocupada',
         pin,
       }).returning();
@@ -2178,6 +2186,7 @@ export class DatabaseStorage implements IStorage {
     const [newPayment] = await db.insert(tablePayments).values({
       ...payment,
       restaurantId,
+      paymentMethod: normalizePaymentMethod(payment.paymentMethod),
     }).returning();
 
     if (table.currentSessionId) {

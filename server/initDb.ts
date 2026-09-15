@@ -285,6 +285,20 @@ export async function ensureTablesExist() {
         ended_at TIMESTAMP,
         notes TEXT
       );`);
+
+      // Session invoices use one persistent sequence per branch (or restaurant
+      // when a legacy table has no branch). Keep this migration idempotent for
+      // databases created before session invoices were introduced.
+      await db.execute(sql`CREATE TABLE IF NOT EXISTS invoice_sequences (
+        scope_key VARCHAR(255) PRIMARY KEY,
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
+        next_number INTEGER NOT NULL DEFAULT 1
+      );`);
+
+      await db.execute(sql`DO $$ BEGIN
+        ALTER TABLE table_sessions ADD COLUMN invoice_number INTEGER;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Add shift_id to table_sessions
       await db.execute(sql`DO $$ BEGIN 

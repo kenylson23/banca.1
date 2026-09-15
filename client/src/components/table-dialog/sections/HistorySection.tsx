@@ -135,6 +135,7 @@ export function HistorySection({ table }: HistorySectionProps) {
                   key={session.id}
                   session={session}
                   tableId={table.id}
+                  tableNumber={table.number}
                 />
               ))}
             </div>

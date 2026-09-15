@@ -26,6 +26,9 @@ import {
   notifications
 } from "@shared/schema";
 import { generateOrderNumber, formatOrderDisplay } from './orderNumberGenerator';
+import { allocateTableSessionInvoiceNumber } from './invoiceNumberGenerator';
+import { generateInvoiceValidationCode } from '@shared/invoice-validation';
+import { getPaymentMethodLabel, normalizePaymentMethod } from '@shared/payment-methods';
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import {
   checkCanAddCustomer,
@@ -4786,6 +4789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         closeSession,
         redeemLoyaltyPoints
       } = fullCheckoutSchema.parse(req.body);
+      const normalizedPaymentMethod = paymentMethod ? normalizePaymentMethod(paymentMethod) : paymentMethod;
 
       const order = await storage.getOrderById(restaurantId, orderId);
       if (!order) {
@@ -5258,7 +5262,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tableId: guest.tableId,
         sessionId: guest.sessionId,
         amount: amount,
-        paymentMethod,
+        paymentMethod: normalizePaymentMethod(paymentMethod),
         operatorId: currentUser.id,
         notes: receivedAmount 
           ? `Pagamento de ${guest.name || 'Convidado'} - Valor recebido: ${receivedAmount} Kz. ${notes || ''}` 
@@ -5519,6 +5523,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(recalculatedSessions);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch table sessions" });
+    }
+  });
+
+  // Fatura consolidada da sessão: um número, um total final e todos os
+  // pagamentos reais associados à sessão.
+  app.get("/api/table-sessions/:sessionId/invoice", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const restaurantId = currentUser.restaurantId;
+      if (!restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const sessionId = req.params.sessionId;
+      const [session] = await db.select()
+        .from(tableSessions)
+        .where(eq(tableSessions.id, sessionId))
+        .limit(1);
+
+      if (!session) {
+        return res.status(404).json({ message: "Sessão não encontrada" });
+      }
+      if (currentUser.role !== 'superadmin' && session.restaurantId !== restaurantId) {
+        return res.status(403).json({ message: "Sessão não pertence ao restaurante" });
+      }
+
+      const totals = await storage.recalculateSessionTotals(sessionId);
+      const [freshSession] = await db.select()
+        .from(tableSessions)
+        .where(eq(tableSessions.id, sessionId))
+        .limit(1);
+      const sessionForInvoice = freshSession || session;
+
+      let invoiceNumber = sessionForInvoice.invoiceNumber;
+      if (invoiceNumber == null) {
+        const [table] = await db.select({ branchId: tables.branchId })
+          .from(tables)
+          .where(eq(tables.id, sessionForInvoice.tableId))
+          .limit(1);
+        invoiceNumber = await allocateTableSessionInvoiceNumber(
+          sessionForInvoice.restaurantId,
+          table?.branchId,
+        );
+        await db.update(tableSessions)
+          .set({ invoiceNumber })
+          .where(eq(tableSessions.id, sessionId));
+      }
+
+      const payments = await db.select()
+        .from(tablePayments)
+        .where(eq(tablePayments.sessionId, sessionId))
+        .orderBy(asc(tablePayments.createdAt));
+      const orders = await storage.getOrdersBySessionId(sessionForInvoice.restaurantId, sessionId);
+      const totalAmount = parseFloat(totals?.totalAmount ?? sessionForInvoice.totalAmount ?? '0') || 0;
+      const paidAmount = payments.reduce((sum, payment) => sum + (parseFloat(payment.amount || '0') || 0), 0);
+      const pendingAmount = Math.max(0, totalAmount - paidAmount);
+      const status = paidAmount >= totalAmount - 0.01 && totalAmount > 0
+        ? 'pago'
+        : paidAmount > 0
+          ? 'parcial'
+          : 'pendente';
+
+      return res.json({
+        session: {
+          ...sessionForInvoice,
+          invoiceNumber,
+          totalAmount: totalAmount.toFixed(2),
+          paidAmount: Math.min(Math.max(paidAmount, 0), totalAmount).toFixed(2),
+          pendingAmount: pendingAmount.toFixed(2),
+          paymentStatus: status,
+        },
+        validationCode: generateInvoiceValidationCode({
+          invoiceNumber,
+          sessionId,
+          date: sessionForInvoice.startedAt,
+          total: totalAmount,
+        }),
+        orders,
+        payments: payments.map((payment) => {
+          const method = normalizePaymentMethod(payment.paymentMethod);
+          return {
+            ...payment,
+            paymentMethod: method,
+            paymentMethodLabel: getPaymentMethodLabel(method),
+            amount: (parseFloat(payment.amount || '0') || 0).toFixed(2),
+          };
+        }),
+      });
+    } catch (error: any) {
+      console.error('[SESSION INVOICE] Erro ao montar fatura:', error);
+      res.status(500).json({ message: error.message || "Erro ao carregar fatura da sessão" });
     }
   });
 

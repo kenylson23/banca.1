@@ -21,8 +21,8 @@ import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { PrintInvoice } from '@/components/PrintInvoice';
 import { PrintOrder } from '@/components/PrintOrder';
+import { SessionInvoice } from './SessionInvoice';
 
 interface SessionCardProps {
   session: {
@@ -35,9 +35,10 @@ interface SessionCardProps {
     status: string;
   };
   tableId: string;
+  tableNumber?: string | number;
 }
 
-export function SessionCard({ session, tableId }: SessionCardProps) {
+export function SessionCard({ session, tableId, tableNumber = tableId }: SessionCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Buscar detalhes da sessão quando expandir
@@ -191,7 +192,7 @@ export function SessionCard({ session, tableId }: SessionCardProps) {
                   </div>
 
                   <div className="rounded-lg border bg-background p-3">
-                    <div className="flex items-center gap-2 mb-3">
+                    <div className="mb-3 flex items-center gap-2">
                       <Receipt className="h-4 w-4 text-primary" />
                       <h4 className="font-semibold">Documentos da sessão</h4>
                     </div>
@@ -201,21 +202,10 @@ export function SessionCard({ session, tableId }: SessionCardProps) {
                           <span className="text-sm">
                             Comanda #{(order.orderNumber || order.id || '').toString().slice(-8).toUpperCase()}
                           </span>
-                          <div className="flex items-center gap-2">
-                            <PrintOrder
-                              order={order}
-                              label="Comanda"
-                              size="sm"
-                              variant="outline"
-                            />
-                            <PrintInvoice
-                              order={order}
-                              size="sm"
-                              variant="outline"
-                            />
-                          </div>
+                          <PrintOrder order={order} label="Comanda" size="sm" variant="outline" />
                         </div>
                       ))}
+                      <SessionInvoice sessionId={session.id} tableNumber={tableNumber} />
                     </div>
                   </div>
                 </div>

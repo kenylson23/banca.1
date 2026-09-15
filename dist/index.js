@@ -899,6 +899,7 @@ var init_schema = __esm({
       restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: "cascade" }),
       shiftId: varchar("shift_id").references(() => financialShifts.id, { onDelete: "set null" }),
       operatorId: varchar("operator_id").references(() => users.id, { onDelete: "set null" }),
+      invoiceNumber: integer("invoice_number"),
       customerName: varchar("customer_name", { length: 200 }),
       customerCount: integer("customer_count"),
       totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull().default("0"),
@@ -3443,10 +3444,53 @@ async function allocateInvoiceNumber(restaurantId, branchId) {
   }
   return invoiceNumber;
 }
+async function allocateTableSessionInvoiceNumber(restaurantId, branchId) {
+  return allocateInvoiceNumber(restaurantId, branchId);
+}
 var init_invoiceNumberGenerator = __esm({
   "server/invoiceNumberGenerator.ts"() {
     "use strict";
     init_db();
+  }
+});
+
+// shared/payment-methods.ts
+function normalizePaymentMethod(value) {
+  const normalized = String(value ?? "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const method = aliases[normalized] ?? aliases[String(value ?? "").trim().toLowerCase()];
+  if (!method) {
+    throw new Error(`Forma de pagamento inv\xE1lida: ${String(value ?? "")}`);
+  }
+  return method;
+}
+function getPaymentMethodLabel(value) {
+  const labels = {
+    dinheiro: "Dinheiro",
+    multicaixa: "Multicaixa",
+    transferencia: "Transfer\xEAncia",
+    cartao: "Cart\xE3o"
+  };
+  return labels[normalizePaymentMethod(value)];
+}
+var aliases;
+var init_payment_methods = __esm({
+  "shared/payment-methods.ts"() {
+    "use strict";
+    aliases = {
+      dinheiro: "dinheiro",
+      cash: "dinheiro",
+      numerario: "dinheiro",
+      numer\u00E1rio: "dinheiro",
+      multicaixa: "multicaixa",
+      "multicaixa express": "multicaixa",
+      "multicaixa expresss": "multicaixa",
+      transferencia: "transferencia",
+      transfer\u00EAncia: "transferencia",
+      bank_transfer: "transferencia",
+      cartao: "cartao",
+      cart\u00E3o: "cartao",
+      card: "cartao"
+    };
   }
 });
 
@@ -3697,6 +3741,15 @@ async function ensureTablesExist() {
         ended_at TIMESTAMP,
         notes TEXT
       );`);
+      await db.execute(sql3`CREATE TABLE IF NOT EXISTS invoice_sequences (
+        scope_key VARCHAR(255) PRIMARY KEY,
+        restaurant_id VARCHAR NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+        branch_id VARCHAR REFERENCES branches(id) ON DELETE CASCADE,
+        next_number INTEGER NOT NULL DEFAULT 1
+      );`);
+      await db.execute(sql3`DO $$ BEGIN
+        ALTER TABLE table_sessions ADD COLUMN invoice_number INTEGER;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       await db.execute(sql3`DO $$ BEGIN 
         ALTER TABLE table_sessions ADD COLUMN shift_id VARCHAR REFERENCES financial_shifts(id) ON DELETE SET NULL; 
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
@@ -5181,6 +5234,7 @@ var init_storage = __esm({
     "use strict";
     init_schema();
     init_invoiceNumberGenerator();
+    init_payment_methods();
     init_db();
     init_planAccess();
     init_db();
@@ -5764,6 +5818,11 @@ var init_storage = __esm({
         }
       }
       async startTableSession(restaurantId, tableId, sessionData) {
+        const tableForInvoice = await this.getTableById(tableId);
+        if (!tableForInvoice || tableForInvoice.restaurantId !== restaurantId) {
+          throw new Error("Table not found");
+        }
+        const invoiceNumber = await allocateTableSessionInvoiceNumber(restaurantId, tableForInvoice.branchId);
         const session2 = await db.transaction(async (tx) => {
           const [table2] = await tx.select().from(tables).where(and(eq(tables.id, tableId), eq(tables.restaurantId, restaurantId))).for("update");
           if (!table2) {
@@ -5781,6 +5840,7 @@ var init_storage = __esm({
             restaurantId,
             customerName: sessionData.customerName,
             customerCount: sessionData.customerCount,
+            invoiceNumber,
             status: "ocupada",
             pin
           }).returning();
@@ -6051,7 +6111,8 @@ var init_storage = __esm({
         }
         const [newPayment] = await db.insert(tablePayments).values({
           ...payment,
-          restaurantId
+          restaurantId,
+          paymentMethod: normalizePaymentMethod(payment.paymentMethod)
         }).returning();
         if (table2.currentSessionId) {
           const session2 = await db.select().from(tableSessions).where(eq(tableSessions.id, table2.currentSessionId)).limit(1);
@@ -12596,6 +12657,23 @@ async function generateOrderNumber(restaurantId, orderType) {
 }
 
 // server/routes.ts
+init_invoiceNumberGenerator();
+
+// shared/invoice-validation.ts
+function generateInvoiceValidationCode(input) {
+  const date = input.date ? new Date(input.date).toISOString() : "";
+  const total = Number(input.total ?? 0).toFixed(2);
+  const source = `${input.invoiceNumber}|${input.sessionId}|${date}|${total}`;
+  let hash = 2166136261;
+  for (let index2 = 0; index2 < source.length; index2 += 1) {
+    hash ^= source.charCodeAt(index2);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36).toUpperCase().padStart(7, "0");
+}
+
+// server/routes.ts
+init_payment_methods();
 init_auth();
 
 // server/planLimits.ts
@@ -16434,6 +16512,7 @@ async function registerRoutes(app2) {
         closeSession,
         redeemLoyaltyPoints
       } = fullCheckoutSchema.parse(req.body);
+      const normalizedPaymentMethod = paymentMethod ? normalizePaymentMethod(paymentMethod) : paymentMethod;
       const order = await storage.getOrderById(restaurantId, orderId);
       if (!order) {
         return res.status(404).json({ message: "Pedido n\xE3o encontrado" });
@@ -16808,7 +16887,7 @@ async function registerRoutes(app2) {
         tableId: guest.tableId,
         sessionId: guest.sessionId,
         amount,
-        paymentMethod,
+        paymentMethod: normalizePaymentMethod(paymentMethod),
         operatorId: currentUser.id,
         notes: receivedAmount ? `Pagamento de ${guest.name || "Convidado"} - Valor recebido: ${receivedAmount} Kz. ${notes || ""}` : `Pagamento de ${guest.name || "Convidado"}. ${notes || ""}`
       }).returning();
@@ -17015,6 +17094,70 @@ async function registerRoutes(app2) {
       res.json(recalculatedSessions);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch table sessions" });
+    }
+  });
+  app2.get("/api/table-sessions/:sessionId/invoice", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user;
+      const restaurantId = currentUser.restaurantId;
+      if (!restaurantId && currentUser.role !== "superadmin") {
+        return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
+      }
+      const sessionId = req.params.sessionId;
+      const [session2] = await db.select().from(tableSessions).where(eq5(tableSessions.id, sessionId)).limit(1);
+      if (!session2) {
+        return res.status(404).json({ message: "Sess\xE3o n\xE3o encontrada" });
+      }
+      if (currentUser.role !== "superadmin" && session2.restaurantId !== restaurantId) {
+        return res.status(403).json({ message: "Sess\xE3o n\xE3o pertence ao restaurante" });
+      }
+      const totals = await storage.recalculateSessionTotals(sessionId);
+      const [freshSession] = await db.select().from(tableSessions).where(eq5(tableSessions.id, sessionId)).limit(1);
+      const sessionForInvoice = freshSession || session2;
+      let invoiceNumber = sessionForInvoice.invoiceNumber;
+      if (invoiceNumber == null) {
+        const [table2] = await db.select({ branchId: tables.branchId }).from(tables).where(eq5(tables.id, sessionForInvoice.tableId)).limit(1);
+        invoiceNumber = await allocateTableSessionInvoiceNumber(
+          sessionForInvoice.restaurantId,
+          table2?.branchId
+        );
+        await db.update(tableSessions).set({ invoiceNumber }).where(eq5(tableSessions.id, sessionId));
+      }
+      const payments = await db.select().from(tablePayments).where(eq5(tablePayments.sessionId, sessionId)).orderBy(asc(tablePayments.createdAt));
+      const orders2 = await storage.getOrdersBySessionId(sessionForInvoice.restaurantId, sessionId);
+      const totalAmount = parseFloat(totals?.totalAmount ?? sessionForInvoice.totalAmount ?? "0") || 0;
+      const paidAmount = payments.reduce((sum, payment) => sum + (parseFloat(payment.amount || "0") || 0), 0);
+      const pendingAmount = Math.max(0, totalAmount - paidAmount);
+      const status = paidAmount >= totalAmount - 0.01 && totalAmount > 0 ? "pago" : paidAmount > 0 ? "parcial" : "pendente";
+      return res.json({
+        session: {
+          ...sessionForInvoice,
+          invoiceNumber,
+          totalAmount: totalAmount.toFixed(2),
+          paidAmount: Math.min(Math.max(paidAmount, 0), totalAmount).toFixed(2),
+          pendingAmount: pendingAmount.toFixed(2),
+          paymentStatus: status
+        },
+        validationCode: generateInvoiceValidationCode({
+          invoiceNumber,
+          sessionId,
+          date: sessionForInvoice.startedAt,
+          total: totalAmount
+        }),
+        orders: orders2,
+        payments: payments.map((payment) => {
+          const method = normalizePaymentMethod(payment.paymentMethod);
+          return {
+            ...payment,
+            paymentMethod: method,
+            paymentMethodLabel: getPaymentMethodLabel(method),
+            amount: (parseFloat(payment.amount || "0") || 0).toFixed(2)
+          };
+        })
+      });
+    } catch (error) {
+      console.error("[SESSION INVOICE] Erro ao montar fatura:", error);
+      res.status(500).json({ message: error.message || "Erro ao carregar fatura da sess\xE3o" });
     }
   });
   app2.get("/api/tables/:id/payments", isCashierOrAbove, async (req, res) => {
