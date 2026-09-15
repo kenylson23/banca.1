@@ -30,6 +30,11 @@ import { allocateTableSessionInvoiceNumber } from './invoiceNumberGenerator';
 import { generateInvoiceValidationCode } from '@shared/invoice-validation';
 import { getPaymentMethodLabel, normalizePaymentMethod } from '@shared/payment-methods';
 import { summarizeSessionInvoice } from '@shared/session-invoice';
+import type {
+  TableInvoiceDocument,
+  TableInvoiceAdjustment,
+  TableInvoiceCustomer,
+} from '@shared/table-invoice-document';
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import {
   checkCanAddCustomer,
@@ -58,6 +63,247 @@ import twilio from "twilio";
 const sessionPinAttempts = new Map<string, { count: number; resetAt: number }>();
 const SESSION_PIN_MAX_ATTEMPTS = 5;
 const SESSION_PIN_WINDOW_MS = 15 * 60 * 1000;
+
+function money(value: unknown): number {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function fixedMoney(value: unknown): string {
+  return money(value).toFixed(2);
+}
+
+function adjustmentAmount(value: unknown, type: string | null | undefined, base: number): number {
+  const amount = money(value);
+  return type === 'percentual' ? base * Math.min(Math.max(amount, 0), 100) / 100 : amount;
+}
+
+function customerFromGuest(guest: any): TableInvoiceCustomer {
+  const customer = guest?.customer;
+  if (customer) {
+    return {
+      id: customer.id ?? null,
+      name: customer.name,
+      phone: customer.phone ?? null,
+      email: customer.email ?? null,
+      nif: customer.nif ?? null,
+      address: customer.address ?? null,
+    };
+  }
+  if (guest?.name) {
+    return {
+      id: null,
+      name: guest.name,
+      phone: null,
+      email: null,
+      nif: null,
+      address: null,
+    };
+  }
+  return null;
+}
+
+async function buildTableInvoiceDocument(
+  restaurantId: string | undefined,
+  sessionId: string,
+): Promise<TableInvoiceDocument> {
+  const [session] = await db.select().from(tableSessions).where(eq(tableSessions.id, sessionId)).limit(1);
+  const effectiveRestaurantId = restaurantId || session?.restaurantId;
+  if (!session || !effectiveRestaurantId || (restaurantId && session.restaurantId !== restaurantId)) {
+    throw new Error('Sessão não encontrada');
+  }
+
+  const [table] = await db.select().from(tables).where(eq(tables.id, session.tableId)).limit(1);
+  const [restaurant] = await db.select().from(restaurants).where(eq(restaurants.id, effectiveRestaurantId)).limit(1);
+  if (!table || !restaurant) {
+    throw new Error('Mesa ou restaurante não encontrado');
+  }
+
+  const [branch] = table.branchId
+    ? await db.select().from(branches).where(eq(branches.id, table.branchId)).limit(1)
+    : [];
+  const totals = await storage.recalculateSessionTotals(sessionId);
+  const [freshSession] = await db.select().from(tableSessions).where(eq(tableSessions.id, sessionId)).limit(1);
+  const sessionForInvoice = freshSession || session;
+
+  let invoiceNumber = sessionForInvoice.invoiceNumber;
+  if (invoiceNumber == null) {
+    invoiceNumber = await allocateTableSessionInvoiceNumber(effectiveRestaurantId, table.branchId);
+    await db.update(tableSessions).set({ invoiceNumber }).where(eq(tableSessions.id, sessionId));
+  }
+
+  const [rawPayments, guests, rawOrders] = await Promise.all([
+    db.select().from(tablePayments).where(eq(tablePayments.sessionId, sessionId)).orderBy(asc(tablePayments.createdAt)),
+    storage.getTableGuests(sessionId),
+    storage.getOrdersBySessionId(effectiveRestaurantId, sessionId),
+  ]);
+  const orders = rawOrders.filter((order: any) => order.status !== 'cancelado');
+  const guestMap = new Map(guests.map((guest: any) => [guest.id, guest]));
+
+  const items = orders.flatMap((order: any) =>
+    (order.orderItems || []).map((item: any) => {
+      const guest = item.guestId ? guestMap.get(item.guestId) : null;
+      const unitPrice = money(item.price);
+      return {
+        id: item.id,
+        orderId: order.id,
+        orderNumber: order.orderNumber ?? null,
+        guestId: item.guestId ?? order.guestId ?? null,
+        guestName: guest?.name ?? null,
+        name: item.menuItem?.name || item.name || 'Item',
+        quantity: item.quantity || 0,
+        unitPrice: fixedMoney(unitPrice),
+        total: fixedMoney(unitPrice * (item.quantity || 0)),
+        notes: item.notes ?? null,
+        options: (item.options || []).map((option: any) => ({
+          name: option.optionName,
+          groupName: option.optionGroupName,
+          priceAdjustment: fixedMoney(option.priceAdjustment),
+          quantity: option.quantity || 1,
+        })),
+      };
+    }),
+  );
+
+  const orderSubtotal = orders.reduce((sum: number, order: any) => {
+    const storedTotal = money(order.totalAmount);
+    if (storedTotal > 0) return sum + storedTotal;
+    return sum + (order.orderItems || []).reduce(
+      (itemSum: number, item: any) => itemSum + money(item.price) * (item.quantity || 0),
+      0,
+    );
+  }, 0);
+
+  const discounts: TableInvoiceAdjustment[] = [];
+  const fees: TableInvoiceAdjustment[] = [];
+  const sessionDiscount = adjustmentAmount(sessionForInvoice.discount, sessionForInvoice.discountType, orderSubtotal);
+  const sessionFeeBase = Math.max(0, orderSubtotal - sessionDiscount);
+  const sessionFee = adjustmentAmount(sessionForInvoice.serviceCharge, sessionForInvoice.serviceChargeType, sessionFeeBase);
+  if (sessionDiscount > 0) {
+    discounts.push({
+      label: sessionForInvoice.discountType === 'percentual'
+        ? `Desconto da sessão (${sessionForInvoice.discount}%)`
+        : 'Desconto da sessão',
+      amount: fixedMoney(sessionDiscount),
+      type: sessionForInvoice.discountType === 'percentual' ? 'percentual' : 'valor',
+      scope: 'sessao',
+    });
+  }
+  if (sessionFee > 0) {
+    fees.push({
+      label: sessionForInvoice.serviceChargeType === 'percentual'
+        ? `Taxa de serviço (${sessionForInvoice.serviceCharge}%)`
+        : 'Taxa de serviço',
+      amount: fixedMoney(sessionFee),
+      type: sessionForInvoice.serviceChargeType === 'percentual' ? 'percentual' : 'valor',
+      scope: 'sessao',
+    });
+  }
+  for (const guest of guests as any[]) {
+    const guestSubtotal = money(guest.subtotal);
+    const guestDiscount = adjustmentAmount(guest.discount, guest.discountType, guestSubtotal);
+    const guestFee = adjustmentAmount(guest.serviceCharge, guest.serviceChargeType, Math.max(0, guestSubtotal - guestDiscount));
+    if (guestDiscount > 0) {
+      discounts.push({
+        label: `Desconto de ${guest.name || `Convidado ${guest.guestNumber || ''}`}`,
+        amount: fixedMoney(guestDiscount),
+        type: guest.discountType === 'percentual' ? 'percentual' : 'valor',
+        scope: 'convidado',
+        guestId: guest.id,
+      });
+    }
+    if (guestFee > 0) {
+      fees.push({
+        label: `Taxa de ${guest.name || `Convidado ${guest.guestNumber || ''}`}`,
+        amount: fixedMoney(guestFee),
+        type: guest.serviceChargeType === 'percentual' ? 'percentual' : 'valor',
+        scope: 'convidado',
+        guestId: guest.id,
+      });
+    }
+  }
+
+  const totalAmount = money(totals?.totalAmount ?? sessionForInvoice.totalAmount);
+  const paymentSummary = summarizeSessionInvoice(totalAmount, rawPayments);
+  const primaryGuest = guests.find((guest: any) => guest.customer || guest.name);
+  const customer = customerFromGuest(primaryGuest) || (
+    sessionForInvoice.customerName
+      ? { id: null, name: sessionForInvoice.customerName, phone: null, email: null, nif: null, address: null }
+      : null
+  );
+  const validationCode = generateInvoiceValidationCode({
+    invoiceNumber,
+    sessionId,
+    date: sessionForInvoice.startedAt,
+    total: totalAmount,
+  });
+
+  return {
+    documentType: 'table-invoice',
+    currency: 'AOA',
+    issuedAt: new Date().toISOString(),
+    invoiceNumber,
+    restaurant: {
+      id: restaurant.id,
+      name: restaurant.name,
+      address: restaurant.address ?? null,
+      phone: restaurant.phone ?? null,
+      nif: null,
+      logoUrl: restaurant.logoUrl ?? null,
+    },
+    branch: branch ? {
+      id: branch.id,
+      name: branch.name,
+      address: branch.address ?? null,
+      phone: branch.phone ?? null,
+    } : null,
+    table: { id: table.id, number: table.number, area: table.area ?? null },
+    session: {
+      id: sessionForInvoice.id,
+      startedAt: (sessionForInvoice.startedAt || new Date()).toISOString(),
+      endedAt: sessionForInvoice.endedAt?.toISOString() ?? null,
+      status: sessionForInvoice.status,
+      customerName: sessionForInvoice.customerName ?? null,
+      customerCount: sessionForInvoice.customerCount ?? null,
+    },
+    customer,
+    guests: guests.map((guest: any) => ({
+      id: guest.id,
+      name: guest.name || `Convidado ${guest.guestNumber || ''}`.trim(),
+      guestNumber: guest.guestNumber ?? null,
+      seatNumber: guest.seatNumber ?? null,
+      status: guest.status,
+      customer: customerFromGuest(guest),
+      subtotal: fixedMoney(guest.subtotal),
+      discount: fixedMoney(guest.discount),
+      serviceCharge: fixedMoney(guest.serviceCharge),
+    })),
+    items,
+    discounts,
+    fees,
+    payments: rawPayments.map((payment: any) => {
+      const method = normalizePaymentMethod(payment.paymentMethod);
+      return {
+        id: payment.id,
+        amount: fixedMoney(payment.amount),
+        paymentMethod: method,
+        paymentMethodLabel: getPaymentMethodLabel(method),
+        createdAt: (payment.createdAt || new Date()).toISOString(),
+        notes: payment.notes ?? null,
+      };
+    }),
+    totals: {
+      subtotal: fixedMoney(orderSubtotal),
+      discount: fixedMoney(discounts.reduce((sum, adjustment) => sum + money(adjustment.amount), 0)),
+      fees: fixedMoney(fees.reduce((sum, adjustment) => sum + money(adjustment.amount), 0)),
+      total: paymentSummary.totalAmount,
+      paid: paymentSummary.paidAmount,
+      pending: paymentSummary.pendingAmount,
+      paymentStatus: paymentSummary.paymentStatus,
+    },
+    validation: { code: validationCode, algorithm: 'fnv1a-base36' },
+  };
+}
 
 function getSessionPinAttemptKey(req: any, tableId: string): string {
   return `${req.ip || req.socket?.remoteAddress || 'unknown'}:${tableId}`;
@@ -5537,75 +5783,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
-      const sessionId = req.params.sessionId;
-      const [session] = await db.select()
-        .from(tableSessions)
-        .where(eq(tableSessions.id, sessionId))
-        .limit(1);
-
-      if (!session) {
-        return res.status(404).json({ message: "Sessão não encontrada" });
-      }
-      if (currentUser.role !== 'superadmin' && session.restaurantId !== restaurantId) {
-        return res.status(403).json({ message: "Sessão não pertence ao restaurante" });
-      }
-
-      const totals = await storage.recalculateSessionTotals(sessionId);
-      const [freshSession] = await db.select()
-        .from(tableSessions)
-        .where(eq(tableSessions.id, sessionId))
-        .limit(1);
-      const sessionForInvoice = freshSession || session;
-
-      let invoiceNumber = sessionForInvoice.invoiceNumber;
-      if (invoiceNumber == null) {
-        const [table] = await db.select({ branchId: tables.branchId })
-          .from(tables)
-          .where(eq(tables.id, sessionForInvoice.tableId))
-          .limit(1);
-        invoiceNumber = await allocateTableSessionInvoiceNumber(
-          sessionForInvoice.restaurantId,
-          table?.branchId,
-        );
-        await db.update(tableSessions)
-          .set({ invoiceNumber })
-          .where(eq(tableSessions.id, sessionId));
-      }
-
-      const payments = await db.select()
-        .from(tablePayments)
-        .where(eq(tablePayments.sessionId, sessionId))
-        .orderBy(asc(tablePayments.createdAt));
-      const orders = await storage.getOrdersBySessionId(sessionForInvoice.restaurantId, sessionId);
-      const totalAmount = parseFloat(totals?.totalAmount ?? sessionForInvoice.totalAmount ?? '0') || 0;
-      const paymentSummary = summarizeSessionInvoice(totalAmount, payments);
-
-      return res.json({
-        session: {
-          ...sessionForInvoice,
-          invoiceNumber,
-          ...paymentSummary,
-        },
-        validationCode: generateInvoiceValidationCode({
-          invoiceNumber,
-          sessionId,
-          date: sessionForInvoice.startedAt,
-          total: totalAmount,
-        }),
-        orders,
-        payments: payments.map((payment) => {
-          const method = normalizePaymentMethod(payment.paymentMethod);
-          return {
-            ...payment,
-            paymentMethod: method,
-            paymentMethodLabel: getPaymentMethodLabel(method),
-            amount: (parseFloat(payment.amount || '0') || 0).toFixed(2),
-          };
-        }),
-      });
+      const document = await buildTableInvoiceDocument(restaurantId || (req.user as User).restaurantId!, req.params.sessionId);
+      return res.json(document);
     } catch (error: any) {
       console.error('[SESSION INVOICE] Erro ao montar fatura:', error);
-      res.status(500).json({ message: error.message || "Erro ao carregar fatura da sessão" });
+      res.status(error.message === 'Sessão não encontrada' ? 404 : 500).json({ message: error.message || "Erro ao carregar fatura da sessão" });
+    }
+  });
+
+  app.get("/api/table-sessions/:sessionId/invoice/pdf", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const restaurantId = currentUser.restaurantId;
+      if (!restaurantId && currentUser.role !== 'superadmin') {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+      const document = await buildTableInvoiceDocument(
+        restaurantId || currentUser.restaurantId!,
+        req.params.sessionId,
+      );
+
+      const pdf = new PDFDocument({ size: 'A4', margin: 42 });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename=fatura-mesa-${document.table.number}-${document.invoiceNumber}.pdf`,
+      );
+      pdf.pipe(res);
+
+      pdf.fontSize(19).font('Helvetica-Bold').text(document.restaurant.name, { align: 'center' });
+      if (document.branch) {
+        pdf.fontSize(10).font('Helvetica').text(document.branch.name, { align: 'center' });
+      }
+      pdf.fontSize(11).font('Helvetica-Bold').text('FATURA DA MESA', { align: 'center' });
+      pdf.moveDown(0.6);
+      pdf.fontSize(10).font('Helvetica')
+        .text(`Fatura Nº ${String(document.invoiceNumber).padStart(6, '0')}  |  Mesa ${document.table.number}`)
+        .text(`Emissão: ${new Date(document.issuedAt).toLocaleString('pt-AO')}`)
+        .text(`Sessão iniciada: ${new Date(document.session.startedAt).toLocaleString('pt-AO')}`);
+      if (document.restaurant.address) pdf.text(`Endereço: ${document.restaurant.address}`);
+      if (document.restaurant.phone) pdf.text(`Telefone: ${document.restaurant.phone}`);
+      if (document.customer) {
+        pdf.moveDown(0.4).font('Helvetica-Bold').text('CLIENTE');
+        pdf.font('Helvetica').text(document.customer.name);
+        if (document.customer.phone) pdf.text(`Telefone: ${document.customer.phone}`);
+        if (document.customer.nif) pdf.text(`NIF: ${document.customer.nif}`);
+      }
+
+      pdf.moveDown(0.8).font('Helvetica-Bold').text('ITENS');
+      pdf.font('Helvetica');
+      for (const item of document.items) {
+        const options = item.options.length
+          ? ` (${item.options.map((option) => option.name).join(', ')})`
+          : '';
+        pdf.text(`${item.quantity}x ${item.name}${options}  ${item.total} AOA`);
+      }
+      if (document.items.length === 0) pdf.text('Sem itens registados');
+
+      pdf.moveDown(0.8).font('Helvetica-Bold').text('TOTAIS');
+      pdf.font('Helvetica')
+        .text(`Subtotal: ${document.totals.subtotal} AOA`);
+      for (const discount of document.discounts) {
+        pdf.text(`${discount.label}: - ${discount.amount} AOA`);
+      }
+      for (const fee of document.fees) {
+        pdf.text(`${fee.label}: + ${fee.amount} AOA`);
+      }
+      pdf.font('Helvetica-Bold').text(`TOTAL: ${document.totals.total} AOA`);
+      pdf.font('Helvetica').text(`Pago: ${document.totals.paid} AOA`);
+      pdf.text(`Saldo pendente: ${document.totals.pending} AOA`);
+
+      pdf.moveDown(0.8).font('Helvetica-Bold').text('PAGAMENTOS');
+      pdf.font('Helvetica');
+      for (const payment of document.payments) {
+        pdf.text(`${payment.paymentMethodLabel} — ${payment.amount} AOA — ${new Date(payment.createdAt).toLocaleString('pt-AO')}`);
+      }
+      if (document.payments.length === 0) pdf.text('Nenhum pagamento registado');
+
+      pdf.moveDown(1.2).fontSize(9)
+        .text(`Código de validação: ${document.validation.code}`, { align: 'center' })
+        .text('Documento emitido a partir da estrutura TableInvoiceDocument', { align: 'center' });
+      pdf.end();
+    } catch (error: any) {
+      console.error('[SESSION INVOICE PDF] Erro ao gerar PDF:', error);
+      res.status(error.message === 'Sessão não encontrada' ? 404 : 500).json({ message: error.message || "Erro ao gerar PDF da fatura" });
     }
   });
 
