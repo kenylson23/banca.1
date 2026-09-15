@@ -1,4 +1,10 @@
 import type { IStorage } from "./storage";
+import {
+  hasEnterpriseAccess,
+  normalizePlanFeatures,
+} from "@shared/planAccess";
+
+export { hasEnterpriseAccess };
 
 export class PlanLimitError extends Error {
   constructor(
@@ -119,42 +125,6 @@ export async function checkCanAddCustomer(storage: IStorage, restaurantId: strin
       limits.usage.customers,
       limits.plan.maxCustomers
     );
-  }
-}
-
-export function hasEnterpriseAccess(plan: { slug?: unknown; name?: unknown; features?: unknown }): boolean {
-  const identifiers = [plan.slug, plan.name]
-    .map((value) => String(value || '').trim().toLowerCase())
-    .filter(Boolean)
-  const isNamedEnterprise = identifiers.some((identifier) => identifier.includes('enterprise'));
-  const isKnownLowerTier = identifiers.some((identifier) => (
-    identifier === 'basico' ||
-    identifier.startsWith('basico ') ||
-    identifier === 'profissional' ||
-    identifier.startsWith('profissional ') ||
-    identifier === 'empresarial' ||
-    identifier.startsWith('empresarial ')
-  ));
-
-  return isNamedEnterprise || (!isKnownLowerTier && normalizePlanFeatures(plan.features).includes('tudo_ilimitado'));
-}
-
-function normalizePlanFeatures(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return value.filter((feature): feature is string => typeof feature === 'string');
-  }
-
-  if (typeof value !== 'string') {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed)
-      ? parsed.filter((feature): feature is string => typeof feature === 'string')
-      : [];
-  } catch {
-    return [];
   }
 }
 

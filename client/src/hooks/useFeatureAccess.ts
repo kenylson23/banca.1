@@ -1,4 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
+import {
+  hasEnterpriseAccess,
+  hasPlanFeature,
+  normalizePlanFeatures,
+} from '@shared/planAccess';
 
 export type Feature = 
   | 'gestao_clientes'
@@ -45,8 +50,8 @@ export function useFeatureAccess(feature: Feature): FeatureAccessResult {
   });
 
     const plan = resolveSubscriptionPlan(subscription);
-    const features = normalizeFeatures(plan?.features ?? subscription?.features);
-    const hasAccess = hasEnterpriseAccess(plan) || features.includes(feature);
+    const features = normalizePlanFeatures(plan?.features ?? subscription?.features);
+    const hasAccess = hasPlanFeature(plan, feature);
 
   return {
     hasAccess,
@@ -76,9 +81,9 @@ export function useMultipleFeatureAccess(requiredFeatures: Feature[]): FeatureAc
   });
 
     const plan = resolveSubscriptionPlan(subscription);
-    const features = normalizeFeatures(plan?.features ?? subscription?.features);
+    const features = normalizePlanFeatures(plan?.features ?? subscription?.features);
    const hasAccess = requiredFeatures.every(
-      feature => hasEnterpriseAccess(plan) || features.includes(feature),
+       feature => hasPlanFeature(plan, feature),
    );
 
   return {
@@ -109,9 +114,9 @@ export function useAnyFeatureAccess(anyOfFeatures: Feature[]): FeatureAccessResu
   });
 
     const plan = resolveSubscriptionPlan(subscription);
-    const features = normalizeFeatures(plan?.features ?? subscription?.features);
+    const features = normalizePlanFeatures(plan?.features ?? subscription?.features);
     const hasAccess = anyOfFeatures.some(
-      feature => hasEnterpriseAccess(plan) || features.includes(feature),
+       feature => hasPlanFeature(plan, feature),
    );
 
   return {
@@ -149,55 +154,4 @@ export function resolveSubscriptionPlan(subscription: any): Record<string, any> 
   return null;
 }
 
-function normalizeFeatures(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return value.filter((feature): feature is string => typeof feature === 'string');
-  }
-
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value);
-      return Array.isArray(parsed)
-        ? parsed.filter((feature): feature is string => typeof feature === 'string')
-        : [];
-    } catch {
-      return [];
-    }
-  }
-
-  return [];
-}
-
-export function hasEnterpriseAccess(plan: {
-  slug?: unknown;
-  name?: unknown;
-  features?: unknown;
-} | null | undefined): boolean {
-  const identifiers = [plan?.slug, plan?.name]
-    .map((value) => String(value || '').trim().toLowerCase())
-    .filter(Boolean);
-
-  const isNamedEnterprise = identifiers.some((identifier) => identifier.includes('enterprise'));
-  const isKnownLowerTier = identifiers.some((identifier) => (
-    identifier === 'basico' ||
-    identifier.startsWith('basico ') ||
-    identifier === 'profissional' ||
-    identifier.startsWith('profissional ') ||
-    identifier === 'empresarial' ||
-    identifier.startsWith('empresarial ')
-  ));
-  const features = normalizeFeatures(plan?.features);
-
-  return isNamedEnterprise || (!isKnownLowerTier && features.includes('tudo_ilimitado'));
-}
-
-export function hasPlanFeature(
-  plan: {
-    slug?: unknown;
-    name?: unknown;
-    features?: unknown;
-  } | null | undefined,
-  feature: string,
-): boolean {
-  return Boolean(plan) && (hasEnterpriseAccess(plan) || normalizeFeatures(plan?.features).includes(feature));
-}
+export { hasEnterpriseAccess, hasPlanFeature };

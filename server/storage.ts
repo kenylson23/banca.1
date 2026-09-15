@@ -183,6 +183,7 @@ import { db } from "./db";
 import { eq, desc, sql, and, gte, gt, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import { alias } from "drizzle-orm/pg-core";
+import { canUsePlanLimit } from "@shared/planAccess";
 
 function generateSlug(name: string): string {
   return name
@@ -10340,33 +10341,15 @@ export class DatabaseStorage implements IStorage {
       inventoryItems: inventoryItemsCount,
     };
 
-    // Helper to check if limit is unlimited (999999 means unlimited)
-    const isUnlimited = (limit: number) => limit >= 999999;
-    const planIdentifiers = [plan.slug, plan.name]
-      .map((value) => String(value || '').trim().toLowerCase())
-      .filter(Boolean);
-    const planFeatures = Array.isArray(plan.features)
-      ? plan.features.filter((feature): feature is string => typeof feature === 'string')
-      : [];
-    const isEnterprise = planIdentifiers.some((identifier) => identifier.includes('enterprise')) ||
-      (!planIdentifiers.some((identifier) => (
-        identifier === 'basico' ||
-        identifier.startsWith('basico ') ||
-        identifier === 'profissional' ||
-        identifier.startsWith('profissional ') ||
-        identifier === 'empresarial' ||
-        identifier.startsWith('empresarial ')
-      )) && planFeatures.includes('tudo_ilimitado'));
-
     const withinLimits = {
-      branches: isEnterprise || isUnlimited(plan.maxBranches) || branchesCount < plan.maxBranches,
-      tables: isEnterprise || isUnlimited(plan.maxTables) || tablesCount < plan.maxTables,
-      menuItems: isEnterprise || isUnlimited(plan.maxMenuItems) || menuItemsCount < plan.maxMenuItems,
-      users: isEnterprise || isUnlimited(plan.maxUsers) || usersCount < plan.maxUsers,
-      orders: isEnterprise || isUnlimited(plan.maxOrdersPerMonth) || ordersThisMonth < plan.maxOrdersPerMonth,
-      customers: isEnterprise || isUnlimited(plan.maxCustomers) || customersCount < plan.maxCustomers,
-      coupons: isEnterprise || isUnlimited(plan.maxActiveCoupons) || activeCouponsCount < plan.maxActiveCoupons,
-      inventoryItems: isEnterprise || isUnlimited(plan.maxInventoryItems) || inventoryItemsCount < plan.maxInventoryItems,
+      branches: canUsePlanLimit(plan, plan.maxBranches, branchesCount),
+      tables: canUsePlanLimit(plan, plan.maxTables, tablesCount),
+      menuItems: canUsePlanLimit(plan, plan.maxMenuItems, menuItemsCount),
+      users: canUsePlanLimit(plan, plan.maxUsers, usersCount),
+      orders: canUsePlanLimit(plan, plan.maxOrdersPerMonth, ordersThisMonth),
+      customers: canUsePlanLimit(plan, plan.maxCustomers, customersCount),
+      coupons: canUsePlanLimit(plan, plan.maxActiveCoupons, activeCouponsCount),
+      inventoryItems: canUsePlanLimit(plan, plan.maxInventoryItems, inventoryItemsCount),
     };
 
     const result = {
