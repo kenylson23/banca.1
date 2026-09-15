@@ -12,3 +12,4 @@
 - [Legacy customer linkage](legacy-customer-linkage.md) — paid orders may predate customerId; reconcile customer metrics and payment linkage by normalized phone.
 - [Legacy migration blockers](legacy-migration-blockers.md) — startup still retries two historical migrations that fail on existing schema mismatches.
 - [Vite build dependencies](vite-build-dependencies.md) — packages imported by vite.config.ts must be declared for production installs, even when used only in development.
+- [Post-merge setup](post-merge-setup.md) — post-merge must be non-interactive and should not block builds when the local database is unavailable.
