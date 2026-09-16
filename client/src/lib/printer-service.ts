@@ -984,6 +984,7 @@ class PrinterService {
        cancelledItems?: Array<{ name: string; quantity: number; price: string; total: string; notes?: string }>;
        orderNotes?: string[];
       subtotal: string;
+       adjustments?: string[];
       discount?: string;
       serviceCharge?: string;
       total: string;
@@ -1084,10 +1085,12 @@ class PrinterService {
     let spaces = (paperWidth === 80 ? 48 : 32) - subtotalLine.length - content.subtotal.length;
     encoder.line(subtotalLine + ' '.repeat(Math.max(spaces, 1)) + content.subtotal);
 
-    if (content.discount) {
-      const discountLine = 'Desconto:';
-      spaces = (paperWidth === 80 ? 48 : 32) - discountLine.length - content.discount.length;
-      encoder.line(discountLine + ' '.repeat(Math.max(spaces, 1)) + content.discount);
+     if (content.adjustments?.length) {
+       content.adjustments.forEach((adjustment) => encoder.line(adjustment));
+     } else if (content.discount) {
+       const discountLine = 'Desconto:';
+       spaces = (paperWidth === 80 ? 48 : 32) - discountLine.length - content.discount.length;
+       encoder.line(discountLine + ' '.repeat(Math.max(spaces, 1)) + content.discount);
     }
 
     const totalLine = 'TOTAL:';

@@ -65,8 +65,8 @@ export function renderTableInvoiceHtml(
     : '';
   const orderNotes = Array.from(new Set(document.items.map((item) => item.orderNotes).filter(Boolean))) as string[];
   const adjustmentRows = [
-    ...document.discounts.map((adjustment) => `<div class="line"><span>${escapeHtml(adjustment.label)}</span><span>- ${moneyLabel(adjustment.amount)}</span></div>`),
-    ...document.fees.map((adjustment) => `<div class="line"><span>${escapeHtml(adjustment.label)}</span><span>+ ${moneyLabel(adjustment.amount)}</span></div>`),
+    ...document.discounts.map((adjustment) => `<div class="line adjustment"><span><strong>${escapeHtml(adjustment.label)}</strong><small>Origem: ${escapeHtml(adjustment.sourceLabel)} · ${adjustment.type === 'percentual' ? `${moneyLabel(adjustment.inputValue)}%` : 'valor fixo'}${adjustment.appliedByName ? ` · Aplicado por: ${escapeHtml(adjustment.appliedByName)}` : ' · Aplicado por: não identificado'}${adjustment.reason ? ` · Motivo: ${escapeHtml(adjustment.reason)}` : ''}</small></span><span>- ${moneyLabel(adjustment.amount)}</span></div>`),
+    ...document.fees.map((adjustment) => `<div class="line adjustment"><span><strong>${escapeHtml(adjustment.label)}</strong><small>Origem: ${escapeHtml(adjustment.sourceLabel)} · ${adjustment.type === 'percentual' ? `${moneyLabel(adjustment.inputValue)}%` : 'valor fixo'}${adjustment.appliedByName ? ` · Aplicado por: ${escapeHtml(adjustment.appliedByName)}` : ' · Aplicado por: não identificado'}${adjustment.reason ? ` · Motivo: ${escapeHtml(adjustment.reason)}` : ''}</small></span><span>+ ${moneyLabel(adjustment.amount)}</span></div>`),
   ].join('');
   const paymentRows = document.payments.length
     ? document.paymentsByMethod.map((payment) => `
@@ -133,7 +133,7 @@ export function renderTableInvoiceHtml(
       table { width:100%; border-collapse:collapse; } th { background:#17202a; color:#fff; font-size:10px; text-transform:uppercase; letter-spacing:.06em; } th,td { text-align:left; padding:8px 7px; border-bottom:1px solid #e5eaed; vertical-align:top; } th:first-child,td:first-child { text-align:center; width:9%; } th:nth-child(n+3),td:nth-child(n+3) { text-align:right; white-space:nowrap; }
        .guests { display:flex; flex-wrap:wrap; gap:6px; } .guests span { background:#edf2f4; padding:5px 8px; border-radius:4px; }
        .shared { color:#155e75; } .cancelled { color:#b91c1c; font-weight:700; } .cancelled-section { opacity:.82; } .notes { border:1px solid #dfe5e8; border-radius:7px; padding:9px 10px; background:#fffdf5; } .notes p { margin:4px 0; }
-      .summary { margin:16px 0 0 auto; max-width:360px; border:1px solid #dfe5e8; border-radius:8px; padding:11px 13px; } .line { display:flex; justify-content:space-between; gap:20px; margin:5px 0; } .grand { font-size:18px; font-weight:700; margin:9px -13px 7px; padding:10px 13px; border-top:1px solid #dfe5e8; border-bottom:1px solid #dfe5e8; background:#f5f8f9; } .pending { color:#b45309; font-weight:700; }
+        .summary { margin:16px 0 0 auto; max-width:420px; border:1px solid #dfe5e8; border-radius:8px; padding:11px 13px; } .line { display:flex; justify-content:space-between; gap:20px; margin:5px 0; } .line.adjustment { align-items:flex-start; } .line.adjustment small { max-width:280px; } .grand { font-size:18px; font-weight:700; margin:9px -13px 7px; padding:10px 13px; border-top:1px solid #dfe5e8; border-bottom:1px solid #dfe5e8; background:#f5f8f9; } .pending { color:#b45309; font-weight:700; }
        .payments { border:1px solid #dfe5e8; border-radius:8px; overflow:hidden; } .payment { display:flex; justify-content:space-between; gap:12px; padding:9px 11px; border-bottom:1px solid #e5eaed; } .payment:last-child { border-bottom:0; } .payment strong:last-child { white-space:nowrap; } .payment.detail { background:#fafcfc; font-size:.92em; } .empty { padding:10px; color:#64727d; }
       .footer { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-top:24px; padding-top:13px; border-top:1px dashed #aab5bb; } .qr-wrap { display:flex; align-items:center; gap:10px; } .qr { width:74px; height:74px; image-rendering:auto; } .validation { text-align:right; font-size:10px; } .validation strong, .validation span { display:block; } .validation span { font-size:13px; font-weight:700; letter-spacing:.1em; margin-top:3px; }
       .thermal-only { display:${isThermal ? 'block' : 'none'}; } .a4-only { display:${isThermal ? 'none' : 'block'}; }
@@ -209,8 +209,12 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
      })),
      orderNotes,
     subtotal: moneyLabel(document.totals.subtotal),
-    discount: Number(document.totals.discount) > 0 ? `- ${moneyLabel(document.totals.discount)}` : undefined,
-    serviceCharge: Number(document.totals.fees) > 0 ? moneyLabel(document.totals.fees) : undefined,
+     adjustments: [
+       ...document.discounts.map((adjustment) => `-${adjustment.label}: ${moneyLabel(adjustment.amount)} · ${adjustment.sourceLabel}${adjustment.type === 'percentual' ? ` · ${moneyLabel(adjustment.inputValue)}%` : ' · valor fixo'}${adjustment.appliedByName ? ` · por ${adjustment.appliedByName}` : ''}${adjustment.reason ? ` · Motivo: ${adjustment.reason}` : ''}`),
+       ...document.fees.map((adjustment) => `+${adjustment.label}: ${moneyLabel(adjustment.amount)} · ${adjustment.sourceLabel}${adjustment.type === 'percentual' ? ` · ${moneyLabel(adjustment.inputValue)}%` : ' · valor fixo'}${adjustment.appliedByName ? ` · por ${adjustment.appliedByName}` : ''}${adjustment.reason ? ` · Motivo: ${adjustment.reason}` : ''}`),
+     ],
+     discount: undefined,
+     serviceCharge: undefined,
     total: moneyLabel(document.totals.total),
     status: paymentStatusLabels[document.totals.paymentStatus],
     paymentInfo: [

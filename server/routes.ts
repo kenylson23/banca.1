@@ -104,6 +104,45 @@ function adjustmentAmount(value: unknown, type: string | null | undefined, base:
   return type === 'percentual' ? base * Math.min(Math.max(amount, 0), 100) / 100 : amount;
 }
 
+type InvoiceAdjustmentSource = TableInvoiceAdjustment['source'];
+
+function normalizeAdjustmentSource(value: unknown, fallback: InvoiceAdjustmentSource = 'manual'): InvoiceAdjustmentSource {
+  const allowed: InvoiceAdjustmentSource[] = ['promocional', 'cliente', 'manual', 'fidelidade', 'automatico', 'servico', 'outro'];
+  return typeof value === 'string' && allowed.includes(value as InvoiceAdjustmentSource)
+    ? value as InvoiceAdjustmentSource
+    : fallback;
+}
+
+function adjustmentSourceLabel(source: InvoiceAdjustmentSource): string {
+  return {
+    promocional: 'Promocional',
+    cliente: 'Cliente',
+    manual: 'Manual',
+    fidelidade: 'Fidelidade',
+    automatico: 'Automática',
+    servico: 'Serviço associado',
+    outro: 'Outra origem',
+  }[source];
+}
+
+function discountLabel(source: InvoiceAdjustmentSource, type: string, inputValue: unknown): string {
+  const valueLabel = type === 'percentual' ? ` ${money(inputValue)}%` : '';
+  return `${{
+    promocional: 'Desconto promocional',
+    cliente: 'Desconto do cliente',
+    manual: 'Desconto manual',
+    fidelidade: 'Desconto de fidelidade',
+    outro: 'Desconto',
+    automatico: 'Desconto automático',
+    servico: 'Desconto',
+  }[source]}${valueLabel}`;
+}
+
+function feeLabel(source: InvoiceAdjustmentSource, type: string, inputValue: unknown, serviceName?: string | null): string {
+  const name = source === 'servico' && serviceName ? serviceName : 'Taxa de serviço';
+  return `${name}${type === 'percentual' ? ` ${money(inputValue)}%` : ''}`;
+}
+
 function customerFromGuest(guest: any): TableInvoiceCustomer {
   const customer = guest?.customer;
   if (customer) {
@@ -204,7 +243,13 @@ async function buildTableInvoiceDocument(
     ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray(users.id, paymentOperatorIds))
     : [];
   const paymentOperatorNames = new Map(paymentOperators.map((operator) => [operator.id, displayUserName(operator) || 'Usuário desconhecido']));
-  const sessionOperatorIds = Array.from(new Set([sessionForInvoice.operatorId, sessionForInvoice.closedById].filter(Boolean))) as string[];
+  const sessionOperatorIds = Array.from(new Set([
+    sessionForInvoice.operatorId,
+    sessionForInvoice.closedById,
+    sessionForInvoice.discountAppliedBy,
+    sessionForInvoice.serviceChargeAppliedBy,
+    ...guests.flatMap((guest: any) => [guest.discountAppliedBy, guest.serviceChargeAppliedBy]),
+  ].filter(Boolean))) as string[];
   const sessionOperators = sessionOperatorIds.length
     ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray(users.id, sessionOperatorIds))
     : [];
@@ -334,23 +379,37 @@ async function buildTableInvoiceDocument(
   const sessionFeeBase = Math.max(0, orderSubtotal - sessionDiscount);
   const sessionFee = adjustmentAmount(sessionForInvoice.serviceCharge, sessionForInvoice.serviceChargeType, sessionFeeBase);
   if (sessionDiscount > 0) {
+    const discountType = sessionForInvoice.discountType === 'percentual' ? 'percentual' : 'valor';
+    const source = normalizeAdjustmentSource(sessionForInvoice.discountSource);
     discounts.push({
-      label: sessionForInvoice.discountType === 'percentual'
-        ? `Desconto da sessão (${sessionForInvoice.discount}%)`
-        : 'Desconto da sessão',
+      label: discountLabel(source, discountType, sessionForInvoice.discount),
       amount: fixedMoney(sessionDiscount),
-      type: sessionForInvoice.discountType === 'percentual' ? 'percentual' : 'valor',
+      inputValue: fixedMoney(sessionForInvoice.discount),
+      type: discountType,
       scope: 'sessao',
+      source,
+      sourceLabel: adjustmentSourceLabel(source),
+      appliedByName: sessionForInvoice.discountAppliedBy ? sessionOperatorNames.get(sessionForInvoice.discountAppliedBy) || 'Usuário desconhecido' : null,
+      reason: sessionForInvoice.discountReason ?? null,
     });
   }
   if (sessionFee > 0) {
+    const feeType = sessionForInvoice.serviceChargeType === 'percentual' ? 'percentual' : 'valor';
+    const source = normalizeAdjustmentSource(
+      sessionForInvoice.serviceChargeSource,
+      sessionForInvoice.serviceChargeServiceId ? 'servico' : 'manual',
+    );
     fees.push({
-      label: sessionForInvoice.serviceChargeType === 'percentual'
-        ? `Taxa de serviço (${sessionForInvoice.serviceCharge}%)`
-        : 'Taxa de serviço',
+      label: feeLabel(source, feeType, sessionForInvoice.serviceCharge, sessionForInvoice.serviceChargeName),
       amount: fixedMoney(sessionFee),
-      type: sessionForInvoice.serviceChargeType === 'percentual' ? 'percentual' : 'valor',
+      inputValue: fixedMoney(sessionForInvoice.serviceCharge),
+      type: feeType,
       scope: 'sessao',
+      source,
+      sourceLabel: adjustmentSourceLabel(source),
+      appliedByName: sessionForInvoice.serviceChargeAppliedBy ? sessionOperatorNames.get(sessionForInvoice.serviceChargeAppliedBy) || 'Usuário desconhecido' : null,
+      reason: sessionForInvoice.serviceChargeReason ?? null,
+      serviceName: sessionForInvoice.serviceChargeName ?? null,
     });
   }
   for (const guest of guests as any[]) {
@@ -358,20 +417,35 @@ async function buildTableInvoiceDocument(
     const guestDiscount = adjustmentAmount(guest.discount, guest.discountType, guestSubtotal);
     const guestFee = adjustmentAmount(guest.serviceCharge, guest.serviceChargeType, Math.max(0, guestSubtotal - guestDiscount));
     if (guestDiscount > 0) {
+      const discountType = guest.discountType === 'percentual' ? 'percentual' : 'valor';
+      const source = normalizeAdjustmentSource(guest.discountSource);
       discounts.push({
-        label: `Desconto de ${guest.name || `Convidado ${guest.guestNumber || ''}`}`,
+        label: `${discountLabel(source, discountType, guest.discount)} · ${guest.name || `Convidado ${guest.guestNumber || ''}`}`,
         amount: fixedMoney(guestDiscount),
-        type: guest.discountType === 'percentual' ? 'percentual' : 'valor',
+        inputValue: fixedMoney(guest.discount),
+        type: discountType,
         scope: 'convidado',
+        source,
+        sourceLabel: adjustmentSourceLabel(source),
+        appliedByName: guest.discountAppliedBy ? sessionOperatorNames.get(guest.discountAppliedBy) || 'Usuário desconhecido' : null,
+        reason: guest.discountReason ?? null,
         guestId: guest.id,
       });
     }
     if (guestFee > 0) {
+      const feeType = guest.serviceChargeType === 'percentual' ? 'percentual' : 'valor';
+      const source = normalizeAdjustmentSource(guest.serviceChargeSource, guest.serviceChargeServiceId ? 'servico' : 'manual');
       fees.push({
-        label: `Taxa de ${guest.name || `Convidado ${guest.guestNumber || ''}`}`,
+        label: `${feeLabel(source, feeType, guest.serviceCharge, guest.serviceChargeName)} · ${guest.name || `Convidado ${guest.guestNumber || ''}`}`,
         amount: fixedMoney(guestFee),
-        type: guest.serviceChargeType === 'percentual' ? 'percentual' : 'valor',
+        inputValue: fixedMoney(guest.serviceCharge),
+        type: feeType,
         scope: 'convidado',
+        source,
+        sourceLabel: adjustmentSourceLabel(source),
+        appliedByName: guest.serviceChargeAppliedBy ? sessionOperatorNames.get(guest.serviceChargeAppliedBy) || 'Usuário desconhecido' : null,
+        reason: guest.serviceChargeReason ?? null,
+        serviceName: guest.serviceChargeName ?? null,
         guestId: guest.id,
       });
     }
@@ -5479,7 +5553,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const restaurantId = currentUser.restaurantId!;
-      const { amount, paymentMethod, notes, receivedAmount, services, discount, discountType, serviceCharge, serviceChargeType } = req.body;
+      const {
+        amount, paymentMethod, notes, receivedAmount, services,
+        discount, discountType, discountSource, discountReason,
+        serviceCharge, serviceChargeType, serviceChargeSource, serviceChargeName,
+        serviceChargeReason,
+      } = req.body;
 
       // Os serviços chegam pré-calculados pelo checkout. No pagamento, eles
       // passam a ser uma taxa fixa da sessão para que o recálculo posterior
@@ -5525,6 +5604,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (discount && parseFloat(discount) > 0) {
           updates.discount = discount;
           updates.discountType = discountType || 'valor';
+          updates.discountSource = discountSource || 'manual';
+          updates.discountReason = discountReason || notes || null;
+          updates.discountAppliedBy = currentUser.id ? String(currentUser.id) : null;
           console.log('[Payment] Aplicando desconto à sessão:', {
             sessionId: table.currentSessionId,
             discount,
@@ -5538,6 +5620,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (calculatedServicesTotal > 0) {
           updates.serviceCharge = calculatedServicesTotal.toFixed(2);
           updates.serviceChargeType = 'valor';
+          const serviceSources = (Array.isArray(services) ? services : [])
+            .map((service: any) => service?.source || (service?.serviceId ? 'servico' : 'manual'));
+          updates.serviceChargeSource = serviceSources.includes('automatico')
+            ? 'automatico'
+            : serviceSources.includes('servico') ? 'servico' : 'manual';
+          updates.serviceChargeName = Array.from(new Set(
+            (services || []).map((service: any) => service?.serviceName).filter(Boolean),
+          )).join(', ') || null;
+          updates.serviceChargeReason = serviceChargeReason || notes || null;
+          updates.serviceChargeAppliedBy = currentUser.id ? String(currentUser.id) : null;
+          updates.serviceChargeServiceId = (services || []).find((service: any) => service?.serviceId)?.serviceId || null;
           console.log('[Payment] Aplicando serviços calculados à sessão:', {
             sessionId: table.currentSessionId,
             serviceCharge: updates.serviceCharge,
@@ -5545,6 +5638,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else if (serviceCharge && parseFloat(serviceCharge) > 0) {
           updates.serviceCharge = serviceCharge;
           updates.serviceChargeType = serviceChargeType || 'percentual';
+          updates.serviceChargeSource = serviceChargeSource || 'manual';
+          updates.serviceChargeName = serviceChargeName || 'Taxa de serviço';
+          updates.serviceChargeReason = serviceChargeReason || notes || null;
+          updates.serviceChargeAppliedBy = currentUser.id ? String(currentUser.id) : null;
         }
         
         // Aplicar updates se houver
@@ -5563,7 +5660,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 tableId: table.id,
                 discount,
                 discountType: discountType || 'valor',
-                reason: notes || null,
+                source: discountSource || 'manual',
+                reason: discountReason || notes || null,
               },
             });
           }
@@ -5656,7 +5754,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const restaurantId = currentUser.restaurantId!;
       // ✅ SOLUÇÃO #1: Aceitar parâmetros de ajustes no pagamento individual
       const { amount, paymentMethod, notes, receivedAmount, 
-              discount, discountType, serviceCharge, serviceChargeType } = req.body;
+              discount, discountType, discountSource, discountReason,
+              serviceCharge, serviceChargeType, serviceChargeSource, serviceChargeName,
+              serviceChargeReason, serviceChargeServiceId } = req.body;
       const guestId = req.params.guestId;
       
       if (guestId === 'anonymous') {
@@ -5712,11 +5812,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (discount && parseFloat(discount) > 0) {
           guestUpdates.discount = discount;
           guestUpdates.discountType = discountType || 'valor';
+          guestUpdates.discountSource = discountSource || 'manual';
+          guestUpdates.discountReason = discountReason || notes || null;
+          guestUpdates.discountAppliedBy = currentUser.id ? String(currentUser.id) : null;
         }
 
         if (serviceCharge && parseFloat(serviceCharge) > 0) {
           guestUpdates.serviceCharge = serviceCharge;
           guestUpdates.serviceChargeType = serviceChargeType || 'valor';
+          guestUpdates.serviceChargeSource = serviceChargeSource || (serviceChargeServiceId ? 'servico' : 'manual');
+          guestUpdates.serviceChargeName = serviceChargeName || 'Taxa de serviço';
+          guestUpdates.serviceChargeReason = serviceChargeReason || notes || null;
+          guestUpdates.serviceChargeAppliedBy = currentUser.id ? String(currentUser.id) : null;
+          guestUpdates.serviceChargeServiceId = serviceChargeServiceId || null;
         }
 
         if (Object.keys(guestUpdates).length > 1) {
@@ -6310,10 +6418,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       pdf.font('Helvetica')
         .text(`Subtotal: ${document.totals.subtotal} AOA`);
       for (const discount of document.discounts) {
-        pdf.text(`${discount.label}: - ${discount.amount} AOA`);
+         pdf.text(`${discount.label}: - ${discount.amount} AOA`);
+         pdf.fontSize(8).fillColor('#475569').text(`Origem: ${discount.sourceLabel} · ${discount.type === 'percentual' ? `${discount.inputValue}%` : 'valor fixo'} · Aplicado por: ${discount.appliedByName || 'não identificado'}${discount.reason ? ` · Motivo: ${discount.reason}` : ''}`);
+         pdf.fontSize(10).fillColor('#000000');
       }
       for (const fee of document.fees) {
-        pdf.text(`${fee.label}: + ${fee.amount} AOA`);
+         pdf.text(`${fee.label}: + ${fee.amount} AOA`);
+         pdf.fontSize(8).fillColor('#475569').text(`Origem: ${fee.sourceLabel} · ${fee.type === 'percentual' ? `${fee.inputValue}%` : 'valor fixo'} · Aplicado por: ${fee.appliedByName || 'não identificado'}${fee.reason ? ` · Motivo: ${fee.reason}` : ''}`);
+         pdf.fontSize(10).fillColor('#000000');
       }
       pdf.font('Helvetica-Bold').text(`TOTAL FINAL: ${document.totals.total} AOA`);
        pdf.font('Helvetica').text(`Total da sessão: ${document.totals.total} AOA`);
@@ -6634,13 +6746,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Mesa não possui sessão ativa" });
       }
       
-      const { discount, discountType, serviceCharge, serviceChargeType } = req.body;
+      const currentUser = req.user as User;
+      const {
+        discount, discountType, discountSource, discountReason,
+        serviceCharge, serviceChargeType, serviceChargeSource, serviceChargeName,
+        serviceChargeReason, serviceChargeServiceId,
+      } = req.body;
       
       await storage.updateSessionAdjustments(table.currentSessionId, {
         discount,
         discountType,
+        discountSource: discountSource || 'manual',
+        discountReason: discountReason || null,
+        discountAppliedBy: currentUser.id ? String(currentUser.id) : null,
         serviceCharge,
         serviceChargeType,
+        serviceChargeSource: serviceChargeSource || (serviceChargeServiceId ? 'servico' : 'manual'),
+        serviceChargeName: serviceChargeName || null,
+        serviceChargeReason: serviceChargeReason || null,
+        serviceChargeAppliedBy: currentUser.id ? String(currentUser.id) : null,
+        serviceChargeServiceId: serviceChargeServiceId || null,
       });
       
       // ✅ Recalcular totais da sessão e atualizar mesa

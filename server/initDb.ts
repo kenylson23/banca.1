@@ -347,6 +347,18 @@ export async function ensureTablesExist() {
       await db.execute(sql`DO $$ BEGIN
         ALTER TABLE table_sessions ADD COLUMN service_charge_type VARCHAR(20) DEFAULT 'percentual';
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      for (const statement of [
+        sql`ALTER TABLE table_sessions ADD COLUMN IF NOT EXISTS discount_source VARCHAR(30) DEFAULT 'manual'`,
+        sql`ALTER TABLE table_sessions ADD COLUMN IF NOT EXISTS discount_reason TEXT`,
+        sql`ALTER TABLE table_sessions ADD COLUMN IF NOT EXISTS discount_applied_by VARCHAR REFERENCES users(id) ON DELETE SET NULL`,
+        sql`ALTER TABLE table_sessions ADD COLUMN IF NOT EXISTS service_charge_source VARCHAR(30) DEFAULT 'manual'`,
+        sql`ALTER TABLE table_sessions ADD COLUMN IF NOT EXISTS service_charge_name VARCHAR(200)`,
+        sql`ALTER TABLE table_sessions ADD COLUMN IF NOT EXISTS service_charge_reason TEXT`,
+        sql`ALTER TABLE table_sessions ADD COLUMN IF NOT EXISTS service_charge_applied_by VARCHAR REFERENCES users(id) ON DELETE SET NULL`,
+        sql`ALTER TABLE table_sessions ADD COLUMN IF NOT EXISTS service_charge_service_id VARCHAR`,
+      ]) {
+        await db.execute(statement);
+      }
       await db.execute(sql`DO $$ BEGIN
         ALTER TABLE table_sessions ADD COLUMN invoice_recipient_type VARCHAR(30) NOT NULL DEFAULT 'table_customer';
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
@@ -373,6 +385,18 @@ export async function ensureTablesExist() {
         joined_at TIMESTAMP DEFAULT NOW(),
         left_at TIMESTAMP
       );`);
+      for (const statement of [
+        sql`ALTER TABLE table_guests ADD COLUMN IF NOT EXISTS discount_source VARCHAR(30) DEFAULT 'manual'`,
+        sql`ALTER TABLE table_guests ADD COLUMN IF NOT EXISTS discount_reason TEXT`,
+        sql`ALTER TABLE table_guests ADD COLUMN IF NOT EXISTS discount_applied_by VARCHAR REFERENCES users(id) ON DELETE SET NULL`,
+        sql`ALTER TABLE table_guests ADD COLUMN IF NOT EXISTS service_charge_source VARCHAR(30) DEFAULT 'manual'`,
+        sql`ALTER TABLE table_guests ADD COLUMN IF NOT EXISTS service_charge_name VARCHAR(200)`,
+        sql`ALTER TABLE table_guests ADD COLUMN IF NOT EXISTS service_charge_reason TEXT`,
+        sql`ALTER TABLE table_guests ADD COLUMN IF NOT EXISTS service_charge_applied_by VARCHAR REFERENCES users(id) ON DELETE SET NULL`,
+        sql`ALTER TABLE table_guests ADD COLUMN IF NOT EXISTS service_charge_service_id VARCHAR`,
+      ]) {
+        await db.execute(statement);
+      }
       
       // Create table_payments table
       await db.execute(sql`CREATE TABLE IF NOT EXISTS table_payments (

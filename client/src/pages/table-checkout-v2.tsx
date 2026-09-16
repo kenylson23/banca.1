@@ -139,6 +139,8 @@ export default function TableCheckoutV2() {
   // Step 3: Adjustments - Initialize from URL params for persistence
   const [discountValue, setDiscountValue] = useState(discountParam || '');
   const [discountType, setDiscountType] = useState<'valor' | 'percentual'>((discountTypeParam as any) || 'valor');
+  const [discountSource, setDiscountSource] = useState<'promocional' | 'cliente' | 'manual'>('manual');
+  const [discountReason, setDiscountReason] = useState('');
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [manualServiceName, setManualServiceName] = useState('');
   const [manualServiceValue, setManualServiceValue] = useState(serviceFeeParam || '');
@@ -269,6 +271,8 @@ export default function TableCheckoutV2() {
     if (sessionData.discount && parseFloat(sessionData.discount) > 0 && !discountValue) {
       setDiscountValue(sessionData.discount);
       setDiscountType(sessionData.discountType || 'valor');
+      setDiscountSource(sessionData.discountSource || 'manual');
+      setDiscountReason(sessionData.discountReason || '');
     }
 
     // Restaurar taxa de serviço (somente se não houver valor no estado local)
@@ -292,8 +296,12 @@ export default function TableCheckoutV2() {
           body: JSON.stringify({
             discount: discountValue || '0',
             discountType,
+            discountSource,
+            discountReason: discountReason || null,
             serviceCharge: manualServiceValue || '0',
             serviceChargeType: manualServiceType,
+            serviceChargeSource: 'manual',
+            serviceChargeName: manualServiceName || 'Taxa de serviço',
           }),
         });
         if (!res.ok) {
@@ -306,7 +314,7 @@ export default function TableCheckoutV2() {
         setIsSavingAdjustments(false);
       }
     }
-  }, [table?.currentSessionId, id, discountValue, discountType, manualServiceValue, manualServiceType]);
+  }, [table?.currentSessionId, id, discountValue, discountType, discountSource, discountReason, manualServiceValue, manualServiceType, manualServiceName]);
 
   // ✅ UX: permitir limpar ajustes globais da sessão sem precisar "selecionar todos"
   const clearSessionAdjustments = useCallback(async () => {
@@ -320,8 +328,13 @@ export default function TableCheckoutV2() {
         body: JSON.stringify({
           discount: '0',
           discountType: 'valor',
+          discountSource: 'manual',
+          discountReason: null,
           serviceCharge: '0',
           serviceChargeType: 'valor',
+          serviceChargeSource: 'manual',
+          serviceChargeName: null,
+          serviceChargeReason: null,
         }),
       });
 
@@ -572,6 +585,7 @@ export default function TableCheckoutV2() {
             chargeType: service.chargeType,
             value: service.value,
             calculatedAmount: calculatedAmount.toFixed(2),
+            source: 'automatico',
           });
         }
       });
@@ -590,6 +604,7 @@ export default function TableCheckoutV2() {
             chargeType: service.chargeType,
             value: service.value,
             calculatedAmount: calculatedAmount.toFixed(2),
+            source: 'servico',
           });
         }
       });
@@ -606,6 +621,7 @@ export default function TableCheckoutV2() {
           chargeType: manualServiceType,
           value: manualServiceValue,
           calculatedAmount: calculatedAmount.toFixed(2),
+          source: 'manual',
         });
       }
 
@@ -690,10 +706,14 @@ export default function TableCheckoutV2() {
           if (discountValue && parseFloat(discountValue) > 0) {
             guestPayload.discount = discountValue;
             guestPayload.discountType = discountType;
+            guestPayload.discountSource = discountSource;
+            guestPayload.discountReason = discountReason || undefined;
           }
           if (manualServiceValue && parseFloat(manualServiceValue) > 0) {
             guestPayload.serviceCharge = manualServiceValue;
             guestPayload.serviceChargeType = manualServiceType;
+            guestPayload.serviceChargeSource = 'manual';
+            guestPayload.serviceChargeName = manualServiceName || 'Taxa de serviço';
           }
 
           const res = await apiRequest('POST', `/api/table-guests/${guestId}/payment`, guestPayload);
@@ -728,8 +748,12 @@ export default function TableCheckoutV2() {
         services: services.length > 0 ? services : undefined,
         discount: discountValue ? discountValue : undefined,
         discountType: discountValue ? discountType : undefined,
+        discountSource: discountValue ? discountSource : undefined,
+        discountReason: discountValue ? (discountReason || undefined) : undefined,
         serviceCharge: manualServiceValue ? manualServiceValue : undefined,
         serviceChargeType: manualServiceType ? manualServiceType : undefined,
+        serviceChargeSource: manualServiceValue ? 'manual' : undefined,
+        serviceChargeName: manualServiceValue ? (manualServiceName || 'Taxa de serviço') : undefined,
         notes: receivedAmount ? `Valor recebido: ${parseFloat(receivedAmount).toFixed(2)}` : undefined,
         receivedAmount: receivedAmount ? parseFloat(receivedAmount) : undefined,
       };
@@ -2398,6 +2422,23 @@ export default function TableCheckoutV2() {
                               </Select>
                             </div>
                           </div>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label>Origem do desconto</Label>
+                            <Select value={discountSource} onValueChange={(value: 'promocional' | 'cliente' | 'manual') => setDiscountSource(value)} disabled={isIndividualCheckout ? individualAdjustmentsDisabled : globalAdjustmentsDisabled}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="promocional">Promoção</SelectItem>
+                                <SelectItem value="cliente">Benefício do cliente</SelectItem>
+                                <SelectItem value="manual">Manual / outra</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="discountReason">Motivo do desconto (se exigido)</Label>
+                            <Input id="discountReason" value={discountReason} onChange={(event) => setDiscountReason(event.target.value)} placeholder="Ex.: campanha, reclamação, autorização..." disabled={isIndividualCheckout ? individualAdjustmentsDisabled : globalAdjustmentsDisabled} />
+                          </div>
+                        </div>
                         </div>
 
                         {/* Services Summary */}

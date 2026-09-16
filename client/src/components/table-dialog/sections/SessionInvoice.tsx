@@ -285,6 +285,31 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
            <div><span className="text-muted-foreground">Encerramento</span><p className="font-medium">{data.session.endedAt ? format(new Date(data.session.endedAt), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'Sessão aberta'}</p></div>
            <div><span className="text-muted-foreground">Duração total</span><p className="font-medium">{data.session.durationLabel}</p></div>
          </div>
+          {(data.discounts.length > 0 || data.fees.length > 0) && (
+            <div className="rounded-lg border bg-background p-3 text-sm">
+              <p className="mb-2 font-semibold">Descontos e taxas — origem para auditoria</p>
+              <div className="space-y-2">
+                {[
+                  ...data.discounts.map((adjustment) => ({ ...adjustment, sign: '-' })),
+                  ...data.fees.map((adjustment) => ({ ...adjustment, sign: '+' })),
+                ].map((adjustment, index) => (
+                  <div key={`${adjustment.scope}-${adjustment.guestId || 'session'}-${adjustment.label}-${index}`} className="flex flex-wrap items-start justify-between gap-3 border-t pt-2 first:border-t-0 first:pt-0">
+                    <div>
+                      <p className="font-medium">{adjustment.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Origem: {adjustment.sourceLabel} · {adjustment.type === 'percentual' ? `${adjustment.inputValue}%` : 'valor fixo'}
+                        {' · '}Aplicado por: {adjustment.appliedByName || 'não identificado'}
+                        {adjustment.reason ? ` · Motivo: ${adjustment.reason}` : ''}
+                      </p>
+                    </div>
+                    <span className={adjustment.sign === '-' ? 'font-medium text-emerald-700' : 'font-medium text-amber-700'}>
+                      {adjustment.sign}{formatKwanza(Number(adjustment.amount))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <p className="font-semibold">Itens do consumo válido</p>

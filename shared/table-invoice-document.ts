@@ -87,8 +87,15 @@ export type TableInvoiceCancelledOrder = {
 export type TableInvoiceAdjustment = {
   label: string;
   amount: TableInvoiceMoney;
+  /** Valor informado pelo operador antes do cálculo (ex.: 10 ou 3.000). */
+  inputValue: TableInvoiceMoney;
   type: 'valor' | 'percentual';
   scope: 'sessao' | 'convidado';
+  source: 'promocional' | 'cliente' | 'manual' | 'fidelidade' | 'automatico' | 'servico' | 'outro';
+  sourceLabel: string;
+  appliedByName: string | null;
+  reason: string | null;
+  serviceName?: string | null;
   guestId?: string | null;
 };
 

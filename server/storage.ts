@@ -2396,8 +2396,16 @@ export class DatabaseStorage implements IStorage {
   async updateSessionAdjustments(sessionId: string, adjustments: {
     discount?: string;
     discountType?: 'valor' | 'percentual';
+    discountSource?: string | null;
+    discountReason?: string | null;
+    discountAppliedBy?: string | null;
     serviceCharge?: string;
     serviceChargeType?: 'valor' | 'percentual';
+    serviceChargeSource?: string | null;
+    serviceChargeName?: string | null;
+    serviceChargeReason?: string | null;
+    serviceChargeAppliedBy?: string | null;
+    serviceChargeServiceId?: string | null;
   }): Promise<void> {
     try {
       const updateData: any = {};
@@ -2408,12 +2416,20 @@ export class DatabaseStorage implements IStorage {
       if (adjustments.discountType !== undefined) {
         updateData.discountType = adjustments.discountType;
       }
+      if (adjustments.discountSource !== undefined) updateData.discountSource = adjustments.discountSource;
+      if (adjustments.discountReason !== undefined) updateData.discountReason = adjustments.discountReason;
+      if (adjustments.discountAppliedBy !== undefined) updateData.discountAppliedBy = adjustments.discountAppliedBy;
       if (adjustments.serviceCharge !== undefined) {
         updateData.serviceCharge = adjustments.serviceCharge;
       }
       if (adjustments.serviceChargeType !== undefined) {
         updateData.serviceChargeType = adjustments.serviceChargeType;
       }
+      if (adjustments.serviceChargeSource !== undefined) updateData.serviceChargeSource = adjustments.serviceChargeSource;
+      if (adjustments.serviceChargeName !== undefined) updateData.serviceChargeName = adjustments.serviceChargeName;
+      if (adjustments.serviceChargeReason !== undefined) updateData.serviceChargeReason = adjustments.serviceChargeReason;
+      if (adjustments.serviceChargeAppliedBy !== undefined) updateData.serviceChargeAppliedBy = adjustments.serviceChargeAppliedBy;
+      if (adjustments.serviceChargeServiceId !== undefined) updateData.serviceChargeServiceId = adjustments.serviceChargeServiceId;
       
       await db.update(tableSessions)
         .set(updateData)
