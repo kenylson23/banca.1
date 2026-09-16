@@ -903,8 +903,8 @@ export default function Settings() {
                   <Input id="fiscal-address" value={fiscalDraft.fiscalAddress} onChange={(event) => updateFiscalField('fiscalAddress', event.target.value)} placeholder="Rua, número, bairro, município, província" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="fiscal-website">Website</Label>
-                  <Input id="fiscal-website" type="url" value={fiscalDraft.website} onChange={(event) => updateFiscalField('website', event.target.value)} placeholder="https://www.exemplo.ao" />
+                  <Label htmlFor="fiscal-website">Website ou domínio</Label>
+                  <Input id="fiscal-website" type="text" value={fiscalDraft.website} onChange={(event) => updateFiscalField('website', event.target.value)} placeholder="exemplo.ao ou https://www.exemplo.ao" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="fiscal-whatsapp">WhatsApp</Label>

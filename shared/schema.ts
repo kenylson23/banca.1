@@ -156,7 +156,9 @@ export const updateRestaurantFiscalSchema = z.object({
   invoicePrefix: z.string().trim().max(30, "Prefixo muito longo").optional().or(z.literal('')),
   fiscalAddress: z.string().trim().max(1000, "Morada fiscal muito longa").optional().or(z.literal('')),
   email: z.string().trim().email("Email inválido"),
-  website: z.string().trim().url("Website inválido").max(255).optional().or(z.literal('')),
+  // Accept a full URL or a domain entered without the protocol. The value is
+  // printed on invoices and should not block saving valid business domains.
+  website: z.string().trim().max(255, "Website muito longo").optional().or(z.literal('')),
   whatsappNumber: z.string()
     .trim()
     .regex(/^(\+244|244)?\s*[9][0-9]{2}\s*[0-9]{3}\s*[0-9]{3}$|^(\+244|244)?[9][0-9]{8}$/, "Formato de WhatsApp angolano inválido")
