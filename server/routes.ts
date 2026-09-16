@@ -4466,14 +4466,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedOrder = await storage.calculateOrderTotal(order.id);
       
       broadcastToClients({ type: 'payment_submitted', data: updatedOrder });
-      void notifyRestaurant({
+      // Wait for the in-app notification to be persisted before responding.
+      // Public customers can submit an order and staff can open the bell
+      // immediately; firing this in the background made the first fetch race
+      // the notification insert.
+      await notifyRestaurant({
         restaurantId: updatedOrder.restaurantId,
         branchId: updatedOrder.branchId,
         type: 'new_order',
         title: 'Novo pedido recebido',
         message: `Pedido ${updatedOrder.orderNumber || updatedOrder.id.slice(0, 8).toUpperCase()} aguarda confirmação.`,
         data: { orderId: updatedOrder.id, orderNumber: updatedOrder.orderNumber },
-      }).catch((error) => console.error('[NOTIFICATION] Failed to create new-order notification:', error));
+      }).catch((error) => {
+        console.error('[NOTIFICATION] Failed to create new-order notification:', error);
+        return [];
+      });
 
       // Update table payment status after order creation
       if (order.tableId) {

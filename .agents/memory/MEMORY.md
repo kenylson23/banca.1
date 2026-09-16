@@ -15,3 +15,4 @@
 - [Post-merge setup](post-merge-setup.md) — post-merge must be non-interactive and should not block builds when the local database is unavailable.
 - [Unified table invoices](unified-table-invoices.md) — table invoice outputs should consume one assembled document contract rather than rebuilding session data per format.
 - [Notification fan-out](notification-fanout.md) — operational alerts are persisted per restaurant user; WebSocket delivery is an acceleration layer.
+- [Public order notification timing](public-order-notification-timing.md) — public order responses must wait for in-app notification persistence to avoid an empty first fetch.
