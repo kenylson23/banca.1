@@ -27,6 +27,8 @@ export type TableInvoiceCustomer = {
   address: string | null;
 } | null;
 
+export type TableInvoiceRecipientType = 'table_customer' | 'consumer_final' | 'other_customer';
+
 export type TableInvoiceGuest = {
   id: string;
   name: string;
@@ -154,6 +156,13 @@ export type TableInvoiceDocument = {
     customerName: string | null;
     customerCount: number | null;
   };
+  invoiceRecipient: {
+    type: TableInvoiceRecipientType;
+    label: string;
+    customerId: string | null;
+  };
+  tableCustomer: TableInvoiceCustomer;
+  isSplit: boolean;
   customer: TableInvoiceCustomer;
   guests: TableInvoiceGuest[];
   items: TableInvoiceItem[];

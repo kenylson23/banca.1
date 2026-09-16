@@ -962,6 +962,12 @@ class PrinterService {
       validationCode?: string;
       customerName?: string;
       customerPhone?: string;
+      customerEmail?: string;
+      customerNif?: string;
+      customerAddress?: string;
+      invoiceRecipientLabel?: string;
+      tableCustomerName?: string;
+      splitInfo?: string;
       items: Array<{ name: string; quantity: number; price: string; total: string }>;
       subtotal: string;
       discount?: string;
@@ -999,12 +1005,32 @@ class PrinterService {
     encoder.line(content.date).newline();
 
     // Dados do cliente
-    if (content.customerName) {
-      encoder.align('left').bold(true).line('Cliente:').bold(false);
-      encoder.line(content.customerName);
+    if (content.customerName || content.customerEmail || content.customerNif || content.customerAddress || content.invoiceRecipientLabel || content.tableCustomerName || content.splitInfo) {
+      encoder.align('left').bold(true).line('Identificação da fatura:').bold(false);
+      if (content.invoiceRecipientLabel) {
+        encoder.line(`Fatura em nome de: ${content.invoiceRecipientLabel}`);
+      }
+      if (content.customerName) {
+        encoder.line(`Cliente: ${content.customerName}`);
+      }
       if (content.customerPhone) {
         encoder.line(`Tel: ${content.customerPhone}`);
       }
+      if (content.customerEmail) {
+        encoder.line(`Email: ${content.customerEmail}`);
+      }
+    if (content.customerNif) {
+      encoder.line(`NIF: ${content.customerNif}`);
+    }
+    if (content.customerAddress) {
+      encoder.line(`Morada: ${content.customerAddress}`);
+    }
+    if (content.tableCustomerName && content.tableCustomerName !== content.customerName) {
+      encoder.line(`Cliente principal: ${content.tableCustomerName}`);
+    }
+    if (content.splitInfo) {
+      encoder.line(content.splitInfo);
+    }
       encoder.newline();
     }
 

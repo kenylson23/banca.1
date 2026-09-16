@@ -18,6 +18,7 @@ import {
   users,
   restaurants,
   branches,
+  customers,
   categories,
   menuItems,
   options,
@@ -275,12 +276,40 @@ async function buildTableInvoiceDocument(
   const totalAmount = money(totals?.totalAmount ?? sessionForInvoice.totalAmount);
   const paymentSummary = summarizeSessionInvoice(totalAmount, rawPayments);
   const paymentsByMethod = summarizeTableInvoicePayments(rawPayments);
-  const primaryGuest = guests.find((guest: any) => guest.customer || guest.name);
-  const customer = customerFromGuest(primaryGuest) || (
+  const primaryGuest = guests.find((guest: any) => guest.customer) || guests.find((guest: any) => guest.name);
+  const tableCustomer = customerFromGuest(primaryGuest) || (
     sessionForInvoice.customerName
       ? { id: null, name: sessionForInvoice.customerName, phone: null, email: null, nif: null, address: null }
       : null
   );
+  const recipientType = ['table_customer', 'consumer_final', 'other_customer'].includes(sessionForInvoice.invoiceRecipientType)
+    ? sessionForInvoice.invoiceRecipientType as 'table_customer' | 'consumer_final' | 'other_customer'
+    : 'table_customer';
+  let invoiceCustomer = tableCustomer;
+  let invoiceRecipientLabel = tableCustomer?.name || 'Cliente da mesa';
+  let invoiceCustomerId = tableCustomer?.id || null;
+
+  if (recipientType === 'consumer_final') {
+    invoiceCustomer = null;
+    invoiceCustomerId = null;
+    invoiceRecipientLabel = 'Consumidor final';
+  } else if (recipientType === 'other_customer') {
+    const [otherCustomer] = sessionForInvoice.invoiceCustomerId
+      ? await db
+        .select()
+        .from(customers)
+        .where(and(
+          eq(customers.id, sessionForInvoice.invoiceCustomerId),
+          eq(customers.restaurantId, effectiveRestaurantId),
+        ))
+        .limit(1)
+      : [];
+    invoiceCustomer = otherCustomer ? customerFromGuest({ customer: otherCustomer }) : null;
+    invoiceCustomerId = otherCustomer?.id || null;
+    invoiceRecipientLabel = otherCustomer?.name || 'Outro cliente';
+  }
+  const activeGuests = guests.filter((guest: any) => guest.status !== 'saiu');
+  const isSplit = activeGuests.length > 1 || guests.length > 1;
   const validationCode = generateInvoiceValidationCode({
     invoiceNumber,
     sessionId,
@@ -360,7 +389,14 @@ async function buildTableInvoiceDocument(
       customerName: sessionForInvoice.customerName ?? null,
       customerCount: sessionForInvoice.customerCount ?? null,
     },
-    customer,
+    invoiceRecipient: {
+      type: recipientType,
+      label: invoiceRecipientLabel,
+      customerId: invoiceCustomerId,
+    },
+    tableCustomer,
+    isSplit,
+    customer: invoiceCustomer,
     guests: guests.map((guest: any) => ({
       id: guest.id,
       name: guest.name || `Convidado ${guest.guestNumber || ''}`.trim(),
@@ -5921,6 +5957,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/table-sessions/:sessionId/invoice/customers", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const [session] = await db
+        .select({ restaurantId: tableSessions.restaurantId })
+        .from(tableSessions)
+        .where(eq(tableSessions.id, req.params.sessionId))
+        .limit(1);
+      const restaurantId = currentUser.restaurantId || session?.restaurantId;
+      if (!session || !restaurantId || (currentUser.restaurantId && currentUser.restaurantId !== session.restaurantId)) {
+        return res.status(404).json({ message: 'Sessão não encontrada' });
+      }
+
+      const search = String(req.query.search || '').trim();
+      const rows = await db
+        .select({
+          id: customers.id,
+          name: customers.name,
+          phone: customers.phone,
+          email: customers.email,
+          nif: customers.nif,
+          address: customers.address,
+        })
+        .from(customers)
+        .where(and(
+          eq(customers.restaurantId, restaurantId),
+          ...(search ? [sql`(${customers.name} ILIKE ${`%${search}%`} OR ${customers.phone} ILIKE ${`%${search}%`} OR ${customers.nif} ILIKE ${`%${search}%`})`] : []),
+        ))
+        .orderBy(asc(customers.name))
+        .limit(30);
+      return res.json(rows);
+    } catch (error: any) {
+      return res.status(500).json({ message: error.message || 'Erro ao buscar clientes' });
+    }
+  });
+
+  app.patch("/api/table-sessions/:sessionId/invoice/recipient", isCashierOrAbove, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const { type, customerId } = req.body || {};
+      const allowedTypes = ['table_customer', 'consumer_final', 'other_customer'];
+      if (!allowedTypes.includes(type)) {
+        return res.status(400).json({ message: 'Titular da fatura inválido' });
+      }
+
+      const [session] = await db
+        .select()
+        .from(tableSessions)
+        .where(eq(tableSessions.id, req.params.sessionId))
+        .limit(1);
+      if (!session || (currentUser.restaurantId && currentUser.restaurantId !== session.restaurantId)) {
+        return res.status(404).json({ message: 'Sessão não encontrada' });
+      }
+
+      let invoiceCustomerId: string | null = null;
+      if (type === 'other_customer') {
+        if (!customerId || typeof customerId !== 'string') {
+          return res.status(400).json({ message: 'Selecione o outro cliente da fatura' });
+        }
+        const [selectedCustomer] = await db
+          .select({ id: customers.id })
+          .from(customers)
+          .where(and(
+            eq(customers.id, customerId),
+            eq(customers.restaurantId, session.restaurantId),
+          ))
+          .limit(1);
+        if (!selectedCustomer) {
+          return res.status(404).json({ message: 'Cliente não encontrado neste restaurante' });
+        }
+        invoiceCustomerId = selectedCustomer.id;
+      }
+
+      await db.update(tableSessions)
+        .set({ invoiceRecipientType: type, invoiceCustomerId })
+        .where(eq(tableSessions.id, session.id));
+
+      const document = await buildTableInvoiceDocument(currentUser.restaurantId || session.restaurantId, session.id);
+      return res.json(document);
+    } catch (error: any) {
+      return res.status(500).json({ message: error.message || 'Erro ao atualizar titular da fatura' });
+    }
+  });
+
   app.post("/api/table-sessions/:sessionId/invoice/reprint", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user as User;
@@ -5989,11 +6109,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .text(`Sessão iniciada: ${new Date(document.session.startedAt).toLocaleString('pt-AO')}`);
       if (document.restaurant.address) pdf.text(`Endereço: ${document.restaurant.address}`);
       if (document.restaurant.phone) pdf.text(`Telefone: ${document.restaurant.phone}`);
+      pdf.moveDown(0.4).font('Helvetica-Bold').text('IDENTIFICAÇÃO DA FATURA');
+      pdf.font('Helvetica').text(`Fatura em nome de: ${document.invoiceRecipient.label}`);
       if (document.customer) {
-        pdf.moveDown(0.4).font('Helvetica-Bold').text('CLIENTE');
-        pdf.font('Helvetica').text(document.customer.name);
+        pdf.text(`Cliente: ${document.customer.name}`);
         if (document.customer.phone) pdf.text(`Telefone: ${document.customer.phone}`);
+        if (document.customer.email) pdf.text(`Email: ${document.customer.email}`);
         if (document.customer.nif) pdf.text(`NIF: ${document.customer.nif}`);
+        if (document.customer.address) pdf.text(`Morada: ${document.customer.address}`);
+      }
+      if (document.tableCustomer && document.tableCustomer.id !== document.customer?.id) {
+        pdf.text(`Cliente principal da mesa: ${document.tableCustomer.name}`);
+      }
+      if (document.isSplit) {
+        pdf.text(`Conta dividida entre ${document.guests.length} convidados`);
+      }
+      if (document.guests.length > 0) {
+        pdf.moveDown(0.3).font('Helvetica-Bold').text('CONVIDADOS');
+        pdf.font('Helvetica');
+        for (const guest of document.guests) {
+          const details = [guest.customer?.phone, guest.customer?.nif].filter(Boolean).join(' — ');
+          pdf.text(`${guest.name}${details ? ` (${details})` : ''}`);
+        }
       }
 
       pdf.moveDown(0.8).font('Helvetica-Bold').text('ITENS');

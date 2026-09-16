@@ -61,8 +61,18 @@ export function renderTableInvoiceHtml(
       </div>`).join('')
     : '';
   const guests = document.guests.length && !isThermal
-    ? `<section><h2>Convidados</h2><div class="guests">${document.guests.map((guest) => `<span>${escapeHtml(guest.name)}${guest.seatNumber ? ` · Lugar ${guest.seatNumber}` : ''}</span>`).join('')}</div></section>`
+    ? `<section><h2>Convidados</h2><div class="guests">${document.guests.map((guest) => {
+      const details = [guest.customer?.phone, guest.customer?.nif].filter(Boolean).join(' · ');
+      return `<span><strong>${escapeHtml(guest.name)}</strong>${guest.seatNumber ? ` · Lugar ${escapeHtml(guest.seatNumber)}` : ''}${details ? `<small>${escapeHtml(details)}</small>` : ''}</span>`;
+    }).join('')}</div></section>`
     : '';
+  const customerDetails = document.customer
+    ? `<div><label>Cliente</label><strong>${escapeHtml(document.customer.name)}</strong></div>${document.customer.phone ? `<div><label>Telefone</label><strong>${escapeHtml(document.customer.phone)}</strong></div>` : ''}${document.customer.email ? `<div><label>Email</label><strong>${escapeHtml(document.customer.email)}</strong></div>` : ''}${document.customer.nif ? `<div><label>NIF</label><strong>${escapeHtml(document.customer.nif)}</strong></div>` : ''}${document.customer.address ? `<div class="wide"><label>Morada</label><strong>${escapeHtml(document.customer.address)}</strong></div>` : ''}`
+    : `<div><label>Cliente</label><strong>Consumidor final</strong></div>`;
+  const primaryCustomer = document.tableCustomer && document.tableCustomer.id !== document.customer?.id
+    ? `<div class="wide"><label>Cliente principal da mesa</label><strong>${escapeHtml(document.tableCustomer.name)}</strong>${document.tableCustomer.phone ? `<small>${escapeHtml(document.tableCustomer.phone)}</small>` : ''}</div>`
+    : '';
+  const invoiceIdentity = `<section><h2>Identificação da fatura</h2><div class="customer"><div class="wide"><label>Fatura em nome de</label><strong>${escapeHtml(document.invoiceRecipient.label)}</strong></div>${customerDetails}${primaryCustomer}${document.isSplit ? `<div class="wide split-note"><strong>Conta dividida</strong><small>Esta mesa tem ${document.guests.length} convidados registados.</small></div>` : ''}</div></section>`;
   const logo = document.restaurant.logoUrl
     ? `<img class="logo" src="${escapeHtml(document.restaurant.logoUrl)}" alt="${escapeHtml(document.restaurant.name)}" />`
     : `<div class="logo-fallback">${escapeHtml(document.restaurant.name.slice(0, 1).toUpperCase())}</div>`;
@@ -98,7 +108,7 @@ export function renderTableInvoiceHtml(
       </div></div><div class="meta"><strong>FATURA/RECIBO</strong><span class="number">Nº ${escapeHtml(document.invoiceReference)}</span><span>${escapeHtml(dateLabel(document.issuedAt))}</span><span class="status">${paymentStatusLabels[document.totals.paymentStatus]}</span></div></header>
       <div class="grid"><div class="info"><label>Mesa</label><strong>${escapeHtml(document.table.number)}${document.table.area ? ` · ${escapeHtml(document.table.area)}` : ''}</strong></div>
         <div class="info"><label>Sessão iniciada</label><strong>${escapeHtml(dateLabel(document.session.startedAt))}</strong></div><div class="info"><label>Moeda</label><strong>AOA · Kwanza</strong></div></div>
-      ${document.customer ? `<section><h2>Identificação</h2><div class="customer"><div><label>Cliente</label><strong>${escapeHtml(document.customer.name)}</strong></div>${document.customer.phone ? `<div><label>Telefone</label><strong>${escapeHtml(document.customer.phone)}</strong></div>` : ''}${document.customer.nif ? `<div><label>NIF</label><strong>${escapeHtml(document.customer.nif)}</strong></div>` : ''}${document.customer.address ? `<div class="wide"><label>Endereço</label><strong>${escapeHtml(document.customer.address)}</strong></div>` : ''}</div></section>` : ''}
+      ${invoiceIdentity}
       ${guests}
       <section><h2>Itens</h2><table><thead><tr><th>Qtd.</th><th>Descrição</th><th>Preço unit.</th><th>Total</th></tr></thead><tbody>${itemRows}</tbody></table></section>
       <section class="summary"><div class="line"><span>Subtotal</span><span>${moneyLabel(document.totals.subtotal)}</span></div>${adjustmentRows}
@@ -118,6 +128,12 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
     date: dateLabel(document.issuedAt),
     customerName: document.customer?.name,
     customerPhone: document.customer?.phone ?? undefined,
+    customerEmail: document.customer?.email ?? undefined,
+    customerNif: document.customer?.nif ?? undefined,
+    customerAddress: document.customer?.address ?? undefined,
+    invoiceRecipientLabel: document.invoiceRecipient.label,
+    tableCustomerName: document.tableCustomer?.name ?? undefined,
+    splitInfo: document.isSplit ? `Conta dividida entre ${document.guests.length} convidados` : undefined,
     items: document.items.map((item) => ({
       name: item.name,
       quantity: item.quantity,

@@ -347,6 +347,12 @@ export async function ensureTablesExist() {
       await db.execute(sql`DO $$ BEGIN
         ALTER TABLE table_sessions ADD COLUMN service_charge_type VARCHAR(20) DEFAULT 'percentual';
       EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN
+        ALTER TABLE table_sessions ADD COLUMN invoice_recipient_type VARCHAR(30) NOT NULL DEFAULT 'table_customer';
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
+      await db.execute(sql`DO $$ BEGIN
+        ALTER TABLE table_sessions ADD COLUMN invoice_customer_id VARCHAR;
+      EXCEPTION WHEN duplicate_column THEN null; END $$;`);
       
       // Create guest_status enum if it doesn't exist
       await db.execute(sql`DO $$ BEGIN CREATE TYPE guest_status AS ENUM ('ativo', 'aguardando_conta', 'pago', 'saiu'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
@@ -653,6 +659,17 @@ export async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
+      await db.execute(sql`DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'table_sessions_invoice_customer_id_fkey'
+        ) THEN
+          ALTER TABLE table_sessions
+            ADD CONSTRAINT table_sessions_invoice_customer_id_fkey
+            FOREIGN KEY (invoice_customer_id) REFERENCES customers(id) ON DELETE SET NULL;
+        END IF;
+      END $$;`);
       
       // Create loyalty_transaction_type enum if it doesn't exist
       await db.execute(sql`DO $$ BEGIN CREATE TYPE loyalty_transaction_type AS ENUM ('ganho', 'resgate', 'expiracao', 'ajuste', 'bonus'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);

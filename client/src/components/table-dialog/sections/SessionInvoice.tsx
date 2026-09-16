@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CreditCard, Download, Eye, Loader2, Printer, Receipt, RotateCcw, User, History, BadgeCheck } from 'lucide-react';
 import { format } from 'date-fns';
@@ -29,6 +31,20 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
   const { data, isLoading, isError } = useQuery<TableInvoiceDocument>({
     queryKey: [`/api/table-sessions/${sessionId}/invoice`],
   });
+  const queryClient = useQueryClient();
+  const [draftRecipientType, setDraftRecipientType] = useState<TableInvoiceDocument['invoiceRecipient']['type']>('table_customer');
+  const [isUpdatingRecipient, setIsUpdatingRecipient] = useState(false);
+  const customerOptionsQuery = useQuery<Array<{
+    id: string;
+    name: string;
+    phone: string | null;
+    email: string | null;
+    nif: string | null;
+    address: string | null;
+  }>>({
+    queryKey: [`/api/table-sessions/${sessionId}/invoice/customers`],
+    enabled: draftRecipientType === 'other_customer',
+  });
   const { getPrinterByType } = usePrinter();
   const { toast } = useToast();
   const thermalPrinter = getPrinterByType('invoice');
@@ -47,6 +63,7 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
 
   useEffect(() => {
     if (!data) return;
+    setDraftRecipientType(data.invoiceRecipient.type);
     QRCode.toDataURL(qrPayload, {
       width: 240,
       margin: 1,
@@ -61,6 +78,34 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
   if (isError || !data) {
     return <p className="py-3 text-sm text-muted-foreground">Não foi possível carregar a fatura/recibo desta sessão.</p>;
   }
+
+  const updateInvoiceRecipient = async (
+    type: TableInvoiceDocument['invoiceRecipient']['type'],
+    customerId?: string,
+  ) => {
+    if (type === 'other_customer' && !customerId) return;
+    setIsUpdatingRecipient(true);
+    try {
+      const response = await apiFetch(`/api/table-sessions/${sessionId}/invoice/recipient`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ type, customerId: customerId || null }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.message || 'Não foi possível atualizar o titular da fatura.');
+      }
+      const updatedDocument = await response.json() as TableInvoiceDocument;
+      queryClient.setQueryData([`/api/table-sessions/${sessionId}/invoice`], updatedDocument);
+      toast({ title: 'Titular da fatura atualizado', description: `Fatura em nome de ${updatedDocument.invoiceRecipient.label}.` });
+    } catch (error) {
+      setDraftRecipientType(data.invoiceRecipient.type);
+      toast({ title: 'Erro ao atualizar a fatura', description: error instanceof Error ? error.message : 'Tente novamente.', variant: 'destructive' });
+    } finally {
+      setIsUpdatingRecipient(false);
+    }
+  };
 
   const recordReprint = async () => {
     if (isRecordingReprint) return;
@@ -148,6 +193,58 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
           </div>
         </div>
         <Separator />
+         <div className="grid gap-3 rounded-lg border bg-background p-3 text-sm sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+           <div className="space-y-2">
+             <Label htmlFor={`invoice-recipient-${sessionId}`}>Fatura em nome de</Label>
+             <Select
+               value={draftRecipientType}
+               disabled={isUpdatingRecipient}
+               onValueChange={(value: TableInvoiceDocument['invoiceRecipient']['type']) => {
+                 setDraftRecipientType(value);
+                 if (value !== 'other_customer') updateInvoiceRecipient(value);
+               }}
+             >
+               <SelectTrigger id={`invoice-recipient-${sessionId}`}>
+                 <SelectValue />
+               </SelectTrigger>
+               <SelectContent>
+                 <SelectItem value="table_customer">Cliente da mesa</SelectItem>
+                 <SelectItem value="consumer_final">Consumidor final</SelectItem>
+                 <SelectItem value="other_customer">Outro cliente</SelectItem>
+               </SelectContent>
+             </Select>
+             {draftRecipientType === 'other_customer' && (
+               <Select
+                 value={data.invoiceRecipient.type === 'other_customer' ? data.invoiceRecipient.customerId || '' : ''}
+                 disabled={isUpdatingRecipient || customerOptionsQuery.isLoading}
+                 onValueChange={(customerId) => updateInvoiceRecipient('other_customer', customerId)}
+               >
+                 <SelectTrigger>
+                   <SelectValue placeholder={customerOptionsQuery.isLoading ? 'A carregar clientes...' : 'Selecionar cliente'} />
+                 </SelectTrigger>
+                 <SelectContent>
+                   {data.invoiceRecipient.type === 'other_customer' && data.invoiceRecipient.customerId && !customerOptionsQuery.data?.some((customer) => customer.id === data.invoiceRecipient.customerId) && (
+                     <SelectItem value={data.invoiceRecipient.customerId}>{data.invoiceRecipient.label}</SelectItem>
+                   )}
+                   {(customerOptionsQuery.data || []).map((customer) => (
+                     <SelectItem key={customer.id} value={customer.id}>
+                       {customer.name}{customer.nif ? ` · NIF ${customer.nif}` : ''}
+                     </SelectItem>
+                   ))}
+                 </SelectContent>
+               </Select>
+             )}
+           </div>
+           <div className="rounded-md bg-muted/40 p-2.5">
+             <p className="font-medium">Dados que serão impressos</p>
+             <p className="text-muted-foreground">Titular: <span className="font-medium text-foreground">{data.invoiceRecipient.label}</span></p>
+             {data.customer?.phone && <p className="text-muted-foreground">Telefone: <span className="font-medium text-foreground">{data.customer.phone}</span></p>}
+             {data.customer?.nif && <p className="text-muted-foreground">NIF: <span className="font-medium text-foreground">{data.customer.nif}</span></p>}
+             {data.customer?.address && <p className="text-muted-foreground">Morada: <span className="font-medium text-foreground">{data.customer.address}</span></p>}
+             {data.tableCustomer && data.tableCustomer.id !== data.customer?.id && <p className="text-muted-foreground">Cliente principal da mesa: <span className="font-medium text-foreground">{data.tableCustomer.name}</span></p>}
+             {data.isSplit && <p className="mt-1 font-medium text-primary">Conta dividida entre {data.guests.length} convidados.</p>}
+           </div>
+         </div>
         <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
            <div><span className="text-muted-foreground">Total da sessão</span><p className="font-semibold">{formatKwanza(Number(data.totals.total))}</p></div>
            <div><span className="text-muted-foreground">Total pago</span><p className="font-semibold text-emerald-600">{formatKwanza(Number(data.totals.paid))}</p></div>

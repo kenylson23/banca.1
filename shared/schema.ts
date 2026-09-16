@@ -707,6 +707,8 @@ export const tableSessions = pgTable("table_sessions", {
   invoiceNumber: integer("invoice_number"),
   customerName: varchar("customer_name", { length: 200 }),
   customerCount: integer("customer_count"),
+  invoiceRecipientType: varchar("invoice_recipient_type", { length: 30 }).notNull().default('table_customer'),
+  invoiceCustomerId: varchar("invoice_customer_id").references(() => customers.id, { onDelete: 'set null' }),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull().default('0'),
   paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull().default('0'),
   discount: decimal("discount", { precision: 10, scale: 2 }).default('0'),
