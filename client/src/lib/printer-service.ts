@@ -1040,7 +1040,8 @@ class PrinterService {
     // Informações de pagamento
     if (content.paymentInfo) {
       encoder.bold(true).line('PAGAMENTOS REALIZADOS').bold(false);
-      encoder.line(content.paymentInfo).newline();
+      content.paymentInfo.split('\n').forEach((line) => encoder.line(line));
+      encoder.newline();
     }
 
     // Notas

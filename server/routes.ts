@@ -273,6 +273,23 @@ async function buildTableInvoiceDocument(
 
   const totalAmount = money(totals?.totalAmount ?? sessionForInvoice.totalAmount);
   const paymentSummary = summarizeSessionInvoice(totalAmount, rawPayments);
+  const paymentsByMethodMap = new Map<string, { paymentMethod: string; paymentMethodLabel: string; count: number; amount: number }>();
+  for (const payment of rawPayments as any[]) {
+    const method = normalizePaymentMethod(payment.paymentMethod);
+    const current = paymentsByMethodMap.get(method) || {
+      paymentMethod: method,
+      paymentMethodLabel: getPaymentMethodLabel(method),
+      count: 0,
+      amount: 0,
+    };
+    current.count += 1;
+    current.amount += money(payment.amount);
+    paymentsByMethodMap.set(method, current);
+  }
+  const paymentsByMethod = Array.from(paymentsByMethodMap.values()).map((payment) => ({
+    ...payment,
+    amount: fixedMoney(payment.amount),
+  }));
   const primaryGuest = guests.find((guest: any) => guest.customer || guest.name);
   const customer = customerFromGuest(primaryGuest) || (
     sessionForInvoice.customerName
@@ -385,6 +402,7 @@ async function buildTableInvoiceDocument(
         operatorName: payment.operatorId ? paymentOperatorNames.get(payment.operatorId) || 'Usuário desconhecido' : null,
       };
     }),
+    paymentsByMethod,
     audit,
     reprints: {
       count: reprintEntries.length,
@@ -6013,15 +6031,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pdf.text(`${fee.label}: + ${fee.amount} AOA`);
       }
       pdf.font('Helvetica-Bold').text(`TOTAL FINAL: ${document.totals.total} AOA`);
-      pdf.font('Helvetica').text(`Pago: ${document.totals.paid} AOA`);
-      pdf.text(`Saldo pendente: ${document.totals.pending} AOA`);
+       pdf.font('Helvetica').text(`Total da sessão: ${document.totals.total} AOA`);
+       pdf.text(`Total pago: ${document.totals.paid} AOA`);
+       pdf.text(`${document.totals.pending === '0.00' ? 'Saldo' : 'Saldo pendente'}: ${document.totals.pending} AOA`);
 
       pdf.moveDown(0.8).font('Helvetica-Bold').text('PAGAMENTOS REALIZADOS');
       pdf.font('Helvetica');
-      for (const payment of document.payments) {
-        pdf.text(`${payment.paymentMethodLabel} — ${payment.amount} AOA — ${new Date(payment.createdAt).toLocaleString('pt-AO')}`);
+       for (const payment of document.paymentsByMethod) {
+         pdf.text(`${payment.paymentMethodLabel} — ${payment.amount} AOA${payment.count > 1 ? ` (${payment.count} lançamentos)` : ''}`);
       }
-      if (document.payments.length === 0) pdf.text('Nenhum pagamento registado');
+       if (document.paymentsByMethod.length === 0) pdf.text('Nenhum pagamento registado');
+       if (document.payments.length > 0) {
+         pdf.moveDown(0.35).font('Helvetica-Bold').text('Registos individuais');
+         pdf.font('Helvetica');
+         for (const payment of document.payments) {
+           pdf.text(`${payment.paymentMethodLabel} — ${payment.amount} AOA — ${new Date(payment.createdAt).toLocaleString('pt-AO')}`);
+         }
+       }
 
       const pdfQrCode = await QRCode.toDataURL(JSON.stringify({
         tipo: 'fatura-mesa',

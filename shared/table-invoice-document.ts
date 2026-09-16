@@ -74,6 +74,13 @@ export type TableInvoicePayment = {
   operatorName?: string | null;
 };
 
+export type TableInvoicePaymentSummary = {
+  paymentMethod: string;
+  paymentMethodLabel: string;
+  count: number;
+  amount: TableInvoiceMoney;
+};
+
 export type TableInvoiceAuditEntry = {
   id: string | number;
   action: string;
@@ -111,6 +118,7 @@ export type TableInvoiceDocument = {
   discounts: TableInvoiceAdjustment[];
   fees: TableInvoiceAdjustment[];
   payments: TableInvoicePayment[];
+  paymentsByMethod: TableInvoicePaymentSummary[];
   audit: TableInvoiceAuditEntry[];
   reprints: {
     count: number;

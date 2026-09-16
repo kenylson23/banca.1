@@ -149,13 +149,23 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
         </div>
         <Separator />
         <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
-          <div><span className="text-muted-foreground">Total final</span><p className="font-semibold">{formatKwanza(Number(data.totals.total))}</p></div>
-          <div><span className="text-muted-foreground">Pago</span><p className="font-semibold text-emerald-600">{formatKwanza(Number(data.totals.paid))}</p></div>
-          <div><span className="text-muted-foreground">Saldo pendente</span><p className="font-semibold text-amber-600">{formatKwanza(Number(data.totals.pending))}</p></div>
+           <div><span className="text-muted-foreground">Total da sessão</span><p className="font-semibold">{formatKwanza(Number(data.totals.total))}</p></div>
+           <div><span className="text-muted-foreground">Total pago</span><p className="font-semibold text-emerald-600">{formatKwanza(Number(data.totals.paid))}</p></div>
+           <div><span className="text-muted-foreground">{Number(data.totals.pending) > 0 ? 'Saldo pendente' : 'Saldo'}</span><p className="font-semibold text-amber-600">{formatKwanza(Number(data.totals.pending))}</p></div>
         </div>
         <div className="text-sm">
           <div className="mb-2 flex items-center gap-2 font-semibold"><CreditCard className="h-4 w-4 text-primary" /> Pagamentos realizados ({data.payments.length})</div>
-           {data.payments.length > 0 ? data.payments.map((payment) => (
+            {data.paymentsByMethod.length > 0 ? data.paymentsByMethod.map((payment) => (
+              <div key={payment.paymentMethod} className="flex flex-wrap items-center justify-between gap-2 rounded bg-muted/40 px-2 py-1.5">
+                <span>{payment.paymentMethodLabel} <span className="text-muted-foreground">· {payment.count} {payment.count === 1 ? 'lançamento' : 'lançamentos'}</span></span>
+                <span className="font-medium">{formatKwanza(Number(payment.amount))}</span>
+              </div>
+            )) : <p className="text-muted-foreground">Nenhum pagamento registado.</p>}
+            {data.payments.length > 0 && (
+              <details className="mt-2 rounded border bg-background/60 px-2 py-1.5">
+                <summary className="cursor-pointer text-xs text-muted-foreground">Ver registos individuais</summary>
+                <div className="mt-2 space-y-1">
+                {data.payments.map((payment) => (
              <div key={payment.id} className="flex flex-wrap items-center justify-between gap-2 rounded bg-muted/40 px-2 py-1.5">
                <span>
                  {payment.paymentMethodLabel} · {format(new Date(payment.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
@@ -168,7 +178,10 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
                  </Button>
                </div>
             </div>
-          )) : <p className="text-muted-foreground">Nenhum pagamento registado.</p>}
+           ))}
+                </div>
+              </details>
+            )}
         </div>
          <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 text-sm sm:grid-cols-2">
            <div className="flex items-start gap-2">

@@ -47,12 +47,19 @@ export function renderTableInvoiceHtml(
     ...document.fees.map((adjustment) => `<div class="line"><span>${escapeHtml(adjustment.label)}</span><span>+ ${moneyLabel(adjustment.amount)}</span></div>`),
   ].join('');
   const paymentRows = document.payments.length
-    ? document.payments.map((payment) => `
+    ? document.paymentsByMethod.map((payment) => `
       <div class="payment">
-        <div><strong>${escapeHtml(payment.paymentMethodLabel)}</strong><small>${escapeHtml(dateLabel(payment.createdAt))}${payment.notes ? ` · ${escapeHtml(payment.notes)}` : ''}</small></div>
+        <div><strong>${escapeHtml(payment.paymentMethodLabel)}</strong><small>${payment.count} ${payment.count === 1 ? 'lançamento' : 'lançamentos'}</small></div>
         <strong>${moneyLabel(payment.amount)}</strong>
       </div>`).join('')
     : '<div class="empty">Nenhum pagamento registado</div>';
+  const paymentDetailRows = document.payments.length
+    ? document.payments.map((payment) => `
+      <div class="payment detail">
+        <div><strong>${escapeHtml(payment.paymentMethodLabel)}</strong><small>${escapeHtml(dateLabel(payment.createdAt))}${payment.operatorName ? ` · ${escapeHtml(payment.operatorName)}` : ''}${payment.notes ? ` · ${escapeHtml(payment.notes)}` : ''}</small></div>
+        <strong>${moneyLabel(payment.amount)}</strong>
+      </div>`).join('')
+    : '';
   const guests = document.guests.length && !isThermal
     ? `<section><h2>Convidados</h2><div class="guests">${document.guests.map((guest) => `<span>${escapeHtml(guest.name)}${guest.seatNumber ? ` · Lugar ${guest.seatNumber}` : ''}</span>`).join('')}</div></section>`
     : '';
@@ -80,7 +87,7 @@ export function renderTableInvoiceHtml(
       table { width:100%; border-collapse:collapse; } th { background:#17202a; color:#fff; font-size:10px; text-transform:uppercase; letter-spacing:.06em; } th,td { text-align:left; padding:8px 7px; border-bottom:1px solid #e5eaed; vertical-align:top; } th:first-child,td:first-child { text-align:center; width:9%; } th:nth-child(n+3),td:nth-child(n+3) { text-align:right; white-space:nowrap; }
       .guests { display:flex; flex-wrap:wrap; gap:6px; } .guests span { background:#edf2f4; padding:5px 8px; border-radius:4px; }
       .summary { margin:16px 0 0 auto; max-width:360px; border:1px solid #dfe5e8; border-radius:8px; padding:11px 13px; } .line { display:flex; justify-content:space-between; gap:20px; margin:5px 0; } .grand { font-size:18px; font-weight:700; margin:9px -13px 7px; padding:10px 13px; border-top:1px solid #dfe5e8; border-bottom:1px solid #dfe5e8; background:#f5f8f9; } .pending { color:#b45309; font-weight:700; }
-      .payments { border:1px solid #dfe5e8; border-radius:8px; overflow:hidden; } .payment { display:flex; justify-content:space-between; gap:12px; padding:9px 11px; border-bottom:1px solid #e5eaed; } .payment:last-child { border-bottom:0; } .payment strong:last-child { white-space:nowrap; } .empty { padding:10px; color:#64727d; }
+       .payments { border:1px solid #dfe5e8; border-radius:8px; overflow:hidden; } .payment { display:flex; justify-content:space-between; gap:12px; padding:9px 11px; border-bottom:1px solid #e5eaed; } .payment:last-child { border-bottom:0; } .payment strong:last-child { white-space:nowrap; } .payment.detail { background:#fafcfc; font-size:.92em; } .empty { padding:10px; color:#64727d; }
       .footer { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-top:24px; padding-top:13px; border-top:1px dashed #aab5bb; } .qr-wrap { display:flex; align-items:center; gap:10px; } .qr { width:74px; height:74px; image-rendering:auto; } .validation { text-align:right; font-size:10px; } .validation strong, .validation span { display:block; } .validation span { font-size:13px; font-weight:700; letter-spacing:.1em; margin-top:3px; }
       .thermal-only { display:${isThermal ? 'block' : 'none'}; } .a4-only { display:${isThermal ? 'none' : 'block'}; }
       ${isThermal ? 'header { display:block; text-align:center; } .brand { justify-content:center; } .meta { text-align:center; margin-top:9px; } .logo, .logo-fallback { width:42px; height:42px; } .grid { grid-template-columns:1fr 1fr; } .grid .info:last-child { grid-column:1 / -1; } .customer { grid-template-columns:1fr; } .customer .wide { grid-column:auto; } h2 { margin-top:15px; } th,td { padding:6px 3px; font-size:9px; } th:nth-child(3),td:nth-child(3) { display:none; } .summary { max-width:none; } .grand { font-size:15px; } .footer { display:block; text-align:center; } .qr-wrap { justify-content:center; margin-bottom:8px; } .validation { text-align:center; }' : ''}
@@ -95,11 +102,11 @@ export function renderTableInvoiceHtml(
       ${guests}
       <section><h2>Itens</h2><table><thead><tr><th>Qtd.</th><th>Descrição</th><th>Preço unit.</th><th>Total</th></tr></thead><tbody>${itemRows}</tbody></table></section>
       <section class="summary"><div class="line"><span>Subtotal</span><span>${moneyLabel(document.totals.subtotal)}</span></div>${adjustmentRows}
-        <div class="line grand"><span>Total</span><span>${moneyLabel(document.totals.total)}</span></div>
-        <div class="line"><span>Pago</span><span>${moneyLabel(document.totals.paid)}</span></div>
-        <div class="line"><span>Saldo pendente</span><span class="pending">${moneyLabel(document.totals.pending)}</span></div>
+         <div class="line grand"><span>Total da sessão</span><span>${moneyLabel(document.totals.total)}</span></div>
+         <div class="line"><span>Total pago</span><span>${moneyLabel(document.totals.paid)}</span></div>
+         <div class="line"><span>${Number(document.totals.pending) > 0 ? 'Saldo pendente' : 'Saldo'}</span><span class="pending">${moneyLabel(document.totals.pending)}</span></div>
       </section>
-      <section><h2>Pagamentos realizados</h2><div class="payments">${paymentRows || '<div class="muted">Nenhum pagamento registado</div>'}</div></section>
+       <section><h2>Pagamentos realizados</h2><div class="payments">${paymentRows || '<div class="muted">Nenhum pagamento registado</div>'}</div>${paymentDetailRows ? `<small class="muted" style="margin-top:8px">Registos individuais</small><div class="payments">${paymentDetailRows}</div>` : ''}</section>
       <footer class="footer">${qrCode}<div class="muted">Documento final emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura/Recibo Nº ${escapeHtml(document.invoiceReference)}<br>Código de validação: ${escapeHtml(document.validation.code)}</div></footer>
     </body></html>`;
 }
@@ -122,6 +129,11 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
     serviceCharge: Number(document.totals.fees) > 0 ? moneyLabel(document.totals.fees) : undefined,
     total: moneyLabel(document.totals.total),
     status: paymentStatusLabels[document.totals.paymentStatus],
-    paymentInfo: document.payments.map((payment) => `${payment.paymentMethodLabel}: ${moneyLabel(payment.amount)}`).join(' | ') || undefined,
+    paymentInfo: [
+      ...document.paymentsByMethod.map((payment) => `${payment.paymentMethodLabel}: ${moneyLabel(payment.amount)}`),
+      `Total da sessão: ${moneyLabel(document.totals.total)}`,
+      `Total pago: ${moneyLabel(document.totals.paid)}`,
+      `${Number(document.totals.pending) > 0 ? 'Saldo pendente' : 'Saldo'}: ${moneyLabel(document.totals.pending)}`,
+    ].join('\n'),
   };
 }
