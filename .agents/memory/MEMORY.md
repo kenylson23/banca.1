@@ -14,3 +14,4 @@
 - [Vite build dependencies](vite-build-dependencies.md) — packages imported by vite.config.ts must be declared for production installs, even when used only in development.
 - [Post-merge setup](post-merge-setup.md) — post-merge must be non-interactive and should not block builds when the local database is unavailable.
 - [Unified table invoices](unified-table-invoices.md) — table invoice outputs should consume one assembled document contract rather than rebuilding session data per format.
+- [Notification fan-out](notification-fanout.md) — operational alerts are persisted per restaurant user; WebSocket delivery is an acceleration layer.

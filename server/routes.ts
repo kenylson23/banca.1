@@ -41,6 +41,7 @@ import type {
   TableInvoiceCustomer,
 } from '@shared/table-invoice-document';
 import { summarizeTableInvoicePayments } from '@shared/table-invoice-document';
+import { notifyRestaurant } from './notificationService';
 import {
   invoiceAdjustmentDetail,
   invoiceDate,
@@ -4465,6 +4466,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedOrder = await storage.calculateOrderTotal(order.id);
       
       broadcastToClients({ type: 'payment_submitted', data: updatedOrder });
+      void notifyRestaurant({
+        restaurantId: updatedOrder.restaurantId,
+        branchId: updatedOrder.branchId,
+        type: 'new_order',
+        title: 'Novo pedido recebido',
+        message: `Pedido ${updatedOrder.orderNumber || updatedOrder.id.slice(0, 8).toUpperCase()} aguarda confirmação.`,
+        data: { orderId: updatedOrder.id, orderNumber: updatedOrder.orderNumber },
+      }).catch((error) => console.error('[NOTIFICATION] Failed to create new-order notification:', error));
 
       // Update table payment status after order creation
       if (order.tableId) {
@@ -4512,6 +4521,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         null,
         validatedData
       );
+      void notifyRestaurant({
+        restaurantId,
+        type: 'new_customer',
+        title: 'Novo cliente cadastrado',
+        message: `${customer.name} foi adicionado à base de clientes.`,
+        data: { customerId: customer.id, customerName: customer.name },
+      }).catch((error) => console.error('[NOTIFICATION] Failed to create customer notification:', error));
 
       res.json(customer);
     } catch (error: any) {
@@ -8651,6 +8667,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Only paid orders are released to the kitchen and auto-print flow.
       await releasePaidOrderToKitchen(order);
+      void notifyRestaurant({
+        restaurantId: order.restaurantId,
+        branchId: order.branchId,
+        type: 'new_order',
+        title: 'Novo pedido criado',
+        message: `Pedido ${order.orderNumber || order.id.slice(0, 8).toUpperCase()} foi criado no caixa.`,
+        data: { orderId: order.id, orderNumber: order.orderNumber },
+      }).catch((error) => console.error('[NOTIFICATION] Failed to create new-order notification:', error));
 
       res.json(order);
     } catch (error) {
@@ -8704,6 +8728,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: 'order_status_updated', 
         data: { id: order.id, status: order.status }
       });
+      void notifyRestaurant({
+        restaurantId,
+        branchId: order.branchId,
+        type: 'order_status',
+        title: 'Status do pedido atualizado',
+        message: `Pedido ${order.orderNumber || order.id.slice(0, 8).toUpperCase()} agora está como ${status.replaceAll('_', ' ')}.`,
+        data: { orderId: order.id, orderNumber: order.orderNumber, status },
+      }).catch((error) => console.error('[NOTIFICATION] Failed to create status notification:', error));
 
       // Send WhatsApp notification to customer if phone is available
       if (order.customerPhone) {
@@ -8812,6 +8844,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       if (action === 'confirm') {
         await releasePaidOrderToKitchen(updated);
+        void notifyRestaurant({
+          restaurantId,
+          branchId: updated.branchId,
+          type: 'payment_received',
+          title: 'Pagamento confirmado',
+          message: `O pagamento do pedido ${updated.orderNumber || updated.id.slice(0, 8).toUpperCase()} foi confirmado.`,
+          data: { orderId: updated.id, orderNumber: updated.orderNumber, amount: updated.totalAmount },
+        }).catch((error) => console.error('[NOTIFICATION] Failed to create payment notification:', error));
       }
       res.json(updated);
     } catch (error) {
@@ -9383,6 +9423,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (updated.paymentStatus === 'pago') {
         await releasePaidOrderToKitchen(updated);
+        void notifyRestaurant({
+          restaurantId,
+          branchId: updated.branchId,
+          type: 'payment_received',
+          title: 'Pagamento recebido',
+          message: `Pagamento recebido para o pedido ${updated.orderNumber || updated.id.slice(0, 8).toUpperCase()}.`,
+          data: { orderId: updated.id, orderNumber: updated.orderNumber, amount: updated.totalAmount },
+        }).catch((error) => console.error('[NOTIFICATION] Failed to create payment notification:', error));
         broadcastToClients({ 
           type: 'order_payment_completed', 
           data: { 
@@ -9456,6 +9504,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           cancellationReason,
         }
       });
+      void notifyRestaurant({
+        restaurantId,
+        branchId: order.branchId,
+        type: 'order_cancelled',
+        title: 'Pedido cancelado',
+        message: `Pedido ${order.orderNumber || order.id.slice(0, 8).toUpperCase()} foi cancelado.`,
+        data: { orderId: order.id, orderNumber: order.orderNumber, cancellationReason },
+      }).catch((error) => console.error('[NOTIFICATION] Failed to create cancellation notification:', error));
 
       res.json(cancelled);
     } catch (error) {
@@ -11706,6 +11762,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currentUser.id,
         data
       );
+      const item = await storage.getInventoryItemById(data.inventoryItemId);
+      const stock = await storage.getStockByItemId(
+        currentUser.restaurantId,
+        data.branchId!,
+        data.inventoryItemId
+      );
+      if (stock && item && Number(stock.quantity) <= Number(item.minStock)) {
+        void notifyRestaurant({
+          restaurantId: currentUser.restaurantId,
+          branchId: data.branchId,
+          type: 'low_stock',
+          title: 'Estoque baixo',
+          message: `${item.name} está com ${stock.quantity} em estoque.`,
+          data: {
+            inventoryItemId: item.id,
+            itemName: item.name,
+            quantity: stock.quantity,
+            minimum: item.minStock,
+          },
+        }).catch((error) => console.error('[NOTIFICATION] Failed to create low-stock notification:', error));
+      }
       res.json(movement);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -11841,6 +11918,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currentUser.activeBranchId || null,
         validatedData
       );
+      void notifyRestaurant({
+        restaurantId: currentUser.restaurantId,
+        branchId: currentUser.activeBranchId,
+        type: 'new_customer',
+        title: 'Novo cliente cadastrado',
+        message: `${customer.name} foi adicionado à base de clientes.`,
+        data: { customerId: customer.id, customerName: customer.name },
+      }).catch((error) => console.error('[NOTIFICATION] Failed to create customer notification:', error));
       
       res.status(201).json(customer);
     } catch (error: any) {
@@ -12721,18 +12806,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const validatedData = insertNotificationSchema.parse(req.body);
-      const notification = await storage.createNotification(currentUser.restaurantId, validatedData);
+      const notifications = await notifyRestaurant({
+        restaurantId: currentUser.restaurantId,
+        ...validatedData,
+      });
       
-      // Broadcast new notification via WebSocket to all users of this restaurant
-      const broadcastFn = (global as any).broadcastToRestaurant;
-      if (broadcastFn) {
-        broadcastFn(currentUser.restaurantId, {
-          type: 'new_notification',
-          data: notification
-        });
-      }
-      
-      res.status(201).json(notification);
+      res.status(201).json(notifications[0] || null);
     } catch (error: any) {
       console.error('Notification creation error:', error);
       if (error.name === 'ZodError') {
@@ -12800,29 +12879,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Usuário não associado a um restaurante" });
       }
 
-      const preferences = await storage.getNotificationPreferences(currentUser.restaurantId, currentUser.id);
+      const preferences =
+        (await storage.getNotificationPreferences(currentUser.restaurantId, currentUser.id))
+        || (await storage.getNotificationPreferences(currentUser.restaurantId));
       res.json(preferences || {
-        newOrderInApp: true,
-        newOrderWhatsapp: false,
-        newOrderEmail: false,
-        orderStatusInApp: true,
-        orderStatusWhatsapp: false,
-        orderStatusEmail: false,
-        lowStockInApp: true,
-        lowStockWhatsapp: false,
-        lowStockEmail: false,
-        newCustomerInApp: true,
-        newCustomerWhatsapp: false,
-        newCustomerEmail: false,
-        paymentInApp: true,
-        paymentWhatsapp: false,
-        paymentEmail: false,
-        subscriptionInApp: true,
-        subscriptionWhatsapp: false,
-        subscriptionEmail: false,
-        systemInApp: true,
-        systemWhatsapp: false,
-        systemEmail: false,
+        inAppEnabled: 1,
+        whatsappEnabled: 0,
+        emailEnabled: 0,
+        newOrderEnabled: 1,
+        orderStatusEnabled: 1,
+        orderCancelledEnabled: 1,
+        lowStockEnabled: 1,
+        newCustomerEnabled: 0,
+        paymentReceivedEnabled: 1,
+        subscriptionAlertEnabled: 1,
+        whatsappNotificationNumber: null,
       });
     } catch (error) {
       console.error('Notification preferences fetch error:', error);
