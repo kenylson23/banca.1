@@ -7389,6 +7389,77 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Cash Register Shift operations
+  private async closeExpiredCashRegisterShift(shift: CashRegisterShift): Promise<CashRegisterShift | undefined> {
+    if (!shift.openedAt || Date.now() - shift.openedAt.getTime() < CASH_REGISTER_SHIFT_MAX_AGE_MS) {
+      return shift;
+    }
+
+    const allTransactions = await db
+      .select()
+      .from(financialTransactions)
+      .where(eq(financialTransactions.shiftId, shift.id));
+
+    const totalRevenues = allTransactions
+      .filter((transaction: FinancialTransaction) => transaction.type === 'receita')
+      .reduce((sum: number, transaction: FinancialTransaction) => sum + parseFloat(transaction.amount), 0);
+    const totalExpenses = allTransactions
+      .filter((transaction: FinancialTransaction) => transaction.type === 'despesa')
+      .reduce((sum: number, transaction: FinancialTransaction) => sum + parseFloat(transaction.amount), 0);
+    const totalAdjustments = allTransactions
+      .filter((transaction: FinancialTransaction) => transaction.type === 'ajuste')
+      .reduce((sum: number, transaction: FinancialTransaction) => sum + parseFloat(transaction.amount), 0);
+    const closingAmountExpected = totalRevenues - totalExpenses + totalAdjustments;
+    const automaticNotes = [shift.notes, 'Fechado automaticamente após 24 horas.']
+      .filter(Boolean)
+      .join(' ');
+
+    const [closedShift] = await db
+      .update(cashRegisterShifts)
+      .set({
+        status: 'fechado',
+        closedByUserId: null,
+        closingAmountExpected: closingAmountExpected.toFixed(2),
+        closingAmountCounted: closingAmountExpected.toFixed(2),
+        difference: '0.00',
+        totalRevenues: totalRevenues.toFixed(2),
+        totalExpenses: totalExpenses.toFixed(2),
+        closedAt: new Date(),
+        notes: automaticNotes,
+      })
+      .where(and(
+        eq(cashRegisterShifts.id, shift.id),
+        eq(cashRegisterShifts.status, 'aberto'),
+      ))
+      .returning();
+
+    return closedShift;
+  }
+
+  private async expireOpenCashRegisterShifts(
+    restaurantId: string,
+    branchId: string | null,
+    cashRegisterId?: string,
+  ): Promise<void> {
+    const conditions = [
+      eq(cashRegisterShifts.restaurantId, restaurantId),
+      eq(cashRegisterShifts.status, 'aberto'),
+    ];
+
+    if (branchId !== null) {
+      conditions.push(eq(cashRegisterShifts.branchId, branchId));
+    }
+    if (cashRegisterId) {
+      conditions.push(eq(cashRegisterShifts.cashRegisterId, cashRegisterId));
+    }
+
+    const openShifts = await db
+      .select()
+      .from(cashRegisterShifts)
+      .where(and(...conditions));
+
+    await Promise.all(openShifts.map((shift) => this.closeExpiredCashRegisterShift(shift)));
+  }
+
   async getCashRegisterShifts(
     restaurantId: string,
     branchId: string | null,
@@ -7397,6 +7468,8 @@ export class DatabaseStorage implements IStorage {
       status?: 'aberto' | 'fechado';
     }
   ): Promise<Array<CashRegisterShift & { cashRegister: CashRegister; openedBy: User; closedBy?: User }>> {
+    await this.expireOpenCashRegisterShifts(restaurantId, branchId, filters?.cashRegisterId);
+
     let conditions = [eq(cashRegisterShifts.restaurantId, restaurantId)];
 
     if (branchId !== null) {
@@ -7472,7 +7545,7 @@ export class DatabaseStorage implements IStorage {
       ))
       .limit(1);
 
-    return shift;
+    return shift ? await this.closeExpiredCashRegisterShift(shift) : undefined;
   }
 
   async getCashRegistersWithActiveShift(restaurantId: string, branchId: string | null): Promise<CashRegister[]> {

@@ -8638,6 +8638,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         restaurantId: restaurantId,
       });
 
+      const isCounterOrder = ['balcao', 'takeout', 'pdv'].includes(validatedOrder.orderType);
+      if (currentUser.role === 'cashier' && isCounterOrder) {
+        const activeCashRegisters = await storage.getCashRegistersWithActiveShift(
+          restaurantId,
+          validatedOrder.branchId || null,
+        );
+        if (activeCashRegisters.length === 0) {
+          return res.status(409).json({
+            message: "Não é possível criar pedidos de balcão sem um turno de caixa aberto. Abra um turno para continuar.",
+          });
+        }
+      }
+
       // Orders created from the cashier can contain a customer's phone without
       // an explicitly selected customer. Resolve the same phone identity used
       // by the public menu so paid orders contribute to customer metrics.
@@ -9414,6 +9427,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (order.status === 'servido') {
         return res.status(400).json({ message: "Não é possível registrar pagamento para pedido já servido" });
+      }
+
+      if (currentUser.role === 'cashier' && ['balcao', 'takeout', 'pdv'].includes(order.orderType)) {
+        const activeCashRegisters = await storage.getCashRegistersWithActiveShift(
+          restaurantId,
+          order.branchId || currentUser.activeBranchId || null,
+        );
+        if (activeCashRegisters.length === 0) {
+          return res.status(409).json({
+            message: "O turno de caixa está fechado. Abra um novo turno para receber este pedido de balcão.",
+          });
+        }
       }
 
       const payment = recordPaymentSchema.parse(req.body);

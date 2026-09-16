@@ -97,6 +97,14 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
   const [selectedProduct, setSelectedProduct] = useState<NormalizedMenuItem | null>(null);
   const { toast } = useToast();
   const { getPrinterByType } = usePrinter();
+  const { data: currentUser } = useQuery<{ role?: string }>({
+    queryKey: ["/api/auth/user"],
+  });
+  const { data: cashRegisterShifts = [] } = useQuery<Array<{ status: string }>>({
+    queryKey: ["/api/cash-register-shifts", "order-dialog"],
+    enabled: open && currentUser?.role === "cashier",
+  });
+  const cashierHasOpenShift = cashRegisterShifts.some((shift) => shift.status === "aberto");
 
   // Generate new receipt number when dialog opens
   useEffect(() => {
@@ -480,6 +488,19 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
       toast({
         title: "Carrinho vazio",
         description: "Adicione itens ao pedido antes de finalizar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (
+      currentUser?.role === "cashier" &&
+      ["balcao", "takeout", "pdv"].includes(data.orderType) &&
+      !cashierHasOpenShift
+    ) {
+      toast({
+        title: "Turno de caixa fechado",
+        description: "Abra um turno de caixa antes de criar pedidos de balcão.",
         variant: "destructive",
       });
       return;
@@ -1036,7 +1057,13 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
                       {/* Submit Button */}
                       <Button 
                         type="submit" 
-                        disabled={createOrderMutation.isPending || cart.length === 0}
+                        disabled={
+                          createOrderMutation.isPending ||
+                          cart.length === 0 ||
+                          (currentUser?.role === "cashier" &&
+                            ["balcao", "takeout", "pdv"].includes(orderType) &&
+                            !cashierHasOpenShift)
+                        }
                         data-testid="button-submit-order"
                         className="w-full"
                         size="lg"
