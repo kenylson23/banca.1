@@ -966,6 +966,15 @@ class PrinterService {
       customerEmail?: string;
       customerNif?: string;
       customerAddress?: string;
+       restaurantName?: string;
+       restaurantNif?: string;
+       vatRegime?: string;
+       vatRate?: string;
+       fiscalAddress?: string;
+       restaurantEmail?: string;
+       website?: string;
+       whatsappNumber?: string;
+       legalFooter?: string;
       invoiceRecipientLabel?: string;
       tableCustomerName?: string;
       splitInfo?: string;
@@ -1008,6 +1017,19 @@ class PrinterService {
     });
 
     encoder.initialize();
+
+    // Identificação fiscal do emitente
+    if (content.restaurantName) {
+      encoder.align('center').bold(true).line(content.restaurantName).bold(false);
+    }
+    if (content.fiscalAddress) encoder.line(content.fiscalAddress);
+    if (content.restaurantNif) encoder.line(`NIF: ${content.restaurantNif}`);
+    if (content.vatRegime) encoder.line(`Regime: ${content.vatRegime}`);
+    if (content.vatRate) encoder.line(`IVA: ${content.vatRate}`);
+    if (content.restaurantEmail) encoder.line(`Email: ${content.restaurantEmail}`);
+    if (content.website) encoder.line(`Web: ${content.website}`);
+    if (content.whatsappNumber) encoder.line(`WhatsApp: ${content.whatsappNumber}`);
+    encoder.newline();
 
     // Cabeçalho
     encoder.align('center').bold(true).line('FATURA/RECIBO').bold(false);
@@ -1118,6 +1140,10 @@ class PrinterService {
     // Rodapé
     encoder.align('center').line('Obrigado pela preferência!').newline();
     encoder.line('Documento sem valor fiscal');
+
+    if (content.legalFooter) {
+      encoder.newline().align('center').line(content.legalFooter);
+    }
 
     // Cortar papel
     encoder.newline().newline().newline().cut('partial');

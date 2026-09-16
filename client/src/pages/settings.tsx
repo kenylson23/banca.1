@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
-import { Copy, Check, ExternalLink, Link2, Palette, Image as ImageIcon, Upload, Info, Image, Clock, QrCode, Eye, BarChart3, CreditCard, Plus, Trash2 } from 'lucide-react';
+import { Copy, Check, ExternalLink, Link2, Palette, Image as ImageIcon, Upload, Info, Image, Clock, QrCode, Eye, BarChart3, CreditCard, Plus, Trash2, ReceiptText } from 'lucide-react';
 import type { Restaurant } from '@shared/schema';
 import { BusinessHoursManager } from '@/components/BusinessHoursManager';
 import { QRCodeGenerator } from '@/components/QRCodeGenerator';
@@ -20,6 +20,18 @@ import { apiFetch } from '@/lib/api-url';
 
 type LinkSection = 'link' | 'qrcode' | 'preview' | 'analytics';
 type PaymentMethodDraft = { id: string; name: string; reference: string };
+type FiscalDraft = {
+  nif: string;
+  vatRegime: string;
+  vatRate: string;
+  documentSeries: string;
+  invoicePrefix: string;
+  fiscalAddress: string;
+  email: string;
+  website: string;
+  whatsappNumber: string;
+  legalFooter: string;
+};
 
 export default function Settings() {
   const [slug, setSlug] = useState('');
@@ -27,8 +39,12 @@ export default function Settings() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingHero, setUploadingHero] = useState(false);
   const [activeSection, setActiveSection] = useState<LinkSection>('link');
-  const [activeTab, setActiveTab] = useState<'link' | 'appearance' | 'hours' | 'payments'>('link');
+  const [activeTab, setActiveTab] = useState<'link' | 'appearance' | 'hours' | 'payments' | 'fiscal'>('link');
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodDraft[]>([]);
+  const [fiscalDraft, setFiscalDraft] = useState<FiscalDraft>({
+    nif: '', vatRegime: '', vatRate: '', documentSeries: '', invoicePrefix: '',
+    fiscalAddress: '', email: '', website: '', whatsappNumber: '', legalFooter: '',
+  });
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
@@ -48,7 +64,36 @@ export default function Settings() {
     if (restaurant?.paymentMethods) {
       setPaymentMethods(restaurant.paymentMethods);
     }
+    if (restaurant) {
+      setFiscalDraft({
+        nif: restaurant.nif || '',
+        vatRegime: restaurant.vatRegime || '',
+        vatRate: restaurant.vatRate || '',
+        documentSeries: restaurant.documentSeries || '',
+        invoicePrefix: restaurant.invoicePrefix || '',
+        fiscalAddress: restaurant.fiscalAddress || '',
+        email: restaurant.email || '',
+        website: restaurant.website || '',
+        whatsappNumber: restaurant.whatsappNumber || '',
+        legalFooter: restaurant.legalFooter || '',
+      });
+    }
   }, [restaurant]);
+
+  const updateFiscalMutation = useMutation({
+    mutationFn: async (data: FiscalDraft) => apiRequest('PATCH', '/api/restaurants/fiscal', data),
+    onSuccess: () => {
+      toast({ title: 'Configuração fiscal guardada', description: 'Os próximos documentos usarão estes dados do restaurante.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/public/restaurants'] });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Erro ao guardar configuração fiscal', description: error?.message || 'Verifique os dados e tente novamente.', variant: 'destructive' });
+    },
+  });
+
+  const updateFiscalField = (field: keyof FiscalDraft, value: string) => {
+    setFiscalDraft((current) => ({ ...current, [field]: value }));
+  };
 
   const updatePaymentMethodsMutation = useMutation({
     mutationFn: async (methods: PaymentMethodDraft[]) => {
@@ -347,6 +392,19 @@ export default function Settings() {
           <CreditCard className="h-6 w-6" />
           <span className="text-[10px] font-medium text-center leading-tight">Paga-mentos</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('fiscal')}
+          className={`flex flex-col items-center gap-2 p-3 rounded-lg transition-all w-16 ${
+            activeTab === 'fiscal'
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'hover:bg-muted text-muted-foreground'
+          }`}
+          title="Dados fiscais"
+        >
+          <ReceiptText className="h-6 w-6" />
+          <span className="text-[10px] font-medium text-center leading-tight">Fiscal</span>
+        </button>
       </div>
 
       {/* Conteúdo Principal */}
@@ -357,13 +415,14 @@ export default function Settings() {
             <div className="lg:hidden mb-4">
               <select
                 value={activeTab}
-                onChange={(e) => setActiveTab(e.target.value as 'link' | 'appearance' | 'hours' | 'payments')}
+                onChange={(e) => setActiveTab(e.target.value as 'link' | 'appearance' | 'hours' | 'payments' | 'fiscal')}
                 className="w-full h-10 px-3 rounded-lg border bg-background"
               >
                 <option value="link">🔗 Link Público</option>
                 <option value="appearance">🎨 Aparência</option>
                 <option value="hours">🕐 Horários</option>
                 <option value="payments">💳 Pagamentos</option>
+                <option value="fiscal">🧾 Dados fiscais</option>
               </select>
             </div>
 
@@ -378,16 +437,18 @@ export default function Settings() {
                 {activeTab === 'appearance' && 'Aparência'}
                 {activeTab === 'hours' && 'Horários'}
                 {activeTab === 'payments' && 'Formas de pagamento'}
+                {activeTab === 'fiscal' && 'Dados fiscais da fatura'}
               </h1>
               <p className="text-sm text-muted-foreground">
                 {activeTab === 'link' && 'Configure o link do seu menu digital'}
                 {activeTab === 'appearance' && 'Personalize a identidade visual do menu'}
                 {activeTab === 'hours' && 'Defina o horário de funcionamento'}
                 {activeTab === 'payments' && 'Escolha o que os clientes podem usar e informe a referência de cada método'}
+                {activeTab === 'fiscal' && 'Identifique o restaurante nos documentos e mantenha os dados fiscais atualizados'}
               </p>
             </motion.div>
 
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'link' | 'appearance' | 'hours' | 'payments')} className="w-full">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'link' | 'appearance' | 'hours' | 'payments' | 'fiscal')} className="w-full">
               {/* Remover TabsList pois agora usamos sidebar */}
 
         <TabsContent value="link" className="space-y-3 mt-4">
@@ -770,6 +831,75 @@ export default function Settings() {
           
           {/* Business Hours Manager */}
           {restaurant?.id && <BusinessHoursManager restaurantId={restaurant.id} />}
+        </TabsContent>
+
+        <TabsContent value="fiscal" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ReceiptText className="h-5 w-5" />
+                Configuração fiscal
+              </CardTitle>
+              <CardDescription>
+                Estes dados aparecem na fatura/recibo. Confirme o regime, a taxa e a série com o contabilista e as regras fiscais aplicáveis ao seu negócio em Angola.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="fiscal-nif">NIF do restaurante</Label>
+                  <Input id="fiscal-nif" value={fiscalDraft.nif} onChange={(event) => updateFiscalField('nif', event.target.value)} placeholder="5000000000" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fiscal-regime">Regime de IVA</Label>
+                  <Input id="fiscal-regime" value={fiscalDraft.vatRegime} onChange={(event) => updateFiscalField('vatRegime', event.target.value)} placeholder="Regime Geral de IVA" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fiscal-rate">Taxa de IVA (%)</Label>
+                  <Input id="fiscal-rate" inputMode="decimal" value={fiscalDraft.vatRate} onChange={(event) => updateFiscalField('vatRate', event.target.value)} placeholder="14" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fiscal-series">Série documental</Label>
+                  <Input id="fiscal-series" value={fiscalDraft.documentSeries} onChange={(event) => updateFiscalField('documentSeries', event.target.value)} placeholder="FT2026" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fiscal-prefix">Prefixo da fatura</Label>
+                  <Input id="fiscal-prefix" value={fiscalDraft.invoicePrefix} onChange={(event) => updateFiscalField('invoicePrefix', event.target.value)} placeholder="FT" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fiscal-email">Email fiscal</Label>
+                  <Input id="fiscal-email" type="email" value={fiscalDraft.email} onChange={(event) => updateFiscalField('email', event.target.value)} placeholder="faturacao@empresa.ao" />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="fiscal-address">Morada fiscal</Label>
+                  <Input id="fiscal-address" value={fiscalDraft.fiscalAddress} onChange={(event) => updateFiscalField('fiscalAddress', event.target.value)} placeholder="Rua, número, bairro, município, província" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fiscal-website">Website</Label>
+                  <Input id="fiscal-website" type="url" value={fiscalDraft.website} onChange={(event) => updateFiscalField('website', event.target.value)} placeholder="https://www.exemplo.ao" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fiscal-whatsapp">WhatsApp</Label>
+                  <Input id="fiscal-whatsapp" value={fiscalDraft.whatsappNumber} onChange={(event) => updateFiscalField('whatsappNumber', event.target.value)} placeholder="+244 9XX XXX XXX" />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="fiscal-footer">Texto legal no rodapé</Label>
+                  <textarea
+                    id="fiscal-footer"
+                    value={fiscalDraft.legalFooter}
+                    onChange={(event) => updateFiscalField('legalFooter', event.target.value)}
+                    placeholder="Ex.: Documento emitido nos termos da legislação fiscal aplicável."
+                    className="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button type="button" onClick={() => updateFiscalMutation.mutate(fiscalDraft)} disabled={updateFiscalMutation.isPending || !fiscalDraft.email.trim()}>
+                  {updateFiscalMutation.isPending ? 'A guardar...' : 'Guardar dados fiscais'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="payments" className="space-y-4">

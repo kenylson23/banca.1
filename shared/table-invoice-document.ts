@@ -8,6 +8,15 @@ export type TableInvoiceRestaurant = {
   address: string | null;
   phone: string | null;
   nif: string | null;
+  vatRegime: string | null;
+  vatRate: TableInvoiceMoney | null;
+  documentSeries: string | null;
+  invoicePrefix: string | null;
+  fiscalAddress: string | null;
+  email: string | null;
+  website: string | null;
+  whatsappNumber: string | null;
+  legalFooter: string | null;
   logoUrl: string | null;
 };
 

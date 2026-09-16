@@ -59,6 +59,7 @@ import {
   type Restaurant,
   type InsertRestaurant,
   type UpdateRestaurantAppearance,
+  type UpdateRestaurantFiscal,
   type UpdateRestaurantPaymentMethods,
   type Branch,
   type InsertBranch,
@@ -1142,6 +1143,19 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(restaurants)
       .set({ ...data, updatedAt: new Date() })
+      .where(eq(restaurants.id, restaurantId))
+      .returning();
+    return updated;
+  }
+
+  async updateRestaurantFiscal(restaurantId: string, data: UpdateRestaurantFiscal): Promise<Restaurant> {
+    const [updated] = await db
+      .update(restaurants)
+      .set({
+        ...data,
+        vatRate: data.vatRate ? data.vatRate.replace(',', '.') : null,
+        updatedAt: new Date(),
+      })
       .where(eq(restaurants.id, restaurantId))
       .returning();
     return updated;

@@ -497,7 +497,11 @@ async function buildTableInvoiceDocument(
     branchId: table.branchId,
   });
   const verificationUrl = buildInvoiceVerificationPath({ sessionId, validationCode });
-  const invoiceReference = formatTableInvoiceNumber(invoiceNumber, sessionForInvoice.startedAt);
+  const invoiceReference = restaurant.documentSeries
+    ? `${restaurant.documentSeries}/${String(invoiceNumber).padStart(6, '0')}`
+    : restaurant.invoicePrefix
+      ? `${restaurant.invoicePrefix} ${formatTableInvoiceNumber(invoiceNumber, sessionForInvoice.startedAt)}`
+      : formatTableInvoiceNumber(invoiceNumber, sessionForInvoice.startedAt);
   const audit = [
     ...sessionAuditRows.map((row) => {
     const details = (row.details || {}) as Record<string, any>;
@@ -570,7 +574,16 @@ async function buildTableInvoiceDocument(
       name: restaurant.name,
       address: restaurant.address ?? null,
       phone: restaurant.phone ?? null,
-      nif: null,
+      nif: restaurant.nif ?? null,
+      vatRegime: restaurant.vatRegime ?? null,
+      vatRate: restaurant.vatRate ?? null,
+      documentSeries: restaurant.documentSeries ?? null,
+      invoicePrefix: restaurant.invoicePrefix ?? null,
+      fiscalAddress: restaurant.fiscalAddress ?? null,
+      email: restaurant.email ?? null,
+      website: restaurant.website ?? null,
+      whatsappNumber: restaurant.whatsappNumber ?? null,
+      legalFooter: restaurant.legalFooter ?? null,
       logoUrl: restaurant.logoUrl ?? null,
     },
     branch: branch ? {
@@ -860,6 +873,7 @@ import {
   updateBranchSchema,
   updateRestaurantSlugSchema,
   updateRestaurantAppearanceSchema,
+  updateRestaurantFiscalSchema,
   insertOptionGroupSchema,
   updateOptionGroupSchema,
   insertOptionSchema,
@@ -2499,6 +2513,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: error.errors[0].message });
       }
       res.status(500).json({ message: "Erro ao atualizar aparência do restaurante" });
+    }
+  });
+
+  app.patch('/api/restaurants/fiscal', isAdmin, async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      if (!currentUser.restaurantId) {
+        return res.status(403).json({ message: "Usuário não associado a um restaurante" });
+      }
+
+      const data = updateRestaurantFiscalSchema.parse(req.body);
+      const restaurant = await storage.updateRestaurantFiscal(currentUser.restaurantId, data);
+      res.json(restaurant);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Erro ao atualizar configuração fiscal do restaurante" });
     }
   });
 
@@ -6384,6 +6416,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (document.branch) {
         pdf.fontSize(10).font('Helvetica').text(document.branch.name, { align: 'center' });
       }
+      pdf.fontSize(9).font('Helvetica')
+        .text(`NIF: ${document.restaurant.nif || 'Não informado'}`, { align: 'center' })
+        .text(`Regime de IVA: ${document.restaurant.vatRegime || 'Não informado'}${document.restaurant.vatRate ? ` · Taxa: ${document.restaurant.vatRate}%` : ''}`, { align: 'center' })
+        .text(`Morada fiscal: ${document.restaurant.fiscalAddress || document.restaurant.address || 'Não informado'}`, { align: 'center' })
+        .text([document.restaurant.email, document.restaurant.website, document.restaurant.whatsappNumber].filter(Boolean).join(' · '), { align: 'center' });
       pdf.fontSize(11).font('Helvetica-Bold').text('FATURA/RECIBO', { align: 'center' });
       pdf.moveDown(0.6);
       pdf.fontSize(10).font('Helvetica')
@@ -6416,6 +6453,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (document.isSplit) {
         pdf.text(`Conta dividida entre ${document.guests.length} convidados`);
+      }
+      if (document.restaurant.legalFooter) {
+        pdf.moveDown(0.6).font('Helvetica-Oblique').text(document.restaurant.legalFooter, { align: 'center' });
       }
       if (document.guests.length > 0) {
         pdf.moveDown(0.3).font('Helvetica-Bold').text('CONVIDADOS');

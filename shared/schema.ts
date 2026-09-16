@@ -46,6 +46,14 @@ export const restaurants = pgTable("restaurants", {
   phone: varchar("phone", { length: 50 }),
   whatsappNumber: varchar("whatsapp_number", { length: 50 }),
   address: text("address"),
+  nif: varchar("nif", { length: 30 }),
+  vatRegime: varchar("vat_regime", { length: 100 }),
+  vatRate: decimal("vat_rate", { precision: 5, scale: 2 }),
+  documentSeries: varchar("document_series", { length: 50 }),
+  invoicePrefix: varchar("invoice_prefix", { length: 30 }),
+  fiscalAddress: text("fiscal_address"),
+  website: varchar("website", { length: 255 }),
+  legalFooter: text("legal_footer"),
   logoUrl: text("logo_url"),
   businessHours: text("business_hours"),
   description: text("description"),
@@ -76,6 +84,14 @@ export const insertRestaurantSchema = createInsertSchema(restaurants).omit({
     .regex(/^(\+244|244)?\s*[9][0-9]{2}\s*[0-9]{3}\s*[0-9]{3}$|^(\+244|244)?[9][0-9]{8}$/, "Formato de telefone angolano inválido. Use o formato: +244 9XX XXX XXX")
     .optional(),
   address: z.string().min(1, "Endereço é obrigatório"),
+  nif: z.string().max(30, "NIF muito longo").optional().or(z.literal('')),
+  vatRegime: z.string().max(100, "Regime de IVA muito longo").optional().or(z.literal('')),
+  vatRate: z.string().regex(/^\d{1,3}([.,]\d{1,2})?$/, "Taxa de IVA inválida").optional().or(z.literal('')),
+  documentSeries: z.string().max(50, "Série documental muito longa").optional().or(z.literal('')),
+  invoicePrefix: z.string().max(30, "Prefixo muito longo").optional().or(z.literal('')),
+  fiscalAddress: z.string().max(1000, "Morada fiscal muito longa").optional().or(z.literal('')),
+  website: z.string().url("Website inválido").max(255).optional().or(z.literal('')),
+  legalFooter: z.string().max(1000, "Texto legal muito longo").optional().or(z.literal('')),
   logoUrl: z.string().optional(),
   businessHours: z.string().optional(),
   description: z.string().optional(),
@@ -131,6 +147,25 @@ export const updateRestaurantAppearanceSchema = z.object({
 });
 
 export type UpdateRestaurantAppearance = z.infer<typeof updateRestaurantAppearanceSchema>;
+
+export const updateRestaurantFiscalSchema = z.object({
+  nif: z.string().trim().max(30, "NIF muito longo").optional().or(z.literal('')),
+  vatRegime: z.string().trim().max(100, "Regime de IVA muito longo").optional().or(z.literal('')),
+  vatRate: z.string().trim().regex(/^\d{1,3}([.,]\d{1,2})?$/, "Taxa de IVA inválida").optional().or(z.literal('')),
+  documentSeries: z.string().trim().max(50, "Série documental muito longa").optional().or(z.literal('')),
+  invoicePrefix: z.string().trim().max(30, "Prefixo muito longo").optional().or(z.literal('')),
+  fiscalAddress: z.string().trim().max(1000, "Morada fiscal muito longa").optional().or(z.literal('')),
+  email: z.string().trim().email("Email inválido"),
+  website: z.string().trim().url("Website inválido").max(255).optional().or(z.literal('')),
+  whatsappNumber: z.string()
+    .trim()
+    .regex(/^(\+244|244)?\s*[9][0-9]{2}\s*[0-9]{3}\s*[0-9]{3}$|^(\+244|244)?[9][0-9]{8}$/, "Formato de WhatsApp angolano inválido")
+    .optional()
+    .or(z.literal('')),
+  legalFooter: z.string().trim().max(1000, "Texto legal muito longo").optional().or(z.literal('')),
+});
+
+export type UpdateRestaurantFiscal = z.infer<typeof updateRestaurantFiscalSchema>;
 
 export const updateRestaurantPaymentMethodsSchema = z.object({
   paymentMethods: z.array(restaurantPaymentMethodSchema).max(20),

@@ -98,6 +98,15 @@ export function renderTableInvoiceHtml(
   const branchName = document.branch?.name || 'Unidade principal';
   const branchAddress = document.branch?.address || document.restaurant.address;
   const branchPhone = document.branch?.phone || document.restaurant.phone;
+  const fiscalAddress = document.restaurant.fiscalAddress || document.restaurant.address;
+  const fiscalDetails = [
+    document.restaurant.nif ? `NIF: ${document.restaurant.nif}` : '',
+    document.restaurant.vatRegime ? `Regime: ${document.restaurant.vatRegime}` : '',
+    document.restaurant.vatRate ? `IVA: ${moneyLabel(document.restaurant.vatRate)}%` : '',
+    document.restaurant.email ? `Email: ${document.restaurant.email}` : '',
+    document.restaurant.website ? `Web: ${document.restaurant.website}` : '',
+    document.restaurant.whatsappNumber ? `WhatsApp: ${document.restaurant.whatsappNumber}` : '',
+  ].filter(Boolean).join(' · ');
   const operationDetails = `<section><h2>Dados da operação</h2><div class="operation-grid">
     <div><label>Filial</label><strong>${escapeHtml(branchName)}</strong></div>
     <div><label>Endereço da filial</label><strong>${escapeHtml(branchAddress || '-')}</strong></div>
@@ -139,9 +148,11 @@ export function renderTableInvoiceHtml(
       .thermal-only { display:${isThermal ? 'block' : 'none'}; } .a4-only { display:${isThermal ? 'none' : 'block'}; }
        ${isThermal ? 'header { display:block; text-align:center; } .brand { justify-content:center; } .meta { text-align:center; margin-top:9px; } .logo, .logo-fallback { width:42px; height:42px; } .grid { grid-template-columns:1fr 1fr; } .grid .info:last-child { grid-column:1 / -1; } .customer { grid-template-columns:1fr; } .customer .wide { grid-column:auto; } .operation-grid { grid-template-columns:1fr 1fr; } .operation-grid > div { padding:6px; } h2 { margin-top:15px; } th,td { padding:6px 3px; font-size:9px; } th:nth-child(3),td:nth-child(3) { display:none; } .summary { max-width:none; } .grand { font-size:15px; } .footer { display:block; text-align:center; } .qr-wrap { justify-content:center; margin-bottom:8px; } .validation { text-align:center; }' : ''}
     </style></head><body>
-      <header><div class="brand">${logo}<div><h1>${escapeHtml(document.restaurant.name)}</h1>
+       <header><div class="brand">${logo}<div><h1>${escapeHtml(document.restaurant.name)}</h1>
          <div>${escapeHtml(branchName)}</div>
-         <div class="muted">${escapeHtml(branchAddress || '')}${branchPhone ? ` · ${escapeHtml(branchPhone)}` : ''}</div>
+          <div class="muted">${escapeHtml(fiscalAddress || branchAddress || '')}${branchPhone ? ` · ${escapeHtml(branchPhone)}` : ''}</div>
+          ${document.restaurant.nif ? `<div class="muted">NIF: ${escapeHtml(document.restaurant.nif)}</div>` : ''}
+          ${document.restaurant.documentSeries ? `<div class="muted">Série: ${escapeHtml(document.restaurant.documentSeries)}</div>` : ''}
       </div></div><div class="meta"><strong>FATURA/RECIBO</strong><span class="number">Nº ${escapeHtml(document.invoiceReference)}</span><span>${escapeHtml(dateLabel(document.issuedAt))}</span><span class="status">${paymentStatusLabels[document.totals.paymentStatus]}</span></div></header>
       <div class="grid"><div class="info"><label>Mesa</label><strong>${escapeHtml(document.table.number)}${document.table.area ? ` · ${escapeHtml(document.table.area)}` : ''}</strong></div>
         <div class="info"><label>Sessão iniciada</label><strong>${escapeHtml(dateLabel(document.session.startedAt))}</strong></div><div class="info"><label>Moeda</label><strong>AOA · Kwanza</strong></div></div>
@@ -157,7 +168,7 @@ export function renderTableInvoiceHtml(
          <div class="line"><span>${Number(document.totals.pending) > 0 ? 'Saldo pendente' : 'Saldo'}</span><span class="pending">${moneyLabel(document.totals.pending)}</span></div>
       </section>
        <section><h2>Pagamentos realizados</h2><div class="payments">${paymentRows || '<div class="muted">Nenhum pagamento registado</div>'}</div>${paymentDetailRows ? `<small class="muted" style="margin-top:8px">Registos individuais</small><div class="payments">${paymentDetailRows}</div>` : ''}</section>
-       <footer class="footer">${qrCode}<div class="muted">Documento final emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura/Recibo Nº ${escapeHtml(document.invoiceReference)}<br>Total final: ${moneyLabel(document.totals.total)}<br>Código de validação: ${escapeHtml(document.validation.code)}<br>Confirmar: ${escapeHtml(document.validation.verificationUrl)}</div></footer>
+        <footer class="footer">${qrCode}<div class="muted">${document.restaurant.legalFooter ? `<strong>${escapeHtml(document.restaurant.legalFooter)}</strong><br>` : ''}${escapeHtml(fiscalDetails)}${fiscalDetails ? '<br>' : ''}Documento final emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura/Recibo Nº ${escapeHtml(document.invoiceReference)}<br>Total final: ${moneyLabel(document.totals.total)}<br>Código de validação: ${escapeHtml(document.validation.code)}<br>Confirmar: ${escapeHtml(document.validation.verificationUrl)}</div></footer>
     </body></html>`;
 }
 
@@ -183,6 +194,15 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
     branchName,
     branchAddress: branchAddress ?? undefined,
     branchPhone: branchPhone ?? undefined,
+    restaurantName: document.restaurant.name,
+    restaurantNif: document.restaurant.nif ?? undefined,
+    vatRegime: document.restaurant.vatRegime ?? undefined,
+    vatRate: document.restaurant.vatRate ? `${moneyLabel(document.restaurant.vatRate)}%` : undefined,
+    fiscalAddress: document.restaurant.fiscalAddress ?? undefined,
+    restaurantEmail: document.restaurant.email ?? undefined,
+    website: document.restaurant.website ?? undefined,
+    whatsappNumber: document.restaurant.whatsappNumber ?? undefined,
+    legalFooter: document.restaurant.legalFooter ?? undefined,
     cashRegisterShift: document.cashRegisterShift?.label ?? undefined,
     attendedBy: document.paymentOperatorNames.join(', ') || document.session.openedByName || undefined,
     closedBy: document.session.closedByName || document.cashRegisterShift?.closedByName || undefined,
