@@ -28,23 +28,11 @@ import { TableStatistics } from './TableStatistics';
 import { Button } from '@/components/ui/button';
 import { PrintTablePayment } from '@/components/PrintTablePayment';
 import { formatTableInvoiceNumber } from '@shared/table-invoice-number';
+import { formatPaymentMethodLabel } from '@shared/invoice-formatters';
 
 interface HistorySectionProps {
   table: Table;
 }
-
-const paymentMethodLabels: Record<string, string> = {
-  dinheiro: 'Dinheiro',
-  cartao: 'Cartão',
-  multicaixa: 'Multicaixa',
-  transferencia: 'Transferência',
-  // Manter compatibilidade com valores antigos se existirem
-  cash: 'Dinheiro',
-  card: 'Cartão',
-  mbway: 'MBWay',
-  tpa: 'TPA',
-  bank_transfer: 'Transferência',
-};
 
 export function HistorySection({ table }: HistorySectionProps) {
   const [activeTab, setActiveTab] = useState('statistics');
@@ -199,7 +187,7 @@ export function HistorySection({ table }: HistorySectionProps) {
                       <div>
                         <div className="text-sm text-muted-foreground mb-1">Método</div>
                         <div className="font-semibold">
-                          {paymentMethodLabels[payment.paymentMethod] || payment.paymentMethod}
+                          {formatPaymentMethodLabel(payment.paymentMethod)}
                         </div>
                         {payment.guestName && (
                           <div className="text-xs text-muted-foreground mt-1">

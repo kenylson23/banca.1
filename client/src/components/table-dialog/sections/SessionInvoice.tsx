@@ -8,9 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CreditCard, Download, Eye, Loader2, Printer, Receipt, RotateCcw, User, History, BadgeCheck } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { formatKwanza } from '@/lib/formatters';
 import { apiFetch } from '@/lib/api-url';
 import { printerService } from '@/lib/printer-service';
 import { usePrinter } from '@/hooks/usePrinter';
@@ -19,21 +16,18 @@ import QRCode from 'qrcode';
 import { renderTableInvoiceHtml, tableInvoiceToThermalPayload, type TableInvoicePaper } from '@/lib/table-invoice-renderer';
 import type { TableInvoiceDocument } from '@shared/table-invoice-document';
 import { PrintTablePayment } from '@/components/PrintTablePayment';
+import {
+  invoiceDate,
+  invoiceMoney,
+  invoiceOrderStatusLabel,
+  invoicePaymentStatusLabel,
+} from '@shared/invoice-formatters';
 
-const statusLabels = { pendente: 'PENDENTE', parcial: 'PAGO PARCIALMENTE', pago: 'PAGO' } as const;
 const statusColors = {
   pendente: 'bg-amber-100 text-amber-800',
   parcial: 'bg-blue-100 text-blue-800',
   pago: 'bg-emerald-100 text-emerald-800',
 } as const;
-const orderStatusLabels: Record<string, string> = {
-  aguardando_confirmacao: 'A aguardar confirmação',
-  pendente: 'Pendente',
-  em_preparo: 'Em preparação',
-  pronto: 'Pronto',
-  servido: 'Servido',
-  cancelado: 'Cancelado',
-};
 
 export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?: string | number }) {
   const { data, isLoading, isError } = useQuery<TableInvoiceDocument>({
@@ -183,8 +177,8 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
       <p className="font-medium">{item.name}</p>
       <p className="text-xs text-muted-foreground">
         Pedido {item.orderNumber ? `#${item.orderNumber}` : 'sem número'}
-        {item.orderCreatedAt ? ` · ${format(new Date(item.orderCreatedAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}` : ''}
-        {` · ${orderStatusLabels[item.orderStatus] || item.orderStatus}`}
+         {item.orderCreatedAt ? ` · ${invoiceDate(item.orderCreatedAt)}` : ''}
+         {` · ${invoiceOrderStatusLabel(item.orderStatus)}`}
       </p>
       {item.guestName && <p className="text-xs text-muted-foreground">Convidado: {item.guestName}</p>}
       {item.options.length > 0 && <p className="text-xs text-muted-foreground">Opções: {item.options.map((option) => `${option.name}${option.quantity > 1 ? ` (${option.quantity}x)` : ''}`).join(', ')}</p>}
@@ -207,7 +201,7 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge className={statusColors[data.totals.paymentStatus]}>{statusLabels[data.totals.paymentStatus]}</Badge>
+            <Badge className={statusColors[data.totals.paymentStatus]}>{invoicePaymentStatusLabel(data.totals.paymentStatus)}</Badge>
             <Button size="sm" variant="outline" onClick={() => setPreviewOpen(true)}><Eye className="mr-2 h-4 w-4" /> Pré-visualizar</Button>
             <Button size="sm" variant="outline" onClick={() => printBrowser('a4')}><Printer className="mr-2 h-4 w-4" /> Imprimir A4</Button>
              <Button size="sm" variant="outline" disabled={isRecordingReprint} onClick={() => printBrowser('a4', true)}><RotateCcw className="mr-2 h-4 w-4" /> Reimprimir</Button>
@@ -269,9 +263,9 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
            </div>
          </div>
         <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
-           <div><span className="text-muted-foreground">Total da sessão</span><p className="font-semibold">{formatKwanza(Number(data.totals.total))}</p></div>
-           <div><span className="text-muted-foreground">Total pago</span><p className="font-semibold text-emerald-600">{formatKwanza(Number(data.totals.paid))}</p></div>
-           <div><span className="text-muted-foreground">{Number(data.totals.pending) > 0 ? 'Saldo pendente' : 'Saldo'}</span><p className="font-semibold text-amber-600">{formatKwanza(Number(data.totals.pending))}</p></div>
+           <div><span className="text-muted-foreground">Total da sessão</span><p className="font-semibold">{invoiceMoney(data.totals.total)}</p></div>
+           <div><span className="text-muted-foreground">Total pago</span><p className="font-semibold text-emerald-600">{invoiceMoney(data.totals.paid)}</p></div>
+           <div><span className="text-muted-foreground">{Number(data.totals.pending) > 0 ? 'Saldo pendente' : 'Saldo'}</span><p className="font-semibold text-amber-600">{invoiceMoney(data.totals.pending)}</p></div>
         </div>
          <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
            <div><span className="text-muted-foreground">Filial</span><p className="font-medium">{data.branch?.name || 'Unidade principal'}</p></div>
@@ -280,8 +274,8 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
            <div><span className="text-muted-foreground">Caixa / turno</span><p className="font-medium">{data.cashRegisterShift?.label || 'Não identificado'}</p></div>
            <div><span className="text-muted-foreground">Atendido por</span><p className="font-medium">{data.paymentOperatorNames.join(', ') || data.session.openedByName || 'Não identificado'}</p></div>
            <div><span className="text-muted-foreground">Fechado por</span><p className="font-medium">{data.session.closedByName || data.cashRegisterShift?.closedByName || 'Não identificado'}</p></div>
-           <div><span className="text-muted-foreground">Abertura</span><p className="font-medium">{format(new Date(data.session.startedAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</p></div>
-           <div><span className="text-muted-foreground">Encerramento</span><p className="font-medium">{data.session.endedAt ? format(new Date(data.session.endedAt), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'Sessão aberta'}</p></div>
+           <div><span className="text-muted-foreground">Abertura</span><p className="font-medium">{invoiceDate(data.session.startedAt)}</p></div>
+           <div><span className="text-muted-foreground">Encerramento</span><p className="font-medium">{invoiceDate(data.session.endedAt, 'Sessão aberta')}</p></div>
            <div><span className="text-muted-foreground">Duração total</span><p className="font-medium">{data.session.durationLabel}</p></div>
          </div>
           {(data.discounts.length > 0 || data.fees.length > 0) && (
@@ -302,7 +296,7 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
                       </p>
                     </div>
                     <span className={adjustment.sign === '-' ? 'font-medium text-emerald-700' : 'font-medium text-amber-700'}>
-                      {adjustment.sign}{formatKwanza(Number(adjustment.amount))}
+                      {adjustment.sign}{invoiceMoney(adjustment.amount)}
                     </span>
                   </div>
                 ))}
@@ -324,8 +318,8 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
                     <tr key={item.id} className="border-t align-top">
                       <td className="px-3 py-2 text-center font-medium">{item.quantity}</td>
                       <td className="px-3 py-2">{itemDescription(item)}</td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">{formatKwanza(Number(item.unitPrice))}</td>
-                      <td className="px-3 py-2 text-right font-medium whitespace-nowrap">{formatKwanza(Number(item.total))}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{invoiceMoney(item.unitPrice)}</td>
+                      <td className="px-3 py-2 text-right font-medium whitespace-nowrap">{invoiceMoney(item.total)}</td>
                     </tr>
                   )) : <tr><td colSpan={4} className="px-3 py-4 text-center text-muted-foreground">Sem itens registados.</td></tr>}
                 </tbody>
@@ -349,8 +343,8 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
                       <tr key={item.id} className="border-t align-top text-muted-foreground">
                         <td className="px-3 py-2 text-center">{item.quantity}</td>
                         <td className="px-3 py-2">{itemDescription(item)}{item.orderNotes && <p className="text-xs text-red-700">Pedido cancelado: {item.orderNotes}</p>}</td>
-                        <td className="px-3 py-2 text-right whitespace-nowrap">{formatKwanza(Number(item.unitPrice))}</td>
-                        <td className="px-3 py-2 text-right whitespace-nowrap">{formatKwanza(Number(item.total))}</td>
+                         <td className="px-3 py-2 text-right whitespace-nowrap">{invoiceMoney(item.unitPrice)}</td>
+                         <td className="px-3 py-2 text-right whitespace-nowrap">{invoiceMoney(item.total)}</td>
                       </tr>
                     ))}</tbody>
                   </table>
@@ -363,8 +357,8 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
           <div className="mb-2 flex items-center gap-2 font-semibold"><CreditCard className="h-4 w-4 text-primary" /> Pagamentos realizados ({data.payments.length})</div>
             {data.paymentsByMethod.length > 0 ? data.paymentsByMethod.map((payment) => (
               <div key={payment.paymentMethod} className="flex flex-wrap items-center justify-between gap-2 rounded bg-muted/40 px-2 py-1.5">
-                <span>{payment.paymentMethodLabel} <span className="text-muted-foreground">· {payment.count} {payment.count === 1 ? 'lançamento' : 'lançamentos'}</span></span>
-                <span className="font-medium">{formatKwanza(Number(payment.amount))}</span>
+                 <span>{payment.paymentMethodLabel} <span className="text-muted-foreground">· {payment.count} {payment.count === 1 ? 'lançamento' : 'lançamentos'}</span></span>
+                 <span className="font-medium">{invoiceMoney(payment.amount)}</span>
               </div>
             )) : <p className="text-muted-foreground">Nenhum pagamento registado.</p>}
             {data.payments.length > 0 && (
@@ -374,11 +368,11 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
                 {data.payments.map((payment) => (
              <div key={payment.id} className="flex flex-wrap items-center justify-between gap-2 rounded bg-muted/40 px-2 py-1.5">
                <span>
-                 {payment.paymentMethodLabel} · {format(new Date(payment.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                  {payment.paymentMethodLabel} · {invoiceDate(payment.createdAt)}
                  {payment.operatorName ? ` · ${payment.operatorName}` : ''}
                </span>
                <div className="flex items-center gap-2">
-                 <span className="font-medium">{formatKwanza(Number(payment.amount))}</span>
+                  <span className="font-medium">{invoiceMoney(payment.amount)}</span>
                  <Button size="sm" variant="ghost" onClick={() => setPrintingPaymentId(payment.id)} title="Ver recibo individual">
                    <Receipt className="h-4 w-4" />
                  </Button>
@@ -396,7 +390,7 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
                <p className="text-muted-foreground">Descontos e ajustes</p>
                {data.audit.filter((entry) => entry.action.includes('discount') || entry.action.includes('adjustment')).length > 0
                  ? data.audit.filter((entry) => entry.action.includes('discount') || entry.action.includes('adjustment')).map((entry) => (
-                   <p key={entry.id}><strong>{entry.actorName || 'Não identificado'}</strong> · {format(new Date(entry.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}{entry.reason ? ` · ${entry.reason}` : ''}</p>
+                   <p key={entry.id}><strong>{entry.actorName || 'Não identificado'}</strong> · {invoiceDate(entry.createdAt)}{entry.reason ? ` · ${entry.reason}` : ''}</p>
                  ))
                  : <p className="text-muted-foreground">Sem registo de operador.</p>}
              </div>
@@ -406,7 +400,7 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
              <div>
                <p className="text-muted-foreground">Fecho da mesa</p>
                {data.audit.filter((entry) => entry.action === 'session_closed' || entry.action === 'session_force_closed').map((entry) => (
-                 <p key={entry.id}><strong>{entry.actorName || 'Não identificado'}</strong> · {format(new Date(entry.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}{entry.reason ? ` · ${entry.reason}` : ''}</p>
+                 <p key={entry.id}><strong>{entry.actorName || 'Não identificado'}</strong> · {invoiceDate(entry.createdAt)}{entry.reason ? ` · ${entry.reason}` : ''}</p>
                ))}
                {!data.audit.some((entry) => entry.action === 'session_closed' || entry.action === 'session_force_closed') && <p className="text-muted-foreground">Mesa ainda não fechada.</p>}
              </div>
@@ -415,7 +409,7 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
              <BadgeCheck className="mt-0.5 h-4 w-4 text-muted-foreground" />
              <div>
                <p className="text-muted-foreground">Reimpressões</p>
-               <p>{data.reprints.count > 0 ? `${data.reprints.count} vez(es) · última por ${data.reprints.lastPrintedBy || 'não identificado'} em ${data.reprints.lastPrintedAt ? format(new Date(data.reprints.lastPrintedAt), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-'}` : 'Documento original; ainda não reimpresso.'}</p>
+               <p>{data.reprints.count > 0 ? `${data.reprints.count} vez(es) · última por ${data.reprints.lastPrintedBy || 'não identificado'} em ${invoiceDate(data.reprints.lastPrintedAt)}` : 'Documento original; ainda não reimpresso.'}</p>
              </div>
            </div>
          </div>

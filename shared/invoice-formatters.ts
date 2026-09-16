@@ -1,5 +1,7 @@
 import { formatPaymentMethodLabel } from './payment-methods';
 
+export type InvoicePaymentStatus = 'pendente' | 'parcial' | 'pago';
+
 const moneyFormatter = new Intl.NumberFormat('pt-AO', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
@@ -17,6 +19,11 @@ const dateFormatter = new Intl.DateTimeFormat('pt-AO', {
 export function invoiceNumberLabel(value: unknown, fallback = 'Sessão sem referência'): string {
   const text = String(value ?? '').trim();
   return text || fallback;
+}
+
+export function invoiceDocumentNumber(value: unknown, fallback = 'Sem número'): string {
+  const text = String(value ?? '').trim();
+  return text ? `Nº ${text}` : fallback;
 }
 
 export function invoiceSessionLabel(value: unknown): string {
@@ -46,10 +53,29 @@ export const invoicePaymentStatusLabels = {
   pago: 'PAGO',
 } as const;
 
+const paymentStatusAliases: Record<string, InvoicePaymentStatus> = {
+  pago: 'pago',
+  paid: 'pago',
+  completed: 'pago',
+  completo: 'pago',
+  parcial: 'parcial',
+  partial: 'parcial',
+  parcialmente_pago: 'parcial',
+  parcialmente_paga: 'parcial',
+  pendente: 'pendente',
+  nao_pago: 'pendente',
+  não_pago: 'pendente',
+  pending: 'pendente',
+  unpaid: 'pendente',
+};
+
+export function normalizeInvoicePaymentStatus(value: unknown): InvoicePaymentStatus {
+  const key = String(value ?? '').trim().toLowerCase().replace(/\s+/g, '_');
+  return paymentStatusAliases[key] || 'pendente';
+}
+
 export function invoicePaymentStatusLabel(value: unknown): string {
-  if (value === 'pago') return invoicePaymentStatusLabels.pago;
-  if (value === 'parcial') return invoicePaymentStatusLabels.parcial;
-  return invoicePaymentStatusLabels.pendente;
+  return invoicePaymentStatusLabels[normalizeInvoicePaymentStatus(value)];
 }
 
 const orderStatusLabels: Record<string, string> = {
@@ -59,10 +85,16 @@ const orderStatusLabels: Record<string, string> = {
   pronto: 'Pronto',
   servido: 'Servido',
   cancelado: 'Cancelado',
+  awaiting_confirmation: 'A aguardar confirmação',
+  pending: 'Pendente',
+  preparing: 'Em preparação',
+  ready: 'Pronto',
+  served: 'Servido',
+  cancelled: 'Cancelado',
 };
 
 export function invoiceOrderStatusLabel(value: unknown): string {
-  const key = String(value ?? '').trim();
+  const key = String(value ?? '').trim().toLowerCase();
   return orderStatusLabels[key] || (key ? 'Estado não especificado' : 'Estado não informado');
 }
 
@@ -83,6 +115,21 @@ export function invoiceAdjustmentLabel(input: {
     input.reason ? `Motivo: ${input.reason}` : null,
   ].filter(Boolean);
   return `${input.sign || ''}${input.label}: ${invoiceMoney(input.amount)}${details.length ? ` · ${details.join(' · ')}` : ''}`;
+}
+
+export function invoiceAdjustmentDetail(input: {
+  inputValue: unknown;
+  type: 'valor' | 'percentual' | string;
+  sourceLabel?: string | null;
+  appliedByName?: string | null;
+  reason?: string | null;
+}): string {
+  return [
+    input.sourceLabel || null,
+    input.type === 'percentual' ? `${invoiceNumber(input.inputValue)}%` : 'valor fixo',
+    input.appliedByName ? `por ${input.appliedByName}` : 'por não identificado',
+    input.reason ? `Motivo: ${input.reason}` : null,
+  ].filter(Boolean).join(' · ');
 }
 
 export { formatPaymentMethodLabel };

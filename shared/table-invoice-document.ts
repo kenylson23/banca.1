@@ -1,4 +1,4 @@
-import { getPaymentMethodLabel, normalizePaymentMethod } from './payment-methods';
+import { formatPaymentMethodLabel, getPaymentMethodLabel, normalizePaymentMethod } from './payment-methods';
 
 export type TableInvoiceMoney = string;
 
@@ -146,10 +146,20 @@ export function summarizeTableInvoicePayments(
   }>();
 
   for (const payment of payments) {
-    const paymentMethod = normalizePaymentMethod(payment.paymentMethod);
+    let paymentMethod: string;
+    let paymentMethodLabel: string;
+    try {
+      paymentMethod = normalizePaymentMethod(payment.paymentMethod);
+      paymentMethodLabel = getPaymentMethodLabel(paymentMethod);
+    } catch {
+      // Historical records can contain a provider-specific code. Keep the
+      // payment in the document without leaking that code into print output.
+      paymentMethod = 'nao_especificado';
+      paymentMethodLabel = formatPaymentMethodLabel(payment.paymentMethod);
+    }
     const current = byMethod.get(paymentMethod) || {
       paymentMethod,
-      paymentMethodLabel: getPaymentMethodLabel(paymentMethod),
+      paymentMethodLabel,
       count: 0,
       amount: 0,
     };

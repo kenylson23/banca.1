@@ -1,6 +1,7 @@
 import type { TableInvoiceDocument } from '@shared/table-invoice-document';
 import {
   invoiceAdjustmentLabel,
+  invoiceAdjustmentDetail,
   invoiceDate,
   invoiceMoney,
   invoiceNumber,
@@ -56,8 +57,8 @@ export function renderTableInvoiceHtml(
     : '';
   const orderNotes = Array.from(new Set(document.items.map((item) => item.orderNotes).filter(Boolean))) as string[];
   const adjustmentRows = [
-     ...document.discounts.map((adjustment) => `<div class="line adjustment"><span><strong>${escapeHtml(adjustment.label)}</strong><small>${escapeHtml(invoiceAdjustmentLabel({ ...adjustment, sign: '-' }))}</small></span><span>- ${moneyLabel(adjustment.amount)}</span></div>`),
-     ...document.fees.map((adjustment) => `<div class="line adjustment"><span><strong>${escapeHtml(adjustment.label)}</strong><small>${escapeHtml(invoiceAdjustmentLabel({ ...adjustment, sign: '+' }))}</small></span><span>+ ${moneyLabel(adjustment.amount)}</span></div>`),
+      ...document.discounts.map((adjustment) => `<div class="line adjustment"><span><strong>${escapeHtml(adjustment.label)}</strong><small>${escapeHtml(invoiceAdjustmentDetail(adjustment))}</small></span><span>- ${moneyLabel(adjustment.amount)}</span></div>`),
+      ...document.fees.map((adjustment) => `<div class="line adjustment"><span><strong>${escapeHtml(adjustment.label)}</strong><small>${escapeHtml(invoiceAdjustmentDetail(adjustment))}</small></span><span>+ ${moneyLabel(adjustment.amount)}</span></div>`),
   ].join('');
   const paymentRows = document.payments.length
     ? document.paymentsByMethod.map((payment) => `

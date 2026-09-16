@@ -3,6 +3,13 @@ import { describe, it } from 'node:test';
 import { summarizeSessionInvoice } from '../shared/session-invoice';
 import { summarizeTableInvoicePayments } from '../shared/table-invoice-document';
 import { buildInvoiceVerificationPath, generateInvoiceValidationCode } from '../shared/invoice-validation';
+import {
+  invoiceDate,
+  invoiceMoney,
+  invoiceOrderStatusLabel,
+  invoicePaymentStatusLabel,
+  formatPaymentMethodLabel,
+} from '../shared/invoice-formatters';
 
 describe('table session invoice payments', () => {
   it('aggregates repeated payment methods into one line and keeps the paid total', () => {
@@ -58,6 +65,29 @@ describe('table session invoice payments', () => {
     assert.equal(totals.paidAmount, '400.00');
     assert.equal(totals.pendingAmount, '600.00');
     assert.equal(totals.paymentStatus, 'parcial');
+  });
+});
+
+describe('shared invoice formatters', () => {
+  it('uses the same friendly labels for canonical and legacy payment codes', () => {
+    assert.equal(formatPaymentMethodLabel('dinheiro'), 'Dinheiro');
+    assert.equal(formatPaymentMethodLabel('cash'), 'Dinheiro');
+    assert.equal(formatPaymentMethodLabel('tpa'), 'Cartão');
+    assert.equal(formatPaymentMethodLabel('bank_transfer'), 'Transferência');
+    assert.equal(formatPaymentMethodLabel('provider_code'), 'Método não especificado');
+  });
+
+  it('normalizes payment and order states before rendering', () => {
+    assert.equal(invoicePaymentStatusLabel('nao_pago'), 'PENDENTE');
+    assert.equal(invoicePaymentStatusLabel('paid'), 'PAGO');
+    assert.equal(invoicePaymentStatusLabel('partial'), 'PAGO PARCIALMENTE');
+    assert.equal(invoiceOrderStatusLabel('preparing'), 'Em preparação');
+    assert.equal(invoiceOrderStatusLabel('unknown_state'), 'Estado não especificado');
+  });
+
+  it('formats amounts and dates through the invoice locale', () => {
+    assert.equal(invoiceMoney('1250'), '1 250,00 Kz');
+    assert.equal(invoiceDate('2026-09-16T18:30:00.000Z'), '16/09/2026, 18:30');
   });
 });
 

@@ -15,6 +15,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from '@/hooks/use-toast';
+import { formatPaymentMethodLabel } from '@shared/invoice-formatters';
 
 type TransactionWithDetails = FinancialTransaction & {
   cashRegister: CashRegister | null;
@@ -295,7 +296,7 @@ export function PrintFinancialReport({
                     <td>${format(new Date(transaction.occurredAt || new Date()), "dd/MM/yy HH:mm", { locale: ptBR })}</td>
                     <td>${isIncome ? 'Receita' : 'Despesa'}</td>
                     <td>${transaction.category?.name || '-'}${transaction.invoiceReference ? `<br><small>Fatura Nº ${transaction.invoiceReference}</small>` : ''}</td>
-                    <td>${paymentMethodLabels[transaction.paymentMethod as keyof typeof paymentMethodLabels] || transaction.paymentMethod}</td>
+                    <td>${formatPaymentMethodLabel(transaction.paymentMethod)}</td>
                     <td>${transaction.cashRegister?.name || '-'}</td>
                     <td style="text-align: right;" class="${isIncome ? 'income' : 'expense'}">
                       ${isIncome ? '+' : '-'} ${formatKwanza(transaction.amount)}

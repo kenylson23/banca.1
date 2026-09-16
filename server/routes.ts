@@ -41,6 +41,16 @@ import type {
   TableInvoiceCustomer,
 } from '@shared/table-invoice-document';
 import { summarizeTableInvoicePayments } from '@shared/table-invoice-document';
+import {
+  invoiceAdjustmentDetail,
+  invoiceDate,
+  invoiceDocumentNumber,
+  invoiceMoney,
+  invoiceNumber,
+  invoiceOrderStatusLabel,
+  invoicePaymentStatusLabel,
+  invoiceSessionLabel,
+} from '@shared/invoice-formatters';
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import {
   checkCanAddCustomer,
@@ -632,12 +642,20 @@ async function buildTableInvoiceDocument(
     discounts,
     fees,
     payments: rawPayments.map((payment: any) => {
-      const method = normalizePaymentMethod(payment.paymentMethod);
+      let method: string;
+      let methodLabel: string;
+      try {
+        method = normalizePaymentMethod(payment.paymentMethod);
+        methodLabel = getPaymentMethodLabel(method);
+      } catch {
+        method = 'nao_especificado';
+        methodLabel = 'Método não especificado';
+      }
       return {
         id: payment.id,
         amount: fixedMoney(payment.amount),
         paymentMethod: method,
-        paymentMethodLabel: getPaymentMethodLabel(method),
+        paymentMethodLabel: methodLabel,
         createdAt: (payment.createdAt || new Date()).toISOString(),
         notes: payment.notes ?? null,
         operatorName: payment.operatorId ? paymentOperatorNames.get(payment.operatorId) || 'Usuário desconhecido' : null,
@@ -6418,16 +6436,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       pdf.fontSize(9).font('Helvetica')
         .text(`NIF: ${document.restaurant.nif || 'Não informado'}`, { align: 'center' })
-        .text(`Regime de IVA: ${document.restaurant.vatRegime || 'Não informado'}${document.restaurant.vatRate ? ` · Taxa: ${document.restaurant.vatRate}%` : ''}`, { align: 'center' })
+        .text(`Regime de IVA: ${document.restaurant.vatRegime || 'Não informado'}${document.restaurant.vatRate ? ` · Taxa: ${invoiceNumber(document.restaurant.vatRate)}%` : ''}`, { align: 'center' })
         .text(`Morada fiscal: ${document.restaurant.fiscalAddress || document.restaurant.address || 'Não informado'}`, { align: 'center' })
         .text([document.restaurant.email, document.restaurant.website, document.restaurant.whatsappNumber].filter(Boolean).join(' · '), { align: 'center' });
       pdf.fontSize(11).font('Helvetica-Bold').text('FATURA/RECIBO', { align: 'center' });
       pdf.moveDown(0.6);
       pdf.fontSize(10).font('Helvetica')
-        .text(`Fatura Nº ${document.invoiceReference}  |  Mesa ${document.table.number}`)
-        .text(`Estado: ${document.totals.paymentStatus === 'pago' ? 'PAGO' : document.totals.paymentStatus === 'parcial' ? 'PAGO PARCIALMENTE' : 'PENDENTE'}`)
-        .text(`Emissão: ${new Date(document.issuedAt).toLocaleString('pt-AO')}`)
-        .text(`Sessão iniciada: ${new Date(document.session.startedAt).toLocaleString('pt-AO')}`);
+        .text(`Fatura ${invoiceDocumentNumber(document.invoiceReference)}  |  Mesa ${document.table.number}`)
+        .text(`Estado: ${invoicePaymentStatusLabel(document.totals.paymentStatus)}`)
+        .text(`Emissão: ${invoiceDate(document.issuedAt)}`)
+        .text(`Sessão: ${invoiceSessionLabel(document.session.id)}`)
+        .text(`Sessão iniciada: ${invoiceDate(document.session.startedAt)}`);
       pdf.moveDown(0.4).font('Helvetica-Bold').text('DADOS DA OPERAÇÃO');
       pdf.font('Helvetica')
         .text(`Filial: ${document.branch?.name || 'Unidade principal'}`)
@@ -6436,8 +6455,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .text(`Caixa / turno: ${document.cashRegisterShift?.label || 'Não identificado'}`)
         .text(`Atendido por: ${document.paymentOperatorNames.join(', ') || document.session.openedByName || '-'}`)
         .text(`Fechado por: ${document.session.closedByName || document.cashRegisterShift?.closedByName || '-'}`)
-        .text(`Abertura: ${new Date(document.session.startedAt).toLocaleString('pt-AO')}`)
-        .text(`Encerramento: ${document.session.endedAt ? new Date(document.session.endedAt).toLocaleString('pt-AO') : 'Sessão aberta'}`)
+        .text(`Abertura: ${invoiceDate(document.session.startedAt)}`)
+        .text(`Encerramento: ${invoiceDate(document.session.endedAt, 'Sessão aberta')}`)
         .text(`Duração: ${document.session.durationLabel}`);
       pdf.moveDown(0.4).font('Helvetica-Bold').text('IDENTIFICAÇÃO DA FATURA');
       pdf.font('Helvetica').text(`Fatura em nome de: ${document.invoiceRecipient.label}`);
@@ -6471,10 +6490,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
            const options = item.options.length
              ? `Opções: ${item.options.map((option) => `${option.name}${option.quantity > 1 ? ` (${option.quantity}x)` : ''}`).join(', ')}`
              : '';
-           pdf.font('Helvetica-Bold').text(`${item.quantity}  ${item.name}`, { continued: true });
-           pdf.font('Helvetica').text(`  ${item.unitPrice} AOA  |  ${item.total} AOA`);
+            pdf.font('Helvetica-Bold').text(`${item.quantity}  ${item.name}`, { continued: true });
+            pdf.font('Helvetica').text(`  ${invoiceMoney(item.unitPrice)}  |  ${invoiceMoney(item.total)}`);
            pdf.fontSize(8).fillColor(cancelled ? '#991b1b' : '#475569')
-             .text(`Pedido ${item.orderNumber ? `#${item.orderNumber}` : 'sem número'}${item.orderCreatedAt ? ` · ${new Date(item.orderCreatedAt).toLocaleString('pt-AO')}` : ''} · ${item.orderStatus}${item.guestName ? ` · Convidado: ${item.guestName}` : ''}`);
+              .text(`Pedido ${item.orderNumber ? `#${item.orderNumber}` : 'sem número'}${item.orderCreatedAt ? ` · ${invoiceDate(item.orderCreatedAt)}` : ''} · ${invoiceOrderStatusLabel(item.orderStatus)}${item.guestName ? ` · Convidado: ${item.guestName}` : ''}`);
            if (options) pdf.text(options);
            if (item.notes) pdf.text(`Obs. do item: ${item.notes}`);
            if (item.orderNotes) pdf.text(`Obs. do pedido: ${item.orderNotes}`);
@@ -6501,34 +6520,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
        }
 
       pdf.moveDown(0.8).font('Helvetica-Bold').text('TOTAIS');
-      pdf.font('Helvetica')
-        .text(`Subtotal: ${document.totals.subtotal} AOA`);
+       pdf.font('Helvetica')
+         .text(`Subtotal: ${invoiceMoney(document.totals.subtotal)}`);
       for (const discount of document.discounts) {
-         pdf.text(`${discount.label}: - ${discount.amount} AOA`);
-         pdf.fontSize(8).fillColor('#475569').text(`Origem: ${discount.sourceLabel} · ${discount.type === 'percentual' ? `${discount.inputValue}%` : 'valor fixo'} · Aplicado por: ${discount.appliedByName || 'não identificado'}${discount.reason ? ` · Motivo: ${discount.reason}` : ''}`);
+          pdf.text(`${discount.label}: - ${invoiceMoney(discount.amount)}`);
+          pdf.fontSize(8).fillColor('#475569').text(invoiceAdjustmentDetail(discount));
          pdf.fontSize(10).fillColor('#000000');
       }
       for (const fee of document.fees) {
-         pdf.text(`${fee.label}: + ${fee.amount} AOA`);
-         pdf.fontSize(8).fillColor('#475569').text(`Origem: ${fee.sourceLabel} · ${fee.type === 'percentual' ? `${fee.inputValue}%` : 'valor fixo'} · Aplicado por: ${fee.appliedByName || 'não identificado'}${fee.reason ? ` · Motivo: ${fee.reason}` : ''}`);
+          pdf.text(`${fee.label}: + ${invoiceMoney(fee.amount)}`);
+          pdf.fontSize(8).fillColor('#475569').text(invoiceAdjustmentDetail(fee));
          pdf.fontSize(10).fillColor('#000000');
       }
-      pdf.font('Helvetica-Bold').text(`TOTAL FINAL: ${document.totals.total} AOA`);
-       pdf.font('Helvetica').text(`Total da sessão: ${document.totals.total} AOA`);
-       pdf.text(`Total pago: ${document.totals.paid} AOA`);
-       pdf.text(`${document.totals.pending === '0.00' ? 'Saldo' : 'Saldo pendente'}: ${document.totals.pending} AOA`);
+       pdf.font('Helvetica-Bold').text(`TOTAL FINAL: ${invoiceMoney(document.totals.total)}`);
+        pdf.font('Helvetica').text(`Total da sessão: ${invoiceMoney(document.totals.total)}`);
+        pdf.text(`Total pago: ${invoiceMoney(document.totals.paid)}`);
+        pdf.text(`${Number(document.totals.pending) === 0 ? 'Saldo' : 'Saldo pendente'}: ${invoiceMoney(document.totals.pending)}`);
 
       pdf.moveDown(0.8).font('Helvetica-Bold').text('PAGAMENTOS REALIZADOS');
       pdf.font('Helvetica');
        for (const payment of document.paymentsByMethod) {
-         pdf.text(`${payment.paymentMethodLabel} — ${payment.amount} AOA${payment.count > 1 ? ` (${payment.count} lançamentos)` : ''}`);
+          pdf.text(`${payment.paymentMethodLabel} — ${invoiceMoney(payment.amount)}${payment.count > 1 ? ` (${payment.count} lançamentos)` : ''}`);
       }
        if (document.paymentsByMethod.length === 0) pdf.text('Nenhum pagamento registado');
        if (document.payments.length > 0) {
          pdf.moveDown(0.35).font('Helvetica-Bold').text('Registos individuais');
          pdf.font('Helvetica');
          for (const payment of document.payments) {
-           pdf.text(`${payment.paymentMethodLabel} — ${payment.amount} AOA — ${new Date(payment.createdAt).toLocaleString('pt-AO')}`);
+            pdf.text(`${payment.paymentMethodLabel} — ${invoiceMoney(payment.amount)} — ${invoiceDate(payment.createdAt)}`);
          }
        }
 

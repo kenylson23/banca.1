@@ -3485,11 +3485,11 @@ async function allocateInvoiceNumber(restaurantId, branchId) {
     DO UPDATE SET next_number = invoice_sequences.next_number + 1
     RETURNING next_number - 1 AS invoice_number
   `);
-  const invoiceNumber = Number(result.rows?.[0]?.invoice_number);
-  if (!Number.isInteger(invoiceNumber) || invoiceNumber < 1) {
+  const invoiceNumber2 = Number(result.rows?.[0]?.invoice_number);
+  if (!Number.isInteger(invoiceNumber2) || invoiceNumber2 < 1) {
     throw new Error("N\xE3o foi poss\xEDvel reservar o n\xFAmero da fatura");
   }
-  return invoiceNumber;
+  return invoiceNumber2;
 }
 async function allocateTableSessionInvoiceNumber(restaurantId, branchId) {
   return allocateInvoiceNumber(restaurantId, branchId);
@@ -3519,6 +3519,13 @@ function getPaymentMethodLabel(value) {
   };
   return labels[normalizePaymentMethod(value)];
 }
+function formatPaymentMethodLabel(value) {
+  try {
+    return getPaymentMethodLabel(value);
+  } catch {
+    return "M\xE9todo n\xE3o especificado";
+  }
+}
 var aliases;
 var init_payment_methods = __esm({
   "shared/payment-methods.ts"() {
@@ -3534,16 +3541,19 @@ var init_payment_methods = __esm({
       transferencia: "transferencia",
       transfer\u00EAncia: "transferencia",
       bank_transfer: "transferencia",
+      "bank transfer": "transferencia",
+      mbway: "transferencia",
       cartao: "cartao",
       cart\u00E3o: "cartao",
-      card: "cartao"
+      card: "cartao",
+      tpa: "cartao"
     };
   }
 });
 
 // shared/table-invoice-number.ts
-function formatTableInvoiceNumber(invoiceNumber, date) {
-  const number = Number(invoiceNumber);
+function formatTableInvoiceNumber(invoiceNumber2, date) {
+  const number = Number(invoiceNumber2);
   if (!Number.isInteger(number) || number < 1) {
     return "FT AOA/----/------";
   }
@@ -5478,16 +5488,16 @@ var init_storage = __esm({
         return await db.select().from(restaurants).orderBy(restaurants.createdAt);
       }
       async getRestaurantById(id) {
-        const [restaurant2] = await db.select().from(restaurants).where(eq(restaurants.id, id));
-        return restaurant2;
+        const [restaurant] = await db.select().from(restaurants).where(eq(restaurants.id, id));
+        return restaurant;
       }
       async getRestaurantByEmail(email) {
-        const [restaurant2] = await db.select().from(restaurants).where(eq(restaurants.email, email));
-        return restaurant2;
+        const [restaurant] = await db.select().from(restaurants).where(eq(restaurants.email, email));
+        return restaurant;
       }
       async getRestaurantBySlug(slug) {
-        const [restaurant2] = await db.select().from(restaurants).where(eq(restaurants.slug, slug));
-        return restaurant2;
+        const [restaurant] = await db.select().from(restaurants).where(eq(restaurants.slug, slug));
+        return restaurant;
       }
       async updateRestaurantSlug(restaurantId, slug) {
         const [updated] = await db.update(restaurants).set({ slug, updatedAt: /* @__PURE__ */ new Date() }).where(eq(restaurants.id, restaurantId)).returning();
@@ -5518,7 +5528,7 @@ var init_storage = __esm({
           slug = `${generateSlug(data.name)}-${counter}`;
           counter++;
         }
-        const [restaurant2] = await db.insert(restaurants).values({
+        const [restaurant] = await db.insert(restaurants).values({
           name: data.name,
           slug,
           email: data.email,
@@ -5528,22 +5538,22 @@ var init_storage = __esm({
           businessHours: data.businessHours,
           description: data.description
         }).returning();
-        const mainBranch = await this.createBranch(restaurant2.id, {
-          name: `${restaurant2.name} - Matriz`,
+        const mainBranch = await this.createBranch(restaurant.id, {
+          name: `${restaurant.name} - Matriz`,
           address: data.address,
           phone: data.phone,
           isActive: 1,
           isMain: 1
         });
         const [adminUser] = await db.insert(users).values({
-          restaurantId: restaurant2.id,
+          restaurantId: restaurant.id,
           activeBranchId: mainBranch.id,
           email: data.email,
           password: hashedPassword,
           firstName: data.name,
           role: "admin"
         }).returning();
-        return { restaurant: restaurant2, adminUser };
+        return { restaurant, adminUser };
       }
       async updateRestaurantStatus(id, status) {
         const [updated] = await db.update(restaurants).set({ status, updatedAt: /* @__PURE__ */ new Date() }).where(eq(restaurants.id, id)).returning();
@@ -5558,14 +5568,14 @@ var init_storage = __esm({
       async generateMissingSlugs() {
         const allRestaurants = await db.select().from(restaurants);
         const restaurantsWithoutSlug = allRestaurants.filter((r) => !r.slug);
-        for (const restaurant2 of restaurantsWithoutSlug) {
-          let slug = generateSlug(restaurant2.name);
+        for (const restaurant of restaurantsWithoutSlug) {
+          let slug = generateSlug(restaurant.name);
           let counter = 1;
           while (await this.getRestaurantBySlug(slug)) {
-            slug = `${generateSlug(restaurant2.name)}-${counter}`;
+            slug = `${generateSlug(restaurant.name)}-${counter}`;
             counter++;
           }
-          await db.update(restaurants).set({ slug, updatedAt: /* @__PURE__ */ new Date() }).where(eq(restaurants.id, restaurant2.id));
+          await db.update(restaurants).set({ slug, updatedAt: /* @__PURE__ */ new Date() }).where(eq(restaurants.id, restaurant.id));
         }
         if (restaurantsWithoutSlug.length > 0) {
         }
@@ -5619,14 +5629,14 @@ var init_storage = __esm({
         if (mainBranch) {
           return mainBranch;
         }
-        const restaurant2 = await this.getRestaurantById(restaurantId);
-        if (!restaurant2) {
+        const restaurant = await this.getRestaurantById(restaurantId);
+        if (!restaurant) {
           throw new Error("Restaurant not found");
         }
         return await this.createBranch(restaurantId, {
-          name: `${restaurant2.name} - Matriz`,
-          address: restaurant2.address || void 0,
-          phone: restaurant2.phone || void 0,
+          name: `${restaurant.name} - Matriz`,
+          address: restaurant.address || void 0,
+          phone: restaurant.phone || void 0,
           isActive: 1,
           isMain: 1
         });
@@ -5938,7 +5948,7 @@ var init_storage = __esm({
         if (!tableForInvoice || tableForInvoice.restaurantId !== restaurantId) {
           throw new Error("Table not found");
         }
-        const invoiceNumber = await allocateTableSessionInvoiceNumber(restaurantId, tableForInvoice.branchId);
+        const invoiceNumber2 = await allocateTableSessionInvoiceNumber(restaurantId, tableForInvoice.branchId);
         const session2 = await db.transaction(async (tx) => {
           const [table2] = await tx.select().from(tables).where(and(eq(tables.id, tableId), eq(tables.restaurantId, restaurantId))).for("update");
           if (!table2) {
@@ -5956,7 +5966,7 @@ var init_storage = __esm({
             restaurantId,
             customerName: sessionData.customerName,
             customerCount: sessionData.customerCount,
-            invoiceNumber,
+            invoiceNumber: invoiceNumber2,
             status: "ocupada",
             pin
           }).returning();
@@ -6881,7 +6891,7 @@ var init_storage = __esm({
           }
         }
         const derivedTableSessionId = order.orderType === "mesa" && order.tableId ? order.tableSessionId ?? (await this.getTableById(order.tableId))?.currentSessionId ?? null : order.tableSessionId ?? null;
-        const invoiceNumber = await allocateInvoiceNumber(restaurantId, resolvedBranchId);
+        const invoiceNumber2 = await allocateInvoiceNumber(restaurantId, resolvedBranchId);
         console.log("[DEBUG] createOrder derived values:", {
           orderId: order.id,
           tableId: order.tableId,
@@ -6902,7 +6912,7 @@ var init_storage = __esm({
           paymentStatus: "nao_pago",
           subtotal: subtotal.toFixed(2),
           totalAmount: totalAmount.toFixed(2),
-          invoiceNumber
+          invoiceNumber: invoiceNumber2
         }).returning();
         if (normalizedItems.length > 0) {
           for (const item of normalizedItems) {
@@ -8082,12 +8092,12 @@ var init_storage = __esm({
           });
         }
         const allRestaurants = await this.getRestaurants();
-        const revenueByRestaurant = allRestaurants.map((restaurant2) => {
-          const restaurantOrders = allOrders.filter((o) => o.restaurantId === restaurant2.id);
+        const revenueByRestaurant = allRestaurants.map((restaurant) => {
+          const restaurantOrders = allOrders.filter((o) => o.restaurantId === restaurant.id);
           const revenue = restaurantOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount), 0);
           return {
-            restaurantId: restaurant2.id,
-            restaurantName: restaurant2.name,
+            restaurantId: restaurant.id,
+            restaurantName: restaurant.name,
             revenue,
             ordersCount: restaurantOrders.length
           };
@@ -8104,40 +8114,40 @@ var init_storage = __esm({
       async getRestaurantRankings() {
         const allRestaurants = await this.getRestaurants();
         const allOrders = await db.select().from(orders).where(ne(orders.status, "cancelado"));
-        const topByRevenue = allRestaurants.map((restaurant2) => {
-          const restaurantOrders = allOrders.filter((o) => o.restaurantId === restaurant2.id);
+        const topByRevenue = allRestaurants.map((restaurant) => {
+          const restaurantOrders = allOrders.filter((o) => o.restaurantId === restaurant.id);
           const revenue = restaurantOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount), 0);
           const ordersCount = restaurantOrders.length;
           const averageTicket = ordersCount > 0 ? revenue / ordersCount : 0;
-          return { restaurant: restaurant2, revenue, ordersCount, averageTicket };
+          return { restaurant, revenue, ordersCount, averageTicket };
         }).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
-        const topByOrders = allRestaurants.map((restaurant2) => {
-          const restaurantOrders = allOrders.filter((o) => o.restaurantId === restaurant2.id);
+        const topByOrders = allRestaurants.map((restaurant) => {
+          const restaurantOrders = allOrders.filter((o) => o.restaurantId === restaurant.id);
           const ordersCount = restaurantOrders.length;
           const revenue = restaurantOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount), 0);
-          return { restaurant: restaurant2, ordersCount, revenue };
+          return { restaurant, ordersCount, revenue };
         }).sort((a, b) => b.ordersCount - a.ordersCount).slice(0, 10);
         const now = /* @__PURE__ */ new Date();
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1e3);
         const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1e3);
-        const topByGrowth = allRestaurants.map((restaurant2) => {
+        const topByGrowth = allRestaurants.map((restaurant) => {
           const recentOrders = allOrders.filter(
-            (o) => o.restaurantId === restaurant2.id && new Date(o.createdAt) >= thirtyDaysAgo
+            (o) => o.restaurantId === restaurant.id && new Date(o.createdAt) >= thirtyDaysAgo
           );
           const previousOrders = allOrders.filter((o) => {
             const date = new Date(o.createdAt);
-            return o.restaurantId === restaurant2.id && date >= sixtyDaysAgo && date < thirtyDaysAgo;
+            return o.restaurantId === restaurant.id && date >= sixtyDaysAgo && date < thirtyDaysAgo;
           });
           const currentRevenue = recentOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount), 0);
           const previousRevenue = previousOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount), 0);
           const growthRate = previousRevenue > 0 ? (currentRevenue - previousRevenue) / previousRevenue * 100 : 0;
-          return { restaurant: restaurant2, growthRate, currentRevenue, previousRevenue };
+          return { restaurant, growthRate, currentRevenue, previousRevenue };
         }).sort((a, b) => b.growthRate - a.growthRate).slice(0, 10);
         return { topByRevenue, topByOrders, topByGrowth };
       }
       async getRestaurantDetails(restaurantId) {
-        const restaurant2 = await this.getRestaurantById(restaurantId);
-        if (!restaurant2) {
+        const restaurant = await this.getRestaurantById(restaurantId);
+        if (!restaurant) {
           throw new Error("Restaurante n\xE3o encontrado");
         }
         const restaurantOrders = await db.select().from(orders).where(eq(orders.restaurantId, restaurantId));
@@ -8207,7 +8217,7 @@ var init_storage = __esm({
           user: order.customerName || void 0
         }));
         return {
-          restaurant: restaurant2,
+          restaurant,
           metrics: {
             totalOrders,
             totalRevenue: totalRevenue.toFixed(2),
@@ -8246,11 +8256,11 @@ var init_storage = __esm({
           percentage: totalRevenue > 0 ? total / totalRevenue * 100 : 0
         }));
         const allRestaurants = await this.getRestaurants();
-        const revenueByRestaurant = allRestaurants.map((restaurant2) => {
-          const restaurantOrders = allOrders.filter((o) => o.restaurantId === restaurant2.id);
+        const revenueByRestaurant = allRestaurants.map((restaurant) => {
+          const restaurantOrders = allOrders.filter((o) => o.restaurantId === restaurant.id);
           const revenue = restaurantOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount), 0);
           return {
-            restaurantName: restaurant2.name,
+            restaurantName: restaurant.name,
             revenue: revenue.toFixed(2),
             orders: restaurantOrders.length
           };
@@ -12841,10 +12851,18 @@ init_payment_methods();
 function summarizeTableInvoicePayments(payments) {
   const byMethod = /* @__PURE__ */ new Map();
   for (const payment of payments) {
-    const paymentMethod = normalizePaymentMethod(payment.paymentMethod);
+    let paymentMethod;
+    let paymentMethodLabel;
+    try {
+      paymentMethod = normalizePaymentMethod(payment.paymentMethod);
+      paymentMethodLabel = getPaymentMethodLabel(paymentMethod);
+    } catch {
+      paymentMethod = "nao_especificado";
+      paymentMethodLabel = formatPaymentMethodLabel(payment.paymentMethod);
+    }
     const current = byMethod.get(paymentMethod) || {
       paymentMethod,
-      paymentMethodLabel: getPaymentMethodLabel(paymentMethod),
+      paymentMethodLabel,
       count: 0,
       amount: 0
     };
@@ -12857,6 +12875,95 @@ function summarizeTableInvoicePayments(payments) {
     ...payment,
     amount: payment.amount.toFixed(2)
   }));
+}
+
+// shared/invoice-formatters.ts
+init_payment_methods();
+var moneyFormatter = new Intl.NumberFormat("pt-AO", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
+});
+var dateFormatter = new Intl.DateTimeFormat("pt-AO", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23"
+});
+function invoiceDocumentNumber(value, fallback = "Sem n\xFAmero") {
+  const text2 = String(value ?? "").trim();
+  return text2 ? `N\xBA ${text2}` : fallback;
+}
+function invoiceSessionLabel(value) {
+  const text2 = String(value ?? "").trim();
+  return text2 ? `Sess\xE3o ${text2.slice(0, 8).toUpperCase()}` : "Sess\xE3o sem refer\xEAncia";
+}
+function invoiceMoney(value) {
+  const amount = Number(value ?? 0);
+  return `${moneyFormatter.format(Number.isFinite(amount) ? amount : 0)} Kz`;
+}
+function invoiceNumber(value) {
+  const amount = Number(value ?? 0);
+  return moneyFormatter.format(Number.isFinite(amount) ? amount : 0);
+}
+function invoiceDate(value, fallback = "-") {
+  if (!value) return fallback;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? fallback : dateFormatter.format(date);
+}
+var invoicePaymentStatusLabels = {
+  pendente: "PENDENTE",
+  parcial: "PAGO PARCIALMENTE",
+  pago: "PAGO"
+};
+var paymentStatusAliases = {
+  pago: "pago",
+  paid: "pago",
+  completed: "pago",
+  completo: "pago",
+  parcial: "parcial",
+  partial: "parcial",
+  parcialmente_pago: "parcial",
+  parcialmente_paga: "parcial",
+  pendente: "pendente",
+  nao_pago: "pendente",
+  n\u00E3o_pago: "pendente",
+  pending: "pendente",
+  unpaid: "pendente"
+};
+function normalizeInvoicePaymentStatus(value) {
+  const key = String(value ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+  return paymentStatusAliases[key] || "pendente";
+}
+function invoicePaymentStatusLabel(value) {
+  return invoicePaymentStatusLabels[normalizeInvoicePaymentStatus(value)];
+}
+var orderStatusLabels = {
+  aguardando_confirmacao: "A aguardar confirma\xE7\xE3o",
+  pendente: "Pendente",
+  em_preparo: "Em prepara\xE7\xE3o",
+  pronto: "Pronto",
+  servido: "Servido",
+  cancelado: "Cancelado",
+  awaiting_confirmation: "A aguardar confirma\xE7\xE3o",
+  pending: "Pendente",
+  preparing: "Em prepara\xE7\xE3o",
+  ready: "Pronto",
+  served: "Servido",
+  cancelled: "Cancelado"
+};
+function invoiceOrderStatusLabel(value) {
+  const key = String(value ?? "").trim().toLowerCase();
+  return orderStatusLabels[key] || (key ? "Estado n\xE3o especificado" : "Estado n\xE3o informado");
+}
+function invoiceAdjustmentDetail(input) {
+  return [
+    input.sourceLabel || null,
+    input.type === "percentual" ? `${invoiceNumber(input.inputValue)}%` : "valor fixo",
+    input.appliedByName ? `por ${input.appliedByName}` : "por n\xE3o identificado",
+    input.reason ? `Motivo: ${input.reason}` : null
+  ].filter(Boolean).join(" \xB7 ");
 }
 
 // server/routes.ts
@@ -13120,16 +13227,7 @@ function customerFromGuest(guest) {
       name: guest.name,
       phone: null,
       email: null,
-      nif: restaurant.nif ?? null,
-      vatRegime: restaurant.vatRegime ?? null,
-      vatRate: restaurant.vatRate ?? null,
-      documentSeries: restaurant.documentSeries ?? null,
-      invoicePrefix: restaurant.invoicePrefix ?? null,
-      fiscalAddress: restaurant.fiscalAddress ?? null,
-      email: restaurant.email ?? null,
-      website: restaurant.website ?? null,
-      whatsappNumber: restaurant.whatsappNumber ?? null,
-      legalFooter: restaurant.legalFooter ?? null,
+      nif: null,
       address: null
     };
   }
@@ -13142,18 +13240,18 @@ async function buildTableInvoiceDocument(restaurantId, sessionId) {
     throw new Error("Sess\xE3o n\xE3o encontrada");
   }
   const [table2] = await db.select().from(tables).where(eq5(tables.id, session2.tableId)).limit(1);
-  const [restaurant2] = await db.select().from(restaurants).where(eq5(restaurants.id, effectiveRestaurantId)).limit(1);
-  if (!table2 || !restaurant2) {
+  const [restaurant] = await db.select().from(restaurants).where(eq5(restaurants.id, effectiveRestaurantId)).limit(1);
+  if (!table2 || !restaurant) {
     throw new Error("Mesa ou restaurante n\xE3o encontrado");
   }
   const [branch] = table2.branchId ? await db.select().from(branches).where(eq5(branches.id, table2.branchId)).limit(1) : [];
   const totals = await storage.recalculateSessionTotals(sessionId);
   const [freshSession] = await db.select().from(tableSessions).where(eq5(tableSessions.id, sessionId)).limit(1);
   const sessionForInvoice = freshSession || session2;
-  let invoiceNumber = sessionForInvoice.invoiceNumber;
-  if (invoiceNumber == null) {
-    invoiceNumber = await allocateTableSessionInvoiceNumber(effectiveRestaurantId, table2.branchId);
-    await db.update(tableSessions).set({ invoiceNumber }).where(eq5(tableSessions.id, sessionId));
+  let invoiceNumber2 = sessionForInvoice.invoiceNumber;
+  if (invoiceNumber2 == null) {
+    invoiceNumber2 = await allocateTableSessionInvoiceNumber(effectiveRestaurantId, table2.branchId);
+    await db.update(tableSessions).set({ invoiceNumber: invoiceNumber2 }).where(eq5(tableSessions.id, sessionId));
   }
   const [rawPayments, guests, rawOrders] = await Promise.all([
     db.select().from(tablePayments).where(eq5(tablePayments.sessionId, sessionId)).orderBy(asc(tablePayments.createdAt)),
@@ -13389,7 +13487,7 @@ async function buildTableInvoiceDocument(restaurantId, sessionId) {
   const activeGuests = guests.filter((guest) => guest.status !== "saiu");
   const isSplit = activeGuests.length > 1 || guests.length > 1;
   const validationCode = generateInvoiceValidationCode({
-    invoiceNumber,
+    invoiceNumber: invoiceNumber2,
     sessionId,
     date: sessionForInvoice.endedAt,
     total: paymentSummary.totalAmount,
@@ -13397,7 +13495,7 @@ async function buildTableInvoiceDocument(restaurantId, sessionId) {
     branchId: table2.branchId
   });
   const verificationUrl = buildInvoiceVerificationPath({ sessionId, validationCode });
-  const invoiceReference = restaurant2.documentSeries ? `${restaurant2.documentSeries}/${String(invoiceNumber).padStart(6, "0")}` : restaurant2.invoicePrefix ? `${restaurant2.invoicePrefix} ${formatTableInvoiceNumber(invoiceNumber, sessionForInvoice.startedAt)}` : formatTableInvoiceNumber(invoiceNumber, sessionForInvoice.startedAt);
+  const invoiceReference = restaurant.documentSeries ? `${restaurant.documentSeries}/${String(invoiceNumber2).padStart(6, "0")}` : restaurant.invoicePrefix ? `${restaurant.invoicePrefix} ${formatTableInvoiceNumber(invoiceNumber2, sessionForInvoice.startedAt)}` : formatTableInvoiceNumber(invoiceNumber2, sessionForInvoice.startedAt);
   const audit = [
     ...sessionAuditRows.map((row) => {
       const details = row.details || {};
@@ -13456,15 +13554,24 @@ async function buildTableInvoiceDocument(restaurantId, sessionId) {
     documentType: "table-invoice",
     currency: "AOA",
     issuedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    invoiceNumber,
+    invoiceNumber: invoiceNumber2,
     invoiceReference,
     restaurant: {
-      id: restaurant2.id,
-      name: restaurant2.name,
-      address: restaurant2.address ?? null,
-      phone: restaurant2.phone ?? null,
-      nif: null,
-      logoUrl: restaurant2.logoUrl ?? null
+      id: restaurant.id,
+      name: restaurant.name,
+      address: restaurant.address ?? null,
+      phone: restaurant.phone ?? null,
+      nif: restaurant.nif ?? null,
+      vatRegime: restaurant.vatRegime ?? null,
+      vatRate: restaurant.vatRate ?? null,
+      documentSeries: restaurant.documentSeries ?? null,
+      invoicePrefix: restaurant.invoicePrefix ?? null,
+      fiscalAddress: restaurant.fiscalAddress ?? null,
+      email: restaurant.email ?? null,
+      website: restaurant.website ?? null,
+      whatsappNumber: restaurant.whatsappNumber ?? null,
+      legalFooter: restaurant.legalFooter ?? null,
+      logoUrl: restaurant.logoUrl ?? null
     },
     branch: branch ? {
       id: branch.id,
@@ -13512,12 +13619,20 @@ async function buildTableInvoiceDocument(restaurantId, sessionId) {
     discounts,
     fees,
     payments: rawPayments.map((payment) => {
-      const method = normalizePaymentMethod(payment.paymentMethod);
+      let method;
+      let methodLabel;
+      try {
+        method = normalizePaymentMethod(payment.paymentMethod);
+        methodLabel = getPaymentMethodLabel(method);
+      } catch {
+        method = "nao_especificado";
+        methodLabel = "M\xE9todo n\xE3o especificado";
+      }
       return {
         id: payment.id,
         amount: fixedMoney(payment.amount),
         paymentMethod: method,
-        paymentMethodLabel: getPaymentMethodLabel(method),
+        paymentMethodLabel: methodLabel,
         createdAt: (payment.createdAt || /* @__PURE__ */ new Date()).toISOString(),
         notes: payment.notes ?? null,
         operatorName: payment.operatorId ? paymentOperatorNames.get(payment.operatorId) || "Usu\xE1rio desconhecido" : null
@@ -13963,7 +14078,7 @@ async function registerRoutes(app2) {
       if (!selectedPlan.isActive) {
         return res.status(400).json({ message: "Plano de subscri\xE7\xE3o n\xE3o est\xE1 ativo" });
       }
-      const { restaurant: restaurant2, adminUser } = await storage.createRestaurant(data);
+      const { restaurant, adminUser } = await storage.createRestaurant(data);
       try {
         const currentDate = /* @__PURE__ */ new Date();
         const trialDays = selectedPlan.trialDays || 14;
@@ -13972,7 +14087,7 @@ async function registerRoutes(app2) {
         const firstBillingStart = new Date(trialEndDate);
         const firstBillingEnd = new Date(firstBillingStart);
         firstBillingEnd.setMonth(firstBillingEnd.getMonth() + 1);
-        await storage.createSubscription(restaurant2.id, {
+        await storage.createSubscription(restaurant.id, {
           planId: data.planId,
           status: "trial",
           billingInterval: "mensal",
@@ -13989,8 +14104,8 @@ async function registerRoutes(app2) {
       } catch (subscriptionError) {
         console.error("\u274C Error creating subscription for new restaurant:", subscriptionError);
         try {
-          await storage.deleteUser(restaurant2.id, adminUser.id);
-          await storage.deleteRestaurant(restaurant2.id);
+          await storage.deleteUser(restaurant.id, adminUser.id);
+          await storage.deleteRestaurant(restaurant.id);
         } catch (rollbackError) {
           console.error("\u274C CRITICAL: Error during rollback:", rollbackError);
         }
@@ -13999,10 +14114,10 @@ async function registerRoutes(app2) {
       res.json({
         message: `Cadastro realizado com sucesso! Voc\xEA tem ${selectedPlan.trialDays || 14} dias de teste gratuito. Aguarde aprova\xE7\xE3o do super administrador para come\xE7ar a usar o sistema.`,
         restaurant: {
-          id: restaurant2.id,
-          name: restaurant2.name,
-          email: restaurant2.email,
-          status: restaurant2.status
+          id: restaurant.id,
+          name: restaurant.name,
+          email: restaurant.email,
+          status: restaurant.status
         },
         subscription: {
           planName: selectedPlan.name,
@@ -14422,11 +14537,11 @@ async function registerRoutes(app2) {
         return res.status(401).json({ message: info?.message || "Email ou senha incorretos" });
       }
       if (user.role !== "superadmin" && user.restaurantId) {
-        const restaurant2 = await storage.getRestaurantById(user.restaurantId);
-        if (!restaurant2) {
+        const restaurant = await storage.getRestaurantById(user.restaurantId);
+        if (!restaurant) {
           return res.status(403).json({ message: "Restaurante n\xE3o encontrado" });
         }
-        if (restaurant2.status !== "ativo") {
+        if (restaurant.status !== "ativo") {
           return res.status(403).json({ message: "Restaurante ainda n\xE3o foi aprovado ou est\xE1 suspenso" });
         }
       }
@@ -14599,13 +14714,13 @@ async function registerRoutes(app2) {
         console.error("\u274C Base plan not found!");
         return res.status(500).json({ message: "Base plan not found. Please seed subscription plans first." });
       }
-      for (const restaurant2 of allRestaurants) {
-        const subscription = await storage.getSubscriptionByRestaurantId(restaurant2.id);
+      for (const restaurant of allRestaurants) {
+        const subscription = await storage.getSubscriptionByRestaurantId(restaurant.id);
         if (!subscription) {
           const now = /* @__PURE__ */ new Date();
           const trialEnd = new Date(now);
           trialEnd.setDate(trialEnd.getDate() + 30);
-          await storage.createSubscription(restaurant2.id, {
+          await storage.createSubscription(restaurant.id, {
             planId: basePlan.id,
             status: "trial",
             billingInterval: "mensal",
@@ -14617,9 +14732,9 @@ async function registerRoutes(app2) {
           });
           fixed++;
           fixedRestaurants.push({
-            id: restaurant2.id,
-            name: restaurant2.name,
-            email: restaurant2.email
+            id: restaurant.id,
+            name: restaurant.name,
+            email: restaurant.email
           });
         } else {
         }
@@ -14777,12 +14892,12 @@ async function registerRoutes(app2) {
       const restaurants2 = await storage.getRestaurants();
       console.log(`\u{1F4CA} [SUPERADMIN] Encontrados ${restaurants2.length} restaurantes`);
       const enrichedRestaurants = await Promise.all(
-        restaurants2.map(async (restaurant2) => {
-          const subscription = await storage.getSubscriptionByRestaurantId(restaurant2.id);
+        restaurants2.map(async (restaurant) => {
+          const subscription = await storage.getSubscriptionByRestaurantId(restaurant.id);
           if (subscription) {
             const plan = await storage.getSubscriptionPlanById(subscription.planId);
             return {
-              ...restaurant2,
+              ...restaurant,
               subscription: {
                 id: subscription.id,
                 status: subscription.status,
@@ -14800,7 +14915,7 @@ async function registerRoutes(app2) {
             };
           }
           return {
-            ...restaurant2,
+            ...restaurant,
             subscription: null,
             plan: null
           };
@@ -14819,14 +14934,14 @@ async function registerRoutes(app2) {
       if (!["pendente", "ativo", "suspenso"].includes(status)) {
         return res.status(400).json({ message: "Status inv\xE1lido" });
       }
-      const restaurant2 = await storage.updateRestaurantStatus(req.params.id, status);
-      if (!restaurant2) {
+      const restaurant = await storage.updateRestaurantStatus(req.params.id, status);
+      if (!restaurant) {
         return res.status(404).json({ message: "Restaurante n\xE3o encontrado" });
       }
       const { cache: cache2, CacheKeys: CacheKeys2 } = await Promise.resolve().then(() => (init_cache(), cache_exports));
       cache2.deletePattern(`restaurant:${req.params.id}*`);
       cache2.deletePattern("superadmin:*");
-      res.json(restaurant2);
+      res.json(restaurant);
     } catch (error) {
       console.error("\u274C Error updating restaurant status:", error);
       const errorMessage = error instanceof Error ? error.message : "Erro ao atualizar status do restaurante";
@@ -14907,8 +15022,8 @@ async function registerRoutes(app2) {
       if (existingRestaurant && existingRestaurant.id !== currentUser.restaurantId) {
         return res.status(400).json({ message: "Este slug j\xE1 est\xE1 em uso por outro restaurante" });
       }
-      const restaurant2 = await storage.updateRestaurantSlug(currentUser.restaurantId, data.slug);
-      res.json(restaurant2);
+      const restaurant = await storage.updateRestaurantSlug(currentUser.restaurantId, data.slug);
+      res.json(restaurant);
     } catch (error) {
       if (error instanceof z2.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
@@ -14923,8 +15038,8 @@ async function registerRoutes(app2) {
         return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
       }
       const data = updateRestaurantAppearanceSchema.parse(req.body);
-      const restaurant2 = await storage.updateRestaurantAppearance(currentUser.restaurantId, data);
-      res.json(restaurant2);
+      const restaurant = await storage.updateRestaurantAppearance(currentUser.restaurantId, data);
+      res.json(restaurant);
     } catch (error) {
       if (error instanceof z2.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
@@ -14939,8 +15054,8 @@ async function registerRoutes(app2) {
         return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
       }
       const data = updateRestaurantFiscalSchema.parse(req.body);
-      const restaurant2 = await storage.updateRestaurantFiscal(currentUser.restaurantId, data);
-      res.json(restaurant2);
+      const restaurant = await storage.updateRestaurantFiscal(currentUser.restaurantId, data);
+      res.json(restaurant);
     } catch (error) {
       if (error instanceof z2.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
@@ -14959,8 +15074,8 @@ async function registerRoutes(app2) {
       if (new Set(ids).size !== ids.length) {
         return res.status(400).json({ message: "Os m\xE9todos de pagamento n\xE3o podem ter identificadores repetidos" });
       }
-      const restaurant2 = await storage.updateRestaurantPaymentMethods(currentUser.restaurantId, data);
-      res.json(restaurant2);
+      const restaurant = await storage.updateRestaurantPaymentMethods(currentUser.restaurantId, data);
+      res.json(restaurant);
     } catch (error) {
       if (error instanceof z2.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
@@ -14976,11 +15091,11 @@ async function registerRoutes(app2) {
         return res.status(403).json({ message: "N\xE3o autorizado" });
       }
       const { businessHours, isOpen } = req.body;
-      const restaurant2 = await storage.updateRestaurantAppearance(id, {
+      const restaurant = await storage.updateRestaurantAppearance(id, {
         businessHours,
         isOpen
       });
-      res.json(restaurant2);
+      res.json(restaurant);
     } catch (error) {
       res.status(500).json({ message: "Erro ao atualizar hor\xE1rios de funcionamento" });
     }
@@ -14993,10 +15108,10 @@ async function registerRoutes(app2) {
         return res.status(403).json({ message: "N\xE3o autorizado" });
       }
       const { isOpen } = req.body;
-      const restaurant2 = await storage.updateRestaurantAppearance(restaurantId, { isOpen });
+      const restaurant = await storage.updateRestaurantAppearance(restaurantId, { isOpen });
       res.json({
         message: isOpen ? "Restaurante aberto" : "Restaurante fechado",
-        restaurant: restaurant2
+        restaurant
       });
     } catch (error) {
       res.status(500).json({ message: "Erro ao atualizar status do restaurante" });
@@ -15012,7 +15127,7 @@ async function registerRoutes(app2) {
       if (typeof isOpen !== "number" || ![0, 1, 2].includes(isOpen)) {
         return res.status(400).json({ message: "Valor de status inv\xE1lido. Use 0 (fechado), 1 (aberto) ou 2 (pausado)" });
       }
-      const restaurant2 = await storage.updateRestaurantAppearance(currentUser.restaurantId, { isOpen });
+      const restaurant = await storage.updateRestaurantAppearance(currentUser.restaurantId, { isOpen });
       const statusMessages = {
         0: "Restaurante fechado",
         1: "Restaurante aberto",
@@ -15020,7 +15135,7 @@ async function registerRoutes(app2) {
       };
       res.json({
         message: statusMessages[isOpen],
-        restaurant: restaurant2
+        restaurant
       });
     } catch (error) {
       console.error("Error updating restaurant status:", error);
@@ -15041,11 +15156,11 @@ async function registerRoutes(app2) {
         await deleteOldImage(currentRestaurant.logoUrl);
       }
       const logoUrl = `/uploads/restaurants/${req.file.filename}`;
-      const restaurant2 = await storage.updateRestaurantAppearance(currentUser.restaurantId, { logoUrl });
+      const restaurant = await storage.updateRestaurantAppearance(currentUser.restaurantId, { logoUrl });
       res.json({
         message: "Logo atualizado com sucesso",
         logoUrl,
-        restaurant: restaurant2
+        restaurant
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erro ao fazer upload do logo";
@@ -15066,11 +15181,11 @@ async function registerRoutes(app2) {
         await deleteOldImage(currentRestaurant.heroImageUrl);
       }
       const heroImageUrl = `/uploads/restaurants/${req.file.filename}`;
-      const restaurant2 = await storage.updateRestaurantAppearance(currentUser.restaurantId, { heroImageUrl });
+      const restaurant = await storage.updateRestaurantAppearance(currentUser.restaurantId, { heroImageUrl });
       res.json({
         message: "Foto de capa atualizada com sucesso",
         heroImageUrl,
-        restaurant: restaurant2
+        restaurant
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erro ao fazer upload da foto de capa";
@@ -15088,10 +15203,10 @@ async function registerRoutes(app2) {
       const updates = {};
       if (businessHours !== void 0) updates.businessHours = businessHours;
       if (isOpen !== void 0) updates.isOpen = isOpen;
-      const restaurant2 = await storage.updateRestaurantAppearance(restaurantId, updates);
+      const restaurant = await storage.updateRestaurantAppearance(restaurantId, updates);
       res.json({
         message: "Hor\xE1rios atualizados com sucesso",
-        restaurant: restaurant2
+        restaurant
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Erro ao atualizar hor\xE1rios";
@@ -15236,8 +15351,8 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/superadmin/restaurants/:id/usage", isSuperAdmin, async (req, res) => {
     try {
-      const restaurant2 = await storage.getRestaurantById(req.params.id);
-      if (!restaurant2) {
+      const restaurant = await storage.getRestaurantById(req.params.id);
+      if (!restaurant) {
         return res.status(404).json({ message: "Restaurante n\xE3o encontrado" });
       }
       const usage = await storage.checkSubscriptionLimits(req.params.id);
@@ -15350,8 +15465,8 @@ async function registerRoutes(app2) {
   app2.post("/api/superadmin/restaurants/:restaurantId/subscription", isSuperAdmin, async (req, res) => {
     try {
       const { restaurantId } = req.params;
-      const restaurant2 = await storage.getRestaurantById(restaurantId);
-      if (!restaurant2) {
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      if (!restaurant) {
         return res.status(404).json({ message: "Restaurante n\xE3o encontrado" });
       }
       const existingSubscription = await storage.getSubscriptionByRestaurantId(restaurantId);
@@ -15724,11 +15839,11 @@ async function registerRoutes(app2) {
   app2.get("/api/public/restaurants/:restaurantId", async (req, res) => {
     try {
       const restaurantId = req.params.restaurantId;
-      const restaurant2 = await storage.getRestaurantById(restaurantId);
-      if (!restaurant2) {
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      if (!restaurant) {
         return res.status(404).json({ message: "Restaurante n\xE3o encontrado" });
       }
-      res.json(restaurant2);
+      res.json(restaurant);
     } catch (error) {
       res.status(500).json({ message: "Erro ao buscar restaurante" });
     }
@@ -15736,14 +15851,14 @@ async function registerRoutes(app2) {
   app2.get("/api/public/restaurants/slug/:slug", async (req, res) => {
     try {
       const slug = req.params.slug;
-      const restaurant2 = await storage.getRestaurantBySlug(slug);
-      if (!restaurant2) {
+      const restaurant = await storage.getRestaurantBySlug(slug);
+      if (!restaurant) {
         return res.status(404).json({ message: "Restaurante n\xE3o encontrado" });
       }
-      if (restaurant2.status !== "ativo") {
+      if (restaurant.status !== "ativo") {
         return res.status(403).json({ message: "Restaurante n\xE3o est\xE1 ativo" });
       }
-      res.json(restaurant2);
+      res.json(restaurant);
     } catch (error) {
       res.status(500).json({ message: "Erro ao buscar restaurante" });
     }
@@ -16091,11 +16206,11 @@ async function registerRoutes(app2) {
       if (!searchTerm || searchTerm.trim().length === 0) {
         return res.status(400).json({ message: "Termo de busca \xE9 obrigat\xF3rio" });
       }
-      const restaurant2 = await storage.getRestaurantBySlug(slug);
-      if (!restaurant2) {
+      const restaurant = await storage.getRestaurantBySlug(slug);
+      if (!restaurant) {
         return res.status(404).json({ message: "Restaurante n\xE3o encontrado" });
       }
-      const orders2 = await storage.searchOrders(restaurant2.id, searchTerm);
+      const orders2 = await storage.searchOrders(restaurant.id, searchTerm);
       res.json(orders2);
     } catch (error) {
       res.status(500).json({ message: "Erro ao buscar pedidos" });
@@ -16115,11 +16230,11 @@ async function registerRoutes(app2) {
           validatedOrder = { ...validatedOrder, orderType: "takeout" };
         }
       }
-      const restaurant2 = await storage.getRestaurantById(validatedOrder.restaurantId);
-      if (!restaurant2) {
+      const restaurant = await storage.getRestaurantById(validatedOrder.restaurantId);
+      if (!restaurant) {
         return res.status(404).json({ message: "Restaurante n\xE3o encontrado" });
       }
-      const configuredPaymentMethods = restaurant2.paymentMethods || [];
+      const configuredPaymentMethods = restaurant.paymentMethods || [];
       const selectedPaymentMethod = validatedOrder.paymentMethod ? configuredPaymentMethods.find((method) => method.id === validatedOrder.paymentMethod) : void 0;
       if (validatedOrder.paymentMethod && !selectedPaymentMethod) {
         return res.status(400).json({ message: "Esta forma de pagamento n\xE3o est\xE1 dispon\xEDvel neste restaurante" });
@@ -16546,8 +16661,8 @@ async function registerRoutes(app2) {
       if (!phone || !restaurantId) {
         return res.status(400).json({ message: "Telefone e ID do restaurante s\xE3o obrigat\xF3rios" });
       }
-      const restaurant2 = await storage.getRestaurantById(restaurantId);
-      if (!restaurant2) {
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      if (!restaurant) {
         return res.status(404).json({ message: "Restaurante n\xE3o encontrado" });
       }
       const normalizedPhone = phone.replace(/[\s\-\(\)]/g, "");
@@ -16593,8 +16708,8 @@ async function registerRoutes(app2) {
       if (!phone || !restaurantId) {
         return res.status(400).json({ message: "Telefone e ID do restaurante s\xE3o obrigat\xF3rios" });
       }
-      const restaurant2 = await storage.getRestaurantById(restaurantId);
-      if (!restaurant2) {
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      if (!restaurant) {
         return res.status(404).json({ message: "Restaurante n\xE3o encontrado" });
       }
       const customer = await storage.getOrCreateCustomerByPhone(restaurantId, phone);
@@ -16607,7 +16722,7 @@ async function registerRoutes(app2) {
         ipAddress
       );
       const otpCode = session2.otpCode || "";
-      const whatsappSent = otpCode ? await sendWhatsAppOTP(phone, otpCode, restaurant2.name) : false;
+      const whatsappSent = otpCode ? await sendWhatsAppOTP(phone, otpCode, restaurant.name) : false;
       res.json({
         success: true,
         message: whatsappSent ? "C\xF3digo de verifica\xE7\xE3o enviado para o seu WhatsApp" : "C\xF3digo de verifica\xE7\xE3o enviado",
@@ -18034,12 +18149,12 @@ async function registerRoutes(app2) {
       if (document.branch) {
         pdf.fontSize(10).font("Helvetica").text(document.branch.name, { align: "center" });
       }
-      pdf.fontSize(9).font("Helvetica").text(`NIF: ${document.restaurant.nif || "N\xE3o informado"}`, { align: "center" }).text(`Regime de IVA: ${document.restaurant.vatRegime || "N\xE3o informado"}${document.restaurant.vatRate ? ` \xB7 Taxa: ${document.restaurant.vatRate}%` : ""}`, { align: "center" }).text(`Morada fiscal: ${document.restaurant.fiscalAddress || document.restaurant.address || "N\xE3o informado"}`, { align: "center" }).text([document.restaurant.email, document.restaurant.website, document.restaurant.whatsappNumber].filter(Boolean).join(" \xB7 "), { align: "center" });
+      pdf.fontSize(9).font("Helvetica").text(`NIF: ${document.restaurant.nif || "N\xE3o informado"}`, { align: "center" }).text(`Regime de IVA: ${document.restaurant.vatRegime || "N\xE3o informado"}${document.restaurant.vatRate ? ` \xB7 Taxa: ${invoiceNumber(document.restaurant.vatRate)}%` : ""}`, { align: "center" }).text(`Morada fiscal: ${document.restaurant.fiscalAddress || document.restaurant.address || "N\xE3o informado"}`, { align: "center" }).text([document.restaurant.email, document.restaurant.website, document.restaurant.whatsappNumber].filter(Boolean).join(" \xB7 "), { align: "center" });
       pdf.fontSize(11).font("Helvetica-Bold").text("FATURA/RECIBO", { align: "center" });
       pdf.moveDown(0.6);
-      pdf.fontSize(10).font("Helvetica").text(`Fatura N\xBA ${document.invoiceReference}  |  Mesa ${document.table.number}`).text(`Estado: ${document.totals.paymentStatus === "pago" ? "PAGO" : document.totals.paymentStatus === "parcial" ? "PAGO PARCIALMENTE" : "PENDENTE"}`).text(`Emiss\xE3o: ${new Date(document.issuedAt).toLocaleString("pt-AO")}`).text(`Sess\xE3o iniciada: ${new Date(document.session.startedAt).toLocaleString("pt-AO")}`);
+      pdf.fontSize(10).font("Helvetica").text(`Fatura ${invoiceDocumentNumber(document.invoiceReference)}  |  Mesa ${document.table.number}`).text(`Estado: ${invoicePaymentStatusLabel(document.totals.paymentStatus)}`).text(`Emiss\xE3o: ${invoiceDate(document.issuedAt)}`).text(`Sess\xE3o: ${invoiceSessionLabel(document.session.id)}`).text(`Sess\xE3o iniciada: ${invoiceDate(document.session.startedAt)}`);
       pdf.moveDown(0.4).font("Helvetica-Bold").text("DADOS DA OPERA\xC7\xC3O");
-      pdf.font("Helvetica").text(`Filial: ${document.branch?.name || "Unidade principal"}`).text(`Endere\xE7o da filial: ${document.branch?.address || document.restaurant.address || "-"}`).text(`Telefone da filial: ${document.branch?.phone || document.restaurant.phone || "-"}`).text(`Caixa / turno: ${document.cashRegisterShift?.label || "N\xE3o identificado"}`).text(`Atendido por: ${document.paymentOperatorNames.join(", ") || document.session.openedByName || "-"}`).text(`Fechado por: ${document.session.closedByName || document.cashRegisterShift?.closedByName || "-"}`).text(`Abertura: ${new Date(document.session.startedAt).toLocaleString("pt-AO")}`).text(`Encerramento: ${document.session.endedAt ? new Date(document.session.endedAt).toLocaleString("pt-AO") : "Sess\xE3o aberta"}`).text(`Dura\xE7\xE3o: ${document.session.durationLabel}`);
+      pdf.font("Helvetica").text(`Filial: ${document.branch?.name || "Unidade principal"}`).text(`Endere\xE7o da filial: ${document.branch?.address || document.restaurant.address || "-"}`).text(`Telefone da filial: ${document.branch?.phone || document.restaurant.phone || "-"}`).text(`Caixa / turno: ${document.cashRegisterShift?.label || "N\xE3o identificado"}`).text(`Atendido por: ${document.paymentOperatorNames.join(", ") || document.session.openedByName || "-"}`).text(`Fechado por: ${document.session.closedByName || document.cashRegisterShift?.closedByName || "-"}`).text(`Abertura: ${invoiceDate(document.session.startedAt)}`).text(`Encerramento: ${invoiceDate(document.session.endedAt, "Sess\xE3o aberta")}`).text(`Dura\xE7\xE3o: ${document.session.durationLabel}`);
       pdf.moveDown(0.4).font("Helvetica-Bold").text("IDENTIFICA\xC7\xC3O DA FATURA");
       pdf.font("Helvetica").text(`Fatura em nome de: ${document.invoiceRecipient.label}`);
       if (document.customer) {
@@ -18070,8 +18185,8 @@ async function registerRoutes(app2) {
         for (const item of items) {
           const options3 = item.options.length ? `Op\xE7\xF5es: ${item.options.map((option) => `${option.name}${option.quantity > 1 ? ` (${option.quantity}x)` : ""}`).join(", ")}` : "";
           pdf.font("Helvetica-Bold").text(`${item.quantity}  ${item.name}`, { continued: true });
-          pdf.font("Helvetica").text(`  ${item.unitPrice} AOA  |  ${item.total} AOA`);
-          pdf.fontSize(8).fillColor(cancelled ? "#991b1b" : "#475569").text(`Pedido ${item.orderNumber ? `#${item.orderNumber}` : "sem n\xFAmero"}${item.orderCreatedAt ? ` \xB7 ${new Date(item.orderCreatedAt).toLocaleString("pt-AO")}` : ""} \xB7 ${item.orderStatus}${item.guestName ? ` \xB7 Convidado: ${item.guestName}` : ""}`);
+          pdf.font("Helvetica").text(`  ${invoiceMoney(item.unitPrice)}  |  ${invoiceMoney(item.total)}`);
+          pdf.fontSize(8).fillColor(cancelled ? "#991b1b" : "#475569").text(`Pedido ${item.orderNumber ? `#${item.orderNumber}` : "sem n\xFAmero"}${item.orderCreatedAt ? ` \xB7 ${invoiceDate(item.orderCreatedAt)}` : ""} \xB7 ${invoiceOrderStatusLabel(item.orderStatus)}${item.guestName ? ` \xB7 Convidado: ${item.guestName}` : ""}`);
           if (options3) pdf.text(options3);
           if (item.notes) pdf.text(`Obs. do item: ${item.notes}`);
           if (item.orderNotes) pdf.text(`Obs. do pedido: ${item.orderNotes}`);
@@ -18097,32 +18212,32 @@ async function registerRoutes(app2) {
         if (reasons.length) pdf.font("Helvetica").text(`Motivos: ${reasons.join(" | ")}`);
       }
       pdf.moveDown(0.8).font("Helvetica-Bold").text("TOTAIS");
-      pdf.font("Helvetica").text(`Subtotal: ${document.totals.subtotal} AOA`);
+      pdf.font("Helvetica").text(`Subtotal: ${invoiceMoney(document.totals.subtotal)}`);
       for (const discount of document.discounts) {
-        pdf.text(`${discount.label}: - ${discount.amount} AOA`);
-        pdf.fontSize(8).fillColor("#475569").text(`Origem: ${discount.sourceLabel} \xB7 ${discount.type === "percentual" ? `${discount.inputValue}%` : "valor fixo"} \xB7 Aplicado por: ${discount.appliedByName || "n\xE3o identificado"}${discount.reason ? ` \xB7 Motivo: ${discount.reason}` : ""}`);
+        pdf.text(`${discount.label}: - ${invoiceMoney(discount.amount)}`);
+        pdf.fontSize(8).fillColor("#475569").text(invoiceAdjustmentDetail(discount));
         pdf.fontSize(10).fillColor("#000000");
       }
       for (const fee of document.fees) {
-        pdf.text(`${fee.label}: + ${fee.amount} AOA`);
-        pdf.fontSize(8).fillColor("#475569").text(`Origem: ${fee.sourceLabel} \xB7 ${fee.type === "percentual" ? `${fee.inputValue}%` : "valor fixo"} \xB7 Aplicado por: ${fee.appliedByName || "n\xE3o identificado"}${fee.reason ? ` \xB7 Motivo: ${fee.reason}` : ""}`);
+        pdf.text(`${fee.label}: + ${invoiceMoney(fee.amount)}`);
+        pdf.fontSize(8).fillColor("#475569").text(invoiceAdjustmentDetail(fee));
         pdf.fontSize(10).fillColor("#000000");
       }
-      pdf.font("Helvetica-Bold").text(`TOTAL FINAL: ${document.totals.total} AOA`);
-      pdf.font("Helvetica").text(`Total da sess\xE3o: ${document.totals.total} AOA`);
-      pdf.text(`Total pago: ${document.totals.paid} AOA`);
-      pdf.text(`${document.totals.pending === "0.00" ? "Saldo" : "Saldo pendente"}: ${document.totals.pending} AOA`);
+      pdf.font("Helvetica-Bold").text(`TOTAL FINAL: ${invoiceMoney(document.totals.total)}`);
+      pdf.font("Helvetica").text(`Total da sess\xE3o: ${invoiceMoney(document.totals.total)}`);
+      pdf.text(`Total pago: ${invoiceMoney(document.totals.paid)}`);
+      pdf.text(`${Number(document.totals.pending) === 0 ? "Saldo" : "Saldo pendente"}: ${invoiceMoney(document.totals.pending)}`);
       pdf.moveDown(0.8).font("Helvetica-Bold").text("PAGAMENTOS REALIZADOS");
       pdf.font("Helvetica");
       for (const payment of document.paymentsByMethod) {
-        pdf.text(`${payment.paymentMethodLabel} \u2014 ${payment.amount} AOA${payment.count > 1 ? ` (${payment.count} lan\xE7amentos)` : ""}`);
+        pdf.text(`${payment.paymentMethodLabel} \u2014 ${invoiceMoney(payment.amount)}${payment.count > 1 ? ` (${payment.count} lan\xE7amentos)` : ""}`);
       }
       if (document.paymentsByMethod.length === 0) pdf.text("Nenhum pagamento registado");
       if (document.payments.length > 0) {
         pdf.moveDown(0.35).font("Helvetica-Bold").text("Registos individuais");
         pdf.font("Helvetica");
         for (const payment of document.payments) {
-          pdf.text(`${payment.paymentMethodLabel} \u2014 ${payment.amount} AOA \u2014 ${new Date(payment.createdAt).toLocaleString("pt-AO")}`);
+          pdf.text(`${payment.paymentMethodLabel} \u2014 ${invoiceMoney(payment.amount)} \u2014 ${invoiceDate(payment.createdAt)}`);
         }
       }
       const protocol = (req.headers["x-forwarded-proto"] || req.protocol || "http").split(",")[0].trim();
@@ -19720,11 +19835,11 @@ async function registerRoutes(app2) {
         data: { id: order.id, status: order.status }
       });
       if (order.customerPhone) {
-        const restaurant2 = await storage.getRestaurantById(restaurantId);
-        if (restaurant2) {
+        const restaurant = await storage.getRestaurantById(restaurantId);
+        if (restaurant) {
           sendWhatsAppOrderStatus(
             order.customerPhone,
-            restaurant2.name,
+            restaurant.name,
             order.id.substring(0, 8).toUpperCase(),
             status
           ).catch((err) => console.error("[WHATSAPP] Failed to send order status:", err));
@@ -20485,8 +20600,8 @@ Stack: ${errorStack}
       if (!order) {
         return res.status(404).json({ message: "Pedido n\xE3o encontrado" });
       }
-      const restaurant2 = await storage.getRestaurantById(restaurantId);
-      if (!restaurant2) {
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      if (!restaurant) {
         return res.status(404).json({ message: "Restaurante n\xE3o encontrado" });
       }
       const doc = new PDFDocument({ size: "A4", margin: 50 });
@@ -20504,7 +20619,7 @@ Stack: ${errorStack}
         "delivery": "Delivery",
         "takeout": "Retirada"
       };
-      doc.fontSize(20).font("Helvetica-Bold").text(restaurant2.name.toUpperCase(), { align: "center" });
+      doc.fontSize(20).font("Helvetica-Bold").text(restaurant.name.toUpperCase(), { align: "center" });
       doc.fontSize(10).font("Helvetica").text("COMANDA DE PEDIDO", { align: "center" });
       doc.moveDown(0.5);
       doc.fontSize(8).text("\u2550".repeat(85), { align: "center" });

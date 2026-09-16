@@ -492,7 +492,7 @@ export function PrintInvoice({
             <div class="section-title">PAGAMENTOS REALIZADOS</div>
             ${order.payments.map((payment) => `
               <div class="payment-info">
-                <span>${paymentMethodLabels[payment.paymentMethod as keyof typeof paymentMethodLabels] || payment.paymentMethod}</span>
+               <span>${formatPaymentMethodLabel(payment.paymentMethod)}</span>
                 <span>${formatKwanza(payment.amount)}</span>
               </div>
             `).join('')}
@@ -518,7 +518,7 @@ export function PrintInvoice({
 
         <div class="footer">
           <div style="margin-bottom: 10px;">Obrigado pela sua preferência!</div>
-          <div>Documento emitido em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</div>
+           <div>Documento emitido em ${invoiceDate(new Date())}</div>
           <div style="margin-top: 5px;">Fatura/Recibo final · Código de validação: ${validationCode}</div>
         </div>
 
