@@ -80,6 +80,8 @@ import twilio from "twilio";
 const sessionPinAttempts = new Map<string, { count: number; resetAt: number }>();
 const SESSION_PIN_MAX_ATTEMPTS = 5;
 const SESSION_PIN_WINDOW_MS = 15 * 60 * 1000;
+const NO_OPEN_CASH_REGISTER_MESSAGE =
+  'O pagamento não pode ser registrado porque não existe um turno de caixa aberto. Abra um turno para continuar.';
 
 type BroadcastToClients = (message: unknown) => void | Promise<void>;
 
@@ -105,6 +107,11 @@ function money(value: unknown): number {
 
 function fixedMoney(value: unknown): string {
   return money(value).toFixed(2);
+}
+
+async function requireOpenCashRegisterForTable(table: { restaurantId: string; branchId: string | null }): Promise<boolean> {
+  const openShift = await storage.getOpenCashRegisterShiftForBranch(table.restaurantId, table.branchId);
+  return Boolean(openShift);
 }
 
 function displayUserName(user: { firstName?: string | null; lastName?: string | null } | null | undefined): string | null {
@@ -5533,6 +5540,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Pedido não encontrado" });
       }
 
+      // O pagamento de um pedido de mesa também precisa de um turno aberto.
+      // Esta validação vem antes de pontos, descontos, serviços e taxas para
+      // que uma tentativa recusada não altere o pedido ou a sessão.
+      if (order.tableId && paymentAmount && parseFloat(paymentAmount) > 0) {
+        const table = await storage.getTableById(order.tableId);
+        if (!table) {
+          return res.status(404).json({ message: "Mesa não encontrada" });
+        }
+        if (!(await requireOpenCashRegisterForTable(table))) {
+          return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+        }
+      }
+
       // Handle loyalty points redemption
       if (redeemLoyaltyPoints && parseInt(redeemLoyaltyPoints) > 0) {
         await storage.redeemLoyaltyPoints(restaurantId, orderId, parseInt(redeemLoyaltyPoints));
@@ -5731,6 +5751,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      if (!(await requireOpenCashRegisterForTable(table))) {
+        return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+      }
+
       // ✅ CORREÇÃO: Aplicar desconto e taxa de serviço à sessão se fornecido
       if (table.currentSessionId) {
         const updates: any = { updatedAt: new Date() };
@@ -5899,6 +5923,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (targetTableId) {
           const table = await storage.getTableById(targetTableId);
           if (table && table.restaurantId === restaurantId) {
+            if (!(await requireOpenCashRegisterForTable(table))) {
+              return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+            }
+
             const payment = await storage.addTablePayment(restaurantId, {
               tableId: targetTableId,
               sessionId: table.currentSessionId,
@@ -5938,6 +5966,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ 
           message: "Acesso negado: Convidado não pertence ao seu restaurante" 
         });
+      }
+
+      if (!(await requireOpenCashRegisterForTable(guestTable))) {
+        return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
       }
       
       // ✅ Ajustes individuais (por convidado): salvar no próprio guest
@@ -6175,6 +6207,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ 
           message: "Acesso negado: Mesa não pertence ao seu restaurante" 
         });
+      }
+
+      if (!(await requireOpenCashRegisterForTable(table))) {
+        return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
       }
       
       const targetSessionId = sessionId || table.currentSessionId;
@@ -7069,6 +7105,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!guest) {
         return res.status(404).json({ message: "Convidado não encontrado" });
       }
+
+      if (table.restaurantId !== restaurantId) {
+        return res.status(403).json({
+          message: "Acesso negado: Mesa não pertence ao seu restaurante",
+        });
+      }
       
       const { paymentMethod, amount, redeemPoints } = req.body;
       
@@ -7079,6 +7121,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const paymentAmount = parseFloat(amount);
       if (isNaN(paymentAmount) || paymentAmount <= 0) {
         return res.status(400).json({ message: "Valor de pagamento inválido" });
+      }
+
+      if (!(await requireOpenCashRegisterForTable(table))) {
+        return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
       }
       
       let pointsAwarded = 0;
@@ -9427,6 +9473,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (order.status === 'servido') {
         return res.status(400).json({ message: "Não é possível registrar pagamento para pedido já servido" });
+      }
+
+      if (order.orderType === 'mesa' && order.tableId) {
+        const table = await storage.getTableById(order.tableId);
+        if (!table) {
+          return res.status(404).json({ message: "Mesa não encontrada" });
+        }
+        if (!(await requireOpenCashRegisterForTable(table))) {
+          return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+        }
       }
 
       if (currentUser.role === 'cashier' && ['balcao', 'takeout', 'pdv'].includes(order.orderType)) {

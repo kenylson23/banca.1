@@ -597,6 +597,7 @@ export interface IStorage {
   getCashRegisterShifts(restaurantId: string, branchId: string | null, filters?: { status?: 'aberto' | 'fechado'; cashRegisterId?: string }): Promise<Array<CashRegisterShift & { cashRegister: CashRegister; openedBy: User }>>;
   getCashRegisterShiftById(id: string): Promise<CashRegisterShift | undefined>;
   getActiveCashRegisterShift(cashRegisterId: string, restaurantId: string): Promise<CashRegisterShift | undefined>;
+  getOpenCashRegisterShiftForBranch(restaurantId: string, branchId: string | null): Promise<CashRegisterShift | undefined>;
   openCashRegisterShift(restaurantId: string, userId: string, data: Omit<InsertCashRegisterShift, 'restaurantId' | 'openedByUserId'>): Promise<CashRegisterShift>;
   closeCashRegisterShift(shiftId: string, restaurantId: string, userId: string, data: CloseCashRegisterShift): Promise<CashRegisterShift>;
   
@@ -7546,6 +7547,37 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
 
     return shift ? await this.closeExpiredCashRegisterShift(shift) : undefined;
+  }
+
+  async getOpenCashRegisterShiftForBranch(
+    restaurantId: string,
+    branchId: string | null,
+  ): Promise<CashRegisterShift | undefined> {
+    await this.expireOpenCashRegisterShifts(restaurantId, branchId);
+
+    const branchCondition = branchId === null
+      ? isNull(cashRegisterShifts.branchId)
+      : eq(cashRegisterShifts.branchId, branchId);
+    const registerBranchCondition = branchId === null
+      ? isNull(cashRegisters.branchId)
+      : eq(cashRegisters.branchId, branchId);
+
+    const [result] = await db
+      .select({ shift: cashRegisterShifts })
+      .from(cashRegisterShifts)
+      .innerJoin(cashRegisters, eq(cashRegisterShifts.cashRegisterId, cashRegisters.id))
+      .where(and(
+        eq(cashRegisterShifts.restaurantId, restaurantId),
+        branchCondition,
+        eq(cashRegisterShifts.status, 'aberto'),
+        eq(cashRegisters.restaurantId, restaurantId),
+        registerBranchCondition,
+        eq(cashRegisters.isActive, 1),
+      ))
+      .orderBy(desc(cashRegisterShifts.openedAt))
+      .limit(1);
+
+    return result?.shift;
   }
 
   async getCashRegistersWithActiveShift(restaurantId: string, branchId: string | null): Promise<CashRegister[]> {
