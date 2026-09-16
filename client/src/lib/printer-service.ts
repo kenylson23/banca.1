@@ -968,7 +968,21 @@ class PrinterService {
       invoiceRecipientLabel?: string;
       tableCustomerName?: string;
       splitInfo?: string;
-      items: Array<{ name: string; quantity: number; price: string; total: string }>;
+       items: Array<{
+         name: string;
+         quantity: number;
+         price: string;
+         total: string;
+         options?: string;
+         notes?: string;
+         orderNumber?: string;
+         orderTime?: string;
+         orderStatus?: string;
+         guestName?: string;
+         sharedWith?: string;
+       }>;
+       cancelledItems?: Array<{ name: string; quantity: number; price: string; total: string; notes?: string }>;
+       orderNotes?: string[];
       subtotal: string;
       discount?: string;
       serviceCharge?: string;
@@ -1038,11 +1052,30 @@ class PrinterService {
 
     // Itens
     content.items.forEach(item => {
-      encoder.line(`${item.quantity}x ${item.name}`);
+       encoder.line(`${item.quantity}x ${item.name}`);
+       if (item.orderNumber || item.orderTime || item.orderStatus) {
+         encoder.line(`  Pedido ${item.orderNumber ? `#${item.orderNumber}` : '-'}${item.orderTime ? ` · ${item.orderTime}` : ''}${item.orderStatus ? ` · ${item.orderStatus}` : ''}`);
+       }
+       if (item.guestName) encoder.line(`  Convidado: ${item.guestName}`);
+       if (item.options) encoder.line(`  Opções: ${item.options}`);
+       if (item.notes) encoder.line(`  Obs.: ${item.notes}`);
+       if (item.sharedWith) encoder.line(`  Partilhado com: ${item.sharedWith}`);
       const priceLine = `  ${item.price} x ${item.quantity}`;
       const spaces = (paperWidth === 80 ? 48 : 32) - priceLine.length - item.total.length;
       encoder.line(priceLine + ' '.repeat(Math.max(spaces, 1)) + item.total);
     });
+
+     if (content.orderNotes?.length) {
+       encoder.newline().bold(true).line('OBSERVAÇÕES DOS PEDIDOS').bold(false);
+       content.orderNotes.forEach((note) => encoder.line(note));
+     }
+     if (content.cancelledItems?.length) {
+       encoder.newline().bold(true).line('ITENS CANCELADOS').bold(false);
+       content.cancelledItems.forEach((item) => {
+         encoder.line(`${item.quantity}x ${item.name} · ${item.total}`);
+         if (item.notes) encoder.line(`  Obs.: ${item.notes}`);
+       });
+     }
 
     encoder.newline().line('='.repeat(paperWidth === 80 ? 48 : 32)).newline();
 

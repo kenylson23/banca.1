@@ -56,8 +56,12 @@ export type TableInvoiceItem = {
   id: string;
   orderId: string;
   orderNumber: string | number | null;
+  orderCreatedAt: string | null;
+  orderStatus: string;
+  orderNotes: string | null;
   guestId: string | null;
   guestName: string | null;
+  sharedWithGuestNames: string[];
   name: string;
   quantity: number;
   unitPrice: TableInvoiceMoney;
@@ -69,6 +73,15 @@ export type TableInvoiceItem = {
     priceAdjustment: TableInvoiceMoney;
     quantity: number;
   }>;
+};
+
+export type TableInvoiceCancelledOrder = {
+  id: string;
+  orderNumber: string | number | null;
+  createdAt: string | null;
+  status: string;
+  notes: string | null;
+  cancellationReason: string | null;
 };
 
 export type TableInvoiceAdjustment = {
@@ -183,6 +196,8 @@ export type TableInvoiceDocument = {
   customer: TableInvoiceCustomer;
   guests: TableInvoiceGuest[];
   items: TableInvoiceItem[];
+  cancelledItems: TableInvoiceItem[];
+  cancelledOrders: TableInvoiceCancelledOrder[];
   discounts: TableInvoiceAdjustment[];
   fees: TableInvoiceAdjustment[];
   payments: TableInvoicePayment[];

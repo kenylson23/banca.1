@@ -26,6 +26,14 @@ const statusColors = {
   parcial: 'bg-blue-100 text-blue-800',
   pago: 'bg-emerald-100 text-emerald-800',
 } as const;
+const orderStatusLabels: Record<string, string> = {
+  aguardando_confirmacao: 'A aguardar confirmação',
+  pendente: 'Pendente',
+  em_preparo: 'Em preparação',
+  pronto: 'Pronto',
+  servido: 'Servido',
+  cancelado: 'Cancelado',
+};
 
 export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?: string | number }) {
   const { data, isLoading, isError } = useQuery<TableInvoiceDocument>({
@@ -172,6 +180,22 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
     }
   };
 
+  const itemDescription = (item: TableInvoiceDocument['items'][number]) => (
+    <div className="min-w-[220px]">
+      <p className="font-medium">{item.name}</p>
+      <p className="text-xs text-muted-foreground">
+        Pedido {item.orderNumber ? `#${item.orderNumber}` : 'sem número'}
+        {item.orderCreatedAt ? ` · ${format(new Date(item.orderCreatedAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}` : ''}
+        {` · ${orderStatusLabels[item.orderStatus] || item.orderStatus}`}
+      </p>
+      {item.guestName && <p className="text-xs text-muted-foreground">Convidado: {item.guestName}</p>}
+      {item.options.length > 0 && <p className="text-xs text-muted-foreground">Opções: {item.options.map((option) => `${option.name}${option.quantity > 1 ? ` (${option.quantity}x)` : ''}`).join(', ')}</p>}
+      {item.notes && <p className="text-xs text-muted-foreground">Obs. do item: {item.notes}</p>}
+      {item.orderNotes && <p className="text-xs text-muted-foreground">Obs. do pedido: {item.orderNotes}</p>}
+      {item.sharedWithGuestNames.length > 0 && <p className="text-xs font-medium text-cyan-700">Partilhado com: {item.sharedWithGuestNames.join(', ')}</p>}
+    </div>
+  );
+
   return (
     <Card className="border-primary/20 bg-primary/[0.02]">
       <CardContent className="space-y-3 p-4">
@@ -261,6 +285,56 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
            <div><span className="text-muted-foreground">Encerramento</span><p className="font-medium">{data.session.endedAt ? format(new Date(data.session.endedAt), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'Sessão aberta'}</p></div>
            <div><span className="text-muted-foreground">Duração total</span><p className="font-medium">{data.session.durationLabel}</p></div>
          </div>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-semibold">Itens do consumo válido</p>
+              <Badge variant="outline">{data.items.length} {data.items.length === 1 ? 'item' : 'itens'}</Badge>
+            </div>
+            <div className="overflow-x-auto rounded-lg border bg-background">
+              <table className="w-full min-w-[680px] text-sm">
+                <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr><th className="px-3 py-2 text-center">Qtd.</th><th className="px-3 py-2">Descrição</th><th className="px-3 py-2 text-right">Preço unitário</th><th className="px-3 py-2 text-right">Total</th></tr>
+                </thead>
+                <tbody>
+                  {data.items.length > 0 ? data.items.map((item) => (
+                    <tr key={item.id} className="border-t align-top">
+                      <td className="px-3 py-2 text-center font-medium">{item.quantity}</td>
+                      <td className="px-3 py-2">{itemDescription(item)}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">{formatKwanza(Number(item.unitPrice))}</td>
+                      <td className="px-3 py-2 text-right font-medium whitespace-nowrap">{formatKwanza(Number(item.total))}</td>
+                    </tr>
+                  )) : <tr><td colSpan={4} className="px-3 py-4 text-center text-muted-foreground">Sem itens registados.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            {data.items.some((item) => item.orderNotes) && (
+              <div className="rounded-lg border bg-amber-50/60 p-3 text-sm">
+                <p className="font-medium">Observações dos pedidos</p>
+                {Array.from(new Set(data.items.map((item) => item.orderNotes).filter(Boolean))).map((note) => <p key={note} className="text-muted-foreground">{note}</p>)}
+              </div>
+            )}
+            {data.cancelledItems.length > 0 && (
+              <details className="rounded-lg border border-red-200 bg-red-50/40 p-3 text-sm">
+                <summary className="cursor-pointer font-semibold text-red-800">Itens cancelados ({data.cancelledItems.length}) — fora do consumo válido</summary>
+                <div className="mt-3 overflow-x-auto rounded border bg-background">
+                  <table className="w-full min-w-[680px] text-sm">
+                    <thead className="bg-red-100/70 text-left text-xs uppercase tracking-wide text-red-800">
+                      <tr><th className="px-3 py-2 text-center">Qtd.</th><th className="px-3 py-2">Descrição</th><th className="px-3 py-2 text-right">Preço unitário</th><th className="px-3 py-2 text-right">Total</th></tr>
+                    </thead>
+                    <tbody>{data.cancelledItems.map((item) => (
+                      <tr key={item.id} className="border-t align-top text-muted-foreground">
+                        <td className="px-3 py-2 text-center">{item.quantity}</td>
+                        <td className="px-3 py-2">{itemDescription(item)}{item.orderNotes && <p className="text-xs text-red-700">Pedido cancelado: {item.orderNotes}</p>}</td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap">{formatKwanza(Number(item.unitPrice))}</td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap">{formatKwanza(Number(item.total))}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+                {data.cancelledOrders.some((order) => order.cancellationReason) && <p className="mt-2 text-xs text-red-800">Motivos: {data.cancelledOrders.map((order) => order.cancellationReason).filter(Boolean).join(' · ')}</p>}
+              </details>
+            )}
+          </div>
         <div className="text-sm">
           <div className="mb-2 flex items-center gap-2 font-semibold"><CreditCard className="h-4 w-4 text-primary" /> Pagamentos realizados ({data.payments.length})</div>
             {data.paymentsByMethod.length > 0 ? data.paymentsByMethod.map((payment) => (

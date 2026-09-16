@@ -20,6 +20,15 @@ const paymentStatusLabels = {
   pago: 'PAGO',
 } as const;
 
+const orderStatusLabels: Record<string, string> = {
+  aguardando_confirmacao: 'A aguardar confirmação',
+  pendente: 'Pendente',
+  em_preparo: 'Em preparação',
+  pronto: 'Pronto',
+  servido: 'Servido',
+  cancelado: 'Cancelado',
+};
+
 export type TableInvoicePaper = 'a4' | '80mm';
 
 export type TableInvoiceRenderOptions = {
@@ -33,15 +42,28 @@ export function renderTableInvoiceHtml(
 ): string {
   const paper = options.paper ?? 'a4';
   const isThermal = paper === '80mm';
-  const itemRows = document.items.length
-    ? document.items.map((item) => `
+  const renderItemRow = (item: TableInvoiceDocument['items'][number], cancelled = false) => `
       <tr>
         <td>${escapeHtml(item.quantity)}</td>
-        <td><strong>${escapeHtml(item.name)}</strong>${item.options.length ? `<small>${escapeHtml(item.options.map((option) => option.name).join(', '))}</small>` : ''}${item.notes ? `<small>Nota: ${escapeHtml(item.notes)}</small>` : ''}</td>
+        <td><strong>${escapeHtml(item.name)}</strong>
+          <small>Pedido ${escapeHtml(item.orderNumber ? `#${item.orderNumber}` : 'sem número')}${item.orderCreatedAt ? ` · ${escapeHtml(dateLabel(item.orderCreatedAt))}` : ''} · ${escapeHtml(orderStatusLabels[item.orderStatus] || item.orderStatus)}</small>
+          ${item.guestName ? `<small>Convidado: ${escapeHtml(item.guestName)}</small>` : ''}
+          ${item.options.length ? `<small>Opções: ${escapeHtml(item.options.map((option) => `${option.name}${option.quantity > 1 ? ` (${option.quantity}x)` : ''}`).join(', '))}</small>` : ''}
+          ${item.notes ? `<small>Obs. do item: ${escapeHtml(item.notes)}</small>` : ''}
+          ${item.orderNotes ? `<small>Obs. do pedido: ${escapeHtml(item.orderNotes)}</small>` : ''}
+          ${item.sharedWithGuestNames.length ? `<small class="shared">Partilhado com: ${escapeHtml(item.sharedWithGuestNames.join(', '))}</small>` : ''}
+          ${cancelled ? '<small class="cancelled">Consumo cancelado — não incluído no total</small>' : ''}
+        </td>
         <td>${moneyLabel(item.unitPrice)}</td>
         <td>${moneyLabel(item.total)}</td>
-      </tr>`).join('')
+      </tr>`;
+  const itemRows = document.items.length
+    ? document.items.map((item) => renderItemRow(item)).join('')
     : '<tr><td colspan="4">Sem itens registados</td></tr>';
+  const cancelledItemRows = document.cancelledItems.length
+    ? document.cancelledItems.map((item) => renderItemRow(item, true)).join('')
+    : '';
+  const orderNotes = Array.from(new Set(document.items.map((item) => item.orderNotes).filter(Boolean))) as string[];
   const adjustmentRows = [
     ...document.discounts.map((adjustment) => `<div class="line"><span>${escapeHtml(adjustment.label)}</span><span>- ${moneyLabel(adjustment.amount)}</span></div>`),
     ...document.fees.map((adjustment) => `<div class="line"><span>${escapeHtml(adjustment.label)}</span><span>+ ${moneyLabel(adjustment.amount)}</span></div>`),
@@ -109,7 +131,8 @@ export function renderTableInvoiceHtml(
       .grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin:14px 0; } .info, .customer { border:1px solid #dfe5e8; border-radius:7px; padding:9px 10px; } .info label, .customer label { display:block; color:#64727d; font-size:10px; text-transform:uppercase; letter-spacing:.07em; margin-bottom:3px; }
        .customer { background:#f5f8f9; display:grid; grid-template-columns:1fr 1fr; gap:8px 18px; } .customer .wide { grid-column:1 / -1; } .operation-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; } .operation-grid > div { border:1px solid #dfe5e8; border-radius:7px; padding:8px 10px; } .operation-grid label { display:block; color:#64727d; font-size:10px; text-transform:uppercase; letter-spacing:.07em; margin-bottom:3px; } .operation-grid strong { display:block; overflow-wrap:anywhere; } section { break-inside:avoid; }
       table { width:100%; border-collapse:collapse; } th { background:#17202a; color:#fff; font-size:10px; text-transform:uppercase; letter-spacing:.06em; } th,td { text-align:left; padding:8px 7px; border-bottom:1px solid #e5eaed; vertical-align:top; } th:first-child,td:first-child { text-align:center; width:9%; } th:nth-child(n+3),td:nth-child(n+3) { text-align:right; white-space:nowrap; }
-      .guests { display:flex; flex-wrap:wrap; gap:6px; } .guests span { background:#edf2f4; padding:5px 8px; border-radius:4px; }
+       .guests { display:flex; flex-wrap:wrap; gap:6px; } .guests span { background:#edf2f4; padding:5px 8px; border-radius:4px; }
+       .shared { color:#155e75; } .cancelled { color:#b91c1c; font-weight:700; } .cancelled-section { opacity:.82; } .notes { border:1px solid #dfe5e8; border-radius:7px; padding:9px 10px; background:#fffdf5; } .notes p { margin:4px 0; }
       .summary { margin:16px 0 0 auto; max-width:360px; border:1px solid #dfe5e8; border-radius:8px; padding:11px 13px; } .line { display:flex; justify-content:space-between; gap:20px; margin:5px 0; } .grand { font-size:18px; font-weight:700; margin:9px -13px 7px; padding:10px 13px; border-top:1px solid #dfe5e8; border-bottom:1px solid #dfe5e8; background:#f5f8f9; } .pending { color:#b45309; font-weight:700; }
        .payments { border:1px solid #dfe5e8; border-radius:8px; overflow:hidden; } .payment { display:flex; justify-content:space-between; gap:12px; padding:9px 11px; border-bottom:1px solid #e5eaed; } .payment:last-child { border-bottom:0; } .payment strong:last-child { white-space:nowrap; } .payment.detail { background:#fafcfc; font-size:.92em; } .empty { padding:10px; color:#64727d; }
       .footer { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-top:24px; padding-top:13px; border-top:1px dashed #aab5bb; } .qr-wrap { display:flex; align-items:center; gap:10px; } .qr { width:74px; height:74px; image-rendering:auto; } .validation { text-align:right; font-size:10px; } .validation strong, .validation span { display:block; } .validation span { font-size:13px; font-weight:700; letter-spacing:.1em; margin-top:3px; }
@@ -125,7 +148,9 @@ export function renderTableInvoiceHtml(
        ${operationDetails}
       ${invoiceIdentity}
       ${guests}
-      <section><h2>Itens</h2><table><thead><tr><th>Qtd.</th><th>Descrição</th><th>Preço unit.</th><th>Total</th></tr></thead><tbody>${itemRows}</tbody></table></section>
+       <section><h2>Itens válidos</h2><table><thead><tr><th>Qtd.</th><th>Descrição</th><th>Preço unit.</th><th>Total</th></tr></thead><tbody>${itemRows}</tbody></table></section>
+       ${orderNotes.length ? `<section><h2>Observações dos pedidos</h2><div class="notes">${orderNotes.map((note) => `<p>${escapeHtml(note)}</p>`).join('')}</div></section>` : ''}
+       ${cancelledItemRows ? `<section class="cancelled-section"><h2>Itens cancelados</h2><table><thead><tr><th>Qtd.</th><th>Descrição</th><th>Preço unit.</th><th>Total</th></tr></thead><tbody>${cancelledItemRows}</tbody></table></section>` : ''}
       <section class="summary"><div class="line"><span>Subtotal</span><span>${moneyLabel(document.totals.subtotal)}</span></div>${adjustmentRows}
          <div class="line grand"><span>Total da sessão</span><span>${moneyLabel(document.totals.total)}</span></div>
          <div class="line"><span>Total pago</span><span>${moneyLabel(document.totals.paid)}</span></div>
@@ -140,6 +165,7 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
   const branchName = document.branch?.name || 'Unidade principal';
   const branchAddress = document.branch?.address || document.restaurant.address;
   const branchPhone = document.branch?.phone || document.restaurant.phone;
+  const orderNotes = Array.from(new Set(document.items.map((item) => item.orderNotes).filter(Boolean))) as string[];
   return {
     invoiceNumber: document.invoiceReference,
     validationCode: document.validation.code,
@@ -166,7 +192,22 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
       quantity: item.quantity,
       price: moneyLabel(item.unitPrice),
       total: moneyLabel(item.total),
+       options: item.options.map((option) => `${option.name}${option.quantity > 1 ? ` (${option.quantity}x)` : ''}`).join(', '),
+       notes: item.notes || item.orderNotes || undefined,
+       orderNumber: item.orderNumber ? String(item.orderNumber) : undefined,
+       orderTime: item.orderCreatedAt ? dateLabel(item.orderCreatedAt) : undefined,
+       orderStatus: orderStatusLabels[item.orderStatus] || item.orderStatus,
+       guestName: item.guestName || undefined,
+       sharedWith: item.sharedWithGuestNames.join(', ') || undefined,
     })),
+     cancelledItems: document.cancelledItems.map((item) => ({
+       name: item.name,
+       quantity: item.quantity,
+       price: moneyLabel(item.unitPrice),
+       total: moneyLabel(item.total),
+       notes: item.notes || item.orderNotes || undefined,
+     })),
+     orderNotes,
     subtotal: moneyLabel(document.totals.subtotal),
     discount: Number(document.totals.discount) > 0 ? `- ${moneyLabel(document.totals.discount)}` : undefined,
     serviceCharge: Number(document.totals.fees) > 0 ? moneyLabel(document.totals.fees) : undefined,

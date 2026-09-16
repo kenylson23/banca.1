@@ -261,16 +261,37 @@ async function buildTableInvoiceDocument(
   const orders = rawOrders.filter((order: any) => order.status !== 'cancelado');
   const guestMap = new Map(guests.map((guest: any) => [guest.id, guest]));
 
-  const items = orders.flatMap((order: any) =>
+  const sharedGuestNamesByItemId = new Map<string, Set<string>>();
+  for (const row of itemAuditRows) {
+    if (row.action !== 'item_reassigned' || !row.orderItemId) continue;
+    const details = (row.itemDetails || {}) as Record<string, any>;
+    const oldValue = (row.oldValue || {}) as Record<string, any>;
+    const newValue = (row.newValue || {}) as Record<string, any>;
+    const names = sharedGuestNamesByItemId.get(row.orderItemId) || new Set<string>();
+    for (const guestId of [oldValue.guestId, newValue.guestId]) {
+      const guest = guestId ? guestMap.get(guestId) : null;
+      if (guest?.name) names.add(guest.name);
+    }
+    if (details.menuItemName && names.size === 0) names.add(details.menuItemName);
+    sharedGuestNamesByItemId.set(row.orderItemId, names);
+  }
+
+  const mapInvoiceItems = (sourceOrders: any[]) => sourceOrders.flatMap((order: any) =>
     (order.orderItems || []).map((item: any) => {
       const guest = item.guestId ? guestMap.get(item.guestId) : null;
       const unitPrice = money(item.price);
+      const sharedNames = Array.from(sharedGuestNamesByItemId.get(item.id) || [])
+        .filter((name) => name !== guest?.name);
       return {
         id: item.id,
         orderId: order.id,
         orderNumber: order.orderNumber ?? null,
+        orderCreatedAt: order.createdAt?.toISOString?.() ?? null,
+        orderStatus: order.status,
+        orderNotes: order.orderNotes ?? null,
         guestId: item.guestId ?? order.guestId ?? null,
         guestName: guest?.name ?? null,
+        sharedWithGuestNames: sharedNames,
         name: item.menuItem?.name || item.name || 'Item',
         quantity: item.quantity || 0,
         unitPrice: fixedMoney(unitPrice),
@@ -285,6 +306,18 @@ async function buildTableInvoiceDocument(
       };
     }),
   );
+  const items = mapInvoiceItems(orders);
+  const cancelledOrders = rawOrders
+    .filter((order: any) => order.status === 'cancelado')
+    .map((order: any) => ({
+      id: order.id,
+      orderNumber: order.orderNumber ?? null,
+      createdAt: order.createdAt?.toISOString?.() ?? null,
+      status: order.status,
+      notes: order.orderNotes ?? null,
+      cancellationReason: order.cancellationReason ?? null,
+    }));
+  const cancelledItems = mapInvoiceItems(rawOrders.filter((order: any) => order.status === 'cancelado'));
 
   const orderSubtotal = orders.reduce((sum: number, order: any) => {
     const storedTotal = money(order.totalAmount);
@@ -504,6 +537,8 @@ async function buildTableInvoiceDocument(
       serviceCharge: fixedMoney(guest.serviceCharge),
     })),
     items,
+    cancelledItems,
+    cancelledOrders,
     discounts,
     fees,
     payments: rawPayments.map((payment: any) => {
@@ -6237,15 +6272,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      pdf.moveDown(0.8).font('Helvetica-Bold').text('ITENS');
-      pdf.font('Helvetica');
-      for (const item of document.items) {
-        const options = item.options.length
-          ? ` (${item.options.map((option) => option.name).join(', ')})`
-          : '';
-        pdf.text(`${item.quantity}x ${item.name}${options}  ${item.total} AOA`);
-      }
-      if (document.items.length === 0) pdf.text('Sem itens registados');
+       const pdfItemRows = (items: TableInvoiceDocument['items'], cancelled = false) => {
+         for (const item of items) {
+           const options = item.options.length
+             ? `Opções: ${item.options.map((option) => `${option.name}${option.quantity > 1 ? ` (${option.quantity}x)` : ''}`).join(', ')}`
+             : '';
+           pdf.font('Helvetica-Bold').text(`${item.quantity}  ${item.name}`, { continued: true });
+           pdf.font('Helvetica').text(`  ${item.unitPrice} AOA  |  ${item.total} AOA`);
+           pdf.fontSize(8).fillColor(cancelled ? '#991b1b' : '#475569')
+             .text(`Pedido ${item.orderNumber ? `#${item.orderNumber}` : 'sem número'}${item.orderCreatedAt ? ` · ${new Date(item.orderCreatedAt).toLocaleString('pt-AO')}` : ''} · ${item.orderStatus}${item.guestName ? ` · Convidado: ${item.guestName}` : ''}`);
+           if (options) pdf.text(options);
+           if (item.notes) pdf.text(`Obs. do item: ${item.notes}`);
+           if (item.orderNotes) pdf.text(`Obs. do pedido: ${item.orderNotes}`);
+           if (item.sharedWithGuestNames.length) pdf.text(`Partilhado com: ${item.sharedWithGuestNames.join(', ')}`);
+           if (cancelled) pdf.font('Helvetica-Bold').text('CANCELADO — não incluído no total');
+           pdf.fontSize(10).fillColor('#000000');
+           pdf.moveDown(0.25);
+         }
+       };
+       pdf.moveDown(0.8).font('Helvetica-Bold').text('ITENS VÁLIDOS');
+       pdfItemRows(document.items);
+       if (document.items.length === 0) pdf.font('Helvetica').text('Sem itens registados');
+       const orderNotes = Array.from(new Set(document.items.map((item) => item.orderNotes).filter(Boolean))) as string[];
+       if (orderNotes.length) {
+         pdf.moveDown(0.3).font('Helvetica-Bold').text('OBSERVAÇÕES DOS PEDIDOS');
+         pdf.font('Helvetica').text(orderNotes.join(' | '));
+       }
+       if (document.cancelledItems.length) {
+         pdf.moveDown(0.8).font('Helvetica-Bold').fillColor('#991b1b').text('ITENS CANCELADOS');
+         pdf.fillColor('#000000');
+         pdfItemRows(document.cancelledItems, true);
+         const reasons = document.cancelledOrders.map((order) => order.cancellationReason).filter(Boolean);
+         if (reasons.length) pdf.font('Helvetica').text(`Motivos: ${reasons.join(' | ')}`);
+       }
 
       pdf.moveDown(0.8).font('Helvetica-Bold').text('TOTAIS');
       pdf.font('Helvetica')

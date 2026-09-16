@@ -81,12 +81,14 @@ export function PrintInvoice({
         cartao: 'Cartão',
       };
 
-       const items = (order.orderItems || (order as any).items || []).map((item: any) => ({
-        name: item.menuItem?.name || 'Item',
-        quantity: item.quantity,
-         price: formatKwanza(item.price || item.menuItem?.price || '0'),
-         total: formatKwanza(parseFloat(item.price || item.menuItem?.price || '0') * item.quantity),
-      })) || [];
+        const items = (order.orderItems || (order as any).items || []).map((item: any) => ({
+         name: item.menuItem?.name || item.name || 'Item',
+         quantity: item.quantity,
+          price: formatKwanza(item.price || item.menuItem?.price || '0'),
+          total: formatKwanza(parseFloat(item.price || item.menuItem?.price || '0') * item.quantity),
+          options: (item.orderItemOptions || item.options || []).map((option: any) => `${option.optionName || option.name}${Number(option.quantity || 1) > 1 ? ` (${option.quantity}x)` : ''}`).join(', ') || undefined,
+          notes: item.notes || undefined,
+       })) || [];
 
       const paymentInfo = order.payments && order.payments.length > 0
         ? order.payments.map(p => paymentMethodLabels[p.paymentMethod as keyof typeof paymentMethodLabels] || p.paymentMethod).join(', ')
@@ -120,7 +122,7 @@ export function PrintInvoice({
         status: paymentStatusLabel,
         validationCode,
         date: order.createdAt
-          ? format(new Date(order.createdAt), "dd/MM/yyyy", { locale: ptBR })
+           ? format(new Date(order.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
           : format(new Date(), "dd/MM/yyyy", { locale: ptBR }),
         customerName: order.customerName || undefined,
         customerPhone: order.customerPhone || undefined,
@@ -397,7 +399,7 @@ export function PrintInvoice({
             <div class="doc-type">FATURA/RECIBO</div>
             <div class="invoice-number">Nº ${invoiceNumber}</div>
             <div class="invoice-number">Estado: ${paymentStatusLabel}</div>
-            <div class="invoice-number">${order.createdAt ? format(new Date(order.createdAt), "dd/MM/yyyy", { locale: ptBR }) : '-'}</div>
+            <div class="invoice-number">Hora do pedido: ${order.createdAt ? format(new Date(order.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : '-'}</div>
             <div class="invoice-number">Código de validação: ${validationCode}</div>
           </div>
         </div>
@@ -410,6 +412,8 @@ export function PrintInvoice({
             ${order.deliveryAddress ? `<div><strong>Endereço:</strong> ${order.deliveryAddress}</div>` : ''}
             <div><strong>Tipo de Pedido:</strong> ${orderTypeLabel[order.orderType] || order.orderType}</div>
             ${order.table?.number ? `<div><strong>Mesa:</strong> #${order.table.number}</div>` : ''}
+             <div><strong>Nº do pedido:</strong> #${order.orderNumber || order.id.substring(0, 8)}</div>
+             <div><strong>Estado do pedido:</strong> ${order.status}</div>
           </div>
         </div>
 
@@ -428,7 +432,7 @@ export function PrintInvoice({
                 <td class="text-center">${item.quantity}</td>
                 <td>
                   <div class="item-name">${item.menuItem?.name || 'Item'}</div>
-                  ${item.orderItemOptions && item.orderItemOptions.length > 0 ? `
+                   ${item.orderItemOptions && item.orderItemOptions.length > 0 ? `
                     <div class="item-options">
                       ${item.orderItemOptions.map((opt) => 
                         `• ${opt.optionName}${parseFloat(opt.priceAdjustment || '0') !== 0 ? ` (${formatKwanza(opt.priceAdjustment || '0')})` : ''}`
