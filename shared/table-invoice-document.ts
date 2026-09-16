@@ -18,6 +18,17 @@ export type TableInvoiceBranch = {
   phone: string | null;
 } | null;
 
+export type TableInvoiceCashRegisterShift = {
+  id: string;
+  label: string;
+  cashRegisterName: string | null;
+  status: string;
+  openedAt: string | null;
+  closedAt: string | null;
+  openedByName: string | null;
+  closedByName: string | null;
+} | null;
+
 export type TableInvoiceCustomer = {
   id: string | null;
   name: string;
@@ -152,10 +163,16 @@ export type TableInvoiceDocument = {
     id: string;
     startedAt: string;
     endedAt: string | null;
+    durationMinutes: number;
+    durationLabel: string;
     status: string;
     customerName: string | null;
     customerCount: number | null;
+    openedByName: string | null;
+    closedByName: string | null;
   };
+  cashRegisterShift: TableInvoiceCashRegisterShift;
+  paymentOperatorNames: string[];
   invoiceRecipient: {
     type: TableInvoiceRecipientType;
     label: string;

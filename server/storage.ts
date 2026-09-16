@@ -2157,7 +2157,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async endTableSession(restaurantId: string, tableId: string): Promise<void> {
+  async endTableSession(restaurantId: string, tableId: string, closedById?: string | null): Promise<void> {
     const table = await this.getTableById(tableId);
     if (!table || !table.currentSessionId) {
       throw new Error('No active session found');
@@ -2167,6 +2167,7 @@ export class DatabaseStorage implements IStorage {
       .set({
         status: 'encerrada',
         endedAt: new Date(),
+        closedById: closedById || null,
       })
       .where(eq(tableSessions.id, table.currentSessionId));
 

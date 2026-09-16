@@ -73,6 +73,20 @@ export function renderTableInvoiceHtml(
     ? `<div class="wide"><label>Cliente principal da mesa</label><strong>${escapeHtml(document.tableCustomer.name)}</strong>${document.tableCustomer.phone ? `<small>${escapeHtml(document.tableCustomer.phone)}</small>` : ''}</div>`
     : '';
   const invoiceIdentity = `<section><h2>Identificação da fatura</h2><div class="customer"><div class="wide"><label>Fatura em nome de</label><strong>${escapeHtml(document.invoiceRecipient.label)}</strong></div>${customerDetails}${primaryCustomer}${document.isSplit ? `<div class="wide split-note"><strong>Conta dividida</strong><small>Esta mesa tem ${document.guests.length} convidados registados.</small></div>` : ''}</div></section>`;
+  const branchName = document.branch?.name || 'Unidade principal';
+  const branchAddress = document.branch?.address || document.restaurant.address;
+  const branchPhone = document.branch?.phone || document.restaurant.phone;
+  const operationDetails = `<section><h2>Dados da operação</h2><div class="operation-grid">
+    <div><label>Filial</label><strong>${escapeHtml(branchName)}</strong></div>
+    <div><label>Endereço da filial</label><strong>${escapeHtml(branchAddress || '-')}</strong></div>
+    <div><label>Telefone da filial</label><strong>${escapeHtml(branchPhone || '-')}</strong></div>
+    <div><label>Caixa / turno</label><strong>${escapeHtml(document.cashRegisterShift?.label || 'Não identificado')}</strong></div>
+    <div><label>Atendido por</label><strong>${escapeHtml(document.paymentOperatorNames.length ? document.paymentOperatorNames.join(', ') : document.session.openedByName || '-')}</strong></div>
+    <div><label>Fechado por</label><strong>${escapeHtml(document.session.closedByName || document.cashRegisterShift?.closedByName || '-')}</strong></div>
+    <div><label>Abertura</label><strong>${escapeHtml(dateLabel(document.session.startedAt))}</strong></div>
+    <div><label>Encerramento</label><strong>${escapeHtml(dateLabel(document.session.endedAt))}</strong></div>
+    <div><label>Duração total</label><strong>${escapeHtml(document.session.durationLabel)}</strong></div>
+  </div></section>`;
   const logo = document.restaurant.logoUrl
     ? `<img class="logo" src="${escapeHtml(document.restaurant.logoUrl)}" alt="${escapeHtml(document.restaurant.name)}" />`
     : `<div class="logo-fallback">${escapeHtml(document.restaurant.name.slice(0, 1).toUpperCase())}</div>`;
@@ -93,21 +107,22 @@ export function renderTableInvoiceHtml(
       .muted, small { color:#64727d; } small { display:block; margin-top:3px; font-size:.88em; } .meta { text-align:right; white-space:nowrap; } .meta strong { display:block; font-size:10px; letter-spacing:.12em; } .meta .number { display:block; font-size:18px; font-weight:700; margin:2px 0; }
       .status { display:inline-block; margin-top:7px; padding:4px 9px; border-radius:999px; background:${document.totals.paymentStatus === 'pago' ? '#dcfce7' : document.totals.paymentStatus === 'parcial' ? '#dbeafe' : '#fef3c7'}; color:${document.totals.paymentStatus === 'pago' ? '#166534' : document.totals.paymentStatus === 'parcial' ? '#1d4ed8' : '#92400e'}; font-weight:700; font-size:10px; }
       .grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin:14px 0; } .info, .customer { border:1px solid #dfe5e8; border-radius:7px; padding:9px 10px; } .info label, .customer label { display:block; color:#64727d; font-size:10px; text-transform:uppercase; letter-spacing:.07em; margin-bottom:3px; }
-      .customer { background:#f5f8f9; display:grid; grid-template-columns:1fr 1fr; gap:8px 18px; } .customer .wide { grid-column:1 / -1; } section { break-inside:avoid; }
+       .customer { background:#f5f8f9; display:grid; grid-template-columns:1fr 1fr; gap:8px 18px; } .customer .wide { grid-column:1 / -1; } .operation-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; } .operation-grid > div { border:1px solid #dfe5e8; border-radius:7px; padding:8px 10px; } .operation-grid label { display:block; color:#64727d; font-size:10px; text-transform:uppercase; letter-spacing:.07em; margin-bottom:3px; } .operation-grid strong { display:block; overflow-wrap:anywhere; } section { break-inside:avoid; }
       table { width:100%; border-collapse:collapse; } th { background:#17202a; color:#fff; font-size:10px; text-transform:uppercase; letter-spacing:.06em; } th,td { text-align:left; padding:8px 7px; border-bottom:1px solid #e5eaed; vertical-align:top; } th:first-child,td:first-child { text-align:center; width:9%; } th:nth-child(n+3),td:nth-child(n+3) { text-align:right; white-space:nowrap; }
       .guests { display:flex; flex-wrap:wrap; gap:6px; } .guests span { background:#edf2f4; padding:5px 8px; border-radius:4px; }
       .summary { margin:16px 0 0 auto; max-width:360px; border:1px solid #dfe5e8; border-radius:8px; padding:11px 13px; } .line { display:flex; justify-content:space-between; gap:20px; margin:5px 0; } .grand { font-size:18px; font-weight:700; margin:9px -13px 7px; padding:10px 13px; border-top:1px solid #dfe5e8; border-bottom:1px solid #dfe5e8; background:#f5f8f9; } .pending { color:#b45309; font-weight:700; }
        .payments { border:1px solid #dfe5e8; border-radius:8px; overflow:hidden; } .payment { display:flex; justify-content:space-between; gap:12px; padding:9px 11px; border-bottom:1px solid #e5eaed; } .payment:last-child { border-bottom:0; } .payment strong:last-child { white-space:nowrap; } .payment.detail { background:#fafcfc; font-size:.92em; } .empty { padding:10px; color:#64727d; }
       .footer { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-top:24px; padding-top:13px; border-top:1px dashed #aab5bb; } .qr-wrap { display:flex; align-items:center; gap:10px; } .qr { width:74px; height:74px; image-rendering:auto; } .validation { text-align:right; font-size:10px; } .validation strong, .validation span { display:block; } .validation span { font-size:13px; font-weight:700; letter-spacing:.1em; margin-top:3px; }
       .thermal-only { display:${isThermal ? 'block' : 'none'}; } .a4-only { display:${isThermal ? 'none' : 'block'}; }
-      ${isThermal ? 'header { display:block; text-align:center; } .brand { justify-content:center; } .meta { text-align:center; margin-top:9px; } .logo, .logo-fallback { width:42px; height:42px; } .grid { grid-template-columns:1fr 1fr; } .grid .info:last-child { grid-column:1 / -1; } .customer { grid-template-columns:1fr; } .customer .wide { grid-column:auto; } h2 { margin-top:15px; } th,td { padding:6px 3px; font-size:9px; } th:nth-child(3),td:nth-child(3) { display:none; } .summary { max-width:none; } .grand { font-size:15px; } .footer { display:block; text-align:center; } .qr-wrap { justify-content:center; margin-bottom:8px; } .validation { text-align:center; }' : ''}
+       ${isThermal ? 'header { display:block; text-align:center; } .brand { justify-content:center; } .meta { text-align:center; margin-top:9px; } .logo, .logo-fallback { width:42px; height:42px; } .grid { grid-template-columns:1fr 1fr; } .grid .info:last-child { grid-column:1 / -1; } .customer { grid-template-columns:1fr; } .customer .wide { grid-column:auto; } .operation-grid { grid-template-columns:1fr 1fr; } .operation-grid > div { padding:6px; } h2 { margin-top:15px; } th,td { padding:6px 3px; font-size:9px; } th:nth-child(3),td:nth-child(3) { display:none; } .summary { max-width:none; } .grand { font-size:15px; } .footer { display:block; text-align:center; } .qr-wrap { justify-content:center; margin-bottom:8px; } .validation { text-align:center; }' : ''}
     </style></head><body>
       <header><div class="brand">${logo}<div><h1>${escapeHtml(document.restaurant.name)}</h1>
-        ${document.branch ? `<div>${escapeHtml(document.branch.name)}</div>` : ''}
-        <div class="muted">${escapeHtml(document.restaurant.address || '')}${document.restaurant.phone ? ` · ${escapeHtml(document.restaurant.phone)}` : ''}</div>
+         <div>${escapeHtml(branchName)}</div>
+         <div class="muted">${escapeHtml(branchAddress || '')}${branchPhone ? ` · ${escapeHtml(branchPhone)}` : ''}</div>
       </div></div><div class="meta"><strong>FATURA/RECIBO</strong><span class="number">Nº ${escapeHtml(document.invoiceReference)}</span><span>${escapeHtml(dateLabel(document.issuedAt))}</span><span class="status">${paymentStatusLabels[document.totals.paymentStatus]}</span></div></header>
       <div class="grid"><div class="info"><label>Mesa</label><strong>${escapeHtml(document.table.number)}${document.table.area ? ` · ${escapeHtml(document.table.area)}` : ''}</strong></div>
         <div class="info"><label>Sessão iniciada</label><strong>${escapeHtml(dateLabel(document.session.startedAt))}</strong></div><div class="info"><label>Moeda</label><strong>AOA · Kwanza</strong></div></div>
+       ${operationDetails}
       ${invoiceIdentity}
       ${guests}
       <section><h2>Itens</h2><table><thead><tr><th>Qtd.</th><th>Descrição</th><th>Preço unit.</th><th>Total</th></tr></thead><tbody>${itemRows}</tbody></table></section>
@@ -122,6 +137,9 @@ export function renderTableInvoiceHtml(
 }
 
 export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
+  const branchName = document.branch?.name || 'Unidade principal';
+  const branchAddress = document.branch?.address || document.restaurant.address;
+  const branchPhone = document.branch?.phone || document.restaurant.phone;
   return {
     invoiceNumber: document.invoiceReference,
     validationCode: document.validation.code,
@@ -132,6 +150,15 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
     customerNif: document.customer?.nif ?? undefined,
     customerAddress: document.customer?.address ?? undefined,
     invoiceRecipientLabel: document.invoiceRecipient.label,
+    branchName,
+    branchAddress: branchAddress ?? undefined,
+    branchPhone: branchPhone ?? undefined,
+    cashRegisterShift: document.cashRegisterShift?.label ?? undefined,
+    attendedBy: document.paymentOperatorNames.join(', ') || document.session.openedByName || undefined,
+    closedBy: document.session.closedByName || document.cashRegisterShift?.closedByName || undefined,
+    sessionOpenedAt: dateLabel(document.session.startedAt),
+    sessionClosedAt: dateLabel(document.session.endedAt),
+    sessionDuration: document.session.durationLabel,
     tableCustomerName: document.tableCustomer?.name ?? undefined,
     splitInfo: document.isSplit ? `Conta dividida entre ${document.guests.length} convidados` : undefined,
     items: document.items.map((item) => ({

@@ -250,6 +250,17 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
            <div><span className="text-muted-foreground">Total pago</span><p className="font-semibold text-emerald-600">{formatKwanza(Number(data.totals.paid))}</p></div>
            <div><span className="text-muted-foreground">{Number(data.totals.pending) > 0 ? 'Saldo pendente' : 'Saldo'}</span><p className="font-semibold text-amber-600">{formatKwanza(Number(data.totals.pending))}</p></div>
         </div>
+         <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+           <div><span className="text-muted-foreground">Filial</span><p className="font-medium">{data.branch?.name || 'Unidade principal'}</p></div>
+           <div><span className="text-muted-foreground">Endereço da filial</span><p className="font-medium">{data.branch?.address || data.restaurant.address || 'Não definido'}</p></div>
+           <div><span className="text-muted-foreground">Telefone da filial</span><p className="font-medium">{data.branch?.phone || data.restaurant.phone || 'Não definido'}</p></div>
+           <div><span className="text-muted-foreground">Caixa / turno</span><p className="font-medium">{data.cashRegisterShift?.label || 'Não identificado'}</p></div>
+           <div><span className="text-muted-foreground">Atendido por</span><p className="font-medium">{data.paymentOperatorNames.join(', ') || data.session.openedByName || 'Não identificado'}</p></div>
+           <div><span className="text-muted-foreground">Fechado por</span><p className="font-medium">{data.session.closedByName || data.cashRegisterShift?.closedByName || 'Não identificado'}</p></div>
+           <div><span className="text-muted-foreground">Abertura</span><p className="font-medium">{format(new Date(data.session.startedAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</p></div>
+           <div><span className="text-muted-foreground">Encerramento</span><p className="font-medium">{data.session.endedAt ? format(new Date(data.session.endedAt), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'Sessão aberta'}</p></div>
+           <div><span className="text-muted-foreground">Duração total</span><p className="font-medium">{data.session.durationLabel}</p></div>
+         </div>
         <div className="text-sm">
           <div className="mb-2 flex items-center gap-2 font-semibold"><CreditCard className="h-4 w-4 text-primary" /> Pagamentos realizados ({data.payments.length})</div>
             {data.paymentsByMethod.length > 0 ? data.paymentsByMethod.map((payment) => (

@@ -14,6 +14,9 @@ import {
   tableSessions,
   tablePayments,
   tableGuests,
+  financialTransactions,
+  cashRegisterShifts,
+  cashRegisters,
   guestPayments,
   users,
   restaurants,
@@ -74,6 +77,26 @@ function money(value: unknown): number {
 
 function fixedMoney(value: unknown): string {
   return money(value).toFixed(2);
+}
+
+function displayUserName(user: { firstName?: string | null; lastName?: string | null } | null | undefined): string | null {
+  if (!user) return null;
+  return `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Usuário desconhecido';
+}
+
+function sessionDuration(startedAt: Date | null | undefined, endedAt: Date | null | undefined): {
+  minutes: number;
+  label: string;
+} {
+  if (!startedAt) return { minutes: 0, label: '0min' };
+  const end = endedAt || new Date();
+  const minutes = Math.max(0, Math.floor((end.getTime() - startedAt.getTime()) / 60000));
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return {
+    minutes,
+    label: hours > 0 ? `${hours}h${String(remainingMinutes).padStart(2, '0')}` : `${remainingMinutes}min`,
+  };
 }
 
 function adjustmentAmount(value: unknown, type: string | null | undefined, base: number): number {
@@ -140,11 +163,59 @@ async function buildTableInvoiceDocument(
     storage.getTableGuests(sessionId),
     storage.getOrdersBySessionId(effectiveRestaurantId, sessionId),
   ]);
+  const linkedOrderIds = rawOrders.map((order: any) => order.id).filter(Boolean);
+  const paymentTransactionConditions = [
+    ...rawPayments.map((payment: any) => sql`${financialTransactions.note} ILIKE ${`%Pagamento de mesa ${payment.id}%`}`),
+    ...(linkedOrderIds.length ? [inArray(financialTransactions.referenceOrderId, linkedOrderIds)] : []),
+  ];
+  const linkedTransactions = paymentTransactionConditions.length
+    ? await db.select().from(financialTransactions).where(and(
+      eq(financialTransactions.restaurantId, effectiveRestaurantId),
+      eq(financialTransactions.type, 'receita'),
+      or(...paymentTransactionConditions),
+    )).orderBy(desc(financialTransactions.occurredAt))
+    : [];
+  const linkedShiftIds = Array.from(new Set(linkedTransactions.map((transaction) => transaction.shiftId).filter(Boolean))) as string[];
+  const linkedShiftRows = linkedShiftIds.length
+    ? await db
+      .select({ shift: cashRegisterShifts, cashRegister: cashRegisters })
+      .from(cashRegisterShifts)
+      .leftJoin(cashRegisters, eq(cashRegisterShifts.cashRegisterId, cashRegisters.id))
+      .where(inArray(cashRegisterShifts.id, linkedShiftIds))
+      .orderBy(desc(cashRegisterShifts.openedAt))
+    : [];
+  const sessionEndForShift = sessionForInvoice.endedAt || new Date();
+  const [fallbackShiftRow] = linkedShiftRows.length
+    ? linkedShiftRows
+    : await db
+      .select({ shift: cashRegisterShifts, cashRegister: cashRegisters })
+      .from(cashRegisterShifts)
+      .leftJoin(cashRegisters, eq(cashRegisterShifts.cashRegisterId, cashRegisters.id))
+      .where(and(
+        eq(cashRegisterShifts.restaurantId, effectiveRestaurantId),
+        table.branchId ? eq(cashRegisterShifts.branchId, table.branchId) : isNull(cashRegisterShifts.branchId),
+        sql`${cashRegisterShifts.openedAt} <= ${sessionEndForShift}`,
+        or(isNull(cashRegisterShifts.closedAt), sql`${cashRegisterShifts.closedAt} >= ${sessionForInvoice.startedAt || new Date(0)}`),
+      ))
+      .orderBy(desc(cashRegisterShifts.openedAt))
+      .limit(1);
   const paymentOperatorIds = Array.from(new Set(rawPayments.map((payment: any) => payment.operatorId).filter(Boolean)));
   const paymentOperators = paymentOperatorIds.length
     ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray(users.id, paymentOperatorIds))
     : [];
-  const paymentOperatorNames = new Map(paymentOperators.map((operator) => [operator.id, `${operator.firstName || ''} ${operator.lastName || ''}`.trim() || 'Usuário desconhecido']));
+  const paymentOperatorNames = new Map(paymentOperators.map((operator) => [operator.id, displayUserName(operator) || 'Usuário desconhecido']));
+  const sessionOperatorIds = Array.from(new Set([sessionForInvoice.operatorId, sessionForInvoice.closedById].filter(Boolean))) as string[];
+  const sessionOperators = sessionOperatorIds.length
+    ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray(users.id, sessionOperatorIds))
+    : [];
+  const sessionOperatorNames = new Map(sessionOperators.map((operator) => [operator.id, displayUserName(operator)]));
+  const cashShiftOperatorIds = fallbackShiftRow
+    ? [fallbackShiftRow.shift.openedByUserId, fallbackShiftRow.shift.closedByUserId].filter(Boolean) as string[]
+    : [];
+  const cashShiftOperators = cashShiftOperatorIds.length
+    ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray(users.id, cashShiftOperatorIds))
+    : [];
+  const cashShiftOperatorNames = new Map(cashShiftOperators.map((operator) => [operator.id, displayUserName(operator)]));
   const sessionAuditRows = await db
     .select({
       id: schema.auditLogs.id,
@@ -359,6 +430,24 @@ async function buildTableInvoiceDocument(
       })),
   ].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const reprintEntries = audit.filter((entry) => entry.action === 'table_invoice_reprinted');
+  const duration = sessionDuration(sessionForInvoice.startedAt, sessionForInvoice.endedAt);
+  const paymentOperatorNameList = Array.from(new Set(
+    rawPayments
+      .map((payment: any) => payment.operatorId ? paymentOperatorNames.get(payment.operatorId) : null)
+      .filter(Boolean),
+  )) as string[];
+  const cashRegisterShift = fallbackShiftRow
+    ? {
+      id: fallbackShiftRow.shift.id,
+      label: fallbackShiftRow.cashRegister?.name || `Turno ${fallbackShiftRow.shift.id.slice(-4)}`,
+      cashRegisterName: fallbackShiftRow.cashRegister?.name || null,
+      status: fallbackShiftRow.shift.status,
+      openedAt: fallbackShiftRow.shift.openedAt?.toISOString() ?? null,
+      closedAt: fallbackShiftRow.shift.closedAt?.toISOString() ?? null,
+      openedByName: cashShiftOperatorNames.get(fallbackShiftRow.shift.openedByUserId) || null,
+      closedByName: fallbackShiftRow.shift.closedByUserId ? cashShiftOperatorNames.get(fallbackShiftRow.shift.closedByUserId) || null : null,
+    }
+    : null;
 
   return {
     documentType: 'table-invoice',
@@ -385,10 +474,16 @@ async function buildTableInvoiceDocument(
       id: sessionForInvoice.id,
       startedAt: (sessionForInvoice.startedAt || new Date()).toISOString(),
       endedAt: sessionForInvoice.endedAt?.toISOString() ?? null,
+      durationMinutes: duration.minutes,
+      durationLabel: duration.label,
       status: sessionForInvoice.status,
       customerName: sessionForInvoice.customerName ?? null,
       customerCount: sessionForInvoice.customerCount ?? null,
+      openedByName: sessionForInvoice.operatorId ? sessionOperatorNames.get(sessionForInvoice.operatorId) || null : null,
+      closedByName: sessionForInvoice.closedById ? sessionOperatorNames.get(sessionForInvoice.closedById) || null : null,
     },
+    cashRegisterShift,
+    paymentOperatorNames: paymentOperatorNameList,
     invoiceRecipient: {
       type: recipientType,
       label: invoiceRecipientLabel,
@@ -5120,7 +5215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      await storage.endTableSession(restaurantId, req.params.id);
+      await storage.endTableSession(restaurantId, req.params.id, currentUser.id ? String(currentUser.id) : null);
       await db.insert(schema.auditLogs).values({
         restaurantId: Number(restaurantId),
         actorId: currentUser.id ? String(currentUser.id) : null,
@@ -6107,8 +6202,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .text(`Estado: ${document.totals.paymentStatus === 'pago' ? 'PAGO' : document.totals.paymentStatus === 'parcial' ? 'PAGO PARCIALMENTE' : 'PENDENTE'}`)
         .text(`Emissão: ${new Date(document.issuedAt).toLocaleString('pt-AO')}`)
         .text(`Sessão iniciada: ${new Date(document.session.startedAt).toLocaleString('pt-AO')}`);
-      if (document.restaurant.address) pdf.text(`Endereço: ${document.restaurant.address}`);
-      if (document.restaurant.phone) pdf.text(`Telefone: ${document.restaurant.phone}`);
+      pdf.moveDown(0.4).font('Helvetica-Bold').text('DADOS DA OPERAÇÃO');
+      pdf.font('Helvetica')
+        .text(`Filial: ${document.branch?.name || 'Unidade principal'}`)
+        .text(`Endereço da filial: ${document.branch?.address || document.restaurant.address || '-'}`)
+        .text(`Telefone da filial: ${document.branch?.phone || document.restaurant.phone || '-'}`)
+        .text(`Caixa / turno: ${document.cashRegisterShift?.label || 'Não identificado'}`)
+        .text(`Atendido por: ${document.paymentOperatorNames.join(', ') || document.session.openedByName || '-'}`)
+        .text(`Fechado por: ${document.session.closedByName || document.cashRegisterShift?.closedByName || '-'}`)
+        .text(`Abertura: ${new Date(document.session.startedAt).toLocaleString('pt-AO')}`)
+        .text(`Encerramento: ${document.session.endedAt ? new Date(document.session.endedAt).toLocaleString('pt-AO') : 'Sessão aberta'}`)
+        .text(`Duração: ${document.session.durationLabel}`);
       pdf.moveDown(0.4).font('Helvetica-Bold').text('IDENTIFICAÇÃO DA FATURA');
       pdf.font('Helvetica').text(`Fatura em nome de: ${document.invoiceRecipient.label}`);
       if (document.customer) {
