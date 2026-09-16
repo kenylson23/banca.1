@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useRestaurantBrand } from '@/hooks/useRestaurantBrand';
 import { apiRequest, queryClient } from '@/lib/queryClient';
@@ -56,6 +57,7 @@ const notificationIconBackgrounds: Record<NotificationType, string> = {
 export function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
   const { brand } = useRestaurantBrand();
   const previousCountRef = useRef<number>(0);
   const brandRef = useRef(brand);
@@ -69,7 +71,11 @@ export function NotificationDropdown() {
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
       queryClient.invalidateQueries({ queryKey: ['/api/notifications/count'] });
       
-      if (message.data) {
+      const notificationUserId = message.data?.userId ?? null;
+      const belongsToCurrentUser =
+        notificationUserId === null || notificationUserId === user?.id;
+
+      if (message.data && belongsToCurrentUser) {
         toast({
           title: message.data.title || 'Nova notificação',
           description: message.data.message || 'Você tem uma nova notificação.',
@@ -78,7 +84,7 @@ export function NotificationDropdown() {
         });
       }
     }
-  }, [toast]);
+  }, [toast, user?.id]);
 
   useWebSocket(handleWebSocketMessage);
 

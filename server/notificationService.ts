@@ -35,7 +35,7 @@ function isEnabled(preferences: NotificationPreferences | undefined, type: Resta
   return !typeKey || preferences[typeKey] !== 0;
 }
 
-async function broadcastNotification(restaurantId: string, notification: Notification): Promise<void> {
+async function broadcastNotification(restaurantId: string, notification?: Notification): Promise<void> {
   const broadcast = (globalThis as typeof globalThis & {
     broadcastToRestaurant?: (targetRestaurantId: string, message: unknown) => void | Promise<void>;
   }).broadcastToRestaurant;
@@ -43,7 +43,7 @@ async function broadcastNotification(restaurantId: string, notification: Notific
   if (typeof broadcast === 'function') {
     await broadcast(restaurantId, {
       type: 'new_notification',
-      data: notification,
+      data: notification || undefined,
     });
   }
 }
@@ -62,26 +62,50 @@ export async function notifyRestaurant(input: NotificationInput): Promise<Notifi
   const defaultPreferences = await storage.getNotificationPreferences(input.restaurantId);
   const created: Notification[] = [];
 
-  for (const recipient of recipients) {
-    const userId = recipient.id || null;
-    const preferences = userId
-      ? (await storage.getNotificationPreferences(input.restaurantId, userId)) || defaultPreferences
-      : defaultPreferences;
+  const results = await Promise.all(
+    recipients.map(async (recipient): Promise<Notification | null> => {
+      const userId = recipient.id || null;
 
-    if (!isEnabled(preferences, input.type)) continue;
+      try {
+        const preferences = userId
+          ? (await storage.getNotificationPreferences(input.restaurantId, userId)) || defaultPreferences
+          : defaultPreferences;
 
-    const notification = await storage.createNotification(input.restaurantId, {
-      type: input.type,
-      title: input.title,
-      message: input.message,
-      data: input.data,
-      branchId: input.branchId || undefined,
-      userId: userId || undefined,
-      channel: 'in_app',
-    });
+        if (!isEnabled(preferences, input.type)) return null;
 
-    created.push(notification);
-    await broadcastNotification(input.restaurantId, notification);
+        return await storage.createNotification(input.restaurantId, {
+          type: input.type,
+          title: input.title,
+          message: input.message,
+          data: input.data,
+          branchId: input.branchId || undefined,
+          userId: userId || undefined,
+          channel: 'in_app',
+        });
+      } catch (error) {
+        console.error('[NOTIFICATION] Failed to persist notification for recipient:', {
+          restaurantId: input.restaurantId,
+          userId,
+          type: input.type,
+          error,
+        });
+        return null;
+      }
+    }),
+  );
+
+  created.push(...results.filter((notification): notification is Notification => notification !== null));
+
+  // All connected clients only need one cache invalidation per event. Sending
+  // once per user caused duplicate toasts and exposed another user's row.
+  if (created.length > 0) {
+    try {
+      await broadcastNotification(input.restaurantId, created[0]);
+    } catch (error) {
+      // WebSocket delivery is an acceleration layer; the database row is the
+      // source of truth and remains available to the next API fetch.
+      console.error('[NOTIFICATION] Failed to broadcast notification:', error);
+    }
   }
 
   return created;

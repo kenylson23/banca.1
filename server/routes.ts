@@ -4528,7 +4528,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         null,
         validatedData
       );
-      void notifyRestaurant({
+      await notifyRestaurant({
         restaurantId,
         type: 'new_customer',
         title: 'Novo cliente cadastrado',
@@ -8674,7 +8674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Only paid orders are released to the kitchen and auto-print flow.
       await releasePaidOrderToKitchen(order);
-      void notifyRestaurant({
+      await notifyRestaurant({
         restaurantId: order.restaurantId,
         branchId: order.branchId,
         type: 'new_order',
@@ -8735,7 +8735,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: 'order_status_updated', 
         data: { id: order.id, status: order.status }
       });
-      void notifyRestaurant({
+      await notifyRestaurant({
         restaurantId,
         branchId: order.branchId,
         type: 'order_status',
@@ -8851,7 +8851,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       if (action === 'confirm') {
         await releasePaidOrderToKitchen(updated);
-        void notifyRestaurant({
+        await notifyRestaurant({
           restaurantId,
           branchId: updated.branchId,
           type: 'payment_received',
@@ -9430,7 +9430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (updated.paymentStatus === 'pago') {
         await releasePaidOrderToKitchen(updated);
-        void notifyRestaurant({
+        await notifyRestaurant({
           restaurantId,
           branchId: updated.branchId,
           type: 'payment_received',
@@ -9511,7 +9511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           cancellationReason,
         }
       });
-      void notifyRestaurant({
+      await notifyRestaurant({
         restaurantId,
         branchId: order.branchId,
         type: 'order_cancelled',
@@ -11776,7 +11776,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data.inventoryItemId
       );
       if (stock && item && Number(stock.quantity) <= Number(item.minStock)) {
-        void notifyRestaurant({
+        await notifyRestaurant({
           restaurantId: currentUser.restaurantId,
           branchId: data.branchId,
           type: 'low_stock',
@@ -11925,7 +11925,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currentUser.activeBranchId || null,
         validatedData
       );
-      void notifyRestaurant({
+      await notifyRestaurant({
         restaurantId: currentUser.restaurantId,
         branchId: currentUser.activeBranchId,
         type: 'new_customer',
