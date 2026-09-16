@@ -180,7 +180,7 @@ export default function CustomerMenu() {
 
     // ✅ NOVO: Hook de guest token (funciona em TODOS os planos)
     // Agora usa também tableNumber/urlRestaurantId para não bloquear enquanto a mesa carrega
-    const { guestToken, refreshToken } = useGuestToken(tableId, restaurantId, tableNumber, urlRestaurantId);
+  const { guestToken, refreshToken, updateToken } = useGuestToken(tableId, restaurantId, tableNumber, urlRestaurantId);
 
      const { data: restaurant } = useQuery<Restaurant>({
       queryKey: ['/api/public/restaurants', effectiveRestaurantId],
@@ -513,7 +513,10 @@ export default function CustomerMenu() {
       );
       return await response.json();
     },
-    onSuccess: (data) => {
+     onSuccess: (data) => {
+       if (data.guestToken) {
+         updateToken(data.guestToken);
+       }
       setCreatedOrder(data);
       setIsShareDialogOpen(true);
       toast({

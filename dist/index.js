@@ -436,7 +436,9 @@ var init_schema = __esm({
       invoicePrefix: z.string().trim().max(30, "Prefixo muito longo").optional().or(z.literal("")),
       fiscalAddress: z.string().trim().max(1e3, "Morada fiscal muito longa").optional().or(z.literal("")),
       email: z.string().trim().email("Email inv\xE1lido"),
-      website: z.string().trim().url("Website inv\xE1lido").max(255).optional().or(z.literal("")),
+      // Accept a full URL or a domain entered without the protocol. The value is
+      // printed on invoices and should not block saving valid business domains.
+      website: z.string().trim().max(255, "Website muito longo").optional().or(z.literal("")),
       whatsappNumber: z.string().trim().regex(/^(\+244|244)?\s*[9][0-9]{2}\s*[0-9]{3}\s*[0-9]{3}$|^(\+244|244)?[9][0-9]{8}$/, "Formato de WhatsApp angolano inv\xE1lido").optional().or(z.literal("")),
       legalFooter: z.string().trim().max(1e3, "Texto legal muito longo").optional().or(z.literal(""))
     });
@@ -5334,6 +5336,7 @@ __export(storage_exports, {
 });
 import { eq, desc, sql as sql4, and, gte as gte2, gt, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { nanoid } from "nanoid";
 import { eq as eq2, and as and2, or as or2, desc as desc2, sql as sql5 } from "drizzle-orm";
 function generateSlug(name) {
   return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -11388,9 +11391,9 @@ var init_storage = __esm({
         if (!subscriptionData) {
           const basicPlan = await this.getSubscriptionPlanBySlug("basico");
           if (basicPlan) {
-            const { nanoid: nanoid3 } = await import("nanoid");
+            const { nanoid: nanoid4 } = await import("nanoid");
             await db.insert(subscriptions).values({
-              id: nanoid3(),
+              id: nanoid4(),
               restaurantId,
               planId: basicPlan.id,
               status: "ativa",
@@ -11798,11 +11801,29 @@ var init_storage = __esm({
               guestNumber = 1;
             }
           }
-          const [guest] = await db.insert(tableGuests).values({
+          let guest;
+          let insertData = {
             ...data,
             restaurantId,
             guestNumber
-          }).returning();
+          };
+          for (let attempt = 0; attempt < 3 && !guest; attempt++) {
+            try {
+              [guest] = await db.insert(tableGuests).values(insertData).returning();
+            } catch (error) {
+              const isTokenCollision = error?.code === "23505" && error?.constraint === "table_guests_token_key" && insertData.token;
+              if (!isTokenCollision || attempt === 2) {
+                throw error;
+              }
+              insertData = {
+                ...insertData,
+                token: nanoid(32)
+              };
+            }
+          }
+          if (!guest) {
+            throw new Error("N\xE3o foi poss\xEDvel criar um token \xFAnico para o convidado");
+          }
           if (data.sessionId) {
             const activeGuests = await db.select().from(tableGuests).where(and(eq(tableGuests.sessionId, data.sessionId), ne(tableGuests.status, "saiu")));
             const activeCount = activeGuests.length;
@@ -13145,7 +13166,7 @@ import PDFDocument from "pdfkit";
 import multer from "multer";
 import path2 from "path";
 import fsSync from "fs";
-import { nanoid } from "nanoid";
+import { nanoid as nanoid2 } from "nanoid";
 import fs2 from "fs/promises";
 import twilio from "twilio";
 import { z as z2 } from "zod";
@@ -13821,7 +13842,7 @@ var restaurantStorage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const ext = path2.extname(file.originalname);
-    const filename = `${nanoid()}-${Date.now()}${ext}`;
+    const filename = `${nanoid2()}-${Date.now()}${ext}`;
     cb(null, filename);
   }
 });
@@ -13851,7 +13872,7 @@ var menuItemStorage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const ext = path2.extname(file.originalname);
-    const filename = `${nanoid()}-${Date.now()}${ext}`;
+    const filename = `${nanoid2()}-${Date.now()}${ext}`;
     cb(null, filename);
   }
 });
@@ -13881,7 +13902,7 @@ var profileImageStorage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const ext = path2.extname(file.originalname);
-    const filename = `${nanoid()}-${Date.now()}${ext}`;
+    const filename = `${nanoid2()}-${Date.now()}${ext}`;
     cb(null, filename);
   }
 });
@@ -16005,7 +16026,7 @@ async function registerRoutes(app2) {
         await db.update(tableSessions).set({ customerCount: requestedCustomerCount }).where(eq5(tableSessions.id, sessionId));
         await db.update(tables).set({ customerCount: requestedCustomerCount }).where(eq5(tables.id, table2.id));
       }
-      const token = nanoid(32);
+      const token = nanoid2(32);
       const tokenExpiresAt = new Date(Date.now() + 4 * 60 * 60 * 1e3);
       let guest;
       if (!hadActiveSession) {
@@ -16040,7 +16061,7 @@ async function registerRoutes(app2) {
       });
       res.json({
         guest,
-        token,
+        token: guest.token,
         table: {
           id: table2.id,
           number: table2.number,
@@ -16234,7 +16255,7 @@ async function registerRoutes(app2) {
       if (!restaurant) {
         return res.status(404).json({ message: "Restaurante n\xE3o encontrado" });
       }
-      const configuredPaymentMethods = restaurant.paymentMethods || [];
+      const configuredPaymentMethods = Array.isArray(restaurant.paymentMethods) ? restaurant.paymentMethods : [];
       const selectedPaymentMethod = validatedOrder.paymentMethod ? configuredPaymentMethods.find((method) => method.id === validatedOrder.paymentMethod) : void 0;
       if (validatedOrder.paymentMethod && !selectedPaymentMethod) {
         return res.status(400).json({ message: "Esta forma de pagamento n\xE3o est\xE1 dispon\xEDvel neste restaurante" });
@@ -16244,6 +16265,12 @@ async function registerRoutes(app2) {
           ...validatedOrder,
           paymentReference: selectedPaymentMethod.reference || void 0
         };
+      }
+      if (validatedOrder.customerId) {
+        const customer = await storage.getCustomerById(validatedOrder.customerId);
+        if (!customer || customer.restaurantId !== restaurant.id) {
+          validatedOrder = { ...validatedOrder, customerId: null };
+        }
       }
       if (validatedOrder.orderType === "mesa") {
         if (!validatedOrder.tableId) {
@@ -16299,6 +16326,7 @@ async function registerRoutes(app2) {
         }
       }
       let detectedGuestId = null;
+      let responseGuestToken = null;
       if (validatedOrder.orderType === "mesa" && validatedOrder.tableId) {
         const tableRecord = await storage.getTableById(validatedOrder.tableId);
         const table2 = tableRecord ? await resolveActiveTableSession(tableRecord) : void 0;
@@ -16309,6 +16337,7 @@ async function registerRoutes(app2) {
             const linkedGuest = guests.find((g) => g.customerId === validatedOrder.customerId);
             if (linkedGuest) {
               detectedGuestId = linkedGuest.id;
+              responseGuestToken = linkedGuest.token;
             } else {
               const customer = await storage.getCustomerById(validatedOrder.customerId);
               if (customer) {
@@ -16322,6 +16351,7 @@ async function registerRoutes(app2) {
                 });
                 await db.update(tableGuests).set({ tokenExpiresAt: new Date(Date.now() + 4 * 60 * 60 * 1e3) }).where(eq5(tableGuests.id, newGuest.id));
                 detectedGuestId = newGuest.id;
+                responseGuestToken = newGuest.token;
                 broadcastToClients({
                   type: "guest_joined",
                   data: { tableId: table2.id, guest: newGuest }
@@ -16333,6 +16363,7 @@ async function registerRoutes(app2) {
             const tokenGuest = guests.find((g) => g.token === guestToken);
             if (tokenGuest) {
               detectedGuestId = tokenGuest.id;
+              responseGuestToken = tokenGuest.token;
             } else {
               const existingGuests = await storage.getTableGuests(table2.currentSessionId);
               const anonymousCount = existingGuests.filter((g) => !g.customerId).length;
@@ -16347,6 +16378,7 @@ async function registerRoutes(app2) {
               });
               await db.update(tableGuests).set({ tokenExpiresAt: new Date(Date.now() + 4 * 60 * 60 * 1e3) }).where(eq5(tableGuests.id, newGuest.id));
               detectedGuestId = newGuest.id;
+              responseGuestToken = newGuest.token;
               broadcastToClients({
                 type: "guest_joined",
                 data: { tableId: table2.id, guest: newGuest }
@@ -16418,16 +16450,38 @@ async function registerRoutes(app2) {
         }
         const serverPrice = parseFloat(menuItem.price);
         let optionsPrice = 0;
+        let verifiedSelectedOptions = item.selectedOptions;
         if (item.selectedOptions && item.selectedOptions.length > 0) {
           const optionGroups3 = await storage.getOptionGroupsByMenuItem(item.menuItemId);
-          const allOptions = optionGroups3.flatMap((group) => group.options);
+          const optionsById = new Map(
+            optionGroups3.flatMap(
+              (group) => group.options.map((option) => ({
+                option,
+                group
+              }))
+            ).map(({ option, group }) => [option.id, { option, group }])
+          );
+          const verifiedOptions = [];
           for (const selectedOpt of item.selectedOptions) {
-            const dbOption = allOptions.find((opt) => opt.id === selectedOpt.optionId);
-            if (dbOption) {
-              const optionPrice = parseFloat(dbOption.priceAdjustment || "0");
-              optionsPrice += optionPrice * (selectedOpt.quantity || 1);
+            const optionEntry = optionsById.get(selectedOpt.optionId);
+            if (!optionEntry || optionEntry.option.isAvailable !== 1) {
+              return res.status(400).json({
+                message: "Uma das op\xE7\xF5es selecionadas j\xE1 n\xE3o est\xE1 dispon\xEDvel. Atualize o menu e tente novamente."
+              });
             }
+            const { option: dbOption, group } = optionEntry;
+            const optionPrice = parseFloat(dbOption.priceAdjustment || "0");
+            const quantity = selectedOpt.quantity || 1;
+            optionsPrice += optionPrice * quantity;
+            verifiedOptions.push({
+              ...selectedOpt,
+              optionName: dbOption.name,
+              optionGroupName: group.name,
+              priceAdjustment: dbOption.priceAdjustment || "0",
+              quantity
+            });
           }
+          verifiedSelectedOptions = verifiedOptions;
         }
         const verifiedItemPrice = (serverPrice + optionsPrice).toFixed(2);
         const itemTotal = parseFloat(verifiedItemPrice) * item.quantity;
@@ -16437,8 +16491,9 @@ async function registerRoutes(app2) {
           ...item,
           price: verifiedItemPrice,
           // Override with verified price
-          guestId: finalGuestId
+          guestId: finalGuestId || void 0,
           // ← Vincula item ao guest
+          selectedOptions: verifiedSelectedOptions
         });
       }
       if (validatedOrder.orderType !== "mesa") {
@@ -16521,6 +16576,7 @@ async function registerRoutes(app2) {
       }
       res.json({
         ...updatedOrder,
+        guestToken: responseGuestToken,
         couponDiscountApplied: couponDiscount,
         loyaltyDiscountApplied: loyaltyDiscount,
         pointsRedeemed: pointsToRedeem
@@ -23646,7 +23702,7 @@ var vite_config_default = defineConfig({
 });
 
 // server/vite.ts
-import { nanoid as nanoid2 } from "nanoid";
+import { nanoid as nanoid3 } from "nanoid";
 var viteLogger = createLogger();
 var serverDirectory = path4.dirname(fileURLToPath3(import.meta.url));
 function log(message, source = "express") {
@@ -23692,7 +23748,7 @@ async function setupVite(app2, server) {
       let template = await fs3.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid2()}"`
+        `src="/src/main.tsx?v=${nanoid3()}"`
       );
       const page = await vite.transformIndexHtml(url2, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);

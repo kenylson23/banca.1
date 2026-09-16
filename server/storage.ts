@@ -187,6 +187,7 @@ import { eq, desc, sql, and, gte, gt, or, isNull, isNotNull, inArray, ne, lt } f
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import { alias } from "drizzle-orm/pg-core";
 import { canUsePlanLimit } from "@shared/planAccess";
+import { nanoid } from "nanoid";
 
 function generateSlug(name: string): string {
   return name
@@ -10978,14 +10979,40 @@ export class DatabaseStorage implements IStorage {
         }
       }
       
-      const [guest] = await db
-        .insert(tableGuests)
-        .values({
-          ...data,
-          restaurantId,
-          guestNumber,
-        })
-        .returning();
+      let guest: TableGuest | undefined;
+      let insertData: InsertTableGuest & { restaurantId: string } = {
+        ...data,
+        restaurantId,
+        guestNumber,
+      };
+
+      // Tokens are persisted globally, while a browser may keep the same
+      // token when a table starts a new session. If that stale token collides,
+      // issue a fresh one instead of failing the whole public order.
+      for (let attempt = 0; attempt < 3 && !guest; attempt++) {
+        try {
+          [guest] = await db
+            .insert(tableGuests)
+            .values(insertData)
+            .returning();
+        } catch (error: any) {
+          const isTokenCollision =
+            error?.code === '23505' &&
+            error?.constraint === 'table_guests_token_key' &&
+            insertData.token;
+          if (!isTokenCollision || attempt === 2) {
+            throw error;
+          }
+          insertData = {
+            ...insertData,
+            token: nanoid(32),
+          };
+        }
+      }
+
+      if (!guest) {
+        throw new Error('Não foi possível criar um token único para o convidado');
+      }
 
       if (data.sessionId) {
         const activeGuests = await db

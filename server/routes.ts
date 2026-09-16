@@ -3732,7 +3732,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .where(eq(tables.id, table.id));
       }
 
-      const token = nanoid(32);
+       const token = nanoid(32);
       const tokenExpiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000);
 
       let guest;
@@ -3776,9 +3776,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } 
       });
       
-      res.json({ 
+       res.json({
         guest, 
-        token,
+         token: guest.token,
         table: {
           id: table.id,
           number: table.number,
@@ -4122,7 +4122,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // ✅ NOVO: Auto-detecção de guest quando cliente faz pedido (Universal - funciona em TODOS os planos)
-      let detectedGuestId: string | null = null;
+       let detectedGuestId: string | null = null;
+       let responseGuestToken: string | null = null;
       
       if (validatedOrder.orderType === 'mesa' && validatedOrder.tableId) {
         const tableRecord = await storage.getTableById(validatedOrder.tableId);
@@ -4139,6 +4140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             if (linkedGuest) {
               detectedGuestId = linkedGuest.id;
+              responseGuestToken = linkedGuest.token;
             } else {
               // Criar guest para cliente autenticado
               const customer = await storage.getCustomerById(validatedOrder.customerId);
@@ -4154,6 +4156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   .set({ tokenExpiresAt: new Date(Date.now() + 4 * 60 * 60 * 1000) })
                   .where(eq(tableGuests.id, newGuest.id));
                 detectedGuestId = newGuest.id;
+                responseGuestToken = newGuest.token;
                 
                 broadcastToClients({ 
                   type: 'guest_joined', 
@@ -4170,6 +4173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             if (tokenGuest) {
               detectedGuestId = tokenGuest.id;
+              responseGuestToken = tokenGuest.token;
             } else {
               // Criar novo convidado anônimo com token
               const existingGuests = await storage.getTableGuests(table.currentSessionId);
@@ -4188,6 +4192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 .set({ tokenExpiresAt: new Date(Date.now() + 4 * 60 * 60 * 1000) })
                 .where(eq(tableGuests.id, newGuest.id));
               detectedGuestId = newGuest.id;
+              responseGuestToken = newGuest.token;
               
               broadcastToClients({ 
                 type: 'guest_joined', 
@@ -4452,6 +4457,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Return order with additional info about discounts applied
       res.json({
         ...updatedOrder,
+         guestToken: responseGuestToken,
         couponDiscountApplied: couponDiscount,
         loyaltyDiscountApplied: loyaltyDiscount,
         pointsRedeemed: pointsToRedeem,
