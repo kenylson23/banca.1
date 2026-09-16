@@ -587,7 +587,7 @@ export function PaymentReceiptDialog({
                   )}
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-500">Método:</span>
-                    <span className="font-semibold">{getPaymentMethodLabel(payment?.paymentMethod || "")}</span>
+                    <span className="font-semibold">{formatPaymentMethodLabel(payment?.paymentMethod)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-500">Convidados:</span>

@@ -52,7 +52,6 @@ import { cn } from "@/lib/utils";
 import { PaymentSuccessDialog } from "@/components/PaymentSuccessDialog";
 import { PaymentReceiptDialog } from "@/components/PaymentReceiptDialog";
 import { formatTableInvoiceNumber } from "@shared/table-invoice-number";
-import { getPaymentMethodLabel } from "@shared/payment-methods";
 import { CheckoutSummaryPanel } from "@/components/CheckoutSummaryPanel";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { invalidateAfterPayment } from "@/lib/tableInvalidations";
