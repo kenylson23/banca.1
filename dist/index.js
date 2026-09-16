@@ -13173,6 +13173,16 @@ import { z as z2 } from "zod";
 var sessionPinAttempts = /* @__PURE__ */ new Map();
 var SESSION_PIN_MAX_ATTEMPTS = 5;
 var SESSION_PIN_WINDOW_MS = 15 * 60 * 1e3;
+function broadcastToClients(message) {
+  const broadcaster = globalThis.broadcastToClients;
+  if (typeof broadcaster !== "function") {
+    console.warn("[WebSocket] broadcastToClients indispon\xEDvel; a opera\xE7\xE3o continuar\xE1 sem atualiza\xE7\xE3o em tempo real.");
+    return;
+  }
+  void Promise.resolve(broadcaster(message)).catch((error) => {
+    console.error("[WebSocket] Falha ao transmitir atualiza\xE7\xE3o:", error);
+  });
+}
 function money(value) {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
