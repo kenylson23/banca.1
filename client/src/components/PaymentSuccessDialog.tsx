@@ -29,6 +29,7 @@ import {
   Minus,
 } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
+import { formatPaymentMethodLabel } from '@shared/invoice-formatters';
 import { PrintGuestBill, type TableGuest, type GuestOrder, type GuestOrderItem } from './PrintGuestBill';
 import { PrintInvoice } from './PrintInvoice';
 import { PrintPayment } from './PrintPayment';
@@ -543,7 +544,7 @@ export function PaymentSuccessDialog({
           <div class="payment-info">
             <div class="payment-line">
               <span>Método de Pagamento:</span>
-              <span>${getPaymentMethodLabel(payment.paymentMethod)}</span>
+              <span>${formatPaymentMethodLabel(payment.paymentMethod)}</span>
             </div>
             ${payment.receivedAmount ? `
               <div class="payment-line">
@@ -753,7 +754,7 @@ export function PaymentSuccessDialog({
       addText('DETALHES DO PAGAMENTO', 12, true);
       yPos += 3;
 
-      addText(`Método: ${getPaymentMethodLabel(payment.paymentMethod)}`, 10);
+      addText(`Método: ${formatPaymentMethodLabel(payment.paymentMethod)}`, 10);
       
       if (payment.receivedAmount) {
         addText(`Valor Recebido: ${formatKwanza(payment.receivedAmount)}`, 10);
@@ -797,16 +798,6 @@ export function PaymentSuccessDialog({
     } finally {
       setIsGeneratingPDF(false);
     }
-  };
-
-  const getPaymentMethodLabel = (method: string) => {
-    const methods: Record<string, string> = {
-      dinheiro: 'Dinheiro',
-      multicaixa: 'Multicaixa',
-      transferencia: 'Transferência',
-      cartao: 'Cartão',
-    };
-    return methods[method] || method;
   };
 
   return (
@@ -868,7 +859,7 @@ export function PaymentSuccessDialog({
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Método de Pagamento:</span>
                     <span className="font-semibold">
-                      {getPaymentMethodLabel(payment.paymentMethod)}
+                      {formatPaymentMethodLabel(payment.paymentMethod)}
                     </span>
                   </div>
                   
