@@ -8,3 +8,9 @@ Historical audit migrations must tolerate two schema generations: existing audit
 **Why:** These tables may already exist outside the migration ledger, so CREATE TABLE IF NOT EXISTS does not reconcile their columns before later constraints and indexes run.
 
 **How to apply:** Align an existing audit foreign-key column with the referenced catalog type before adding the constraint; use NOT VALID when preserving legacy rows is more important than blocking startup, and choose timestamp indexes conditionally. Validate legacy constraints after data cleanup.
+
+Migration files are tracked by filename in the database ledger; once a migration has run, changing its contents will not apply the new SQL.
+
+**Why:** A database can report all migrations applied while still missing a later column added to an already-applied migration.
+
+**How to apply:** Add a new idempotent migration for every post-application schema correction instead of editing a migration that may already be recorded.

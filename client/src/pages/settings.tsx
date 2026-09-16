@@ -838,13 +838,39 @@ export default function Settings() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ReceiptText className="h-5 w-5" />
-                Configuração fiscal
+                Dados fiscais da fatura profissional
               </CardTitle>
               <CardDescription>
-                Estes dados aparecem na fatura/recibo. Confirme o regime, a taxa e a série com o contabilista e as regras fiscais aplicáveis ao seu negócio em Angola.
+                Preencha os dados exatamente como devem aparecer na fatura profissional. O nome comercial vem do cadastro do restaurante e os restantes dados são aplicados aos documentos emitidos.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">Pré-visualização do cabeçalho fiscal</p>
+                    <p className="text-xs text-muted-foreground">Assim estes dados serão apresentados na fatura/recibo.</p>
+                  </div>
+                  <ReceiptText className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div className="rounded-md border bg-background p-4 text-sm">
+                  <p className="font-semibold">{restaurant?.name || 'Nome do restaurante'}</p>
+                  <p className="text-muted-foreground">
+                    {fiscalDraft.fiscalAddress || restaurant?.address || 'Morada fiscal não informada'}
+                  </p>
+                  <div className="mt-3 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                    <span><strong className="text-foreground">NIF:</strong> {fiscalDraft.nif || 'Não informado'}</span>
+                    <span><strong className="text-foreground">Regime:</strong> {fiscalDraft.vatRegime || 'Não informado'}</span>
+                    <span><strong className="text-foreground">IVA:</strong> {fiscalDraft.vatRate ? `${fiscalDraft.vatRate}%` : 'Não informado'}</span>
+                    <span><strong className="text-foreground">Série:</strong> {fiscalDraft.documentSeries || 'Não informada'}</span>
+                    <span><strong className="text-foreground">Prefixo:</strong> {fiscalDraft.invoicePrefix || 'Não informado'}</span>
+                    <span><strong className="text-foreground">Email:</strong> {fiscalDraft.email || 'Não informado'}</span>
+                  </div>
+                  {fiscalDraft.legalFooter && (
+                    <p className="mt-3 border-t pt-3 text-xs italic text-muted-foreground">{fiscalDraft.legalFooter}</p>
+                  )}
+                </div>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="fiscal-nif">NIF do restaurante</Label>
@@ -861,10 +887,12 @@ export default function Settings() {
                 <div className="space-y-2">
                   <Label htmlFor="fiscal-series">Série documental</Label>
                   <Input id="fiscal-series" value={fiscalDraft.documentSeries} onChange={(event) => updateFiscalField('documentSeries', event.target.value)} placeholder="FT2026" />
+                  <p className="text-xs text-muted-foreground">Usada para identificar a série oficial do documento.</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="fiscal-prefix">Prefixo da fatura</Label>
                   <Input id="fiscal-prefix" value={fiscalDraft.invoicePrefix} onChange={(event) => updateFiscalField('invoicePrefix', event.target.value)} placeholder="FT" />
+                  <p className="text-xs text-muted-foreground">Usado quando não houver série documental.</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="fiscal-email">Email fiscal</Label>
