@@ -80,6 +80,23 @@ const sessionPinAttempts = new Map<string, { count: number; resetAt: number }>()
 const SESSION_PIN_MAX_ATTEMPTS = 5;
 const SESSION_PIN_WINDOW_MS = 15 * 60 * 1000;
 
+type BroadcastToClients = (message: unknown) => void | Promise<void>;
+
+function broadcastToClients(message: unknown): void {
+  const broadcaster = (globalThis as typeof globalThis & {
+    broadcastToClients?: BroadcastToClients;
+  }).broadcastToClients;
+
+  if (typeof broadcaster !== 'function') {
+    console.warn('[WebSocket] broadcastToClients indisponível; a operação continuará sem atualização em tempo real.');
+    return;
+  }
+
+  void Promise.resolve(broadcaster(message)).catch((error) => {
+    console.error('[WebSocket] Falha ao transmitir atualização:', error);
+  });
+}
+
 function money(value: unknown): number {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
