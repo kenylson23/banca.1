@@ -52,6 +52,7 @@ import { cn } from "@/lib/utils";
 import { PaymentSuccessDialog } from "@/components/PaymentSuccessDialog";
 import { PaymentReceiptDialog } from "@/components/PaymentReceiptDialog";
 import { formatTableInvoiceNumber } from "@shared/table-invoice-number";
+import { formatPaymentMethodLabel } from "@shared/payment-methods";
 import { CheckoutSummaryPanel } from "@/components/CheckoutSummaryPanel";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { invalidateAfterPayment } from "@/lib/tableInvalidations";
@@ -2849,7 +2850,7 @@ export default function TableCheckoutV2() {
                             <div className="flex items-center justify-between">
                               <span className="text-base font-semibold">Método Selecionado:</span>
                               <Badge className="bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-600 text-sm px-3 py-1">
-                                {paymentMethod.charAt(0).toUpperCase() + paymentMethod.slice(1)}
+                                {formatPaymentMethodLabel(paymentMethod)}
                               </Badge>
                             </div>
                             <Separator />
@@ -3111,7 +3112,7 @@ export default function TableCheckoutV2() {
                 </div>
                 <div className="flex justify-between py-2 border-b">
                   <span className="font-medium">Método:</span>
-                  <span className="capitalize">{paymentMethod}</span>
+                  <span>{formatPaymentMethodLabel(paymentMethod)}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b">
                   <span className="font-medium">Total:</span>
