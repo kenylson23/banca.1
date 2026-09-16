@@ -4,7 +4,7 @@ import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { ProfileMenu } from "@/components/profile-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationDropdown } from "@/components/notification-dropdown";
-import { ChevronRight, Store } from "lucide-react";
+import { ChevronRight, Store, Wallet } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import PrinterSetup from "./printer-setup";
 import Subscription from "./subscription";
 import NotificationSettings from "./notification-settings";
 import OpenTables from "./open-tables";
+import { Link } from "wouter";
 
 export type Section = 
   | "dashboard" 
@@ -296,6 +297,13 @@ function HeaderContent({
   restaurant?: { id: string; name: string; isOpen: number; businessHours?: string };
   user?: any;
 }) {
+  const { data: cashShifts } = useQuery<Array<{ id: string; status: string; cashRegister?: { name?: string } }>>({
+    queryKey: ["/api/cash-register-shifts", "header"],
+    enabled: user?.role === "cashier",
+    refetchInterval: 30000,
+  });
+  const activeCashShift = cashShifts?.find((shift) => shift.status === "aberto");
+
   return (
     <header 
       className={`
@@ -337,6 +345,24 @@ function HeaderContent({
                 </span>
               </div>
             </div>
+          )}
+          {user?.role === "cashier" && (
+            <Link
+              href="/financial/shifts"
+              className={`hidden lg:flex items-center gap-2 ml-2 px-3 py-1.5 rounded-full border transition-colors ${
+                activeCashShift
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                  : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+              }`}
+              aria-label="Abrir gestão do turno de caixa"
+            >
+              <Wallet className="h-3.5 w-3.5" />
+              <span className="text-xs font-semibold">
+                {activeCashShift
+                  ? `Caixa aberto${activeCashShift.cashRegister?.name ? ` · ${activeCashShift.cashRegister.name}` : ""}`
+                  : "Abrir turno de caixa"}
+              </span>
+            </Link>
           )}
         </div>
 

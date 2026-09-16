@@ -10718,7 +10718,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Financial Module - Cash Registers
-  app.get("/api/financial/cash-registers", isAdmin, async (req, res) => {
+  app.get("/api/financial/cash-registers", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user as User;
       let restaurantId: string;
@@ -10820,7 +10820,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Financial Module - Cash Register Shifts
-  app.get("/api/cash-register-shifts", isAdmin, async (req, res) => {
+  app.get("/api/cash-register-shifts", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user as User;
       let restaurantId: string;
@@ -10854,7 +10854,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/cash-register-shifts/active-registers", isAdmin, async (req, res) => {
+  app.get("/api/cash-register-shifts/active-registers", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user as User;
       let restaurantId: string;
@@ -10882,7 +10882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/cash-register-shifts", isAdmin, async (req, res) => {
+  app.post("/api/cash-register-shifts", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId) {
@@ -10919,7 +10919,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/cash-register-shifts/:id/close", isAdmin, async (req, res) => {
+  app.patch("/api/cash-register-shifts/:id/close", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId) {

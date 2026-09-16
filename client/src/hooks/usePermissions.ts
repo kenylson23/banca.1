@@ -30,10 +30,13 @@ export function usePermissions() {
       case 'financial':
       case 'financial-categories':
       case 'financial-cash-registers':
-      case 'financial-shifts':
       case 'financial-reports':
       case 'expenses':
         return permissions.canAccessFinancial;
+      case 'cash-registers':
+      case 'cash-shifts':
+      case 'financial-shifts':
+        return permissions.canAccessCashRegister;
       case 'users':
         return permissions.canAccessUsers;
       case 'settings':

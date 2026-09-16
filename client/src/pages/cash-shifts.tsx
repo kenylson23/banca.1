@@ -38,6 +38,7 @@ import type { CashRegister, CashRegisterShift } from "@shared/schema";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatKwanza } from "@/lib/formatters";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface ShiftWithDetails extends CashRegisterShift {
   cashRegister: CashRegister;
@@ -55,6 +56,7 @@ function formatTime(date: string | Date): string {
 
 export default function CashShifts() {
   const { toast } = useToast();
+  const { isCashier } = usePermissions();
   const [openShiftDialog, setOpenShiftDialog] = useState(false);
   const [closeShiftDialog, setCloseShiftDialog] = useState(false);
   const [configDialog, setConfigDialog] = useState(false);
@@ -213,14 +215,16 @@ export default function CashShifts() {
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold tracking-tight">Turnos de Caixa</h1>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setConfigDialog(true)}
-              data-testid="button-config"
-            >
-              <Settings2 className="h-4 w-4 mr-2" />
-              {hasNoCashRegisters ? "Criar primeira caixa" : "Configuração da caixa"}
-            </Button>
+            {!isCashier && (
+              <Button
+                variant="outline"
+                onClick={() => setConfigDialog(true)}
+                data-testid="button-config"
+              >
+                <Settings2 className="h-4 w-4 mr-2" />
+                {hasNoCashRegisters ? "Criar primeira caixa" : "Configuração da caixa"}
+              </Button>
+            )}
             <Button
               onClick={handleOpenShiftClick}
               disabled={allCashesHaveOpenShift}
@@ -312,10 +316,16 @@ export default function CashShifts() {
                       <p className="text-muted-foreground mb-4">
                         Configure sua primeira caixa para começar a gerenciar turnos e pagamentos.
                       </p>
-                      <Button onClick={() => setConfigDialog(true)} data-testid="button-config-empty">
-                        <Settings2 className="h-4 w-4 mr-2" />
-                        Configurar primeira caixa
-                      </Button>
+                      {isCashier ? (
+                        <p className="text-sm text-muted-foreground">
+                          Peça a um administrador para configurar uma caixa registradora.
+                        </p>
+                      ) : (
+                        <Button onClick={() => setConfigDialog(true)} data-testid="button-config-empty">
+                          <Settings2 className="h-4 w-4 mr-2" />
+                          Configurar primeira caixa
+                        </Button>
+                      )}
                     </>
                   ) : (
                     <>
@@ -608,25 +618,36 @@ export default function CashShifts() {
                 </div>
               ))}
               
-              <div className="pt-4 border-t">
-                <Link href="/financial/cash-registers">
-                  <Button variant="outline" className="w-full" data-testid="button-new-register">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Nova caixa
-                  </Button>
-                </Link>
-              </div>
+              {!isCashier && (
+                <div className="pt-4 border-t">
+                  <Link href="/financial/cash-registers">
+                    <Button variant="outline" className="w-full" data-testid="button-new-register">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Nova caixa
+                    </Button>
+                  </Link>
+                </div>
+              )}
 
               <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
                 <div className="flex gap-3">
                   <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                   <div className="space-y-2 text-sm">
                     <p className="font-medium text-blue-900 dark:text-blue-100">
-                      Crie uma nova caixa registradora para:
+                      {isCashier ? "A caixa é configurada pelo administrador. Quando estiver disponível, poderá:" : "Crie uma nova caixa registradora para:"}
                     </p>
                     <ul className="list-disc list-inside text-blue-800 dark:text-blue-200 space-y-1">
-                      <li>Atribuí-la a uma sala específica (para pedidos de mesas).</li>
-                      <li>Registrar movimentos de dinheiro separadamente.</li>
+                      {isCashier ? (
+                        <>
+                          <li>Abrir o seu turno com o valor inicial.</li>
+                          <li>Receber pagamentos e fechar o turno.</li>
+                        </>
+                      ) : (
+                        <>
+                          <li>Atribuí-la a uma sala específica (para pedidos de mesas).</li>
+                          <li>Registrar movimentos de dinheiro separadamente.</li>
+                        </>
+                      )}
                     </ul>
                   </div>
                 </div>

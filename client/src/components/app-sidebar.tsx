@@ -274,10 +274,10 @@ const cashierMenuItems: MenuItem[] = [
     icon: QrCode,
   },
   {
-    title: "Cozinha",
-    section: "kitchen" as Section,
-    path: "/kitchen",
-    icon: ChefHat,
+    title: "Turno de Caixa",
+    section: "financial-shifts" as Section,
+    path: "/financial/shifts",
+    icon: Wallet,
   },
 ];
 

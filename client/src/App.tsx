@@ -224,7 +224,7 @@ function Router() {
           }} />
           
           <Route path="/financial/shifts" component={() => {
-            if (user?.role === 'admin' || user?.role === 'manager') {
+            if (user?.role === 'admin' || user?.role === 'manager' || user?.role === 'cashier') {
               return <MainDashboard section="financial-shifts" />;
             }
             return <Redirect to="/" />;
