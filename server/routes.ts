@@ -4022,7 +4022,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Restaurante não encontrado" });
       }
 
-      const configuredPaymentMethods = restaurant.paymentMethods || [];
+      const configuredPaymentMethods = Array.isArray(restaurant.paymentMethods)
+        ? restaurant.paymentMethods
+        : [];
       const selectedPaymentMethod = validatedOrder.paymentMethod
         ? configuredPaymentMethods.find((method) => method.id === validatedOrder.paymentMethod)
         : undefined;
@@ -4038,6 +4040,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...validatedOrder,
           paymentReference: selectedPaymentMethod.reference || undefined,
         };
+      }
+
+      // A customer session can outlive a restaurant/customer record change.
+      // Never pass a stale or cross-restaurant customerId to the orders FK.
+      // Falling back to phone matching below preserves the public checkout flow.
+      if (validatedOrder.customerId) {
+        const customer = await storage.getCustomerById(validatedOrder.customerId);
+        if (!customer || customer.restaurantId !== restaurant.id) {
+          validatedOrder = { ...validatedOrder, customerId: null };
+        }
       }
 
       // Validate based on order type
@@ -4266,19 +4278,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Calculate options price if there are selected options
         let optionsPrice = 0;
+        let verifiedSelectedOptions = item.selectedOptions;
         if (item.selectedOptions && item.selectedOptions.length > 0) {
           // Get option groups with options from database to verify option prices
           const optionGroups = await storage.getOptionGroupsByMenuItem(item.menuItemId);
-          const allOptions = optionGroups.flatMap(group => group.options);
+          const optionsById = new Map(
+            optionGroups.flatMap(group =>
+              group.options.map(option => ({
+                option,
+                group,
+              }))
+            ).map(({ option, group }) => [option.id, { option, group }])
+          );
+          const verifiedOptions = [];
           
           for (const selectedOpt of item.selectedOptions) {
             // Find the option in database to get verified price
-            const dbOption = allOptions.find(opt => opt.id === selectedOpt.optionId);
-            if (dbOption) {
-              const optionPrice = parseFloat(dbOption.priceAdjustment || '0');
-              optionsPrice += optionPrice * (selectedOpt.quantity || 1);
+            const optionEntry = optionsById.get(selectedOpt.optionId);
+            if (!optionEntry || optionEntry.option.isAvailable !== 1) {
+              return res.status(400).json({
+                message: "Uma das opções selecionadas já não está disponível. Atualize o menu e tente novamente.",
+              });
             }
+
+            const { option: dbOption, group } = optionEntry;
+            const optionPrice = parseFloat(dbOption.priceAdjustment || '0');
+            const quantity = selectedOpt.quantity || 1;
+            optionsPrice += optionPrice * quantity;
+            verifiedOptions.push({
+              ...selectedOpt,
+              optionName: dbOption.name,
+              optionGroupName: group.name,
+              priceAdjustment: dbOption.priceAdjustment || '0',
+              quantity,
+            });
           }
+          verifiedSelectedOptions = verifiedOptions;
         }
         
         // Calculate verified item total
@@ -4294,7 +4329,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         verifiedItems.push({
           ...item,
           price: verifiedItemPrice, // Override with verified price
-          guestId: finalGuestId, // ← Vincula item ao guest
+          guestId: finalGuestId || undefined, // ← Vincula item ao guest
+          selectedOptions: verifiedSelectedOptions,
         });
       }
 
