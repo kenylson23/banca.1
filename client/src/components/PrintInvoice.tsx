@@ -102,6 +102,12 @@ export function PrintInvoice({
       const effectiveServiceCharge = totalsOverride?.serviceCharge ?? serviceCharge;
       const effectiveTotal = totalsOverride?.total ?? parseFloat(String(order.totalAmount || '0'));
       const invoiceNumber = getInvoiceNumber(order);
+      const paymentStatusLabel =
+        order.paymentStatus === 'pago'
+          ? 'PAGO'
+          : order.paymentStatus === 'parcial'
+            ? 'PAGO PARCIALMENTE'
+            : 'PENDENTE';
       const validationCode = generateInvoiceValidationCode({
         invoiceNumber: order.invoiceNumber ?? invoiceNumber,
         orderId: order.id,
@@ -111,6 +117,7 @@ export function PrintInvoice({
 
       await printerService.printInvoice('invoice', {
         invoiceNumber,
+        status: paymentStatusLabel,
         validationCode,
         date: order.createdAt
           ? format(new Date(order.createdAt), "dd/MM/yyyy", { locale: ptBR })
@@ -177,6 +184,12 @@ export function PrintInvoice({
     const effectiveServiceCharge = totalsOverride?.serviceCharge ?? serviceCharge;
     const effectiveTotal = totalsOverride?.total ?? parseFloat(String(order.totalAmount || '0'));
     const invoiceNumber = getInvoiceNumber(order);
+    const paymentStatusLabel =
+      order.paymentStatus === 'pago'
+        ? 'PAGO'
+        : order.paymentStatus === 'parcial'
+          ? 'PAGO PARCIALMENTE'
+          : 'PENDENTE';
     const validationCode = generateInvoiceValidationCode({
       invoiceNumber: order.invoiceNumber ?? invoiceNumber,
       orderId: order.id,
@@ -192,7 +205,7 @@ export function PrintInvoice({
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Fatura #${invoiceNumber}</title>
+        <title>Fatura/Recibo #${invoiceNumber}</title>
         <style>
           @media print {
             @page {
@@ -381,8 +394,9 @@ export function PrintInvoice({
             </div>
           </div>
           <div class="invoice-info">
-            <div class="doc-type">FATURA</div>
+            <div class="doc-type">FATURA/RECIBO</div>
             <div class="invoice-number">Nº ${invoiceNumber}</div>
+            <div class="invoice-number">Estado: ${paymentStatusLabel}</div>
             <div class="invoice-number">${order.createdAt ? format(new Date(order.createdAt), "dd/MM/yyyy", { locale: ptBR }) : '-'}</div>
             <div class="invoice-number">Código de validação: ${validationCode}</div>
           </div>
@@ -484,7 +498,7 @@ export function PrintInvoice({
 
         ${order.payments && order.payments.length > 0 ? `
           <div class="payment-section">
-            <div class="section-title">INFORMAÇÕES DE PAGAMENTO</div>
+            <div class="section-title">PAGAMENTOS REALIZADOS</div>
             ${order.payments.map((payment) => `
               <div class="payment-info">
                 <span>${paymentMethodLabels[payment.paymentMethod as keyof typeof paymentMethodLabels] || payment.paymentMethod}</span>
@@ -493,11 +507,16 @@ export function PrintInvoice({
             `).join('')}
             <div style="margin-top: 10px;">
               <span class="payment-status status-${order.paymentStatus.replace('_', '-')}">
-                ${order.paymentStatus === 'pago' ? 'PAGO' : order.paymentStatus === 'parcial' ? 'PARCIALMENTE PAGO' : 'NÃO PAGO'}
+                ${paymentStatusLabel}
               </span>
             </div>
           </div>
-        ` : ''}
+        ` : `
+          <div class="payment-section">
+            <div class="section-title">PAGAMENTOS REALIZADOS</div>
+            <div class="payment-status status-pendente">${paymentStatusLabel}</div>
+          </div>
+        `}
 
         ${order.orderNotes ? `
           <div class="notes-section">
@@ -509,7 +528,7 @@ export function PrintInvoice({
         <div class="footer">
           <div style="margin-bottom: 10px;">Obrigado pela sua preferência!</div>
           <div>Documento emitido em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</div>
-          <div style="margin-top: 5px;">Este documento é uma fatura simplificada sem valor fiscal</div>
+          <div style="margin-top: 5px;">Fatura/Recibo final · Código de validação: ${validationCode}</div>
         </div>
 
         <script>
@@ -574,7 +593,7 @@ export function PrintInvoice({
       data-testid={order?.id ? `button-print-invoice-${order.id}` : 'button-print-invoice-disabled'}
     >
       <Printer className={isIconOnly ? "h-4 w-4" : "h-4 w-4 mr-2"} />
-      {!isIconOnly && "Imprimir Fatura"}
+      {!isIconOnly && "Imprimir Fatura/Recibo"}
     </Button>
   );
 }

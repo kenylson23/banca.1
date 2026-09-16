@@ -18,7 +18,7 @@ import { renderTableInvoiceHtml, tableInvoiceToThermalPayload, type TableInvoice
 import type { TableInvoiceDocument } from '@shared/table-invoice-document';
 import { PrintTablePayment } from '@/components/PrintTablePayment';
 
-const statusLabels = { pendente: 'Pendente', parcial: 'Parcial', pago: 'Pago' } as const;
+const statusLabels = { pendente: 'PENDENTE', parcial: 'PAGO PARCIALMENTE', pago: 'PAGO' } as const;
 const statusColors = {
   pendente: 'bg-amber-100 text-amber-800',
   parcial: 'bg-blue-100 text-blue-800',
@@ -56,10 +56,10 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
   }, [data, qrPayload]);
 
   if (isLoading) {
-    return <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> A carregar fatura...</div>;
+    return <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> A carregar fatura/recibo...</div>;
   }
   if (isError || !data) {
-    return <p className="py-3 text-sm text-muted-foreground">Não foi possível carregar a fatura desta sessão.</p>;
+    return <p className="py-3 text-sm text-muted-foreground">Não foi possível carregar a fatura/recibo desta sessão.</p>;
   }
 
   const recordReprint = async () => {
@@ -134,7 +134,7 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
           <div className="flex items-center gap-2">
             {data.restaurant.logoUrl ? <img src={data.restaurant.logoUrl} alt="" className="h-10 w-10 rounded-lg object-contain ring-1 ring-border" /> : <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-lg font-bold text-primary-foreground">{data.restaurant.name.slice(0, 1).toUpperCase()}</div>}
             <div>
-              <p className="font-semibold">Fatura da mesa Nº {data.invoiceReference}</p>
+              <p className="font-semibold">Fatura/Recibo da mesa Nº {data.invoiceReference}</p>
               <p className="text-xs text-muted-foreground">{data.restaurant.name}{data.branch ? ` · ${data.branch.name}` : ''} · Código: {data.validation.code}</p>
             </div>
           </div>
@@ -154,7 +154,7 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
           <div><span className="text-muted-foreground">Saldo pendente</span><p className="font-semibold text-amber-600">{formatKwanza(Number(data.totals.pending))}</p></div>
         </div>
         <div className="text-sm">
-          <div className="mb-2 flex items-center gap-2 font-semibold"><CreditCard className="h-4 w-4 text-primary" /> Pagamentos ({data.payments.length})</div>
+          <div className="mb-2 flex items-center gap-2 font-semibold"><CreditCard className="h-4 w-4 text-primary" /> Pagamentos realizados ({data.payments.length})</div>
            {data.payments.length > 0 ? data.payments.map((payment) => (
              <div key={payment.id} className="flex flex-wrap items-center justify-between gap-2 rounded bg-muted/40 px-2 py-1.5">
                <span>
@@ -205,7 +205,7 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
            if (!payment) return null;
            return (
              <PrintTablePayment
-               payment={{ id: payment.id, amount: payment.amount, paymentMethod: payment.paymentMethod, createdAt: payment.createdAt, notes: payment.notes || undefined, invoiceReference: data.invoiceReference }}
+               payment={{ id: payment.id, amount: payment.amount, paymentMethod: payment.paymentMethod, createdAt: payment.createdAt, notes: payment.notes || undefined, operatorName: payment.operatorName || undefined, invoiceReference: data.invoiceReference }}
                tableName={`Mesa ${data.table.number}`}
                onPrintComplete={() => setPrintingPaymentId(null)}
                autoPrint
@@ -216,8 +216,8 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="flex max-h-[94vh] w-[calc(100%-1rem)] max-w-5xl flex-col gap-3 overflow-hidden p-4 sm:p-6">
           <DialogHeader className="pr-8">
-            <DialogTitle>Pré-visualização da fatura</DialogTitle>
-            <DialogDescription>Confirme o documento antes de imprimir ou reimprimir.</DialogDescription>
+            <DialogTitle>Pré-visualização da Fatura/Recibo</DialogTitle>
+            <DialogDescription>Confirme o documento final antes de imprimir ou reimprimir.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 p-2">
             <div className="flex items-center gap-1">

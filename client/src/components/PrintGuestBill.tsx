@@ -232,8 +232,8 @@ export function PrintGuestBill({
       });
 
       toast({
-        title: "Conta impressa",
-        description: `Conta de ${guestName} enviada para impressora térmica`,
+        title: "Conta provisória impressa",
+        description: `Conta da Mesa de ${guestName} enviada para impressora térmica`,
       });
     } catch (error) {
       toast({
@@ -257,7 +257,7 @@ export function PrintGuestBill({
 
   const handleDownloadReceipt = () => {
     const guestDisplayName = guest.name || `Cliente ${guest.guestNumber}`;
-    const fileName = `Conta_${guestDisplayName.replace(/\s+/g, "_")}_${format(new Date(), "yyyyMMdd_HHmm")}.html`;
+    const fileName = `Conta_da_Mesa_${guestDisplayName.replace(/\s+/g, "_")}_${format(new Date(), "yyyyMMdd_HHmm")}.html`;
 
     try {
       const blob = new Blob([billHtml], { type: "text/html" });
@@ -271,8 +271,8 @@ export function PrintGuestBill({
       URL.revokeObjectURL(url);
 
       toast({
-        title: "Recibo baixado",
-        description: "O arquivo HTML foi salvo com sucesso",
+        title: "Conta provisória baixada",
+        description: "A Conta da Mesa foi salva como arquivo HTML",
       });
     } catch (error) {
       toast({
@@ -290,7 +290,7 @@ export function PrintGuestBill({
 
   if (!thermalPrinter) {
     return (
-      <Button variant={variant} size={size} onClick={handlePrintBrowser} disabled={printing} title="Imprimir conta individual">
+      <Button variant={variant} size={size} onClick={handlePrintBrowser} disabled={printing} title="Imprimir conta provisória">
         <Printer className={isIconOnly ? "h-4 w-4" : "h-4 w-4 mr-2"} />
         {!isIconOnly && "Imprimir"}
       </Button>
@@ -301,7 +301,7 @@ export function PrintGuestBill({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant={variant} size={size} disabled={printing} title="Imprimir conta individual">
+            <Button variant={variant} size={size} disabled={printing} title="Imprimir conta provisória">
             <Printer className={isIconOnly ? "h-4 w-4" : "h-4 w-4 mr-2"} />
             {!isIconOnly && "Imprimir"}
             {!isIconOnly && <ChevronDown className="h-3 w-3 ml-1" />}
@@ -314,8 +314,8 @@ export function PrintGuestBill({
           <DropdownMenuItem onClick={handlePreview} disabled={printing}>
             <Eye className="h-4 w-4 mr-2" />
             <div className="flex flex-col">
-              <span>Visualizar Antes</span>
-              <span className="text-xs text-muted-foreground">Preview da conta</span>
+              <span>Visualizar Conta da Mesa</span>
+              <span className="text-xs text-muted-foreground">Total provisório · Pendente</span>
             </div>
           </DropdownMenuItem>
 
@@ -342,7 +342,7 @@ export function PrintGuestBill({
           <DropdownMenuItem onClick={handleDownloadReceipt}>
             <Download className="h-4 w-4 mr-2" />
             <div className="flex flex-col">
-              <span>Baixar Recibo</span>
+              <span>Baixar Conta Provisória</span>
               <span className="text-xs text-muted-foreground">Salvar arquivo HTML</span>
             </div>
           </DropdownMenuItem>
@@ -352,10 +352,10 @@ export function PrintGuestBill({
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
         <DialogContent className="max-w-4xl max-h-[90vh]">
           <DialogHeader>
-            <DialogTitle>Preview da Conta - {guest.name || `Cliente ${guest.guestNumber}`}</DialogTitle>
+            <DialogTitle>Conta da Mesa · {guest.name || `Cliente ${guest.guestNumber}`}</DialogTitle>
           </DialogHeader>
           <div className="overflow-auto max-h-[70vh] border rounded-lg">
-            <iframe srcDoc={previewHtml} className="w-full h-[600px] border-0" title="Preview da Conta" />
+            <iframe srcDoc={previewHtml} className="w-full h-[600px] border-0" title="Preview da Conta da Mesa" />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPreview(false)}>

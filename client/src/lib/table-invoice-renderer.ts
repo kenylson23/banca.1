@@ -15,9 +15,9 @@ const dateLabel = (value: string | null | undefined) =>
 
 const moneyLabel = (value: string | number) => formatKwanza(Number(value || 0));
 const paymentStatusLabels = {
-  pendente: 'Pendente',
-  parcial: 'Parcial',
-  pago: 'Pago',
+  pendente: 'PENDENTE',
+  parcial: 'PAGO PARCIALMENTE',
+  pago: 'PAGO',
 } as const;
 
 export type TableInvoicePaper = 'a4' | '80mm';
@@ -88,7 +88,7 @@ export function renderTableInvoiceHtml(
       <header><div class="brand">${logo}<div><h1>${escapeHtml(document.restaurant.name)}</h1>
         ${document.branch ? `<div>${escapeHtml(document.branch.name)}</div>` : ''}
         <div class="muted">${escapeHtml(document.restaurant.address || '')}${document.restaurant.phone ? ` · ${escapeHtml(document.restaurant.phone)}` : ''}</div>
-      </div></div><div class="meta"><strong>FATURA DA MESA</strong><span class="number">Nº ${escapeHtml(document.invoiceReference)}</span><span>${escapeHtml(dateLabel(document.issuedAt))}</span><span class="status">${paymentStatusLabels[document.totals.paymentStatus]}</span></div></header>
+      </div></div><div class="meta"><strong>FATURA/RECIBO</strong><span class="number">Nº ${escapeHtml(document.invoiceReference)}</span><span>${escapeHtml(dateLabel(document.issuedAt))}</span><span class="status">${paymentStatusLabels[document.totals.paymentStatus]}</span></div></header>
       <div class="grid"><div class="info"><label>Mesa</label><strong>${escapeHtml(document.table.number)}${document.table.area ? ` · ${escapeHtml(document.table.area)}` : ''}</strong></div>
         <div class="info"><label>Sessão iniciada</label><strong>${escapeHtml(dateLabel(document.session.startedAt))}</strong></div><div class="info"><label>Moeda</label><strong>AOA · Kwanza</strong></div></div>
       ${document.customer ? `<section><h2>Identificação</h2><div class="customer"><div><label>Cliente</label><strong>${escapeHtml(document.customer.name)}</strong></div>${document.customer.phone ? `<div><label>Telefone</label><strong>${escapeHtml(document.customer.phone)}</strong></div>` : ''}${document.customer.nif ? `<div><label>NIF</label><strong>${escapeHtml(document.customer.nif)}</strong></div>` : ''}${document.customer.address ? `<div class="wide"><label>Endereço</label><strong>${escapeHtml(document.customer.address)}</strong></div>` : ''}</div></section>` : ''}
@@ -99,8 +99,8 @@ export function renderTableInvoiceHtml(
         <div class="line"><span>Pago</span><span>${moneyLabel(document.totals.paid)}</span></div>
         <div class="line"><span>Saldo pendente</span><span class="pending">${moneyLabel(document.totals.pending)}</span></div>
       </section>
-      <section><h2>Pagamentos separados</h2><div class="payments">${paymentRows}</div></section>
-      <footer class="footer">${qrCode}<div class="muted">Documento emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura Nº ${escapeHtml(document.invoiceReference)}</div></footer>
+      <section><h2>Pagamentos realizados</h2><div class="payments">${paymentRows || '<div class="muted">Nenhum pagamento registado</div>'}</div></section>
+      <footer class="footer">${qrCode}<div class="muted">Documento final emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura/Recibo Nº ${escapeHtml(document.invoiceReference)}<br>Código de validação: ${escapeHtml(document.validation.code)}</div></footer>
     </body></html>`;
 }
 
@@ -121,6 +121,7 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
     discount: Number(document.totals.discount) > 0 ? `- ${moneyLabel(document.totals.discount)}` : undefined,
     serviceCharge: Number(document.totals.fees) > 0 ? moneyLabel(document.totals.fees) : undefined,
     total: moneyLabel(document.totals.total),
+    status: paymentStatusLabels[document.totals.paymentStatus],
     paymentInfo: document.payments.map((payment) => `${payment.paymentMethodLabel}: ${moneyLabel(payment.amount)}`).join(' | ') || undefined,
   };
 }

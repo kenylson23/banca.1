@@ -45,6 +45,7 @@ interface PaymentData {
   paymentMethod: string;
   receivedAmount?: number;
   notes?: string;
+  transactionReference?: string;
   createdAt: string;
   invoiceReference?: string;
 }
@@ -253,7 +254,7 @@ export function PaymentSuccessDialog({
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Fatura - Mesa ${table.number}</title>
+          <title>Recibo de Pagamento - Mesa ${table.number}</title>
           <meta charset="UTF-8">
           <style>
             @media print {
@@ -442,9 +443,19 @@ export function PaymentSuccessDialog({
           <!-- INVOICE INFO -->
           <div class="invoice-info">
             <div class="info-line">
-              <strong>Fatura Nº:</strong>
+              <strong>Fatura associada:</strong>
               <span>${payment.invoiceReference || 'Sessão sem referência'}</span>
             </div>
+            <div class="info-line">
+              <strong>Nº do pagamento:</strong>
+              <span>${payment.id}</span>
+            </div>
+            ${payment.transactionReference ? `
+              <div class="info-line">
+                <strong>Referência:</strong>
+                <span>${payment.transactionReference}</span>
+              </div>
+            ` : ''}
             <div class="info-line">
               <strong>Data:</strong>
               <span>${new Date(payment.createdAt).toLocaleString('pt-PT')}</span>
@@ -548,7 +559,8 @@ export function PaymentSuccessDialog({
 
           <!-- VALIDATION CODE -->
           <div class="validation-code">
-            Documento: ${payment.invoiceReference || 'Sessão sem referência'}
+            Fatura associada: ${payment.invoiceReference || 'Sessão sem referência'}<br>
+            Nº do pagamento: ${payment.id}
           </div>
 
           <!-- FOOTER -->
@@ -624,10 +636,12 @@ export function PaymentSuccessDialog({
       addLine();
 
       // INVOICE INFO
-      addText('FATURA DE PAGAMENTO', 14, true, 'center');
+      addText('RECIBO DE PAGAMENTO', 14, true, 'center');
       yPos += 5;
 
-      addText(`Fatura Nº: ${payment.invoiceReference || 'Sessão sem referência'}`, 10, true);
+      addText(`Fatura associada: ${payment.invoiceReference || 'Sessão sem referência'}`, 10, true);
+      addText(`Nº do pagamento: ${payment.id}`, 10, true);
+      if (payment.transactionReference) addText(`Referência: ${payment.transactionReference}`, 10);
       addText(`Data: ${new Date(payment.createdAt).toLocaleString('pt-PT')}`, 10);
       addText(`Mesa: ${table.number}${table.area ? ` (${table.area})` : ''}`, 10);
       addText(`Convidados: ${safeOrdersByGuest.length}`, 10);
@@ -736,7 +750,7 @@ export function PaymentSuccessDialog({
       addLine();
 
       // PAYMENT INFO
-      addText('INFORMAÇÕES DE PAGAMENTO', 12, true);
+      addText('DETALHES DO PAGAMENTO', 12, true);
       yPos += 3;
 
       addText(`Método: ${getPaymentMethodLabel(payment.paymentMethod)}`, 10);
@@ -756,13 +770,14 @@ export function PaymentSuccessDialog({
       addLine();
 
       // FOOTER
-      addText(`Documento: ${payment.invoiceReference || 'Sessão sem referência'}`, 9, false, 'center');
+      addText(`Fatura associada: ${payment.invoiceReference || 'Sessão sem referência'}`, 9, false, 'center');
+      addText(`Nº do pagamento: ${payment.id}`, 9, false, 'center');
       yPos += 5;
       addText('Obrigado pela sua visita!', 10, true, 'center');
       addText('Volte sempre!', 10, false, 'center');
 
       // Generate filename
-      const filename = `Fatura_Mesa${table.number}_${new Date().toISOString().split('T')[0]}.pdf`;
+      const filename = `Recibo_Pagamento_Mesa${table.number}_${new Date().toISOString().split('T')[0]}.pdf`;
       
       // Save PDF
       pdf.save(filename);
@@ -816,10 +831,10 @@ export function PaymentSuccessDialog({
             </div>
           </div>
           <DialogTitle className="text-2xl font-bold text-center">
-            Pagamento Processado com Sucesso!
+            Recibo de Pagamento
           </DialogTitle>
           <DialogDescription className="text-center text-base">
-            O pagamento foi registrado e a sessão foi finalizada
+            Pagamento registado · Nº {payment.id}
           </DialogDescription>
         </DialogHeader>
 
@@ -1094,9 +1109,9 @@ export function PaymentSuccessDialog({
                       <Printer className="h-6 w-6 text-blue-600" />
                     </div>
                     <div className="flex-1">
-                      <div className="font-bold text-base">Imprimir Fatura Completa</div>
+                      <div className="font-bold text-base">Imprimir Fatura/Recibo final</div>
                       <div className="text-sm text-muted-foreground">
-                        Fatura detalhada com todos os itens
+                        Documento final com estado e pagamentos realizados
                       </div>
                     </div>
                     {isPrinting && (
@@ -1149,8 +1164,8 @@ export function PaymentSuccessDialog({
                           <div className="font-bold text-base">Imprimir por Convidado</div>
                           <div className="text-sm text-muted-foreground">
                             {safeOrdersByGuest.length === 1 
-                              ? 'Fatura individual do cliente' 
-                              : 'Fatura individual para cada cliente'}
+                              ? 'Conta provisória individual do cliente'
+                              : 'Conta provisória individual para cada cliente'}
                           </div>
                         </div>
                       </div>

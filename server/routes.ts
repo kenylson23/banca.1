@@ -5977,10 +5977,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (document.branch) {
         pdf.fontSize(10).font('Helvetica').text(document.branch.name, { align: 'center' });
       }
-      pdf.fontSize(11).font('Helvetica-Bold').text('FATURA DA MESA', { align: 'center' });
+      pdf.fontSize(11).font('Helvetica-Bold').text('FATURA/RECIBO', { align: 'center' });
       pdf.moveDown(0.6);
       pdf.fontSize(10).font('Helvetica')
         .text(`Fatura Nº ${document.invoiceReference}  |  Mesa ${document.table.number}`)
+        .text(`Estado: ${document.totals.paymentStatus === 'pago' ? 'PAGO' : document.totals.paymentStatus === 'parcial' ? 'PAGO PARCIALMENTE' : 'PENDENTE'}`)
         .text(`Emissão: ${new Date(document.issuedAt).toLocaleString('pt-AO')}`)
         .text(`Sessão iniciada: ${new Date(document.session.startedAt).toLocaleString('pt-AO')}`);
       if (document.restaurant.address) pdf.text(`Endereço: ${document.restaurant.address}`);
@@ -6011,11 +6012,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const fee of document.fees) {
         pdf.text(`${fee.label}: + ${fee.amount} AOA`);
       }
-      pdf.font('Helvetica-Bold').text(`TOTAL: ${document.totals.total} AOA`);
+      pdf.font('Helvetica-Bold').text(`TOTAL FINAL: ${document.totals.total} AOA`);
       pdf.font('Helvetica').text(`Pago: ${document.totals.paid} AOA`);
       pdf.text(`Saldo pendente: ${document.totals.pending} AOA`);
 
-      pdf.moveDown(0.8).font('Helvetica-Bold').text('PAGAMENTOS');
+      pdf.moveDown(0.8).font('Helvetica-Bold').text('PAGAMENTOS REALIZADOS');
       pdf.font('Helvetica');
       for (const payment of document.payments) {
         pdf.text(`${payment.paymentMethodLabel} — ${payment.amount} AOA — ${new Date(payment.createdAt).toLocaleString('pt-AO')}`);

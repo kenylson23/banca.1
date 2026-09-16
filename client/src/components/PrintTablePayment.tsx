@@ -20,6 +20,10 @@ interface PrintTablePaymentProps {
     notes?: string;
     sessionId?: string;
     invoiceReference?: string;
+    receivedAmount?: string | number;
+    changeAmount?: string | number;
+    operatorName?: string;
+    transactionReference?: string;
     guestName?: string;
     items?: Array<{ name: string; quantity: number; price: string }>;
   };
@@ -30,6 +34,10 @@ interface PrintTablePaymentProps {
 }
 
 const paymentMethodLabels: Record<string, string> = {
+  dinheiro: 'Dinheiro',
+  multicaixa: 'Multicaixa',
+  transferencia: 'Transferência Bancária',
+  cartao: 'Cartão',
   cash: 'Dinheiro',
   card: 'Cartão',
   mbway: 'MBWay',
@@ -91,7 +99,7 @@ export function PrintTablePayment({
     if (!thermalPrinter) return;
 
     const receiptContent = generateReceiptContent();
-    await printerService.printReceipt(thermalPrinter.id, receiptContent);
+    await printerService.printReceipt('receipt', receiptContent);
   };
 
   const printBrowser = async () => {
@@ -124,7 +132,8 @@ export function PrintTablePayment({
       { text: '' },
       { text: `Mesa: ${tableName}`, bold: true },
       { text: `Data: ${format(new Date(payment.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}` },
-      { text: `Fatura Nº: ${payment.invoiceReference || 'Sessão sem referência'}` },
+      { text: `Fatura associada: ${payment.invoiceReference || 'Sessão sem referência'}` },
+      { text: `Nº do pagamento: ${payment.id}` },
       { text: '' },
       { text: '--------------------------------', alignment: 'center' },
       { text: 'DETALHES DO CONSUMO', alignment: 'center', bold: true },
@@ -143,14 +152,24 @@ export function PrintTablePayment({
       { text: '--------------------------------', alignment: 'center' },
       { text: '' },
       { 
-        text: `Valor Pago: ${formatKwanza(payment.amount)}`, 
+        text: `Valor Recebido: ${formatKwanza(payment.amount)}`,
         bold: true, 
         fontSize: 1.3,
         alignment: 'center'
       },
       { text: '' },
       { text: `Método: ${paymentMethodLabels[payment.paymentMethod] || payment.paymentMethod}` },
+      ...(payment.receivedAmount != null
+        ? [{ text: `Valor entregue: ${formatKwanza(payment.receivedAmount)}` }]
+        : []),
+      ...(payment.changeAmount != null
+        ? [{ text: `Troco: ${formatKwanza(payment.changeAmount)}` }]
+        : []),
       { text: `Cliente: ${payment.guestName || 'Mesa Completa'}` },
+      { text: `Operador: ${payment.operatorName || 'Sistema'}` },
+      ...(payment.transactionReference
+        ? [{ text: `Referência: ${payment.transactionReference}` }]
+        : []),
       { text: '' },
     ];
 
@@ -175,7 +194,23 @@ export function PrintTablePayment({
       { text: '' },
     );
 
-    return lines;
+    return {
+      title: `${restaurantName} · RECIBO DE PAGAMENTO · Nº ${payment.id}`,
+      items: payment.items?.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: formatKwanza(parseFloat(item.price) * item.quantity),
+      })) || [{ name: 'Pagamento de mesa', quantity: 1, price: formatKwanza(payment.amount) }],
+      total: formatKwanza(payment.amount),
+      footer: [
+        `Mesa: ${tableName}`,
+        `Fatura associada: ${payment.invoiceReference || 'Sessão sem referência'}`,
+        `Método: ${paymentMethodLabels[payment.paymentMethod] || payment.paymentMethod}`,
+        `Operador: ${payment.operatorName || 'Sistema'}`,
+        payment.transactionReference ? `Referência: ${payment.transactionReference}` : '',
+        'PAGAMENTO CONFIRMADO',
+      ].filter(Boolean).join(' | '),
+    };
   };
 
   const generateHTMLContent = () => {
@@ -224,7 +259,8 @@ export function PrintTablePayment({
         
         <div class="info-row"><span class="bold">Mesa:</span> ${tableName}</div>
         <div class="info-row"><span class="bold">Data:</span> ${format(new Date(payment.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</div>
-        <div class="info-row"><span class="bold">Fatura Nº:</span> ${payment.invoiceReference || 'Sessão sem referência'}</div>
+        <div class="info-row"><span class="bold">Fatura associada:</span> ${payment.invoiceReference || 'Sessão sem referência'}</div>
+        <div class="info-row"><span class="bold">Nº do pagamento:</span> ${payment.id}</div>
         <div class="info-row"><span class="bold">Cliente:</span> ${payment.guestName || 'Mesa Completa'}</div>
         
         <div class="separator"></div>
@@ -250,6 +286,10 @@ export function PrintTablePayment({
         <div class="amount">${formatKwanza(payment.amount)}</div>
         
         <div class="info-row"><span class="bold">Método:</span> ${paymentMethodLabels[payment.paymentMethod] || payment.paymentMethod}</div>
+        ${payment.receivedAmount != null ? `<div class="info-row"><span class="bold">Valor entregue:</span> ${formatKwanza(payment.receivedAmount)}</div>` : ''}
+        ${payment.changeAmount != null ? `<div class="info-row"><span class="bold">Troco:</span> ${formatKwanza(payment.changeAmount)}</div>` : ''}
+        <div class="info-row"><span class="bold">Operador:</span> ${payment.operatorName || 'Sistema'}</div>
+        ${payment.transactionReference ? `<div class="info-row"><span class="bold">Referência:</span> ${payment.transactionReference}</div>` : ''}
         
         ${payment.notes ? `
           <div class="separator"></div>

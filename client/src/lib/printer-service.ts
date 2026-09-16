@@ -958,6 +958,7 @@ class PrinterService {
     content: {
       invoiceNumber: string;
       date: string;
+      status?: string;
       validationCode?: string;
       customerName?: string;
       customerPhone?: string;
@@ -987,8 +988,11 @@ class PrinterService {
     encoder.initialize();
 
     // Cabeçalho
-    encoder.align('center').bold(true).line('FATURA').bold(false);
+    encoder.align('center').bold(true).line('FATURA/RECIBO').bold(false);
     encoder.line(`Nº ${content.invoiceNumber}`);
+    if (content.status) {
+      encoder.bold(true).line(`ESTADO: ${content.status}`).bold(false);
+    }
     if (content.validationCode) {
       encoder.line(`Código: ${content.validationCode}`);
     }
@@ -1035,7 +1039,8 @@ class PrinterService {
 
     // Informações de pagamento
     if (content.paymentInfo) {
-      encoder.line('Pagamento: ' + content.paymentInfo).newline();
+      encoder.bold(true).line('PAGAMENTOS REALIZADOS').bold(false);
+      encoder.line(content.paymentInfo).newline();
     }
 
     // Notas
@@ -1140,7 +1145,8 @@ class PrinterService {
     encoder.newline();
     
     // Tipo de documento
-    encoder.bold(true).line('*** CONTA INDIVIDUAL ***').bold(false);
+    encoder.bold(true).line('*** CONTA DA MESA ***').bold(false);
+    encoder.line('*** PENDENTE · SEM PAGAMENTO CONFIRMADO ***');
     encoder.newline();
 
     // ============ INFORMAÇÕES DA CONTA ============
@@ -1205,7 +1211,7 @@ class PrinterService {
     encoder.line('-'.repeat(columns));
     
     // Total
-    const totalLine = 'TOTAL A PAGAR:';
+    const totalLine = 'TOTAL PROVISÓRIO:';
     const spaces = columns - totalLine.length - content.total.length;
     encoder.bold(true).size('normal');
     encoder.line(totalLine + ' '.repeat(Math.max(spaces, 1)) + content.total);
@@ -1213,20 +1219,9 @@ class PrinterService {
     
     encoder.newline().line('='.repeat(columns)).newline();
 
-    // ============ INFORMAÇÕES DE PAGAMENTO ============
-    if (content.paymentMethod) {
-      encoder.bold(true).line('FORMA DE PAGAMENTO').bold(false);
-      encoder.line(content.paymentMethod.toUpperCase());
-      encoder.newline();
-    }
-    
-    // Status de pagamento
+    // A conta provisória não confirma nem resume um pagamento.
     encoder.align('center');
-    if (content.isPaid) {
-      encoder.bold(true).line('*** PAGO ***').bold(false);
-    } else {
-      encoder.bold(true).line('*** PENDENTE ***').bold(false);
-    }
+    encoder.bold(true).line('*** CONTA PROVISÓRIA ***').bold(false);
     encoder.newline();
 
     // ============ QR CODE / CÓDIGO DE RASTREAMENTO ============

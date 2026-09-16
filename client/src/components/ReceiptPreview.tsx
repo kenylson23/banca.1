@@ -72,6 +72,13 @@ export function buildReceiptHtml(doc: ReceiptDocument, paperWidth: 58 | 80 = 80)
     <div class="receipt">
       <div class="center">
         <div class="bold title">${doc.restaurantName || "NaBancada"}</div>
+        <div class="bold document-title">${
+          doc.kind === "bill"
+            ? "CONTA DA MESA"
+            : doc.kind === "invoice"
+              ? "FATURA/RECIBO"
+              : "PEDIDO"
+        }</div>
         <div class="separator">${thinSep}</div>
       </div>
   `;
@@ -97,6 +104,7 @@ export function buildReceiptHtml(doc: ReceiptDocument, paperWidth: 58 | 80 = 80)
       lines.push(`<div class="row"><span>#:</span><span>#${doc.guestNumber}</span></div>`);
       if (doc.entryTime) lines.push(`<div class="row"><span>Entrada:</span><span>${doc.entryTime}</span></div>`);
       if (doc.createdAt) lines.push(`<div class="row"><span>Data:</span><span>${format(new Date(doc.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span></div>`);
+      lines.push(`<div class="row bold"><span>Estado:</span><span>PENDENTE</span></div>`);
       return lines.join("");
     }
 
@@ -157,7 +165,7 @@ export function buildReceiptHtml(doc: ReceiptDocument, paperWidth: 58 | 80 = 80)
       if (doc.discount != null && Number(doc.discount) > 0) rows.push(`<div class="row"><span>Desconto:</span><span>${formatKwanza(Number(doc.discount))}</span></div>`);
       if (doc.serviceCharge != null && Number(doc.serviceCharge) > 0) rows.push(`<div class="row"><span>Taxa Serviço:</span><span>${formatKwanza(Number(doc.serviceCharge))}</span></div>`);
       rows.push(`<div class="separator">${thinSep}</div>`);
-      rows.push(`<div class="row bold"><span>TOTAL A PAGAR:</span><span>${formatKwanza(Number(doc.total))}</span></div>`);
+      rows.push(`<div class="row bold"><span>TOTAL PROVISÓRIO:</span><span>${formatKwanza(Number(doc.total))}</span></div>`);
       return rows.join("");
     }
 
@@ -177,7 +185,7 @@ export function buildReceiptHtml(doc: ReceiptDocument, paperWidth: 58 | 80 = 80)
     lines.push(`<div class="separator">${thinSep}</div>`);
     lines.push(`<div class="center">Obrigado pela preferência!</div>`);
     if (doc.kind === "bill") {
-      lines.push(`<div class="center">${doc.isPaid ? "*** PAGO ***" : "*** PENDENTE ***"}</div>`);
+      lines.push(`<div class="center">*** CONTA PROVISÓRIA · PENDENTE ***</div>`);
     }
     lines.push(`<div class="center muted">${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}</div>`);
     lines.push(`</div>`);
@@ -224,6 +232,10 @@ export function buildReceiptHtml(doc: ReceiptDocument, paperWidth: 58 | 80 = 80)
       }
       .title {
         font-size: 14px;
+      }
+      .document-title {
+        font-size: 16px;
+        margin-top: 4px;
       }
       .separator {
         margin: 4px 0;
