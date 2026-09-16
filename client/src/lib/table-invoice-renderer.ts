@@ -113,8 +113,8 @@ export function renderTableInvoiceHtml(
     ? `<img class="logo" src="${escapeHtml(document.restaurant.logoUrl)}" alt="${escapeHtml(document.restaurant.name)}" />`
     : `<div class="logo-fallback">${escapeHtml(document.restaurant.name.slice(0, 1).toUpperCase())}</div>`;
   const qrCode = options.qrCodeDataUrl
-    ? `<div class="qr-wrap"><img class="qr" src="${escapeHtml(options.qrCodeDataUrl)}" alt="QR Code da fatura" /><div><strong>Validação digital</strong><small>Leia para confirmar este documento</small><small>Código: ${escapeHtml(document.validation.code)}</small></div></div>`
-    : `<div class="validation"><strong>Código de validação</strong><span>${escapeHtml(document.validation.code)}</span></div>`;
+    ? `<div class="qr-wrap"><img class="qr" src="${escapeHtml(options.qrCodeDataUrl)}" alt="QR Code da fatura" /><div><strong>Validação digital</strong><small>Leia para confirmar este documento</small><small>Código: ${escapeHtml(document.validation.code)}</small><small class="verification-url">${escapeHtml(document.validation.verificationUrl)}</small></div></div>`
+    : `<div class="validation"><strong>Código de validação</strong><span>${escapeHtml(document.validation.code)}</span><small>${escapeHtml(document.validation.verificationUrl)}</small></div>`;
 
   return `<!doctype html>
     <html lang="pt"><head><meta charset="utf-8">
@@ -135,7 +135,7 @@ export function renderTableInvoiceHtml(
        .shared { color:#155e75; } .cancelled { color:#b91c1c; font-weight:700; } .cancelled-section { opacity:.82; } .notes { border:1px solid #dfe5e8; border-radius:7px; padding:9px 10px; background:#fffdf5; } .notes p { margin:4px 0; }
         .summary { margin:16px 0 0 auto; max-width:420px; border:1px solid #dfe5e8; border-radius:8px; padding:11px 13px; } .line { display:flex; justify-content:space-between; gap:20px; margin:5px 0; } .line.adjustment { align-items:flex-start; } .line.adjustment small { max-width:280px; } .grand { font-size:18px; font-weight:700; margin:9px -13px 7px; padding:10px 13px; border-top:1px solid #dfe5e8; border-bottom:1px solid #dfe5e8; background:#f5f8f9; } .pending { color:#b45309; font-weight:700; }
        .payments { border:1px solid #dfe5e8; border-radius:8px; overflow:hidden; } .payment { display:flex; justify-content:space-between; gap:12px; padding:9px 11px; border-bottom:1px solid #e5eaed; } .payment:last-child { border-bottom:0; } .payment strong:last-child { white-space:nowrap; } .payment.detail { background:#fafcfc; font-size:.92em; } .empty { padding:10px; color:#64727d; }
-      .footer { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-top:24px; padding-top:13px; border-top:1px dashed #aab5bb; } .qr-wrap { display:flex; align-items:center; gap:10px; } .qr { width:74px; height:74px; image-rendering:auto; } .validation { text-align:right; font-size:10px; } .validation strong, .validation span { display:block; } .validation span { font-size:13px; font-weight:700; letter-spacing:.1em; margin-top:3px; }
+       .footer { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-top:24px; padding-top:13px; border-top:1px dashed #aab5bb; } .qr-wrap { display:flex; align-items:center; gap:10px; } .qr { width:74px; height:74px; image-rendering:auto; } .validation { text-align:right; font-size:10px; } .validation strong, .validation span { display:block; } .validation span { font-size:13px; font-weight:700; letter-spacing:.1em; margin-top:3px; } .verification-url { overflow-wrap:anywhere; max-width:300px; }
       .thermal-only { display:${isThermal ? 'block' : 'none'}; } .a4-only { display:${isThermal ? 'none' : 'block'}; }
        ${isThermal ? 'header { display:block; text-align:center; } .brand { justify-content:center; } .meta { text-align:center; margin-top:9px; } .logo, .logo-fallback { width:42px; height:42px; } .grid { grid-template-columns:1fr 1fr; } .grid .info:last-child { grid-column:1 / -1; } .customer { grid-template-columns:1fr; } .customer .wide { grid-column:auto; } .operation-grid { grid-template-columns:1fr 1fr; } .operation-grid > div { padding:6px; } h2 { margin-top:15px; } th,td { padding:6px 3px; font-size:9px; } th:nth-child(3),td:nth-child(3) { display:none; } .summary { max-width:none; } .grand { font-size:15px; } .footer { display:block; text-align:center; } .qr-wrap { justify-content:center; margin-bottom:8px; } .validation { text-align:center; }' : ''}
     </style></head><body>
@@ -157,7 +157,7 @@ export function renderTableInvoiceHtml(
          <div class="line"><span>${Number(document.totals.pending) > 0 ? 'Saldo pendente' : 'Saldo'}</span><span class="pending">${moneyLabel(document.totals.pending)}</span></div>
       </section>
        <section><h2>Pagamentos realizados</h2><div class="payments">${paymentRows || '<div class="muted">Nenhum pagamento registado</div>'}</div>${paymentDetailRows ? `<small class="muted" style="margin-top:8px">Registos individuais</small><div class="payments">${paymentDetailRows}</div>` : ''}</section>
-      <footer class="footer">${qrCode}<div class="muted">Documento final emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura/Recibo Nº ${escapeHtml(document.invoiceReference)}<br>Código de validação: ${escapeHtml(document.validation.code)}</div></footer>
+       <footer class="footer">${qrCode}<div class="muted">Documento final emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura/Recibo Nº ${escapeHtml(document.invoiceReference)}<br>Total final: ${moneyLabel(document.totals.total)}<br>Código de validação: ${escapeHtml(document.validation.code)}<br>Confirmar: ${escapeHtml(document.validation.verificationUrl)}</div></footer>
     </body></html>`;
 }
 
@@ -166,9 +166,13 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
   const branchAddress = document.branch?.address || document.restaurant.address;
   const branchPhone = document.branch?.phone || document.restaurant.phone;
   const orderNotes = Array.from(new Set(document.items.map((item) => item.orderNotes).filter(Boolean))) as string[];
+  const verificationUrl = typeof window !== 'undefined'
+    ? new URL(document.validation.verificationUrl, window.location.origin).toString()
+    : document.validation.verificationUrl;
   return {
     invoiceNumber: document.invoiceReference,
     validationCode: document.validation.code,
+    verificationUrl,
     date: dateLabel(document.issuedAt),
     customerName: document.customer?.name,
     customerPhone: document.customer?.phone ?? undefined,

@@ -960,6 +960,7 @@ class PrinterService {
       date: string;
       status?: string;
       validationCode?: string;
+      verificationUrl?: string;
       customerName?: string;
       customerPhone?: string;
       customerEmail?: string;
@@ -1016,6 +1017,9 @@ class PrinterService {
     }
     if (content.validationCode) {
       encoder.line(`Código: ${content.validationCode}`);
+    }
+    if (content.verificationUrl) {
+      encoder.line(`Confirmar: ${content.verificationUrl}`);
     }
     encoder.line(content.date).newline();
 

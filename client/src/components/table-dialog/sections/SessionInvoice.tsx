@@ -62,12 +62,10 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
   const [printingPaymentId, setPrintingPaymentId] = useState<string | null>(null);
   const [isRecordingReprint, setIsRecordingReprint] = useState(false);
 
-  const qrPayload = useMemo(() => JSON.stringify({
-    tipo: 'fatura-mesa',
-    numero: data?.invoiceReference,
-    codigo: data?.validation.code,
-    total: data?.totals.total,
-  }), [data]);
+  const qrPayload = useMemo(
+    () => data ? new URL(data.validation.verificationUrl, window.location.origin).toString() : '',
+    [data],
+  );
 
   useEffect(() => {
     if (!data) return;
@@ -205,6 +203,7 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
             <div>
               <p className="font-semibold">Fatura/Recibo da mesa Nº {data.invoiceReference}</p>
               <p className="text-xs text-muted-foreground">{data.restaurant.name}{data.branch ? ` · ${data.branch.name}` : ''} · Código: {data.validation.code}</p>
+              <a className="text-xs text-primary underline-offset-2 hover:underline" href={data.validation.verificationUrl} target="_blank" rel="noreferrer">Confirmar este documento</a>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">

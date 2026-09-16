@@ -227,5 +227,6 @@ export type TableInvoiceDocument = {
   validation: {
     code: string;
     algorithm: 'fnv1a-base36';
+    verificationUrl: string;
   };
 };

@@ -31,7 +31,7 @@ import {
 } from "@shared/schema";
 import { generateOrderNumber, formatOrderDisplay } from './orderNumberGenerator';
 import { allocateTableSessionInvoiceNumber } from './invoiceNumberGenerator';
-import { generateInvoiceValidationCode } from '@shared/invoice-validation';
+import { buildInvoiceVerificationPath, generateInvoiceValidationCode } from '@shared/invoice-validation';
 import { getPaymentMethodLabel, normalizePaymentMethod } from '@shared/payment-methods';
 import { summarizeSessionInvoice } from '@shared/session-invoice';
 import { formatTableInvoiceNumber } from '@shared/table-invoice-number';
@@ -491,9 +491,12 @@ async function buildTableInvoiceDocument(
   const validationCode = generateInvoiceValidationCode({
     invoiceNumber,
     sessionId,
-    date: sessionForInvoice.startedAt,
-    total: totalAmount,
+    date: sessionForInvoice.endedAt,
+    total: paymentSummary.totalAmount,
+    restaurantId: effectiveRestaurantId,
+    branchId: table.branchId,
   });
+  const verificationUrl = buildInvoiceVerificationPath({ sessionId, validationCode });
   const invoiceReference = formatTableInvoiceNumber(invoiceNumber, sessionForInvoice.startedAt);
   const audit = [
     ...sessionAuditRows.map((row) => {
@@ -643,7 +646,7 @@ async function buildTableInvoiceDocument(
       pending: paymentSummary.pendingAmount,
       paymentStatus: paymentSummary.paymentStatus,
     },
-    validation: { code: validationCode, algorithm: 'fnv1a-base36' },
+    validation: { code: validationCode, algorithm: 'fnv1a-base36', verificationUrl },
   };
 }
 
@@ -6177,6 +6180,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Confirmação pública: o código é recalculado com os dados atuais do mesmo
+  // documento, sem expor itens, cliente ou pagamentos da fatura.
+  app.get("/api/public/table-invoices/:sessionId/verify", async (req, res) => {
+    try {
+      const code = String(req.query.code || '').trim().toUpperCase();
+      if (!code) {
+        return res.status(400).json({ valid: false, message: 'Código de validação não informado' });
+      }
+
+      const document = await buildTableInvoiceDocument(undefined, req.params.sessionId);
+      if (document.validation.code !== code) {
+        return res.status(404).json({ valid: false, message: 'Documento não encontrado ou código inválido' });
+      }
+
+      return res.json({
+        valid: true,
+        documentType: document.documentType,
+        invoiceNumber: document.invoiceNumber,
+        invoiceReference: document.invoiceReference,
+        validationCode: document.validation.code,
+        verificationUrl: document.validation.verificationUrl,
+        sessionId: document.session.id,
+        closedAt: document.session.endedAt,
+        total: document.totals.total,
+        currency: document.currency,
+        restaurant: {
+          id: document.restaurant.id,
+          name: document.restaurant.name,
+        },
+        branch: document.branch ? {
+          id: document.branch.id,
+          name: document.branch.name,
+        } : null,
+      });
+    } catch (error: any) {
+      console.error('[PUBLIC TABLE INVOICE VERIFY] Erro ao validar documento:', error);
+      return res.status(error.message === 'Sessão não encontrada' ? 404 : 500).json({
+        valid: false,
+        message: error.message || 'Erro ao validar documento',
+      });
+    }
+  });
+
   // Fatura consolidada da sessão: um número, um total final e todos os
   // pagamentos reais associados à sessão.
   app.get("/api/table-sessions/:sessionId/invoice", isCashierOrAbove, async (req, res) => {
@@ -6446,12 +6492,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
          }
        }
 
-      const pdfQrCode = await QRCode.toDataURL(JSON.stringify({
-        tipo: 'fatura-mesa',
-        numero: document.invoiceReference,
-        codigo: document.validation.code,
-        total: document.totals.total,
-      }), {
+      const protocol = (req.headers['x-forwarded-proto'] as string || req.protocol || 'http').split(',')[0].trim();
+      const host = (req.headers['x-forwarded-host'] as string) || req.headers.host || req.hostname;
+      const verificationUrl = new URL(document.validation.verificationUrl, `${protocol}://${host}`).toString();
+      const pdfQrCode = await QRCode.toDataURL(verificationUrl, {
         width: 180,
         margin: 1,
         errorCorrectionLevel: 'M',
@@ -6464,7 +6508,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       pdf.moveDown(0.3).fontSize(9)
         .text(`Código de validação: ${document.validation.code}`, { align: 'center' })
-        .text('Documento emitido a partir da estrutura TableInvoiceDocument', { align: 'center' });
+        .text(`Confirmar documento: ${verificationUrl}`, { align: 'center' });
       pdf.end();
     } catch (error: any) {
       console.error('[SESSION INVOICE PDF] Erro ao gerar PDF:', error);
