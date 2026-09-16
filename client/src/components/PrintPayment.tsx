@@ -4,6 +4,7 @@ import { Printer, ChevronDown } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { invoiceDate, invoiceMoney, formatPaymentMethodLabel } from '@shared/invoice-formatters';
 import type { FinancialTransaction, CashRegister, FinancialCategory, User } from '@shared/schema';
 import { printerService } from '@/lib/printer-service';
 import { usePrinter } from '@/hooks/usePrinter';
@@ -53,35 +54,28 @@ export function PrintPayment({
       const isIncome = transaction.type === 'receita';
       const transactionTypeLabel = isIncome ? 'RECEITA' : 'DESPESA';
 
-      const paymentMethodLabels: Record<string, string> = {
-        dinheiro: 'Dinheiro',
-        multicaixa: 'Multicaixa',
-        transferencia: 'Transferência',
-        cartao: 'Cartão',
-      };
-
       const items = [
         { 
           name: `${transactionTypeLabel}${transaction.category?.name ? ' - ' + transaction.category.name : ''}`, 
           quantity: 1, 
-          price: formatKwanza(transaction.amount)
+          price: invoiceMoney(transaction.amount)
         }
       ];
 
       const footer = [
-        `Método: ${paymentMethodLabels[transaction.paymentMethod as keyof typeof paymentMethodLabels] || transaction.paymentMethod}`,
+        `Método: ${formatPaymentMethodLabel(transaction.paymentMethod)}`,
         transaction.cashRegister?.name ? `Caixa: ${transaction.cashRegister.name}` : '',
         transaction.recordedBy ? `Operador: ${transaction.recordedBy.firstName || transaction.recordedBy.email}` : '',
         transaction.note ? `Obs: ${transaction.note}` : '',
         '',
         'Documento sem valor fiscal',
-        format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+        invoiceDate(new Date())
       ].filter(Boolean).join('\n');
 
       await printerService.printReceipt('receipt', {
         title: `${restaurantName}\n${transactionTypeLabel}\nID: ${transaction.id.substring(0, 8).toUpperCase()}`,
         items,
-        total: formatKwanza(transaction.amount),
+        total: invoiceMoney(transaction.amount),
         footer,
       });
 
@@ -111,13 +105,6 @@ export function PrintPayment({
     const isIncome = transaction.type === 'receita';
     const transactionTypeLabel = isIncome ? 'RECEITA' : 'DESPESA';
     
-    const paymentMethodLabels: Record<string, string> = {
-      dinheiro: 'Dinheiro',
-      multicaixa: 'Multicaixa',
-      transferencia: 'Transferência Bancária',
-      cartao: 'Cartão',
-    };
-
     const printContent = `
       <!DOCTYPE html>
       <html>
@@ -229,7 +216,7 @@ export function PrintPayment({
         <div class="section">
           <div class="info-row">
             <span>Data e Hora:</span>
-            <span>${format(new Date(transaction.occurredAt || new Date()), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+            <span>${invoiceDate(transaction.occurredAt || new Date())}</span>
           </div>
           ${transaction.cashRegister?.name ? `
           <div class="info-row">
@@ -239,7 +226,7 @@ export function PrintPayment({
           ` : ''}
           <div class="info-row">
             <span>Método:</span>
-            <span>${paymentMethodLabels[transaction.paymentMethod as keyof typeof paymentMethodLabels] || transaction.paymentMethod}</span>
+            <span>${formatPaymentMethodLabel(transaction.paymentMethod)}</span>
           </div>
           ${transaction.category?.name ? `
           <div class="info-row">
@@ -258,7 +245,7 @@ export function PrintPayment({
         <div class="amount-box">
           <div class="amount-label">VALOR</div>
           <div class="amount-value ${isIncome ? 'amount-income' : 'amount-expense'}">
-            ${formatKwanza(transaction.amount)}
+            ${invoiceMoney(transaction.amount)}
           </div>
         </div>
 
@@ -277,7 +264,7 @@ export function PrintPayment({
         <div class="footer">
           <div>Documento sem valor fiscal</div>
           <div class="print-time">
-            Impresso em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+            Impresso em ${invoiceDate(new Date())}
           </div>
         </div>
 

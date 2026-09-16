@@ -1,7 +1,14 @@
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { formatKwanza } from '@/lib/formatters';
 import type { TableInvoiceDocument } from '@shared/table-invoice-document';
+import {
+  invoiceAdjustmentLabel,
+  invoiceDate,
+  invoiceMoney,
+  invoiceNumber,
+  invoiceNumberLabel,
+  invoiceOrderStatusLabel,
+  invoicePaymentStatusLabel,
+  invoiceSessionLabel,
+} from '@shared/invoice-formatters';
 
 const escapeHtml = (value: unknown) => String(value ?? '')
   .replace(/&/g, '&amp;')
@@ -10,24 +17,8 @@ const escapeHtml = (value: unknown) => String(value ?? '')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#039;');
 
-const dateLabel = (value: string | null | undefined) =>
-  value ? format(new Date(value), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-';
-
-const moneyLabel = (value: string | number) => formatKwanza(Number(value || 0));
-const paymentStatusLabels = {
-  pendente: 'PENDENTE',
-  parcial: 'PAGO PARCIALMENTE',
-  pago: 'PAGO',
-} as const;
-
-const orderStatusLabels: Record<string, string> = {
-  aguardando_confirmacao: 'A aguardar confirmação',
-  pendente: 'Pendente',
-  em_preparo: 'Em preparação',
-  pronto: 'Pronto',
-  servido: 'Servido',
-  cancelado: 'Cancelado',
-};
+const dateLabel = (value: string | null | undefined) => invoiceDate(value);
+const moneyLabel = (value: string | number) => invoiceMoney(value);
 
 export type TableInvoicePaper = 'a4' | '80mm';
 
@@ -46,7 +37,7 @@ export function renderTableInvoiceHtml(
       <tr>
         <td>${escapeHtml(item.quantity)}</td>
         <td><strong>${escapeHtml(item.name)}</strong>
-          <small>Pedido ${escapeHtml(item.orderNumber ? `#${item.orderNumber}` : 'sem número')}${item.orderCreatedAt ? ` · ${escapeHtml(dateLabel(item.orderCreatedAt))}` : ''} · ${escapeHtml(orderStatusLabels[item.orderStatus] || item.orderStatus)}</small>
+           <small>Pedido ${escapeHtml(item.orderNumber ? `#${item.orderNumber}` : 'sem número')}${item.orderCreatedAt ? ` · ${escapeHtml(dateLabel(item.orderCreatedAt))}` : ''} · ${escapeHtml(invoiceOrderStatusLabel(item.orderStatus))}</small>
           ${item.guestName ? `<small>Convidado: ${escapeHtml(item.guestName)}</small>` : ''}
           ${item.options.length ? `<small>Opções: ${escapeHtml(item.options.map((option) => `${option.name}${option.quantity > 1 ? ` (${option.quantity}x)` : ''}`).join(', '))}</small>` : ''}
           ${item.notes ? `<small>Obs. do item: ${escapeHtml(item.notes)}</small>` : ''}
@@ -65,8 +56,8 @@ export function renderTableInvoiceHtml(
     : '';
   const orderNotes = Array.from(new Set(document.items.map((item) => item.orderNotes).filter(Boolean))) as string[];
   const adjustmentRows = [
-    ...document.discounts.map((adjustment) => `<div class="line adjustment"><span><strong>${escapeHtml(adjustment.label)}</strong><small>Origem: ${escapeHtml(adjustment.sourceLabel)} · ${adjustment.type === 'percentual' ? `${moneyLabel(adjustment.inputValue)}%` : 'valor fixo'}${adjustment.appliedByName ? ` · Aplicado por: ${escapeHtml(adjustment.appliedByName)}` : ' · Aplicado por: não identificado'}${adjustment.reason ? ` · Motivo: ${escapeHtml(adjustment.reason)}` : ''}</small></span><span>- ${moneyLabel(adjustment.amount)}</span></div>`),
-    ...document.fees.map((adjustment) => `<div class="line adjustment"><span><strong>${escapeHtml(adjustment.label)}</strong><small>Origem: ${escapeHtml(adjustment.sourceLabel)} · ${adjustment.type === 'percentual' ? `${moneyLabel(adjustment.inputValue)}%` : 'valor fixo'}${adjustment.appliedByName ? ` · Aplicado por: ${escapeHtml(adjustment.appliedByName)}` : ' · Aplicado por: não identificado'}${adjustment.reason ? ` · Motivo: ${escapeHtml(adjustment.reason)}` : ''}</small></span><span>+ ${moneyLabel(adjustment.amount)}</span></div>`),
+     ...document.discounts.map((adjustment) => `<div class="line adjustment"><span><strong>${escapeHtml(adjustment.label)}</strong><small>${escapeHtml(invoiceAdjustmentLabel({ ...adjustment, sign: '-' }))}</small></span><span>- ${moneyLabel(adjustment.amount)}</span></div>`),
+     ...document.fees.map((adjustment) => `<div class="line adjustment"><span><strong>${escapeHtml(adjustment.label)}</strong><small>${escapeHtml(invoiceAdjustmentLabel({ ...adjustment, sign: '+' }))}</small></span><span>+ ${moneyLabel(adjustment.amount)}</span></div>`),
   ].join('');
   const paymentRows = document.payments.length
     ? document.paymentsByMethod.map((payment) => `
@@ -153,9 +144,9 @@ export function renderTableInvoiceHtml(
           <div class="muted">${escapeHtml(fiscalAddress || branchAddress || '')}${branchPhone ? ` · ${escapeHtml(branchPhone)}` : ''}</div>
           ${document.restaurant.nif ? `<div class="muted">NIF: ${escapeHtml(document.restaurant.nif)}</div>` : ''}
           ${document.restaurant.documentSeries ? `<div class="muted">Série: ${escapeHtml(document.restaurant.documentSeries)}</div>` : ''}
-      </div></div><div class="meta"><strong>FATURA/RECIBO</strong><span class="number">Nº ${escapeHtml(document.invoiceReference)}</span><span>${escapeHtml(dateLabel(document.issuedAt))}</span><span class="status">${paymentStatusLabels[document.totals.paymentStatus]}</span></div></header>
-      <div class="grid"><div class="info"><label>Mesa</label><strong>${escapeHtml(document.table.number)}${document.table.area ? ` · ${escapeHtml(document.table.area)}` : ''}</strong></div>
-        <div class="info"><label>Sessão iniciada</label><strong>${escapeHtml(dateLabel(document.session.startedAt))}</strong></div><div class="info"><label>Moeda</label><strong>AOA · Kwanza</strong></div></div>
+       </div></div><div class="meta"><strong>FATURA/RECIBO</strong><span class="number">Nº ${escapeHtml(invoiceNumberLabel(document.invoiceReference))}</span><span>${escapeHtml(dateLabel(document.issuedAt))}</span><span class="status">${invoicePaymentStatusLabel(document.totals.paymentStatus)}</span></div></header>
+       <div class="grid"><div class="info"><label>Mesa</label><strong>${escapeHtml(document.table.number)}${document.table.area ? ` · ${escapeHtml(document.table.area)}` : ''}</strong></div>
+         <div class="info"><label>Sessão</label><strong>${escapeHtml(invoiceSessionLabel(document.session.id))}</strong><small>${escapeHtml(dateLabel(document.session.startedAt))}</small></div><div class="info"><label>Moeda</label><strong>AOA · Kwanza</strong></div></div>
        ${operationDetails}
       ${invoiceIdentity}
       ${guests}
@@ -168,7 +159,7 @@ export function renderTableInvoiceHtml(
          <div class="line"><span>${Number(document.totals.pending) > 0 ? 'Saldo pendente' : 'Saldo'}</span><span class="pending">${moneyLabel(document.totals.pending)}</span></div>
       </section>
        <section><h2>Pagamentos realizados</h2><div class="payments">${paymentRows || '<div class="muted">Nenhum pagamento registado</div>'}</div>${paymentDetailRows ? `<small class="muted" style="margin-top:8px">Registos individuais</small><div class="payments">${paymentDetailRows}</div>` : ''}</section>
-        <footer class="footer">${qrCode}<div class="muted">${document.restaurant.legalFooter ? `<strong>${escapeHtml(document.restaurant.legalFooter)}</strong><br>` : ''}${escapeHtml(fiscalDetails)}${fiscalDetails ? '<br>' : ''}Documento final emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura/Recibo Nº ${escapeHtml(document.invoiceReference)}<br>Total final: ${moneyLabel(document.totals.total)}<br>Código de validação: ${escapeHtml(document.validation.code)}<br>Confirmar: ${escapeHtml(document.validation.verificationUrl)}</div></footer>
+        <footer class="footer">${qrCode}<div class="muted">${document.restaurant.legalFooter ? `<strong>${escapeHtml(document.restaurant.legalFooter)}</strong><br>` : ''}${escapeHtml(fiscalDetails)}${fiscalDetails ? '<br>' : ''}Documento final emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura/Recibo Nº ${escapeHtml(invoiceNumberLabel(document.invoiceReference))}<br>Total final: ${moneyLabel(document.totals.total)}<br>Código de validação: ${escapeHtml(document.validation.code)}<br>Confirmar: ${escapeHtml(document.validation.verificationUrl)}</div></footer>
     </body></html>`;
 }
 
@@ -181,7 +172,8 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
     ? new URL(document.validation.verificationUrl, window.location.origin).toString()
     : document.validation.verificationUrl;
   return {
-    invoiceNumber: document.invoiceReference,
+     invoiceNumber: invoiceNumberLabel(document.invoiceReference),
+     sessionReference: invoiceSessionLabel(document.session.id),
     validationCode: document.validation.code,
     verificationUrl,
     date: dateLabel(document.issuedAt),
@@ -197,7 +189,7 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
     restaurantName: document.restaurant.name,
     restaurantNif: document.restaurant.nif ?? undefined,
     vatRegime: document.restaurant.vatRegime ?? undefined,
-    vatRate: document.restaurant.vatRate ? `${moneyLabel(document.restaurant.vatRate)}%` : undefined,
+     vatRate: document.restaurant.vatRate ? `${invoiceNumber(document.restaurant.vatRate)}%` : undefined,
     fiscalAddress: document.restaurant.fiscalAddress ?? undefined,
     restaurantEmail: document.restaurant.email ?? undefined,
     website: document.restaurant.website ?? undefined,
@@ -220,7 +212,7 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
        notes: item.notes || item.orderNotes || undefined,
        orderNumber: item.orderNumber ? String(item.orderNumber) : undefined,
        orderTime: item.orderCreatedAt ? dateLabel(item.orderCreatedAt) : undefined,
-       orderStatus: orderStatusLabels[item.orderStatus] || item.orderStatus,
+        orderStatus: invoiceOrderStatusLabel(item.orderStatus),
        guestName: item.guestName || undefined,
        sharedWith: item.sharedWithGuestNames.join(', ') || undefined,
     })),
@@ -233,17 +225,17 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
      })),
      orderNotes,
     subtotal: moneyLabel(document.totals.subtotal),
-     adjustments: [
-       ...document.discounts.map((adjustment) => `-${adjustment.label}: ${moneyLabel(adjustment.amount)} · ${adjustment.sourceLabel}${adjustment.type === 'percentual' ? ` · ${moneyLabel(adjustment.inputValue)}%` : ' · valor fixo'}${adjustment.appliedByName ? ` · por ${adjustment.appliedByName}` : ''}${adjustment.reason ? ` · Motivo: ${adjustment.reason}` : ''}`),
-       ...document.fees.map((adjustment) => `+${adjustment.label}: ${moneyLabel(adjustment.amount)} · ${adjustment.sourceLabel}${adjustment.type === 'percentual' ? ` · ${moneyLabel(adjustment.inputValue)}%` : ' · valor fixo'}${adjustment.appliedByName ? ` · por ${adjustment.appliedByName}` : ''}${adjustment.reason ? ` · Motivo: ${adjustment.reason}` : ''}`),
-     ],
+      adjustments: [
+        ...document.discounts.map((adjustment) => invoiceAdjustmentLabel({ ...adjustment, sign: '-' })),
+        ...document.fees.map((adjustment) => invoiceAdjustmentLabel({ ...adjustment, sign: '+' })),
+      ],
      discount: undefined,
      serviceCharge: undefined,
     total: moneyLabel(document.totals.total),
-    status: paymentStatusLabels[document.totals.paymentStatus],
+     status: invoicePaymentStatusLabel(document.totals.paymentStatus),
     paymentInfo: [
       ...document.paymentsByMethod.map((payment) => `${payment.paymentMethodLabel}: ${moneyLabel(payment.amount)}`),
-      `Total da sessão: ${moneyLabel(document.totals.total)}`,
+       `${invoiceSessionLabel(document.session.id)}: ${moneyLabel(document.totals.total)}`,
       `Total pago: ${moneyLabel(document.totals.paid)}`,
       `${Number(document.totals.pending) > 0 ? 'Saldo pendente' : 'Saldo'}: ${moneyLabel(document.totals.pending)}`,
     ].join('\n'),

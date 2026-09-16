@@ -957,6 +957,7 @@ class PrinterService {
     type: PrinterType,
     content: {
       invoiceNumber: string;
+       sessionReference?: string;
       date: string;
       status?: string;
       validationCode?: string;
@@ -1034,6 +1035,9 @@ class PrinterService {
     // Cabeçalho
     encoder.align('center').bold(true).line('FATURA/RECIBO').bold(false);
     encoder.line(`Nº ${content.invoiceNumber}`);
+     if (content.sessionReference) {
+       encoder.line(content.sessionReference);
+     }
     if (content.status) {
       encoder.bold(true).line(`ESTADO: ${content.status}`).bold(false);
     }

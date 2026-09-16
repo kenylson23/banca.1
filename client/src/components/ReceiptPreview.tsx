@@ -1,6 +1,9 @@
-import { formatKwanza } from "@/lib/formatters";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import {
+  invoiceDate,
+  invoiceMoney,
+  invoicePaymentStatusLabel,
+  formatPaymentMethodLabel,
+} from "@shared/invoice-formatters";
 
 export type ReceiptItem = {
   name: string;
@@ -87,7 +90,7 @@ export function buildReceiptHtml(doc: ReceiptDocument, paperWidth: 58 | 80 = 80)
     if (doc.kind === "order") {
       const lines: string[] = [];
       lines.push(`<div class="row"><span>Pedido:</span><span>#${doc.orderNumber || "---"}</span></div>`);
-      lines.push(`<div class="row"><span>Data:</span><span>${format(new Date(doc.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span></div>`);
+       lines.push(`<div class="row"><span>Data:</span><span>${invoiceDate(doc.createdAt)}</span></div>`);
       if (doc.orderType) lines.push(`<div class="row"><span>Tipo:</span><span>${doc.orderType.toUpperCase()}</span></div>`);
       if (doc.tableNumber != null) lines.push(`<div class="row"><span>Mesa:</span><span>#${doc.tableNumber}</span></div>`);
       if (doc.customerName) lines.push(`<div class="row"><span>Cliente:</span><span>${doc.customerName}</span></div>`);
@@ -103,14 +106,14 @@ export function buildReceiptHtml(doc: ReceiptDocument, paperWidth: 58 | 80 = 80)
       lines.push(`<div class="row"><span>Cliente:</span><span>${doc.guestName}</span></div>`);
       lines.push(`<div class="row"><span>#:</span><span>#${doc.guestNumber}</span></div>`);
       if (doc.entryTime) lines.push(`<div class="row"><span>Entrada:</span><span>${doc.entryTime}</span></div>`);
-      if (doc.createdAt) lines.push(`<div class="row"><span>Data:</span><span>${format(new Date(doc.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span></div>`);
-      lines.push(`<div class="row bold"><span>Estado:</span><span>PENDENTE</span></div>`);
+       if (doc.createdAt) lines.push(`<div class="row"><span>Data:</span><span>${invoiceDate(doc.createdAt)}</span></div>`);
+       lines.push(`<div class="row bold"><span>Estado:</span><span>${invoicePaymentStatusLabel("pendente")}</span></div>`);
       return lines.join("");
     }
 
     const lines: string[] = [];
     lines.push(`<div class="row"><span>Nº:</span><span>${doc.invoiceNumber}</span></div>`);
-    lines.push(`<div class="row"><span>Data:</span><span>${format(new Date(doc.date), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span></div>`);
+     lines.push(`<div class="row"><span>Data:</span><span>${invoiceDate(doc.date)}</span></div>`);
     if (doc.customerName) lines.push(`<div class="row"><span>Cliente:</span><span>${doc.customerName}</span></div>`);
     if (doc.customerPhone) lines.push(`<div class="row"><span>Tel:</span><span>${doc.customerPhone}</span></div>`);
     return lines.join("");
@@ -124,8 +127,8 @@ export function buildReceiptHtml(doc: ReceiptDocument, paperWidth: 58 | 80 = 80)
     const items = doc.items;
     for (const item of items) {
       const qty = item.quantity;
-      const unit = "unitPrice" in item && item.unitPrice != null ? formatKwanza(Number(item.unitPrice)) : undefined;
-      const total = "total" in item && item.total != null ? formatKwanza(Number(item.total)) : undefined;
+       const unit = "unitPrice" in item && item.unitPrice != null ? invoiceMoney(item.unitPrice) : undefined;
+       const total = "total" in item && item.total != null ? invoiceMoney(item.total) : undefined;
 
       if (unit && total) {
         rows.push(`<div class="row"><span>${qty}x ${item.name}</span><span>${total}</span></div>`);
@@ -153,7 +156,7 @@ export function buildReceiptHtml(doc: ReceiptDocument, paperWidth: 58 | 80 = 80)
     if (doc.kind === "order") {
       const rows: string[] = [];
       rows.push(`<div class="separator">${sep}</div>`);
-      rows.push(`<div class="row"><span>TOTAL:</span><span class="bold">${formatKwanza(Number(doc.totalAmount))}</span></div>`);
+       rows.push(`<div class="row"><span>TOTAL:</span><span class="bold">${invoiceMoney(doc.totalAmount)}</span></div>`);
       return rows.join("");
     }
 
@@ -161,11 +164,11 @@ export function buildReceiptHtml(doc: ReceiptDocument, paperWidth: 58 | 80 = 80)
       const rows: string[] = [];
       rows.push(`<div class="separator">${thinSep}</div>`);
       rows.push(`<div class="row bold">RESUMO</div>`);
-      if (doc.subtotal != null) rows.push(`<div class="row"><span>Subtotal:</span><span>${formatKwanza(Number(doc.subtotal))}</span></div>`);
-      if (doc.discount != null && Number(doc.discount) > 0) rows.push(`<div class="row"><span>Desconto:</span><span>${formatKwanza(Number(doc.discount))}</span></div>`);
-      if (doc.serviceCharge != null && Number(doc.serviceCharge) > 0) rows.push(`<div class="row"><span>Taxa Serviço:</span><span>${formatKwanza(Number(doc.serviceCharge))}</span></div>`);
+       if (doc.subtotal != null) rows.push(`<div class="row"><span>Subtotal:</span><span>${invoiceMoney(doc.subtotal)}</span></div>`);
+       if (doc.discount != null && Number(doc.discount) > 0) rows.push(`<div class="row"><span>Desconto:</span><span>${invoiceMoney(doc.discount)}</span></div>`);
+       if (doc.serviceCharge != null && Number(doc.serviceCharge) > 0) rows.push(`<div class="row"><span>Taxa Serviço:</span><span>${invoiceMoney(doc.serviceCharge)}</span></div>`);
       rows.push(`<div class="separator">${thinSep}</div>`);
-      rows.push(`<div class="row bold"><span>TOTAL PROVISÓRIO:</span><span>${formatKwanza(Number(doc.total))}</span></div>`);
+       rows.push(`<div class="row bold"><span>TOTAL PROVISÓRIO:</span><span>${invoiceMoney(doc.total)}</span></div>`);
       return rows.join("");
     }
 
@@ -187,7 +190,7 @@ export function buildReceiptHtml(doc: ReceiptDocument, paperWidth: 58 | 80 = 80)
     if (doc.kind === "bill") {
       lines.push(`<div class="center">*** CONTA PROVISÓRIA · PENDENTE ***</div>`);
     }
-    lines.push(`<div class="center muted">${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}</div>`);
+    lines.push(`<div class="center muted">${invoiceDate(new Date())}</div>`);
     lines.push(`</div>`);
     return lines.join("");
   })();

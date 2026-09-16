@@ -4,9 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { formatKwanza } from '@/lib/formatters';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { invoiceDate, invoiceMoney, invoiceNumberLabel, invoiceSessionLabel, formatPaymentMethodLabel } from '@shared/invoice-formatters';
 import { printerService } from '@/lib/printer-service';
 import { usePrinter } from '@/hooks/usePrinter';
 import { useToast } from '@/hooks/use-toast';
@@ -32,18 +30,6 @@ interface PrintTablePaymentProps {
   onPrintComplete?: () => void;
   autoPrint?: boolean;
 }
-
-const paymentMethodLabels: Record<string, string> = {
-  dinheiro: 'Dinheiro',
-  multicaixa: 'Multicaixa',
-  transferencia: 'Transferência Bancária',
-  cartao: 'Cartão',
-  cash: 'Dinheiro',
-  card: 'Cartão',
-  mbway: 'MBWay',
-  tpa: 'TPA',
-  bank_transfer: 'Transferência Bancária',
-};
 
 export function PrintTablePayment({
   payment,
@@ -131,8 +117,9 @@ export function PrintTablePayment({
       { text: '================================', alignment: 'center' },
       { text: '' },
       { text: `Mesa: ${tableName}`, bold: true },
-      { text: `Data: ${format(new Date(payment.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}` },
-      { text: `Fatura associada: ${payment.invoiceReference || 'Sessão sem referência'}` },
+      { text: `Data: ${invoiceDate(payment.createdAt)}` },
+      { text: `Fatura associada: ${invoiceNumberLabel(payment.invoiceReference)}` },
+      { text: `Sessão: ${invoiceSessionLabel(payment.sessionId)}` },
       { text: `Nº do pagamento: ${payment.id}` },
       { text: '' },
       { text: '--------------------------------', alignment: 'center' },
@@ -141,7 +128,7 @@ export function PrintTablePayment({
       { text: '' },
       ...(payment.items && payment.items.length > 0 
         ? payment.items.map(item => ({
-            text: `${item.quantity}x ${item.name.padEnd(20)} ${formatKwanza(parseFloat(item.price) * item.quantity)}`,
+            text: `${item.quantity}x ${item.name.padEnd(20)} ${invoiceMoney(parseFloat(item.price) * item.quantity)}`,
             fontSize: 0.9
           }))
         : [{ text: 'Consumo registrado na mesa', alignment: 'center', italic: true }]
@@ -152,18 +139,18 @@ export function PrintTablePayment({
       { text: '--------------------------------', alignment: 'center' },
       { text: '' },
       { 
-        text: `Valor Recebido: ${formatKwanza(payment.amount)}`,
+         text: `Valor Recebido: ${invoiceMoney(payment.amount)}`,
         bold: true, 
         fontSize: 1.3,
         alignment: 'center'
       },
       { text: '' },
-      { text: `Método: ${paymentMethodLabels[payment.paymentMethod] || payment.paymentMethod}` },
+       { text: `Método: ${formatPaymentMethodLabel(payment.paymentMethod)}` },
       ...(payment.receivedAmount != null
-        ? [{ text: `Valor entregue: ${formatKwanza(payment.receivedAmount)}` }]
+         ? [{ text: `Valor entregue: ${invoiceMoney(payment.receivedAmount)}` }]
         : []),
       ...(payment.changeAmount != null
-        ? [{ text: `Troco: ${formatKwanza(payment.changeAmount)}` }]
+         ? [{ text: `Troco: ${invoiceMoney(payment.changeAmount)}` }]
         : []),
       { text: `Cliente: ${payment.guestName || 'Mesa Completa'}` },
       { text: `Operador: ${payment.operatorName || 'Sistema'}` },
@@ -199,13 +186,14 @@ export function PrintTablePayment({
       items: payment.items?.map((item) => ({
         name: item.name,
         quantity: item.quantity,
-        price: formatKwanza(parseFloat(item.price) * item.quantity),
-      })) || [{ name: 'Pagamento de mesa', quantity: 1, price: formatKwanza(payment.amount) }],
-      total: formatKwanza(payment.amount),
+         price: invoiceMoney(parseFloat(item.price) * item.quantity),
+       })) || [{ name: 'Pagamento de mesa', quantity: 1, price: invoiceMoney(payment.amount) }],
+       total: invoiceMoney(payment.amount),
       footer: [
         `Mesa: ${tableName}`,
-        `Fatura associada: ${payment.invoiceReference || 'Sessão sem referência'}`,
-        `Método: ${paymentMethodLabels[payment.paymentMethod] || payment.paymentMethod}`,
+         `Fatura associada: ${invoiceNumberLabel(payment.invoiceReference)}`,
+         `Sessão: ${invoiceSessionLabel(payment.sessionId)}`,
+         `Método: ${formatPaymentMethodLabel(payment.paymentMethod)}`,
         `Operador: ${payment.operatorName || 'Sistema'}`,
         payment.transactionReference ? `Referência: ${payment.transactionReference}` : '',
         'PAGAMENTO CONFIRMADO',
@@ -258,8 +246,9 @@ export function PrintTablePayment({
         </div>
         
         <div class="info-row"><span class="bold">Mesa:</span> ${tableName}</div>
-        <div class="info-row"><span class="bold">Data:</span> ${format(new Date(payment.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</div>
-        <div class="info-row"><span class="bold">Fatura associada:</span> ${payment.invoiceReference || 'Sessão sem referência'}</div>
+        <div class="info-row"><span class="bold">Data:</span> ${invoiceDate(payment.createdAt)}</div>
+        <div class="info-row"><span class="bold">Fatura associada:</span> ${invoiceNumberLabel(payment.invoiceReference)}</div>
+        <div class="info-row"><span class="bold">Sessão:</span> ${invoiceSessionLabel(payment.sessionId)}</div>
         <div class="info-row"><span class="bold">Nº do pagamento:</span> ${payment.id}</div>
         <div class="info-row"><span class="bold">Cliente:</span> ${payment.guestName || 'Mesa Completa'}</div>
         
@@ -272,7 +261,7 @@ export function PrintTablePayment({
             ? payment.items.map(item => `
                 <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
                   <span>${item.quantity}x ${item.name}</span>
-                  <span>${formatKwanza(parseFloat(item.price) * item.quantity)}</span>
+                <span>${invoiceMoney(parseFloat(item.price) * item.quantity)}</span>
                 </div>
               `).join('')
             : '<div class="center italic">Consumo registrado na mesa</div>'
@@ -283,11 +272,11 @@ export function PrintTablePayment({
         <h2 class="center bold">RESUMO DO PAGAMENTO</h2>
         <div class="separator"></div>
         
-        <div class="amount">${formatKwanza(payment.amount)}</div>
+        <div class="amount">${invoiceMoney(payment.amount)}</div>
         
-        <div class="info-row"><span class="bold">Método:</span> ${paymentMethodLabels[payment.paymentMethod] || payment.paymentMethod}</div>
-        ${payment.receivedAmount != null ? `<div class="info-row"><span class="bold">Valor entregue:</span> ${formatKwanza(payment.receivedAmount)}</div>` : ''}
-        ${payment.changeAmount != null ? `<div class="info-row"><span class="bold">Troco:</span> ${formatKwanza(payment.changeAmount)}</div>` : ''}
+        <div class="info-row"><span class="bold">Método:</span> ${formatPaymentMethodLabel(payment.paymentMethod)}</div>
+        ${payment.receivedAmount != null ? `<div class="info-row"><span class="bold">Valor entregue:</span> ${invoiceMoney(payment.receivedAmount)}</div>` : ''}
+        ${payment.changeAmount != null ? `<div class="info-row"><span class="bold">Troco:</span> ${invoiceMoney(payment.changeAmount)}</div>` : ''}
         <div class="info-row"><span class="bold">Operador:</span> ${payment.operatorName || 'Sistema'}</div>
         ${payment.transactionReference ? `<div class="info-row"><span class="bold">Referência:</span> ${payment.transactionReference}</div>` : ''}
         

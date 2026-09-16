@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Printer, ChevronDown, Download, Eye } from "lucide-react";
-import { formatKwanza } from "@/lib/formatters";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { invoiceDate, invoiceMoney, formatPaymentMethodLabel } from "@shared/invoice-formatters";
 import { printerService } from "@/lib/printer-service";
 import { usePrinter } from "@/hooks/usePrinter";
 import {
@@ -119,13 +117,6 @@ export function PrintGuestBill({
 
   const thermalPrinter = getPrinterByType("receipt");
 
-  const paymentMethodLabels: Record<string, string> = {
-    dinheiro: "Dinheiro",
-    multicaixa: "Multicaixa",
-    transferencia: "Transferência Bancária",
-    cartao: "Cartão",
-  };
-
   const buildBillDoc = (): ReceiptDocument => {
     const allItems: ReceiptItem[] = [];
     orders.forEach(order => {
@@ -169,14 +160,14 @@ export function PrintGuestBill({
       guestName: guest.name || `Cliente ${guest.guestNumber}`,
       guestNumber: guest.guestNumber,
       tableName,
-      entryTime: format(new Date(guest.joinedAt), "dd/MM/yyyy HH:mm", { locale: ptBR }),
+       entryTime: invoiceDate(guest.joinedAt),
       createdAt: new Date().toISOString(),
       items: allItems,
-      subtotal: formatKwanza(calculatedSubtotal.toFixed(2)),
-      discount: totalDiscounts > 0 ? formatKwanza(totalDiscounts.toFixed(2)) : undefined,
-      serviceCharge: totalCharges > 0 ? formatKwanza(totalCharges.toFixed(2)) : undefined,
-      total: formatKwanza(finalTotalAmount.toFixed(2)),
-      paymentMethod: paymentMethod ? paymentMethodLabels[paymentMethod] || paymentMethod : undefined,
+       subtotal: invoiceMoney(calculatedSubtotal),
+       discount: totalDiscounts > 0 ? invoiceMoney(totalDiscounts) : undefined,
+       serviceCharge: totalCharges > 0 ? invoiceMoney(totalCharges) : undefined,
+       total: invoiceMoney(finalTotalAmount),
+       paymentMethod: paymentMethod ? formatPaymentMethodLabel(paymentMethod) : undefined,
       isPaid: guest.status === "pago",
       documentId: guest.id.substring(0, 8).toUpperCase(),
       restaurantName,
@@ -196,8 +187,8 @@ export function PrintGuestBill({
   const subtotalValue = isBill ? billDoc.subtotal : undefined;
   const discountValue = isBill ? billDoc.discount : undefined;
   const serviceChargeValue = isBill ? billDoc.serviceCharge : undefined;
-  const totalValue = isBill ? billDoc.total : formatKwanza(totalAmount.toFixed(2));
-  const paymentMethodValue = isBill ? billDoc.paymentMethod : paymentMethod ? paymentMethodLabels[paymentMethod] || paymentMethod : undefined;
+  const totalValue = isBill ? billDoc.total : invoiceMoney(totalAmount);
+  const paymentMethodValue = isBill ? billDoc.paymentMethod : paymentMethod ? formatPaymentMethodLabel(paymentMethod) : undefined;
   const isPaidValue = isBill ? billDoc.isPaid || false : guest.status === "pago";
   const documentIdValue = isBill ? billDoc.documentId || guest.id.substring(0, 8).toUpperCase() : guest.id.substring(0, 8).toUpperCase();
 
@@ -217,18 +208,18 @@ export function PrintGuestBill({
         items: (orders || []).flatMap(order => order.items.map(item => ({
           name: item.menuItemName,
           quantity: item.quantity,
-          price: formatKwanza(parseFloat(item.unitPrice)),
-          total: formatKwanza(parseFloat(item.totalPrice)),
+          price: invoiceMoney(item.unitPrice),
+          total: invoiceMoney(item.totalPrice),
         }))),
         subtotal: typeof subtotalValue === 'string' ? subtotalValue : undefined,
         discount: typeof discountValue === 'string' ? discountValue : undefined,
         serviceCharge: typeof serviceChargeValue === 'string' ? serviceChargeValue : undefined,
-        total: typeof totalValue === 'string' ? totalValue : formatKwanza(totalAmount.toFixed(2)),
+         total: typeof totalValue === 'string' ? totalValue : invoiceMoney(totalAmount),
         paymentMethod: typeof paymentMethodValue === 'string' ? paymentMethodValue : undefined,
         isPaid: typeof isPaidValue === 'boolean' ? isPaidValue : guest.status === 'pago',
         orderCount: orders.length,
         documentId: documentIdValue,
-        timestamp: format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }),
+         timestamp: invoiceDate(new Date()),
       });
 
       toast({

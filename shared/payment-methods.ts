@@ -13,9 +13,12 @@ const aliases: Record<string, NormalizedPaymentMethod> = {
   transferencia: 'transferencia',
   transferência: 'transferencia',
   bank_transfer: 'transferencia',
+  'bank transfer': 'transferencia',
+  mbway: 'transferencia',
   cartao: 'cartao',
   cartão: 'cartao',
   card: 'cartao',
+  tpa: 'cartao',
 };
 
 export function normalizePaymentMethod(value: unknown): NormalizedPaymentMethod {
@@ -42,4 +45,17 @@ export function getPaymentMethodLabel(value: unknown): string {
   };
 
   return labels[normalizePaymentMethod(value)];
+}
+
+/**
+ * Presentation-safe payment label. Unlike getPaymentMethodLabel, this helper
+ * never leaks an internal code to a printed document when old data contains a
+ * value that is not in the current canonical list.
+ */
+export function formatPaymentMethodLabel(value: unknown): string {
+  try {
+    return getPaymentMethodLabel(value);
+  } catch {
+    return 'Método não especificado';
+  }
 }

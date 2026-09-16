@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { invoiceDate, invoiceMoney, invoiceNumberLabel, invoicePaymentStatusLabel, formatPaymentMethodLabel } from '@shared/invoice-formatters';
 import type { Order, OrderItem, MenuItem, Table, Customer, PaymentEvent } from '@shared/schema';
 import { printerService } from '@/lib/printer-service';
 import { usePrinter } from '@/hooks/usePrinter';
@@ -74,24 +75,17 @@ export function PrintInvoice({
 
     setPrinting(true);
     try {
-      const paymentMethodLabels: Record<string, string> = {
-        dinheiro: 'Dinheiro',
-        multicaixa: 'Multicaixa',
-        transferencia: 'Transferência Bancária',
-        cartao: 'Cartão',
-      };
-
         const items = (order.orderItems || (order as any).items || []).map((item: any) => ({
          name: item.menuItem?.name || item.name || 'Item',
          quantity: item.quantity,
-          price: formatKwanza(item.price || item.menuItem?.price || '0'),
-          total: formatKwanza(parseFloat(item.price || item.menuItem?.price || '0') * item.quantity),
+           price: invoiceMoney(item.price || item.menuItem?.price || '0'),
+           total: invoiceMoney(parseFloat(item.price || item.menuItem?.price || '0') * item.quantity),
           options: (item.orderItemOptions || item.options || []).map((option: any) => `${option.optionName || option.name}${Number(option.quantity || 1) > 1 ? ` (${option.quantity}x)` : ''}`).join(', ') || undefined,
           notes: item.notes || undefined,
        })) || [];
 
       const paymentInfo = order.payments && order.payments.length > 0
-        ? order.payments.map(p => paymentMethodLabels[p.paymentMethod as keyof typeof paymentMethodLabels] || p.paymentMethod).join(', ')
+        ? order.payments.map(p => formatPaymentMethodLabel(p.paymentMethod)).join(', ')
         : undefined;
 
       const baseDiscount = order.discount ? parseFloat(order.discount) : 0;
@@ -122,18 +116,18 @@ export function PrintInvoice({
         status: paymentStatusLabel,
         validationCode,
         date: order.createdAt
-           ? format(new Date(order.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
-          : format(new Date(), "dd/MM/yyyy", { locale: ptBR }),
+           ? invoiceDate(order.createdAt)
+          : invoiceDate(new Date()),
         customerName: order.customerName || undefined,
         customerPhone: order.customerPhone || undefined,
         items,
-        subtotal: formatKwanza(effectiveSubtotal.toFixed(2)),
-        discount: effectiveDiscount > 0 ? formatKwanza(effectiveDiscount.toFixed(2)) : undefined,
+        subtotal: invoiceMoney(effectiveSubtotal),
+        discount: effectiveDiscount > 0 ? invoiceMoney(effectiveDiscount) : undefined,
         serviceCharge:
           Number.isFinite(effectiveServiceCharge) && effectiveServiceCharge > 0
-            ? formatKwanza(effectiveServiceCharge.toFixed(2))
+            ? invoiceMoney(effectiveServiceCharge)
             : undefined,
-        total: formatKwanza(effectiveTotal.toFixed(2)),
+        total: invoiceMoney(effectiveTotal),
         paymentInfo,
         notes: order.orderNotes || undefined,
       });
@@ -167,13 +161,6 @@ export function PrintInvoice({
       takeout: 'Take-out',
       balcao: 'Balcão',
       pdv: 'PDV',
-    };
-
-    const paymentMethodLabels: Record<string, string> = {
-      dinheiro: 'Dinheiro',
-      multicaixa: 'Multicaixa',
-      transferencia: 'Transferência Bancária',
-      cartao: 'Cartão',
     };
 
     const baseDiscount = order.discount ? parseFloat(order.discount) : 0;

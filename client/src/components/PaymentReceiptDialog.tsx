@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { formatKwanza } from "@/lib/formatters";
+import { invoiceDate, invoiceMoney, invoiceNumberLabel, invoiceSessionLabel, formatPaymentMethodLabel } from "@shared/invoice-formatters";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { OrdersByGuestData } from "@shared/types";
@@ -232,12 +233,12 @@ export function PaymentReceiptDialog({
     const restaurantAddress = restaurant?.address || "";
     const restaurantNIF = restaurant?.nif || "";
     const restaurantPhone = restaurant?.phone || "";
-    const printDateTime = new Date().toLocaleString("pt-PT");
+    const printDateTime = invoiceDate(new Date());
     const operatorName = localStorage.getItem("userName") || "Sistema";
 
-    const invoiceReference = payment?.invoiceReference || "Sessão sem referência";
-    const paymentDate = payment?.createdAt ? new Date(payment.createdAt).toLocaleString("pt-PT") : printDateTime;
-    const paymentMethodLabel = getPaymentMethodLabel(payment?.paymentMethod || "");
+    const invoiceReference = invoiceNumberLabel(payment?.invoiceReference);
+    const paymentDate = invoiceDate(payment?.createdAt, printDateTime);
+    const paymentMethodLabel = formatPaymentMethodLabel(payment?.paymentMethod);
     const paymentNotes = payment?.notes ? `<div class="info-line"><strong>Observações:</strong><span>${payment.notes}</span></div>` : "";
     const paymentReceived = payment?.receivedAmount;
 
@@ -318,34 +319,34 @@ export function PaymentReceiptDialog({
                   <div class="item-line">
                     <span class="item-qty">${item.quantity}x</span>
                     <span class="item-name">${item.menuItemName}</span>
-                    <span class="item-price">${formatKwanza(parseFloat(item.unitPrice || "0") * item.quantity)}</span>
+                    <span class="item-price">${invoiceMoney(parseFloat(item.unitPrice || "0") * item.quantity)}</span>
                   </div>
                 `).join("")
                   : `<div class="item-line"><span class="item-name">Sem itens atribuídos</span></div>`}
-                <div class="subtotal"><span>Subtotal:</span><span>${formatKwanza(subtotal)}</span></div>
-                ${discountTotal > 0.009 ? `<div class="subtotal"><span>Desconto:</span><span>- ${formatKwanza(discountTotal)}</span></div>` : ""}
-                ${chargesTotal > 0.009 ? `<div class="subtotal"><span>Taxa/Serviço:</span><span>+ ${formatKwanza(chargesTotal)}</span></div>` : ""}
-                <div class="subtotal"><span>Total do Cliente:</span><span>${formatKwanza(guestTotal)}</span></div>
+                <div class="subtotal"><span>Subtotal:</span><span>${invoiceMoney(subtotal)}</span></div>
+                ${discountTotal > 0.009 ? `<div class="subtotal"><span>Desconto:</span><span>- ${invoiceMoney(discountTotal)}</span></div>` : ""}
+                ${chargesTotal > 0.009 ? `<div class="subtotal"><span>Taxa/Serviço:</span><span>+ ${invoiceMoney(chargesTotal)}</span></div>` : ""}
+                <div class="subtotal"><span>Total do Cliente:</span><span>${invoiceMoney(guestTotal)}</span></div>
               </div>
             `;
           }).join("")}
 
           <div class="calculations">
-            <div class="calc-line subtotal-line"><span>Subtotal</span><span>${formatKwanza(safeCalculateTotals.subtotal)}</span></div>
+            <div class="calc-line subtotal-line"><span>Subtotal</span><span>${invoiceMoney(safeCalculateTotals.subtotal)}</span></div>
             ${safeCalculateTotals.breakdown.map(item => `
               <div class="calc-line ${item.type}">
                 <span>${item.label}${item.source ? ` (${item.source})` : ""}</span>
-                <span>${item.type === "discount" ? "-" : "+"}${formatKwanza(Math.abs(item.value))}</span>
+                <span>${item.type === "discount" ? "-" : "+"}${invoiceMoney(Math.abs(item.value))}</span>
               </div>
             `).join("")}
-            <div class="total-line"><span>TOTAL A PAGAR</span><span>${formatKwanza(safeCalculateTotals.finalTotal)}</span></div>
+            <div class="total-line"><span>TOTAL A PAGAR</span><span>${invoiceMoney(safeCalculateTotals.finalTotal)}</span></div>
           </div>
 
           <div class="payment-info">
             <div class="payment-line"><span>Método de Pagamento:</span><span>${paymentMethodLabel}</span></div>
             ${paymentReceived ? `
-              <div class="payment-line"><span>Valor Recebido:</span><span>${formatKwanza(paymentReceived)}</span></div>
-              <div class="payment-line highlight"><span>Troco:</span><span>${formatKwanza(paymentReceived - safeCalculateTotals.finalTotal)}</span></div>
+              <div class="payment-line"><span>Valor Recebido:</span><span>${invoiceMoney(paymentReceived)}</span></div>
+              <div class="payment-line highlight"><span>Troco:</span><span>${invoiceMoney(paymentReceived - safeCalculateTotals.finalTotal)}</span></div>
             ` : ""}
           </div>
 
@@ -360,7 +361,7 @@ export function PaymentReceiptDialog({
     setIsGeneratingPDF(true);
     try {
       const invoiceReference = payment?.invoiceReference || "Sessão sem referência";
-      const paymentMethodLabel = getPaymentMethodLabel(payment?.paymentMethod || "");
+      const paymentMethodLabel = formatPaymentMethodLabel(payment?.paymentMethod);
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
@@ -402,7 +403,8 @@ export function PaymentReceiptDialog({
       addText(`Fatura associada: ${invoiceReference}`, 10, true);
       addText(`Nº do pagamento: ${payment.id}`, 10, true);
       if (payment.transactionReference) addText(`Referência: ${payment.transactionReference}`, 10);
-      addText(`Data: ${payment?.createdAt ? new Date(payment.createdAt).toLocaleString("pt-PT") : new Date().toLocaleString("pt-PT")}`, 10);
+      addText(`Data: ${invoiceDate(payment?.createdAt)}`, 10);
+      addText(`Sessão: ${invoiceSessionLabel(payment?.sessionId)}`, 10);
       addText(`Mesa: ${table.number}${table.area ? ` (${table.area})` : ""}`, 10);
        addText(`Convidados: ${safeOrdersByGuest.length}`, 10);
       if (sessionDuration) addText(`Duração da Sessão: ${sessionDuration}`, 10);
@@ -431,7 +433,7 @@ export function PaymentReceiptDialog({
         for (const item of allItems) {
           checkPageBreak(15);
           const itemName = item.menuItem?.name || item.name;
-          const itemPrice = formatKwanza(safeNumber(item.price) * item.quantity);
+          const itemPrice = invoiceMoney(safeNumber(item.price) * item.quantity);
           pdf.setFont("helvetica", "normal");
           pdf.setFontSize(10);
           pdf.text(`  ${item.quantity}x ${itemName}`, margin, yPos);
@@ -453,20 +455,20 @@ export function PaymentReceiptDialog({
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(10);
         pdf.text(`Subtotal:`, margin + 10, yPos);
-        pdf.text(formatKwanza(subtotal), pageWidth - margin, yPos, { align: "right" });
+        pdf.text(invoiceMoney(subtotal), pageWidth - margin, yPos, { align: "right" });
         yPos += 6;
         if (discountTotal > 0.009) {
           pdf.text(`Desconto:`, margin + 10, yPos);
-          pdf.text(`- ${formatKwanza(discountTotal)}`, pageWidth - margin, yPos, { align: "right" });
+          pdf.text(`- ${invoiceMoney(discountTotal)}`, pageWidth - margin, yPos, { align: "right" });
           yPos += 6;
         }
         if (chargesTotal > 0.009) {
           pdf.text(`Taxa/Serviço:`, margin + 10, yPos);
-          pdf.text(`+ ${formatKwanza(chargesTotal)}`, pageWidth - margin, yPos, { align: "right" });
+          pdf.text(`+ ${invoiceMoney(chargesTotal)}`, pageWidth - margin, yPos, { align: "right" });
           yPos += 6;
         }
         pdf.text(`Total do Cliente:`, margin + 10, yPos);
-        pdf.text(formatKwanza(guestTotal), pageWidth - margin, yPos, { align: "right" });
+        pdf.text(invoiceMoney(guestTotal), pageWidth - margin, yPos, { align: "right" });
         yPos += 8;
       }
 
@@ -477,12 +479,12 @@ export function PaymentReceiptDialog({
       yPos += 3;
 
       addText("Subtotal:", 10, false);
-      pdf.text(formatKwanza(safeCalculateTotals.subtotal), pageWidth - margin, yPos - 5, { align: "right" });
+      pdf.text(invoiceMoney(safeCalculateTotals.subtotal), pageWidth - margin, yPos - 5, { align: "right" });
 
       for (const item of safeCalculateTotals.breakdown) {
         checkPageBreak();
         const label = `${item.label}${item.source ? ` (${item.source})` : ""}`;
-        const value = `${item.type === "discount" ? "-" : "+"}${formatKwanza(Math.abs(item.value))}`;
+        const value = `${item.type === "discount" ? "-" : "+"}${invoiceMoney(Math.abs(item.value))}`;
         if (item.type === "discount") pdf.setTextColor(0, 150, 0);
         else pdf.setTextColor(0, 100, 200);
         addText(label, 10, false);
@@ -498,7 +500,7 @@ export function PaymentReceiptDialog({
       pdf.setFontSize(14);
       pdf.setFont("helvetica", "bold");
       pdf.text("TOTAL A PAGAR:", margin, yPos);
-      pdf.text(formatKwanza(safeCalculateTotals.finalTotal), pageWidth - margin, yPos, { align: "right" });
+      pdf.text(invoiceMoney(safeCalculateTotals.finalTotal), pageWidth - margin, yPos, { align: "right" });
       yPos += 10;
 
       addLine();
@@ -508,11 +510,11 @@ export function PaymentReceiptDialog({
       addText(`Método: ${paymentMethodLabel}`, 10);
       const pdfReceivedAmount = payment?.receivedAmount;
       if (pdfReceivedAmount) {
-        addText(`Valor Recebido: ${formatKwanza(pdfReceivedAmount)}`, 10);
+        addText(`Valor Recebido: ${invoiceMoney(pdfReceivedAmount)}`, 10);
         const change = pdfReceivedAmount - safeCalculateTotals.finalTotal;
         if (change > 0) {
           pdf.setTextColor(0, 100, 200);
-          addText(`Troco: ${formatKwanza(change)}`, 10, true);
+          addText(`Troco: ${invoiceMoney(change)}`, 10, true);
           pdf.setTextColor(0, 0, 0);
         }
       }
@@ -543,16 +545,6 @@ export function PaymentReceiptDialog({
     } finally {
       setIsGeneratingPDF(false);
     }
-  };
-
-  const getPaymentMethodLabel = (method: string) => {
-    const methods: Record<string, string> = {
-      dinheiro: "Dinheiro",
-      multicaixa: "Multicaixa",
-      transferencia: "Transferência",
-      cartao: "Cartão",
-    };
-    return methods[method] || method;
   };
 
   return (
