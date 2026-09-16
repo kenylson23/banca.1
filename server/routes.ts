@@ -36,6 +36,7 @@ import type {
   TableInvoiceAdjustment,
   TableInvoiceCustomer,
 } from '@shared/table-invoice-document';
+import { summarizeTableInvoicePayments } from '@shared/table-invoice-document';
 import { setupAuth, isAuthenticated, hashPassword } from "./auth";
 import {
   checkCanAddCustomer,
@@ -273,23 +274,7 @@ async function buildTableInvoiceDocument(
 
   const totalAmount = money(totals?.totalAmount ?? sessionForInvoice.totalAmount);
   const paymentSummary = summarizeSessionInvoice(totalAmount, rawPayments);
-  const paymentsByMethodMap = new Map<string, { paymentMethod: string; paymentMethodLabel: string; count: number; amount: number }>();
-  for (const payment of rawPayments as any[]) {
-    const method = normalizePaymentMethod(payment.paymentMethod);
-    const current = paymentsByMethodMap.get(method) || {
-      paymentMethod: method,
-      paymentMethodLabel: getPaymentMethodLabel(method),
-      count: 0,
-      amount: 0,
-    };
-    current.count += 1;
-    current.amount += money(payment.amount);
-    paymentsByMethodMap.set(method, current);
-  }
-  const paymentsByMethod = Array.from(paymentsByMethodMap.values()).map((payment) => ({
-    ...payment,
-    amount: fixedMoney(payment.amount),
-  }));
+  const paymentsByMethod = summarizeTableInvoicePayments(rawPayments);
   const primaryGuest = guests.find((guest: any) => guest.customer || guest.name);
   const customer = customerFromGuest(primaryGuest) || (
     sessionForInvoice.customerName

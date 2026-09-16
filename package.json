@@ -22,7 +22,8 @@
     "generate:secret": "node scripts/generate-session-secret.js",
     "admin:create": "tsx scripts/create-superadmin.ts",
     "check-subscriptions": "tsx scripts/check-subscriptions.ts",
-    "test:plan-access": "tsx --test tests/plan-access.test.ts"
+    "test:plan-access": "tsx --test tests/plan-access.test.ts",
+    "test:session-invoice": "tsx --test tests/session-invoice.test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

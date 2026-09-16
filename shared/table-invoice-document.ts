@@ -1,3 +1,5 @@
+import { getPaymentMethodLabel, normalizePaymentMethod } from './payment-methods';
+
 export type TableInvoiceMoney = string;
 
 export type TableInvoiceRestaurant = {
@@ -80,6 +82,46 @@ export type TableInvoicePaymentSummary = {
   count: number;
   amount: TableInvoiceMoney;
 };
+
+export type TableInvoicePaymentInput = {
+  amount: string | number | null | undefined;
+  paymentMethod: unknown;
+};
+
+/**
+ * Aggregates the real table payment records for the invoice payment breakdown.
+ * Payment aliases are normalized before grouping so repeated records for the
+ * same method produce one line.
+ */
+export function summarizeTableInvoicePayments(
+  payments: TableInvoicePaymentInput[],
+): TableInvoicePaymentSummary[] {
+  const byMethod = new Map<string, {
+    paymentMethod: string;
+    paymentMethodLabel: string;
+    count: number;
+    amount: number;
+  }>();
+
+  for (const payment of payments) {
+    const paymentMethod = normalizePaymentMethod(payment.paymentMethod);
+    const current = byMethod.get(paymentMethod) || {
+      paymentMethod,
+      paymentMethodLabel: getPaymentMethodLabel(paymentMethod),
+      count: 0,
+      amount: 0,
+    };
+    const amount = Number(payment.amount ?? 0);
+    current.count += 1;
+    current.amount += Number.isFinite(amount) ? amount : 0;
+    byMethod.set(paymentMethod, current);
+  }
+
+  return Array.from(byMethod.values()).map((payment) => ({
+    ...payment,
+    amount: payment.amount.toFixed(2),
+  }));
+}
 
 export type TableInvoiceAuditEntry = {
   id: string | number;
