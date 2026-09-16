@@ -90,13 +90,28 @@ export function NotificationDropdown() {
 
   const { data: countData } = useQuery<{ count: number }>({
     queryKey: ['/api/notifications/count'],
-    refetchInterval: 60000,
+    refetchInterval: 15000,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
-  const { data: notifications, isLoading } = useQuery<Notification[]>({
+  const { data: notifications, isLoading, refetch } = useQuery<Notification[]>({
     queryKey: ['/api/notifications'],
     enabled: isOpen,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: isOpen ? 15000 : false,
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      void refetch();
+    }
+  }, [isOpen, refetch]);
 
   useEffect(() => {
     if (countData && countData.count > previousCountRef.current && previousCountRef.current > 0) {

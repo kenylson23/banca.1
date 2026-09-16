@@ -29,7 +29,9 @@ const enabledByType: Record<RestaurantNotificationType, keyof NotificationPrefer
 
 function isEnabled(preferences: NotificationPreferences | undefined, type: RestaurantNotificationType): boolean {
   if (!preferences) return true;
-  if (preferences.inAppEnabled !== 1) return false;
+  // Treat missing values from legacy preference rows as enabled. Only an
+  // explicit zero disables in-app notifications.
+  if (preferences.inAppEnabled === 0) return false;
 
   const typeKey = enabledByType[type];
   return !typeKey || preferences[typeKey] !== 0;
