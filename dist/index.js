@@ -7237,13 +7237,13 @@ var init_storage = __esm({
         if (!order) {
           throw new Error("Order not found");
         }
-        if (order.tableId) {
-          const table2 = await this.getTableById(order.tableId);
-          if (table2 && table2.restaurantId === restaurantId) {
-            const openShift = await this.getOpenCashRegisterShiftForBranch(restaurantId, table2.branchId);
-            if (!openShift) {
-              throw new CashRegisterClosedError();
-            }
+        const isCounterOrder = ["balcao", "takeout", "pdv"].includes(order.orderType);
+        if (order.tableId || isCounterOrder) {
+          const table2 = order.tableId ? await this.getTableById(order.tableId) : void 0;
+          const branchId = table2?.restaurantId === restaurantId ? table2.branchId : order.branchId || null;
+          const openShift = await this.getOpenCashRegisterShiftForBranch(restaurantId, branchId);
+          if (!openShift) {
+            throw new CashRegisterClosedError();
           }
         }
         const paymentAmount = parseFloat(data.amount);
@@ -17580,12 +17580,19 @@ async function registerRoutes(app2) {
       if (!order) {
         return res.status(404).json({ message: "Pedido n\xE3o encontrado" });
       }
-      if (order.tableId && paymentAmount && parseFloat(paymentAmount) > 0) {
-        const table2 = await storage.getTableById(order.tableId);
-        if (!table2) {
-          return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
-        }
-        if (!await requireOpenCashRegisterForTable(table2)) {
+      if (paymentAmount && parseFloat(paymentAmount) > 0 && (order.tableId || ["balcao", "takeout", "pdv"].includes(order.orderType))) {
+        if (order.tableId) {
+          const table2 = await storage.getTableById(order.tableId);
+          if (!table2) {
+            return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
+          }
+          if (!await requireOpenCashRegisterForTable(table2)) {
+            return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+          }
+        } else if (!await storage.getOpenCashRegisterShiftForBranch(
+          restaurantId,
+          order.branchId || currentUser.activeBranchId || null
+        )) {
           return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
         }
       }
@@ -20031,12 +20038,12 @@ async function registerRoutes(app2) {
         restaurantId
       });
       const isCounterOrder = ["balcao", "takeout", "pdv"].includes(validatedOrder.orderType);
-      if (currentUser.role === "cashier" && isCounterOrder) {
-        const activeCashRegisters = await storage.getCashRegistersWithActiveShift(
+      if (isCounterOrder) {
+        const openShift = await storage.getOpenCashRegisterShiftForBranch(
           restaurantId,
           validatedOrder.branchId || null
         );
-        if (activeCashRegisters.length === 0) {
+        if (!openShift) {
           return res.status(409).json({
             message: "N\xE3o \xE9 poss\xEDvel criar pedidos de balc\xE3o sem um turno de caixa aberto. Abra um turno para continuar."
           });
@@ -20171,12 +20178,19 @@ async function registerRoutes(app2) {
       if (action === "reject" && !reason?.trim()) {
         return res.status(400).json({ message: "Informe o motivo da rejei\xE7\xE3o" });
       }
-      if (action === "confirm" && order.orderType === "mesa" && order.tableId) {
-        const table2 = await storage.getTableById(order.tableId);
-        if (!table2) {
-          return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
-        }
-        if (!await requireOpenCashRegisterForTable(table2)) {
+      if (action === "confirm" && (order.tableId || ["balcao", "takeout", "pdv"].includes(order.orderType))) {
+        if (order.tableId) {
+          const table2 = await storage.getTableById(order.tableId);
+          if (!table2) {
+            return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
+          }
+          if (!await requireOpenCashRegisterForTable(table2)) {
+            return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+          }
+        } else if (!await storage.getOpenCashRegisterShiftForBranch(
+          restaurantId,
+          order.branchId || currentUser.activeBranchId || null
+        )) {
           return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
         }
       }
@@ -20676,15 +20690,13 @@ Stack: ${errorStack}
           return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
         }
       }
-      if (currentUser.role === "cashier" && ["balcao", "takeout", "pdv"].includes(order.orderType)) {
-        const activeCashRegisters = await storage.getCashRegistersWithActiveShift(
+      if (["balcao", "takeout", "pdv"].includes(order.orderType)) {
+        const openShift = await storage.getOpenCashRegisterShiftForBranch(
           restaurantId,
           order.branchId || currentUser.activeBranchId || null
         );
-        if (activeCashRegisters.length === 0) {
-          return res.status(409).json({
-            message: "O turno de caixa est\xE1 fechado. Abra um novo turno para receber este pedido de balc\xE3o."
-          });
+        if (!openShift) {
+          return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
         }
       }
       const payment = recordPaymentSchema.parse(req.body);

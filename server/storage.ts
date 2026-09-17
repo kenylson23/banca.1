@@ -3715,13 +3715,15 @@ export class DatabaseStorage implements IStorage {
     if (!order) {
       throw new Error('Order not found');
     }
-    if (order.tableId) {
-      const table = await this.getTableById(order.tableId);
-      if (table && table.restaurantId === restaurantId) {
-        const openShift = await this.getOpenCashRegisterShiftForBranch(restaurantId, table.branchId);
-        if (!openShift) {
-          throw new CashRegisterClosedError();
-        }
+    const isCounterOrder = ['balcao', 'takeout', 'pdv'].includes(order.orderType);
+    if (order.tableId || isCounterOrder) {
+      const table = order.tableId ? await this.getTableById(order.tableId) : undefined;
+      const branchId = table?.restaurantId === restaurantId
+        ? table.branchId
+        : order.branchId || null;
+      const openShift = await this.getOpenCashRegisterShiftForBranch(restaurantId, branchId);
+      if (!openShift) {
+        throw new CashRegisterClosedError();
       }
     }
 

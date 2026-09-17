@@ -5537,15 +5537,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Pedido não encontrado" });
       }
 
-      // O pagamento de um pedido de mesa também precisa de um turno aberto.
-      // Esta validação vem antes de pontos, descontos, serviços e taxas para
-      // que uma tentativa recusada não altere o pedido ou a sessão.
-      if (order.tableId && paymentAmount && parseFloat(paymentAmount) > 0) {
-        const table = await storage.getTableById(order.tableId);
-        if (!table) {
-          return res.status(404).json({ message: "Mesa não encontrada" });
-        }
-        if (!(await requireOpenCashRegisterForTable(table))) {
+      // Qualquer pagamento operacional de mesa ou balcão precisa de um turno
+      // aberto. Esta validação vem antes de pontos, descontos, serviços e
+      // taxas para que uma tentativa recusada não altere o pedido ou a sessão.
+      if (
+        paymentAmount
+        && parseFloat(paymentAmount) > 0
+        && (order.tableId || ['balcao', 'takeout', 'pdv'].includes(order.orderType))
+      ) {
+        if (order.tableId) {
+          const table = await storage.getTableById(order.tableId);
+          if (!table) {
+            return res.status(404).json({ message: "Mesa não encontrada" });
+          }
+          if (!(await requireOpenCashRegisterForTable(table))) {
+            return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+          }
+        } else if (!(await storage.getOpenCashRegisterShiftForBranch(
+          restaurantId,
+          order.branchId || currentUser.activeBranchId || null,
+        ))) {
           return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
         }
       }
@@ -8685,12 +8696,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const isCounterOrder = ['balcao', 'takeout', 'pdv'].includes(validatedOrder.orderType);
-      if (currentUser.role === 'cashier' && isCounterOrder) {
-        const activeCashRegisters = await storage.getCashRegistersWithActiveShift(
+      if (isCounterOrder) {
+        const openShift = await storage.getOpenCashRegisterShiftForBranch(
           restaurantId,
           validatedOrder.branchId || null,
         );
-        if (activeCashRegisters.length === 0) {
+        if (!openShift) {
           return res.status(409).json({
             message: "Não é possível criar pedidos de balcão sem um turno de caixa aberto. Abra um turno para continuar.",
           });
@@ -8855,12 +8866,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (action === 'reject' && !reason?.trim()) {
         return res.status(400).json({ message: "Informe o motivo da rejeição" });
       }
-      if (action === 'confirm' && order.orderType === 'mesa' && order.tableId) {
-        const table = await storage.getTableById(order.tableId);
-        if (!table) {
-          return res.status(404).json({ message: "Mesa não encontrada" });
-        }
-        if (!(await requireOpenCashRegisterForTable(table))) {
+      if (
+        action === 'confirm'
+        && (order.tableId || ['balcao', 'takeout', 'pdv'].includes(order.orderType))
+      ) {
+        if (order.tableId) {
+          const table = await storage.getTableById(order.tableId);
+          if (!table) {
+            return res.status(404).json({ message: "Mesa não encontrada" });
+          }
+          if (!(await requireOpenCashRegisterForTable(table))) {
+            return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+          }
+        } else if (!(await storage.getOpenCashRegisterShiftForBranch(
+          restaurantId,
+          order.branchId || currentUser.activeBranchId || null,
+        ))) {
           return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
         }
       }
@@ -9497,15 +9518,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      if (currentUser.role === 'cashier' && ['balcao', 'takeout', 'pdv'].includes(order.orderType)) {
-        const activeCashRegisters = await storage.getCashRegistersWithActiveShift(
+      if (['balcao', 'takeout', 'pdv'].includes(order.orderType)) {
+        const openShift = await storage.getOpenCashRegisterShiftForBranch(
           restaurantId,
           order.branchId || currentUser.activeBranchId || null,
         );
-        if (activeCashRegisters.length === 0) {
-          return res.status(409).json({
-            message: "O turno de caixa está fechado. Abra um novo turno para receber este pedido de balcão.",
-          });
+        if (!openShift) {
+          return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
         }
       }
 
