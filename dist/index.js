@@ -16485,6 +16485,12 @@ async function registerRoutes(app2) {
             branchId: table2.branchId ?? null,
             tableSessionId: table2.currentSessionId
           };
+          if (!await storage.getOpenCashRegisterShiftForBranch(
+            validatedOrder.restaurantId,
+            validatedOrder.branchId ?? null
+          )) {
+            return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+          }
         }
       }
       let detectedGuestId = null;
@@ -16667,6 +16673,12 @@ async function registerRoutes(app2) {
           ...validatedOrder,
           branchId: publicBranch?.id ?? null
         };
+      }
+      if (!await storage.getOpenCashRegisterShiftForBranch(
+        validatedOrder.restaurantId,
+        validatedOrder.branchId ?? null
+      )) {
+        return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
       }
       let couponDiscount = 0;
       let appliedCouponId = null;

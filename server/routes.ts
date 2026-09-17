@@ -4140,6 +4140,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             branchId: table.branchId ?? null,
             tableSessionId: table.currentSessionId,
           };
+
+          // Public table orders are operational orders too: do not create
+          // anything while the table's branch has no open cash shift.
+          if (!(await storage.getOpenCashRegisterShiftForBranch(
+            validatedOrder.restaurantId,
+            validatedOrder.branchId ?? null,
+          ))) {
+            return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+          }
         }
       }
 
@@ -4382,6 +4391,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...validatedOrder,
           branchId: publicBranch?.id ?? null,
         };
+      }
+
+      // All orders submitted through the public menu enter an operational
+      // queue. Require an active register with an open shift for the resolved
+      // branch before applying discounts, redeeming points, or creating the
+      // order.
+      if (!(await storage.getOpenCashRegisterShiftForBranch(
+        validatedOrder.restaurantId,
+        validatedOrder.branchId ?? null,
+      ))) {
+        return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
       }
 
       // Validate and apply coupon if provided (server-side verification)
