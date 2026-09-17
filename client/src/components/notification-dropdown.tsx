@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useLocation } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Bell, Check, CheckCheck, Trash2, Settings, Package, User, AlertTriangle, CreditCard, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -56,6 +57,7 @@ const notificationIconBackgrounds: Record<NotificationType, string> = {
 
 export function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
   const { brand } = useRestaurantBrand();
@@ -309,7 +311,10 @@ export function NotificationDropdown() {
           <Button
             variant="ghost"
             className="h-9 w-full justify-start rounded-lg text-sm"
-            onClick={() => setIsOpen(false)}
+             onClick={() => {
+               setIsOpen(false);
+               setLocation('/notification-settings');
+             }}
             data-testid="button-notification-settings"
           >
             <Settings className="h-4 w-4 mr-2" />
