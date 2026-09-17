@@ -90,7 +90,7 @@ export function NotificationDropdown() {
 
   useWebSocket(handleWebSocketMessage);
 
-  const { data: countData } = useQuery<{ count: number }>({
+  const { data: countData, isError: isCountError } = useQuery<{ count: number }>({
     queryKey: ['/api/notifications/count'],
     refetchInterval: 15000,
     staleTime: 0,
@@ -99,7 +99,12 @@ export function NotificationDropdown() {
     refetchOnReconnect: true,
   });
 
-  const { data: notifications, isLoading, refetch } = useQuery<Notification[]>({
+  const {
+    data: notifications,
+    isLoading,
+    isError: isNotificationsError,
+    refetch,
+  } = useQuery<Notification[]>({
     queryKey: ['/api/notifications'],
     enabled: isOpen,
     staleTime: 0,
@@ -229,6 +234,26 @@ export function NotificationDropdown() {
             <div className="flex items-center justify-center h-full py-8">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
             </div>
+          ) : isNotificationsError ? (
+            <div className="flex flex-col items-center justify-center gap-3 px-6 py-8 text-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10">
+                <Bell className="h-5 w-5 text-destructive" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Não foi possível carregar as notificações</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  O servidor não respondeu. Tente novamente.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-lg"
+                onClick={() => void refetch()}
+              >
+                Tentar novamente
+              </Button>
+            </div>
           ) : notifications && notifications.length > 0 ? (
             <div className="space-y-1.5 p-2">
               {notifications.map((notification) => {
@@ -301,7 +326,9 @@ export function NotificationDropdown() {
               <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
                 <Bell className="h-5 w-5 opacity-50" />
               </div>
-              <p className="text-sm">Nenhuma notificação</p>
+              <p className="text-sm">
+                {isCountError ? 'Não foi possível consultar as notificações' : 'Nenhuma notificação'}
+              </p>
             </div>
           )}
         </ScrollArea>

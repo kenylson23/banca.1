@@ -2,7 +2,13 @@
 -- Older databases used payment_enabled and did not have all notification types.
 
 ALTER TABLE notification_preferences
+  ADD COLUMN IF NOT EXISTS in_app_enabled INTEGER NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS whatsapp_enabled INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS email_enabled INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS new_order_enabled INTEGER NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS order_status_enabled INTEGER NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS order_cancelled_enabled INTEGER NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS low_stock_enabled INTEGER NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS new_customer_enabled INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS payment_received_enabled INTEGER NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS subscription_alert_enabled INTEGER NOT NULL DEFAULT 1,

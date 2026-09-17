@@ -1446,6 +1446,39 @@ export async function ensureTablesExist() {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
+
+      // Existing installations may have an older, partial preferences table.
+      // Keep startup safe even when the migration runner has not completed yet.
+      await db.execute(sql`ALTER TABLE notification_preferences
+        ADD COLUMN IF NOT EXISTS in_app_enabled INTEGER NOT NULL DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS whatsapp_enabled INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS email_enabled INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS new_order_enabled INTEGER NOT NULL DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS order_status_enabled INTEGER NOT NULL DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS order_cancelled_enabled INTEGER NOT NULL DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS low_stock_enabled INTEGER NOT NULL DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS new_customer_enabled INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS payment_received_enabled INTEGER NOT NULL DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS subscription_alert_enabled INTEGER NOT NULL DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS whatsapp_notification_number VARCHAR(50);`);
+
+      // Older releases called this preference payment_enabled. Copy it only
+      // when that legacy column is present, without making startup depend on it.
+      await db.execute(sql`DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'notification_preferences'
+              AND column_name = 'payment_enabled'
+          ) THEN
+            EXECUTE 'UPDATE notification_preferences
+              SET payment_received_enabled = payment_enabled
+              WHERE payment_enabled IS NOT NULL';
+          END IF;
+        END
+      $$;`);
       
       // Super administrators must be created explicitly with the secure CLI
       // script; never seed a known email/password during application startup.

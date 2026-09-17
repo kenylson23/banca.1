@@ -294,7 +294,7 @@ function Router() {
           }} />
           
           <Route path="/notification-settings" component={() => {
-            if (user?.role === 'admin' || user?.role === 'manager') {
+            if (user?.role === 'admin' || user?.role === 'manager' || user?.role === 'cashier' || user?.role === 'waiter' || user?.role === 'kitchen') {
               return <MainDashboard section="notification-settings" />;
             }
             return <Redirect to="/" />;
