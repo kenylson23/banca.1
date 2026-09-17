@@ -386,10 +386,15 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
       setSelectedCategory(null);
       setProductSearchQuery("");
     },
-    onError: () => {
+    onError: (error: any) => {
+      const message = error?.message || "Não foi possível criar o pedido.";
+      const isCashRegisterError =
+        error?.status === 409 &&
+        message.toLowerCase().includes("turno de caixa");
+
       toast({
-        title: "Erro",
-        description: "Não foi possível criar o pedido.",
+        title: isCashRegisterError ? "Turno de caixa fechado" : "Não foi possível criar o pedido",
+        description: message,
         variant: "destructive",
       });
     },
