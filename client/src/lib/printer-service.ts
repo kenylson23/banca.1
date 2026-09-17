@@ -968,6 +968,8 @@ class PrinterService {
       customerNif?: string;
       customerAddress?: string;
        restaurantName?: string;
+       restaurantAddress?: string;
+       restaurantNIF?: string;
        restaurantNif?: string;
        vatRegime?: string;
        vatRate?: string;
@@ -980,6 +982,9 @@ class PrinterService {
       tableCustomerName?: string;
       splitInfo?: string;
        restaurantPhone?: string;
+       orderNumber?: string;
+       orderType?: string;
+       deliveryAddress?: string;
        documentSeries?: string;
        invoicePrefix?: string;
        items: Array<{
@@ -1027,8 +1032,12 @@ class PrinterService {
       encoder.align('center').bold(true).line(content.restaurantName).bold(false);
     }
       if (content.restaurantPhone) encoder.line(`Telefone: ${content.restaurantPhone}`);
-    if (content.fiscalAddress) encoder.line(content.fiscalAddress);
-    if (content.restaurantNif) encoder.line(`NIF: ${content.restaurantNif}`);
+    if (content.fiscalAddress || content.restaurantAddress) {
+      encoder.line(content.fiscalAddress || content.restaurantAddress!);
+    }
+    if (content.restaurantNif || content.restaurantNIF) {
+      encoder.line(`NIF: ${content.restaurantNif || content.restaurantNIF}`);
+    }
     if (content.vatRegime) encoder.line(`Regime: ${content.vatRegime}`);
     if (content.vatRate) encoder.line(`IVA: ${content.vatRate}`);
       if (content.documentSeries) encoder.line(`Série: ${content.documentSeries}`);
@@ -1041,6 +1050,9 @@ class PrinterService {
     // Cabeçalho
     encoder.align('center').bold(true).line('FATURA/RECIBO').bold(false);
     encoder.line(`Nº ${content.invoiceNumber}`);
+    if (content.orderNumber) {
+      encoder.line(`Pedido #${content.orderNumber}`);
+    }
      if (content.sessionReference) {
        encoder.line(content.sessionReference);
      }
@@ -1056,7 +1068,7 @@ class PrinterService {
     encoder.line(content.date).newline();
 
     // Dados do cliente
-    if (content.customerName || content.customerEmail || content.customerNif || content.customerAddress || content.invoiceRecipientLabel || content.tableCustomerName || content.splitInfo) {
+    if (content.customerName || content.customerEmail || content.customerNif || content.customerAddress || content.invoiceRecipientLabel || content.tableCustomerName || content.splitInfo || content.orderType || content.deliveryAddress) {
       encoder.align('left').bold(true).line('Identificação da fatura:').bold(false);
       if (content.invoiceRecipientLabel) {
         encoder.line(`Fatura em nome de: ${content.invoiceRecipientLabel}`);
@@ -1082,6 +1094,17 @@ class PrinterService {
     if (content.splitInfo) {
       encoder.line(content.splitInfo);
     }
+      if (content.orderType) {
+        const orderTypeLabel = content.orderType === 'delivery'
+          ? 'Delivery'
+          : content.orderType === 'balcao'
+            ? 'Balcão'
+            : content.orderType;
+        encoder.line(`Tipo: ${orderTypeLabel}`);
+      }
+      if (content.deliveryAddress) {
+        encoder.line(`Entrega: ${content.deliveryAddress}`);
+      }
       encoder.newline();
     }
 
@@ -1128,6 +1151,11 @@ class PrinterService {
        spaces = (paperWidth === 80 ? 48 : 32) - discountLine.length - content.discount.length;
        encoder.line(discountLine + ' '.repeat(Math.max(spaces, 1)) + content.discount);
     }
+     if (!content.adjustments?.length && content.serviceCharge) {
+       const serviceLine = 'Taxa Serviço:';
+       spaces = (paperWidth === 80 ? 48 : 32) - serviceLine.length - content.serviceCharge.length;
+       encoder.line(serviceLine + ' '.repeat(Math.max(spaces, 1)) + content.serviceCharge);
+     }
 
     const totalLine = 'TOTAL:';
     spaces = (paperWidth === 80 ? 48 : 32) - totalLine.length - content.total.length;

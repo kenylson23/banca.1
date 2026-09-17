@@ -579,6 +579,12 @@ export default function OrderDetail() {
           </Badge>
           <PrintInvoice 
             order={order} 
+            restaurantInfo={restaurant ? {
+              name: restaurant.name,
+              address: restaurant.address || undefined,
+              phone: restaurant.phone || undefined,
+              nif: restaurant.nif || undefined,
+            } : undefined}
             variant="ghost"
             size="icon"
           />

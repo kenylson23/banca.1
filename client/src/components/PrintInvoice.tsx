@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Printer, ChevronDown } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -55,7 +56,7 @@ interface PrintInvoiceProps {
 
 export function PrintInvoice({
   order,
-  restaurantInfo = { name: 'NaBancada' },
+  restaurantInfo,
   totalsOverride,
   variant = 'outline',
   size = 'sm'
@@ -66,6 +67,17 @@ export function PrintInvoice({
   const { toast } = useToast();
   const [printing, setPrinting] = useState(false);
 
+  const { data: fetchedRestaurant } = useQuery<any>({
+    queryKey: ['/api/public/restaurants', order?.restaurantId],
+    enabled: !restaurantInfo && !!order?.restaurantId,
+    queryFn: async () => {
+      const response = await fetch(`/api/public/restaurants/${order.restaurantId}`);
+      if (!response.ok) throw new Error('Não foi possível carregar os dados do restaurante');
+      return response.json();
+    },
+  });
+
+  const resolvedRestaurantInfo = restaurantInfo || fetchedRestaurant || { name: 'NaBancada' };
   const thermalPrinter = getPrinterByType('invoice');
 
   const handlePrintThermal = async () => {
@@ -118,8 +130,15 @@ export function PrintInvoice({
         date: order.createdAt
            ? invoiceDate(order.createdAt)
           : invoiceDate(new Date()),
-        customerName: order.customerName || undefined,
-        customerPhone: order.customerPhone || undefined,
+         restaurantName: resolvedRestaurantInfo.name,
+         restaurantAddress: resolvedRestaurantInfo.address || undefined,
+         restaurantPhone: resolvedRestaurantInfo.phone || undefined,
+         restaurantNIF: resolvedRestaurantInfo.nif || undefined,
+         orderNumber: order.orderNumber || order.id.slice(-8).toUpperCase(),
+         orderType: order.orderType,
+         deliveryAddress: order.deliveryAddress || undefined,
+         customerName: order.customerName || order.customer?.name || undefined,
+         customerPhone: order.customerPhone || order.customer?.phone || undefined,
         items,
         subtotal: invoiceMoney(effectiveSubtotal),
         discount: effectiveDiscount > 0 ? invoiceMoney(effectiveDiscount) : undefined,
@@ -375,11 +394,11 @@ export function PrintInvoice({
       <body>
         <div class="header">
           <div class="restaurant-info">
-            <div class="restaurant-name">${restaurantInfo.name}</div>
+             <div class="restaurant-name">${resolvedRestaurantInfo.name}</div>
             <div class="restaurant-details">
-              ${restaurantInfo.address ? `<div>${restaurantInfo.address}</div>` : ''}
-              ${restaurantInfo.phone ? `<div>Tel: ${restaurantInfo.phone}</div>` : ''}
-              ${restaurantInfo.nif ? `<div>NIF: ${restaurantInfo.nif}</div>` : ''}
+              ${resolvedRestaurantInfo.address ? `<div>${resolvedRestaurantInfo.address}</div>` : ''}
+              ${resolvedRestaurantInfo.phone ? `<div>Tel: ${resolvedRestaurantInfo.phone}</div>` : ''}
+              ${resolvedRestaurantInfo.nif ? `<div>NIF: ${resolvedRestaurantInfo.nif}</div>` : ''}
             </div>
           </div>
           <div class="invoice-info">
