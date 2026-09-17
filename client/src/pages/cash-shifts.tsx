@@ -39,6 +39,10 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatKwanza } from "@/lib/formatters";
 import { usePermissions } from "@/hooks/usePermissions";
+import {
+  CashRegisterCloseReportDialog,
+  type CashRegisterCloseReport,
+} from "@/components/CashRegisterCloseReportDialog";
 
 interface ShiftWithDetails extends CashRegisterShift {
   cashRegister: CashRegister;
@@ -61,6 +65,7 @@ export default function CashShifts() {
   const [closeShiftDialog, setCloseShiftDialog] = useState(false);
   const [configDialog, setConfigDialog] = useState(false);
   const [selectedShift, setSelectedShift] = useState<ShiftWithDetails | null>(null);
+  const [closedShiftReport, setClosedShiftReport] = useState<CashRegisterCloseReport | null>(null);
   
   const [shiftForm, setShiftForm] = useState({
     cashRegisterId: "",
@@ -125,13 +130,20 @@ export default function CashShifts() {
 
   const closeShiftMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof closeShiftForm }) => {
-      await apiRequest("PATCH", `/api/cash-register-shifts/${id}/close`, data);
+      const response = await apiRequest("PATCH", `/api/cash-register-shifts/${id}/close`, data);
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (closedShift) => {
       queryClient.invalidateQueries({ queryKey: ["/api/cash-register-shifts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/financial/cash-registers"] });
       toast({ title: "Turno fechado com sucesso" });
       setCloseShiftDialog(false);
+      if (selectedShift && closedShift) {
+        setClosedShiftReport({
+          ...closedShift,
+          cashRegisterName: selectedShift.cashRegister.name,
+        });
+      }
       setSelectedShift(null);
       setCloseShiftForm({ closingAmountCounted: "0.00", notes: "" });
     },
@@ -598,6 +610,14 @@ export default function CashShifts() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <CashRegisterCloseReportDialog
+          report={closedShiftReport}
+          open={Boolean(closedShiftReport)}
+          onOpenChange={(open) => {
+            if (!open) setClosedShiftReport(null);
+          }}
+        />
 
         <Dialog open={configDialog} onOpenChange={setConfigDialog}>
           <DialogContent className="max-w-md">

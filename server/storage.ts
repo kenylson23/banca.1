@@ -609,7 +609,12 @@ export interface IStorage {
   getActiveCashRegisterShift(cashRegisterId: string, restaurantId: string): Promise<CashRegisterShift | undefined>;
   getOpenCashRegisterShiftForBranch(restaurantId: string, branchId: string | null): Promise<CashRegisterShift | undefined>;
   openCashRegisterShift(restaurantId: string, userId: string, data: Omit<InsertCashRegisterShift, 'restaurantId' | 'openedByUserId'>): Promise<CashRegisterShift>;
-  closeCashRegisterShift(shiftId: string, restaurantId: string, userId: string, data: CloseCashRegisterShift): Promise<CashRegisterShift>;
+  closeCashRegisterShift(
+    shiftId: string,
+    restaurantId: string,
+    userId: string,
+    data: CloseCashRegisterShift,
+  ): Promise<CashRegisterShift & { paymentBreakdown: Record<string, string> }>;
   
   // Financial Category operations
   getFinancialCategories(restaurantId: string, branchId: string | null, type?: 'receita' | 'despesa'): Promise<FinancialCategory[]>;
@@ -7749,9 +7754,17 @@ export class DatabaseStorage implements IStorage {
       .filter((t: FinancialTransaction) => t.type === 'ajuste')
       .reduce((sum: number, t: FinancialTransaction) => sum + parseFloat(t.amount), 0);
 
-    const closingAmountExpected = totalRevenues - totalExpenses + totalAdjustments;
+    const openingAmount = parseFloat(shift.openingAmount || '0');
+    const closingAmountExpected = openingAmount + totalRevenues - totalExpenses + totalAdjustments;
     const closingAmountCounted = parseFloat(data.closingAmountCounted);
     const difference = closingAmountCounted - closingAmountExpected;
+    const paymentBreakdown = allTransactions
+      .filter((transaction: FinancialTransaction) => transaction.type === 'receita')
+      .reduce<Record<string, number>>((breakdown, transaction: FinancialTransaction) => {
+        breakdown[transaction.paymentMethod] =
+          (breakdown[transaction.paymentMethod] || 0) + parseFloat(transaction.amount || '0');
+        return breakdown;
+      }, {});
 
     const [closedShift] = await db
       .update(cashRegisterShifts)
@@ -7769,7 +7782,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(cashRegisterShifts.id, shiftId))
       .returning();
 
-    return closedShift;
+    return {
+      ...closedShift,
+      paymentBreakdown: Object.fromEntries(
+        Object.entries(paymentBreakdown).map(([method, amount]) => [method, amount.toFixed(2)]),
+      ),
+    };
   }
 
   async getCashRegisterShiftById(id: string): Promise<CashRegisterShift | undefined> {

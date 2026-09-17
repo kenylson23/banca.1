@@ -36,6 +36,10 @@ import { ShimmerSkeleton } from "@/components/shimmer-skeleton";
 import type { CashRegister, CashRegisterShift } from "@shared/schema";
 import { format } from "date-fns";
 import { formatKwanza } from "@/lib/formatters";
+import {
+  CashRegisterCloseReportDialog,
+  type CashRegisterCloseReport,
+} from "@/components/CashRegisterCloseReportDialog";
 
 interface ShiftWithDetails extends CashRegisterShift {
   cashRegister: CashRegister;
@@ -52,6 +56,7 @@ export default function FinancialCashRegisters() {
   const [closeShiftDialog, setCloseShiftDialog] = useState(false);
   const [selectedRegister, setSelectedRegister] = useState<CashRegister | null>(null);
   const [selectedShift, setSelectedShift] = useState<ShiftWithDetails | null>(null);
+  const [closedShiftReport, setClosedShiftReport] = useState<CashRegisterCloseReport | null>(null);
   
   const [registerForm, setRegisterForm] = useState({
     name: "",
@@ -222,13 +227,20 @@ export default function FinancialCashRegisters() {
 
   const closeShiftMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof closeShiftForm }) => {
-      await apiRequest("PATCH", `/api/cash-register-shifts/${id}/close`, data);
+      const response = await apiRequest("PATCH", `/api/cash-register-shifts/${id}/close`, data);
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (closedShift) => {
       queryClient.invalidateQueries({ queryKey: ["/api/cash-register-shifts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/financial/cash-registers"] });
       toast({ title: "Turno fechado com sucesso" });
       setCloseShiftDialog(false);
+      if (selectedShift && closedShift) {
+        setClosedShiftReport({
+          ...closedShift,
+          cashRegisterName: selectedShift.cashRegister.name,
+        });
+      }
       setSelectedShift(null);
       setCloseShiftForm({ closingAmountCounted: "0.00", notes: "" });
     },
@@ -825,6 +837,14 @@ export default function FinancialCashRegisters() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <CashRegisterCloseReportDialog
+          report={closedShiftReport}
+          open={Boolean(closedShiftReport)}
+          onOpenChange={(open) => {
+            if (!open) setClosedShiftReport(null);
+          }}
+        />
       </div>
     </div>
   );
