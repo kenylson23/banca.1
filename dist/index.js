@@ -16489,7 +16489,7 @@ async function registerRoutes(app2) {
             validatedOrder.restaurantId,
             validatedOrder.branchId ?? null
           )) {
-            return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+            return res.status(409).json({ message: "Ainda n\xE3o estamos recebendo pedidos." });
           }
         }
       }
@@ -16678,7 +16678,7 @@ async function registerRoutes(app2) {
         validatedOrder.restaurantId,
         validatedOrder.branchId ?? null
       )) {
-        return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+        return res.status(409).json({ message: "Ainda n\xE3o estamos recebendo pedidos." });
       }
       let couponDiscount = 0;
       let appliedCouponId = null;

@@ -4147,7 +4147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             validatedOrder.restaurantId,
             validatedOrder.branchId ?? null,
           ))) {
-            return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+            return res.status(409).json({ message: "Ainda não estamos recebendo pedidos." });
           }
         }
       }
@@ -4401,7 +4401,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         validatedOrder.restaurantId,
         validatedOrder.branchId ?? null,
       ))) {
-        return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+        return res.status(409).json({ message: "Ainda não estamos recebendo pedidos." });
       }
 
       // Validate and apply coupon if provided (server-side verification)
