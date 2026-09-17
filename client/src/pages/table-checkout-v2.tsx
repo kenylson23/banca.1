@@ -56,6 +56,8 @@ import { formatPaymentMethodLabel } from "@shared/payment-methods";
 import { CheckoutSummaryPanel } from "@/components/CheckoutSummaryPanel";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { invalidateAfterPayment } from "@/lib/tableInvalidations";
+import { useCashRegisterShift, NO_OPEN_CASH_REGISTER_MESSAGE } from "@/hooks/useCashRegisterShift";
+import { CashRegisterPaymentGuard } from "@/components/CashRegisterPaymentGuard";
 
 // Step definitions
 const STEPS = [
@@ -83,6 +85,11 @@ export default function TableCheckoutV2() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const {
+    hasOpenShift,
+    isLoading: isLoadingCashRegister,
+    paymentsBlocked,
+  } = useCashRegisterShift();
   
   // Get query params
   const searchParams = new URLSearchParams(window.location.search);
@@ -548,6 +555,10 @@ export default function TableCheckoutV2() {
       
       if (!table.currentSessionId) {
         throw new Error('Nenhuma sessão ativa na mesa');
+      }
+
+      if (!hasOpenShift) {
+        throw new Error(NO_OPEN_CASH_REGISTER_MESSAGE);
       }
       
       if (!paymentMethod) {
@@ -2144,6 +2155,12 @@ export default function TableCheckoutV2() {
                        </div>
                      )}
 
+                     <CashRegisterPaymentGuard
+                       isLoading={isLoadingCashRegister}
+                       hasOpenShift={hasOpenShift}
+                       onOpenShift={() => setLocation('/financial/shifts')}
+                     />
+
                      {/* Info Banner */}
                      <div className="relative overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4">
                        <div className="flex items-start gap-3">
@@ -2654,8 +2671,8 @@ export default function TableCheckoutV2() {
                         <h3 className="text-xl font-bold">Escolha o Método de Pagamento</h3>
                       </div>
                       
-                       <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} disabled={paymentsBlocked}>
+                          <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4", paymentsBlocked && "pointer-events-none opacity-50")}>
                              {/* Dinheiro - REDESIGNED */}
                              <label className={cn(
                                "relative flex flex-col gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all group",
@@ -2901,6 +2918,7 @@ export default function TableCheckoutV2() {
                   size="default"
                   disabled={
                     !paymentMethod || 
+                    paymentsBlocked ||
                     (paymentMethod === 'dinheiro' && receivedAmount && parseFloat(receivedAmount) < calculateTotals.finalTotal) ||
                     processPaymentMutation.isPending
                   }

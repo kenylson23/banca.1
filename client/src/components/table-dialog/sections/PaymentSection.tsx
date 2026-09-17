@@ -38,6 +38,8 @@ import { useTableInvalidations } from '@/lib/tableInvalidations';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { Table } from '@shared/schema';
+import { useCashRegisterShift, NO_OPEN_CASH_REGISTER_MESSAGE } from '@/hooks/useCashRegisterShift';
+import { CashRegisterPaymentGuard } from '@/components/CashRegisterPaymentGuard';
 
 interface PaymentSectionProps {
   table: Table;
@@ -63,6 +65,7 @@ export function PaymentSection({
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { hasOpenShift, isLoading: isLoadingCashRegister, paymentsBlocked } = useCashRegisterShift();
   
   // ✅ SOLUÇÃO 4: Estado para checkout rápido
   const [showQuickCheckout, setShowQuickCheckout] = useState(false);
@@ -94,10 +97,19 @@ export function PaymentSection({
     onClose();
     navigate(`/tables/${table.id}/checkout?step=1&split=true`);
   };
+
+  const handleOpenShift = () => {
+    onClose();
+    navigate('/financial/shifts');
+  };
   
   // ✅ SOLUÇÃO 4: Mutation para checkout rápido
   const quickPaymentMutation = useMutation({
     mutationFn: async () => {
+      if (!hasOpenShift) {
+        throw new Error(NO_OPEN_CASH_REGISTER_MESSAGE);
+      }
+
       if (!paymentMethod) {
         throw new Error('Selecione um método de pagamento');
       }
@@ -483,7 +495,7 @@ export function PaymentSection({
               onClick={() => setShowQuickCheckout(true)}
               className="w-full bg-green-600 hover:bg-green-700"
               size="lg"
-              disabled={totalUnpaid <= 0}
+               disabled={paymentsBlocked || totalUnpaid <= 0}
             >
               <Zap className="w-4 h-4 mr-2" />
               Pagar Agora
@@ -504,10 +516,11 @@ export function PaymentSection({
               Wizard completo com ajustes e cupons
             </p>
             <Button 
-              onClick={handleGoToCheckout}
+               onClick={handleGoToCheckout}
               className="w-full"
               size="lg"
               variant="outline"
+               disabled={paymentsBlocked}
             >
               <Receipt className="w-4 h-4 mr-2" />
               Ir para Checkout
@@ -528,10 +541,11 @@ export function PaymentSection({
               Dividir pagamento entre pessoas
             </p>
             <Button 
-              onClick={handleSplitBill}
+               onClick={handleSplitBill}
               className="w-full"
               size="lg"
               variant="outline"
+               disabled={paymentsBlocked}
             >
               <Split className="w-4 h-4 mr-2" />
               Dividir Conta
@@ -539,6 +553,12 @@ export function PaymentSection({
           </CardContent>
         </Card>
       </div>
+
+      <CashRegisterPaymentGuard
+        isLoading={isLoadingCashRegister}
+        hasOpenShift={hasOpenShift}
+        onOpenShift={handleOpenShift}
+      />
 
       {/* Resumo por Pessoa */}
       {ordersByGuest && ordersByGuest.length > 0 && (
@@ -854,6 +874,7 @@ export function PaymentSection({
                 onClick={() => quickPaymentMutation.mutate()}
                 disabled={
                   quickPaymentMutation.isPending || 
+                  paymentsBlocked ||
                   !paymentMethod || 
                   (paymentMethod === 'dinheiro' && Boolean(receivedAmount) && parseFloat(receivedAmount) < ((customAmount && parseFloat(customAmount) > 0 ? parseFloat(customAmount) : totalUnpaid) - 0.009))
                 }
