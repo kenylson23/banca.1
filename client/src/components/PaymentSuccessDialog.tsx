@@ -65,7 +65,9 @@ interface RestaurantInfo {
   name: string;
   address?: string;
   nif?: string;
+  vatRegime?: string;
   phone?: string;
+  legalFooter?: string;
 }
 
 interface CalculateTotals {
@@ -243,7 +245,9 @@ export function PaymentSuccessDialog({
     const restaurantName = restaurant?.name || 'Restaurante';
     const restaurantAddress = restaurant?.address || '';
     const restaurantNIF = restaurant?.nif || '';
+    const restaurantVatRegime = restaurant?.vatRegime || '';
     const restaurantPhone = restaurant?.phone || '';
+    const restaurantLegalFooter = restaurant?.legalFooter || '';
     
     // Get current date/time for print
     const printDateTime = new Date().toLocaleString('pt-PT');
@@ -432,10 +436,11 @@ export function PaymentSuccessDialog({
           <!-- HEADER -->
           <div class="header">
             <div class="restaurant-name">${restaurantName}</div>
-            ${restaurantAddress || restaurantNIF || restaurantPhone ? `
+            ${restaurantAddress || restaurantNIF || restaurantVatRegime || restaurantPhone ? `
               <div class="restaurant-info">
                 ${restaurantAddress ? `${restaurantAddress}<br>` : ''}
                 ${restaurantNIF ? `NIF: ${restaurantNIF}<br>` : ''}
+                ${restaurantVatRegime ? `Regime de IVA: ${restaurantVatRegime}<br>` : ''}
                 ${restaurantPhone ? `Tel: ${restaurantPhone}` : ''}
               </div>
             ` : ''}
@@ -566,6 +571,7 @@ export function PaymentSuccessDialog({
 
           <!-- FOOTER -->
           <div class="footer">
+            ${restaurantLegalFooter ? `${restaurantLegalFooter}<br><br>` : ''}
             Obrigado pela sua visita!<br>
             Volte sempre!
           </div>
@@ -629,6 +635,9 @@ export function PaymentSuccessDialog({
       if (restaurant?.nif) {
         addText(`NIF: ${restaurant.nif}`, 9, false, 'center');
       }
+       if (restaurant?.vatRegime) {
+         addText(`Regime de IVA: ${restaurant.vatRegime}`, 9, false, 'center');
+       }
       if (restaurant?.phone) {
         addText(`Tel: ${restaurant.phone}`, 9, false, 'center');
       }
@@ -774,6 +783,11 @@ export function PaymentSuccessDialog({
       addText(`Fatura associada: ${payment.invoiceReference || 'Sessão sem referência'}`, 9, false, 'center');
       addText(`Nº do pagamento: ${payment.id}`, 9, false, 'center');
       yPos += 5;
+       if (restaurant?.legalFooter) {
+         checkPageBreak(15);
+         addText(restaurant.legalFooter, 9, false, 'center');
+         yPos += 2;
+       }
       addText('Obrigado pela sua visita!', 10, true, 'center');
       addText('Volte sempre!', 10, false, 'center');
 
