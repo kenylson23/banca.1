@@ -3,7 +3,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { storage } from "./storage";
+import { storage, CashRegisterClosedError, NO_OPEN_CASH_REGISTER_MESSAGE } from "./storage";
 import { db } from "./db";
 import { eq, sql, and, isNull, or, desc, asc, inArray } from "drizzle-orm";
 import * as schema from "@shared/schema";
@@ -80,9 +80,6 @@ import twilio from "twilio";
 const sessionPinAttempts = new Map<string, { count: number; resetAt: number }>();
 const SESSION_PIN_MAX_ATTEMPTS = 5;
 const SESSION_PIN_WINDOW_MS = 15 * 60 * 1000;
-const NO_OPEN_CASH_REGISTER_MESSAGE =
-  'O pagamento não pode ser registrado porque não existe um turno de caixa aberto. Abra um turno para continuar.';
-
 type BroadcastToClients = (message: unknown) => void | Promise<void>;
 
 function broadcastToClients(message: unknown): void {
@@ -5655,6 +5652,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(updatedOrder);
     } catch (error: any) {
+      if (error instanceof CashRegisterClosedError) {
+        return res.status(409).json({ message: error.message });
+      }
       res.status(500).json({ message: error.message || "Erro no checkout completo" });
     }
   });
@@ -8855,6 +8855,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (action === 'reject' && !reason?.trim()) {
         return res.status(400).json({ message: "Informe o motivo da rejeição" });
       }
+      if (action === 'confirm' && order.orderType === 'mesa' && order.tableId) {
+        const table = await storage.getTableById(order.tableId);
+        if (!table) {
+          return res.status(404).json({ message: "Mesa não encontrada" });
+        }
+        if (!(await requireOpenCashRegisterForTable(table))) {
+          return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+        }
+      }
 
       let updated: any;
       if (action === 'confirm') {
@@ -8926,7 +8935,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (
         error instanceof Error
-        && error.message === "Este pedido já não aguarda confirmação de pagamento"
+        && (
+          error.message === "Este pedido já não aguarda confirmação de pagamento"
+          || error instanceof CashRegisterClosedError
+        )
       ) {
         return res.status(409).json({ message: error.message });
       }
@@ -9542,6 +9554,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
+      }
+      if (error instanceof CashRegisterClosedError) {
+        return res.status(409).json({ message: error.message });
       }
       console.error('Error recording payment:', error);
       res.status(500).json({ message: "Erro ao registrar pagamento" });

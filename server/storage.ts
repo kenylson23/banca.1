@@ -189,6 +189,16 @@ import { alias } from "drizzle-orm/pg-core";
 import { canUsePlanLimit } from "@shared/planAccess";
 import { nanoid } from "nanoid";
 
+export const NO_OPEN_CASH_REGISTER_MESSAGE =
+  'O pagamento não pode ser registrado porque não existe um turno de caixa aberto. Abra um turno para continuar.';
+
+export class CashRegisterClosedError extends Error {
+  constructor() {
+    super(NO_OPEN_CASH_REGISTER_MESSAGE);
+    this.name = 'CashRegisterClosedError';
+  }
+}
+
 function generateSlug(name: string): string {
   return name
     .toLowerCase()
@@ -3704,6 +3714,15 @@ export class DatabaseStorage implements IStorage {
     const order = await this.getOrderById(restaurantId, orderId);
     if (!order) {
       throw new Error('Order not found');
+    }
+    if (order.tableId) {
+      const table = await this.getTableById(order.tableId);
+      if (table && table.restaurantId === restaurantId) {
+        const openShift = await this.getOpenCashRegisterShiftForBranch(restaurantId, table.branchId);
+        if (!openShift) {
+          throw new CashRegisterClosedError();
+        }
+      }
     }
 
     const paymentAmount = parseFloat(data.amount);

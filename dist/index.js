@@ -499,6 +499,7 @@ var init_schema = __esm({
         canAccessBranches: true,
         canAccessCustomers: true,
         canAccessInventory: true,
+        canAccessCashRegister: true,
         canCloseShifts: true,
         canApplyDiscounts: true,
         canCancelOrders: true,
@@ -520,6 +521,7 @@ var init_schema = __esm({
         canAccessBranches: true,
         canAccessCustomers: true,
         canAccessInventory: true,
+        canAccessCashRegister: true,
         canCloseShifts: true,
         canApplyDiscounts: true,
         canCancelOrders: true,
@@ -541,6 +543,7 @@ var init_schema = __esm({
         canAccessBranches: false,
         canAccessCustomers: true,
         canAccessInventory: true,
+        canAccessCashRegister: true,
         canCloseShifts: true,
         canApplyDiscounts: true,
         canCancelOrders: true,
@@ -562,6 +565,7 @@ var init_schema = __esm({
         canAccessBranches: false,
         canAccessCustomers: true,
         canAccessInventory: false,
+        canAccessCashRegister: true,
         canCloseShifts: true,
         canApplyDiscounts: true,
         canCancelOrders: false,
@@ -583,6 +587,7 @@ var init_schema = __esm({
         canAccessBranches: false,
         canAccessCustomers: false,
         canAccessInventory: false,
+        canAccessCashRegister: false,
         canCloseShifts: false,
         canApplyDiscounts: false,
         canCancelOrders: false,
@@ -604,6 +609,7 @@ var init_schema = __esm({
         canAccessBranches: false,
         canAccessCustomers: false,
         canAccessInventory: false,
+        canAccessCashRegister: false,
         canCloseShifts: false,
         canApplyDiscounts: false,
         canCancelOrders: false,
@@ -5318,7 +5324,9 @@ var init_cache = __esm({
 // server/storage.ts
 var storage_exports = {};
 __export(storage_exports, {
+  CashRegisterClosedError: () => CashRegisterClosedError,
   DatabaseStorage: () => DatabaseStorage,
+  NO_OPEN_CASH_REGISTER_MESSAGE: () => NO_OPEN_CASH_REGISTER_MESSAGE,
   and: () => and2,
   db: () => db,
   desc: () => desc2,
@@ -5345,7 +5353,7 @@ function normalizeCustomerPhone(phone) {
   const digits = String(phone || "").replace(/\D/g, "");
   return digits.startsWith("244") && digits.length === 12 ? digits.slice(3) : digits;
 }
-var DatabaseStorage, storage;
+var NO_OPEN_CASH_REGISTER_MESSAGE, CashRegisterClosedError, DatabaseStorage, storage;
 var init_storage = __esm({
   "server/storage.ts"() {
     "use strict";
@@ -5356,6 +5364,13 @@ var init_storage = __esm({
     init_db();
     init_planAccess();
     init_db();
+    NO_OPEN_CASH_REGISTER_MESSAGE = "O pagamento n\xE3o pode ser registrado porque n\xE3o existe um turno de caixa aberto. Abra um turno para continuar.";
+    CashRegisterClosedError = class extends Error {
+      constructor() {
+        super(NO_OPEN_CASH_REGISTER_MESSAGE);
+        this.name = "CashRegisterClosedError";
+      }
+    };
     DatabaseStorage = class {
       async recalculateSessionTotals(sessionId) {
         const session2 = await this.getSessionById(sessionId);
@@ -7221,6 +7236,15 @@ var init_storage = __esm({
         const order = await this.getOrderById(restaurantId, orderId);
         if (!order) {
           throw new Error("Order not found");
+        }
+        if (order.tableId) {
+          const table2 = await this.getTableById(order.tableId);
+          if (table2 && table2.restaurantId === restaurantId) {
+            const openShift = await this.getOpenCashRegisterShiftForBranch(restaurantId, table2.branchId);
+            if (!openShift) {
+              throw new CashRegisterClosedError();
+            }
+          }
         }
         const paymentAmount = parseFloat(data.amount);
         if (paymentAmount <= 0) {
@@ -9561,7 +9585,48 @@ var init_storage = __esm({
         };
       }
       // Cash Register Shift operations
+      async closeExpiredCashRegisterShift(shift) {
+        if (!shift.openedAt || Date.now() - shift.openedAt.getTime() < CASH_REGISTER_SHIFT_MAX_AGE_MS) {
+          return shift;
+        }
+        const allTransactions = await db.select().from(financialTransactions).where(eq(financialTransactions.shiftId, shift.id));
+        const totalRevenues = allTransactions.filter((transaction) => transaction.type === "receita").reduce((sum, transaction) => sum + parseFloat(transaction.amount), 0);
+        const totalExpenses = allTransactions.filter((transaction) => transaction.type === "despesa").reduce((sum, transaction) => sum + parseFloat(transaction.amount), 0);
+        const totalAdjustments = allTransactions.filter((transaction) => transaction.type === "ajuste").reduce((sum, transaction) => sum + parseFloat(transaction.amount), 0);
+        const closingAmountExpected = totalRevenues - totalExpenses + totalAdjustments;
+        const automaticNotes = [shift.notes, "Fechado automaticamente ap\xF3s 24 horas."].filter(Boolean).join(" ");
+        const [closedShift] = await db.update(cashRegisterShifts).set({
+          status: "fechado",
+          closedByUserId: null,
+          closingAmountExpected: closingAmountExpected.toFixed(2),
+          closingAmountCounted: closingAmountExpected.toFixed(2),
+          difference: "0.00",
+          totalRevenues: totalRevenues.toFixed(2),
+          totalExpenses: totalExpenses.toFixed(2),
+          closedAt: /* @__PURE__ */ new Date(),
+          notes: automaticNotes
+        }).where(and(
+          eq(cashRegisterShifts.id, shift.id),
+          eq(cashRegisterShifts.status, "aberto")
+        )).returning();
+        return closedShift;
+      }
+      async expireOpenCashRegisterShifts(restaurantId, branchId, cashRegisterId) {
+        const conditions = [
+          eq(cashRegisterShifts.restaurantId, restaurantId),
+          eq(cashRegisterShifts.status, "aberto")
+        ];
+        if (branchId !== null) {
+          conditions.push(eq(cashRegisterShifts.branchId, branchId));
+        }
+        if (cashRegisterId) {
+          conditions.push(eq(cashRegisterShifts.cashRegisterId, cashRegisterId));
+        }
+        const openShifts = await db.select().from(cashRegisterShifts).where(and(...conditions));
+        await Promise.all(openShifts.map((shift) => this.closeExpiredCashRegisterShift(shift)));
+      }
       async getCashRegisterShifts(restaurantId, branchId, filters) {
+        await this.expireOpenCashRegisterShifts(restaurantId, branchId, filters?.cashRegisterId);
         let conditions = [eq(cashRegisterShifts.restaurantId, restaurantId)];
         if (branchId !== null) {
           conditions.push(
@@ -9606,7 +9671,21 @@ var init_storage = __esm({
           eq(cashRegisterShifts.restaurantId, restaurantId),
           eq(cashRegisterShifts.status, "aberto")
         )).limit(1);
-        return shift;
+        return shift ? await this.closeExpiredCashRegisterShift(shift) : void 0;
+      }
+      async getOpenCashRegisterShiftForBranch(restaurantId, branchId) {
+        await this.expireOpenCashRegisterShifts(restaurantId, branchId);
+        const branchCondition = branchId === null ? isNull(cashRegisterShifts.branchId) : eq(cashRegisterShifts.branchId, branchId);
+        const registerBranchCondition = branchId === null ? isNull(cashRegisters.branchId) : eq(cashRegisters.branchId, branchId);
+        const [result] = await db.select({ shift: cashRegisterShifts }).from(cashRegisterShifts).innerJoin(cashRegisters, eq(cashRegisterShifts.cashRegisterId, cashRegisters.id)).where(and(
+          eq(cashRegisterShifts.restaurantId, restaurantId),
+          branchCondition,
+          eq(cashRegisterShifts.status, "aberto"),
+          eq(cashRegisters.restaurantId, restaurantId),
+          registerBranchCondition,
+          eq(cashRegisters.isActive, 1)
+        )).orderBy(desc(cashRegisterShifts.openedAt)).limit(1);
+        return result?.shift;
       }
       async getCashRegistersWithActiveShift(restaurantId, branchId) {
         let conditions = [
@@ -12898,6 +12977,75 @@ function summarizeTableInvoicePayments(payments) {
   }));
 }
 
+// server/notificationService.ts
+init_storage();
+var enabledByType = {
+  new_order: "newOrderEnabled",
+  order_status: "orderStatusEnabled",
+  order_cancelled: "orderCancelledEnabled",
+  low_stock: "lowStockEnabled",
+  new_customer: "newCustomerEnabled",
+  payment_received: "paymentReceivedEnabled",
+  subscription_alert: "subscriptionAlertEnabled",
+  system: null
+};
+function isEnabled(preferences, type) {
+  if (!preferences) return true;
+  if (preferences.inAppEnabled === 0) return false;
+  const typeKey = enabledByType[type];
+  return !typeKey || preferences[typeKey] !== 0;
+}
+async function broadcastNotification(restaurantId, notification) {
+  const broadcast = globalThis.broadcastToRestaurant;
+  if (typeof broadcast === "function") {
+    await broadcast(restaurantId, {
+      type: "new_notification",
+      data: notification || void 0
+    });
+  }
+}
+async function notifyRestaurant(input) {
+  const users2 = input.userId ? [{ id: input.userId }] : await storage.getAllUsers(input.restaurantId);
+  const recipients = users2.length > 0 ? users2 : [{ id: null }];
+  const defaultPreferences = await storage.getNotificationPreferences(input.restaurantId);
+  const created = [];
+  const results = await Promise.all(
+    recipients.map(async (recipient) => {
+      const userId = recipient.id || null;
+      try {
+        const preferences = userId ? await storage.getNotificationPreferences(input.restaurantId, userId) || defaultPreferences : defaultPreferences;
+        if (!isEnabled(preferences, input.type)) return null;
+        return await storage.createNotification(input.restaurantId, {
+          type: input.type,
+          title: input.title,
+          message: input.message,
+          data: input.data,
+          branchId: input.branchId || void 0,
+          userId: userId || void 0,
+          channel: "in_app"
+        });
+      } catch (error) {
+        console.error("[NOTIFICATION] Failed to persist notification for recipient:", {
+          restaurantId: input.restaurantId,
+          userId,
+          type: input.type,
+          error
+        });
+        return null;
+      }
+    })
+  );
+  created.push(...results.filter((notification) => notification !== null));
+  if (created.length > 0) {
+    try {
+      await broadcastNotification(input.restaurantId, created[0]);
+    } catch (error) {
+      console.error("[NOTIFICATION] Failed to broadcast notification:", error);
+    }
+  }
+  return created;
+}
+
 // shared/invoice-formatters.ts
 init_payment_methods();
 var moneyFormatter = new Intl.NumberFormat("pt-AO", {
@@ -13189,6 +13337,10 @@ function money(value) {
 }
 function fixedMoney(value) {
   return money(value).toFixed(2);
+}
+async function requireOpenCashRegisterForTable(table2) {
+  const openShift = await storage.getOpenCashRegisterShiftForBranch(table2.restaurantId, table2.branchId);
+  return Boolean(openShift);
 }
 function displayUserName(user) {
   if (!user) return null;
@@ -16581,6 +16733,17 @@ async function registerRoutes(app2) {
       }
       const updatedOrder = await storage.calculateOrderTotal(order.id);
       broadcastToClients({ type: "payment_submitted", data: updatedOrder });
+      await notifyRestaurant({
+        restaurantId: updatedOrder.restaurantId,
+        branchId: updatedOrder.branchId,
+        type: "new_order",
+        title: "Novo pedido recebido",
+        message: `Pedido ${updatedOrder.orderNumber || updatedOrder.id.slice(0, 8).toUpperCase()} aguarda confirma\xE7\xE3o.`,
+        data: { orderId: updatedOrder.id, orderNumber: updatedOrder.orderNumber }
+      }).catch((error) => {
+        console.error("[NOTIFICATION] Failed to create new-order notification:", error);
+        return [];
+      });
       if (order.tableId) {
         await storage.autoUpdateTablePaymentStatus(order.tableId);
       }
@@ -16617,6 +16780,13 @@ async function registerRoutes(app2) {
         null,
         validatedData
       );
+      await notifyRestaurant({
+        restaurantId,
+        type: "new_customer",
+        title: "Novo cliente cadastrado",
+        message: `${customer.name} foi adicionado \xE0 base de clientes.`,
+        data: { customerId: customer.id, customerName: customer.name }
+      }).catch((error) => console.error("[NOTIFICATION] Failed to create customer notification:", error));
       res.json(customer);
     } catch (error) {
       console.error("Public customer registration error:", error);
@@ -17410,6 +17580,15 @@ async function registerRoutes(app2) {
       if (!order) {
         return res.status(404).json({ message: "Pedido n\xE3o encontrado" });
       }
+      if (order.tableId && paymentAmount && parseFloat(paymentAmount) > 0) {
+        const table2 = await storage.getTableById(order.tableId);
+        if (!table2) {
+          return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
+        }
+        if (!await requireOpenCashRegisterForTable(table2)) {
+          return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+        }
+      }
       if (redeemLoyaltyPoints && parseInt(redeemLoyaltyPoints) > 0) {
         await storage.redeemLoyaltyPoints(restaurantId, orderId, parseInt(redeemLoyaltyPoints));
       }
@@ -17496,6 +17675,9 @@ async function registerRoutes(app2) {
       }
       res.json(updatedOrder);
     } catch (error) {
+      if (error instanceof CashRegisterClosedError) {
+        return res.status(409).json({ message: error.message });
+      }
       res.status(500).json({ message: error.message || "Erro no checkout completo" });
     }
   });
@@ -17576,6 +17758,9 @@ async function registerRoutes(app2) {
         return res.status(403).json({
           message: "Acesso negado: Mesa n\xE3o pertence ao seu restaurante"
         });
+      }
+      if (!await requireOpenCashRegisterForTable(table2)) {
+        return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
       }
       if (table2.currentSessionId) {
         const updates = { updatedAt: /* @__PURE__ */ new Date() };
@@ -17724,6 +17909,9 @@ async function registerRoutes(app2) {
         if (targetTableId) {
           const table2 = await storage.getTableById(targetTableId);
           if (table2 && table2.restaurantId === restaurantId) {
+            if (!await requireOpenCashRegisterForTable(table2)) {
+              return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+            }
             const payment = await storage.addTablePayment(restaurantId, {
               tableId: targetTableId,
               sessionId: table2.currentSessionId,
@@ -17759,6 +17947,9 @@ async function registerRoutes(app2) {
         return res.status(403).json({
           message: "Acesso negado: Convidado n\xE3o pertence ao seu restaurante"
         });
+      }
+      if (!await requireOpenCashRegisterForTable(guestTable)) {
+        return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
       }
       if (discount || serviceCharge) {
         const guestUpdates = { updatedAt: /* @__PURE__ */ new Date() };
@@ -17937,6 +18128,9 @@ async function registerRoutes(app2) {
         return res.status(403).json({
           message: "Acesso negado: Mesa n\xE3o pertence ao seu restaurante"
         });
+      }
+      if (!await requireOpenCashRegisterForTable(table2)) {
+        return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
       }
       const targetSessionId = sessionId || table2.currentSessionId;
       if (!targetSessionId) {
@@ -18654,6 +18848,11 @@ async function registerRoutes(app2) {
       if (!guest) {
         return res.status(404).json({ message: "Convidado n\xE3o encontrado" });
       }
+      if (table2.restaurantId !== restaurantId) {
+        return res.status(403).json({
+          message: "Acesso negado: Mesa n\xE3o pertence ao seu restaurante"
+        });
+      }
       const { paymentMethod, amount, redeemPoints } = req.body;
       if (!paymentMethod || !amount) {
         return res.status(400).json({ message: "M\xE9todo de pagamento e valor s\xE3o obrigat\xF3rios" });
@@ -18661,6 +18860,9 @@ async function registerRoutes(app2) {
       const paymentAmount = parseFloat(amount);
       if (isNaN(paymentAmount) || paymentAmount <= 0) {
         return res.status(400).json({ message: "Valor de pagamento inv\xE1lido" });
+      }
+      if (!await requireOpenCashRegisterForTable(table2)) {
+        return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
       }
       let pointsAwarded = 0;
       if (redeemPoints && guest.customerId) {
@@ -19828,6 +20030,18 @@ async function registerRoutes(app2) {
         branchId: currentUser.activeBranchId || orderData.branchId || null,
         restaurantId
       });
+      const isCounterOrder = ["balcao", "takeout", "pdv"].includes(validatedOrder.orderType);
+      if (currentUser.role === "cashier" && isCounterOrder) {
+        const activeCashRegisters = await storage.getCashRegistersWithActiveShift(
+          restaurantId,
+          validatedOrder.branchId || null
+        );
+        if (activeCashRegisters.length === 0) {
+          return res.status(409).json({
+            message: "N\xE3o \xE9 poss\xEDvel criar pedidos de balc\xE3o sem um turno de caixa aberto. Abra um turno para continuar."
+          });
+        }
+      }
       if (!validatedOrder.customerId && validatedOrder.customerPhone?.trim()) {
         const existingCustomer = await storage.getCustomerByPhone(
           restaurantId,
@@ -19853,6 +20067,14 @@ async function registerRoutes(app2) {
         await storage.autoUpdateTableStatusOnOrderCreated(validatedOrder.tableId);
       }
       await releasePaidOrderToKitchen(order);
+      await notifyRestaurant({
+        restaurantId: order.restaurantId,
+        branchId: order.branchId,
+        type: "new_order",
+        title: "Novo pedido criado",
+        message: `Pedido ${order.orderNumber || order.id.slice(0, 8).toUpperCase()} foi criado no caixa.`,
+        data: { orderId: order.id, orderNumber: order.orderNumber }
+      }).catch((error) => console.error("[NOTIFICATION] Failed to create new-order notification:", error));
       res.json(order);
     } catch (error) {
       if (error instanceof z2.ZodError) {
@@ -19900,6 +20122,14 @@ async function registerRoutes(app2) {
         type: "order_status_updated",
         data: { id: order.id, status: order.status }
       });
+      await notifyRestaurant({
+        restaurantId,
+        branchId: order.branchId,
+        type: "order_status",
+        title: "Status do pedido atualizado",
+        message: `Pedido ${order.orderNumber || order.id.slice(0, 8).toUpperCase()} agora est\xE1 como ${status.replaceAll("_", " ")}.`,
+        data: { orderId: order.id, orderNumber: order.orderNumber, status }
+      }).catch((error) => console.error("[NOTIFICATION] Failed to create status notification:", error));
       if (order.customerPhone) {
         const restaurant = await storage.getRestaurantById(restaurantId);
         if (restaurant) {
@@ -19940,6 +20170,15 @@ async function registerRoutes(app2) {
       }
       if (action === "reject" && !reason?.trim()) {
         return res.status(400).json({ message: "Informe o motivo da rejei\xE7\xE3o" });
+      }
+      if (action === "confirm" && order.orderType === "mesa" && order.tableId) {
+        const table2 = await storage.getTableById(order.tableId);
+        if (!table2) {
+          return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
+        }
+        if (!await requireOpenCashRegisterForTable(table2)) {
+          return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+        }
       }
       let updated;
       if (action === "confirm") {
@@ -19983,13 +20222,21 @@ async function registerRoutes(app2) {
       });
       if (action === "confirm") {
         await releasePaidOrderToKitchen(updated);
+        await notifyRestaurant({
+          restaurantId,
+          branchId: updated.branchId,
+          type: "payment_received",
+          title: "Pagamento confirmado",
+          message: `O pagamento do pedido ${updated.orderNumber || updated.id.slice(0, 8).toUpperCase()} foi confirmado.`,
+          data: { orderId: updated.id, orderNumber: updated.orderNumber, amount: updated.totalAmount }
+        }).catch((error) => console.error("[NOTIFICATION] Failed to create payment notification:", error));
       }
       res.json(updated);
     } catch (error) {
       if (error instanceof z2.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      if (error instanceof Error && error.message === "Este pedido j\xE1 n\xE3o aguarda confirma\xE7\xE3o de pagamento") {
+      if (error instanceof Error && (error.message === "Este pedido j\xE1 n\xE3o aguarda confirma\xE7\xE3o de pagamento" || error instanceof CashRegisterClosedError)) {
         return res.status(409).json({ message: error.message });
       }
       console.error("Payment confirmation error:", error);
@@ -20420,6 +20667,26 @@ Stack: ${errorStack}
       if (order.status === "servido") {
         return res.status(400).json({ message: "N\xE3o \xE9 poss\xEDvel registrar pagamento para pedido j\xE1 servido" });
       }
+      if (order.orderType === "mesa" && order.tableId) {
+        const table2 = await storage.getTableById(order.tableId);
+        if (!table2) {
+          return res.status(404).json({ message: "Mesa n\xE3o encontrada" });
+        }
+        if (!await requireOpenCashRegisterForTable(table2)) {
+          return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
+        }
+      }
+      if (currentUser.role === "cashier" && ["balcao", "takeout", "pdv"].includes(order.orderType)) {
+        const activeCashRegisters = await storage.getCashRegistersWithActiveShift(
+          restaurantId,
+          order.branchId || currentUser.activeBranchId || null
+        );
+        if (activeCashRegisters.length === 0) {
+          return res.status(409).json({
+            message: "O turno de caixa est\xE1 fechado. Abra um novo turno para receber este pedido de balc\xE3o."
+          });
+        }
+      }
       const payment = recordPaymentSchema.parse(req.body);
       const paymentAmount = parseFloat(payment.amount);
       if (payment.paymentMethod === "dinheiro" && payment.receivedAmount !== void 0 && payment.receivedAmount !== null && payment.receivedAmount !== "") {
@@ -20433,6 +20700,14 @@ Stack: ${errorStack}
       const updated = await storage.recordPayment(restaurantId, req.params.id, payment, currentUser.id);
       if (updated.paymentStatus === "pago") {
         await releasePaidOrderToKitchen(updated);
+        await notifyRestaurant({
+          restaurantId,
+          branchId: updated.branchId,
+          type: "payment_received",
+          title: "Pagamento recebido",
+          message: `Pagamento recebido para o pedido ${updated.orderNumber || updated.id.slice(0, 8).toUpperCase()}.`,
+          data: { orderId: updated.id, orderNumber: updated.orderNumber, amount: updated.totalAmount }
+        }).catch((error) => console.error("[NOTIFICATION] Failed to create payment notification:", error));
         broadcastToClients({
           type: "order_payment_completed",
           data: {
@@ -20455,6 +20730,9 @@ Stack: ${errorStack}
     } catch (error) {
       if (error instanceof z2.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
+      }
+      if (error instanceof CashRegisterClosedError) {
+        return res.status(409).json({ message: error.message });
       }
       console.error("Error recording payment:", error);
       res.status(500).json({ message: "Erro ao registrar pagamento" });
@@ -20492,6 +20770,14 @@ Stack: ${errorStack}
           cancellationReason
         }
       });
+      await notifyRestaurant({
+        restaurantId,
+        branchId: order.branchId,
+        type: "order_cancelled",
+        title: "Pedido cancelado",
+        message: `Pedido ${order.orderNumber || order.id.slice(0, 8).toUpperCase()} foi cancelado.`,
+        data: { orderId: order.id, orderNumber: order.orderNumber, cancellationReason }
+      }).catch((error) => console.error("[NOTIFICATION] Failed to create cancellation notification:", error));
       res.json(cancelled);
     } catch (error) {
       if (error instanceof z2.ZodError) {
@@ -21477,7 +21763,7 @@ Stack: ${errorStack}
       res.status(500).json({ message: "Erro ao buscar avalia\xE7\xF5es" });
     }
   });
-  app2.get("/api/financial/cash-registers", isAdmin, async (req, res) => {
+  app2.get("/api/financial/cash-registers", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user;
       let restaurantId;
@@ -21562,7 +21848,7 @@ Stack: ${errorStack}
       res.status(500).json({ message: "Erro ao excluir caixa registradora" });
     }
   });
-  app2.get("/api/cash-register-shifts", isAdmin, async (req, res) => {
+  app2.get("/api/cash-register-shifts", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user;
       let restaurantId;
@@ -21591,7 +21877,7 @@ Stack: ${errorStack}
       res.status(500).json({ message: "Erro ao buscar turnos de caixa" });
     }
   });
-  app2.get("/api/cash-register-shifts/active-registers", isAdmin, async (req, res) => {
+  app2.get("/api/cash-register-shifts/active-registers", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user;
       let restaurantId;
@@ -21615,7 +21901,7 @@ Stack: ${errorStack}
       res.status(500).json({ message: "Erro ao buscar caixas com turno aberto" });
     }
   });
-  app2.post("/api/cash-register-shifts", isAdmin, async (req, res) => {
+  app2.post("/api/cash-register-shifts", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user;
       if (!currentUser.restaurantId) {
@@ -21647,7 +21933,7 @@ Stack: ${errorStack}
       res.status(500).json({ message: error instanceof Error ? error.message : "Erro ao abrir turno de caixa" });
     }
   });
-  app2.patch("/api/cash-register-shifts/:id/close", isAdmin, async (req, res) => {
+  app2.patch("/api/cash-register-shifts/:id/close", isCashierOrAbove, async (req, res) => {
     try {
       const currentUser = req.user;
       if (!currentUser.restaurantId) {
@@ -22362,6 +22648,27 @@ Stack: ${errorStack}
         currentUser.id,
         data
       );
+      const item = await storage.getInventoryItemById(data.inventoryItemId);
+      const stock = await storage.getStockByItemId(
+        currentUser.restaurantId,
+        data.branchId,
+        data.inventoryItemId
+      );
+      if (stock && item && Number(stock.quantity) <= Number(item.minStock)) {
+        await notifyRestaurant({
+          restaurantId: currentUser.restaurantId,
+          branchId: data.branchId,
+          type: "low_stock",
+          title: "Estoque baixo",
+          message: `${item.name} est\xE1 com ${stock.quantity} em estoque.`,
+          data: {
+            inventoryItemId: item.id,
+            itemName: item.name,
+            quantity: stock.quantity,
+            minimum: item.minStock
+          }
+        }).catch((error) => console.error("[NOTIFICATION] Failed to create low-stock notification:", error));
+      }
       res.json(movement);
     } catch (error) {
       if (error instanceof z2.ZodError) {
@@ -22477,6 +22784,14 @@ Stack: ${errorStack}
         currentUser.activeBranchId || null,
         validatedData
       );
+      await notifyRestaurant({
+        restaurantId: currentUser.restaurantId,
+        branchId: currentUser.activeBranchId,
+        type: "new_customer",
+        title: "Novo cliente cadastrado",
+        message: `${customer.name} foi adicionado \xE0 base de clientes.`,
+        data: { customerId: customer.id, customerName: customer.name }
+      }).catch((error) => console.error("[NOTIFICATION] Failed to create customer notification:", error));
       res.status(201).json(customer);
     } catch (error) {
       console.error("\u274C Customer creation error:", error);
@@ -23203,15 +23518,11 @@ Stack: ${errorStack}
         return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
       }
       const validatedData = insertNotificationSchema.parse(req.body);
-      const notification = await storage.createNotification(currentUser.restaurantId, validatedData);
-      const broadcastFn = global.broadcastToRestaurant;
-      if (broadcastFn) {
-        broadcastFn(currentUser.restaurantId, {
-          type: "new_notification",
-          data: notification
-        });
-      }
-      res.status(201).json(notification);
+      const notifications3 = await notifyRestaurant({
+        restaurantId: currentUser.restaurantId,
+        ...validatedData
+      });
+      res.status(201).json(notifications3[0] || null);
     } catch (error) {
       console.error("Notification creation error:", error);
       if (error.name === "ZodError") {
@@ -23271,29 +23582,19 @@ Stack: ${errorStack}
       if (!currentUser.restaurantId) {
         return res.status(403).json({ message: "Usu\xE1rio n\xE3o associado a um restaurante" });
       }
-      const preferences = await storage.getNotificationPreferences(currentUser.restaurantId, currentUser.id);
+      const preferences = await storage.getNotificationPreferences(currentUser.restaurantId, currentUser.id) || await storage.getNotificationPreferences(currentUser.restaurantId);
       res.json(preferences || {
-        newOrderInApp: true,
-        newOrderWhatsapp: false,
-        newOrderEmail: false,
-        orderStatusInApp: true,
-        orderStatusWhatsapp: false,
-        orderStatusEmail: false,
-        lowStockInApp: true,
-        lowStockWhatsapp: false,
-        lowStockEmail: false,
-        newCustomerInApp: true,
-        newCustomerWhatsapp: false,
-        newCustomerEmail: false,
-        paymentInApp: true,
-        paymentWhatsapp: false,
-        paymentEmail: false,
-        subscriptionInApp: true,
-        subscriptionWhatsapp: false,
-        subscriptionEmail: false,
-        systemInApp: true,
-        systemWhatsapp: false,
-        systemEmail: false
+        inAppEnabled: 1,
+        whatsappEnabled: 0,
+        emailEnabled: 0,
+        newOrderEnabled: 1,
+        orderStatusEnabled: 1,
+        orderCancelledEnabled: 1,
+        lowStockEnabled: 1,
+        newCustomerEnabled: 0,
+        paymentReceivedEnabled: 1,
+        subscriptionAlertEnabled: 1,
+        whatsappNotificationNumber: null
       });
     } catch (error) {
       console.error("Notification preferences fetch error:", error);
