@@ -232,6 +232,12 @@ const adminMenuItems: MenuItem[] = [
         path: "/printers",
         icon: Printer,
       },
+      {
+        title: "Notificações",
+        section: "notification-settings" as Section,
+        path: "/notification-settings",
+        icon: Bell,
+      },
     ],
   },
 ];
