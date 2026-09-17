@@ -5485,7 +5485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.endTableSession(restaurantId, req.params.id, currentUser.id ? String(currentUser.id) : null);
       await db.insert(schema.auditLogs).values({
-        restaurantId: Number(restaurantId),
+        restaurantId: String(restaurantId),
         actorId: currentUser.id ? String(currentUser.id) : null,
         action: req.body.forceClose ? 'session_force_closed' : 'session_closed',
         entityType: 'table_session',
@@ -5841,7 +5841,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .where(eq(tableSessions.id, table.currentSessionId));
           if (discount && parseFloat(discount) > 0) {
             await db.insert(schema.auditLogs).values({
-              restaurantId: Number(restaurantId),
+              restaurantId: String(restaurantId),
               actorId: currentUser.id ? String(currentUser.id) : null,
               action: 'session_discount_applied',
               entityType: 'table_session',
@@ -6533,7 +6533,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const document = await buildTableInvoiceDocument(restaurantId || currentUser.restaurantId!, req.params.sessionId);
       const [entry] = await db.insert(schema.auditLogs).values({
-        restaurantId: Number(restaurantId || currentUser.restaurantId),
+        restaurantId: String(restaurantId || currentUser.restaurantId),
         actorId: currentUser.id ? String(currentUser.id) : null,
         action: 'table_invoice_reprinted',
         entityType: 'table_session',
