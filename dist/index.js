@@ -4756,11 +4756,42 @@ async function ensureTablesExist() {
         email_enabled INTEGER NOT NULL DEFAULT 0,
         new_order_enabled INTEGER NOT NULL DEFAULT 1,
         order_status_enabled INTEGER NOT NULL DEFAULT 1,
+         order_cancelled_enabled INTEGER NOT NULL DEFAULT 1,
         low_stock_enabled INTEGER NOT NULL DEFAULT 1,
-        payment_enabled INTEGER NOT NULL DEFAULT 1,
+         new_customer_enabled INTEGER NOT NULL DEFAULT 0,
+         payment_received_enabled INTEGER NOT NULL DEFAULT 1,
+         subscription_alert_enabled INTEGER NOT NULL DEFAULT 1,
+        whatsapp_notification_number VARCHAR(50),
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);
+      await db.execute(sql3`ALTER TABLE notification_preferences
+        ADD COLUMN IF NOT EXISTS in_app_enabled INTEGER NOT NULL DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS whatsapp_enabled INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS email_enabled INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS new_order_enabled INTEGER NOT NULL DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS order_status_enabled INTEGER NOT NULL DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS order_cancelled_enabled INTEGER NOT NULL DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS low_stock_enabled INTEGER NOT NULL DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS new_customer_enabled INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS payment_received_enabled INTEGER NOT NULL DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS subscription_alert_enabled INTEGER NOT NULL DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS whatsapp_notification_number VARCHAR(50);`);
+      await db.execute(sql3`DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'notification_preferences'
+              AND column_name = 'payment_enabled'
+          ) THEN
+            EXECUTE 'UPDATE notification_preferences
+              SET payment_received_enabled = payment_enabled
+              WHERE payment_enabled IS NOT NULL';
+          END IF;
+        END
+      $$;`);
       const checkPlans = await db.execute(sql3`SELECT COUNT(*) as count FROM subscription_plans`);
       const planCount = parseInt(checkPlans.rows[0].count);
       if (planCount === 0) {
@@ -5353,7 +5384,7 @@ function normalizeCustomerPhone(phone) {
   const digits = String(phone || "").replace(/\D/g, "");
   return digits.startsWith("244") && digits.length === 12 ? digits.slice(3) : digits;
 }
-var NO_OPEN_CASH_REGISTER_MESSAGE, CashRegisterClosedError, DatabaseStorage, storage;
+var NO_OPEN_CASH_REGISTER_MESSAGE, CASH_REGISTER_SHIFT_MAX_AGE_MS, CashRegisterClosedError, DatabaseStorage, storage;
 var init_storage = __esm({
   "server/storage.ts"() {
     "use strict";
@@ -5365,6 +5396,7 @@ var init_storage = __esm({
     init_planAccess();
     init_db();
     NO_OPEN_CASH_REGISTER_MESSAGE = "O pagamento n\xE3o pode ser registrado porque n\xE3o existe um turno de caixa aberto. Abra um turno para continuar.";
+    CASH_REGISTER_SHIFT_MAX_AGE_MS = 24 * 60 * 60 * 1e3;
     CashRegisterClosedError = class extends Error {
       constructor() {
         super(NO_OPEN_CASH_REGISTER_MESSAGE);
@@ -9772,9 +9804,14 @@ var init_storage = __esm({
         const totalRevenues = allTransactions.filter((t) => t.type === "receita").reduce((sum, t) => sum + parseFloat(t.amount), 0);
         const totalExpenses = allTransactions.filter((t) => t.type === "despesa").reduce((sum, t) => sum + parseFloat(t.amount), 0);
         const totalAdjustments = allTransactions.filter((t) => t.type === "ajuste").reduce((sum, t) => sum + parseFloat(t.amount), 0);
-        const closingAmountExpected = totalRevenues - totalExpenses + totalAdjustments;
+        const openingAmount = parseFloat(shift.openingAmount || "0");
+        const closingAmountExpected = openingAmount + totalRevenues - totalExpenses + totalAdjustments;
         const closingAmountCounted = parseFloat(data.closingAmountCounted);
         const difference = closingAmountCounted - closingAmountExpected;
+        const paymentBreakdown = allTransactions.filter((transaction) => transaction.type === "receita").reduce((breakdown, transaction) => {
+          breakdown[transaction.paymentMethod] = (breakdown[transaction.paymentMethod] || 0) + parseFloat(transaction.amount || "0");
+          return breakdown;
+        }, {});
         const [closedShift] = await db.update(cashRegisterShifts).set({
           status: "fechado",
           closedByUserId: userId,
@@ -9786,7 +9823,12 @@ var init_storage = __esm({
           closedAt: /* @__PURE__ */ new Date(),
           notes: data.notes || shift.notes
         }).where(eq(cashRegisterShifts.id, shiftId)).returning();
-        return closedShift;
+        return {
+          ...closedShift,
+          paymentBreakdown: Object.fromEntries(
+            Object.entries(paymentBreakdown).map(([method, amount]) => [method, amount.toFixed(2)])
+          )
+        };
       }
       async getCashRegisterShiftById(id) {
         const [shift] = await db.select().from(cashRegisterShifts).where(eq(cashRegisterShifts.id, id)).limit(1);
@@ -13007,13 +13049,32 @@ async function broadcastNotification(restaurantId, notification) {
 async function notifyRestaurant(input) {
   const users2 = input.userId ? [{ id: input.userId }] : await storage.getAllUsers(input.restaurantId);
   const recipients = users2.length > 0 ? users2 : [{ id: null }];
-  const defaultPreferences = await storage.getNotificationPreferences(input.restaurantId);
+  let defaultPreferences;
+  try {
+    defaultPreferences = await storage.getNotificationPreferences(input.restaurantId);
+  } catch (error) {
+    console.error("[NOTIFICATION] Failed to load default preferences; using enabled defaults:", {
+      restaurantId: input.restaurantId,
+      error
+    });
+  }
   const created = [];
   const results = await Promise.all(
     recipients.map(async (recipient) => {
       const userId = recipient.id || null;
       try {
-        const preferences = userId ? await storage.getNotificationPreferences(input.restaurantId, userId) || defaultPreferences : defaultPreferences;
+        let preferences = defaultPreferences;
+        if (userId) {
+          try {
+            preferences = await storage.getNotificationPreferences(input.restaurantId, userId) || defaultPreferences;
+          } catch (error) {
+            console.error("[NOTIFICATION] Failed to load recipient preferences; using enabled defaults:", {
+              restaurantId: input.restaurantId,
+              userId,
+              error
+            });
+          }
+        }
         if (!isEnabled(preferences, input.type)) return null;
         return await storage.createNotification(input.restaurantId, {
           type: input.type,
@@ -18428,7 +18489,7 @@ async function registerRoutes(app2) {
       if (document.branch) {
         pdf.fontSize(10).font("Helvetica").text(document.branch.name, { align: "center" });
       }
-      pdf.fontSize(9).font("Helvetica").text(`NIF: ${document.restaurant.nif || "N\xE3o informado"}`, { align: "center" }).text(`Regime de IVA: ${document.restaurant.vatRegime || "N\xE3o informado"}${document.restaurant.vatRate ? ` \xB7 Taxa: ${invoiceNumber(document.restaurant.vatRate)}%` : ""}`, { align: "center" }).text(`Morada fiscal: ${document.restaurant.fiscalAddress || document.restaurant.address || "N\xE3o informado"}`, { align: "center" }).text([document.restaurant.email, document.restaurant.website, document.restaurant.whatsappNumber].filter(Boolean).join(" \xB7 "), { align: "center" });
+      pdf.fontSize(9).font("Helvetica").text(`Telefone: ${document.restaurant.phone || "N\xE3o informado"}`, { align: "center" }).text(`NIF: ${document.restaurant.nif || "N\xE3o informado"}`, { align: "center" }).text(`Regime de IVA: ${document.restaurant.vatRegime || "N\xE3o informado"}${document.restaurant.vatRate ? ` \xB7 Taxa: ${invoiceNumber(document.restaurant.vatRate)}%` : ""}`, { align: "center" }).text(`S\xE9rie: ${document.restaurant.documentSeries || "N\xE3o informada"}${document.restaurant.invoicePrefix ? ` \xB7 Prefixo: ${document.restaurant.invoicePrefix}` : ""}`, { align: "center" }).text(`Morada fiscal: ${document.restaurant.fiscalAddress || document.restaurant.address || "N\xE3o informado"}`, { align: "center" }).text([document.restaurant.email, document.restaurant.website, document.restaurant.whatsappNumber].filter(Boolean).join(" \xB7 "), { align: "center" });
       pdf.fontSize(11).font("Helvetica-Bold").text("FATURA/RECIBO", { align: "center" });
       pdf.moveDown(0.6);
       pdf.fontSize(10).font("Helvetica").text(`Fatura ${invoiceDocumentNumber(document.invoiceReference)}  |  Mesa ${document.table.number}`).text(`Estado: ${invoicePaymentStatusLabel(document.totals.paymentStatus)}`).text(`Emiss\xE3o: ${invoiceDate(document.issuedAt)}`).text(`Sess\xE3o: ${invoiceSessionLabel(document.session.id)}`).text(`Sess\xE3o iniciada: ${invoiceDate(document.session.startedAt)}`);
@@ -18448,9 +18509,6 @@ async function registerRoutes(app2) {
       }
       if (document.isSplit) {
         pdf.text(`Conta dividida entre ${document.guests.length} convidados`);
-      }
-      if (document.restaurant.legalFooter) {
-        pdf.moveDown(0.6).font("Helvetica-Oblique").text(document.restaurant.legalFooter, { align: "center" });
       }
       if (document.guests.length > 0) {
         pdf.moveDown(0.3).font("Helvetica-Bold").text("CONVIDADOS");
@@ -18518,6 +18576,9 @@ async function registerRoutes(app2) {
         for (const payment of document.payments) {
           pdf.text(`${payment.paymentMethodLabel} \u2014 ${invoiceMoney(payment.amount)} \u2014 ${invoiceDate(payment.createdAt)}`);
         }
+      }
+      if (document.restaurant.legalFooter) {
+        pdf.moveDown(0.8).font("Helvetica-Oblique").text(document.restaurant.legalFooter, { align: "center" });
       }
       const protocol = (req.headers["x-forwarded-proto"] || req.protocol || "http").split(",")[0].trim();
       const host = req.headers["x-forwarded-host"] || req.headers.host || req.hostname;

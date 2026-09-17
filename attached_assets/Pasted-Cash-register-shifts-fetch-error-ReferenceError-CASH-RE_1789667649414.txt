@@ -1,0 +1,36 @@
+Cash register shifts fetch error: ReferenceError: CASH_REGISTER_SHIFT_MAX_AGE_MS is not defined
+    at DatabaseStorage.closeExpiredCashRegisterShift (file:///app/dist/index.js:9589:72)
+    at file:///app/dist/index.js:9626:58
+    at Array.map (<anonymous>)
+    at DatabaseStorage.expireOpenCashRegisterShifts (file:///app/dist/index.js:9626:38)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async DatabaseStorage.getCashRegisterShifts (file:///app/dist/index.js:9629:9)
+    at async file:///app/dist/index.js:21894:22
+Cash register shifts fetch error: ReferenceError: CASH_REGISTER_SHIFT_MAX_AGE_MS is not defined
+    at DatabaseStorage.closeExpiredCashRegisterShift (file:///app/dist/index.js:9589:72)
+    at file:///app/dist/index.js:9626:58
+    at Array.map (<anonymous>)
+    at DatabaseStorage.expireOpenCashRegisterShifts (file:///app/dist/index.js:9626:38)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async DatabaseStorage.getCashRegisterShifts (file:///app/dist/index.js:9629:9)
+    at async file:///app/dist/index.js:21894:22
+Cash register shift open error: ReferenceError: CASH_REGISTER_SHIFT_MAX_AGE_MS is not defined
+    at DatabaseStorage.closeExpiredCashRegisterShift (file:///app/dist/index.js:9589:72)
+    at DatabaseStorage.getActiveCashRegisterShift (file:///app/dist/index.js:9674:35)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async DatabaseStorage.openCashRegisterShift (file:///app/dist/index.js:9709:31)
+    at async file:///app/dist/index.js:21941:24
+Cash register shifts fetch error: ReferenceError: CASH_REGISTER_SHIFT_MAX_AGE_MS is not defined
+    at DatabaseStorage.closeExpiredCashRegisterShift (file:///app/dist/index.js:9589:72)
+    at file:///app/dist/index.js:9626:58
+    at Array.map (<anonymous>)
+    at DatabaseStorage.expireOpenCashRegisterShifts (file:///app/dist/index.js:9626:38)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async DatabaseStorage.getCashRegisterShifts (file:///app/dist/index.js:9629:9)
+    at async file:///app/dist/index.js:21894:22
+Cash register shift open error: ReferenceError: CASH_REGISTER_SHIFT_MAX_AGE_MS is not defined
+    at DatabaseStorage.closeExpiredCashRegisterShift (file:///app/dist/index.js:9589:72)
+    at DatabaseStorage.getActiveCashRegisterShift (file:///app/dist/index.js:9674:35)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async DatabaseStorage.openCashRegisterShift (file:///app/dist/index.js:9709:31)
+    at async file:///app/dist/index.js:21941:24
