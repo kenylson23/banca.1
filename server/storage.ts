@@ -192,6 +192,8 @@ import { nanoid } from "nanoid";
 export const NO_OPEN_CASH_REGISTER_MESSAGE =
   'O pagamento não pode ser registrado porque não existe um turno de caixa aberto. Abra um turno para continuar.';
 
+const CASH_REGISTER_SHIFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 export class CashRegisterClosedError extends Error {
   constructor() {
     super(NO_OPEN_CASH_REGISTER_MESSAGE);
