@@ -6584,8 +6584,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pdf.fontSize(10).font('Helvetica').text(document.branch.name, { align: 'center' });
       }
       pdf.fontSize(9).font('Helvetica')
+         .text(`Telefone: ${document.restaurant.phone || 'Não informado'}`, { align: 'center' })
         .text(`NIF: ${document.restaurant.nif || 'Não informado'}`, { align: 'center' })
         .text(`Regime de IVA: ${document.restaurant.vatRegime || 'Não informado'}${document.restaurant.vatRate ? ` · Taxa: ${invoiceNumber(document.restaurant.vatRate)}%` : ''}`, { align: 'center' })
+         .text(`Série: ${document.restaurant.documentSeries || 'Não informada'}${document.restaurant.invoicePrefix ? ` · Prefixo: ${document.restaurant.invoicePrefix}` : ''}`, { align: 'center' })
         .text(`Morada fiscal: ${document.restaurant.fiscalAddress || document.restaurant.address || 'Não informado'}`, { align: 'center' })
         .text([document.restaurant.email, document.restaurant.website, document.restaurant.whatsappNumber].filter(Boolean).join(' · '), { align: 'center' });
       pdf.fontSize(11).font('Helvetica-Bold').text('FATURA/RECIBO', { align: 'center' });
@@ -6621,9 +6623,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (document.isSplit) {
         pdf.text(`Conta dividida entre ${document.guests.length} convidados`);
-      }
-      if (document.restaurant.legalFooter) {
-        pdf.moveDown(0.6).font('Helvetica-Oblique').text(document.restaurant.legalFooter, { align: 'center' });
       }
       if (document.guests.length > 0) {
         pdf.moveDown(0.3).font('Helvetica-Bold').text('CONVIDADOS');
@@ -6698,6 +6697,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
          for (const payment of document.payments) {
             pdf.text(`${payment.paymentMethodLabel} — ${invoiceMoney(payment.amount)} — ${invoiceDate(payment.createdAt)}`);
          }
+       }
+       if (document.restaurant.legalFooter) {
+         pdf.moveDown(0.8).font('Helvetica-Oblique').text(document.restaurant.legalFooter, { align: 'center' });
        }
 
       const protocol = (req.headers['x-forwarded-proto'] as string || req.protocol || 'http').split(',')[0].trim();

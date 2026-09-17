@@ -278,6 +278,25 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
            <div><span className="text-muted-foreground">Encerramento</span><p className="font-medium">{invoiceDate(data.session.endedAt, 'Sessão aberta')}</p></div>
            <div><span className="text-muted-foreground">Duração total</span><p className="font-medium">{data.session.durationLabel}</p></div>
          </div>
+          <div className="rounded-lg border bg-background p-3 text-sm">
+            <p className="mb-2 font-semibold">Dados fiscais do emitente</p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div><span className="text-muted-foreground">Nome</span><p className="font-medium">{data.restaurant.name}</p></div>
+              <div><span className="text-muted-foreground">NIF</span><p className="font-medium">{data.restaurant.nif || 'Não informado'}</p></div>
+              <div><span className="text-muted-foreground">Telefone</span><p className="font-medium">{data.restaurant.phone || 'Não informado'}</p></div>
+              <div><span className="text-muted-foreground">Regime de IVA</span><p className="font-medium">{data.restaurant.vatRegime || 'Não informado'}</p></div>
+              <div><span className="text-muted-foreground">Taxa de IVA</span><p className="font-medium">{data.restaurant.vatRate ? `${data.restaurant.vatRate}%` : 'Não informada'}</p></div>
+              <div><span className="text-muted-foreground">Série / prefixo</span><p className="font-medium">{[data.restaurant.documentSeries, data.restaurant.invoicePrefix].filter(Boolean).join(' · ') || 'Não informado'}</p></div>
+              <div className="sm:col-span-2 lg:col-span-3"><span className="text-muted-foreground">Morada fiscal</span><p className="font-medium">{data.restaurant.fiscalAddress || data.restaurant.address || 'Não informada'}</p></div>
+              {(data.restaurant.email || data.restaurant.website || data.restaurant.whatsappNumber) && (
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <span className="text-muted-foreground">Contactos</span>
+                  <p className="font-medium">{[data.restaurant.email, data.restaurant.website, data.restaurant.whatsappNumber].filter(Boolean).join(' · ')}</p>
+                </div>
+              )}
+              {data.restaurant.legalFooter && <div className="sm:col-span-2 lg:col-span-3"><span className="text-muted-foreground">Rodapé legal</span><p className="font-medium">{data.restaurant.legalFooter}</p></div>}
+            </div>
+          </div>
           {(data.discounts.length > 0 || data.fees.length > 0) && (
             <div className="rounded-lg border bg-background p-3 text-sm">
               <p className="mb-2 font-semibold">Descontos e taxas — origem para auditoria</p>

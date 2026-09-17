@@ -979,6 +979,9 @@ class PrinterService {
       invoiceRecipientLabel?: string;
       tableCustomerName?: string;
       splitInfo?: string;
+       restaurantPhone?: string;
+       documentSeries?: string;
+       invoicePrefix?: string;
        items: Array<{
          name: string;
          quantity: number;
@@ -1023,10 +1026,13 @@ class PrinterService {
     if (content.restaurantName) {
       encoder.align('center').bold(true).line(content.restaurantName).bold(false);
     }
+      if (content.restaurantPhone) encoder.line(`Telefone: ${content.restaurantPhone}`);
     if (content.fiscalAddress) encoder.line(content.fiscalAddress);
     if (content.restaurantNif) encoder.line(`NIF: ${content.restaurantNif}`);
     if (content.vatRegime) encoder.line(`Regime: ${content.vatRegime}`);
     if (content.vatRate) encoder.line(`IVA: ${content.vatRate}`);
+      if (content.documentSeries) encoder.line(`Série: ${content.documentSeries}`);
+      if (content.invoicePrefix) encoder.line(`Prefixo: ${content.invoicePrefix}`);
     if (content.restaurantEmail) encoder.line(`Email: ${content.restaurantEmail}`);
     if (content.website) encoder.line(`Web: ${content.website}`);
     if (content.whatsappNumber) encoder.line(`WhatsApp: ${content.whatsappNumber}`);
