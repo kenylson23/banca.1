@@ -1437,8 +1437,11 @@ export async function ensureTablesExist() {
         email_enabled INTEGER NOT NULL DEFAULT 0,
         new_order_enabled INTEGER NOT NULL DEFAULT 1,
         order_status_enabled INTEGER NOT NULL DEFAULT 1,
+         order_cancelled_enabled INTEGER NOT NULL DEFAULT 1,
         low_stock_enabled INTEGER NOT NULL DEFAULT 1,
-        payment_enabled INTEGER NOT NULL DEFAULT 1,
+         new_customer_enabled INTEGER NOT NULL DEFAULT 0,
+         payment_received_enabled INTEGER NOT NULL DEFAULT 1,
+         subscription_alert_enabled INTEGER NOT NULL DEFAULT 1,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);

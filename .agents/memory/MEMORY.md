@@ -17,5 +17,6 @@
 - [Notification fan-out](notification-fanout.md) — operational alerts are persisted per restaurant user; WebSocket delivery is an acceleration layer.
 - [Public order notification timing](public-order-notification-timing.md) — public order responses must wait for in-app notification persistence to avoid an empty first fetch.
 - [Notification panel refresh](notification-panel-refresh.md) — the admin list must override infinite cache defaults with refresh on open, focus, reconnect, and a short visible polling fallback.
+- [Notification preference schema](notification-preference-schema.md) — legacy databases may have payment_enabled while runtime queries require the expanded per-type preference columns.
 - [Cash payment guard](cash-payment-guard.md) — operational table and counter payments must be gated by an open branch shift, independent of user role.
 - [PDV error messages](pdv-error-messages.md) — failed operational actions should show the server's business message instead of a generic client toast.
