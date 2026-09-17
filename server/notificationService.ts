@@ -61,7 +61,18 @@ export async function notifyRestaurant(input: NotificationInput): Promise<Notifi
     : await storage.getAllUsers(input.restaurantId);
 
   const recipients = users.length > 0 ? users : [{ id: null }];
-  const defaultPreferences = await storage.getNotificationPreferences(input.restaurantId);
+  // Preferences are optional. A legacy database can temporarily be missing a
+  // column while migrations are being applied; that must not prevent the
+  // notification row from being created.
+  let defaultPreferences: NotificationPreferences | undefined;
+  try {
+    defaultPreferences = await storage.getNotificationPreferences(input.restaurantId);
+  } catch (error) {
+    console.error('[NOTIFICATION] Failed to load default preferences; using enabled defaults:', {
+      restaurantId: input.restaurantId,
+      error,
+    });
+  }
   const created: Notification[] = [];
 
   const results = await Promise.all(
@@ -69,9 +80,20 @@ export async function notifyRestaurant(input: NotificationInput): Promise<Notifi
       const userId = recipient.id || null;
 
       try {
-        const preferences = userId
-          ? (await storage.getNotificationPreferences(input.restaurantId, userId)) || defaultPreferences
-          : defaultPreferences;
+        let preferences = defaultPreferences;
+        if (userId) {
+          try {
+            preferences =
+              (await storage.getNotificationPreferences(input.restaurantId, userId)) ||
+              defaultPreferences;
+          } catch (error) {
+            console.error('[NOTIFICATION] Failed to load recipient preferences; using enabled defaults:', {
+              restaurantId: input.restaurantId,
+              userId,
+              error,
+            });
+          }
+        }
 
         if (!isEnabled(preferences, input.type)) return null;
 

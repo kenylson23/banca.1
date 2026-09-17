@@ -1442,6 +1442,7 @@ export async function ensureTablesExist() {
          new_customer_enabled INTEGER NOT NULL DEFAULT 0,
          payment_received_enabled INTEGER NOT NULL DEFAULT 1,
          subscription_alert_enabled INTEGER NOT NULL DEFAULT 1,
+        whatsapp_notification_number VARCHAR(50),
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );`);

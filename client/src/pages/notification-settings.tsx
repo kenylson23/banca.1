@@ -92,7 +92,13 @@ export default function NotificationSettings() {
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
 
-  const { data: currentPreferences, isLoading } = useQuery<NotificationPreferences>({
+  const {
+    data: currentPreferences,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery<NotificationPreferences>({
     queryKey: ['/api/notification-preferences'],
   });
 
@@ -143,6 +149,29 @@ export default function NotificationSettings() {
     return (
       <div className="flex items-center justify-center p-6">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex min-h-[360px] items-center justify-center p-6">
+        <Card className="w-full max-w-lg">
+          <CardHeader>
+            <CardTitle>Não foi possível carregar as configurações</CardTitle>
+            <CardDescription>
+              As preferências não foram lidas do servidor. Nenhuma alteração foi aplicada.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-destructive">
+              {error instanceof Error ? error.message : 'Erro ao buscar preferências de notificação.'}
+            </p>
+            <Button onClick={() => void refetch()} variant="outline">
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

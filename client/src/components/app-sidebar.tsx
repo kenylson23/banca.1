@@ -408,6 +408,12 @@ const managerMenuItems: MenuItem[] = [
     path: "/reports",
     icon: BarChart3,
   },
+  {
+    title: "Notificações",
+    section: "notification-settings" as Section,
+    path: "/notification-settings",
+    icon: Bell,
+  },
 ];
 
 const superAdminMenuItems: MenuItem[] = [

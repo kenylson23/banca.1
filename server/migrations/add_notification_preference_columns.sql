@@ -5,7 +5,8 @@ ALTER TABLE notification_preferences
   ADD COLUMN IF NOT EXISTS order_cancelled_enabled INTEGER NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS new_customer_enabled INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS payment_received_enabled INTEGER NOT NULL DEFAULT 1,
-  ADD COLUMN IF NOT EXISTS subscription_alert_enabled INTEGER NOT NULL DEFAULT 1;
+  ADD COLUMN IF NOT EXISTS subscription_alert_enabled INTEGER NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS whatsapp_notification_number VARCHAR(50);
 
 -- Preserve the previous payment preference when it exists. The old column was
 -- removed from some databases before this migration ran, so reference it
