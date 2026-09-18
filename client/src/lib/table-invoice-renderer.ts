@@ -92,9 +92,12 @@ export function renderTableInvoiceHtml(
   const branchPhone = document.branch?.phone || document.restaurant.phone;
   const fiscalAddress = document.restaurant.fiscalAddress || document.restaurant.address;
   const fiscalDetails = [
+    fiscalAddress ? `Morada fiscal: ${fiscalAddress}` : '',
     document.restaurant.nif ? `NIF: ${document.restaurant.nif}` : '',
     document.restaurant.vatRegime ? `Regime: ${document.restaurant.vatRegime}` : '',
     document.restaurant.vatRate ? `IVA: ${moneyLabel(document.restaurant.vatRate)}%` : '',
+    document.restaurant.documentSeries ? `Série: ${document.restaurant.documentSeries}` : '',
+    document.restaurant.invoicePrefix ? `Prefixo: ${document.restaurant.invoicePrefix}` : '',
     document.restaurant.email ? `Email: ${document.restaurant.email}` : '',
     document.restaurant.website ? `Web: ${document.restaurant.website}` : '',
     document.restaurant.whatsappNumber ? `WhatsApp: ${document.restaurant.whatsappNumber}` : '',

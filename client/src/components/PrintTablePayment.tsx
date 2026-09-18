@@ -9,6 +9,22 @@ import { printerService } from '@/lib/printer-service';
 import { usePrinter } from '@/hooks/usePrinter';
 import { useToast } from '@/hooks/use-toast';
 
+type TablePaymentRestaurantInfo = {
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  nif?: string | null;
+  vatRegime?: string | null;
+  vatRate?: string | null;
+  documentSeries?: string | null;
+  invoicePrefix?: string | null;
+  fiscalAddress?: string | null;
+  email?: string | null;
+  website?: string | null;
+  whatsappNumber?: string | null;
+  legalFooter?: string | null;
+};
+
 interface PrintTablePaymentProps {
   payment: {
     id: string;
@@ -27,6 +43,7 @@ interface PrintTablePaymentProps {
   };
   tableName: string;
   restaurantName?: string;
+  restaurant?: TablePaymentRestaurantInfo;
   onPrintComplete?: () => void;
   autoPrint?: boolean;
 }
@@ -35,6 +52,7 @@ export function PrintTablePayment({
   payment,
   tableName,
   restaurantName = 'NaBancada',
+  restaurant,
   onPrintComplete,
   autoPrint = true,
 }: PrintTablePaymentProps) {
@@ -110,8 +128,23 @@ export function PrintTablePayment({
   };
 
   const generateReceiptContent = () => {
+    const fiscalName = restaurant?.name || restaurantName;
+    const fiscalAddress = restaurant?.fiscalAddress || restaurant?.address;
+    const fiscalLines = [
+      fiscalAddress,
+      restaurant?.phone ? `Telefone: ${restaurant.phone}` : '',
+      restaurant?.nif ? `NIF: ${restaurant.nif}` : '',
+      restaurant?.vatRegime ? `Regime de IVA: ${restaurant.vatRegime}` : '',
+      restaurant?.vatRate ? `IVA: ${restaurant.vatRate}%` : '',
+      restaurant?.documentSeries ? `Série: ${restaurant.documentSeries}` : '',
+      restaurant?.invoicePrefix ? `Prefixo: ${restaurant.invoicePrefix}` : '',
+      restaurant?.email ? `Email: ${restaurant.email}` : '',
+      restaurant?.website ? `Web: ${restaurant.website}` : '',
+      restaurant?.whatsappNumber ? `WhatsApp: ${restaurant.whatsappNumber}` : '',
+    ].filter(Boolean) as string[];
     const lines = [
-      { text: restaurantName, alignment: 'center', bold: true, fontSize: 1.5 },
+      { text: fiscalName, alignment: 'center', bold: true, fontSize: 1.5 },
+      ...fiscalLines.map((text) => ({ text, alignment: 'center' as const })),
       { text: '================================', alignment: 'center' },
       { text: 'RECIBO DE PAGAMENTO', alignment: 'center', bold: true },
       { text: '================================', alignment: 'center' },
@@ -175,14 +208,15 @@ export function PrintTablePayment({
       { text: '================================', alignment: 'center' },
       { text: '' },
       { text: 'Obrigado pela sua preferência!', alignment: 'center' },
-      { text: restaurantName, alignment: 'center' },
+      { text: fiscalName, alignment: 'center' },
+      ...(restaurant?.legalFooter ? [{ text: restaurant.legalFooter, alignment: 'center' as const }] : []),
       { text: '' },
       { text: '' },
       { text: '' },
     );
 
     return {
-      title: `${restaurantName} · RECIBO DE PAGAMENTO · Nº ${payment.id}`,
+      title: `${fiscalName} · RECIBO DE PAGAMENTO · Nº ${payment.id}`,
       items: payment.items?.map((item) => ({
         name: item.name,
         quantity: item.quantity,
@@ -196,12 +230,33 @@ export function PrintTablePayment({
          `Método: ${formatPaymentMethodLabel(payment.paymentMethod)}`,
         `Operador: ${payment.operatorName || 'Sistema'}`,
         payment.transactionReference ? `Referência: ${payment.transactionReference}` : '',
+        restaurant?.legalFooter || '',
         'PAGAMENTO CONFIRMADO',
       ].filter(Boolean).join(' | '),
     };
   };
 
   const generateHTMLContent = () => {
+    const fiscalName = restaurant?.name || restaurantName;
+    const fiscalAddress = restaurant?.fiscalAddress || restaurant?.address;
+    const escapeHtml = (value: unknown) => String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+    const fiscalLines = [
+      fiscalAddress,
+      restaurant?.phone ? `Telefone: ${restaurant.phone}` : '',
+      restaurant?.nif ? `NIF: ${restaurant.nif}` : '',
+      restaurant?.vatRegime ? `Regime de IVA: ${restaurant.vatRegime}` : '',
+      restaurant?.vatRate ? `IVA: ${restaurant.vatRate}%` : '',
+      restaurant?.documentSeries ? `Série: ${restaurant.documentSeries}` : '',
+      restaurant?.invoicePrefix ? `Prefixo: ${restaurant.invoicePrefix}` : '',
+      restaurant?.email ? `Email: ${restaurant.email}` : '',
+      restaurant?.website ? `Web: ${restaurant.website}` : '',
+      restaurant?.whatsappNumber ? `WhatsApp: ${restaurant.whatsappNumber}` : '',
+    ].filter(Boolean) as string[];
     return `
       <!DOCTYPE html>
       <html>
@@ -239,13 +294,14 @@ export function PrintTablePayment({
       </head>
       <body>
         <div class="center">
-          <h1 class="bold">${restaurantName}</h1>
+           <h1 class="bold">${escapeHtml(fiscalName)}</h1>
+           ${fiscalLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}
           <div class="separator"></div>
           <h2 class="bold">RECIBO DE PAGAMENTO</h2>
           <div class="separator"></div>
         </div>
         
-        <div class="info-row"><span class="bold">Mesa:</span> ${tableName}</div>
+        <div class="info-row"><span class="bold">Mesa:</span> ${escapeHtml(tableName)}</div>
         <div class="info-row"><span class="bold">Data:</span> ${invoiceDate(payment.createdAt)}</div>
         <div class="info-row"><span class="bold">Fatura associada:</span> ${invoiceNumberLabel(payment.invoiceReference)}</div>
         <div class="info-row"><span class="bold">Sessão:</span> ${invoiceSessionLabel(payment.sessionId)}</div>
@@ -258,9 +314,9 @@ export function PrintTablePayment({
         
         <div style="margin-bottom: 15px;">
           ${payment.items && payment.items.length > 0 
-            ? payment.items.map(item => `
+           ? payment.items.map(item => `
                 <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
-                  <span>${item.quantity}x ${item.name}</span>
+                   <span>${item.quantity}x ${escapeHtml(item.name)}</span>
                 <span>${invoiceMoney(parseFloat(item.price) * item.quantity)}</span>
                 </div>
               `).join('')
@@ -292,9 +348,10 @@ export function PrintTablePayment({
         </div>
         <div class="separator"></div>
         
-        <div class="center" style="margin-top: 20px;">
+         <div class="center" style="margin-top: 20px;">
           <p>Obrigado pela sua preferência!</p>
-          <p class="bold">${restaurantName}</p>
+           ${restaurant?.legalFooter ? `<p>${escapeHtml(restaurant.legalFooter)}</p>` : ''}
+           <p class="bold">${escapeHtml(fiscalName)}</p>
         </div>
       </body>
       </html>

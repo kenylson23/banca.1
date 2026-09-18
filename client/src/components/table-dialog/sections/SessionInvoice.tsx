@@ -439,6 +439,7 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
              <PrintTablePayment
                payment={{ id: payment.id, amount: payment.amount, paymentMethod: payment.paymentMethod, createdAt: payment.createdAt, notes: payment.notes || undefined, operatorName: payment.operatorName || undefined, invoiceReference: data.invoiceReference }}
                tableName={`Mesa ${data.table.number}`}
+                restaurant={data.restaurant}
                onPrintComplete={() => setPrintingPaymentId(null)}
                autoPrint
              />
