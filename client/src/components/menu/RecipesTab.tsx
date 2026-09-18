@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +36,8 @@ interface RecipeIngredientWithDetails extends RecipeIngredient {
   inventoryItem: InventoryItem & { unit: MeasurementUnit };
 }
 
+const RECIPE_MENU_ITEM_STORAGE_KEY = "nabancada.menu.recipe.selected-item";
+
 function formatCurrency(value: string | number): string {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
   return new Intl.NumberFormat('pt-AO', {
@@ -47,7 +49,9 @@ function formatCurrency(value: string | number): string {
 
 export function RecipesTab() {
   const { toast } = useToast();
-  const [selectedMenuItem, setSelectedMenuItem] = useState<string>("");
+  const [selectedMenuItem, setSelectedMenuItem] = useState<string>(() =>
+    sessionStorage.getItem(RECIPE_MENU_ITEM_STORAGE_KEY) || ""
+  );
   const [addIngredientDialog, setAddIngredientDialog] = useState(false);
   const [newIngredient, setNewIngredient] = useState({
     inventoryItemId: "",
@@ -66,6 +70,26 @@ export function RecipesTab() {
     queryKey: ["/api/menu-items", selectedMenuItem, "recipe"],
     enabled: !!selectedMenuItem,
   });
+
+  useEffect(() => {
+    if (selectedMenuItem) {
+      sessionStorage.setItem(RECIPE_MENU_ITEM_STORAGE_KEY, selectedMenuItem);
+    } else {
+      sessionStorage.removeItem(RECIPE_MENU_ITEM_STORAGE_KEY);
+    }
+  }, [selectedMenuItem]);
+
+  useEffect(() => {
+    if (!menuItems || menuItems.length === 0 || !selectedMenuItem) {
+      return;
+    }
+
+    // The saved selection can refer to a menu item that was deleted in another
+    // session. Clear it instead of showing an empty recipe for a stale id.
+    if (!menuItems.some((item) => item.id === selectedMenuItem)) {
+      setSelectedMenuItem("");
+    }
+  }, [menuItems, selectedMenuItem]);
 
   const addIngredientMutation = useMutation({
     mutationFn: async (data: { inventoryItemId: string; quantity: string }) => {

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { ExternalLink, UtensilsCrossed, Folder, Palette, ChefHat } from "lucide-react";
@@ -15,10 +15,22 @@ import { LimitWarningBanner } from "@/components/LimitWarningBanner";
 
 type TabValue = "items" | "categories" | "recipes" | "customize";
 
+const MENU_TAB_STORAGE_KEY = "nabancada.menu.active-tab";
+const validTabs: TabValue[] = ["items", "categories", "recipes", "customize"];
+
 export default function Menu() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState<TabValue>("items");
+  const [activeTab, setActiveTab] = useState<TabValue>(() => {
+    const savedTab = sessionStorage.getItem(MENU_TAB_STORAGE_KEY);
+    return savedTab && validTabs.includes(savedTab as TabValue)
+      ? (savedTab as TabValue)
+      : "items";
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem(MENU_TAB_STORAGE_KEY, activeTab);
+  }, [activeTab]);
 
   const { data: currentUser } = useQuery<any>({
     queryKey: ['/api/auth/user'],
