@@ -104,10 +104,14 @@ export function RecipesTab() {
         description: "O ingrediente foi adicionado à receita com sucesso",
       });
     },
-    onError: () => {
+    onError: (error: Error & { status?: number }) => {
+      if (error.status === 409) {
+        queryClient.invalidateQueries({ queryKey: ["/api/menu-items", selectedMenuItem, "recipe"] });
+      }
+
       toast({
-        title: "Erro",
-        description: "Não foi possível adicionar o ingrediente",
+        title: error.status === 409 ? "Ingrediente já adicionado" : "Erro",
+        description: error.message || "Não foi possível adicionar o ingrediente",
         variant: "destructive",
       });
     },
@@ -277,13 +281,31 @@ export function RecipesTab() {
                   <SelectValue placeholder="Selecione um ingrediente..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {inventoryItems?.map((item) => (
+                  {inventoryItems
+                    ?.filter(
+                      (item) =>
+                        !recipeData?.ingredients.some(
+                          (ingredient) => ingredient.inventoryItemId === item.id
+                        )
+                    )
+                    .map((item) => (
                     <SelectItem key={item.id} value={item.id}>
                       {item.name} ({item.unit.abbreviation})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {inventoryItems &&
+                inventoryItems.length > 0 &&
+                inventoryItems.every((item) =>
+                  recipeData?.ingredients.some(
+                    (ingredient) => ingredient.inventoryItemId === item.id
+                  )
+                ) && (
+                  <p className="text-sm text-muted-foreground">
+                    Todos os ingredientes do inventário já estão nesta receita.
+                  </p>
+                )}
             </div>
             <div className="space-y-2">
               <Label>Quantidade</Label>
@@ -309,10 +331,14 @@ export function RecipesTab() {
             </Button>
             <Button
               onClick={() => addIngredientMutation.mutate(newIngredient)}
-              disabled={!newIngredient.inventoryItemId || parseFloat(newIngredient.quantity) <= 0}
+              disabled={
+                addIngredientMutation.isPending ||
+                !newIngredient.inventoryItemId ||
+                parseFloat(newIngredient.quantity) <= 0
+              }
               data-testid="button-save-ingredient"
             >
-              Adicionar
+              {addIngredientMutation.isPending ? "Adicionando..." : "Adicionar"}
             </Button>
           </DialogFooter>
         </DialogContent>
