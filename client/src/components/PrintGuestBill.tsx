@@ -57,6 +57,14 @@ interface PrintGuestBillProps {
   restaurantAddress?: string;
   restaurantPhone?: string;
   restaurantNIF?: string;
+  restaurantFiscalAddress?: string;
+  restaurantVatRegime?: string;
+  restaurantVatRate?: string | number;
+  restaurantDocumentSeries?: string;
+  restaurantInvoicePrefix?: string;
+  restaurantEmail?: string;
+  restaurantWebsite?: string;
+  restaurantWhatsappNumber?: string;
   restaurantLogoUrl?: string;
   paymentMethod?: string;
   variant?: "default" | "outline" | "ghost";
@@ -98,6 +106,14 @@ export function PrintGuestBill({
   restaurantAddress,
   restaurantPhone,
   restaurantNIF,
+  restaurantFiscalAddress,
+  restaurantVatRegime,
+  restaurantVatRate,
+  restaurantDocumentSeries,
+  restaurantInvoicePrefix,
+  restaurantEmail,
+  restaurantWebsite,
+  restaurantWhatsappNumber,
   restaurantLogoUrl,
   paymentMethod,
   variant = "ghost",
@@ -174,6 +190,14 @@ export function PrintGuestBill({
       restaurantAddress,
       restaurantPhone,
       restaurantNIF,
+       restaurantFiscalAddress,
+       restaurantVatRegime,
+       restaurantVatRate,
+       restaurantDocumentSeries,
+       restaurantInvoicePrefix,
+       restaurantEmail,
+       restaurantWebsite,
+       restaurantWhatsappNumber,
     };
   };
 

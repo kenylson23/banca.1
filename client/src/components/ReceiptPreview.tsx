@@ -49,6 +49,14 @@ export type ReceiptDocument =
       restaurantAddress?: string;
       restaurantPhone?: string;
       restaurantNIF?: string;
+       restaurantFiscalAddress?: string;
+       restaurantVatRegime?: string;
+       restaurantVatRate?: string | number;
+       restaurantDocumentSeries?: string;
+       restaurantInvoicePrefix?: string;
+       restaurantEmail?: string;
+       restaurantWebsite?: string;
+       restaurantWhatsappNumber?: string;
     }
   | {
       kind: "invoice";

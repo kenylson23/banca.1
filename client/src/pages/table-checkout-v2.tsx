@@ -50,7 +50,6 @@ import { formatKwanza } from "@/lib/formatters";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { PaymentSuccessDialog } from "@/components/PaymentSuccessDialog";
-import { PaymentReceiptDialog } from "@/components/PaymentReceiptDialog";
 import { formatTableInvoiceNumber } from "@shared/table-invoice-number";
 import { formatPaymentMethodLabel } from "@shared/payment-methods";
 import { CheckoutSummaryPanel } from "@/components/CheckoutSummaryPanel";
@@ -3183,9 +3182,9 @@ export default function TableCheckoutV2() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Payment Receipt Dialog */}
+      {/* Payment success dialog */}
       {paymentData && table && (
-        <PaymentReceiptDialog
+        <PaymentSuccessDialog
           open={showSuccessDialog}
           onClose={() => {
             setShowSuccessDialog(false);
