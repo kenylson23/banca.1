@@ -31,8 +31,6 @@ import {
 import { formatKwanza } from '@/lib/formatters';
 import { formatPaymentMethodLabel } from '@shared/invoice-formatters';
 import { PrintGuestBill, type TableGuest, type GuestOrder, type GuestOrderItem } from './PrintGuestBill';
-import { PrintInvoice } from './PrintInvoice';
-import { PrintPayment } from './PrintPayment';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import type { OrdersByGuestData } from '@/../../shared/types';
@@ -1274,9 +1272,19 @@ export function PaymentSuccessDialog({
                                    totalAmount={guestTotal}
                                    tableName={`Mesa ${table.number}`}
                                    restaurantName={restaurant?.name}
-                                   restaurantAddress={restaurant?.address}
+                                    restaurantAddress={restaurant?.address}
+                                    restaurantFiscalAddress={restaurant?.fiscalAddress}
                                    restaurantPhone={restaurant?.phone}
                                    restaurantNIF={restaurant?.nif}
+                                    restaurantVatRegime={restaurant?.vatRegime}
+                                    restaurantVatRate={restaurant?.vatRate}
+                                    restaurantDocumentSeries={restaurant?.documentSeries}
+                                    restaurantInvoicePrefix={restaurant?.invoicePrefix}
+                                    restaurantEmail={restaurant?.email}
+                                    restaurantWebsite={restaurant?.website}
+                                    restaurantWhatsappNumber={restaurant?.whatsappNumber}
+                                    restaurantLogoUrl={restaurant?.logoUrl}
+                                    legalFooter={restaurant?.legalFooter}
                                    paymentMethod={payment.paymentMethod}
                                    variant="ghost"
                                    size="sm"

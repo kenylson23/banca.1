@@ -57,6 +57,7 @@ export type ReceiptDocument =
        restaurantEmail?: string;
        restaurantWebsite?: string;
        restaurantWhatsappNumber?: string;
+       legalFooter?: string;
     }
   | {
       kind: "invoice";
@@ -93,6 +94,21 @@ export function buildReceiptHtml(doc: ReceiptDocument, paperWidth: 58 | 80 = 80)
         <div class="separator">${thinSep}</div>
       </div>
   `;
+
+  const fiscalHeader = doc.kind === "bill"
+    ? [
+        doc.restaurantFiscalAddress || doc.restaurantAddress ? `Morada fiscal: ${doc.restaurantFiscalAddress || doc.restaurantAddress}` : "",
+        doc.restaurantNIF ? `NIF: ${doc.restaurantNIF}` : "",
+        doc.restaurantVatRegime ? `Regime de IVA: ${doc.restaurantVatRegime}` : "",
+        doc.restaurantVatRate != null ? `Taxa de IVA: ${doc.restaurantVatRate}%` : "",
+        doc.restaurantDocumentSeries ? `Série: ${doc.restaurantDocumentSeries}` : "",
+        doc.restaurantInvoicePrefix ? `Prefixo: ${doc.restaurantInvoicePrefix}` : "",
+        doc.restaurantEmail ? `Email: ${doc.restaurantEmail}` : "",
+        doc.restaurantWebsite ? `Web: ${doc.restaurantWebsite}` : "",
+        doc.restaurantWhatsappNumber ? `WhatsApp: ${doc.restaurantWhatsappNumber}` : "",
+        doc.restaurantPhone ? `Tel: ${doc.restaurantPhone}` : "",
+      ].filter(Boolean).map((line) => `<div class="center">${line}</div>`).join("")
+    : "";
 
   const meta = (() => {
     if (doc.kind === "order") {
@@ -194,6 +210,9 @@ export function buildReceiptHtml(doc: ReceiptDocument, paperWidth: 58 | 80 = 80)
   const footer = (() => {
     const lines: string[] = [];
     lines.push(`<div class="separator">${thinSep}</div>`);
+    if (doc.kind === "bill" && doc.legalFooter) {
+      lines.push(`<div class="center">${doc.legalFooter}</div>`);
+    }
     lines.push(`<div class="center">Obrigado pela preferência!</div>`);
     if (doc.kind === "bill") {
       lines.push(`<div class="center">*** CONTA PROVISÓRIA · PENDENTE ***</div>`);
@@ -264,5 +283,5 @@ export function buildReceiptHtml(doc: ReceiptDocument, paperWidth: 58 | 80 = 80)
     </style>
   `;
 
-  return `<!DOCTYPE html><html><head><meta charset="utf-8">${styles}</head><body>${header}${meta}${itemsSection}${totalsSection}${footer}</body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8">${styles}</head><body>${header}${fiscalHeader}${meta}${itemsSection}${totalsSection}${footer}</body></html>`;
 }

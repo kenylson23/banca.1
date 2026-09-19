@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Printer, ChevronDown, Download, Eye } from "lucide-react";
 import { invoiceDate, invoiceMoney, formatPaymentMethodLabel } from "@shared/invoice-formatters";
@@ -66,6 +67,7 @@ interface PrintGuestBillProps {
   restaurantWebsite?: string;
   restaurantWhatsappNumber?: string;
   restaurantLogoUrl?: string;
+  legalFooter?: string;
   paymentMethod?: string;
   variant?: "default" | "outline" | "ghost";
   size?: "default" | "sm" | "lg" | "icon";
@@ -115,6 +117,7 @@ export function PrintGuestBill({
   restaurantWebsite,
   restaurantWhatsappNumber,
   restaurantLogoUrl,
+  legalFooter,
   paymentMethod,
   variant = "ghost",
   size = "sm",
@@ -198,6 +201,7 @@ export function PrintGuestBill({
        restaurantEmail,
        restaurantWebsite,
        restaurantWhatsappNumber,
+        legalFooter,
     };
   };
 
@@ -224,6 +228,15 @@ export function PrintGuestBill({
         restaurantAddress,
         restaurantPhone,
         restaurantNIF,
+        fiscalAddress: restaurantFiscalAddress,
+        vatRegime: restaurantVatRegime,
+        vatRate: restaurantVatRate != null ? `${restaurantVatRate}%` : undefined,
+        documentSeries: restaurantDocumentSeries,
+        invoicePrefix: restaurantInvoicePrefix,
+        restaurantEmail,
+        website: restaurantWebsite,
+        whatsappNumber: restaurantWhatsappNumber,
+        legalFooter,
         restaurantLogoUrl,
         tableName,
         guestName,

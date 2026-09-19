@@ -1197,6 +1197,15 @@ class PrinterService {
       restaurantAddress?: string;
       restaurantPhone?: string;
       restaurantNIF?: string;
+      fiscalAddress?: string;
+      vatRegime?: string;
+      vatRate?: string;
+      documentSeries?: string;
+      invoicePrefix?: string;
+      restaurantEmail?: string;
+      website?: string;
+      whatsappNumber?: string;
+      legalFooter?: string;
       restaurantLogoUrl?: string;
       tableName: string;
       guestName: string;  // Este campo vem mapeado do nome do guest
@@ -1272,6 +1281,16 @@ class PrinterService {
     if (content.restaurantNIF) {
       encoder.line(`NIF: ${content.restaurantNIF}`);
     }
+    if (content.fiscalAddress && content.fiscalAddress !== content.restaurantAddress) {
+      encoder.line(`Morada fiscal: ${content.fiscalAddress}`);
+    }
+    if (content.vatRegime) encoder.line(`Regime de IVA: ${content.vatRegime}`);
+    if (content.vatRate) encoder.line(`Taxa de IVA: ${content.vatRate}`);
+    if (content.documentSeries) encoder.line(`Série: ${content.documentSeries}`);
+    if (content.invoicePrefix) encoder.line(`Prefixo: ${content.invoicePrefix}`);
+    if (content.restaurantEmail) encoder.line(`Email: ${content.restaurantEmail}`);
+    if (content.website) encoder.line(`Web: ${content.website}`);
+    if (content.whatsappNumber) encoder.line(`WhatsApp: ${content.whatsappNumber}`);
     
     encoder.newline();
     
@@ -1353,6 +1372,9 @@ class PrinterService {
     // A conta provisória não confirma nem resume um pagamento.
     encoder.align('center');
     encoder.bold(true).line('*** CONTA PROVISÓRIA ***').bold(false);
+    if (content.legalFooter) {
+      encoder.newline().line(content.legalFooter);
+    }
     encoder.newline();
 
     // ============ QR CODE / CÓDIGO DE RASTREAMENTO ============
