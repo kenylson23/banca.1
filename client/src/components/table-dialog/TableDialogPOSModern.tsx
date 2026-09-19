@@ -137,6 +137,11 @@ export function TableDialogPOSModern({
   const mutations = useTableMutations({ tableId: table?.id });
   const queryClient = useQueryClient();
   const { invalidateAll } = useTableInvalidations(table?.id);
+  const { data: tableSessions = [], isLoading: isLoadingTableSessions } = useQuery<any[]>({
+    queryKey: [`/api/tables/${table?.id}/sessions`],
+    enabled: open && !!table?.id,
+    staleTime: 30000,
+  });
 
   // Forçar refetch quando o StartSessionDialog fechar
   useEffect(() => {
@@ -224,6 +229,19 @@ export function TableDialogPOSModern({
 
   // Dados reais da mesa
   const currentTable = tableData || table;
+  const invoiceSessionId = useMemo(() => {
+    if (currentTable?.currentSessionId) return currentTable.currentSessionId;
+
+    const latestSession = [...tableSessions]
+      .filter((session) => session?.endedAt || session?.status === 'encerrada')
+      .sort((a, b) => {
+        const aDate = new Date(a?.endedAt || a?.startedAt || 0).getTime();
+        const bDate = new Date(b?.endedAt || b?.startedAt || 0).getTime();
+        return bDate - aDate;
+      })[0];
+
+    return latestSession?.id || null;
+  }, [currentTable?.currentSessionId, tableSessions]);
   const ordersCount = useMemo(() => ordersByGuest?.reduce((sum, og) => sum + og.orders.length, 0) || 0, [ordersByGuest]);
   const guestsCount = useMemo(() => allSessionGuests?.length || 0, [allSessionGuests]);
   const hasActiveSession = useMemo(() => !!currentTable?.currentSessionId || guestsCount > 0, [currentTable?.currentSessionId, guestsCount]);
@@ -1296,13 +1314,17 @@ export function TableDialogPOSModern({
                       <HistorySection table={currentTable} />
                     )}
                     {activeSection === 'invoice' && (
-                      currentTable.currentSessionId ? (
+                      isLoadingTableSessions && !invoiceSessionId ? (
+                        <div className="flex items-center justify-center py-12 text-muted-foreground">
+                          A carregar a sessão da fatura...
+                        </div>
+                      ) : invoiceSessionId ? (
                         <div className="space-y-4">
                           <div>
                             <h2 className="text-2xl font-bold">Fatura final</h2>
                             <p className="text-muted-foreground">Consulte o total final, todos os pagamentos, recibos individuais e o histórico da mesa.</p>
                           </div>
-                          <SessionInvoice sessionId={currentTable.currentSessionId} tableNumber={currentTable.number} />
+                          <SessionInvoice sessionId={invoiceSessionId} tableNumber={currentTable.number} />
                         </div>
                       ) : (
                         <Card><CardContent className="py-12 text-center text-muted-foreground">Esta mesa não possui uma sessão para emitir fatura.</CardContent></Card>
