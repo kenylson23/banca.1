@@ -68,16 +68,16 @@ export function OverviewSection({
   const realOrdersCount = ordersByGuest?.reduce((sum, og) => sum + (og.orders?.length || 0), 0) || 0;
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 space-y-6">
       {/* Header Card - Mesa Info */}
       <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
         <CardHeader>
-          <div className="flex items-start justify-between">
-            <div>
-              <CardTitle className="text-3xl font-bold">
+          <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <CardTitle className="text-2xl font-bold sm:text-3xl">
                 Mesa {table.number}
               </CardTitle>
-              <div className="flex items-center gap-2 mt-2">
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 <Badge className={cn("font-semibold", statusInfo.color, "text-white")}>
                   {statusInfo.label}
                 </Badge>
@@ -110,21 +110,21 @@ export function OverviewSection({
 
       {table.status === 'livre' ? (
         /* Empty State - Mesa Livre */
-        <Card>
-          <CardContent className="py-12 text-center">
-            <div className="flex flex-col items-center gap-4">
+        <Card className="w-full min-w-0">
+          <CardContent className="w-full min-w-0 px-4 py-10 text-center sm:px-6 sm:py-12">
+            <div className="flex w-full min-w-0 flex-col items-center gap-4">
               <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center">
                 <Play className="h-12 w-12 text-primary" />
               </div>
-              <div>
+              <div className="w-full min-w-0 max-w-md">
                 <h3 className="text-xl font-bold mb-2">Mesa Disponível</h3>
-                <p className="text-muted-foreground max-w-md mb-4">
+                <p className="mx-auto mb-4 w-full max-w-md text-muted-foreground">
                   Esta mesa está livre e pronta para receber clientes. Inicie uma sessão para começar a criar pedidos.
                 </p>
                 <Button 
                   size="lg" 
                   onClick={onStartSession}
-                  className="gap-2"
+                  className="w-full gap-2 sm:w-auto"
                 >
                   <Play className="w-5 h-5" />
                   Iniciar Sessão
