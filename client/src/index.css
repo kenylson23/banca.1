@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  /* Radix uses an intrinsic-width table wrapper, which can widen vertical-only mobile dialogs. */
+  .table-dialog-scroll-content [data-radix-scroll-area-viewport] > div {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
 /* Mobile-First Optimizations */
 @layer utilities {
   /* Safe area for notch devices */

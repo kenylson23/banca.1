@@ -1029,7 +1029,7 @@ export function TableDialogPOSModern({
             </div>
 
              {/* Content Area - Dynamic based on active section */}
-              <ScrollArea className="min-h-0 min-w-0 flex-1 bg-background">
+              <ScrollArea className="table-dialog-scroll-content min-h-0 min-w-0 flex-1 bg-background">
                 <div className="p-3 sm:p-6">
                 <AnimatePresence mode="wait">
                   <motion.div
