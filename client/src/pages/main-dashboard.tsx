@@ -231,7 +231,7 @@ export default function MainDashboard({ section }: MainDashboardProps) {
           {/* Main Content with proper spacing */}
           <main 
             id="main-content" 
-            className="flex-1 overflow-auto bg-gradient-to-br from-background via-background to-muted/10 mt-16" 
+            className="flex-1 overflow-auto bg-gradient-to-br from-background via-background to-muted/10 mt-safe-header"
             role="main"
           >
             <div className="animate-in fade-in duration-500">
@@ -307,7 +307,7 @@ function HeaderContent({
   return (
     <header 
       className={`
-        fixed top-0 left-0 right-0 z-50
+        fixed top-0 left-0 right-0 z-50 safe-area-inset-top
         transition-all duration-300 ease-in-out
         ${scrolled 
           ? 'bg-background/80 backdrop-blur-xl shadow-lg border-b border-border/40' 

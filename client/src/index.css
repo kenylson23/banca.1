@@ -10,7 +10,11 @@
   }
   
   .pt-safe {
-    padding-top: env(safe-area-inset-top);
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .mt-safe-header {
+    margin-top: calc(4rem + env(safe-area-inset-top, 0px));
   }
 
   /* Touch-friendly tap targets */
@@ -503,7 +507,7 @@
 
   /* Safe area insets for mobile devices */
   .safe-area-inset-top {
-    padding-top: env(safe-area-inset-top);
+    padding-top: env(safe-area-inset-top, 0px);
   }
 
   .safe-area-inset-bottom {

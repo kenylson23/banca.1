@@ -15,6 +15,12 @@ Deployment builds may not reach Replit's internal package firewall host. If a lo
 
 **How to apply:** Search the lockfile for `replit.internal` after setup and ensure no internal tarball URL remains; then validate with a clean `npm ci` using the public registry and run the production build.
 
+If the Replit Socket Security Policy blocks an outdated package during a locked install, update only that package to the latest version allowed by its existing parent dependency range; do not bypass the registry policy.
+
+**Why:** A blocked transitive version can prevent local dependencies and app verification from installing, even when a compatible safe patch release exists.
+
+**How to apply:** Identify the blocked package and its parent range, check the package's latest version, update the lockfile narrowly, then retry the locked install.
+
 Build-time packages referenced by Vite, PostCSS, Tailwind, or their config files must be regular dependencies when the deployment builder installs with `--omit=dev`; moving only the obvious CLI package is not enough if a config plugin is loaded during compilation.
 
 **Why:** A production-only install can fail after Vite starts when a Tailwind/PostCSS plugin remains in `devDependencies`, even though the first missing package was fixed.
