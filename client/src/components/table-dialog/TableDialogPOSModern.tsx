@@ -674,7 +674,9 @@ export function TableDialogPOSModern({
         <DialogOverlay />
         <DialogPrimitive.Content
           className={cn(
-            "fixed inset-0 z-50 flex",
+            "fixed inset-0 z-50 flex h-[100dvh] min-h-0 w-full min-w-0 overflow-hidden overscroll-none",
+            "pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]",
+            "pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]",
             "data-[state=open]:animate-in data-[state=closed]:animate-out",
             "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
             "bg-background"
@@ -687,7 +689,7 @@ export function TableDialogPOSModern({
             Diálogo de gestão da mesa {table.number}
           </div>
 
-        <div className="flex flex-col lg:flex-row h-full">
+        <div className="flex h-full min-h-0 w-full min-w-0 flex-col lg:flex-row">
           {/* SIDEBAR - Navegação Lateral (desktop) */}
           <motion.aside
             initial={false}
@@ -912,17 +914,17 @@ export function TableDialogPOSModern({
           </motion.aside>
 
            {/* MAIN CONTENT AREA */}
-           <div className="flex-1 flex flex-col overflow-hidden">
+           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
              {/* Mobile Navigation */}
-             <div className="lg:hidden bg-card border-b border-border px-2 py-2">
-               <div className="flex items-center gap-1 overflow-x-auto pb-1">
+              <div className="shrink-0 border-b border-border bg-card px-2 py-2 lg:hidden">
+                <div className="flex items-center gap-1 overflow-x-auto overscroll-x-contain pb-1">
                  {navigationItems.map((item) => (
                    <Button
                      key={item.id}
                      variant={activeSection === item.id ? 'default' : 'ghost'}
                      size="sm"
                      onClick={() => setActiveSection(item.id)}
-                     className="flex items-center gap-1.5 whitespace-nowrap h-8 px-2"
+                      className="h-11 min-w-max shrink-0 gap-1.5 whitespace-nowrap px-3"
                    >
                      {item.icon}
                      <span className="text-xs">{item.label}</span>
@@ -932,14 +934,16 @@ export function TableDialogPOSModern({
              </div>
 
              {/* Top Bar - Actions & Navigation */}
-            <div className="bg-card border-b border-border px-4 py-3">
-              <div className="flex flex-col gap-3">
+             <div className="shrink-0 border-b border-border bg-card px-3 py-2 sm:px-4 sm:py-3">
+               <div className="flex min-w-0 flex-col gap-3">
                 {/* Top actions row */}
-                <div className="flex flex-wrap items-center gap-2">
+                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <Button 
                     variant="default" 
                     size="sm" 
-                    className="gap-2"
+                     className="h-11 min-w-11 shrink-0 gap-2"
+                     aria-label="Novo pedido"
+                     title="Novo pedido"
                     onClick={() => {
                       if (!hasActiveSession) {
                         setShowStartSession(true);
@@ -956,7 +960,9 @@ export function TableDialogPOSModern({
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="gap-2"
+                     className="h-11 min-w-11 shrink-0 gap-2"
+                     aria-label="Adicionar pessoa"
+                     title="Adicionar pessoa"
                     onClick={() => setShowAddPerson(true)}
                     disabled={false}
                   >
@@ -966,7 +972,9 @@ export function TableDialogPOSModern({
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="gap-2"
+                     className="h-11 min-w-11 shrink-0 gap-2"
+                     aria-label="Pedido rápido"
+                     title="Pedido rápido"
                     onClick={() => setShowQuickOrder(true)}
                     disabled={false}
                   >
@@ -974,17 +982,19 @@ export function TableDialogPOSModern({
                     <span className="hidden sm:inline">Pedido Rápido</span>
                   </Button>
                   
-                   <div className="flex-1" />
+                    <div className="hidden flex-1 sm:block" />
                    
                    {/* Right side */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-1 sm:gap-2">
                     {allTables.length > 1 && (
                       <>
                         <Button
                           variant="outline"
                           size="icon"
                           onClick={() => handleNavigateTable('prev')}
-                          className="h-8 w-8"
+                          className="h-11 w-11"
+                          aria-label="Mesa anterior"
+                          title="Mesa anterior"
                         >
                           <ChevronLeft className="w-4 h-4" />
                         </Button>
@@ -995,7 +1005,9 @@ export function TableDialogPOSModern({
                           variant="outline"
                           size="icon"
                           onClick={() => handleNavigateTable('next')}
-                          className="h-8 w-8"
+                          className="h-11 w-11"
+                          aria-label="Mesa seguinte"
+                          title="Mesa seguinte"
                         >
                           <ChevronRight className="w-4 h-4" />
                         </Button>
@@ -1005,7 +1017,9 @@ export function TableDialogPOSModern({
                       variant="ghost"
                       size="icon"
                       onClick={handleClose}
-                      className="h-8 w-8"
+                      className="h-11 w-11"
+                      aria-label="Fechar gestão da mesa"
+                      title="Fechar gestão da mesa"
                     >
                       <X className="w-4 h-4" />
                     </Button>
@@ -1015,8 +1029,8 @@ export function TableDialogPOSModern({
             </div>
 
              {/* Content Area - Dynamic based on active section */}
-             <ScrollArea className="flex-1 bg-background">
-               <div className="p-3 sm:p-6">
+              <ScrollArea className="min-h-0 min-w-0 flex-1 bg-background">
+                <div className="p-3 sm:p-6">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={activeSection}
@@ -1336,7 +1350,7 @@ export function TableDialogPOSModern({
             </ScrollArea>
 
             {/* Bottom Bar - Summary & Main Actions */}
-            <div className="bg-card border-t border-border px-3 py-3 sm:px-6 sm:py-4">
+            <div className="shrink-0 border-t border-border bg-card px-3 py-3 sm:px-6 sm:py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 {/* Left - Summary */}
                 <div className="flex flex-wrap items-center gap-3 sm:gap-6">
