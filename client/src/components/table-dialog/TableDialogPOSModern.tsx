@@ -917,14 +917,14 @@ export function TableDialogPOSModern({
            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
              {/* Mobile Navigation */}
               <div className="w-full min-w-0 shrink-0 border-b border-border bg-card px-2 py-1.5 lg:hidden">
-                <div className="grid w-full min-w-0 grid-cols-3 gap-1 sm:grid-cols-4">
+                <div className="grid w-full min-w-0 grid-cols-4 gap-1">
                  {navigationItems.map((item) => (
                    <Button
                      key={item.id}
                      variant={activeSection === item.id ? 'default' : 'ghost'}
                      size="sm"
                      onClick={() => setActiveSection(item.id)}
-                       className="h-auto min-h-11 min-w-0 flex-col gap-1 whitespace-normal px-1 py-1.5 text-center text-[11px] leading-tight"
+                       className="h-auto min-h-11 min-w-0 flex-col gap-0.5 whitespace-normal px-0.5 py-1 text-center text-[11px] leading-tight"
                    >
                      {item.icon}
                       <span className="text-[11px] sm:text-xs">{item.label}</span>
@@ -980,6 +980,18 @@ export function TableDialogPOSModern({
                   >
                     <Package className="w-4 h-4" />
                     <span className="hidden sm:inline">Pedido Rápido</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-11 min-w-11 shrink-0 gap-1 px-2 lg:hidden"
+                    aria-label="Abrir QR Code da mesa"
+                    title="QR Code da mesa"
+                    onClick={() => setShowQRCode(true)}
+                    disabled={!currentTable}
+                  >
+                    <QrCode className="h-4 w-4" />
+                    <span className="text-[10px] font-medium">QR</span>
                   </Button>
                   
                     <div className="hidden flex-1 sm:block" />
@@ -1380,25 +1392,25 @@ export function TableDialogPOSModern({
                 </div>
 
                 {/* Right - Main Actions */}
-                <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-3">
                   <Button 
                     variant="outline" 
                     size="default"
                     onClick={() => setActiveSection('split')}
                     disabled={!hasActiveSession || ordersCount === 0 || guestsCount < 2}
-                    className="h-11 w-full gap-2 sm:h-9 sm:w-auto"
+                    className="h-auto min-h-11 w-full min-w-0 flex-col justify-center gap-1 px-2 py-2 text-center text-[11px] leading-tight sm:h-9 sm:min-h-0 sm:w-auto sm:flex-row sm:gap-2 sm:whitespace-nowrap sm:px-4 sm:text-sm"
                   >
-                    <Split className="w-4 h-4" />
+                    <Split className="h-4 w-4" />
                     Dividir Conta
                   </Button>
                   <Button 
                     variant="default" 
                     size="default" 
-                    className="h-11 w-full gap-2 sm:h-9 sm:w-auto"
+                    className="h-auto min-h-11 w-full min-w-0 flex-col justify-center gap-1 px-2 py-2 text-center text-[11px] leading-tight sm:h-9 sm:min-h-0 sm:w-auto sm:flex-row sm:gap-2 sm:whitespace-nowrap sm:px-4 sm:text-sm"
                     onClick={() => setActiveSection('payment')}
                     disabled={!hasActiveSession || ordersCount === 0}
                   >
-                    <CreditCard className="w-4 h-4" />
+                    <CreditCard className="h-4 w-4" />
                     Finalizar Pagamento
                   </Button>
                 </div>

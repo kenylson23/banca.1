@@ -111,14 +111,14 @@ export function OverviewSection({
       {table.status === 'livre' ? (
         /* Empty State - Mesa Livre */
         <Card className="w-full min-w-0">
-          <CardContent className="w-full min-w-0 px-3 py-6 text-center sm:px-6 sm:py-12">
-            <div className="flex w-full min-w-0 flex-col items-center gap-3 sm:gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 sm:h-24 sm:w-24">
-                <Play className="h-8 w-8 text-primary sm:h-12 sm:w-12" />
+          <CardContent className="w-full min-w-0 px-3 py-4 text-center sm:px-6 sm:py-12">
+            <div className="flex w-full min-w-0 flex-col items-center gap-2 sm:gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 sm:h-24 sm:w-24">
+                <Play className="h-6 w-6 text-primary sm:h-12 sm:w-12" />
               </div>
               <div className="w-full min-w-0 max-w-md">
-                <h3 className="mb-1.5 text-lg font-bold sm:mb-2 sm:text-xl">Mesa Disponível</h3>
-                <p className="mx-auto mb-3 w-full max-w-md text-sm text-muted-foreground sm:mb-4 sm:text-base">
+                <h3 className="mb-1 text-base font-bold sm:mb-2 sm:text-xl">Mesa Disponível</h3>
+                <p className="mx-auto mb-2 w-full max-w-md text-[13px] text-muted-foreground sm:mb-4 sm:text-base">
                   Esta mesa está livre e pronta para receber clientes. Inicie uma sessão para começar a criar pedidos.
                 </p>
                 <Button 
