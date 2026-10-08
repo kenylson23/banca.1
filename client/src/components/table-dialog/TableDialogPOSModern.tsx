@@ -916,7 +916,7 @@ export function TableDialogPOSModern({
            {/* MAIN CONTENT AREA */}
            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
              {/* Mobile Navigation */}
-              <div className="w-full min-w-0 shrink-0 border-b border-border bg-card px-2 py-2 lg:hidden">
+              <div className="w-full min-w-0 shrink-0 border-b border-border bg-card px-2 py-1.5 lg:hidden">
                 <div className="grid w-full min-w-0 grid-cols-3 gap-1 sm:grid-cols-4">
                  {navigationItems.map((item) => (
                    <Button
@@ -924,17 +924,17 @@ export function TableDialogPOSModern({
                      variant={activeSection === item.id ? 'default' : 'ghost'}
                      size="sm"
                      onClick={() => setActiveSection(item.id)}
-                      className="h-auto min-h-11 min-w-0 flex-col gap-1 whitespace-normal px-1 py-2 text-center text-[11px] leading-tight"
+                       className="h-auto min-h-11 min-w-0 flex-col gap-1 whitespace-normal px-1 py-1.5 text-center text-[11px] leading-tight"
                    >
                      {item.icon}
-                     <span className="text-xs">{item.label}</span>
+                      <span className="text-[11px] sm:text-xs">{item.label}</span>
                    </Button>
                  ))}
                </div>
              </div>
 
              {/* Top Bar - Actions & Navigation */}
-              <div className="w-full min-w-0 shrink-0 border-b border-border bg-card px-3 py-2 sm:px-4 sm:py-3">
+              <div className="w-full min-w-0 shrink-0 border-b border-border bg-card px-2 py-1.5 sm:px-4 sm:py-3">
                 <div className="flex min-w-0 flex-col gap-3">
                 {/* Top actions row */}
                   <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
@@ -1350,10 +1350,10 @@ export function TableDialogPOSModern({
             </ScrollArea>
 
             {/* Bottom Bar - Summary & Main Actions */}
-            <div className="shrink-0 border-t border-border bg-card px-3 py-3 sm:px-6 sm:py-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="shrink-0 border-t border-border bg-card px-3 py-2 sm:px-6 sm:py-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 {/* Left - Summary */}
-                <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-6">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-6">
                   <div>
                     <div className="text-xs text-muted-foreground">
                       Total da Mesa
@@ -1363,7 +1363,7 @@ export function TableDialogPOSModern({
                     </div>
                   </div>
                   <Separator orientation="vertical" className="h-8 sm:h-10 hidden sm:block" />
-                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-foreground">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-foreground">
                     <div className="flex items-center gap-1.5">
                       <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
                       <span>{guestsCount} pessoas</span>
@@ -1380,13 +1380,13 @@ export function TableDialogPOSModern({
                 </div>
 
                 {/* Right - Main Actions */}
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
                   <Button 
                     variant="outline" 
                     size="default"
                     onClick={() => setActiveSection('split')}
                     disabled={!hasActiveSession || ordersCount === 0 || guestsCount < 2}
-                    className="gap-2 w-full sm:w-auto"
+                    className="h-11 w-full gap-2 sm:h-9 sm:w-auto"
                   >
                     <Split className="w-4 h-4" />
                     Dividir Conta
@@ -1394,7 +1394,7 @@ export function TableDialogPOSModern({
                   <Button 
                     variant="default" 
                     size="default" 
-                    className="gap-2 w-full sm:w-auto"
+                    className="h-11 w-full gap-2 sm:h-9 sm:w-auto"
                     onClick={() => setActiveSection('payment')}
                     disabled={!hasActiveSession || ordersCount === 0}
                   >

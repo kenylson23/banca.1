@@ -372,17 +372,18 @@ export function TablesPanel() {
   }, [tables, toast]);
 
   return (
-    <div className="w-full min-w-0 space-y-6">
+    <div className="w-full min-w-0 space-y-4 sm:space-y-6">
       {/* Botão de criar mesa - sempre visível */}
-      <div className="flex min-w-0 flex-col gap-4 bg-background">
-        <div className="flex min-w-0 flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+      <div className="flex min-w-0 flex-col gap-2 bg-background sm:gap-4">
+        <div className="flex min-w-0 flex-col gap-2 sm:gap-3 md:flex-row md:flex-wrap md:items-center">
+          <div className="grid min-w-0 grid-cols-2 gap-2 min-[375px]:grid-cols-3 md:flex md:flex-wrap md:items-center md:gap-3">
           <Button 
             data-testid="button-scan-qr-table" 
             onClick={() => setIsQrScannerOpen(true)}
-            className="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/50 hover:shadow-xl hover:shadow-emerald-500/60 transition-all duration-300 font-semibold"
+            className="h-auto min-h-11 w-full min-w-0 flex-col justify-center gap-1 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm md:h-10 md:min-h-0 md:w-auto md:flex-row md:gap-2 md:whitespace-nowrap md:px-8 md:text-base bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/50 hover:shadow-xl hover:shadow-emerald-500/60 transition-all duration-300 font-semibold"
             size="lg"
           >
-            <Camera className="h-5 w-5 mr-2" />
+            <Camera className="h-4 w-4 shrink-0 md:h-5 md:w-5" />
             Escanear QR Code
           </Button>
           <Button
@@ -390,21 +391,21 @@ export function TablesPanel() {
             disabled={regenerateQrMutation.isPending}
             variant="outline"
             size="lg"
-            className="w-full sm:w-auto border-orange-300 text-orange-700 hover:bg-orange-50 font-semibold"
+            className="h-auto min-h-11 w-full min-w-0 flex-col justify-center gap-1 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm md:h-10 md:min-h-0 md:w-auto md:flex-row md:gap-2 md:whitespace-nowrap md:px-8 md:text-base border-orange-300 text-orange-700 hover:bg-orange-50 font-semibold"
             title="Corrigir QR Codes com URL errado (use se os QR Codes não estão a abrir corretamente)"
             data-testid="button-regenerate-qr-codes"
           >
-            <QrCodeIcon className="h-5 w-5 mr-2" />
+            <QrCodeIcon className="h-4 w-4 shrink-0 md:h-5 md:w-5" />
             {regenerateQrMutation.isPending ? "A regenerar..." : "Corrigir QR Codes"}
           </Button>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button 
                 data-testid="button-create-table" 
-                className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-lg shadow-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/60 transition-all duration-300 font-semibold" 
+                className="h-auto min-h-11 w-full min-w-0 flex-col justify-center gap-1 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm md:h-10 md:min-h-0 md:w-auto md:flex-row md:gap-2 md:whitespace-nowrap md:px-8 md:text-base bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-lg shadow-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/60 transition-all duration-300 font-semibold" 
                 size="lg"
               >
-                <Plus className="h-5 w-5 mr-2" />
+                <Plus className="h-4 w-4 shrink-0 md:h-5 md:w-5" />
                 Nova Mesa
               </Button>
             </DialogTrigger>
@@ -561,6 +562,7 @@ export function TablesPanel() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
         
         <div className="relative w-full min-w-0 max-w-md md:flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -623,45 +625,45 @@ export function TablesPanel() {
 
       {/* KPIs Dashboard */}
       <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 min-[375px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-2 min-[375px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 sm:gap-4">
           <Card className="min-w-0">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Mesas Livres</CardTitle>
+            <CardHeader className="p-3 pb-1 sm:p-6 sm:pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">Mesas Livres</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600" data-testid="kpi-free-count">{statusCounts.livre}</div>
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xl font-bold text-green-600 sm:text-2xl" data-testid="kpi-free-count">{statusCounts.livre}</div>
             </CardContent>
           </Card>
           <Card className="min-w-0">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Mesas Ocupadas</CardTitle>
+            <CardHeader className="p-3 pb-1 sm:p-6 sm:pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">Mesas Ocupadas</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600" data-testid="kpi-occupied-count">{occupiedTables.length}</div>
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xl font-bold text-red-600 sm:text-2xl" data-testid="kpi-occupied-count">{occupiedTables.length}</div>
             </CardContent>
           </Card>
           <Card className="min-w-0">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Com Pedidos</CardTitle>
+            <CardHeader className="p-3 pb-1 sm:p-6 sm:pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">Com Pedidos</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-500" data-testid="kpi-with-orders">{tablesWithDigitalOrders.length}</div>
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xl font-bold text-blue-500 sm:text-2xl" data-testid="kpi-with-orders">{tablesWithDigitalOrders.length}</div>
             </CardContent>
           </Card>
           <Card className="min-w-0">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Aguardando Pagamento</CardTitle>
+            <CardHeader className="p-3 pb-1 sm:p-6 sm:pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">Aguardando Pagamento</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-500" data-testid="kpi-awaiting-payment">{tablesAwaitingPayment.length}</div>
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xl font-bold text-orange-500 sm:text-2xl" data-testid="kpi-awaiting-payment">{tablesAwaitingPayment.length}</div>
             </CardContent>
           </Card>
           <Card className="min-w-0">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total em Aberto</CardTitle>
+            <CardHeader className="p-3 pb-1 sm:p-6 sm:pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">Total em Aberto</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="break-words text-lg font-bold text-emerald-600 sm:text-2xl" data-testid="kpi-total-revenue">
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="break-words text-base font-bold text-emerald-600 sm:text-lg xl:text-2xl" data-testid="kpi-total-revenue">
                 {totalRevenue.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
               </div>
             </CardContent>
@@ -669,33 +671,33 @@ export function TablesPanel() {
         </div>
 
         {/* Analytics Avançados */}
-        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4 md:grid-cols-3">
           <Card className="min-w-0">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Ticket Médio</CardTitle>
+            <CardHeader className="p-3 pb-1 sm:p-6 sm:pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">Ticket Médio</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold text-purple-600" data-testid="kpi-average-value">
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="break-words text-base font-bold text-purple-600 sm:text-xl" data-testid="kpi-average-value">
                 {averageTableValue.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
               </div>
             </CardContent>
           </Card>
           <Card className="min-w-0">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Taxa de Ocupação</CardTitle>
+            <CardHeader className="p-3 pb-1 sm:p-6 sm:pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">Taxa de Ocupação</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold text-indigo-600" data-testid="kpi-occupancy-rate">
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-lg font-bold text-indigo-600 sm:text-xl" data-testid="kpi-occupancy-rate">
                 {occupancyRate.toFixed(1)}%
               </div>
             </CardContent>
           </Card>
           <Card className="min-w-0">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Tempo Médio</CardTitle>
+            <CardHeader className="p-3 pb-1 sm:p-6 sm:pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">Tempo Médio</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold text-cyan-600" data-testid="kpi-average-duration">
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-lg font-bold text-cyan-600 sm:text-xl" data-testid="kpi-average-duration">
                 {formatDuration(averageSessionDuration)}
               </div>
             </CardContent>
@@ -718,9 +720,9 @@ export function TablesPanel() {
         />
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {areas.length > 0 && (
-          <div className="flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-col items-stretch gap-1.5 sm:flex-row sm:items-center sm:gap-2">
             <span className="text-sm font-medium text-muted-foreground">Filtrar por área:</span>
             <Select value={areaFilter} onValueChange={setAreaFilter}>
               <SelectTrigger className="w-full min-w-0 sm:w-[200px]" data-testid="select-area-filter">
@@ -741,21 +743,21 @@ export function TablesPanel() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 xl:grid-cols-4 xl:gap-6">
           {[...Array(8)].map((_, i) => (
             <Skeleton key={i} className="h-64" />
           ))}
         </div>
       ) : filteredTables.length > 0 ? (
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-8">
           {Object.entries(groupedTables).sort(([areaA], [areaB]) => {
             if (areaA === 'Sem Área') return 1;
             if (areaB === 'Sem Área') return -1;
             return areaA.localeCompare(areaB);
           }).map(([area, areaTables]) => (
-            <div key={area} className="space-y-4">
+            <div key={area} className="space-y-3 sm:space-y-4">
               <div className="flex items-center gap-3">
-                <h3 className="text-lg font-semibold text-foreground" data-testid={`area-title-${area}`}>
+                <h3 className="text-base font-semibold text-foreground sm:text-lg" data-testid={`area-title-${area}`}>
                   {area}
                 </h3>
                 <Badge variant="outline" data-testid={`area-count-${area}`}>
@@ -763,7 +765,7 @@ export function TablesPanel() {
                 </Badge>
               </div>
                {viewMode === 'grid' ? (
-                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 xl:grid-cols-4 xl:gap-6">
                    {areaTables.map((table) => (
                      <TableCard
                        key={table.id}
@@ -784,10 +786,10 @@ export function TablesPanel() {
                        className="cursor-pointer hover:bg-accent transition-colors"
                        onClick={() => setSelectedTable(table)}
                      >
-                       <CardContent className="p-4">
-                  <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
-                             <div className="font-semibold text-lg">Mesa {table.number}</div>
+                        <CardContent className="p-3 sm:p-4">
+                   <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:gap-3">
+                              <div className="font-semibold text-base sm:text-lg">Mesa {table.number}</div>
                              <Badge variant={
                                table.status === 'livre' ? 'secondary' :
                                table.status === 'ocupada' ? 'default' :
@@ -802,7 +804,7 @@ export function TablesPanel() {
                              {table.customerName && (
                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                  <Users className="h-4 w-4" />
-                                 <span>{table.customerName}</span>
+                                  <span className="min-w-0 truncate">{table.customerName}</span>
                                </div>
                              )}
                              {table.customerCount && (
@@ -813,7 +815,7 @@ export function TablesPanel() {
                            </div>
                             <div className="flex min-w-0 flex-wrap items-center gap-2 sm:shrink-0">
                              {table.totalAmount && parseFloat(table.totalAmount) > 0 && (
-                                <div className="min-w-0 break-words text-base font-bold text-green-600 sm:text-lg">
+                                <div className="min-w-0 break-words text-sm font-bold text-green-600 sm:text-lg">
                                  {parseFloat(table.totalAmount).toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
                                </div>
                              )}
@@ -821,6 +823,7 @@ export function TablesPanel() {
                                <Button
                                  variant="ghost"
                                  size="sm"
+                                  className="h-11 w-11 sm:h-9 sm:w-9"
                                  onClick={(e) => {
                                    e.stopPropagation();
                                    setDeleteTableId(table.id);
@@ -833,6 +836,7 @@ export function TablesPanel() {
                              <Button
                                variant="ghost"
                                size="sm"
+                                className="h-11 w-11 sm:h-9 sm:w-9"
                                onClick={(e) => {
                                  e.stopPropagation();
                                  setQrDialogTable(table);

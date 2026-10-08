@@ -365,11 +365,11 @@ export function PaymentSection({
   console.log('======================');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold">Pagamento da Mesa</h2>
-        <p className="text-muted-foreground">
+        <h2 className="text-xl font-bold sm:text-2xl">Pagamento da Mesa</h2>
+        <p className="text-sm text-muted-foreground sm:text-base">
           Finalize o pagamento da mesa ou divida a conta entre os convidados
         </p>
       </div>
@@ -377,13 +377,13 @@ export function PaymentSection({
       {/* ✅ NOVO: Alerta de Pagamento Completo */}
       {isPaymentComplete && (
         <Card className="border-2 border-green-500 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-4">
+          <CardContent className="p-3 sm:p-6">
+            <div className="flex items-start gap-2 sm:gap-4">
               <div className="p-2 rounded-full bg-green-100 dark:bg-green-900">
                 <CheckCircle2 className="w-6 h-6 text-green-600" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-1">
+                <h3 className="mb-1 text-base font-semibold text-green-900 dark:text-green-100 sm:text-lg">
                   Pagamento Completo! ✅
                 </h3>
                 <p className="text-sm text-green-700 dark:text-green-300 mb-3">
@@ -401,34 +401,34 @@ export function PaymentSection({
 
       {/* Status do Pagamento */}
       <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="p-3 sm:p-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <DollarSign className="w-5 h-5" />
             Status do Pagamento
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+        <CardContent className="space-y-3 p-3 sm:space-y-4 sm:p-6">
+          <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4">
             {/* Total da Mesa */}
-            <div className="text-center p-4 rounded-lg bg-background border">
-              <div className="text-sm text-muted-foreground mb-2">Total da Mesa</div>
-              <div className="break-words text-2xl font-bold text-primary sm:text-3xl">
+            <div className="rounded-lg border bg-background p-3 text-center sm:p-4">
+              <div className="mb-1 text-xs text-muted-foreground sm:mb-2 sm:text-sm">Total da Mesa</div>
+              <div className="break-words text-xl font-bold text-primary sm:text-3xl">
                 {formatKwanza(totalAmount)}
               </div>
             </div>
 
             {/* Total Pendente */}
             <div className={cn(
-              "text-center p-4 rounded-lg border",
+              "rounded-lg border p-3 text-center sm:p-4",
               isPaymentComplete 
                 ? "bg-green-50 dark:bg-green-950 border-green-500" 
                 : "bg-background"
             )}>
-              <div className="text-sm text-muted-foreground mb-2">
+              <div className="mb-1 text-xs text-muted-foreground sm:mb-2 sm:text-sm">
                 {isPaymentComplete ? "Pendente (Pago)" : "Pendente"}
               </div>
               <div className={cn(
-                "break-words text-2xl font-bold sm:text-3xl",
+                "break-words text-xl font-bold sm:text-3xl",
                 isPaymentComplete ? "text-green-600" : "text-orange-600"
               )}>
                 {formatKwanza(totalUnpaid)}
@@ -462,7 +462,7 @@ export function PaymentSection({
 
           {/* Status por Pessoa */}
           <Separator />
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-green-600" />
               <span className="text-sm">{paidGuests} pessoas pagaram</span>
@@ -478,22 +478,22 @@ export function PaymentSection({
       </Card>
 
       {/* Opções de Pagamento */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-2 sm:gap-4 md:grid-cols-3">
         {/* ✅ SOLUÇÃO 4: Checkout Rápido */}
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-green-500">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-green-600" />
+        <Card className="min-w-0 cursor-pointer border-2 transition-shadow hover:border-green-500 hover:shadow-lg">
+          <CardHeader className="p-3 sm:p-6">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Zap className="h-4 w-4 shrink-0 text-green-600 sm:h-5 sm:w-5" />
               Checkout Rápido
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <p className="mb-3 text-xs text-muted-foreground sm:mb-4 sm:text-sm">
               Processar pagamento sem sair do diálogo
             </p>
             <Button 
               onClick={() => setShowQuickCheckout(true)}
-              className="w-full bg-green-600 hover:bg-green-700"
+              className="h-11 w-full bg-green-600 hover:bg-green-700 sm:h-10"
               size="lg"
                disabled={paymentsBlocked || totalUnpaid <= 0}
             >
@@ -504,20 +504,20 @@ export function PaymentSection({
         </Card>
 
         {/* Pagamento Total */}
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-primary">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Receipt className="w-5 h-5" />
+        <Card className="min-w-0 cursor-pointer border-2 transition-shadow hover:border-primary hover:shadow-lg">
+          <CardHeader className="p-3 sm:p-6">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Receipt className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
               Checkout Completo
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <p className="mb-3 text-xs text-muted-foreground sm:mb-4 sm:text-sm">
               Wizard completo com ajustes e cupons
             </p>
             <Button 
                onClick={handleGoToCheckout}
-              className="w-full"
+              className="h-11 w-full sm:h-10"
               size="lg"
               variant="outline"
                disabled={paymentsBlocked}
@@ -529,20 +529,20 @@ export function PaymentSection({
         </Card>
 
         {/* Dividir Conta */}
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-primary">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Split className="w-5 h-5" />
+        <Card className="min-w-0 cursor-pointer border-2 transition-shadow hover:border-primary hover:shadow-lg">
+          <CardHeader className="p-3 sm:p-6">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Split className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
               Dividir Conta
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <p className="mb-3 text-xs text-muted-foreground sm:mb-4 sm:text-sm">
               Dividir pagamento entre pessoas
             </p>
             <Button 
                onClick={handleSplitBill}
-              className="w-full"
+              className="h-11 w-full sm:h-10"
               size="lg"
               variant="outline"
                disabled={paymentsBlocked}
@@ -575,14 +575,14 @@ export function PaymentSection({
                 return (
                   <div 
                     key={og.guest.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                    className="flex flex-col gap-2 rounded-lg bg-muted/50 p-2.5 sm:flex-row sm:items-center sm:justify-between sm:p-3"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Users className="w-5 h-5 text-primary" />
+                    <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 sm:h-10 sm:w-10">
+                        <Users className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
                       </div>
-                      <div>
-                        <div className="font-semibold">
+                      <div className="min-w-0">
+                        <div className="break-words text-sm font-semibold sm:text-base">
                           {og.guest.name || `Cliente ${og.guest.guestNumber}`}
                         </div>
                         <div className="text-xs text-muted-foreground">
@@ -590,9 +590,9 @@ export function PaymentSection({
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:justify-end sm:gap-3">
                       <div className="text-right">
-                        <div className="font-bold text-lg">
+                        <div className="break-words text-base font-bold sm:text-lg">
                           {formatKwanza(guestTotal)}
                         </div>
                       </div>
@@ -624,7 +624,7 @@ export function PaymentSection({
             ? "border-green-500 bg-green-50 dark:bg-green-950/20"
             : "border-orange-500/50 bg-orange-50/50 dark:bg-orange-950/20"
         )}>
-          <CardHeader>
+          <CardHeader className="p-3 sm:p-6">
             <CardTitle className={cn(
               "flex items-center gap-2",
               isPaymentComplete ? "text-green-700 dark:text-green-300" : "text-orange-700 dark:text-orange-300"
@@ -642,7 +642,7 @@ export function PaymentSection({
               )}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 p-3 sm:space-y-4 sm:p-6">
             {isPaymentComplete ? (
               <>
                 <p className="text-sm text-muted-foreground">

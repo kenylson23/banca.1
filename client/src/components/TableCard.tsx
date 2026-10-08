@@ -89,9 +89,9 @@ export function TableCard({ table, onClick, onShowQrCode, onDelete }: TableCardP
       onClick={onClick}
       data-testid={`table-card-${table.id}`}
     >
-      <CardHeader className="flex min-w-0 flex-row items-center justify-between gap-2 pb-3">
+      <CardHeader className="flex min-w-0 flex-row items-center justify-between gap-2 p-3 pb-2 sm:p-6 sm:pb-3">
         <div className="flex min-w-0 items-center gap-2">
-          <CardTitle className="text-lg">Mesa {table.number}</CardTitle>
+          <CardTitle className="text-base sm:text-lg">Mesa {table.number}</CardTitle>
           <div className={`h-2.5 w-2.5 rounded-full ${statusConfig.color}`} />
         </div>
         <Button
@@ -102,12 +102,12 @@ export function TableCard({ table, onClick, onShowQrCode, onDelete }: TableCardP
             onShowQrCode(table);
           }}
           data-testid={`button-show-qr-${table.id}`}
-          className="h-8 w-8"
+          className="h-11 w-11 sm:h-8 sm:w-8"
         >
           <QrCode className="h-4 w-4" weight="duotone" />
         </Button>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-2 p-3 pt-0 sm:space-y-3 sm:p-6 sm:pt-0">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-1">
           <Badge className={statusConfig.badgeColor} data-testid={`status-${table.id}`}>
             {statusConfig.label}
@@ -142,7 +142,7 @@ export function TableCard({ table, onClick, onShowQrCode, onDelete }: TableCardP
 
         {table.status !== 'livre' && (
           <>
-            <div className="space-y-2 text-sm">
+            <div className="space-y-1.5 text-xs sm:space-y-2 sm:text-sm">
               {table.customerName && (
                 <div className="flex min-w-0 items-center gap-2">
                   <UsersThree className="h-4 w-4 text-muted-foreground flex-shrink-0" weight="duotone" />
@@ -191,12 +191,12 @@ export function TableCard({ table, onClick, onShowQrCode, onDelete }: TableCardP
         )}
 
         {table.status === 'livre' && (
-          <div className="text-sm text-muted-foreground text-center py-2">
+          <div className="py-1 text-xs text-muted-foreground text-center sm:py-2 sm:text-sm">
             <div>Mesa disponível</div>
             {table.capacity && (
               <div className="flex items-center justify-center gap-1 mt-1">
                 <UsersThree className="h-3 w-3" weight="duotone" />
-                <span className="text-xs">Capacidade: {table.capacity} pessoas</span>
+                <span className="text-[11px] sm:text-xs">Capacidade: {table.capacity} pessoas</span>
               </div>
             )}
           </div>
@@ -206,7 +206,7 @@ export function TableCard({ table, onClick, onShowQrCode, onDelete }: TableCardP
           <Button
             variant="ghost"
             size="sm"
-            className="w-full text-destructive hover:text-destructive"
+            className="h-11 w-full text-destructive hover:text-destructive sm:h-9"
             onClick={(e) => {
               e.stopPropagation();
               onDelete(table);
@@ -221,7 +221,7 @@ export function TableCard({ table, onClick, onShowQrCode, onDelete }: TableCardP
         <Button
           variant={table.status === 'livre' ? 'default' : 'outline'}
           size="sm"
-          className="w-full"
+          className="h-11 w-full sm:h-9"
           onClick={(e) => {
             e.stopPropagation();
             onClick();
