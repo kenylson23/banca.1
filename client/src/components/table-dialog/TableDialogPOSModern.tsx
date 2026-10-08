@@ -916,15 +916,15 @@ export function TableDialogPOSModern({
            {/* MAIN CONTENT AREA */}
            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
              {/* Mobile Navigation */}
-              <div className="shrink-0 border-b border-border bg-card px-2 py-2 lg:hidden">
-                <div className="flex items-center gap-1 overflow-x-auto overscroll-x-contain pb-1">
+              <div className="w-full min-w-0 shrink-0 border-b border-border bg-card px-2 py-2 lg:hidden">
+                <div className="grid w-full min-w-0 grid-cols-3 gap-1 sm:grid-cols-4">
                  {navigationItems.map((item) => (
                    <Button
                      key={item.id}
                      variant={activeSection === item.id ? 'default' : 'ghost'}
                      size="sm"
                      onClick={() => setActiveSection(item.id)}
-                      className="h-11 min-w-max shrink-0 gap-1.5 whitespace-nowrap px-3"
+                      className="h-auto min-h-11 min-w-0 flex-col gap-1 whitespace-normal px-1 py-2 text-center text-[11px] leading-tight"
                    >
                      {item.icon}
                      <span className="text-xs">{item.label}</span>
@@ -934,10 +934,10 @@ export function TableDialogPOSModern({
              </div>
 
              {/* Top Bar - Actions & Navigation */}
-             <div className="shrink-0 border-b border-border bg-card px-3 py-2 sm:px-4 sm:py-3">
-               <div className="flex min-w-0 flex-col gap-3">
+              <div className="w-full min-w-0 shrink-0 border-b border-border bg-card px-3 py-2 sm:px-4 sm:py-3">
+                <div className="flex min-w-0 flex-col gap-3">
                 {/* Top actions row */}
-                 <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
                   <Button 
                     variant="default" 
                     size="sm" 
@@ -985,7 +985,7 @@ export function TableDialogPOSModern({
                     <div className="hidden flex-1 sm:block" />
                    
                    {/* Right side */}
-                  <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+                   <div className="flex shrink-0 items-center gap-1 sm:gap-2">
                     {allTables.length > 1 && (
                       <>
                         <Button
@@ -1353,12 +1353,12 @@ export function TableDialogPOSModern({
             <div className="shrink-0 border-t border-border bg-card px-3 py-3 sm:px-6 sm:py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 {/* Left - Summary */}
-                <div className="flex flex-wrap items-center gap-3 sm:gap-6">
+                <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-6">
                   <div>
                     <div className="text-xs text-muted-foreground">
                       Total da Mesa
                     </div>
-                    <div className="text-xl sm:text-2xl font-bold text-success">
+                    <div className="min-w-0 break-words text-lg font-bold text-success sm:text-2xl">
                       {formatKwanza(currentTotalAmount)}
                     </div>
                   </div>

@@ -19805,6 +19805,11 @@ async function registerRoutes(app2) {
       const ingredient = await storage.addRecipeIngredient(currentUser.restaurantId, data);
       res.json(ingredient);
     } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "23505" && "constraint" in error && error.constraint === "recipe_ingredients_menu_inventory_idx") {
+        return res.status(409).json({
+          message: "Este ingrediente j\xE1 foi adicionado \xE0 receita"
+        });
+      }
       console.error("Error adding ingredient:", error);
       res.status(500).json({ message: "Erro ao adicionar ingrediente" });
     }

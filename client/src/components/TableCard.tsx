@@ -85,12 +85,12 @@ export function TableCard({ table, onClick, onShowQrCode, onDelete }: TableCardP
 
   return (
     <Card
-      className="hover-elevate active-elevate-2 cursor-pointer transition-all"
+      className="min-w-0 hover-elevate active-elevate-2 cursor-pointer transition-all"
       onClick={onClick}
       data-testid={`table-card-${table.id}`}
     >
-      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
-        <div className="flex items-center gap-2">
+      <CardHeader className="flex min-w-0 flex-row items-center justify-between gap-2 pb-3">
+        <div className="flex min-w-0 items-center gap-2">
           <CardTitle className="text-lg">Mesa {table.number}</CardTitle>
           <div className={`h-2.5 w-2.5 rounded-full ${statusConfig.color}`} />
         </div>
@@ -108,7 +108,7 @@ export function TableCard({ table, onClick, onShowQrCode, onDelete }: TableCardP
         </Button>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex items-center justify-between flex-wrap gap-1">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-1">
           <Badge className={statusConfig.badgeColor} data-testid={`status-${table.id}`}>
             {statusConfig.label}
           </Badge>
@@ -144,7 +144,7 @@ export function TableCard({ table, onClick, onShowQrCode, onDelete }: TableCardP
           <>
             <div className="space-y-2 text-sm">
               {table.customerName && (
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 items-center gap-2">
                   <UsersThree className="h-4 w-4 text-muted-foreground flex-shrink-0" weight="duotone" />
                   <span className="truncate">{table.customerName}</span>
                   {table.customerCount && table.customerCount > 0 && (
@@ -167,7 +167,7 @@ export function TableCard({ table, onClick, onShowQrCode, onDelete }: TableCardP
               {table.totalAmount && parseFloat(table.totalAmount) > 0 && (
                 <div className="flex items-center gap-2">
                   <CurrencyCircleDollar className="h-4 w-4 text-muted-foreground flex-shrink-0" weight="duotone" />
-                  <span className="font-semibold text-primary">
+                  <span className="min-w-0 break-words font-semibold text-primary">
                     {formatKwanza(table.totalAmount)}
                   </span>
                 </div>

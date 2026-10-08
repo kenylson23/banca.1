@@ -23,10 +23,10 @@ export default function Tables() {
   const totalTables = tables.length;
 
   return (
-    <div className="space-y-8 p-6 sm:p-6">
+      <div className="w-full min-w-0 space-y-8 p-4 sm:p-6">
       <div className="space-y-2">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Controle de Mesas</h1>
-        <p className="text-base text-muted-foreground">
+        <h1 className="break-words text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-4xl">Controle de Mesas</h1>
+        <p className="text-sm text-muted-foreground sm:text-base">
           Gerencie mesas em tempo real - ocupação, pedidos e pagamentos
         </p>
       </div>

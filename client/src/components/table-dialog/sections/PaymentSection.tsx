@@ -408,11 +408,11 @@ export function PaymentSection({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Total da Mesa */}
             <div className="text-center p-4 rounded-lg bg-background border">
               <div className="text-sm text-muted-foreground mb-2">Total da Mesa</div>
-              <div className="text-3xl font-bold text-primary">
+              <div className="break-words text-2xl font-bold text-primary sm:text-3xl">
                 {formatKwanza(totalAmount)}
               </div>
             </div>
@@ -428,7 +428,7 @@ export function PaymentSection({
                 {isPaymentComplete ? "Pendente (Pago)" : "Pendente"}
               </div>
               <div className={cn(
-                "text-3xl font-bold",
+                "break-words text-2xl font-bold sm:text-3xl",
                 isPaymentComplete ? "text-green-600" : "text-orange-600"
               )}>
                 {formatKwanza(totalUnpaid)}

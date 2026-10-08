@@ -372,10 +372,10 @@ export function TablesPanel() {
   }, [tables, toast]);
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 space-y-6">
       {/* Botão de criar mesa - sempre visível */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-background">
-        <div className="flex flex-col sm:flex-row gap-4 flex-1">
+      <div className="flex min-w-0 flex-col gap-4 bg-background">
+        <div className="flex min-w-0 flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
           <Button 
             data-testid="button-scan-qr-table" 
             onClick={() => setIsQrScannerOpen(true)}
@@ -562,7 +562,7 @@ export function TablesPanel() {
           </DialogContent>
         </Dialog>
         
-        <div className="relative flex-1 max-w-md">
+        <div className="relative w-full min-w-0 max-w-md md:flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por mesa, cliente ou área..."
@@ -573,7 +573,7 @@ export function TablesPanel() {
           />
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex w-full min-w-0 items-center justify-between gap-2 md:w-auto md:justify-start">
           <div className="flex items-center space-x-2">
             <input
               type="checkbox"
@@ -623,8 +623,8 @@ export function TablesPanel() {
 
       {/* KPIs Dashboard */}
       <div className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <Card>
+        <div className="grid grid-cols-1 gap-4 min-[375px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+          <Card className="min-w-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Mesas Livres</CardTitle>
             </CardHeader>
@@ -632,7 +632,7 @@ export function TablesPanel() {
               <div className="text-2xl font-bold text-green-600" data-testid="kpi-free-count">{statusCounts.livre}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="min-w-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Mesas Ocupadas</CardTitle>
             </CardHeader>
@@ -640,7 +640,7 @@ export function TablesPanel() {
               <div className="text-2xl font-bold text-red-600" data-testid="kpi-occupied-count">{occupiedTables.length}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="min-w-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Com Pedidos</CardTitle>
             </CardHeader>
@@ -648,7 +648,7 @@ export function TablesPanel() {
               <div className="text-2xl font-bold text-blue-500" data-testid="kpi-with-orders">{tablesWithDigitalOrders.length}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="min-w-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Aguardando Pagamento</CardTitle>
             </CardHeader>
@@ -656,12 +656,12 @@ export function TablesPanel() {
               <div className="text-2xl font-bold text-orange-500" data-testid="kpi-awaiting-payment">{tablesAwaitingPayment.length}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="min-w-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total em Aberto</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-emerald-600" data-testid="kpi-total-revenue">
+              <div className="break-words text-lg font-bold text-emerald-600 sm:text-2xl" data-testid="kpi-total-revenue">
                 {totalRevenue.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
               </div>
             </CardContent>
@@ -669,8 +669,8 @@ export function TablesPanel() {
         </div>
 
         {/* Analytics Avançados */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
+        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-3">
+          <Card className="min-w-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Ticket Médio</CardTitle>
             </CardHeader>
@@ -680,7 +680,7 @@ export function TablesPanel() {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="min-w-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Taxa de Ocupação</CardTitle>
             </CardHeader>
@@ -690,7 +690,7 @@ export function TablesPanel() {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="min-w-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Tempo Médio</CardTitle>
             </CardHeader>
@@ -703,7 +703,7 @@ export function TablesPanel() {
         </div>
       </div>
 
-      <div className="flex justify-center mb-6">
+      <div className="flex w-full min-w-0 justify-center mb-6">
         <TubelightNavBar
           items={navItems}
           activeItem={
@@ -714,16 +714,16 @@ export function TablesPanel() {
             'Aguardando'
           }
           onItemClick={handleNavClick}
-          className="relative"
+          className="relative max-w-full min-w-0"
         />
       </div>
 
       <div className="space-y-4">
         {areas.length > 0 && (
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             <span className="text-sm font-medium text-muted-foreground">Filtrar por área:</span>
             <Select value={areaFilter} onValueChange={setAreaFilter}>
-              <SelectTrigger className="w-[200px]" data-testid="select-area-filter">
+              <SelectTrigger className="w-full min-w-0 sm:w-[200px]" data-testid="select-area-filter">
                 <SelectValue placeholder="Todas as áreas" />
               </SelectTrigger>
               <SelectContent>
@@ -785,8 +785,8 @@ export function TablesPanel() {
                        onClick={() => setSelectedTable(table)}
                      >
                        <CardContent className="p-4">
-                         <div className="flex items-center justify-between">
-                           <div className="flex items-center gap-4 flex-1">
+                  <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
                              <div className="font-semibold text-lg">Mesa {table.number}</div>
                              <Badge variant={
                                table.status === 'livre' ? 'secondary' :
@@ -811,9 +811,9 @@ export function TablesPanel() {
                                </span>
                              )}
                            </div>
-                           <div className="flex items-center gap-2">
+                            <div className="flex min-w-0 flex-wrap items-center gap-2 sm:shrink-0">
                              {table.totalAmount && parseFloat(table.totalAmount) > 0 && (
-                               <div className="text-lg font-bold text-green-600">
+                                <div className="min-w-0 break-words text-base font-bold text-green-600 sm:text-lg">
                                  {parseFloat(table.totalAmount).toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })}
                                </div>
                              )}
@@ -848,11 +848,11 @@ export function TablesPanel() {
                  </div>
               ) : (
                 // Map View
-                <div className="relative bg-muted/30 rounded-lg p-8 min-h-[600px] border-2 border-dashed">
+                <div className="relative min-w-0 rounded-lg border-2 border-dashed bg-muted/30 p-4 sm:min-h-[600px] sm:p-8">
                   <div className="absolute top-4 left-4 text-sm text-muted-foreground bg-background px-3 py-1 rounded-md shadow">
                     Vista do Layout
                   </div>
-                  <div className="grid grid-cols-8 gap-4 h-full">
+                  <div className="grid h-full min-w-0 grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8 sm:gap-4">
                     {areaTables.map((table) => {
                       const getStatusColor = () => {
                         if (table.status === 'livre') return 'bg-green-100 border-green-400 hover:bg-green-200';

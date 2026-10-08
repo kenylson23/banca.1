@@ -316,13 +316,13 @@ function HeaderContent({
       `}
       role="banner"
     >
-      <div className="flex items-center justify-between h-16 px-6">
+      <div className="flex items-center justify-between h-16 gap-2 px-3 sm:px-6">
         {/* Left Section - Trigger & Breadcrumb */}
-        <div className="flex items-center gap-4 flex-1 min-w-0">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
           <MenuToggle />
           
           {/* Breadcrumb Navigation */}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-0">
+          <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
             <span className="font-medium text-foreground hidden sm:inline">Na Bancada</span>
             <ChevronRight className="h-4 w-4 shrink-0 hidden sm:inline" />
             <span className="font-medium text-foreground truncate">{getSectionTitle()}</span>
