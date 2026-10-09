@@ -117,7 +117,9 @@ export default function PDV() {
     const total = allTypeOrders.length;
     const pendente = allTypeOrders.filter(o => o.status === "pendente").length;
     const emCurso = allTypeOrders.filter(o => o.status === "em_preparo" || o.status === "pronto").length;
-    const revenue = allTypeOrders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
+    const revenue = allTypeOrders
+      .filter(order => order.paymentStatus === 'pago' && order.status !== 'cancelado')
+      .reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
     
     return { total, pendente, emCurso, revenue };
   };

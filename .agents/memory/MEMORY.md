@@ -1,6 +1,7 @@
 - [Anonymous auth requests](anonymous-auth-requests.md) — unauthenticated user lookups should resolve to an anonymous state, not surface a console error.
 - [Replit Vite HMR proxy](replit-vite-hmr.md) — the proxied preview may not support the development WebSocket reliably; prefer a clean fallback over repeated console failures.
 - [Table payment source of truth](table-payment-source.md) — reconcile session totals from active orders and table payments, not stale guest subtotals alone.
+- [Realized-order accounting](realized-order-accounting.md) — sales revenue and financial sales metrics include fully paid orders only, including when reading historical data.
 - [Separate frontend/backend deployment](separate-frontend-backend-deploy.md) — cross-domain API calls need one base URL, an explicit CORS allowlist, and secure cross-site session cookies.
 - [Backend media and migrations](backend-media-and-migrations.md) — API-only deploys must own uploaded media, and startup migrations must follow actual table/column dependencies.
 - [Node runtime path compatibility](node-runtime-path-compatibility.md) — Railway may run Node 18; avoid relying on `import.meta.dirname` in deployable ESM code.

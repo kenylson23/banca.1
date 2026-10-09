@@ -34,6 +34,7 @@ type OrderReport = {
   table: { number: number } | null;
   orderType: string;
   status: string;
+  paymentStatus: string;
   totalAmount: string;
   orderItems: any[];
   orderNotes?: string;
@@ -250,8 +251,9 @@ export default function Reports() {
 
   // Aggregate stats from reports
   const aggregateStats = useMemo(() => {
-    const totalSales = ordersReport?.reduce((sum, order) => sum + parseFloat(order.totalAmount), 0) || 0;
-    const totalOrders = ordersReport?.length || 0;
+    const paidOrders = ordersReport?.filter(order => order.paymentStatus === 'pago') || [];
+    const totalSales = paidOrders.reduce((sum, order) => sum + parseFloat(order.totalAmount), 0);
+    const totalOrders = paidOrders.length;
     const avgTicket = totalOrders > 0 ? totalSales / totalOrders : 0;
     const completionRate = parseFloat(performanceReport?.completionRate || "0");
 

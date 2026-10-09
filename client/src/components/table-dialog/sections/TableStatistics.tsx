@@ -24,10 +24,13 @@ interface TableStatisticsProps {
     endedAt: string | null;
     customerCount: number | null;
     totalAmount: string;
+    paidAmount?: string;
+    paymentStatus?: string;
     status: string;
   }>;
   payments: Array<{
     id: string;
+    sessionId: string;
     amount: string;
     paymentMethod: string;
     createdAt: string;
@@ -43,15 +46,37 @@ export function TableStatistics({ sessions, payments }: TableStatisticsProps) {
     // Total de sessões (usar completadas se existirem, senão todas)
     const sessionsToAnalyze = completedSessions.length > 0 ? completedSessions : sessions;
     const totalSessions = sessionsToAnalyze.length;
-    
-    // Receita total
-    const totalRevenue = sessionsToAnalyze.reduce(
-      (sum, s) => sum + parseFloat(s.totalAmount || '0'), 
-      0
-    );
+    const analyzedSessionIds = new Set(sessionsToAnalyze.map(session => session.id));
+    const paymentsToAnalyze = payments.filter(payment => analyzedSessionIds.has(payment.sessionId));
+    const paymentsBySession = new Map<string, { amount: number; count: number }>();
+    paymentsToAnalyze.forEach(payment => {
+      const existing = paymentsBySession.get(payment.sessionId) || { amount: 0, count: 0 };
+      existing.amount += parseFloat(payment.amount || '0');
+      existing.count++;
+      paymentsBySession.set(payment.sessionId, existing);
+    });
+
+    // Prefer recorded payments; fall back to the session's paid amount for
+    // legacy sessions that lack payment rows. Never use the bill total unless
+    // the session itself is marked fully paid.
+    const revenueBySession = new Map(sessionsToAnalyze.map(session => {
+      const paymentRecords = paymentsBySession.get(session.id);
+      const recordedAmount = paymentRecords?.count
+        ? paymentRecords.amount
+        : parseFloat(session.paidAmount || '0');
+      const amount = paymentRecords?.count || recordedAmount > 0
+        ? recordedAmount
+        : session.paymentStatus === 'pago'
+          ? parseFloat(session.totalAmount || '0')
+          : 0;
+      return [session.id, amount] as const;
+    }));
+    const revenueAmounts = Array.from(revenueBySession.values());
+    const totalRevenue = revenueAmounts.reduce((sum, amount) => sum + amount, 0);
+    const sessionsWithPayments = revenueAmounts.filter(amount => amount > 0).length;
     
     // Ticket médio
-    const avgTicket = totalSessions > 0 ? totalRevenue / totalSessions : 0;
+    const avgTicket = sessionsWithPayments > 0 ? totalRevenue / sessionsWithPayments : 0;
     
     // Duração média das sessões
     const totalDuration = sessionsToAnalyze.reduce((sum, s) => {
@@ -72,7 +97,7 @@ export function TableStatistics({ sessions, payments }: TableStatisticsProps) {
     const avgPeopleCount = totalSessions > 0 ? (totalPeople / totalSessions).toFixed(1) : '0';
     
     // Método de pagamento mais usado
-    const paymentMethods = payments.reduce((acc, p) => {
+    const paymentMethods = paymentsToAnalyze.reduce((acc, p) => {
       if (p.paymentMethod) {
         acc[p.paymentMethod] = (acc[p.paymentMethod] || 0) + 1;
       }
@@ -100,8 +125,8 @@ export function TableStatistics({ sessions, payments }: TableStatisticsProps) {
       ? methodLabels[mostUsedMethod[0]] || mostUsedMethod[0]
       : 'N/A';
     
-    const mostUsedMethodPercent = mostUsedMethod && payments.length > 0
-      ? Math.round((mostUsedMethod[1] / payments.length) * 100)
+    const mostUsedMethodPercent = mostUsedMethod && paymentsToAnalyze.length > 0
+      ? Math.round((mostUsedMethod[1] / paymentsToAnalyze.length) * 100)
       : 0;
     
     return {

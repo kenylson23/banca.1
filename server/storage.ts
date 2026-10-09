@@ -187,6 +187,7 @@ import { eq, desc, sql, and, gte, gt, or, isNull, isNotNull, inArray, ne, lt } f
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import { alias } from "drizzle-orm/pg-core";
 import { canUsePlanLimit } from "@shared/planAccess";
+import { isOrderPaid } from "@shared/calculations";
 import { nanoid } from "nanoid";
 
 export const NO_OPEN_CASH_REGISTER_MESSAGE =
@@ -4402,8 +4403,8 @@ export class DatabaseStorage implements IStorage {
     if (branchId) {
       todayStatsQuery = await db
         .select({
-          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
+          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado' AND ${orders.paymentStatus} = 'pago') as int)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND ${orders.paymentStatus} = 'pago' AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
           cancelledOrders: sql<number>`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
           cancelledRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
         })
@@ -4417,8 +4418,8 @@ export class DatabaseStorage implements IStorage {
     } else {
       todayStatsQuery = await db
         .select({
-          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
+          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado' AND ${orders.paymentStatus} = 'pago') as int)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND ${orders.paymentStatus} = 'pago' AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
           cancelledOrders: sql<number>`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
           cancelledRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
         })
@@ -4440,8 +4441,8 @@ export class DatabaseStorage implements IStorage {
     if (branchId) {
       yesterdayStatsQuery = await db
         .select({
-          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
+          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado' AND ${orders.paymentStatus} = 'pago') as int)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND ${orders.paymentStatus} = 'pago' AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
         })
         .from(orders)
         .leftJoin(tables, eq(orders.tableId, tables.id))
@@ -4454,8 +4455,8 @@ export class DatabaseStorage implements IStorage {
     } else {
       yesterdayStatsQuery = await db
         .select({
-          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
+          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado' AND ${orders.paymentStatus} = 'pago') as int)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND ${orders.paymentStatus} = 'pago' AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
         })
         .from(orders)
         .where(and(
@@ -4508,7 +4509,7 @@ export class DatabaseStorage implements IStorage {
       ? (todayCancelledOrders / totalOrdersIncludingCancelled) * 100
       : 0;
 
-    // Get today's order IDs for top dishes (only non-cancelled orders)
+    // Get paid, non-cancelled order IDs for top dishes.
     let todayOrderIdsQuery;
     if (branchId) {
       todayOrderIdsQuery = await db
@@ -4519,6 +4520,7 @@ export class DatabaseStorage implements IStorage {
           eq(orders.restaurantId, restaurantId),
           eq(orders.branchId, branchId),
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
+          eq(orders.paymentStatus, 'pago'),
           gte(orders.createdAt, today)
         ));
     } else {
@@ -4528,6 +4530,7 @@ export class DatabaseStorage implements IStorage {
         .where(and(
           eq(orders.restaurantId, restaurantId),
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
+          eq(orders.paymentStatus, 'pago'),
           gte(orders.createdAt, today)
         ));
     }
@@ -4603,8 +4606,8 @@ export class DatabaseStorage implements IStorage {
     if (branchId) {
       periodStatsQuery = await db
         .select({
-          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
+          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado' AND ${orders.paymentStatus} = 'pago') as int)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND ${orders.paymentStatus} = 'pago' AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
           cancelledOrders: sql<number>`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
           cancelledRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
         })
@@ -4619,8 +4622,8 @@ export class DatabaseStorage implements IStorage {
     } else {
       periodStatsQuery = await db
         .select({
-          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado') as int)`,
-          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
+          completedOrders: sql<number>`cast(count(*) filter (where ${orders.status} IS DISTINCT FROM 'cancelado' AND ${orders.paymentStatus} = 'pago') as int)`,
+          completedRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} IS DISTINCT FROM 'cancelado') AND ${orders.paymentStatus} = 'pago' AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
           cancelledOrders: sql<number>`cast(count(*) filter (where ${orders.status} = 'cancelado') as int)`,
           cancelledRevenue: sql<string>`cast(coalesce(sum(case when (${orders.status} = 'cancelado') AND (${orders.totalAmount} IS NOT NULL) then ${orders.totalAmount} else 0 end), 0) as text)`,
         })
@@ -4646,7 +4649,7 @@ export class DatabaseStorage implements IStorage {
       ? (periodCancelledOrders / totalOrdersIncludingCancelled) * 100
       : 0;
 
-    // Get order IDs for top dishes (only non-cancelled orders)
+    // Get paid, non-cancelled order IDs for top dishes.
     let orderIdsQuery;
     if (branchId) {
       orderIdsQuery = await db
@@ -4657,6 +4660,7 @@ export class DatabaseStorage implements IStorage {
           eq(orders.restaurantId, restaurantId),
           eq(orders.branchId, branchId),
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
+          eq(orders.paymentStatus, 'pago'),
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
@@ -4667,6 +4671,7 @@ export class DatabaseStorage implements IStorage {
         .where(and(
           eq(orders.restaurantId, restaurantId),
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
+          eq(orders.paymentStatus, 'pago'),
           gte(orders.createdAt, periodStart),
           sql`${orders.createdAt} <= ${periodEnd}`
         ));
@@ -4746,6 +4751,7 @@ export class DatabaseStorage implements IStorage {
             eq(orders.restaurantId, restaurantId),
             eq(orders.branchId, branchId),
             sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
+            eq(orders.paymentStatus, 'pago'),
             gte(orders.createdAt, dayStart),
             sql`${orders.createdAt} <= ${dayEnd}`
           ));
@@ -4757,6 +4763,7 @@ export class DatabaseStorage implements IStorage {
           .where(and(
             eq(orders.restaurantId, restaurantId),
             sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
+            eq(orders.paymentStatus, 'pago'),
             gte(orders.createdAt, dayStart),
             sql`${orders.createdAt} <= ${dayEnd}`
           ));
@@ -4986,7 +4993,8 @@ export class DatabaseStorage implements IStorage {
     const periodOrders = periodOrdersData.map((row: { orders: Order; tables: Table | null }) => row.orders);
 
     const totalOrders = periodOrders.length;
-    const totalRevenue = periodOrders.reduce(
+    const paidOrders = periodOrders.filter(isOrderPaid);
+    const totalRevenue = paidOrders.reduce(
       (sum: number, order: Order) => sum + parseFloat(order.totalAmount),
       0
     );
@@ -4994,10 +5002,10 @@ export class DatabaseStorage implements IStorage {
     // Calculate days in period
     const daysInPeriod = Math.max(1, Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)));
     const averageOrdersPerDay = totalOrders / daysInPeriod;
-    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    const averageOrderValue = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
 
-    // Get top dishes for the period
-    const orderIds = periodOrders.map((o: Order) => o.id);
+    // Count products as sold only when the whole order is paid.
+    const orderIds = paidOrders.map((o: Order) => o.id);
     
     let topDishes: Array<{
       menuItem: MenuItem;
@@ -5060,7 +5068,10 @@ export class DatabaseStorage implements IStorage {
     const allOrders = await db
       .select()
       .from(orders)
-      .where(ne(orders.status, 'cancelado'));
+      .where(and(
+        ne(orders.status, 'cancelado'),
+        eq(orders.paymentStatus, 'pago')
+      ));
     const totalRevenue = allOrders.reduce(
       (sum: number, order: Order) => sum + parseFloat(order.totalAmount),
       0
@@ -5087,7 +5098,10 @@ export class DatabaseStorage implements IStorage {
     const allOrders = await db
       .select()
       .from(orders)
-      .where(ne(orders.status, 'cancelado'));
+      .where(and(
+        ne(orders.status, 'cancelado'),
+        eq(orders.paymentStatus, 'pago')
+      ));
 
     const totalOrders = allOrders.length;
     const totalRevenue = allOrders.reduce((sum: number, order: Order) => sum + parseFloat(order.totalAmount), 0);
@@ -5159,7 +5173,10 @@ export class DatabaseStorage implements IStorage {
     topByGrowth: Array<{ restaurant: Restaurant; growthRate: number; currentRevenue: number; previousRevenue: number }>;
   }> {
     const allRestaurants = await this.getRestaurants();
-    const allOrders = await db.select().from(orders).where(ne(orders.status, 'cancelado'));
+    const allOrders = await db.select().from(orders).where(and(
+      ne(orders.status, 'cancelado'),
+      eq(orders.paymentStatus, 'pago')
+    ));
 
     // Top by revenue
     const topByRevenue = allRestaurants.map(restaurant => {
@@ -5230,10 +5247,11 @@ export class DatabaseStorage implements IStorage {
     // Get all restaurant orders
     const restaurantOrders = await db.select().from(orders).where(eq(orders.restaurantId, restaurantId));
     const activeOrders = restaurantOrders.filter((o: Order) => o.status !== 'cancelado');
+    const paidOrders = activeOrders.filter(isOrderPaid);
     const cancelledOrders = restaurantOrders.filter((o: Order) => o.status === 'cancelado');
 
-    const totalOrders = activeOrders.length;
-    const totalRevenue = activeOrders.reduce((sum: number, o: Order) => sum + parseFloat(o.totalAmount), 0);
+    const totalOrders = paidOrders.length;
+    const totalRevenue = paidOrders.reduce((sum: number, o: Order) => sum + parseFloat(o.totalAmount), 0);
     const averageTicket = totalOrders > 0 ? (totalRevenue / totalOrders).toFixed(2) : "0.00";
 
     // Get counts
@@ -5253,7 +5271,7 @@ export class DatabaseStorage implements IStorage {
       const nextDate = new Date(date);
       nextDate.setDate(nextDate.getDate() + 1);
       
-      const dayOrders = activeOrders.filter((o: Order) => {
+      const dayOrders = paidOrders.filter((o: Order) => {
         const orderDate = new Date(o.createdAt!);
         return orderDate >= date && orderDate < nextDate;
       });
@@ -5268,7 +5286,7 @@ export class DatabaseStorage implements IStorage {
 
     // Payment methods analysis
     const paymentMethodsMap = new Map<string, { count: number; total: number }>();
-    activeOrders.forEach((order: Order) => {
+    paidOrders.forEach((order: Order) => {
       const method = order.paymentMethod || 'não especificado';
       const existing = paymentMethodsMap.get(method) || { count: 0, total: 0 };
       paymentMethodsMap.set(method, {
@@ -5291,7 +5309,8 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(menuItems, eq(orderItems.menuItemId, menuItems.id))
       .where(and(
         eq(orders.restaurantId, restaurantId),
-        ne(orders.status, 'cancelado')
+        ne(orders.status, 'cancelado'),
+        eq(orders.paymentStatus, 'pago')
       ));
 
     const productMap = new Map<string, { name: string; quantity: number; revenue: number }>();
@@ -5361,6 +5380,7 @@ export class DatabaseStorage implements IStorage {
       .from(orders)
       .where(and(
         ne(orders.status, 'cancelado'),
+        eq(orders.paymentStatus, 'pago'),
         gte(orders.createdAt, start),
         sql`${orders.createdAt} <= ${end}`
       ));
@@ -5471,6 +5491,7 @@ export class DatabaseStorage implements IStorage {
           eq(orders.restaurantId, restaurantId),
           eq(orders.branchId, branchId),
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
+          eq(orders.paymentStatus, 'pago'),
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${endDate}`
         ));
@@ -5481,6 +5502,7 @@ export class DatabaseStorage implements IStorage {
         .where(and(
           eq(orders.restaurantId, restaurantId),
           sql`${orders.status} IS DISTINCT FROM 'cancelado'`,
+          eq(orders.paymentStatus, 'pago'),
           gte(orders.createdAt, startDate),
           sql`${orders.createdAt} <= ${endDate}`
         ));
@@ -5698,7 +5720,9 @@ export class DatabaseStorage implements IStorage {
           eq(orders.restaurantId, restaurantId),
           eq(orders.branchId, branchId),
           gte(orders.createdAt, startDate),
-          sql`${orders.createdAt} <= ${endDate}`
+          sql`${orders.createdAt} <= ${endDate}`,
+          ne(orders.status, 'cancelado'),
+          eq(orders.paymentStatus, 'pago')
         ));
     } else {
       periodOrdersRaw = await db
@@ -5707,7 +5731,9 @@ export class DatabaseStorage implements IStorage {
         .where(and(
           eq(orders.restaurantId, restaurantId),
           gte(orders.createdAt, startDate),
-          sql`${orders.createdAt} <= ${endDate}`
+          sql`${orders.createdAt} <= ${endDate}`,
+          ne(orders.status, 'cancelado'),
+          eq(orders.paymentStatus, 'pago')
         ));
     }
 
@@ -5846,7 +5872,7 @@ export class DatabaseStorage implements IStorage {
     periodOrdersRaw.forEach((row: any) => {
       const order = row.orders || row;
       const table = row.tables || null;
-      if (table) {
+      if (table && isOrderPaid(order) && order.status !== 'cancelado') {
         const tableNumber = table.number;
         const existing = tableStats.get(tableNumber) || { orders: 0, revenue: 0 };
         existing.orders++;
@@ -6032,8 +6058,9 @@ export class DatabaseStorage implements IStorage {
     const validResults = await validQuery;
     const validOrders = validResults.map((row: any) => row.orders);
 
-    const totalOrders = validOrders.length;
-    const totalRevenue = validOrders.reduce((sum: number, order: Order) => 
+    const paidOrdersList = validOrders.filter(isOrderPaid);
+    const totalOrders = paidOrdersList.length;
+    const totalRevenue = paidOrdersList.reduce((sum: number, order: Order) => 
       sum + parseFloat(order.totalAmount), 0
     );
     const averageTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;

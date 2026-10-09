@@ -14,6 +14,13 @@
 import type { Order, OrderItem } from './schema';
 
 /**
+ * A full order is counted as a realized sale only after it is fully paid.
+ * Keep unpaid and partially paid orders out of sales/revenue metrics.
+ */
+export const isOrderPaid = (order: Pick<Order, 'paymentStatus'>): boolean =>
+  order.paymentStatus === 'pago';
+
+/**
  * Calculate the total price of a single order
  * 
  * Priority:
