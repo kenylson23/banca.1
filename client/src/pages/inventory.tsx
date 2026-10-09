@@ -36,7 +36,6 @@ import { TubelightNavBar } from "@/components/ui/tubelight-navbar";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
 import { AdvancedFilters, FilterOption } from "@/components/advanced-filters";
 import { AdvancedSalesChart } from "@/components/advanced-sales-chart";
@@ -597,26 +596,25 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <ScrollArea className="h-screen">
-        <div className="space-y-4 p-4 sm:p-6">
+    <div className="w-full min-w-0">
+        <div className="mx-auto w-full min-w-0 max-w-[1600px] space-y-4 p-3 sm:p-4 lg:p-6">
           <motion.div 
-            className="space-y-4"
+            className="min-w-0 space-y-4"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-start gap-2 sm:items-center sm:gap-3">
               <Link href="/main-dashboard">
-                <Button variant="ghost" size="icon" data-testid="button-back">
+                <Button variant="ghost" size="icon" className="mt-0.5 shrink-0 sm:mt-0" data-testid="button-back" aria-label="Voltar ao painel">
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
               </Link>
-              <div className="flex flex-col gap-2">
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent" data-testid="text-page-title">
+              <div className="flex min-w-0 flex-col gap-1 sm:gap-2">
+                <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent sm:text-3xl" data-testid="text-page-title">
                   Inventário
                 </h1>
-                <p className="text-sm text-muted-foreground">Gerencie produtos, estoque e movimentações</p>
+                <p className="text-xs text-muted-foreground sm:text-sm">Gerencie produtos, estoque e movimentações</p>
               </div>
             </div>
           </motion.div>
@@ -628,7 +626,7 @@ export default function InventoryPage() {
               ))}
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid min-w-0 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-4">
               <AdvancedKpiCard
                 title="Valor Total do Estoque"
                 value={parseFloat(stats?.totalValue || "0")}
@@ -677,8 +675,8 @@ export default function InventoryPage() {
             </div>
           )}
 
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="lg:col-span-2 space-y-4">
+          <div className="grid min-w-0 gap-4 2xl:grid-cols-3">
+            <div className="min-w-0 space-y-4 2xl:col-span-2">
               <AdvancedFilters
                 quickFilter={quickFilter}
                 onQuickFilterChange={handleQuickFilterChange}
@@ -698,42 +696,75 @@ export default function InventoryPage() {
                 />
               )}
 
-              <div className="flex justify-center mb-6">
-                <TubelightNavBar
-                  className="relative"
-                  items={[
+              <div className="mb-4 w-full min-w-0 sm:mb-6">
+                <div className="grid w-full grid-cols-3 gap-2 md:hidden">
+                  {[
                     { name: "Produtos", url: "#", icon: Package },
                     { name: "Estoque", url: "#", icon: Warehouse },
                     { name: "Movimentações", url: "#", icon: TrendingUp },
-                  ]}
-                  activeItem={
-                    activeTab === "produtos" ? "Produtos" :
-                    activeTab === "estoque" ? "Estoque" :
-                    "Movimentações"
-                  }
-                  onItemClick={(item) => {
-                    const tabValue = 
-                      item.name === "Produtos" ? "produtos" :
-                      item.name === "Estoque" ? "estoque" :
-                      "movimentacoes";
-                    setActiveTab(tabValue);
-                  }}
-                />
+                  ].map((item) => {
+                    const isActive =
+                      (activeTab === "produtos" && item.name === "Produtos") ||
+                      (activeTab === "estoque" && item.name === "Estoque") ||
+                      (activeTab === "movimentacoes" && item.name === "Movimentações");
+                    const Icon = item.icon;
+                    return (
+                      <Button
+                        key={item.name}
+                        type="button"
+                        variant={isActive ? "default" : "outline"}
+                        aria-pressed={isActive}
+                        onClick={() => setActiveTab(
+                          item.name === "Produtos" ? "produtos" :
+                          item.name === "Estoque" ? "estoque" :
+                          "movimentacoes"
+                        )}
+                        className="h-auto min-h-14 min-w-0 flex-col gap-1 whitespace-normal px-1.5 py-2 text-[10px] leading-tight"
+                        data-testid={`inventory-mobile-tab-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span className="break-words text-center">{item.name}</span>
+                      </Button>
+                    );
+                  })}
+                </div>
+                <div className="hidden justify-center md:flex">
+                  <TubelightNavBar
+                    className="relative"
+                    items={[
+                      { name: "Produtos", url: "#", icon: Package },
+                      { name: "Estoque", url: "#", icon: Warehouse },
+                      { name: "Movimentações", url: "#", icon: TrendingUp },
+                    ]}
+                    activeItem={
+                      activeTab === "produtos" ? "Produtos" :
+                      activeTab === "estoque" ? "Estoque" :
+                      "Movimentações"
+                    }
+                    onItemClick={(item) => {
+                      const tabValue =
+                        item.name === "Produtos" ? "produtos" :
+                        item.name === "Estoque" ? "estoque" :
+                        "movimentacoes";
+                      setActiveTab(tabValue);
+                    }}
+                  />
+                </div>
               </div>
 
-              <div>
+              <div className="min-w-0">
                 {activeTab === "produtos" && (
                 <div className="space-y-4">
-                  <div className="flex gap-2">
-                    <Button onClick={() => setNewItemDialog(true)} data-testid="button-new-product">
+                  <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    <Button className="w-full sm:w-auto" onClick={() => setNewItemDialog(true)} data-testid="button-new-product">
                       <Plus className="h-4 w-4 mr-2" />
                       Novo Produto
                     </Button>
-                    <Button variant="outline" onClick={() => setNewCategoryDialog(true)} data-testid="button-new-category">
+                    <Button className="w-full sm:w-auto" variant="outline" onClick={() => setNewCategoryDialog(true)} data-testid="button-new-category">
                       <Plus className="h-4 w-4 mr-2" />
                       Nova Categoria
                     </Button>
-                    <Button variant="outline" onClick={() => setNewUnitDialog(true)} data-testid="button-new-unit">
+                    <Button className="w-full sm:w-auto" variant="outline" onClick={() => setNewUnitDialog(true)} data-testid="button-new-unit">
                       <Plus className="h-4 w-4 mr-2" />
                       Nova Unidade
                     </Button>
@@ -743,71 +774,138 @@ export default function InventoryPage() {
                     <CardHeader>
                       <CardTitle>Produtos</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="min-w-0">
                       {itemsLoading ? (
                         <ShimmerSkeleton className="h-64" />
                       ) : (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Nome</TableHead>
-                              <TableHead>SKU</TableHead>
-                              <TableHead>Categoria</TableHead>
-                              <TableHead>Unidade</TableHead>
-                              <TableHead className="text-right">Preço de Custo</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead className="text-right">Ações</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
+                        <>
+                          <div className="space-y-3 2xl:hidden">
                             {items?.map((item) => (
-                              <TableRow key={item.id} data-testid={`row-product-${item.id}`}>
-                                <TableCell className="font-medium">{item.name}</TableCell>
-                                <TableCell>{item.sku || "-"}</TableCell>
-                                <TableCell>{item.category?.name || "-"}</TableCell>
-                                <TableCell>{item.unit.abbreviation}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(item.costPrice)}</TableCell>
-                                <TableCell>
-                                  {item.isActive === 1 ? (
-                                    <Badge className="bg-green-500">Ativo</Badge>
-                                  ) : (
-                                    <Badge variant="secondary">Inativo</Badge>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex justify-end gap-2">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => handleEditItem(item)}
-                                      data-testid={`button-edit-${item.id}`}
-                                    >
-                                      <Edit2 className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => {
-                                        setSelectedItem(item);
-                                        setDeleteItemDialog(true);
-                                      }}
-                                      data-testid={`button-delete-${item.id}`}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
+                              <Card key={item.id} className="min-w-0 shadow-sm" data-testid={`card-product-${item.id}`}>
+                                <CardContent className="min-w-0 p-3 sm:p-4">
+                                  <div className="flex min-w-0 items-start justify-between gap-2">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                        <h3 className="min-w-0 break-words font-semibold">{item.name}</h3>
+                                        {item.isActive === 1 ? (
+                                          <Badge className="shrink-0 bg-green-500">Ativo</Badge>
+                                        ) : (
+                                          <Badge className="shrink-0" variant="secondary">Inativo</Badge>
+                                        )}
+                                      </div>
+                                      <p className="mt-1 break-words text-xs text-muted-foreground">SKU: {item.sku || "-"}</p>
+                                    </div>
+                                    <div className="flex shrink-0 gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        aria-label={`Editar ${item.name}`}
+                                        onClick={() => handleEditItem(item)}
+                                        data-testid={`button-edit-mobile-${item.id}`}
+                                      >
+                                        <Edit2 className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        aria-label={`Excluir ${item.name}`}
+                                        onClick={() => {
+                                          setSelectedItem(item);
+                                          setDeleteItemDialog(true);
+                                        }}
+                                        data-testid={`button-delete-mobile-${item.id}`}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
                                   </div>
-                                </TableCell>
-                              </TableRow>
+                                  <dl className="mt-3 grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 border-t pt-3 text-sm">
+                                    <div className="min-w-0">
+                                      <dt className="text-xs text-muted-foreground">Categoria</dt>
+                                      <dd className="break-words">{item.category?.name || "-"}</dd>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <dt className="text-xs text-muted-foreground">Unidade</dt>
+                                      <dd className="break-words">{item.unit.abbreviation}</dd>
+                                    </div>
+                                    <div className="col-span-2 min-w-0">
+                                      <dt className="text-xs text-muted-foreground">Preço de Custo</dt>
+                                      <dd className="break-words font-medium">{formatCurrency(item.costPrice)}</dd>
+                                    </div>
+                                  </dl>
+                                </CardContent>
+                              </Card>
                             ))}
-                            {!items || items.length === 0 && (
-                              <TableRow>
-                                <TableCell colSpan={7} className="text-center text-muted-foreground">
-                                  Nenhum produto cadastrado
-                                </TableCell>
-                              </TableRow>
+                            {(!items || items.length === 0) && (
+                              <div className="rounded-lg border px-3 py-8 text-center text-sm text-muted-foreground">
+                                Nenhum produto cadastrado
+                              </div>
                             )}
-                          </TableBody>
-                        </Table>
+                          </div>
+                          <div className="hidden min-w-0 2xl:block">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Nome</TableHead>
+                                  <TableHead>SKU</TableHead>
+                                  <TableHead>Categoria</TableHead>
+                                  <TableHead>Unidade</TableHead>
+                                  <TableHead className="text-right">Preço de Custo</TableHead>
+                                  <TableHead>Status</TableHead>
+                                  <TableHead className="text-right">Ações</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {items?.map((item) => (
+                                  <TableRow key={item.id} data-testid={`row-product-${item.id}`}>
+                                    <TableCell className="font-medium">{item.name}</TableCell>
+                                    <TableCell>{item.sku || "-"}</TableCell>
+                                    <TableCell>{item.category?.name || "-"}</TableCell>
+                                    <TableCell>{item.unit.abbreviation}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(item.costPrice)}</TableCell>
+                                    <TableCell>
+                                      {item.isActive === 1 ? (
+                                        <Badge className="bg-green-500">Ativo</Badge>
+                                      ) : (
+                                        <Badge variant="secondary">Inativo</Badge>
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="flex justify-end gap-2">
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => handleEditItem(item)}
+                                          data-testid={`button-edit-${item.id}`}
+                                        >
+                                          <Edit2 className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => {
+                                            setSelectedItem(item);
+                                            setDeleteItemDialog(true);
+                                          }}
+                                          data-testid={`button-delete-${item.id}`}
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                                {!items || items.length === 0 && (
+                                  <TableRow>
+                                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                                      Nenhum produto cadastrado
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </>
                       )}
                     </CardContent>
                   </Card>
@@ -816,7 +914,7 @@ export default function InventoryPage() {
 
                 {activeTab === "estoque" && (
                 <div className="space-y-4">
-                  <Button onClick={() => setNewMovementDialog(true)} data-testid="button-new-movement">
+                  <Button className="w-full sm:w-auto" onClick={() => setNewMovementDialog(true)} data-testid="button-new-movement">
                     <Plus className="h-4 w-4 mr-2" />
                     Nova Movimentação
                   </Button>
@@ -825,47 +923,92 @@ export default function InventoryPage() {
                     <CardHeader>
                       <CardTitle>Estoque Atual</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="min-w-0">
                       {stockLoading ? (
                         <ShimmerSkeleton className="h-64" />
                       ) : (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Produto</TableHead>
-                              <TableHead>Categoria</TableHead>
-                              <TableHead className="text-right">Quantidade</TableHead>
-                              <TableHead className="text-right">Estoque Mínimo</TableHead>
-                              <TableHead className="text-right">Valor Total</TableHead>
-                              <TableHead>Status</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
+                        <>
+                          <div className="space-y-3 2xl:hidden">
                             {stock?.map((s) => (
-                              <TableRow key={s.id} data-testid={`row-stock-${s.id}`}>
-                                <TableCell className="font-medium">{s.inventoryItem.name}</TableCell>
-                                <TableCell>{s.inventoryItem.category?.name || "-"}</TableCell>
-                                <TableCell className="text-right">
-                                  {parseFloat(s.quantity).toFixed(2)} {s.inventoryItem.unit.abbreviation}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {parseFloat(s.inventoryItem.minStock || "0").toFixed(2)} {s.inventoryItem.unit.abbreviation}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {formatCurrency(parseFloat(s.quantity || "0") * parseFloat(s.inventoryItem.costPrice || "0"))}
-                                </TableCell>
-                                <TableCell>{getStockStatus(s)}</TableCell>
-                              </TableRow>
+                              <Card key={s.id} className="min-w-0 shadow-sm" data-testid={`card-stock-${s.id}`}>
+                                <CardContent className="min-w-0 p-3 sm:p-4">
+                                  <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                                    <h3 className="min-w-0 flex-1 break-words font-semibold">{s.inventoryItem.name}</h3>
+                                    <div className="shrink-0">{getStockStatus(s)}</div>
+                                  </div>
+                                  <dl className="mt-3 grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 border-t pt-3 text-sm">
+                                    <div className="min-w-0">
+                                      <dt className="text-xs text-muted-foreground">Categoria</dt>
+                                      <dd className="break-words">{s.inventoryItem.category?.name || "-"}</dd>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <dt className="text-xs text-muted-foreground">Quantidade</dt>
+                                      <dd className="break-words font-medium">
+                                        {parseFloat(s.quantity).toFixed(2)} {s.inventoryItem.unit.abbreviation}
+                                      </dd>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <dt className="text-xs text-muted-foreground">Estoque Mínimo</dt>
+                                      <dd className="break-words">
+                                        {parseFloat(s.inventoryItem.minStock || "0").toFixed(2)} {s.inventoryItem.unit.abbreviation}
+                                      </dd>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <dt className="text-xs text-muted-foreground">Valor Total</dt>
+                                      <dd className="break-words font-medium">
+                                        {formatCurrency(parseFloat(s.quantity || "0") * parseFloat(s.inventoryItem.costPrice || "0"))}
+                                      </dd>
+                                    </div>
+                                  </dl>
+                                </CardContent>
+                              </Card>
                             ))}
-                            {!stock || stock.length === 0 && (
-                              <TableRow>
-                                <TableCell colSpan={6} className="text-center text-muted-foreground">
-                                  Nenhum estoque registrado
-                                </TableCell>
-                              </TableRow>
+                            {(!stock || stock.length === 0) && (
+                              <div className="rounded-lg border px-3 py-8 text-center text-sm text-muted-foreground">
+                                Nenhum estoque registrado
+                              </div>
                             )}
-                          </TableBody>
-                        </Table>
+                          </div>
+                          <div className="hidden min-w-0 2xl:block">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Produto</TableHead>
+                                  <TableHead>Categoria</TableHead>
+                                  <TableHead className="text-right">Quantidade</TableHead>
+                                  <TableHead className="text-right">Estoque Mínimo</TableHead>
+                                  <TableHead className="text-right">Valor Total</TableHead>
+                                  <TableHead>Status</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {stock?.map((s) => (
+                                  <TableRow key={s.id} data-testid={`row-stock-${s.id}`}>
+                                    <TableCell className="font-medium">{s.inventoryItem.name}</TableCell>
+                                    <TableCell>{s.inventoryItem.category?.name || "-"}</TableCell>
+                                    <TableCell className="text-right">
+                                      {parseFloat(s.quantity).toFixed(2)} {s.inventoryItem.unit.abbreviation}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {parseFloat(s.inventoryItem.minStock || "0").toFixed(2)} {s.inventoryItem.unit.abbreviation}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {formatCurrency(parseFloat(s.quantity || "0") * parseFloat(s.inventoryItem.costPrice || "0"))}
+                                    </TableCell>
+                                    <TableCell>{getStockStatus(s)}</TableCell>
+                                  </TableRow>
+                                ))}
+                                {!stock || stock.length === 0 && (
+                                  <TableRow>
+                                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                                      Nenhum estoque registrado
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </>
                       )}
                     </CardContent>
                   </Card>
@@ -874,7 +1017,7 @@ export default function InventoryPage() {
 
                 {activeTab === "movimentacoes" && (
                 <div className="space-y-4">
-                  <Button onClick={() => setNewMovementDialog(true)} data-testid="button-new-movement-2">
+                  <Button className="w-full sm:w-auto" onClick={() => setNewMovementDialog(true)} data-testid="button-new-movement-2">
                     <Plus className="h-4 w-4 mr-2" />
                     Nova Movimentação
                   </Button>
@@ -883,58 +1026,105 @@ export default function InventoryPage() {
                     <CardHeader>
                       <CardTitle>Histórico de Movimentações</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="min-w-0">
                       {movementsLoading ? (
                         <ShimmerSkeleton className="h-64" />
                       ) : (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Data</TableHead>
-                              <TableHead>Produto</TableHead>
-                              <TableHead>Tipo</TableHead>
-                              <TableHead className="text-right">Quantidade</TableHead>
-                              <TableHead className="text-right">Custo Unitário</TableHead>
-                              <TableHead className="text-right">Custo Total</TableHead>
-                              <TableHead>Operador</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
+                        <>
+                          <div className="space-y-3 2xl:hidden">
                             {movements?.map((movement) => (
-                              <TableRow key={movement.id} data-testid={`row-movement-${movement.id}`}>
-                                <TableCell>
-                                  {movement.createdAt ? new Date(movement.createdAt).toLocaleString('pt-BR') : '-'}
-                                </TableCell>
-                                <TableCell className="font-medium">{movement.inventoryItem.name}</TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    {getMovementTypeIcon(movement.movementType)}
-                                    {getMovementTypeBadge(movement.movementType)}
+                              <Card key={movement.id} className="min-w-0 shadow-sm" data-testid={`card-movement-${movement.id}`}>
+                                <CardContent className="min-w-0 p-3 sm:p-4">
+                                  <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                                    <div className="min-w-0 flex-1">
+                                      <h3 className="break-words font-semibold">{movement.inventoryItem.name}</h3>
+                                      <p className="mt-1 break-words text-xs text-muted-foreground">
+                                        {movement.createdAt ? new Date(movement.createdAt).toLocaleString('pt-BR') : '-'}
+                                      </p>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-1.5">
+                                      {getMovementTypeIcon(movement.movementType)}
+                                      {getMovementTypeBadge(movement.movementType)}
+                                    </div>
                                   </div>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {parseFloat(movement.quantity || "0").toFixed(2)}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {formatCurrency(movement.unitCost || "0")}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {formatCurrency(movement.totalCost || "0")}
-                                </TableCell>
-                                <TableCell>
-                                  {movement.recordedBy.firstName} {movement.recordedBy.lastName}
-                                </TableCell>
-                              </TableRow>
+                                  <dl className="mt-3 grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 border-t pt-3 text-sm">
+                                    <div className="min-w-0">
+                                      <dt className="text-xs text-muted-foreground">Quantidade</dt>
+                                      <dd className="break-words">{parseFloat(movement.quantity || "0").toFixed(2)}</dd>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <dt className="text-xs text-muted-foreground">Operador</dt>
+                                      <dd className="break-words">{movement.recordedBy.firstName} {movement.recordedBy.lastName}</dd>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <dt className="text-xs text-muted-foreground">Custo Unitário</dt>
+                                      <dd className="break-words">{formatCurrency(movement.unitCost || "0")}</dd>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <dt className="text-xs text-muted-foreground">Custo Total</dt>
+                                      <dd className="break-words font-medium">{formatCurrency(movement.totalCost || "0")}</dd>
+                                    </div>
+                                  </dl>
+                                </CardContent>
+                              </Card>
                             ))}
-                            {!movements || movements.length === 0 && (
-                              <TableRow>
-                                <TableCell colSpan={7} className="text-center text-muted-foreground">
-                                  Nenhuma movimentação registrada
-                                </TableCell>
-                              </TableRow>
+                            {(!movements || movements.length === 0) && (
+                              <div className="rounded-lg border px-3 py-8 text-center text-sm text-muted-foreground">
+                                Nenhuma movimentação registrada
+                              </div>
                             )}
-                          </TableBody>
-                        </Table>
+                          </div>
+                          <div className="hidden min-w-0 2xl:block">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Data</TableHead>
+                                  <TableHead>Produto</TableHead>
+                                  <TableHead>Tipo</TableHead>
+                                  <TableHead className="text-right">Quantidade</TableHead>
+                                  <TableHead className="text-right">Custo Unitário</TableHead>
+                                  <TableHead className="text-right">Custo Total</TableHead>
+                                  <TableHead>Operador</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {movements?.map((movement) => (
+                                  <TableRow key={movement.id} data-testid={`row-movement-${movement.id}`}>
+                                    <TableCell>
+                                      {movement.createdAt ? new Date(movement.createdAt).toLocaleString('pt-BR') : '-'}
+                                    </TableCell>
+                                    <TableCell className="font-medium">{movement.inventoryItem.name}</TableCell>
+                                    <TableCell>
+                                      <div className="flex items-center gap-2">
+                                        {getMovementTypeIcon(movement.movementType)}
+                                        {getMovementTypeBadge(movement.movementType)}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {parseFloat(movement.quantity || "0").toFixed(2)}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {formatCurrency(movement.unitCost || "0")}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {formatCurrency(movement.totalCost || "0")}
+                                    </TableCell>
+                                    <TableCell>
+                                      {movement.recordedBy.firstName} {movement.recordedBy.lastName}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                                {!movements || movements.length === 0 && (
+                                  <TableRow>
+                                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                                      Nenhuma movimentação registrada
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </>
                       )}
                     </CardContent>
                   </Card>
@@ -943,7 +1133,7 @@ export default function InventoryPage() {
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="min-w-0 space-y-4">
               <QuickActionsWidget actions={quickActions} />
               
               {movementsLoading ? (
@@ -960,13 +1150,13 @@ export default function InventoryPage() {
 
           {/* New Item Dialog */}
           <Dialog open={newItemDialog} onOpenChange={setNewItemDialog}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto p-4 sm:max-w-2xl sm:p-6">
               <DialogHeader>
                 <DialogTitle>Novo Produto</DialogTitle>
                 <DialogDescription>Adicione um novo produto ao inventário</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="name">Nome *</Label>
                     <Input
@@ -1000,7 +1190,7 @@ export default function InventoryPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="category">Categoria</Label>
                     <Select
@@ -1040,7 +1230,7 @@ export default function InventoryPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="costPrice">Preço de Custo</Label>
                     <Input
@@ -1065,7 +1255,7 @@ export default function InventoryPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="minStock">Estoque Mínimo</Label>
                     <Input
@@ -1090,11 +1280,12 @@ export default function InventoryPage() {
                   </div>
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setNewItemDialog(false)}>
+              <DialogFooter className="gap-2">
+                <Button className="w-full sm:w-auto" variant="outline" onClick={() => setNewItemDialog(false)}>
                   Cancelar
                 </Button>
                 <Button
+                  className="w-full sm:w-auto"
                   onClick={() => createItemMutation.mutate(itemForm)}
                   disabled={createItemMutation.isPending}
                   data-testid="button-submit-product"
@@ -1107,13 +1298,13 @@ export default function InventoryPage() {
 
           {/* Edit Item Dialog */}
           <Dialog open={editItemDialog} onOpenChange={setEditItemDialog}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto p-4 sm:max-w-2xl sm:p-6">
               <DialogHeader>
                 <DialogTitle>Editar Produto</DialogTitle>
                 <DialogDescription>Atualize as informações do produto</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="edit-name">Nome *</Label>
                     <Input
@@ -1144,7 +1335,7 @@ export default function InventoryPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="edit-category">Categoria</Label>
                     <Select
@@ -1184,7 +1375,7 @@ export default function InventoryPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="edit-costPrice">Preço de Custo</Label>
                     <Input
@@ -1209,7 +1400,7 @@ export default function InventoryPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="edit-minStock">Estoque Mínimo</Label>
                     <Input
@@ -1250,11 +1441,12 @@ export default function InventoryPage() {
                   </Select>
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setEditItemDialog(false)}>
+              <DialogFooter className="gap-2">
+                <Button className="w-full sm:w-auto" variant="outline" onClick={() => setEditItemDialog(false)}>
                   Cancelar
                 </Button>
                 <Button
+                  className="w-full sm:w-auto"
                   onClick={() => selectedItem && updateItemMutation.mutate({ id: selectedItem.id, data: itemForm })}
                   disabled={updateItemMutation.isPending}
                   data-testid="button-update-product"
@@ -1267,7 +1459,7 @@ export default function InventoryPage() {
 
           {/* Delete Item Dialog */}
           <Dialog open={deleteItemDialog} onOpenChange={setDeleteItemDialog}>
-            <DialogContent>
+            <DialogContent className="w-[calc(100vw-1rem)] max-w-lg max-h-[calc(100dvh-1rem)] overflow-y-auto p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle>Confirmar Exclusão</DialogTitle>
                 <DialogDescription>
@@ -1292,7 +1484,7 @@ export default function InventoryPage() {
 
           {/* New Category Dialog */}
           <Dialog open={newCategoryDialog} onOpenChange={setNewCategoryDialog}>
-            <DialogContent>
+            <DialogContent className="w-[calc(100vw-1rem)] max-w-lg max-h-[calc(100dvh-1rem)] overflow-y-auto p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle>Nova Categoria</DialogTitle>
                 <DialogDescription>Adicione uma nova categoria de produtos</DialogDescription>
@@ -1336,7 +1528,7 @@ export default function InventoryPage() {
 
           {/* New Unit Dialog */}
           <Dialog open={newUnitDialog} onOpenChange={setNewUnitDialog}>
-            <DialogContent>
+            <DialogContent className="w-[calc(100vw-1rem)] max-w-lg max-h-[calc(100dvh-1rem)] overflow-y-auto p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle>Nova Unidade de Medida</DialogTitle>
                 <DialogDescription>Adicione uma nova unidade de medida</DialogDescription>
@@ -1380,7 +1572,7 @@ export default function InventoryPage() {
 
           {/* New Movement Dialog */}
           <Dialog open={newMovementDialog} onOpenChange={setNewMovementDialog}>
-            <DialogContent>
+            <DialogContent className="w-[calc(100vw-1rem)] max-w-lg max-h-[calc(100dvh-1rem)] overflow-y-auto p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle>Nova Movimentação</DialogTitle>
                 <DialogDescription>Registre uma movimentação de estoque</DialogDescription>
@@ -1434,7 +1626,7 @@ export default function InventoryPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="movement-unit-cost">Custo Unitário</Label>
                     <Input
@@ -1475,11 +1667,12 @@ export default function InventoryPage() {
                   />
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setNewMovementDialog(false)}>
+              <DialogFooter className="gap-2">
+                <Button className="w-full sm:w-auto" variant="outline" onClick={() => setNewMovementDialog(false)}>
                   Cancelar
                 </Button>
                 <Button
+                  className="w-full sm:w-auto"
                   onClick={() => createMovementMutation.mutate(movementForm)}
                   disabled={createMovementMutation.isPending}
                   data-testid="button-submit-movement"
@@ -1490,7 +1683,6 @@ export default function InventoryPage() {
             </DialogContent>
           </Dialog>
         </div>
-      </ScrollArea>
     </div>
   );
 }
