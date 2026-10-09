@@ -228,10 +228,13 @@ export default function TableCheckoutV2() {
 
   // Fetch restaurant data
   const { data: restaurant } = useQuery({
-    queryKey: ['/api/restaurants', table?.restaurantId],
+    queryKey: ['/api/public/restaurants', table?.restaurantId],
     queryFn: async () => {
       if (!table?.restaurantId) return null;
-      const res = await apiFetch(`/api/restaurants/${table.restaurantId}`);
+      const res = await apiFetch(`/api/public/restaurants/${encodeURIComponent(table.restaurantId)}`);
+      if (!res.ok) {
+        throw new Error('Não foi possível carregar os dados fiscais do restaurante');
+      }
       return res.json();
     },
     enabled: !!table?.restaurantId,
