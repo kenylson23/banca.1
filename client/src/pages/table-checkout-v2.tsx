@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import type { OrdersByGuestData } from "@shared/types";
+import type { Restaurant } from "@shared/schema";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-url";
@@ -78,6 +79,14 @@ type ReceiptTotalsSnapshot = {
     source?: string;
   }>;
 };
+
+async function fetchRestaurantFiscalData(restaurantId: string): Promise<Restaurant> {
+  const response = await apiFetch(`/api/public/restaurants/${encodeURIComponent(restaurantId)}`);
+  if (!response.ok) {
+    throw new Error('Não foi possível carregar os dados fiscais do restaurante');
+  }
+  return response.json();
+}
 
 export default function TableCheckoutV2() {
   const { id } = useParams<{ id: string }>();
@@ -168,6 +177,8 @@ export default function TableCheckoutV2() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
+  const [receiptRestaurant, setReceiptRestaurant] = useState<Restaurant | null>(null);
+  const [receiptFiscalDataUnavailable, setReceiptFiscalDataUnavailable] = useState(false);
   const [receiptTotals, setReceiptTotals] = useState<ReceiptTotalsSnapshot | null>(null);
   const [receiptOrdersByGuest, setReceiptOrdersByGuest] = useState<OrdersByGuestData["ordersByGuest"] | null>(null);
   
@@ -231,11 +242,7 @@ export default function TableCheckoutV2() {
     queryKey: ['/api/public/restaurants', table?.restaurantId],
     queryFn: async () => {
       if (!table?.restaurantId) return null;
-      const res = await apiFetch(`/api/public/restaurants/${encodeURIComponent(table.restaurantId)}`);
-      if (!res.ok) {
-        throw new Error('Não foi possível carregar os dados fiscais do restaurante');
-      }
-      return res.json();
+      return fetchRestaurantFiscalData(table.restaurantId);
     },
     enabled: !!table?.restaurantId,
     staleTime: 300000, // Cache por 5min
@@ -779,6 +786,27 @@ export default function TableCheckoutV2() {
     },
     onSuccess: async (data) => {
       console.log('🔍 [CHECKOUT] Pagamento processado com sucesso:', data);
+      let fiscalRestaurant = restaurant ?? null;
+      setReceiptFiscalDataUnavailable(false);
+      if (table?.restaurantId) {
+        try {
+          fiscalRestaurant = await queryClient.fetchQuery({
+            queryKey: ['/api/public/restaurants', table.restaurantId],
+            queryFn: () => fetchRestaurantFiscalData(table.restaurantId),
+            staleTime: 0,
+          });
+        } catch (error) {
+          console.error('Erro ao atualizar os dados fiscais para o recibo:', error);
+          fiscalRestaurant = null;
+          setReceiptFiscalDataUnavailable(true);
+          toast({
+            title: 'Dados fiscais indisponíveis',
+            description: 'O pagamento foi registado, mas não foi possível confirmar os dados fiscais atualizados.',
+            variant: 'destructive',
+          });
+        }
+      }
+      setReceiptRestaurant(fiscalRestaurant);
         // A rota global responde { success, payment }, enquanto algumas
         // rotas legadas devolvem o pagamento diretamente ou dentro de
         // tablePayment. Normalizar aqui mantém o diálogo independente da rota.
@@ -3191,13 +3219,15 @@ export default function TableCheckoutV2() {
           open={showSuccessDialog}
           onClose={() => {
             setShowSuccessDialog(false);
+            setReceiptRestaurant(null);
+            setReceiptFiscalDataUnavailable(false);
             setLocation(`/${fromParam}`);
           }}
           table={table}
           payment={paymentData}
           ordersByGuest={receiptOrdersByGuest ?? ordersByGuest}
           calculateTotals={receiptTotals ?? calculateTotals}
-          restaurant={restaurant}
+          restaurant={receiptFiscalDataUnavailable ? undefined : receiptRestaurant ?? restaurant ?? undefined}
           sessionDuration={sessionDuration}
           totalAmount={(receiptTotals ?? calculateTotals).finalTotal}
           onPrintComplete={() => {

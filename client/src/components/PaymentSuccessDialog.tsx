@@ -61,19 +61,19 @@ interface Table {
 interface RestaurantInfo {
   id: string;
   name: string;
-  address?: string;
-  fiscalAddress?: string;
-  nif?: string;
-  vatRegime?: string;
-  vatRate?: string | number;
-  documentSeries?: string;
-  invoicePrefix?: string;
-  email?: string;
-  website?: string;
-  whatsappNumber?: string;
-  phone?: string;
-  legalFooter?: string;
-  logoUrl?: string;
+  address?: string | null;
+  fiscalAddress?: string | null;
+  nif?: string | null;
+  vatRegime?: string | null;
+  vatRate?: string | number | null;
+  documentSeries?: string | null;
+  invoicePrefix?: string | null;
+  email?: string | null;
+  website?: string | null;
+  whatsappNumber?: string | null;
+  phone?: string | null;
+  legalFooter?: string | null;
+  logoUrl?: string | null;
 }
 
 interface CalculateTotals {
@@ -221,6 +221,14 @@ export function PaymentSuccessDialog({
     };
   };
   const handlePrintComplete = async () => {
+    if (!restaurant) {
+      toast({
+        title: 'Dados fiscais indisponíveis',
+        description: 'Não é possível emitir o recibo sem carregar os dados do restaurante.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsPrinting(true);
     
     try {
@@ -599,6 +607,14 @@ export function PaymentSuccessDialog({
   };
 
   const handleDownloadPDF = async () => {
+    if (!restaurant) {
+      toast({
+        title: 'Dados fiscais indisponíveis',
+        description: 'Não é possível gerar o PDF sem carregar os dados do restaurante.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsGeneratingPDF(true);
     
     try {
@@ -938,14 +954,18 @@ export function PaymentSuccessDialog({
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div className="sm:col-span-2"><span className="text-muted-foreground">Nome do emitente:</span><div className="font-medium">{restaurant?.name || 'Não informado'}</div></div>
                 <div><span className="text-muted-foreground">Morada fiscal:</span><div className="font-medium">{restaurant?.fiscalAddress || restaurant?.address || 'Não informada'}</div></div>
                 <div><span className="text-muted-foreground">NIF:</span><div className="font-medium">{restaurant?.nif || 'Não informado'}</div></div>
                 <div><span className="text-muted-foreground">Regime de IVA:</span><div className="font-medium">{restaurant?.vatRegime || 'Não informado'}</div></div>
-                <div><span className="text-muted-foreground">Taxa de IVA:</span><div className="font-medium">{restaurant?.vatRate != null ? `${restaurant.vatRate}%` : 'Não informada'}</div></div>
+                <div><span className="text-muted-foreground">Taxa de IVA:</span><div className="font-medium">{restaurant?.vatRate != null && String(restaurant.vatRate).trim() !== '' ? `${restaurant.vatRate}%` : 'Não informada'}</div></div>
                 <div><span className="text-muted-foreground">Série / prefixo:</span><div className="font-medium">{[restaurant?.documentSeries, restaurant?.invoicePrefix].filter(Boolean).join(' · ') || 'Não informado'}</div></div>
                 <div><span className="text-muted-foreground">Contacto:</span><div className="font-medium">{[restaurant?.phone, restaurant?.whatsappNumber].filter(Boolean).join(' · ') || 'Não informado'}</div></div>
                 {(restaurant?.email || restaurant?.website) && (
                   <div className="sm:col-span-2"><span className="text-muted-foreground">Contactos digitais:</span><div className="font-medium">{[restaurant?.email, restaurant?.website].filter(Boolean).join(' · ')}</div></div>
+                )}
+                {restaurant?.legalFooter && (
+                  <div className="sm:col-span-2"><span className="text-muted-foreground">Rodapé legal:</span><div className="font-medium">{restaurant.legalFooter}</div></div>
                 )}
               </CardContent>
             </Card>
@@ -1272,19 +1292,19 @@ export function PaymentSuccessDialog({
                                    totalAmount={guestTotal}
                                    tableName={`Mesa ${table.number}`}
                                    restaurantName={restaurant?.name}
-                                    restaurantAddress={restaurant?.address}
-                                    restaurantFiscalAddress={restaurant?.fiscalAddress}
-                                   restaurantPhone={restaurant?.phone}
-                                   restaurantNIF={restaurant?.nif}
-                                    restaurantVatRegime={restaurant?.vatRegime}
-                                    restaurantVatRate={restaurant?.vatRate}
-                                    restaurantDocumentSeries={restaurant?.documentSeries}
-                                    restaurantInvoicePrefix={restaurant?.invoicePrefix}
-                                    restaurantEmail={restaurant?.email}
-                                    restaurantWebsite={restaurant?.website}
-                                    restaurantWhatsappNumber={restaurant?.whatsappNumber}
-                                    restaurantLogoUrl={restaurant?.logoUrl}
-                                    legalFooter={restaurant?.legalFooter}
+                                    restaurantAddress={restaurant?.address ?? undefined}
+                                    restaurantFiscalAddress={restaurant?.fiscalAddress ?? undefined}
+                                    restaurantPhone={restaurant?.phone ?? undefined}
+                                    restaurantNIF={restaurant?.nif ?? undefined}
+                                    restaurantVatRegime={restaurant?.vatRegime ?? undefined}
+                                    restaurantVatRate={restaurant?.vatRate ?? undefined}
+                                    restaurantDocumentSeries={restaurant?.documentSeries ?? undefined}
+                                    restaurantInvoicePrefix={restaurant?.invoicePrefix ?? undefined}
+                                    restaurantEmail={restaurant?.email ?? undefined}
+                                    restaurantWebsite={restaurant?.website ?? undefined}
+                                    restaurantWhatsappNumber={restaurant?.whatsappNumber ?? undefined}
+                                    restaurantLogoUrl={restaurant?.logoUrl ?? undefined}
+                                    legalFooter={restaurant?.legalFooter ?? undefined}
                                    paymentMethod={payment.paymentMethod}
                                    variant="ghost"
                                    size="sm"
