@@ -93,6 +93,7 @@ export function renderTableInvoiceHtml(
   const fiscalAddress = document.restaurant.fiscalAddress || document.restaurant.address;
   const fiscalDetails = [
     fiscalAddress ? `Morada fiscal: ${fiscalAddress}` : '',
+    document.restaurant.phone ? `Telefone: ${document.restaurant.phone}` : '',
     document.restaurant.nif ? `NIF: ${document.restaurant.nif}` : '',
     document.restaurant.vatRegime ? `Regime: ${document.restaurant.vatRegime}` : '',
     document.restaurant.vatRate ? `IVA: ${moneyLabel(document.restaurant.vatRate)}%` : '',

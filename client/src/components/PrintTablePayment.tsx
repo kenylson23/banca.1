@@ -131,7 +131,7 @@ export function PrintTablePayment({
     const fiscalName = restaurant?.name || restaurantName;
     const fiscalAddress = restaurant?.fiscalAddress || restaurant?.address;
     const fiscalLines = [
-      fiscalAddress,
+      fiscalAddress ? `Morada fiscal: ${fiscalAddress}` : '',
       restaurant?.phone ? `Telefone: ${restaurant.phone}` : '',
       restaurant?.nif ? `NIF: ${restaurant.nif}` : '',
       restaurant?.vatRegime ? `Regime de IVA: ${restaurant.vatRegime}` : '',
@@ -142,97 +142,33 @@ export function PrintTablePayment({
       restaurant?.website ? `Web: ${restaurant.website}` : '',
       restaurant?.whatsappNumber ? `WhatsApp: ${restaurant.whatsappNumber}` : '',
     ].filter(Boolean) as string[];
-    const lines = [
-      { text: fiscalName, alignment: 'center', bold: true, fontSize: 1.5 },
-      ...fiscalLines.map((text) => ({ text, alignment: 'center' as const })),
-      { text: '================================', alignment: 'center' },
-      { text: 'RECIBO DE PAGAMENTO', alignment: 'center', bold: true },
-      { text: '================================', alignment: 'center' },
-      { text: '' },
-      { text: `Mesa: ${tableName}`, bold: true },
-      { text: `Data: ${invoiceDate(payment.createdAt)}` },
-      { text: `Fatura associada: ${invoiceNumberLabel(payment.invoiceReference)}` },
-      { text: `Sessão: ${invoiceSessionLabel(payment.sessionId)}` },
-      { text: `Nº do pagamento: ${payment.id}` },
-      { text: '' },
-      { text: '--------------------------------', alignment: 'center' },
-      { text: 'DETALHES DO CONSUMO', alignment: 'center', bold: true },
-      { text: '--------------------------------', alignment: 'center' },
-      { text: '' },
-      ...(payment.items && payment.items.length > 0 
-        ? payment.items.map(item => ({
-            text: `${item.quantity}x ${item.name.padEnd(20)} ${invoiceMoney(parseFloat(item.price) * item.quantity)}`,
-            fontSize: 0.9
-          }))
-        : [{ text: 'Consumo registrado na mesa', alignment: 'center', italic: true }]
-      ),
-      { text: '' },
-      { text: '--------------------------------', alignment: 'center' },
-      { text: 'RESUMO DO PAGAMENTO', alignment: 'center', bold: true },
-      { text: '--------------------------------', alignment: 'center' },
-      { text: '' },
-      { 
-         text: `Valor Recebido: ${invoiceMoney(payment.amount)}`,
-        bold: true, 
-        fontSize: 1.3,
-        alignment: 'center'
-      },
-      { text: '' },
-       { text: `Método: ${formatPaymentMethodLabel(payment.paymentMethod)}` },
-      ...(payment.receivedAmount != null
-         ? [{ text: `Valor entregue: ${invoiceMoney(payment.receivedAmount)}` }]
-        : []),
-      ...(payment.changeAmount != null
-         ? [{ text: `Troco: ${invoiceMoney(payment.changeAmount)}` }]
-        : []),
-      { text: `Cliente: ${payment.guestName || 'Mesa Completa'}` },
-      { text: `Operador: ${payment.operatorName || 'Sistema'}` },
-      ...(payment.transactionReference
-        ? [{ text: `Referência: ${payment.transactionReference}` }]
-        : []),
-      { text: '' },
-    ];
-
-    if (payment.notes) {
-      lines.push(
-        { text: '--------------------------------', alignment: 'center' },
-        { text: 'Observações:', bold: true },
-        { text: payment.notes },
-        { text: '' }
-      );
-    }
-
-    lines.push(
-      { text: '================================', alignment: 'center' },
-      { text: 'PAGAMENTO CONFIRMADO', alignment: 'center', bold: true },
-      { text: '================================', alignment: 'center' },
-      { text: '' },
-      { text: 'Obrigado pela sua preferência!', alignment: 'center' },
-      { text: fiscalName, alignment: 'center' },
-      ...(restaurant?.legalFooter ? [{ text: restaurant.legalFooter, alignment: 'center' as const }] : []),
-      { text: '' },
-      { text: '' },
-      { text: '' },
-    );
 
     return {
       title: `${fiscalName} · RECIBO DE PAGAMENTO · Nº ${payment.id}`,
+      headerLines: fiscalLines,
       items: payment.items?.map((item) => ({
         name: item.name,
         quantity: item.quantity,
          price: invoiceMoney(parseFloat(item.price) * item.quantity),
        })) || [{ name: 'Pagamento de mesa', quantity: 1, price: invoiceMoney(payment.amount) }],
-       total: invoiceMoney(payment.amount),
-      footer: [
+      total: invoiceMoney(payment.amount),
+      footerLines: [
         `Mesa: ${tableName}`,
-         `Fatura associada: ${invoiceNumberLabel(payment.invoiceReference)}`,
-         `Sessão: ${invoiceSessionLabel(payment.sessionId)}`,
-         `Método: ${formatPaymentMethodLabel(payment.paymentMethod)}`,
+        `Data: ${invoiceDate(payment.createdAt)}`,
+        `Fatura associada: ${invoiceNumberLabel(payment.invoiceReference)}`,
+        `Sessão: ${invoiceSessionLabel(payment.sessionId)}`,
+        `Nº do pagamento: ${payment.id}`,
+        `Método: ${formatPaymentMethodLabel(payment.paymentMethod)}`,
+        payment.receivedAmount != null ? `Valor entregue: ${invoiceMoney(payment.receivedAmount)}` : '',
+        payment.changeAmount != null ? `Troco: ${invoiceMoney(payment.changeAmount)}` : '',
+        `Cliente: ${payment.guestName || 'Mesa Completa'}`,
         `Operador: ${payment.operatorName || 'Sistema'}`,
         payment.transactionReference ? `Referência: ${payment.transactionReference}` : '',
-        restaurant?.legalFooter || '',
+        payment.notes ? `Observações: ${payment.notes}` : '',
         'PAGAMENTO CONFIRMADO',
-      ].filter(Boolean).join(' | '),
+        'Obrigado pela sua preferência!',
+        restaurant?.legalFooter || '',
+      ].filter(Boolean),
     };
   };
 

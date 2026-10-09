@@ -22,11 +22,12 @@ import {
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import type { Table } from '@shared/schema';
+import type { Restaurant, Table } from '@shared/schema';
 import { SessionCard } from './SessionCard';
 import { TableStatistics } from './TableStatistics';
 import { Button } from '@/components/ui/button';
 import { PrintTablePayment } from '@/components/PrintTablePayment';
+import { apiFetch } from '@/lib/api-url';
 import { formatTableInvoiceNumber } from '@shared/table-invoice-number';
 import { formatPaymentMethodLabel } from '@shared/invoice-formatters';
 
@@ -48,6 +49,18 @@ export function HistorySection({ table }: HistorySectionProps) {
   const { data: payments = [], isLoading: loadingPayments } = useQuery<any[]>({
     queryKey: [`/api/tables/${table.id}/payments`],
     enabled: !!table.id,
+  });
+
+  const restaurantQuery = useQuery<Restaurant>({
+    queryKey: ['/api/public/restaurants', table.restaurantId || 'none'],
+    enabled: !!table.restaurantId,
+    queryFn: async () => {
+      if (!table.restaurantId) throw new Error('Restaurante não identificado');
+      const response = await apiFetch(`/api/public/restaurants/${encodeURIComponent(table.restaurantId)}`);
+      if (!response.ok) throw new Error('Não foi possível carregar os dados fiscais do restaurante');
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
   const isLoading = loadingSessions || loadingPayments;
@@ -228,7 +241,20 @@ export function HistorySection({ table }: HistorySectionProps) {
               {printingPaymentId && (() => {
                 const paymentToPrint = payments.find(p => p.id === printingPaymentId);
                 if (!paymentToPrint) return null;
-                
+
+                if (!restaurantQuery.data) {
+                  return (
+                    <div className="flex flex-wrap items-center gap-2 text-sm" role={restaurantQuery.isError ? 'alert' : 'status'}>
+                      <span>{restaurantQuery.isError ? 'Não foi possível carregar os dados fiscais; o recibo não foi impresso.' : 'A carregar os dados fiscais antes de imprimir...'}</span>
+                      {restaurantQuery.isError && (
+                        <Button size="sm" variant="outline" onClick={() => restaurantQuery.refetch()}>
+                          Tentar novamente
+                        </Button>
+                      )}
+                    </div>
+                  );
+                }
+
                 return (
                   <PrintTablePayment
                     payment={{
@@ -244,6 +270,7 @@ export function HistorySection({ table }: HistorySectionProps) {
                       items: paymentToPrint.items || [],
                     }}
                     tableName={`Mesa ${table.number}`}
+                    restaurant={restaurantQuery.data}
                     onPrintComplete={() => setPrintingPaymentId(null)}
                     autoPrint={true}
                   />

@@ -808,11 +808,13 @@ class PrinterService {
     type: PrinterType,
     content: {
       title?: string;
+      headerLines?: string[];
       items: Array<{ name: string; quantity: number; price: string }>;
       subtotal?: string;
       discount?: string;
       total: string;
       footer?: string;
+      footerLines?: string[];
     }
   ) {
     const printer = this.getPrinter(type);
@@ -835,6 +837,10 @@ class PrinterService {
     if (content.title) {
       encoder.align('center').bold(true).size('normal').line(content.title).bold(false).newline();
     }
+    content.headerLines?.filter(Boolean).forEach((line) => {
+      encoder.align('center').line(line);
+    });
+    if (content.headerLines?.some(Boolean)) encoder.newline();
 
     encoder.align('left').line('='.repeat(paperWidth === 80 ? 48 : 32)).newline();
 
@@ -867,6 +873,10 @@ class PrinterService {
     encoder.newline();
 
     // Rodapé
+    if (content.footerLines?.some(Boolean)) {
+      encoder.align('left');
+      content.footerLines.filter(Boolean).forEach((line) => encoder.line(line));
+    }
     if (content.footer) {
       encoder.align('center').line(content.footer);
     }

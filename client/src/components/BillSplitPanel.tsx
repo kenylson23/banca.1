@@ -33,10 +33,12 @@ import {
   History
 } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
+import { apiFetch } from '@/lib/api-url';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import type { Restaurant } from '@shared/schema';
 import { PrintGuestBill } from '@/components/PrintGuestBill';
 import { GuestCheckoutDialog } from '@/components/GuestCheckoutDialog';
 import { MoveItemDialog } from '@/components/MoveItemDialog';
@@ -94,6 +96,7 @@ interface BillSplit {
 
 interface BillSplitPanelProps {
   tableId: string;
+  restaurantId?: string;
   sessionId?: string;
   totalAmount: number;
   initialGuestId?: string | null;
@@ -126,8 +129,19 @@ const getGuestStatusColor = (status: string) => {
   return colors[status] || 'bg-gray-500';
 };
 
-export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId }: BillSplitPanelProps) {
+export function BillSplitPanel({ tableId, restaurantId, sessionId, totalAmount, initialGuestId }: BillSplitPanelProps) {
   const { toast } = useToast();
+  const restaurantQuery = useQuery<Restaurant>({
+    queryKey: ['/api/public/restaurants', restaurantId || 'none'],
+    enabled: !!restaurantId,
+    queryFn: async () => {
+      if (!restaurantId) throw new Error('Restaurante não identificado');
+      const response = await apiFetch(`/api/public/restaurants/${encodeURIComponent(restaurantId)}`);
+      if (!response.ok) throw new Error('Não foi possível carregar os dados fiscais do restaurante');
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
   
   const numericTotalAmount = typeof totalAmount === 'number' ? totalAmount : parseFloat(totalAmount || '0');
   
@@ -635,17 +649,44 @@ export function BillSplitPanel({ tableId, sessionId, totalAmount, initialGuestId
                                 {formatKwanza(getGuestTotal(guestData))}
                               </div>
                               <div className="flex gap-2 mt-2">
-                                <PrintGuestBill
-                                  guest={{
-                                    ...guestData.guest,
-                                    joinedAt: guestData.guest.joinedAt || new Date(),
-                                  }}
-                                  orders={guestData.orders}
-                                  totalAmount={getGuestTotal(guestData)}
-                                  tableName={`Mesa ${tableId}`}
-                                  variant="outline"
-                                  size="sm"
-                                />
+                                {restaurantQuery.data ? (
+                                  <PrintGuestBill
+                                    guest={{
+                                      ...guestData.guest,
+                                      joinedAt: guestData.guest.joinedAt || new Date(),
+                                    }}
+                                    orders={guestData.orders}
+                                    totalAmount={getGuestTotal(guestData)}
+                                    tableName={`Mesa ${tableId}`}
+                                    restaurantName={restaurantQuery.data.name}
+                                    restaurantAddress={restaurantQuery.data.address || undefined}
+                                    restaurantPhone={restaurantQuery.data.phone || undefined}
+                                    restaurantNIF={restaurantQuery.data.nif || undefined}
+                                    restaurantFiscalAddress={restaurantQuery.data.fiscalAddress || undefined}
+                                    restaurantVatRegime={restaurantQuery.data.vatRegime || undefined}
+                                    restaurantVatRate={restaurantQuery.data.vatRate || undefined}
+                                    restaurantDocumentSeries={restaurantQuery.data.documentSeries || undefined}
+                                    restaurantInvoicePrefix={restaurantQuery.data.invoicePrefix || undefined}
+                                    restaurantEmail={restaurantQuery.data.email || undefined}
+                                    restaurantWebsite={restaurantQuery.data.website || undefined}
+                                    restaurantWhatsappNumber={restaurantQuery.data.whatsappNumber || undefined}
+                                    restaurantLogoUrl={restaurantQuery.data.logoUrl || undefined}
+                                    legalFooter={restaurantQuery.data.legalFooter || undefined}
+                                    variant="outline"
+                                    size="sm"
+                                  />
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={restaurantQuery.isFetching || !restaurantId}
+                                    onClick={() => restaurantQuery.refetch()}
+                                    title={restaurantQuery.isError ? 'Tentar carregar os dados fiscais novamente' : 'A carregar dados fiscais'}
+                                  >
+                                    {restaurantQuery.isFetching ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                                    {restaurantQuery.isError ? 'Recarregar dados fiscais' : restaurantId ? 'A carregar dados fiscais' : 'Dados fiscais indisponíveis'}
+                                  </Button>
+                                )}
                                 {guestData.guest.status !== 'pago' && (
                                   <>
                                     <Button

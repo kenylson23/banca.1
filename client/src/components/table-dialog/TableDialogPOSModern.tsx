@@ -1328,6 +1328,7 @@ export function TableDialogPOSModern({
                             </div>
                             <BillSplitPanel
                               tableId={table?.id || ''}
+                              restaurantId={currentTable?.restaurantId}
                               sessionId={currentTable?.currentSessionId}
                               totalAmount={currentTotalAmount}
                             />
