@@ -34,6 +34,7 @@ import { allocateTableSessionInvoiceNumber } from './invoiceNumberGenerator';
 import { buildInvoiceVerificationPath, generateInvoiceValidationCode } from '@shared/invoice-validation';
 import { getPaymentMethodLabel, normalizePaymentMethod } from '@shared/payment-methods';
 import { summarizeSessionInvoice } from '@shared/session-invoice';
+import { getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
 import { formatTableInvoiceNumber } from '@shared/table-invoice-number';
 import type {
   TableInvoiceDocument,
@@ -6583,13 +6584,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (document.branch) {
         pdf.fontSize(10).font('Helvetica').text(document.branch.name, { align: 'center' });
       }
-      pdf.fontSize(9).font('Helvetica')
-         .text(`Telefone: ${document.restaurant.phone || 'Não informado'}`, { align: 'center' })
-        .text(`NIF: ${document.restaurant.nif || 'Não informado'}`, { align: 'center' })
-        .text(`Regime de IVA: ${document.restaurant.vatRegime || 'Não informado'}${document.restaurant.vatRate ? ` · Taxa: ${invoiceNumber(document.restaurant.vatRate)}%` : ''}`, { align: 'center' })
-         .text(`Série: ${document.restaurant.documentSeries || 'Não informada'}${document.restaurant.invoicePrefix ? ` · Prefixo: ${document.restaurant.invoicePrefix}` : ''}`, { align: 'center' })
-        .text(`Morada fiscal: ${document.restaurant.fiscalAddress || document.restaurant.address || 'Não informado'}`, { align: 'center' })
-        .text([document.restaurant.email, document.restaurant.website, document.restaurant.whatsappNumber].filter(Boolean).join(' · '), { align: 'center' });
+      const fiscalDetails = getRestaurantFiscalDetails(document.restaurant);
+      pdf.fontSize(9).font('Helvetica');
+      for (const line of fiscalDetails.lines) {
+        pdf.text(`${line.label}: ${line.value}`, { align: 'center' });
+      }
       pdf.fontSize(11).font('Helvetica-Bold').text('FATURA/RECIBO', { align: 'center' });
       pdf.moveDown(0.6);
       pdf.fontSize(10).font('Helvetica')

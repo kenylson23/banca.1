@@ -7,6 +7,7 @@ import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { invoiceDate, invoiceMoney, invoiceNumberLabel, invoicePaymentStatusLabel, formatPaymentMethodLabel } from '@shared/invoice-formatters';
+import { getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
 import type { Order, OrderItem, MenuItem, Table, Customer, PaymentEvent } from '@shared/schema';
 import { printerService } from '@/lib/printer-service';
 import { usePrinter } from '@/hooks/usePrinter';
@@ -35,8 +36,17 @@ interface PrintInvoiceProps {
   restaurantInfo?: {
     name: string;
     address?: string;
+    fiscalAddress?: string;
     phone?: string;
     nif?: string;
+    vatRegime?: string;
+    vatRate?: string | number;
+    documentSeries?: string;
+    invoicePrefix?: string;
+    email?: string;
+    website?: string;
+    whatsappNumber?: string;
+    legalFooter?: string;
   };
   /**
    * Totais/ajustes opcionais (ex.: quando o desconto/taxa vem da sessão e não do pedido).
@@ -78,6 +88,16 @@ export function PrintInvoice({
   });
 
   const resolvedRestaurantInfo = restaurantInfo || fetchedRestaurant || { name: 'NaBancada' };
+  const fiscalDetails = getRestaurantFiscalDetails(resolvedRestaurantInfo);
+  const escapeHtml = (value: unknown) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+  const fiscalDetailsHtml = fiscalDetails.lines
+    .map(({ label, value }) => `<div><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</div>`)
+    .join('');
   const thermalPrinter = getPrinterByType('invoice');
 
   const handlePrintThermal = async () => {
@@ -132,8 +152,17 @@ export function PrintInvoice({
           : invoiceDate(new Date()),
          restaurantName: resolvedRestaurantInfo.name,
          restaurantAddress: resolvedRestaurantInfo.address || undefined,
+          restaurantFiscalAddress: resolvedRestaurantInfo.fiscalAddress || undefined,
          restaurantPhone: resolvedRestaurantInfo.phone || undefined,
          restaurantNIF: resolvedRestaurantInfo.nif || undefined,
+          vatRegime: resolvedRestaurantInfo.vatRegime || undefined,
+          vatRate: resolvedRestaurantInfo.vatRate != null ? `${resolvedRestaurantInfo.vatRate}%` : undefined,
+          documentSeries: resolvedRestaurantInfo.documentSeries || undefined,
+          invoicePrefix: resolvedRestaurantInfo.invoicePrefix || undefined,
+          restaurantEmail: resolvedRestaurantInfo.email || undefined,
+          website: resolvedRestaurantInfo.website || undefined,
+          whatsappNumber: resolvedRestaurantInfo.whatsappNumber || undefined,
+          legalFooter: resolvedRestaurantInfo.legalFooter || undefined,
          orderNumber: order.orderNumber || order.id.slice(-8).toUpperCase(),
          orderType: order.orderType,
          deliveryAddress: order.deliveryAddress || undefined,
@@ -396,9 +425,7 @@ export function PrintInvoice({
           <div class="restaurant-info">
              <div class="restaurant-name">${resolvedRestaurantInfo.name}</div>
             <div class="restaurant-details">
-              ${resolvedRestaurantInfo.address ? `<div>${resolvedRestaurantInfo.address}</div>` : ''}
-              ${resolvedRestaurantInfo.phone ? `<div>Tel: ${resolvedRestaurantInfo.phone}</div>` : ''}
-              ${resolvedRestaurantInfo.nif ? `<div>NIF: ${resolvedRestaurantInfo.nif}</div>` : ''}
+              ${fiscalDetailsHtml}
             </div>
           </div>
           <div class="invoice-info">
@@ -536,6 +563,7 @@ export function PrintInvoice({
         ` : ''}
 
         <div class="footer">
+          ${fiscalDetails.legalFooter ? `<div style="margin-bottom: 10px;">${escapeHtml(fiscalDetails.legalFooter)}</div>` : ''}
           <div style="margin-bottom: 10px;">Obrigado pela sua preferência!</div>
            <div>Documento emitido em ${invoiceDate(new Date())}</div>
           <div style="margin-top: 5px;">Fatura/Recibo final · Código de validação: ${validationCode}</div>

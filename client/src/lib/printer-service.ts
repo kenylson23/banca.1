@@ -979,6 +979,7 @@ class PrinterService {
       customerAddress?: string;
        restaurantName?: string;
        restaurantAddress?: string;
+       restaurantFiscalAddress?: string;
        restaurantNIF?: string;
        restaurantNif?: string;
        vatRegime?: string;
@@ -1041,17 +1042,19 @@ class PrinterService {
     if (content.restaurantName) {
       encoder.align('center').bold(true).line(content.restaurantName).bold(false);
     }
-      if (content.restaurantPhone) encoder.line(`Telefone: ${content.restaurantPhone}`);
-    if (content.fiscalAddress || content.restaurantAddress) {
-      encoder.line(content.fiscalAddress || content.restaurantAddress!);
+    if (content.restaurantPhone) encoder.line(`Telefone: ${content.restaurantPhone}`);
+    if (content.restaurantAddress) encoder.line(`Morada: ${content.restaurantAddress}`);
+    const fiscalAddress = content.restaurantFiscalAddress || content.fiscalAddress;
+    if (fiscalAddress && fiscalAddress !== content.restaurantAddress) {
+      encoder.line(`Morada fiscal: ${fiscalAddress}`);
     }
     if (content.restaurantNif || content.restaurantNIF) {
       encoder.line(`NIF: ${content.restaurantNif || content.restaurantNIF}`);
     }
     if (content.vatRegime) encoder.line(`Regime: ${content.vatRegime}`);
     if (content.vatRate) encoder.line(`IVA: ${content.vatRate}`);
-      if (content.documentSeries) encoder.line(`Série: ${content.documentSeries}`);
-      if (content.invoicePrefix) encoder.line(`Prefixo: ${content.invoicePrefix}`);
+    if (content.documentSeries) encoder.line(`Série: ${content.documentSeries}`);
+    if (content.invoicePrefix) encoder.line(`Prefixo: ${content.invoicePrefix}`);
     if (content.restaurantEmail) encoder.line(`Email: ${content.restaurantEmail}`);
     if (content.website) encoder.line(`Web: ${content.website}`);
     if (content.whatsappNumber) encoder.line(`WhatsApp: ${content.whatsappNumber}`);

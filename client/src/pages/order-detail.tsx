@@ -582,8 +582,17 @@ export default function OrderDetail() {
             restaurantInfo={restaurant ? {
               name: restaurant.name,
               address: restaurant.address || undefined,
+              fiscalAddress: restaurant.fiscalAddress || undefined,
               phone: restaurant.phone || undefined,
               nif: restaurant.nif || undefined,
+              vatRegime: restaurant.vatRegime || undefined,
+              vatRate: restaurant.vatRate ?? undefined,
+              documentSeries: restaurant.documentSeries || undefined,
+              invoicePrefix: restaurant.invoicePrefix || undefined,
+              email: restaurant.email || undefined,
+              website: restaurant.website || undefined,
+              whatsappNumber: restaurant.whatsappNumber || undefined,
+              legalFooter: restaurant.legalFooter || undefined,
             } : undefined}
             variant="ghost"
             size="icon"

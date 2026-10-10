@@ -859,12 +859,15 @@ export default function Settings() {
                     {fiscalDraft.fiscalAddress || restaurant?.address || 'Morada fiscal não informada'}
                   </p>
                   <div className="mt-3 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                    {restaurant?.phone && <span><strong className="text-foreground">Telefone:</strong> {restaurant.phone}</span>}
                     <span><strong className="text-foreground">NIF:</strong> {fiscalDraft.nif || 'Não informado'}</span>
                     <span><strong className="text-foreground">Regime:</strong> {fiscalDraft.vatRegime || 'Não informado'}</span>
                     <span><strong className="text-foreground">IVA:</strong> {fiscalDraft.vatRate ? `${fiscalDraft.vatRate}%` : 'Não informado'}</span>
                     <span><strong className="text-foreground">Série:</strong> {fiscalDraft.documentSeries || 'Não informada'}</span>
                     <span><strong className="text-foreground">Prefixo:</strong> {fiscalDraft.invoicePrefix || 'Não informado'}</span>
                     <span><strong className="text-foreground">Email:</strong> {fiscalDraft.email || 'Não informado'}</span>
+                    <span><strong className="text-foreground">Website:</strong> {fiscalDraft.website || 'Não informado'}</span>
+                    <span><strong className="text-foreground">WhatsApp:</strong> {fiscalDraft.whatsappNumber || 'Não informado'}</span>
                   </div>
                   {fiscalDraft.legalFooter && (
                     <p className="mt-3 border-t pt-3 text-xs italic text-muted-foreground">{fiscalDraft.legalFooter}</p>

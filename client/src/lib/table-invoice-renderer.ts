@@ -1,4 +1,5 @@
 import type { TableInvoiceDocument } from '@shared/table-invoice-document';
+import { getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
 import {
   invoiceAdjustmentLabel,
   invoiceAdjustmentDetail,
@@ -90,19 +91,11 @@ export function renderTableInvoiceHtml(
   const branchName = document.branch?.name || 'Unidade principal';
   const branchAddress = document.branch?.address || document.restaurant.address;
   const branchPhone = document.branch?.phone || document.restaurant.phone;
+  const fiscalDetails = getRestaurantFiscalDetails(document.restaurant);
   const fiscalAddress = document.restaurant.fiscalAddress || document.restaurant.address;
-  const fiscalDetails = [
-    fiscalAddress ? `Morada fiscal: ${fiscalAddress}` : '',
-    document.restaurant.phone ? `Telefone: ${document.restaurant.phone}` : '',
-    document.restaurant.nif ? `NIF: ${document.restaurant.nif}` : '',
-    document.restaurant.vatRegime ? `Regime: ${document.restaurant.vatRegime}` : '',
-    document.restaurant.vatRate ? `IVA: ${moneyLabel(document.restaurant.vatRate)}%` : '',
-    document.restaurant.documentSeries ? `Série: ${document.restaurant.documentSeries}` : '',
-    document.restaurant.invoicePrefix ? `Prefixo: ${document.restaurant.invoicePrefix}` : '',
-    document.restaurant.email ? `Email: ${document.restaurant.email}` : '',
-    document.restaurant.website ? `Web: ${document.restaurant.website}` : '',
-    document.restaurant.whatsappNumber ? `WhatsApp: ${document.restaurant.whatsappNumber}` : '',
-  ].filter(Boolean).join(' · ');
+  const fiscalDetailsLabel = fiscalDetails.lines
+    .map(({ label, value }) => `${label}: ${value}`)
+    .join(' · ');
   const operationDetails = `<section><h2>Dados da operação</h2><div class="operation-grid">
     <div><label>Filial</label><strong>${escapeHtml(branchName)}</strong></div>
     <div><label>Endereço da filial</label><strong>${escapeHtml(branchAddress || '-')}</strong></div>
@@ -164,7 +157,7 @@ export function renderTableInvoiceHtml(
          <div class="line"><span>${Number(document.totals.pending) > 0 ? 'Saldo pendente' : 'Saldo'}</span><span class="pending">${moneyLabel(document.totals.pending)}</span></div>
       </section>
        <section><h2>Pagamentos realizados</h2><div class="payments">${paymentRows || '<div class="muted">Nenhum pagamento registado</div>'}</div>${paymentDetailRows ? `<small class="muted" style="margin-top:8px">Registos individuais</small><div class="payments">${paymentDetailRows}</div>` : ''}</section>
-        <footer class="footer">${qrCode}<div class="muted">${document.restaurant.legalFooter ? `<strong>${escapeHtml(document.restaurant.legalFooter)}</strong><br>` : ''}${escapeHtml(fiscalDetails)}${fiscalDetails ? '<br>' : ''}Documento final emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura/Recibo Nº ${escapeHtml(invoiceNumberLabel(document.invoiceReference))}<br>Total final: ${moneyLabel(document.totals.total)}<br>Código de validação: ${escapeHtml(document.validation.code)}<br>Confirmar: ${escapeHtml(document.validation.verificationUrl)}</div></footer>
+         <footer class="footer">${qrCode}<div class="muted">${fiscalDetails.legalFooter ? `<strong>${escapeHtml(fiscalDetails.legalFooter)}</strong><br>` : ''}${escapeHtml(fiscalDetailsLabel)}${fiscalDetailsLabel ? '<br>' : ''}Documento final emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura/Recibo Nº ${escapeHtml(invoiceNumberLabel(document.invoiceReference))}<br>Total final: ${moneyLabel(document.totals.total)}<br>Código de validação: ${escapeHtml(document.validation.code)}<br>Confirmar: ${escapeHtml(document.validation.verificationUrl)}</div></footer>
     </body></html>`;
 }
 
