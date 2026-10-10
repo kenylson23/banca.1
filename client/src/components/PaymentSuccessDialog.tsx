@@ -30,11 +30,21 @@ import {
 } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { formatPaymentMethodLabel } from '@shared/invoice-formatters';
+import { getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
 import { PrintGuestBill, type TableGuest, type GuestOrder, type GuestOrderItem } from './PrintGuestBill';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import type { OrdersByGuestData } from '@/../../shared/types';
 import jsPDF from 'jspdf';
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 interface PaymentData {
   id: string;
@@ -119,6 +129,7 @@ export function PaymentSuccessDialog({
   const [isPrinting, setIsPrinting] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const { toast } = useToast();
+  const fiscalDetails = getRestaurantFiscalDetails(restaurant ?? {});
 
   const safeOrdersByGuest = Array.isArray(ordersByGuest) ? ordersByGuest : [];
   const safeCalculateTotals = calculateTotals || {
@@ -257,17 +268,9 @@ export function PaymentSuccessDialog({
 
   const generatePrintableInvoice = () => {
     const restaurantName = restaurant?.name || 'Restaurante';
-    const restaurantAddress = restaurant?.fiscalAddress || restaurant?.address || '';
-    const restaurantNIF = restaurant?.nif || '';
-    const restaurantVatRegime = restaurant?.vatRegime || '';
-    const restaurantVatRate = restaurant?.vatRate != null ? String(restaurant.vatRate) : '';
-    const restaurantDocumentSeries = restaurant?.documentSeries || '';
-    const restaurantInvoicePrefix = restaurant?.invoicePrefix || '';
-    const restaurantEmail = restaurant?.email || '';
-    const restaurantWebsite = restaurant?.website || '';
-    const restaurantWhatsapp = restaurant?.whatsappNumber || '';
-    const restaurantPhone = restaurant?.phone || '';
-    const restaurantLegalFooter = restaurant?.legalFooter || '';
+    const fiscalDetailsHtml = fiscalDetails.lines
+      .map(({ label, value }) => `<div>${escapeHtml(label)}: ${escapeHtml(value)}</div>`)
+      .join('');
     
     // Get current date/time for print
     const printDateTime = new Date().toLocaleString('pt-PT');
@@ -456,18 +459,9 @@ export function PaymentSuccessDialog({
           <!-- HEADER -->
           <div class="header">
             <div class="restaurant-name">${restaurantName}</div>
-            ${restaurantAddress || restaurantNIF || restaurantVatRegime || restaurantVatRate || restaurantDocumentSeries || restaurantInvoicePrefix || restaurantEmail || restaurantWebsite || restaurantWhatsapp || restaurantPhone ? `
+            ${fiscalDetailsHtml ? `
               <div class="restaurant-info">
-                ${restaurantAddress ? `Morada fiscal: ${restaurantAddress}<br>` : ''}
-                ${restaurantNIF ? `NIF: ${restaurantNIF}<br>` : ''}
-                ${restaurantVatRegime ? `Regime de IVA: ${restaurantVatRegime}<br>` : ''}
-                ${restaurantVatRate ? `Taxa de IVA: ${restaurantVatRate}%<br>` : ''}
-                ${restaurantDocumentSeries ? `Série: ${restaurantDocumentSeries}<br>` : ''}
-                ${restaurantInvoicePrefix ? `Prefixo: ${restaurantInvoicePrefix}<br>` : ''}
-                ${restaurantEmail ? `Email: ${restaurantEmail}<br>` : ''}
-                ${restaurantWebsite ? `Web: ${restaurantWebsite}<br>` : ''}
-                ${restaurantWhatsapp ? `WhatsApp: ${restaurantWhatsapp}<br>` : ''}
-                ${restaurantPhone ? `Tel: ${restaurantPhone}` : ''}
+                ${fiscalDetailsHtml}
               </div>
             ` : ''}
           </div>
@@ -597,7 +591,7 @@ export function PaymentSuccessDialog({
 
           <!-- FOOTER -->
           <div class="footer">
-            ${restaurantLegalFooter ? `${restaurantLegalFooter}<br><br>` : ''}
+            ${fiscalDetails.legalFooter ? `${escapeHtml(fiscalDetails.legalFooter)}<br><br>` : ''}
             Obrigado pela sua visita!<br>
             Volte sempre!
           </div>
@@ -662,36 +656,8 @@ export function PaymentSuccessDialog({
       // HEADER - Restaurant Info
       addText(restaurant?.name || 'Restaurante', 18, true, 'center');
       yPos += 2;
-      
-       if (restaurant?.fiscalAddress || restaurant?.address) {
-         addText(`Morada fiscal: ${restaurant.fiscalAddress || restaurant.address}`, 9, false, 'center');
-      }
-      if (restaurant?.nif) {
-        addText(`NIF: ${restaurant.nif}`, 9, false, 'center');
-      }
-       if (restaurant?.vatRegime) {
-         addText(`Regime de IVA: ${restaurant.vatRegime}`, 9, false, 'center');
-       }
-       if (restaurant?.vatRate != null) {
-         addText(`Taxa de IVA: ${restaurant.vatRate}%`, 9, false, 'center');
-       }
-       if (restaurant?.documentSeries) {
-         addText(`Série: ${restaurant.documentSeries}`, 9, false, 'center');
-       }
-       if (restaurant?.invoicePrefix) {
-         addText(`Prefixo: ${restaurant.invoicePrefix}`, 9, false, 'center');
-       }
-       if (restaurant?.email) {
-         addText(`Email: ${restaurant.email}`, 9, false, 'center');
-       }
-       if (restaurant?.website) {
-         addText(`Web: ${restaurant.website}`, 9, false, 'center');
-       }
-       if (restaurant?.whatsappNumber) {
-         addText(`WhatsApp: ${restaurant.whatsappNumber}`, 9, false, 'center');
-       }
-      if (restaurant?.phone) {
-        addText(`Tel: ${restaurant.phone}`, 9, false, 'center');
+      for (const line of fiscalDetails.lines) {
+        addText(`${line.label}: ${line.value}`, 9, false, 'center');
       }
       
       yPos += 5;
@@ -835,9 +801,9 @@ export function PaymentSuccessDialog({
       addText(`Fatura associada: ${payment.invoiceReference || 'Sessão sem referência'}`, 9, false, 'center');
       addText(`Nº do pagamento: ${payment.id}`, 9, false, 'center');
       yPos += 5;
-       if (restaurant?.legalFooter) {
+       if (fiscalDetails.legalFooter) {
          checkPageBreak(15);
-         addText(restaurant.legalFooter, 9, false, 'center');
+         addText(fiscalDetails.legalFooter, 9, false, 'center');
          yPos += 2;
        }
       addText('Obrigado pela sua visita!', 10, true, 'center');
@@ -955,17 +921,14 @@ export function PaymentSuccessDialog({
               </CardHeader>
               <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div className="sm:col-span-2"><span className="text-muted-foreground">Nome do emitente:</span><div className="font-medium">{restaurant?.name || 'Não informado'}</div></div>
-                <div><span className="text-muted-foreground">Morada fiscal:</span><div className="font-medium">{restaurant?.fiscalAddress || restaurant?.address || 'Não informada'}</div></div>
-                <div><span className="text-muted-foreground">NIF:</span><div className="font-medium">{restaurant?.nif || 'Não informado'}</div></div>
-                <div><span className="text-muted-foreground">Regime de IVA:</span><div className="font-medium">{restaurant?.vatRegime || 'Não informado'}</div></div>
-                <div><span className="text-muted-foreground">Taxa de IVA:</span><div className="font-medium">{restaurant?.vatRate != null && String(restaurant.vatRate).trim() !== '' ? `${restaurant.vatRate}%` : 'Não informada'}</div></div>
-                <div><span className="text-muted-foreground">Série / prefixo:</span><div className="font-medium">{[restaurant?.documentSeries, restaurant?.invoicePrefix].filter(Boolean).join(' · ') || 'Não informado'}</div></div>
-                <div><span className="text-muted-foreground">Contacto:</span><div className="font-medium">{[restaurant?.phone, restaurant?.whatsappNumber].filter(Boolean).join(' · ') || 'Não informado'}</div></div>
-                {(restaurant?.email || restaurant?.website) && (
-                  <div className="sm:col-span-2"><span className="text-muted-foreground">Contactos digitais:</span><div className="font-medium">{[restaurant?.email, restaurant?.website].filter(Boolean).join(' · ')}</div></div>
+                {fiscalDetails.lines.map(({ label, value }) => (
+                  <div key={label}><span className="text-muted-foreground">{label}:</span><div className="font-medium">{value}</div></div>
+                ))}
+                {!fiscalDetails.lines.some(({ label }) => label === 'NIF') && (
+                  <div><span className="text-muted-foreground">NIF:</span><div className="font-medium">Não informado</div></div>
                 )}
-                {restaurant?.legalFooter && (
-                  <div className="sm:col-span-2"><span className="text-muted-foreground">Rodapé legal:</span><div className="font-medium">{restaurant.legalFooter}</div></div>
+                {fiscalDetails.legalFooter && (
+                  <div className="sm:col-span-2"><span className="text-muted-foreground">Rodapé legal:</span><div className="font-medium">{fiscalDetails.legalFooter}</div></div>
                 )}
               </CardContent>
             </Card>

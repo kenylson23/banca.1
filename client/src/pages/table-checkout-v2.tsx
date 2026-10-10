@@ -53,6 +53,7 @@ import { cn } from "@/lib/utils";
 import { PaymentSuccessDialog } from "@/components/PaymentSuccessDialog";
 import { formatTableInvoiceNumber } from "@shared/table-invoice-number";
 import { formatPaymentMethodLabel } from "@shared/payment-methods";
+import type { TableInvoiceDocument } from "@shared/table-invoice-document";
 import { CheckoutSummaryPanel } from "@/components/CheckoutSummaryPanel";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { invalidateAfterPayment } from "@/lib/tableInvalidations";
@@ -86,6 +87,22 @@ async function fetchRestaurantFiscalData(restaurantId: string): Promise<Restaura
     throw new Error('Não foi possível carregar os dados fiscais do restaurante');
   }
   return response.json();
+}
+
+async function fetchTableInvoiceRestaurant(sessionId: string): Promise<TableInvoiceDocument["restaurant"]> {
+  const response = await apiFetch(
+    `/api/table-sessions/${encodeURIComponent(sessionId)}/invoice`,
+    { cache: "no-store", credentials: "include" },
+  );
+  if (!response.ok) {
+    throw new Error('Não foi possível carregar os dados fiscais da fatura da sessão');
+  }
+
+  const document = await response.json() as TableInvoiceDocument;
+  if (!document?.restaurant) {
+    throw new Error('A fatura da sessão não devolveu os dados do restaurante');
+  }
+  return document.restaurant;
 }
 
 export default function TableCheckoutV2() {
@@ -177,7 +194,7 @@ export default function TableCheckoutV2() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
-  const [receiptRestaurant, setReceiptRestaurant] = useState<Restaurant | null>(null);
+  const [receiptRestaurant, setReceiptRestaurant] = useState<TableInvoiceDocument["restaurant"] | null>(null);
   const [receiptFiscalDataUnavailable, setReceiptFiscalDataUnavailable] = useState(false);
   const [receiptTotals, setReceiptTotals] = useState<ReceiptTotalsSnapshot | null>(null);
   const [receiptOrdersByGuest, setReceiptOrdersByGuest] = useState<OrdersByGuestData["ordersByGuest"] | null>(null);
@@ -786,25 +803,46 @@ export default function TableCheckoutV2() {
     },
     onSuccess: async (data) => {
       console.log('🔍 [CHECKOUT] Pagamento processado com sucesso:', data);
-      let fiscalRestaurant = restaurant ?? null;
+      let fiscalRestaurant: TableInvoiceDocument["restaurant"] | null = restaurant ?? null;
       setReceiptFiscalDataUnavailable(false);
-      if (table?.restaurantId) {
+      const invoiceSessionId = data?.sessionId
+        || data?.payment?.sessionId
+        || data?.tablePayment?.sessionId
+        || data?.guestPayment?.sessionId
+        || data?.results?.[0]?.tablePayment?.sessionId
+        || data?.results?.[0]?.guestPayment?.sessionId
+        || sessionData?.id
+        || table?.currentSessionId;
+      let invoiceFiscalDataLoaded = false;
+
+      if (invoiceSessionId) {
         try {
-          fiscalRestaurant = await queryClient.fetchQuery({
-            queryKey: ['/api/public/restaurants', table.restaurantId],
-            queryFn: () => fetchRestaurantFiscalData(table.restaurantId),
-            staleTime: 0,
-          });
+          // A fatura consolidada é montada no servidor a partir dos dados
+          // persistidos; use-a como fonte de verdade no checkout final.
+          fiscalRestaurant = await fetchTableInvoiceRestaurant(invoiceSessionId);
+          invoiceFiscalDataLoaded = true;
         } catch (error) {
-          console.error('Erro ao atualizar os dados fiscais para o recibo:', error);
-          fiscalRestaurant = null;
-          setReceiptFiscalDataUnavailable(true);
-          toast({
-            title: 'Dados fiscais indisponíveis',
-            description: 'O pagamento foi registado, mas não foi possível confirmar os dados fiscais atualizados.',
-            variant: 'destructive',
-          });
+          console.error('Erro ao carregar os dados fiscais da fatura final:', error);
         }
+      }
+
+      // Fallback para manter o recibo disponível caso a rota da fatura
+      // consolidada esteja temporariamente indisponível.
+      if (!invoiceFiscalDataLoaded && table?.restaurantId) {
+        try {
+          fiscalRestaurant = await fetchRestaurantFiscalData(table.restaurantId);
+        } catch (error) {
+          console.error('Erro ao carregar os dados fiscais do restaurante:', error);
+        }
+      }
+
+      if (!fiscalRestaurant) {
+        setReceiptFiscalDataUnavailable(true);
+        toast({
+          title: 'Dados fiscais indisponíveis',
+          description: 'O pagamento foi registado, mas não foi possível carregar os dados fiscais para a fatura.',
+          variant: 'destructive',
+        });
       }
       setReceiptRestaurant(fiscalRestaurant);
         // A rota global responde { success, payment }, enquanto algumas
