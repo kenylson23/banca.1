@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -29,8 +30,10 @@ import {
   Minus,
 } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
+import { apiFetch } from '@/lib/api-url';
 import { formatPaymentMethodLabel } from '@shared/invoice-formatters';
 import { getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
+import type { TableInvoiceDocument } from '@shared/table-invoice-document';
 import { PrintGuestBill, type TableGuest, type GuestOrder, type GuestOrderItem } from './PrintGuestBill';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -129,7 +132,24 @@ export function PaymentSuccessDialog({
   const [isPrinting, setIsPrinting] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const { toast } = useToast();
-  const fiscalDetails = getRestaurantFiscalDetails(restaurant ?? {});
+  const invoiceQuery = useQuery<TableInvoiceDocument>({
+    queryKey: [`/api/table-sessions/${payment.sessionId}/invoice`],
+    enabled: open && Boolean(payment.sessionId),
+    queryFn: async () => {
+      const response = await apiFetch(
+        `/api/table-sessions/${encodeURIComponent(payment.sessionId)}/invoice`,
+        { cache: 'no-store', credentials: 'include' },
+      );
+      if (!response.ok) {
+        throw new Error('Não foi possível carregar os dados fiscais da fatura da sessão');
+      }
+      return response.json();
+    },
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+  const resolvedRestaurant = invoiceQuery.data?.restaurant ?? restaurant;
+  const fiscalDetails = getRestaurantFiscalDetails(resolvedRestaurant ?? {});
 
   const safeOrdersByGuest = Array.isArray(ordersByGuest) ? ordersByGuest : [];
   const safeCalculateTotals = calculateTotals || {
@@ -232,7 +252,7 @@ export function PaymentSuccessDialog({
     };
   };
   const handlePrintComplete = async () => {
-    if (!restaurant) {
+    if (!resolvedRestaurant) {
       toast({
         title: 'Dados fiscais indisponíveis',
         description: 'Não é possível emitir o recibo sem carregar os dados do restaurante.',
@@ -267,7 +287,7 @@ export function PaymentSuccessDialog({
   };
 
   const generatePrintableInvoice = () => {
-    const restaurantName = restaurant?.name || 'Restaurante';
+    const restaurantName = resolvedRestaurant?.name || 'Restaurante';
     const fiscalDetailsHtml = fiscalDetails.lines
       .map(({ label, value }) => `<div>${escapeHtml(label)}: ${escapeHtml(value)}</div>`)
       .join('');
@@ -601,7 +621,7 @@ export function PaymentSuccessDialog({
   };
 
   const handleDownloadPDF = async () => {
-    if (!restaurant) {
+    if (!resolvedRestaurant) {
       toast({
         title: 'Dados fiscais indisponíveis',
         description: 'Não é possível gerar o PDF sem carregar os dados do restaurante.',
@@ -654,7 +674,7 @@ export function PaymentSuccessDialog({
       };
 
       // HEADER - Restaurant Info
-      addText(restaurant?.name || 'Restaurante', 18, true, 'center');
+      addText(resolvedRestaurant?.name || 'Restaurante', 18, true, 'center');
       yPos += 2;
       for (const line of fiscalDetails.lines) {
         addText(`${line.label}: ${line.value}`, 9, false, 'center');
@@ -920,7 +940,7 @@ export function PaymentSuccessDialog({
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                <div className="sm:col-span-2"><span className="text-muted-foreground">Nome do emitente:</span><div className="font-medium">{restaurant?.name || 'Não informado'}</div></div>
+                <div className="sm:col-span-2"><span className="text-muted-foreground">Nome do emitente:</span><div className="font-medium">{resolvedRestaurant?.name || 'Não informado'}</div></div>
                 {fiscalDetails.lines.map(({ label, value }) => (
                   <div key={label}><span className="text-muted-foreground">{label}:</span><div className="font-medium">{value}</div></div>
                 ))}
@@ -1254,20 +1274,20 @@ export function PaymentSuccessDialog({
                                    serviceCharges={serviceCharges}
                                    totalAmount={guestTotal}
                                    tableName={`Mesa ${table.number}`}
-                                   restaurantName={restaurant?.name}
-                                    restaurantAddress={restaurant?.address ?? undefined}
-                                    restaurantFiscalAddress={restaurant?.fiscalAddress ?? undefined}
-                                    restaurantPhone={restaurant?.phone ?? undefined}
-                                    restaurantNIF={restaurant?.nif ?? undefined}
-                                    restaurantVatRegime={restaurant?.vatRegime ?? undefined}
-                                    restaurantVatRate={restaurant?.vatRate ?? undefined}
-                                    restaurantDocumentSeries={restaurant?.documentSeries ?? undefined}
-                                    restaurantInvoicePrefix={restaurant?.invoicePrefix ?? undefined}
-                                    restaurantEmail={restaurant?.email ?? undefined}
-                                    restaurantWebsite={restaurant?.website ?? undefined}
-                                    restaurantWhatsappNumber={restaurant?.whatsappNumber ?? undefined}
-                                    restaurantLogoUrl={restaurant?.logoUrl ?? undefined}
-                                    legalFooter={restaurant?.legalFooter ?? undefined}
+                                   restaurantName={resolvedRestaurant?.name}
+                                    restaurantAddress={resolvedRestaurant?.address ?? undefined}
+                                    restaurantFiscalAddress={resolvedRestaurant?.fiscalAddress ?? undefined}
+                                    restaurantPhone={resolvedRestaurant?.phone ?? undefined}
+                                    restaurantNIF={resolvedRestaurant?.nif ?? undefined}
+                                    restaurantVatRegime={resolvedRestaurant?.vatRegime ?? undefined}
+                                    restaurantVatRate={resolvedRestaurant?.vatRate ?? undefined}
+                                    restaurantDocumentSeries={resolvedRestaurant?.documentSeries ?? undefined}
+                                    restaurantInvoicePrefix={resolvedRestaurant?.invoicePrefix ?? undefined}
+                                    restaurantEmail={resolvedRestaurant?.email ?? undefined}
+                                    restaurantWebsite={resolvedRestaurant?.website ?? undefined}
+                                    restaurantWhatsappNumber={resolvedRestaurant?.whatsappNumber ?? undefined}
+                                    restaurantLogoUrl={resolvedRestaurant?.logoUrl ?? undefined}
+                                    legalFooter={resolvedRestaurant?.legalFooter ?? undefined}
                                    paymentMethod={payment.paymentMethod}
                                    variant="ghost"
                                    size="sm"
