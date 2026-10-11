@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import QRCode from 'qrcode';
 import { renderTableInvoiceHtml, tableInvoiceToThermalPayload, type TableInvoicePaper } from '@/lib/table-invoice-renderer';
 import type { TableInvoiceDocument } from '@shared/table-invoice-document';
+import { getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
 import { PrintTablePayment } from '@/components/PrintTablePayment';
 import {
   invoiceDate,
@@ -78,6 +79,8 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
   if (isError || !data) {
     return <p className="py-3 text-sm text-muted-foreground">Não foi possível carregar a fatura/recibo desta sessão.</p>;
   }
+
+  const fiscalDetails = getRestaurantFiscalDetails(data.restaurant);
 
   const updateInvoiceRecipient = async (
     type: TableInvoiceDocument['invoiceRecipient']['type'],
@@ -282,19 +285,13 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
             <p className="mb-2 font-semibold">Dados fiscais do emitente</p>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               <div><span className="text-muted-foreground">Nome</span><p className="font-medium">{data.restaurant.name}</p></div>
-              <div><span className="text-muted-foreground">NIF</span><p className="font-medium">{data.restaurant.nif || 'Não informado'}</p></div>
-              <div><span className="text-muted-foreground">Telefone</span><p className="font-medium">{data.restaurant.phone || 'Não informado'}</p></div>
-              <div><span className="text-muted-foreground">Regime de IVA</span><p className="font-medium">{data.restaurant.vatRegime || 'Não informado'}</p></div>
-              <div><span className="text-muted-foreground">Taxa de IVA</span><p className="font-medium">{data.restaurant.vatRate ? `${data.restaurant.vatRate}%` : 'Não informada'}</p></div>
-              <div><span className="text-muted-foreground">Série / prefixo</span><p className="font-medium">{[data.restaurant.documentSeries, data.restaurant.invoicePrefix].filter(Boolean).join(' · ') || 'Não informado'}</p></div>
-              <div className="sm:col-span-2 lg:col-span-3"><span className="text-muted-foreground">Morada fiscal</span><p className="font-medium">{data.restaurant.fiscalAddress || data.restaurant.address || 'Não informada'}</p></div>
-              {(data.restaurant.email || data.restaurant.website || data.restaurant.whatsappNumber) && (
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <span className="text-muted-foreground">Contactos</span>
-                  <p className="font-medium">{[data.restaurant.email, data.restaurant.website, data.restaurant.whatsappNumber].filter(Boolean).join(' · ')}</p>
-                </div>
+              {fiscalDetails.lines.map(({ label, value }) => (
+                <div key={label}><span className="text-muted-foreground">{label}</span><p className="font-medium">{value}</p></div>
+              ))}
+              {!fiscalDetails.lines.some(({ label }) => label === 'NIF') && (
+                <div><span className="text-muted-foreground">NIF</span><p className="font-medium">Não informado</p></div>
               )}
-              {data.restaurant.legalFooter && <div className="sm:col-span-2 lg:col-span-3"><span className="text-muted-foreground">Rodapé legal</span><p className="font-medium">{data.restaurant.legalFooter}</p></div>}
+              {fiscalDetails.legalFooter && <div className="sm:col-span-2 lg:col-span-3"><span className="text-muted-foreground">Rodapé legal</span><p className="font-medium">{fiscalDetails.legalFooter}</p></div>}
             </div>
           </div>
           {(data.discounts.length > 0 || data.fees.length > 0) && (

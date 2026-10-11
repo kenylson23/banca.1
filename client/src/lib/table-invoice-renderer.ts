@@ -186,9 +186,13 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
     branchPhone: branchPhone ?? undefined,
     restaurantName: document.restaurant.name,
      restaurantPhone: document.restaurant.phone ?? undefined,
+     restaurantAddress: document.restaurant.address ?? undefined,
+     restaurantFiscalAddress: document.restaurant.fiscalAddress ?? undefined,
     restaurantNif: document.restaurant.nif ?? undefined,
     vatRegime: document.restaurant.vatRegime ?? undefined,
-     vatRate: document.restaurant.vatRate ? `${invoiceNumber(document.restaurant.vatRate)}%` : undefined,
+     vatRate: document.restaurant.vatRate != null && String(document.restaurant.vatRate).trim() !== ''
+       ? `${invoiceNumber(document.restaurant.vatRate)}%`
+       : undefined,
      fiscalAddress: (document.restaurant.fiscalAddress || document.restaurant.address) ?? undefined,
      documentSeries: document.restaurant.documentSeries ?? undefined,
      invoicePrefix: document.restaurant.invoicePrefix ?? undefined,

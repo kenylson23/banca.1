@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { invoiceDate, invoiceMoney, invoiceNumberLabel, invoiceSessionLabel, formatPaymentMethodLabel } from '@shared/invoice-formatters';
+import { getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
 import { printerService } from '@/lib/printer-service';
 import { usePrinter } from '@/hooks/usePrinter';
 import { useToast } from '@/hooks/use-toast';
@@ -61,6 +62,7 @@ export function PrintTablePayment({
   const [hasPrinted, setHasPrinted] = useState(false);
 
   const thermalPrinter = getPrinterByType('receipt');
+  const fiscalDetails = getRestaurantFiscalDetails(restaurant ?? {});
 
   useEffect(() => {
     if (autoPrint && !hasPrinted && payment) {
@@ -129,19 +131,7 @@ export function PrintTablePayment({
 
   const generateReceiptContent = () => {
     const fiscalName = restaurant?.name || restaurantName;
-    const fiscalAddress = restaurant?.fiscalAddress || restaurant?.address;
-    const fiscalLines = [
-      fiscalAddress ? `Morada fiscal: ${fiscalAddress}` : '',
-      restaurant?.phone ? `Telefone: ${restaurant.phone}` : '',
-      restaurant?.nif ? `NIF: ${restaurant.nif}` : '',
-      restaurant?.vatRegime ? `Regime de IVA: ${restaurant.vatRegime}` : '',
-      restaurant?.vatRate ? `IVA: ${restaurant.vatRate}%` : '',
-      restaurant?.documentSeries ? `Série: ${restaurant.documentSeries}` : '',
-      restaurant?.invoicePrefix ? `Prefixo: ${restaurant.invoicePrefix}` : '',
-      restaurant?.email ? `Email: ${restaurant.email}` : '',
-      restaurant?.website ? `Web: ${restaurant.website}` : '',
-      restaurant?.whatsappNumber ? `WhatsApp: ${restaurant.whatsappNumber}` : '',
-    ].filter(Boolean) as string[];
+    const fiscalLines = fiscalDetails.lines.map(({ label, value }) => `${label}: ${value}`);
 
     return {
       title: `${fiscalName} · RECIBO DE PAGAMENTO · Nº ${payment.id}`,
@@ -167,32 +157,20 @@ export function PrintTablePayment({
         payment.notes ? `Observações: ${payment.notes}` : '',
         'PAGAMENTO CONFIRMADO',
         'Obrigado pela sua preferência!',
-        restaurant?.legalFooter || '',
+        fiscalDetails.legalFooter || '',
       ].filter(Boolean),
     };
   };
 
   const generateHTMLContent = () => {
     const fiscalName = restaurant?.name || restaurantName;
-    const fiscalAddress = restaurant?.fiscalAddress || restaurant?.address;
     const escapeHtml = (value: unknown) => String(value ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
-    const fiscalLines = [
-      fiscalAddress,
-      restaurant?.phone ? `Telefone: ${restaurant.phone}` : '',
-      restaurant?.nif ? `NIF: ${restaurant.nif}` : '',
-      restaurant?.vatRegime ? `Regime de IVA: ${restaurant.vatRegime}` : '',
-      restaurant?.vatRate ? `IVA: ${restaurant.vatRate}%` : '',
-      restaurant?.documentSeries ? `Série: ${restaurant.documentSeries}` : '',
-      restaurant?.invoicePrefix ? `Prefixo: ${restaurant.invoicePrefix}` : '',
-      restaurant?.email ? `Email: ${restaurant.email}` : '',
-      restaurant?.website ? `Web: ${restaurant.website}` : '',
-      restaurant?.whatsappNumber ? `WhatsApp: ${restaurant.whatsappNumber}` : '',
-    ].filter(Boolean) as string[];
+    const fiscalLines = fiscalDetails.lines.map(({ label, value }) => `${label}: ${value}`);
     return `
       <!DOCTYPE html>
       <html>
@@ -286,7 +264,7 @@ export function PrintTablePayment({
         
          <div class="center" style="margin-top: 20px;">
           <p>Obrigado pela sua preferência!</p>
-           ${restaurant?.legalFooter ? `<p>${escapeHtml(restaurant.legalFooter)}</p>` : ''}
+            ${fiscalDetails.legalFooter ? `<p>${escapeHtml(fiscalDetails.legalFooter)}</p>` : ''}
            <p class="bold">${escapeHtml(fiscalName)}</p>
         </div>
       </body>
