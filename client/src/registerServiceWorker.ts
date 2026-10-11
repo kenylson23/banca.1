@@ -1,5 +1,6 @@
 let updateToast: any = null;
 let currentVersion: string | null = null;
+let updatePromptHandled = false;
 
 async function checkVersion() {
   try {
@@ -55,6 +56,19 @@ async function checkVersion() {
 export async function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     try {
+      window.addEventListener('app-update-available', (event) => {
+        const serviceWorker = (event as CustomEvent<{ serviceWorker?: ServiceWorker }>).detail?.serviceWorker;
+        if (!serviceWorker || updatePromptHandled) return;
+
+        updatePromptHandled = true;
+        const shouldUpdate = window.confirm(
+          'Está disponível uma nova versão da aplicação. Atualizar agora?',
+        );
+        if (shouldUpdate) {
+          activateUpdate(serviceWorker);
+        }
+      });
+
       const registration = await navigator.serviceWorker.register('/sw.js', {
         scope: '/',
         updateViaCache: 'none'

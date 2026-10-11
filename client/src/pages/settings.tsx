@@ -925,7 +925,7 @@ export default function Settings() {
                 </div>
               </div>
               <div className="flex justify-end">
-                <Button type="button" onClick={() => updateFiscalMutation.mutate(fiscalDraft)} disabled={updateFiscalMutation.isPending || !fiscalDraft.email.trim()}>
+                <Button type="button" onClick={() => updateFiscalMutation.mutate(fiscalDraft)} disabled={updateFiscalMutation.isPending}>
                   {updateFiscalMutation.isPending ? 'A guardar...' : 'Guardar dados fiscais'}
                 </Button>
               </div>

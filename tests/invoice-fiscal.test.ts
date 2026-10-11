@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { getRestaurantFiscalDetails } from '../shared/invoice-fiscal';
+import { updateRestaurantFiscalSchema } from '../shared/schema';
 
 describe('getRestaurantFiscalDetails', () => {
   it('preserves every configured fiscal and contact field for invoice renderers', () => {
@@ -48,5 +49,28 @@ describe('getRestaurantFiscalDetails', () => {
       { label: 'Taxa de IVA', value: '0%' },
     ]);
     assert.equal(details.legalFooter, undefined);
+  });
+});
+
+describe('updateRestaurantFiscalSchema', () => {
+  it('allows saving fiscal details when no billing email is configured', () => {
+    const result = updateRestaurantFiscalSchema.safeParse({
+      nif: '5000000000',
+      email: '',
+    });
+
+    assert.equal(result.success, true);
+    if (result.success) {
+      assert.equal(result.data.nif, '5000000000');
+    }
+  });
+
+  it('still rejects a malformed non-empty email', () => {
+    const result = updateRestaurantFiscalSchema.safeParse({
+      nif: '5000000000',
+      email: 'email-invalido',
+    });
+
+    assert.equal(result.success, false);
   });
 });

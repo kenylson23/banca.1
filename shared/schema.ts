@@ -155,7 +155,7 @@ export const updateRestaurantFiscalSchema = z.object({
   documentSeries: z.string().trim().max(50, "Série documental muito longa").optional().or(z.literal('')),
   invoicePrefix: z.string().trim().max(30, "Prefixo muito longo").optional().or(z.literal('')),
   fiscalAddress: z.string().trim().max(1000, "Morada fiscal muito longa").optional().or(z.literal('')),
-  email: z.string().trim().email("Email inválido"),
+  email: z.string().trim().email("Email inválido").optional().or(z.literal('')),
   // Accept a full URL or a domain entered without the protocol. The value is
   // printed on invoices and should not block saving valid business domains.
   website: z.string().trim().max(255, "Website muito longo").optional().or(z.literal('')),
