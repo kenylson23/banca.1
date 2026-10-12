@@ -1351,7 +1351,12 @@ export function TableDialogPOSModern({
                             <h2 className="text-2xl font-bold">Fatura final</h2>
                             <p className="text-muted-foreground">Consulte o total final, todos os pagamentos, recibos individuais e o histórico da mesa.</p>
                           </div>
-                          <SessionInvoice sessionId={invoiceSessionId} tableNumber={currentTable.number} />
+                          <SessionInvoice
+                            sessionId={invoiceSessionId}
+                            expectedTableId={currentTable.id}
+                            expectedRestaurantId={currentTable.restaurantId}
+                            tableNumber={currentTable.number}
+                          />
                         </div>
                       ) : (
                         <Card><CardContent className="py-12 text-center text-muted-foreground">Esta mesa não possui uma sessão para emitir fatura.</CardContent></Card>

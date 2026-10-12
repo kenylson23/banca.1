@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { getRestaurantFiscalDetails } from '../shared/invoice-fiscal';
+import { getRestaurantFiscalCompleteness, getRestaurantFiscalDetails } from '../shared/invoice-fiscal';
 import { updateRestaurantFiscalSchema } from '../shared/schema';
 
 describe('getRestaurantFiscalDetails', () => {
@@ -49,6 +49,49 @@ describe('getRestaurantFiscalDetails', () => {
       { label: 'Taxa de IVA', value: '0%' },
     ]);
     assert.equal(details.legalFooter, undefined);
+  });
+});
+
+describe('getRestaurantFiscalCompleteness', () => {
+  it('reports missing core fiscal fields and accepts the business address as a fallback', () => {
+    const result = getRestaurantFiscalCompleteness({
+      address: 'Rua do Comércio, 10',
+      vatRegime: 'Regime Geral',
+      vatRate: 14,
+      invoicePrefix: 'FT',
+    });
+
+    assert.deepEqual(result, {
+      isComplete: false,
+      missingFields: ['NIF'],
+    });
+  });
+
+  it('accepts zero tax rate and either document series or invoice prefix', () => {
+    const result = getRestaurantFiscalCompleteness({
+      nif: '5000000000',
+      fiscalAddress: 'Av. Fiscal, 22',
+      vatRegime: 'Regime de isenção',
+      vatRate: 0,
+      documentSeries: 'FT2026',
+    });
+
+    assert.deepEqual(result, { isComplete: true, missingFields: [] });
+  });
+
+  it('reports every missing core fiscal field', () => {
+    const result = getRestaurantFiscalCompleteness({});
+
+    assert.deepEqual(result, {
+      isComplete: false,
+      missingFields: [
+        'NIF',
+        'Morada fiscal',
+        'Regime de IVA',
+        'Taxa de IVA',
+        'Série documental ou prefixo da fatura',
+      ],
+    });
   });
 });
 

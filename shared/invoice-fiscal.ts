@@ -23,10 +23,33 @@ export type RestaurantFiscalDetails = {
   legalFooter?: string;
 };
 
+export type RestaurantFiscalCompleteness = {
+  isComplete: boolean;
+  missingFields: string[];
+};
+
 function cleanFiscalValue(value: string | number | null | undefined): string | undefined {
   if (value == null) return undefined;
   const normalized = String(value).trim();
   return normalized || undefined;
+}
+
+export function getRestaurantFiscalCompleteness(
+  restaurant: RestaurantFiscalSource,
+): RestaurantFiscalCompleteness {
+  const missingFields: string[] = [];
+  const hasFiscalAddress =
+    cleanFiscalValue(restaurant.fiscalAddress) || cleanFiscalValue(restaurant.address);
+
+  if (!cleanFiscalValue(restaurant.nif)) missingFields.push('NIF');
+  if (!hasFiscalAddress) missingFields.push('Morada fiscal');
+  if (!cleanFiscalValue(restaurant.vatRegime)) missingFields.push('Regime de IVA');
+  if (!cleanFiscalValue(restaurant.vatRate)) missingFields.push('Taxa de IVA');
+  if (!cleanFiscalValue(restaurant.documentSeries) && !cleanFiscalValue(restaurant.invoicePrefix)) {
+    missingFields.push('Série documental ou prefixo da fatura');
+  }
+
+  return { isComplete: missingFields.length === 0, missingFields };
 }
 
 export function getRestaurantFiscalDetails(

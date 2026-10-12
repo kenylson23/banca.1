@@ -201,6 +201,23 @@ function customerFromGuest(guest: any): TableInvoiceCustomer {
   return null;
 }
 
+async function tableInvoiceScopeMatches(tableId: string, restaurantId: string): Promise<boolean> {
+  const [table] = await db
+    .select({ restaurantId: tables.restaurantId, branchId: tables.branchId })
+    .from(tables)
+    .where(eq(tables.id, tableId))
+    .limit(1);
+  if (!table || table.restaurantId !== restaurantId) return false;
+  if (!table.branchId) return true;
+
+  const [branch] = await db
+    .select({ restaurantId: branches.restaurantId })
+    .from(branches)
+    .where(eq(branches.id, table.branchId))
+    .limit(1);
+  return Boolean(branch && branch.restaurantId === restaurantId);
+}
+
 async function buildTableInvoiceDocument(
   restaurantId: string | undefined,
   sessionId: string,
@@ -212,14 +229,20 @@ async function buildTableInvoiceDocument(
   }
 
   const [table] = await db.select().from(tables).where(eq(tables.id, session.tableId)).limit(1);
+  if (!table || table.restaurantId !== effectiveRestaurantId) {
+    throw new Error('Sessão não encontrada');
+  }
   const [restaurant] = await db.select().from(restaurants).where(eq(restaurants.id, effectiveRestaurantId)).limit(1);
-  if (!table || !restaurant) {
+  if (!restaurant) {
     throw new Error('Mesa ou restaurante não encontrado');
   }
 
   const [branch] = table.branchId
     ? await db.select().from(branches).where(eq(branches.id, table.branchId)).limit(1)
     : [];
+  if (table.branchId && (!branch || branch.restaurantId !== effectiveRestaurantId)) {
+    throw new Error('Sessão não encontrada');
+  }
   const totals = await storage.recalculateSessionTotals(sessionId);
   const [freshSession] = await db.select().from(tableSessions).where(eq(tableSessions.id, sessionId)).limit(1);
   const sessionForInvoice = freshSession || session;
@@ -6462,12 +6485,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const currentUser = req.user as User;
       const [session] = await db
-        .select({ restaurantId: tableSessions.restaurantId })
+        .select({
+          restaurantId: tableSessions.restaurantId,
+          tableId: tableSessions.tableId,
+        })
         .from(tableSessions)
         .where(eq(tableSessions.id, req.params.sessionId))
         .limit(1);
       const restaurantId = currentUser.restaurantId || session?.restaurantId;
-      if (!session || !restaurantId || (currentUser.restaurantId && currentUser.restaurantId !== session.restaurantId)) {
+      if (
+        !session ||
+        !restaurantId ||
+        (currentUser.restaurantId && currentUser.restaurantId !== session.restaurantId) ||
+        !(await tableInvoiceScopeMatches(session.tableId, session.restaurantId))
+      ) {
         return res.status(404).json({ message: 'Sessão não encontrada' });
       }
 
@@ -6508,7 +6539,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(tableSessions)
         .where(eq(tableSessions.id, req.params.sessionId))
         .limit(1);
-      if (!session || (currentUser.restaurantId && currentUser.restaurantId !== session.restaurantId)) {
+      if (
+        !session ||
+        (currentUser.restaurantId && currentUser.restaurantId !== session.restaurantId) ||
+        !(await tableInvoiceScopeMatches(session.tableId, session.restaurantId))
+      ) {
         return res.status(404).json({ message: 'Sessão não encontrada' });
       }
 
@@ -6551,7 +6586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const document = await buildTableInvoiceDocument(restaurantId || currentUser.restaurantId!, req.params.sessionId);
       const [entry] = await db.insert(schema.auditLogs).values({
-        restaurantId: String(restaurantId || currentUser.restaurantId),
+        restaurantId: document.restaurant.id,
         actorId: currentUser.id ? String(currentUser.id) : null,
         action: 'table_invoice_reprinted',
         entityType: 'table_session',

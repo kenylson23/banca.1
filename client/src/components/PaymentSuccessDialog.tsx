@@ -32,7 +32,7 @@ import {
 import { formatKwanza } from '@/lib/formatters';
 import { apiFetch } from '@/lib/api-url';
 import { formatPaymentMethodLabel } from '@shared/invoice-formatters';
-import { getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
+import { getRestaurantFiscalCompleteness, getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
 import type { TableInvoiceDocument } from '@shared/table-invoice-document';
 import { PrintGuestBill, type TableGuest, type GuestOrder, type GuestOrderItem } from './PrintGuestBill';
 import { cn } from '@/lib/utils';
@@ -47,22 +47,6 @@ function escapeHtml(value: unknown): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
-}
-
-function mergeRestaurantInfo(
-  ...sources: Array<Partial<RestaurantInfo> | null | undefined>
-): RestaurantInfo | undefined {
-  const merged: Record<string, unknown> = {};
-
-  for (const source of sources) {
-    if (!source) continue;
-    for (const [key, value] of Object.entries(source)) {
-      if (value == null || (typeof value === 'string' && !value.trim())) continue;
-      merged[key] = value;
-    }
-  }
-
-  return Object.keys(merged).length > 0 ? merged as unknown as RestaurantInfo : undefined;
 }
 
 interface PaymentData {
@@ -88,24 +72,6 @@ interface Table {
   currentSessionId: string | null;
 }
 
-interface RestaurantInfo {
-  id: string;
-  name: string;
-  address?: string | null;
-  fiscalAddress?: string | null;
-  nif?: string | null;
-  vatRegime?: string | null;
-  vatRate?: string | number | null;
-  documentSeries?: string | null;
-  invoicePrefix?: string | null;
-  email?: string | null;
-  website?: string | null;
-  whatsappNumber?: string | null;
-  phone?: string | null;
-  legalFooter?: string | null;
-  logoUrl?: string | null;
-}
-
 interface CalculateTotals {
   subtotal: number;
   totalDiscounts: number;
@@ -126,7 +92,6 @@ interface PaymentSuccessDialogProps {
   payment: PaymentData;
   ordersByGuest: OrdersByGuestData['ordersByGuest'];
   calculateTotals: CalculateTotals;
-  restaurant?: RestaurantInfo;
   sessionDuration?: string;
   totalAmount: number;
   onPrintComplete?: () => void;
@@ -139,7 +104,6 @@ export function PaymentSuccessDialog({
   payment,
   ordersByGuest,
   calculateTotals,
-  restaurant,
   sessionDuration,
   totalAmount,
   onPrintComplete,
@@ -165,28 +129,23 @@ export function PaymentSuccessDialog({
     staleTime: 0,
     refetchOnMount: 'always',
   });
-  const restaurantQuery = useQuery<RestaurantInfo>({
-    queryKey: ['/api/public/restaurants', table.restaurantId],
-    enabled: open && Boolean(table.restaurantId),
-    queryFn: async () => {
-      if (!table.restaurantId) throw new Error('Restaurante não identificado');
-      const response = await apiFetch(`/api/public/restaurants/${encodeURIComponent(table.restaurantId)}`);
-      if (!response.ok) {
-        throw new Error('Não foi possível carregar os dados fiscais do restaurante');
-      }
-      return response.json();
-    },
-    staleTime: 0,
-    refetchOnMount: 'always',
-  });
-  const resolvedRestaurant = mergeRestaurantInfo(
-    restaurant,
-    invoiceQuery.data?.restaurant,
-    restaurantQuery.data,
+  const invoiceDocument = invoiceQuery.data;
+  const invoiceMatchesPaymentTable = Boolean(
+    invoiceDocument &&
+    payment.sessionId &&
+    invoiceDocument.session.id === payment.sessionId &&
+    invoiceDocument.table.id === table.id &&
+    invoiceDocument.table.id === payment.tableId &&
+    table.restaurantId &&
+    invoiceDocument.restaurant.id === table.restaurantId,
   );
-  const isDirectRestaurantLoading =
-    Boolean(table.restaurantId) && restaurantQuery.isFetching && !restaurantQuery.data;
+  const resolvedRestaurant = invoiceMatchesPaymentTable ? invoiceDocument?.restaurant : undefined;
+  const isFiscalDataLoading = Boolean(payment.sessionId) && invoiceQuery.isFetching;
+  const isFiscalDataReady = Boolean(resolvedRestaurant) && !isFiscalDataLoading && !invoiceQuery.isError;
   const fiscalDetails = getRestaurantFiscalDetails(resolvedRestaurant ?? {});
+  const fiscalCompleteness = resolvedRestaurant
+    ? getRestaurantFiscalCompleteness(resolvedRestaurant)
+    : null;
 
   const safeOrdersByGuest = Array.isArray(ordersByGuest) ? ordersByGuest : [];
   const safeCalculateTotals = calculateTotals || {
@@ -289,17 +248,17 @@ export function PaymentSuccessDialog({
     };
   };
   const handlePrintComplete = async () => {
-    if (isDirectRestaurantLoading) {
+    if (isFiscalDataLoading) {
       toast({
         title: 'A carregar dados fiscais',
-        description: 'Aguarde enquanto consultamos os dados atuais do restaurante.',
+        description: 'Aguarde enquanto confirmamos os dados fiscais da sessão desta mesa.',
       });
       return;
     }
-    if (!resolvedRestaurant) {
+    if (!isFiscalDataReady) {
       toast({
         title: 'Dados fiscais indisponíveis',
-        description: 'Não é possível emitir o recibo sem carregar os dados do restaurante.',
+        description: 'Não é possível emitir o recibo sem confirmar que a fatura pertence a esta mesa e ao seu restaurante.',
         variant: 'destructive',
       });
       return;
@@ -665,17 +624,17 @@ export function PaymentSuccessDialog({
   };
 
   const handleDownloadPDF = async () => {
-    if (isDirectRestaurantLoading) {
+    if (isFiscalDataLoading) {
       toast({
         title: 'A carregar dados fiscais',
-        description: 'Aguarde enquanto consultamos os dados atuais do restaurante.',
+        description: 'Aguarde enquanto confirmamos os dados fiscais da sessão desta mesa.',
       });
       return;
     }
-    if (!resolvedRestaurant) {
+    if (!isFiscalDataReady) {
       toast({
         title: 'Dados fiscais indisponíveis',
-        description: 'Não é possível gerar o PDF sem carregar os dados do restaurante.',
+        description: 'Não é possível gerar o PDF sem confirmar que a fatura pertence a esta mesa e ao seu restaurante.',
         variant: 'destructive',
       });
       return;
@@ -1203,6 +1162,32 @@ export function PaymentSuccessDialog({
               )}
             </Card>
 
+            {isFiscalDataLoading && (
+              <div role="status" className="rounded-md border p-3 text-sm text-muted-foreground">
+                A carregar e a confirmar os dados fiscais da sessão desta mesa...
+              </div>
+            )}
+            {!isFiscalDataLoading && !isFiscalDataReady && (
+              <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+                <span>
+                  {invoiceQuery.isError
+                    ? 'Não foi possível carregar a fatura da sessão. A emissão está bloqueada para evitar dados fiscais de outro restaurante.'
+                    : 'Não foi possível confirmar que esta sessão pertence à mesa e ao restaurante selecionados. A emissão está bloqueada.'}
+                </span>
+                {payment.sessionId && (
+                  <Button size="sm" variant="outline" onClick={() => invoiceQuery.refetch()}>
+                    Tentar novamente
+                  </Button>
+                )}
+              </div>
+            )}
+            {fiscalCompleteness && !fiscalCompleteness.isComplete && (
+              <div role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+                <p className="font-semibold">Dados fiscais incompletos</p>
+                <p>Em falta: {fiscalCompleteness.missingFields.join(', ')}.</p>
+              </div>
+            )}
+
             {/* Action Cards */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
@@ -1215,10 +1200,10 @@ export function PaymentSuccessDialog({
                 className={cn(
                   "cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] border-2",
                   "border-blue-200 hover:border-blue-400 dark:border-blue-800 dark:hover:border-blue-600",
-                  isDirectRestaurantLoading && "cursor-wait opacity-60"
+                  !isFiscalDataReady && "cursor-wait opacity-60"
                 )}
-                aria-disabled={isDirectRestaurantLoading}
-                onClick={isDirectRestaurantLoading ? undefined : handlePrintComplete}
+                aria-disabled={!isFiscalDataReady}
+                onClick={!isFiscalDataReady ? undefined : handlePrintComplete}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-4">
@@ -1228,9 +1213,11 @@ export function PaymentSuccessDialog({
                     <div className="flex-1">
                       <div className="font-bold text-base">Imprimir Fatura/Recibo final</div>
                       <div className="text-sm text-muted-foreground">
-                        {isDirectRestaurantLoading
-                          ? 'A carregar dados fiscais do restaurante...'
-                          : 'Documento final com estado e pagamentos realizados'}
+                        {isFiscalDataLoading
+                          ? 'A confirmar os dados fiscais da sessão...'
+                          : !isFiscalDataReady
+                            ? 'Emissão bloqueada até confirmar a mesa e o restaurante.'
+                            : 'Documento final com estado e pagamentos realizados'}
                       </div>
                     </div>
                     {isPrinting && (
@@ -1245,10 +1232,10 @@ export function PaymentSuccessDialog({
                 className={cn(
                   "cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] border-2",
                   "border-amber-200 hover:border-amber-400 dark:border-amber-800 dark:hover:border-amber-600",
-                  isDirectRestaurantLoading && "cursor-wait opacity-60"
+                  !isFiscalDataReady && "cursor-wait opacity-60"
                 )}
-                aria-disabled={isDirectRestaurantLoading}
-                onClick={isDirectRestaurantLoading ? undefined : handleDownloadPDF}
+                aria-disabled={!isFiscalDataReady}
+                onClick={!isFiscalDataReady ? undefined : handleDownloadPDF}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-4">
@@ -1258,9 +1245,11 @@ export function PaymentSuccessDialog({
                     <div className="flex-1">
                       <div className="font-bold text-base">Baixar PDF</div>
                       <div className="text-sm text-muted-foreground">
-                        {isDirectRestaurantLoading
-                          ? 'A carregar dados fiscais do restaurante...'
-                          : 'Salvar fatura em formato PDF'}
+                        {isFiscalDataLoading
+                          ? 'A confirmar os dados fiscais da sessão...'
+                          : !isFiscalDataReady
+                            ? 'Geração bloqueada até confirmar a mesa e o restaurante.'
+                            : 'Salvar fatura em formato PDF'}
                       </div>
                     </div>
                     {isGeneratingPDF && (
@@ -1324,10 +1313,10 @@ export function PaymentSuccessDialog({
                                  </div>
                                </div>
                                
-                                {orders.length > 0 && isDirectRestaurantLoading && (
-                                  <span className="text-xs text-muted-foreground">A carregar dados fiscais...</span>
+                                {orders.length > 0 && isFiscalDataLoading && (
+                                  <span className="text-xs text-muted-foreground">A confirmar os dados fiscais da sessão...</span>
                                 )}
-                                {orders.length > 0 && !isDirectRestaurantLoading && (
+                                {orders.length > 0 && isFiscalDataReady && (
                                  <PrintGuestBill
                                    guest={guest}
                                    orders={orders}

@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import QRCode from 'qrcode';
 import { renderTableInvoiceHtml, tableInvoiceToThermalPayload, type TableInvoicePaper } from '@/lib/table-invoice-renderer';
 import type { TableInvoiceDocument } from '@shared/table-invoice-document';
-import { getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
+import { getRestaurantFiscalCompleteness, getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
 import { PrintTablePayment } from '@/components/PrintTablePayment';
 import {
   invoiceDate,
@@ -30,7 +30,16 @@ const statusColors = {
   pago: 'bg-emerald-100 text-emerald-800',
 } as const;
 
-export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?: string | number }) {
+export function SessionInvoice({
+  sessionId,
+  expectedTableId,
+  expectedRestaurantId,
+}: {
+  sessionId: string;
+  expectedTableId: string;
+  expectedRestaurantId: string;
+  tableNumber?: string | number;
+}) {
   const { data, isLoading, isError } = useQuery<TableInvoiceDocument>({
     queryKey: [`/api/table-sessions/${sessionId}/invoice`],
   });
@@ -79,8 +88,20 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
   if (isError || !data) {
     return <p className="py-3 text-sm text-muted-foreground">Não foi possível carregar a fatura/recibo desta sessão.</p>;
   }
+  if (
+    data.session.id !== sessionId ||
+    data.table.id !== expectedTableId ||
+    data.restaurant.id !== expectedRestaurantId
+  ) {
+    return (
+      <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm">
+        A fatura não corresponde à mesa e ao restaurante selecionados. A visualização e a impressão foram bloqueadas.
+      </div>
+    );
+  }
 
   const fiscalDetails = getRestaurantFiscalDetails(data.restaurant);
+  const fiscalCompleteness = getRestaurantFiscalCompleteness(data.restaurant);
 
   const updateInvoiceRecipient = async (
     type: TableInvoiceDocument['invoiceRecipient']['type'],
@@ -211,6 +232,24 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
              {thermalPrinter?.status === 'connected' && <Button size="sm" variant="outline" onClick={() => printThermal(true)}><Receipt className="mr-2 h-4 w-4" /> Térmica</Button>}
             <Button size="sm" variant="outline" onClick={downloadPdf}><Download className="mr-2 h-4 w-4" /> PDF</Button>
           </div>
+        </div>
+        <div
+          role={fiscalCompleteness.isComplete ? 'status' : 'alert'}
+          className={`rounded-md border p-3 text-sm ${
+            fiscalCompleteness.isComplete
+              ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200'
+              : 'border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100'
+          }`}
+        >
+          <p className="font-semibold">
+            {fiscalCompleteness.isComplete ? 'Dados fiscais essenciais informados' : 'Dados fiscais incompletos'}
+          </p>
+          <p className="mt-1">
+            {fiscalCompleteness.isComplete
+              ? 'NIF, morada, IVA e identificação documental estão preenchidos.'
+              : `Em falta: ${fiscalCompleteness.missingFields.join(', ')}.`}
+          </p>
+          <p className="mt-1 text-xs opacity-80">Esta verificação confirma o preenchimento dos campos, não a conformidade legal dos dados.</p>
         </div>
         {data.auditWarnings?.length ? (
           <div role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">

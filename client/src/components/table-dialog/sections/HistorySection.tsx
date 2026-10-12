@@ -22,7 +22,8 @@ import {
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import type { Restaurant, Table } from '@shared/schema';
+import type { Table } from '@shared/schema';
+import type { TableInvoiceDocument } from '@shared/table-invoice-document';
 import { SessionCard } from './SessionCard';
 import { TableStatistics } from './TableStatistics';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ import { PrintTablePayment } from '@/components/PrintTablePayment';
 import { apiFetch } from '@/lib/api-url';
 import { formatTableInvoiceNumber } from '@shared/table-invoice-number';
 import { formatPaymentMethodLabel } from '@shared/invoice-formatters';
+import { getRestaurantFiscalCompleteness } from '@shared/invoice-fiscal';
 
 interface HistorySectionProps {
   table: Table;
@@ -51,17 +53,33 @@ export function HistorySection({ table }: HistorySectionProps) {
     enabled: !!table.id,
   });
 
-  const restaurantQuery = useQuery<Restaurant>({
-    queryKey: ['/api/public/restaurants', table.restaurantId || 'none'],
-    enabled: !!table.restaurantId,
+  const paymentToPrint = payments.find((payment) => payment.id === printingPaymentId);
+  const paymentSessionId = paymentToPrint?.sessionId as string | undefined;
+  const invoiceQuery = useQuery<TableInvoiceDocument>({
+    queryKey: paymentSessionId
+      ? [`/api/table-sessions/${paymentSessionId}/invoice`]
+      : ['/api/table-sessions/missing/invoice'],
+    enabled: Boolean(printingPaymentId && paymentSessionId),
     queryFn: async () => {
-      if (!table.restaurantId) throw new Error('Restaurante não identificado');
-      const response = await apiFetch(`/api/public/restaurants/${encodeURIComponent(table.restaurantId)}`);
-      if (!response.ok) throw new Error('Não foi possível carregar os dados fiscais do restaurante');
+      if (!paymentSessionId) throw new Error('Pagamento sem sessão associada');
+      const response = await apiFetch(
+        `/api/table-sessions/${encodeURIComponent(paymentSessionId)}/invoice`,
+        { cache: 'no-store', credentials: 'include' },
+      );
+      if (!response.ok) throw new Error('Não foi possível carregar a fatura da sessão');
       return response.json();
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
+  const invoiceMatchesTable = Boolean(
+    invoiceQuery.data &&
+    paymentSessionId &&
+    invoiceQuery.data.session.id === paymentSessionId &&
+    invoiceQuery.data.table.id === table.id &&
+    table.restaurantId &&
+    invoiceQuery.data.restaurant.id === table.restaurantId,
+  );
 
   const isLoading = loadingSessions || loadingPayments;
 
@@ -239,41 +257,67 @@ export function HistorySection({ table }: HistorySectionProps) {
               
               {/* Componente de Impressão (invisível) */}
               {printingPaymentId && (() => {
-                const paymentToPrint = payments.find(p => p.id === printingPaymentId);
                 if (!paymentToPrint) return null;
 
-                if (!restaurantQuery.data) {
+                if (!paymentSessionId) {
                   return (
-                    <div className="flex flex-wrap items-center gap-2 text-sm" role={restaurantQuery.isError ? 'alert' : 'status'}>
-                      <span>{restaurantQuery.isError ? 'Não foi possível carregar os dados fiscais; o recibo não foi impresso.' : 'A carregar os dados fiscais antes de imprimir...'}</span>
-                      {restaurantQuery.isError && (
-                        <Button size="sm" variant="outline" onClick={() => restaurantQuery.refetch()}>
-                          Tentar novamente
-                        </Button>
-                      )}
+                    <div className="flex flex-wrap items-center gap-2 text-sm" role="alert">
+                      <span>O pagamento não tem uma sessão associada; o recibo não foi impresso.</span>
+                      <Button size="sm" variant="outline" onClick={() => setPrintingPaymentId(null)}>Fechar</Button>
                     </div>
                   );
                 }
 
+                if (invoiceQuery.isLoading || invoiceQuery.isFetching) {
+                  return <div className="text-sm text-muted-foreground" role="status">A carregar e confirmar os dados fiscais da sessão antes de imprimir...</div>;
+                }
+
+                if (invoiceQuery.isError || !invoiceQuery.data) {
+                  return (
+                    <div className="flex flex-wrap items-center gap-2 text-sm" role="alert">
+                      <span>Não foi possível carregar a fatura desta sessão; o recibo não foi impresso.</span>
+                      <Button size="sm" variant="outline" onClick={() => invoiceQuery.refetch()}>Tentar novamente</Button>
+                      <Button size="sm" variant="outline" onClick={() => setPrintingPaymentId(null)}>Fechar</Button>
+                    </div>
+                  );
+                }
+
+                if (!invoiceMatchesTable) {
+                  return (
+                    <div className="flex flex-wrap items-center gap-2 text-sm" role="alert">
+                      <span>A sessão não corresponde a esta mesa e ao restaurante associado; o recibo foi bloqueado.</span>
+                      <Button size="sm" variant="outline" onClick={() => setPrintingPaymentId(null)}>Fechar</Button>
+                    </div>
+                  );
+                }
+
+                const fiscalCompleteness = getRestaurantFiscalCompleteness(invoiceQuery.data.restaurant);
                 return (
-                  <PrintTablePayment
-                    payment={{
-                      id: paymentToPrint.id,
-                      amount: paymentToPrint.amount,
-                      paymentMethod: paymentToPrint.paymentMethod,
-                      createdAt: paymentToPrint.createdAt,
-                      notes: paymentToPrint.notes,
-                      sessionId: paymentToPrint.sessionId,
-                      invoiceReference: paymentToPrint.invoiceReference
-                        || formatTableInvoiceNumber(paymentToPrint.invoiceNumber, paymentToPrint.sessionStartedAt),
-                      guestName: paymentToPrint.guestName,
-                      items: paymentToPrint.items || [],
-                    }}
-                    tableName={`Mesa ${table.number}`}
-                    restaurant={restaurantQuery.data}
-                    onPrintComplete={() => setPrintingPaymentId(null)}
-                    autoPrint={true}
-                  />
+                  <>
+                    {!fiscalCompleteness.isComplete && (
+                      <div role="status" className="mb-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-950">
+                        Dados fiscais incompletos para este recibo. Em falta: {fiscalCompleteness.missingFields.join(', ')}.
+                      </div>
+                    )}
+                    <PrintTablePayment
+                      payment={{
+                        id: paymentToPrint.id,
+                        amount: paymentToPrint.amount,
+                        paymentMethod: paymentToPrint.paymentMethod,
+                        createdAt: paymentToPrint.createdAt,
+                        notes: paymentToPrint.notes,
+                        sessionId: paymentToPrint.sessionId,
+                        invoiceReference: paymentToPrint.invoiceReference
+                          || formatTableInvoiceNumber(paymentToPrint.invoiceNumber, paymentToPrint.sessionStartedAt),
+                        guestName: paymentToPrint.guestName,
+                        items: paymentToPrint.items || [],
+                      }}
+                      tableName={`Mesa ${table.number}`}
+                      restaurant={invoiceQuery.data.restaurant}
+                      onPrintComplete={() => setPrintingPaymentId(null)}
+                      autoPrint={true}
+                    />
+                  </>
                 );
               })()}
             </div>

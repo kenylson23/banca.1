@@ -52,8 +52,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { PaymentSuccessDialog } from "@/components/PaymentSuccessDialog";
 import { formatTableInvoiceNumber } from "@shared/table-invoice-number";
-import { formatPaymentMethodLabel } from "@shared/payment-methods";
 import type { TableInvoiceDocument } from "@shared/table-invoice-document";
+import { formatPaymentMethodLabel } from "@shared/payment-methods";
 import { CheckoutSummaryPanel } from "@/components/CheckoutSummaryPanel";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { invalidateAfterPayment } from "@/lib/tableInvalidations";
@@ -89,7 +89,11 @@ async function fetchRestaurantFiscalData(restaurantId: string): Promise<Restaura
   return response.json();
 }
 
-async function fetchTableInvoiceRestaurant(sessionId: string): Promise<TableInvoiceDocument["restaurant"]> {
+async function fetchTableInvoiceRestaurant(
+  sessionId: string,
+  expectedTableId: string,
+  expectedRestaurantId: string,
+): Promise<void> {
   const response = await apiFetch(
     `/api/table-sessions/${encodeURIComponent(sessionId)}/invoice`,
     { cache: "no-store", credentials: "include" },
@@ -99,10 +103,14 @@ async function fetchTableInvoiceRestaurant(sessionId: string): Promise<TableInvo
   }
 
   const document = await response.json() as TableInvoiceDocument;
-  if (!document?.restaurant) {
-    throw new Error('A fatura da sessão não devolveu os dados do restaurante');
+  if (
+    !document?.restaurant?.id ||
+    document.session?.id !== sessionId ||
+    document.table?.id !== expectedTableId ||
+    document.restaurant.id !== expectedRestaurantId
+  ) {
+    throw new Error('Os dados fiscais devolvidos não correspondem à mesa e à sessão do pagamento');
   }
-  return document.restaurant;
 }
 
 export default function TableCheckoutV2() {
@@ -194,8 +202,6 @@ export default function TableCheckoutV2() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
-  const [receiptRestaurant, setReceiptRestaurant] = useState<TableInvoiceDocument["restaurant"] | null>(null);
-  const [receiptFiscalDataUnavailable, setReceiptFiscalDataUnavailable] = useState(false);
   const [receiptTotals, setReceiptTotals] = useState<ReceiptTotalsSnapshot | null>(null);
   const [receiptOrdersByGuest, setReceiptOrdersByGuest] = useState<OrdersByGuestData["ordersByGuest"] | null>(null);
   
@@ -803,8 +809,6 @@ export default function TableCheckoutV2() {
     },
     onSuccess: async (data) => {
       console.log('🔍 [CHECKOUT] Pagamento processado com sucesso:', data);
-      let fiscalRestaurant: TableInvoiceDocument["restaurant"] | null = restaurant ?? null;
-      setReceiptFiscalDataUnavailable(false);
       const invoiceSessionId = data?.sessionId
         || data?.payment?.sessionId
         || data?.tablePayment?.sessionId
@@ -813,38 +817,26 @@ export default function TableCheckoutV2() {
         || data?.results?.[0]?.guestPayment?.sessionId
         || sessionData?.id
         || table?.currentSessionId;
-      let invoiceFiscalDataLoaded = false;
+      let fiscalDataVerified = false;
 
-      if (invoiceSessionId) {
+      if (invoiceSessionId && table?.id && table.restaurantId) {
         try {
-          // A fatura consolidada é montada no servidor a partir dos dados
-          // persistidos; use-a como fonte de verdade no checkout final.
-          fiscalRestaurant = await fetchTableInvoiceRestaurant(invoiceSessionId);
-          invoiceFiscalDataLoaded = true;
+          // Usa o documento da sessão como fonte única e confirma que mesa,
+          // sessão e restaurante correspondem antes de permitir a impressão.
+          await fetchTableInvoiceRestaurant(invoiceSessionId, table.id, table.restaurantId);
+          fiscalDataVerified = true;
         } catch (error) {
           console.error('Erro ao carregar os dados fiscais da fatura final:', error);
         }
       }
 
-      // Fallback para manter o recibo disponível caso a rota da fatura
-      // consolidada esteja temporariamente indisponível.
-      if (!invoiceFiscalDataLoaded && table?.restaurantId) {
-        try {
-          fiscalRestaurant = await fetchRestaurantFiscalData(table.restaurantId);
-        } catch (error) {
-          console.error('Erro ao carregar os dados fiscais do restaurante:', error);
-        }
-      }
-
-      if (!fiscalRestaurant) {
-        setReceiptFiscalDataUnavailable(true);
+      if (!fiscalDataVerified) {
         toast({
-          title: 'Dados fiscais indisponíveis',
-          description: 'O pagamento foi registado, mas não foi possível carregar os dados fiscais para a fatura.',
+          title: 'Não foi possível confirmar os dados fiscais',
+          description: 'O pagamento foi registado, mas a fatura da sessão não confirmou a mesa e o restaurante. A impressão ficará bloqueada até os dados serem carregados corretamente.',
           variant: 'destructive',
         });
       }
-      setReceiptRestaurant(fiscalRestaurant);
         // A rota global responde { success, payment }, enquanto algumas
         // rotas legadas devolvem o pagamento diretamente ou dentro de
         // tablePayment. Normalizar aqui mantém o diálogo independente da rota.
@@ -3257,15 +3249,12 @@ export default function TableCheckoutV2() {
           open={showSuccessDialog}
           onClose={() => {
             setShowSuccessDialog(false);
-            setReceiptRestaurant(null);
-            setReceiptFiscalDataUnavailable(false);
             setLocation(`/${fromParam}`);
           }}
           table={table}
           payment={paymentData}
           ordersByGuest={receiptOrdersByGuest ?? ordersByGuest}
           calculateTotals={receiptTotals ?? calculateTotals}
-          restaurant={receiptFiscalDataUnavailable ? undefined : receiptRestaurant ?? restaurant ?? undefined}
           sessionDuration={sessionDuration}
           totalAmount={(receiptTotals ?? calculateTotals).finalTotal}
           onPrintComplete={() => {
