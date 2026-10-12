@@ -17,6 +17,7 @@ function question(query: string): Promise<string> {
 }
 
 async function createSuperAdmin() {
+  let stage = 'validating setup';
   const setupEmail = process.env.SUPERADMIN_EMAIL?.trim().toLowerCase();
   const setupPassword = process.env.SUPERADMIN_SETUP_PASSWORD;
   const hasSetupInput = Boolean(setupEmail || setupPassword);
@@ -28,6 +29,7 @@ async function createSuperAdmin() {
 
     // The database proxy initializes lazily; CLI scripts must await it before
     // accessing query methods.
+    stage = 'initializing database connection';
     await initializeConnection();
 
     console.log('\n🔐 Criação de Super Administrador do NaBancada\n');
@@ -35,6 +37,7 @@ async function createSuperAdmin() {
     console.log('O super administrador pode gerenciar todos os restaurantes da plataforma.\n');
 
     // Check if superadmin already exists
+    stage = 'checking existing super administrators';
     const existingSuperAdmins = await db
       .select({ id: users.id, email: users.email })
       .from(users)
@@ -64,6 +67,7 @@ async function createSuperAdmin() {
     }
 
     // Check if email already exists
+    stage = 'checking account email';
     const [existingUser] = await db
       .select()
       .from(users)
@@ -83,13 +87,15 @@ async function createSuperAdmin() {
       return;
     }
 
-    const firstName = await question('Nome (opcional): ');
-    const lastName = await question('Sobrenome (opcional): ');
+    const firstName = hasSetupInput ? '' : await question('Nome (opcional): ');
+    const lastName = hasSetupInput ? '' : await question('Sobrenome (opcional): ');
 
     console.log('\n🔄 Criando super administrador...');
 
+    stage = 'hashing password';
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    stage = 'inserting account';
     const [superAdmin] = await db
       .insert(users)
       .values({
@@ -114,7 +120,25 @@ async function createSuperAdmin() {
     rl.close();
   } catch (error) {
     console.error('\n❌ Erro ao criar super administrador.');
-    if (!hasSetupInput) {
+    if (hasSetupInput && (!setupEmail || !setupPassword)) {
+      console.error('Para o modo seguro, defina SUPERADMIN_EMAIL e SUPERADMIN_SETUP_PASSWORD no mesmo processo.');
+      console.error(`Chave de senha disponível no processo: ${Boolean(setupPassword) ? 'sim' : 'não'}.`);
+    } else if (hasSetupInput) {
+      const candidateCode = error && typeof error === 'object'
+        ? (error as { code?: unknown }).code
+        : undefined;
+      const safeCode = typeof candidateCode === 'string' && /^[A-Z0-9_-]{1,32}$/i.test(candidateCode)
+        ? candidateCode
+        : 'indisponível';
+      const safeName = error instanceof Error ? error.name : 'Erro desconhecido';
+      console.error(`Diagnóstico seguro: ${safeName}; código ${safeCode}; etapa ${stage}.`);
+      const safeFrames = error instanceof Error
+        ? error.stack?.split('\n').slice(1, 4).map(frame => frame.trim()).join(' <- ')
+        : '';
+      if (safeFrames) {
+        console.error(`Rastreamento técnico (sem mensagem): ${safeFrames}`);
+      }
+    } else {
       console.error(error);
     }
     rl.close();
