@@ -228,6 +228,7 @@ export type TableInvoiceDocument = {
   fees: TableInvoiceAdjustment[];
   payments: TableInvoicePayment[];
   paymentsByMethod: TableInvoicePaymentSummary[];
+  auditWarnings?: string[];
   audit: TableInvoiceAuditEntry[];
   reprints: {
     count: number;

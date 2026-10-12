@@ -294,36 +294,52 @@ async function buildTableInvoiceDocument(
     ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray(users.id, cashShiftOperatorIds))
     : [];
   const cashShiftOperatorNames = new Map(cashShiftOperators.map((operator) => [operator.id, displayUserName(operator)]));
-  const sessionAuditRows = await db
-    .select({
-      id: schema.auditLogs.id,
-      action: schema.auditLogs.action,
-      actorId: schema.auditLogs.actorId,
-      details: schema.auditLogs.details,
-      createdAt: schema.auditLogs.createdAt,
-    })
-    .from(schema.auditLogs)
-    .where(and(
-      eq(schema.auditLogs.restaurantId, Number(effectiveRestaurantId)),
-      eq(schema.auditLogs.entityType, 'table_session'),
-      eq(schema.auditLogs.entityId, sessionId),
-    ))
-    .orderBy(asc(schema.auditLogs.createdAt));
-  const itemAuditRows = await db
-    .select({
-      id: schema.orderItemAuditLogs.id,
-      action: schema.orderItemAuditLogs.action,
-      actorId: schema.orderItemAuditLogs.actorUserId,
-      reason: schema.orderItemAuditLogs.reason,
-      itemDetails: schema.orderItemAuditLogs.itemDetails,
-      createdAt: schema.orderItemAuditLogs.createdAt,
-    })
-    .from(schema.orderItemAuditLogs)
-    .where(and(
-      eq(schema.orderItemAuditLogs.restaurantId, effectiveRestaurantId),
-      eq(schema.orderItemAuditLogs.sessionId, sessionId),
-    ))
-    .orderBy(asc(schema.orderItemAuditLogs.createdAt));
+  const auditWarnings: string[] = [];
+  let sessionAuditRows: any[] = [];
+  try {
+    // The session was verified against effectiveRestaurantId above. Session IDs
+    // are unique, so avoid filtering by the legacy restaurant_id column whose
+    // type differs between deployed schema generations.
+    sessionAuditRows = await db
+      .select({
+        id: schema.auditLogs.id,
+        action: schema.auditLogs.action,
+        actorId: schema.auditLogs.actorId,
+        details: schema.auditLogs.details,
+        createdAt: schema.auditLogs.createdAt,
+      })
+      .from(schema.auditLogs)
+      .where(and(
+        eq(schema.auditLogs.entityType, 'table_session'),
+        eq(schema.auditLogs.entityId, sessionId),
+      ))
+      .orderBy(asc(schema.auditLogs.createdAt));
+  } catch (error) {
+    auditWarnings.push('session-history-unavailable');
+    console.warn('[SESSION INVOICE] Histórico da sessão indisponível:', error);
+  }
+
+  let itemAuditRows: any[] = [];
+  try {
+    itemAuditRows = await db
+      .select({
+        id: schema.orderItemAuditLogs.id,
+        action: schema.orderItemAuditLogs.action,
+        actorId: schema.orderItemAuditLogs.actorUserId,
+        reason: schema.orderItemAuditLogs.reason,
+        itemDetails: schema.orderItemAuditLogs.itemDetails,
+        createdAt: schema.orderItemAuditLogs.createdAt,
+      })
+      .from(schema.orderItemAuditLogs)
+      .where(and(
+        eq(schema.orderItemAuditLogs.restaurantId, effectiveRestaurantId),
+        eq(schema.orderItemAuditLogs.sessionId, sessionId),
+      ))
+      .orderBy(asc(schema.orderItemAuditLogs.createdAt));
+  } catch (error) {
+    auditWarnings.push('item-history-unavailable');
+    console.warn('[SESSION INVOICE] Histórico de movimentação de itens indisponível:', error);
+  }
   const cancellationActorIds = rawOrders
     .map((order: any) => order.cancelledBy)
     .filter(Boolean);
@@ -685,6 +701,7 @@ async function buildTableInvoiceDocument(
       };
     }),
     paymentsByMethod,
+    auditWarnings,
     audit,
     reprints: {
       count: reprintEntries.length,

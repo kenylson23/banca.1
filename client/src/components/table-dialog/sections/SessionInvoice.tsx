@@ -212,6 +212,11 @@ export function SessionInvoice({ sessionId }: { sessionId: string; tableNumber?:
             <Button size="sm" variant="outline" onClick={downloadPdf}><Download className="mr-2 h-4 w-4" /> PDF</Button>
           </div>
         </div>
+        {data.auditWarnings?.length ? (
+          <div role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+            A fatura foi carregada, mas parte do histórico de auditoria não está disponível.
+          </div>
+        ) : null}
         <Separator />
          <div className="grid gap-3 rounded-lg border bg-background p-3 text-sm sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
            <div className="space-y-2">
