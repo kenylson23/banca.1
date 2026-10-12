@@ -40,7 +40,7 @@ export function SessionInvoice({
   expectedRestaurantId: string;
   tableNumber?: string | number;
 }) {
-  const { data, isLoading, isError } = useQuery<TableInvoiceDocument>({
+  const { data, isLoading, isError, error, refetch } = useQuery<TableInvoiceDocument>({
     queryKey: [`/api/table-sessions/${sessionId}/invoice`],
   });
   const queryClient = useQueryClient();
@@ -86,7 +86,28 @@ export function SessionInvoice({
     return <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> A carregar fatura/recibo...</div>;
   }
   if (isError || !data) {
-    return <p className="py-3 text-sm text-muted-foreground">Não foi possível carregar a fatura/recibo desta sessão.</p>;
+    const status = (error as (Error & { status?: number }) | null)?.status;
+    const message = status === 401
+      ? 'A sessão de acesso expirou. Entre novamente e tente carregar a fatura.'
+      : status === 403
+        ? 'O seu utilizador não tem permissão para consultar esta fatura.'
+        : status === 404
+          ? 'A sessão não foi encontrada ou não pertence a esta mesa/restaurante.'
+          : 'O servidor não conseguiu montar a fatura/recibo desta sessão.';
+
+    return (
+      <div role="alert" className="flex flex-wrap items-center gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+        <div className="min-w-0 flex-1">
+          <p>{message}</p>
+          {typeof status === 'number' && (
+            <p className="mt-1 text-xs text-muted-foreground">Código de resposta: {status}</p>
+          )}
+        </div>
+        <Button size="sm" variant="outline" onClick={() => refetch()}>
+          Tentar novamente
+        </Button>
+      </div>
+    );
   }
   if (
     data.session.id !== sessionId ||
