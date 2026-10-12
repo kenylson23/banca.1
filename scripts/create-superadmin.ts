@@ -17,7 +17,15 @@ function question(query: string): Promise<string> {
 }
 
 async function createSuperAdmin() {
+  const setupEmail = process.env.SUPERADMIN_EMAIL?.trim().toLowerCase();
+  const setupPassword = process.env.SUPERADMIN_SETUP_PASSWORD;
+  const hasSetupInput = Boolean(setupEmail || setupPassword);
+
   try {
+    if (hasSetupInput && (!setupEmail || !setupPassword)) {
+      throw new Error('SUPERADMIN_EMAIL e SUPERADMIN_SETUP_PASSWORD devem ser definidos em conjunto.');
+    }
+
     // The database proxy initializes lazily; CLI scripts must await it before
     // accessing query methods.
     await initializeConnection();
@@ -28,11 +36,11 @@ async function createSuperAdmin() {
 
     // Check if superadmin already exists
     const existingSuperAdmins = await db
-      .select()
+      .select({ id: users.id, email: users.email })
       .from(users)
       .where(eq(users.role, 'superadmin'));
 
-    if (existingSuperAdmins.length > 0) {
+    if (!hasSetupInput && existingSuperAdmins.length > 0) {
       console.log('⚠️  Já existe um super administrador cadastrado:');
       existingSuperAdmins.forEach(admin => {
         console.log(`   - ${admin.email} (ID: ${admin.id})`);
@@ -47,7 +55,7 @@ async function createSuperAdmin() {
       }
     }
 
-    const email = await question('Email do super administrador: ');
+    const email = setupEmail || await question('Email do super administrador: ');
     
     if (!email || !email.includes('@')) {
       console.log('\n❌ Email inválido.');
@@ -67,7 +75,7 @@ async function createSuperAdmin() {
       return;
     }
 
-    const password = await question('Senha (mínimo 6 caracteres): ');
+    const password = setupPassword || await question('Senha (mínimo 6 caracteres): ');
     
     if (!password || password.length < 6) {
       console.log('\n❌ A senha deve ter pelo menos 6 caracteres.');
@@ -105,7 +113,10 @@ async function createSuperAdmin() {
 
     rl.close();
   } catch (error) {
-    console.error('\n❌ Erro ao criar super administrador:', error);
+    console.error('\n❌ Erro ao criar super administrador.');
+    if (!hasSetupInput) {
+      console.error(error);
+    }
     rl.close();
     process.exit(1);
   }
