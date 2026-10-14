@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
@@ -28,6 +28,7 @@ import {
   TrendingDown,
   Plus,
   Minus,
+  ExternalLink,
 } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { apiFetch } from '@/lib/api-url';
@@ -35,6 +36,8 @@ import {
   formatPaymentMethodLabel,
   invoiceDate,
   invoiceMoney,
+  invoiceNumberLabel,
+  invoiceOrderStatusLabel,
   invoicePaymentStatusLabel,
   invoiceSessionLabel,
 } from '@shared/invoice-formatters';
@@ -46,6 +49,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import type { OrdersByGuestData } from '@/../../shared/types';
 import jsPDF from 'jspdf';
+import QRCode from 'qrcode';
 
 function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -121,6 +125,7 @@ export function PaymentSuccessDialog({
   const [showCalculations, setShowCalculations] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
   const { toast } = useToast();
   const invoiceQuery = useQuery<TableInvoiceDocument>({
     queryKey: [`/api/table-sessions/${payment.sessionId}/invoice`],
@@ -139,6 +144,32 @@ export function PaymentSuccessDialog({
     refetchOnMount: 'always',
   });
   const invoiceDocument = verifiedInvoiceDocument ?? invoiceQuery.data;
+  useEffect(() => {
+    if (!invoiceDocument) {
+      setQrCodeDataUrl('');
+      return;
+    }
+
+    let active = true;
+    const verificationUrl = new URL(
+      invoiceDocument.validation.verificationUrl,
+      window.location.origin,
+    ).toString();
+    QRCode.toDataURL(verificationUrl, {
+      width: 240,
+      margin: 1,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#17202a', light: '#ffffff' },
+    }).then((dataUrl) => {
+      if (active) setQrCodeDataUrl(dataUrl);
+    }).catch(() => {
+      if (active) setQrCodeDataUrl('');
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [invoiceDocument]);
   const invoiceMatchesPaymentTable = Boolean(
     invoiceDocument &&
     payment.sessionId &&
@@ -318,6 +349,7 @@ export function PaymentSuccessDialog({
     if (invoiceDocument) {
       return renderTableInvoiceHtml(invoiceDocument, {
         paper: 'a4',
+        qrCodeDataUrl,
         returnUrl: window.location.pathname,
       });
     }
@@ -661,6 +693,32 @@ export function PaymentSuccessDialog({
     `;
   };
 
+  const openInvoiceInBrowser = () => {
+    if (!invoiceDocument || !isFiscalDataReady) {
+      toast({
+        title: 'Fatura indisponível',
+        description: 'Os dados fiscais ainda não foram confirmados para esta mesa.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const invoiceWindow = window.open('', '_blank');
+    if (!invoiceWindow) {
+      toast({
+        title: 'Abertura bloqueada',
+        description: 'Permita janelas pop-up para abrir a fatura completa no navegador.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    invoiceWindow.document.open();
+    invoiceWindow.document.write(generatePrintableInvoice());
+    invoiceWindow.document.close();
+    invoiceWindow.focus();
+  };
+
   const handleDownloadPDF = async () => {
     if (isFiscalDataLoading) {
       toast({
@@ -917,30 +975,362 @@ export function PaymentSuccessDialog({
       }
     }}>
       <DialogContent 
-        className="max-w-[95vw] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] flex flex-col"
+        className="max-w-[95vw] sm:max-w-3xl lg:max-w-5xl max-h-[92vh] flex flex-col gap-0 p-0"
         onPointerDownOutside={(e) => {
           e.preventDefault();
         }}
       >
-        <DialogHeader>
-          <div className="flex items-center justify-center mb-4">
-            <div className="relative">
-              <div className="absolute inset-0 bg-green-500/20 rounded-full blur-xl animate-pulse" />
-              <div className="relative bg-gradient-to-br from-green-500 to-emerald-500 p-4 rounded-full">
-                <CheckCircle2 className="h-12 w-12 text-white" />
-              </div>
+        <DialogHeader className="border-b px-5 py-4 text-left sm:px-7">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+              <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <DialogTitle className="text-lg font-semibold tracking-tight">
+                Pagamento concluído
+              </DialogTitle>
+              <DialogDescription className="mt-0.5 truncate text-sm">
+                {invoiceDocument
+                  ? `Fatura/Recibo Nº ${invoiceNumberLabel(invoiceDocument.invoiceReference)}`
+                  : `Pagamento registado · Nº ${payment.id}`}
+              </DialogDescription>
             </div>
           </div>
-          <DialogTitle className="text-2xl font-bold text-center">
-            Recibo de Pagamento
-          </DialogTitle>
-          <DialogDescription className="text-center text-base">
-            Pagamento registado · Nº {payment.id}
-          </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4 max-h-[calc(90vh-220px)] overflow-auto">
-          <div className="space-y-4">
+        <ScrollArea className="max-h-[calc(92vh-132px)] flex-1">
+          <div className="space-y-5 px-5 py-5 sm:px-7">
+            {invoiceDocument && isFiscalDataReady ? (
+              <section
+                aria-label="Pré-visualização da fatura/recibo"
+                className="overflow-hidden rounded-lg border bg-background text-foreground"
+              >
+                <div className="space-y-5 p-5 sm:p-7">
+                  <header className="flex flex-col justify-between gap-5 border-b pb-5 sm:flex-row">
+                    <div className="flex min-w-0 items-start gap-3">
+                      {invoiceDocument.restaurant.logoUrl ? (
+                        <img
+                          src={invoiceDocument.restaurant.logoUrl}
+                          alt=""
+                          className="h-12 w-12 shrink-0 rounded-md border object-contain p-1"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border text-muted-foreground">
+                          <FileText className="h-5 w-5" aria-hidden="true" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <h2 className="text-lg font-semibold tracking-tight">
+                          {invoiceDocument.restaurant.name}
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                          {invoiceDocument.branch?.name || 'Unidade principal'}
+                        </p>
+                        <div className="mt-2 grid gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2">
+                          {fiscalDetails.lines.map(({ label, value }) => (
+                            <p key={label} className="break-words">
+                              <span className="font-medium text-foreground">{label}:</span> {value}
+                            </p>
+                          ))}
+                          {(invoiceDocument.restaurant.fiscalAddress || invoiceDocument.restaurant.address) && (
+                            <p className="break-words">
+                              <span className="font-medium text-foreground">Morada:</span>{' '}
+                              {invoiceDocument.restaurant.fiscalAddress || invoiceDocument.restaurant.address}
+                            </p>
+                          )}
+                          {invoiceDocument.branch?.phone && (
+                            <p>
+                              <span className="font-medium text-foreground">Telefone da filial:</span>{' '}
+                              {invoiceDocument.branch.phone}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 sm:text-right">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                        Fatura/Recibo
+                      </p>
+                      <p className="mt-1 text-xl font-semibold">
+                        Nº {invoiceNumberLabel(invoiceDocument.invoiceReference)}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Emitida em {invoiceDate(invoiceDocument.issuedAt)}
+                      </p>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'mt-2 font-medium',
+                          invoiceDocument.totals.paymentStatus === 'pago'
+                            ? 'border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300'
+                            : invoiceDocument.totals.paymentStatus === 'parcial'
+                              ? 'border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-300'
+                              : 'border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300',
+                        )}
+                      >
+                        {invoicePaymentStatusLabel(invoiceDocument.totals.paymentStatus)}
+                      </Badge>
+                    </div>
+                  </header>
+
+                  <section className="grid gap-4 border-b pb-5 sm:grid-cols-2 lg:grid-cols-3">
+                    {[
+                      ['Mesa', `${invoiceDocument.table.number}${invoiceDocument.table.area ? ` · ${invoiceDocument.table.area}` : ''}`],
+                      ['Sessão', invoiceSessionLabel(invoiceDocument.session.id)],
+                      ['Moeda', 'AOA · Kwanza'],
+                      ['Filial', invoiceDocument.branch?.name || 'Unidade principal'],
+                      ['Caixa / turno', invoiceDocument.cashRegisterShift?.label || 'Não identificado'],
+                      ['Atendido por', invoiceDocument.paymentOperatorNames.join(', ') || invoiceDocument.session.openedByName || '—'],
+                      ['Abertura', invoiceDate(invoiceDocument.session.startedAt)],
+                      ['Encerramento', invoiceDate(invoiceDocument.session.endedAt)],
+                      ['Duração', invoiceDocument.session.durationLabel || sessionDuration || '—'],
+                    ].map(([label, value]) => (
+                      <div key={label} className="min-w-0">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+                        <p className="mt-1 break-words text-sm font-medium">{value}</p>
+                      </div>
+                    ))}
+                  </section>
+
+                  <section className="border-b pb-5">
+                    <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Identificação da fatura
+                    </h3>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Fatura em nome de</p>
+                        <p className="mt-1 break-words text-sm font-medium">{invoiceDocument.invoiceRecipient.label}</p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Cliente</p>
+                        <p className="mt-1 break-words text-sm font-medium">{invoiceDocument.customer?.name || 'Consumidor final'}</p>
+                      </div>
+                      {invoiceDocument.customer?.nif && (
+                        <div>
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">NIF do cliente</p>
+                          <p className="mt-1 text-sm font-medium">{invoiceDocument.customer.nif}</p>
+                        </div>
+                      )}
+                      {invoiceDocument.customer?.phone && (
+                        <div>
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Telefone</p>
+                          <p className="mt-1 text-sm font-medium">{invoiceDocument.customer.phone}</p>
+                        </div>
+                      )}
+                      {invoiceDocument.customer?.email && (
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Email</p>
+                          <p className="mt-1 break-all text-sm font-medium">{invoiceDocument.customer.email}</p>
+                        </div>
+                      )}
+                      {invoiceDocument.customer?.address && (
+                        <div className="min-w-0 sm:col-span-2">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Morada do cliente</p>
+                          <p className="mt-1 break-words text-sm font-medium">{invoiceDocument.customer.address}</p>
+                        </div>
+                      )}
+                    </div>
+                    {invoiceDocument.guests.length > 0 && (
+                      <div className="mt-4 border-t pt-3">
+                        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Convidados</p>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                          {invoiceDocument.guests.map((guest) => (
+                            <span key={guest.id} className="text-sm">
+                              {guest.name}{guest.seatNumber ? ` · Lugar ${guest.seatNumber}` : ''}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="border-b pb-5">
+                    <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Itens faturados
+                    </h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[520px] text-sm">
+                        <thead>
+                          <tr className="border-b text-left text-xs text-muted-foreground">
+                            <th className="w-14 py-2 pr-3 font-medium">Qtd.</th>
+                            <th className="py-2 pr-3 font-medium">Descrição</th>
+                            <th className="whitespace-nowrap py-2 pr-3 text-right font-medium">Preço unit.</th>
+                            <th className="whitespace-nowrap py-2 text-right font-medium">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {invoiceDocument.items.map((item, index) => (
+                            <tr key={`${item.name}-${index}`} className="border-b last:border-0">
+                              <td className="py-3 pr-3 align-top">{item.quantity}</td>
+                              <td className="py-3 pr-3">
+                                <p className="font-medium">{item.name}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {item.orderNumber ? `Pedido #${item.orderNumber}` : 'Pedido sem número'}
+                                  {item.orderCreatedAt ? ` · ${invoiceDate(item.orderCreatedAt)}` : ''}
+                                  {` · ${invoiceOrderStatusLabel(item.orderStatus)}`}
+                                </p>
+                                {item.guestName && <p className="mt-1 text-xs text-muted-foreground">Convidado: {item.guestName}</p>}
+                                {item.options.length > 0 && (
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    Opções: {item.options.map((option) => `${option.name}${option.quantity > 1 ? ` (${option.quantity}x)` : ''}`).join(', ')}
+                                  </p>
+                                )}
+                                {item.notes && <p className="mt-1 text-xs text-muted-foreground">Obs. do item: {item.notes}</p>}
+                                {item.orderNotes && <p className="mt-1 text-xs text-muted-foreground">Obs. do pedido: {item.orderNotes}</p>}
+                                {item.sharedWithGuestNames.length > 0 && (
+                                  <p className="mt-1 text-xs text-muted-foreground">Partilhado com: {item.sharedWithGuestNames.join(', ')}</p>
+                                )}
+                              </td>
+                              <td className="whitespace-nowrap py-3 pr-3 text-right align-top">{invoiceMoney(item.unitPrice)}</td>
+                              <td className="whitespace-nowrap py-3 text-right align-top font-medium">{invoiceMoney(item.total)}</td>
+                            </tr>
+                          ))}
+                          {invoiceDocument.items.length === 0 && (
+                            <tr><td colSpan={4} className="py-4 text-center text-muted-foreground">Sem itens registados</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    {invoiceDocument.cancelledItems.length > 0 && (
+                      <div className="mt-4 rounded-md border border-dashed p-3">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Itens cancelados · não incluídos no total
+                        </p>
+                        {invoiceDocument.cancelledItems.map((item, index) => (
+                          <div key={`${item.name}-${index}`} className="flex justify-between gap-4 py-1 text-sm text-muted-foreground">
+                            <span>{item.quantity} × {item.name}</span>
+                            <span className="whitespace-nowrap">{invoiceMoney(item.total)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="grid gap-6 md:grid-cols-2">
+                    <div>
+                      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pagamentos</h3>
+                      {invoiceDocument.paymentsByMethod.map((record) => (
+                        <div key={record.paymentMethod} className="flex justify-between gap-4 border-b py-2 text-sm last:border-0">
+                          <span>{record.paymentMethodLabel} <span className="text-muted-foreground">({record.count})</span></span>
+                          <span className="whitespace-nowrap font-medium">{invoiceMoney(record.amount)}</span>
+                        </div>
+                      ))}
+                      {invoiceDocument.payments.map((record) => (
+                        <div key={record.id} className="mt-2 text-xs text-muted-foreground">
+                          {record.paymentMethodLabel} · {invoiceDate(record.createdAt)}
+                          {record.operatorName ? ` · ${record.operatorName}` : ''}
+                          {record.notes ? ` · ${record.notes}` : ''}
+                        </div>
+                      ))}
+                      {invoiceDocument.payments.length === 0 && (
+                        <p className="text-sm text-muted-foreground">Nenhum pagamento registado</p>
+                      )}
+                    </div>
+                    <div className="space-y-2 md:ml-auto md:w-full md:max-w-sm">
+                      <div className="flex justify-between gap-4 text-sm">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span>{invoiceMoney(invoiceDocument.totals.subtotal)}</span>
+                      </div>
+                      {invoiceDocument.discounts.map((adjustment) => (
+                        <div key={adjustment.id} className="flex justify-between gap-4 text-sm">
+                          <span className="text-muted-foreground">{adjustment.label}</span>
+                          <span>− {invoiceMoney(adjustment.amount)}</span>
+                        </div>
+                      ))}
+                      {invoiceDocument.fees.map((adjustment) => (
+                        <div key={adjustment.id} className="flex justify-between gap-4 text-sm">
+                          <span className="text-muted-foreground">{adjustment.label}</span>
+                          <span>+ {invoiceMoney(adjustment.amount)}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between gap-4 border-t pt-3 text-base font-semibold">
+                        <span>Total da sessão</span>
+                        <span className="whitespace-nowrap">{invoiceMoney(invoiceDocument.totals.total)}</span>
+                      </div>
+                      <div className="flex justify-between gap-4 text-sm">
+                        <span className="text-muted-foreground">Total pago</span>
+                        <span>{invoiceMoney(invoiceDocument.totals.paid)}</span>
+                      </div>
+                      <div className="flex justify-between gap-4 text-sm">
+                        <span className="text-muted-foreground">Saldo pendente</span>
+                        <span>{invoiceMoney(invoiceDocument.totals.pending)}</span>
+                      </div>
+                    </div>
+                  </section>
+
+                  <footer className="flex flex-col gap-4 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                    {qrCodeDataUrl ? (
+                      <div className="flex items-center gap-3">
+                        <img src={qrCodeDataUrl} alt="QR de validação da fatura" className="h-16 w-16" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold">Validação digital</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Código: {invoiceDocument.validation.code}</p>
+                          <p className="break-all text-xs text-muted-foreground">{invoiceDocument.validation.verificationUrl}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold">Código de validação: {invoiceDocument.validation.code}</p>
+                        <p className="break-all text-xs text-muted-foreground">{invoiceDocument.validation.verificationUrl}</p>
+                      </div>
+                    )}
+                    {fiscalDetails.legalFooter && (
+                      <p className="text-xs text-muted-foreground sm:max-w-[50%] sm:text-right">
+                        {fiscalDetails.legalFooter}
+                      </p>
+                    )}
+                  </footer>
+                </div>
+
+                <div className="flex flex-wrap gap-2 border-t bg-muted/20 px-5 py-4 sm:px-7">
+                  <Button onClick={openInvoiceInBrowser} disabled={!isFiscalDataReady}>
+                    <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
+                    Abrir fatura completa
+                  </Button>
+                  <Button variant="outline" onClick={handlePrintComplete} disabled={!isFiscalDataReady || isPrinting}>
+                    <Printer className="mr-2 h-4 w-4" aria-hidden="true" />
+                    {isPrinting ? 'A preparar impressão…' : 'Imprimir'}
+                  </Button>
+                  <Button variant="outline" onClick={handleDownloadPDF} disabled={!isFiscalDataReady || isGeneratingPDF}>
+                    <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+                    {isGeneratingPDF ? 'A gerar PDF…' : 'Guardar PDF'}
+                  </Button>
+                </div>
+              </section>
+            ) : (
+              <div
+                className={cn(
+                  'rounded-lg border p-4 text-sm',
+                  isFiscalDataReady ? 'text-muted-foreground' : 'border-amber-300 bg-amber-50/50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-100',
+                )}
+                role={isFiscalDataReady ? 'status' : 'alert'}
+              >
+                {isFiscalDataLoading
+                  ? 'A confirmar os dados fiscais da sessão...'
+                  : invoiceQuery.isError
+                    ? 'Não foi possível carregar a fatura desta sessão.'
+                    : 'A fatura não pode ser exibida porque os dados da sessão, mesa e restaurante não correspondem.'}
+                {!isFiscalDataLoading && !isFiscalDataReady && payment.sessionId && (
+                  <Button className="ml-3" size="sm" variant="outline" onClick={() => invoiceQuery.refetch()}>
+                    Tentar novamente
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {fiscalCompleteness && !fiscalCompleteness.isComplete && (
+              <div role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+                <p className="font-semibold">Dados fiscais incompletos</p>
+                <p>Em falta: {fiscalCompleteness.missingFields.join(', ')}.</p>
+              </div>
+            )}
+
+            <details className="rounded-lg border px-4 py-3">
+              <summary className="cursor-pointer text-sm font-medium">
+                Outras opções de pagamento e recibos individuais
+              </summary>
+              <div className="mt-4 space-y-4">
             {/* Payment Summary Header */}
         <Card className="border-2 border-green-500/30 bg-gradient-to-br from-green-50/50 to-emerald-50/50 dark:from-green-950/20 dark:to-emerald-950/20">
               <CardContent className="p-6 space-y-4">
@@ -1401,6 +1791,9 @@ export function PaymentSuccessDialog({
                 </Card>
               )}
             </div>
+          </div>
+          </div>
+          </details>
           </div>
         </ScrollArea>
 
