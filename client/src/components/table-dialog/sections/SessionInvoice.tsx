@@ -7,7 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CreditCard, Download, Eye, Loader2, Printer, Receipt, RotateCcw, User, History, BadgeCheck } from 'lucide-react';
+import { CreditCard, Eye, Loader2, Printer, Receipt, RotateCcw, User, History, BadgeCheck } from 'lucide-react';
 import { apiFetch } from '@/lib/api-url';
 import { printerService } from '@/lib/printer-service';
 import { usePrinter } from '@/hooks/usePrinter';
@@ -212,22 +212,6 @@ export function SessionInvoice({
     }
   };
 
-  const downloadPdf = async () => {
-    try {
-      const response = await apiFetch(`/api/table-sessions/${sessionId}/invoice/pdf`, { credentials: 'include' });
-      if (!response.ok) throw new Error('Não foi possível gerar o PDF.');
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `fatura-mesa-${data.table.number}-${data.invoiceReference.replace(/[^a-z0-9]+/gi, '-')}.pdf`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      toast({ title: 'Erro ao gerar PDF', description: error instanceof Error ? error.message : 'Não foi possível gerar o PDF.', variant: 'destructive' });
-    }
-  };
-
   const itemDescription = (item: TableInvoiceDocument['items'][number]) => (
     <div className="min-w-[220px]">
       <p className="font-medium">{item.name}</p>
@@ -258,11 +242,10 @@ export function SessionInvoice({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge className={statusColors[data.totals.paymentStatus]}>{invoicePaymentStatusLabel(data.totals.paymentStatus)}</Badge>
-            <Button size="sm" variant="outline" onClick={() => setPreviewOpen(true)}><Eye className="mr-2 h-4 w-4" /> Pré-visualizar</Button>
+            <Button size="sm" variant="outline" onClick={() => setPreviewOpen(true)}><Eye className="mr-2 h-4 w-4" /> Ver fatura</Button>
             <Button size="sm" variant="outline" onClick={() => printBrowser('a4')}><Printer className="mr-2 h-4 w-4" /> Imprimir A4</Button>
              <Button size="sm" variant="outline" disabled={isRecordingReprint} onClick={() => printBrowser('a4', true)}><RotateCcw className="mr-2 h-4 w-4" /> Reimprimir</Button>
              {thermalPrinter?.status === 'connected' && <Button size="sm" variant="outline" onClick={() => printThermal(true)}><Receipt className="mr-2 h-4 w-4" /> Térmica</Button>}
-            <Button size="sm" variant="outline" onClick={downloadPdf}><Download className="mr-2 h-4 w-4" /> PDF</Button>
           </div>
         </div>
         <div
@@ -523,7 +506,9 @@ export function SessionInvoice({
         <DialogContent className="flex max-h-[94vh] w-[calc(100%-1rem)] max-w-5xl flex-col gap-3 overflow-hidden p-4 sm:p-6">
           <DialogHeader className="pr-8">
             <DialogTitle>Pré-visualização da Fatura/Recibo</DialogTitle>
-            <DialogDescription>Confirme o documento final antes de imprimir ou reimprimir.</DialogDescription>
+            <DialogDescription>
+              Esta visualização fica dentro do sistema. Para guardar como PDF, escolha imprimir e selecione a opção de guardar no dispositivo.
+            </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 p-2">
             <div className="flex items-center gap-1">
@@ -531,7 +516,7 @@ export function SessionInvoice({
               <Button type="button" size="sm" variant={paper === '80mm' ? 'default' : 'ghost'} onClick={() => setPaper('80mm')}>80 mm</Button>
             </div>
             <div className="flex gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={() => printBrowser(paper)}><Printer className="mr-2 h-4 w-4" /> Imprimir {paper === 'a4' ? 'A4' : '80 mm'}</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => printBrowser(paper)}><Printer className="mr-2 h-4 w-4" /> Imprimir / guardar {paper === 'a4' ? 'A4' : '80 mm'}</Button>
                <Button type="button" size="sm" disabled={isRecordingReprint} onClick={() => printBrowser(paper, true)}><RotateCcw className="mr-2 h-4 w-4" /> Reimprimir</Button>
             </div>
           </div>
