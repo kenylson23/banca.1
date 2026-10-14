@@ -413,6 +413,7 @@ export default function CustomerMenu() {
   }, [menuItems]);
 
   const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const orderSubmissionLockRef = useRef(false);
   const [categoryScrollState, setCategoryScrollState] = useState({
     canScrollLeft: false,
     canScrollRight: false,
@@ -514,6 +515,7 @@ export default function CustomerMenu() {
       return await response.json();
     },
      onSuccess: (data) => {
+       orderSubmissionLockRef.current = false;
        if (data.guestToken) {
          updateToken(data.guestToken);
        }
@@ -557,6 +559,7 @@ export default function CustomerMenu() {
       }
     },
     onError: (error: any) => {
+      orderSubmissionLockRef.current = false;
       const errorMessage = error?.message || 'Tente novamente mais tarde.';
       toast({
         title: 'Erro ao enviar pedido',
@@ -766,6 +769,8 @@ export default function CustomerMenu() {
   };
 
   const handleConfirmOrder = () => {
+    if (orderSubmissionLockRef.current || createOrderMutation.isPending) return;
+
     if (!currentTable) {
       toast({
         title: 'Mesa não encontrada',
@@ -831,6 +836,7 @@ export default function CustomerMenu() {
       }
     }
 
+    orderSubmissionLockRef.current = true;
     createOrderMutation.mutate({
       restaurantId: currentTable.restaurantId,
       tableId: currentTable.id,
