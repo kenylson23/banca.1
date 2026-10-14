@@ -1792,7 +1792,6 @@ export function PaymentSuccessDialog({
               )}
             </div>
           </div>
-          </div>
           </details>
           </div>
         </ScrollArea>

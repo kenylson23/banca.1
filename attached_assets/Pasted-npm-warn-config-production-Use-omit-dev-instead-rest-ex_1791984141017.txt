@@ -1,0 +1,147 @@
+npm warn config production Use `--omit=dev` instead.
+> rest-express@1.0.0 build
+> rm -rf dist && npm run test:table-checkout && npm run test:order-accounting && npm run test:invoice-fiscal && vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+npm warn config production Use `--omit=dev` instead.
+> rest-express@1.0.0 test:table-checkout
+> tsx --test tests/table-checkout-build.test.ts
+TAP version 13
+# Subtest: table checkout payment helper contract
+    # Subtest: keeps both payment label helpers exported and behaviorally distinct
+    ok 1 - keeps both payment label helpers exported and behaviorally distinct
+      ---
+      duration_ms: 1.573621
+      ...
+    # Subtest: uses only exported and imported payment helpers in table components
+    ok 2 - uses only exported and imported payment helpers in table components
+      ---
+      duration_ms: 7.047885
+      ...
+    1..2
+ok 1 - table checkout payment helper contract
+  ---
+  duration_ms: 9.642968
+  type: 'suite'
+  ...
+1..1
+# tests 2
+# suites 1
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 293.031422
+npm warn config production Use `--omit=dev` instead.
+> rest-express@1.0.0 test:order-accounting
+> tsx --test tests/order-accounting.test.ts
+TAP version 13
+# Subtest: realized order sales
+    # Subtest: counts fully paid orders only
+    ok 1 - counts fully paid orders only
+      ---
+      duration_ms: 1.055854
+      ...
+    # Subtest: excludes unpaid and partially paid orders
+    ok 2 - excludes unpaid and partially paid orders
+      ---
+      duration_ms: 0.205338
+      ...
+    1..2
+ok 1 - realized order sales
+  ---
+  duration_ms: 2.378018
+  type: 'suite'
+  ...
+1..1
+# tests 2
+# suites 1
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 288.575657
+npm warn config production Use `--omit=dev` instead.
+> rest-express@1.0.0 test:invoice-fiscal
+> tsx --test tests/invoice-fiscal.test.ts
+TAP version 13
+# Subtest: getRestaurantFiscalDetails
+    # Subtest: preserves every configured fiscal and contact field for invoice renderers
+    ok 1 - preserves every configured fiscal and contact field for invoice renderers
+      ---
+      duration_ms: 1.561563
+      ...
+    # Subtest: uses the business address as a fiscal-address fallback and retains a zero tax rate
+    ok 2 - uses the business address as a fiscal-address fallback and retains a zero tax rate
+      ---
+      duration_ms: 0.337106
+      ...
+    1..2
+ok 1 - getRestaurantFiscalDetails
+  ---
+  duration_ms: 2.849585
+  type: 'suite'
+  ...
+# Subtest: getRestaurantFiscalCompleteness
+    # Subtest: reports missing core fiscal fields and accepts the business address as a fallback
+    ok 1 - reports missing core fiscal fields and accepts the business address as a fallback
+      ---
+      duration_ms: 0.343636
+      ...
+    # Subtest: accepts zero tax rate and either document series or invoice prefix
+    ok 2 - accepts zero tax rate and either document series or invoice prefix
+      ---
+      duration_ms: 0.19358
+      ...
+    # Subtest: reports every missing core fiscal field
+    ok 3 - reports every missing core fiscal field
+      ---
+      duration_ms: 0.12667
+      ...
+    1..3
+ok 2 - getRestaurantFiscalCompleteness
+  ---
+  duration_ms: 0.849805
+  type: 'suite'
+  ...
+# Subtest: updateRestaurantFiscalSchema
+    # Subtest: allows saving fiscal details when no billing email is configured
+    ok 1 - allows saving fiscal details when no billing email is configured
+      ---
+      duration_ms: 1.620041
+      ...
+    # Subtest: still rejects a malformed non-empty email
+    ok 2 - still rejects a malformed non-empty email
+      ---
+      duration_ms: 0.720762
+      ...
+    1..2
+ok 3 - updateRestaurantFiscalSchema
+  ---
+  duration_ms: 2.550857
+  type: 'suite'
+  ...
+1..3
+# tests 7
+# suites 3
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 591.879742
+vite v5.4.21 building for production...
+transforming...
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+✓ 1720 modules transformed.
+x Build failed in 5.66s
+error during build:
+[vite:esbuild] Transform failed with 6 errors:
+/app/client/src/components/PaymentSuccessDialog.tsx:1795:12: ERROR: Unexpected closing "div" tag does not match opening "details" tag
+/app/client/src/components/PaymentSuccessDialog.tsx:1796:12: ERROR: Unexpected closing "details" tag does not match opening "div" tag
+/app/client/src/components/PaymentSuccessDialog.tsx:1797:12: ERROR: Unexpected closing "div" tag does not match opening "ScrollArea" tag
+/app/client/src/components/PaymentSuccessDialog.tsx:1798:10: ERROR: Unexpected closing "ScrollArea" tag does not match opening "DialogContent" tag
+/app/client/src/components/PaymentSuccessDialog.tsx:1817:8: ERROR: Unexpected closing "DialogContent" tag does not match opening "Dialog" tag
+...
+file: /app/client/src/components/PaymentSuccessDialog.tsx:1795:12
+Unexpected closing "div" tag does not match opening "details" tag
