@@ -259,36 +259,43 @@ export function PaymentReceiptDialog({
           <title>Recibo de Pagamento - Mesa ${table.number}</title>
           <meta charset="UTF-8">
           <style>
-            @media print { @page { margin: 0; } body { margin: 1cm; } .screen-only { display: none !important; } }
+            @media print {
+              @page { margin: 2mm; }
+              html, body { margin: 0 !important; padding: 0 !important; }
+              body { width: auto; max-width: 80mm; }
+              .screen-only { display: none !important; }
+              * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            }
             .return-toolbar { width: 100%; max-width: 520px; margin: 12px auto 20px; text-align: center; }
             .return-toolbar a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-radius: 8px; background: #1d4ed8; color: #fff; font: 700 14px Arial, sans-serif; text-decoration: none; }
-            body { font-family: Arial, sans-serif; max-width: 80mm; margin: 0 auto; font-size: 12px; line-height: 1.4; }
-            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 10px; }
-            .restaurant-name { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-            .restaurant-info { font-size: 10px; color: #666; }
-            .invoice-info { margin: 10px 0; font-size: 11px; border-bottom: 1px dashed #999; padding-bottom: 10px; }
-            .info-line { display: flex; justify-content: space-between; margin: 2px 0; }
-            .section-title { font-weight: bold; margin-top: 15px; margin-bottom: 8px; font-size: 13px; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 3px; }
-            .guest-section { margin: 10px 0; padding: 8px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; }
-            .guest-header { font-weight: bold; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #999; padding-bottom: 5px; }
-            .guest-number { display: inline-block; width: 24px; height: 24px; border-radius: 50%; background: #333; color: #fff; text-align: center; line-height: 24px; font-size: 11px; margin-right: 8px; }
-            .item-line { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; }
+            body { font-family: Arial, sans-serif; width: 100%; max-width: 80mm; margin: 0 auto; font-size: 10px; line-height: 1.2; }
+            .header { text-align: center; border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 5px; }
+            .restaurant-name { font-size: 15px; font-weight: bold; margin-bottom: 2px; }
+            .restaurant-info { font-size: 9px; line-height: 1.15; color: #666; }
+            .invoice-info { margin: 5px 0; font-size: 10px; border-bottom: 1px dashed #999; padding-bottom: 5px; }
+            .info-line { display: flex; justify-content: space-between; gap: 5px; margin: 0; line-height: 1.2; }
+            .info-line > * { min-width: 0; overflow-wrap: anywhere; }
+            .section-title { font-weight: bold; margin-top: 7px; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 2px; }
+            .guest-section { margin: 5px 0; padding: 4px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 3px; }
+            .guest-header { font-weight: bold; margin-bottom: 3px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #999; padding-bottom: 3px; }
+            .guest-number { display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: #333; color: #fff; text-align: center; line-height: 18px; font-size: 10px; margin-right: 5px; }
+            .item-line { display: flex; justify-content: space-between; gap: 4px; padding: 1px 0; font-size: 10px; }
             .item-name { flex: 1; }
-            .item-qty { margin-right: 8px; font-weight: bold; }
-            .item-price { text-align: right; min-width: 60px; }
-            .item-options { font-size: 9px; color: #666; margin-left: 10px; font-style: italic; }
-            .subtotal { display: flex; justify-content: space-between; font-weight: bold; margin-top: 5px; padding-top: 5px; border-top: 1px dashed #999; }
-            .calculations { margin-top: 15px; padding-top: 10px; border-top: 2px solid #000; }
-            .calc-line { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; }
+            .item-qty { margin-right: 4px; font-weight: bold; }
+            .item-price { text-align: right; min-width: 54px; white-space: nowrap; }
+            .item-options { font-size: 9px; color: #666; margin-left: 6px; font-style: italic; }
+            .subtotal { display: flex; justify-content: space-between; gap: 4px; font-weight: bold; margin-top: 2px; padding-top: 2px; border-top: 1px dashed #999; }
+            .calculations { margin-top: 7px; padding-top: 5px; border-top: 1px solid #000; }
+            .calc-line { display: flex; justify-content: space-between; gap: 4px; padding: 1px 0; font-size: 10px; }
             .calc-line.discount { color: #28a745; }
             .calc-line.addition { color: #007bff; }
-            .calc-line.subtotal-line { font-size: 12px; padding-top: 5px; }
-            .total-line { display: flex; justify-content: space-between; font-size: 16px; font-weight: bold; margin-top: 10px; padding-top: 10px; border-top: 2px solid #000; }
-            .payment-info { margin-top: 15px; padding: 10px; background: #f0f0f0; border-radius: 4px; }
-            .payment-line { display: flex; justify-content: space-between; margin: 3px 0; font-size: 11px; }
-            .payment-line.highlight { font-weight: bold; font-size: 13px; margin-top: 5px; padding-top: 5px; border-top: 1px dashed #999; }
-            .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #666; border-top: 1px dashed #999; padding-top: 10px; }
-            .validation-code { text-align: center; margin: 10px 0; font-size: 9px; color: #999; }
+            .calc-line.subtotal-line { font-size: 11px; padding-top: 2px; }
+            .total-line { display: flex; justify-content: space-between; gap: 4px; font-size: 14px; font-weight: bold; margin-top: 5px; padding-top: 5px; border-top: 1px solid #000; }
+            .payment-info { margin-top: 7px; padding: 5px; background: #f0f0f0; border-radius: 3px; }
+            .payment-line { display: flex; justify-content: space-between; gap: 4px; margin: 1px 0; font-size: 10px; }
+            .payment-line.highlight { font-weight: bold; font-size: 12px; margin-top: 3px; padding-top: 3px; border-top: 1px dashed #999; }
+            .footer { margin-top: 8px; text-align: center; font-size: 9px; line-height: 1.2; color: #666; border-top: 1px dashed #999; padding-top: 5px; }
+            .validation-code { text-align: center; margin: 5px 0; font-size: 8px; line-height: 1.15; color: #999; overflow-wrap: anywhere; }
           </style>
         </head>
         <body>

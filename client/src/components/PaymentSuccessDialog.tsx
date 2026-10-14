@@ -347,7 +347,7 @@ export function PaymentSuccessDialog({
   const generatePrintableInvoice = () => {
     if (invoiceDocument) {
       return renderTableInvoiceHtml(invoiceDocument, {
-        paper: 'a4',
+        paper: '80mm',
         qrCodeDataUrl,
         returnUrl: window.location.pathname,
       });
