@@ -578,6 +578,7 @@ async function buildTableInvoiceDocument(
     ...sessionAuditRows.map((row) => {
     const details = (row.details || {}) as Record<string, any>;
     const actionLabels: Record<string, string> = {
+      legacy_action: 'Registo legado (ação não identificada)',
       session_discount_applied: 'Desconto aplicado',
       session_adjustment_applied: 'Ajuste aplicado',
       session_closed: 'Mesa fechada',
@@ -597,7 +598,11 @@ async function buildTableInvoiceDocument(
     ...itemAuditRows.map((row) => ({
       id: row.id,
       action: row.action,
-      label: row.action === 'item_removed' ? 'Item removido/cancelado' : 'Ajuste de item',
+      label: row.action === 'legacy_action'
+        ? 'Registo legado (ação não identificada)'
+        : row.action === 'item_removed'
+          ? 'Item removido/cancelado'
+          : 'Ajuste de item',
       actorName: auditActorNames.get(row.actorId) || 'Usuário desconhecido',
       reason: row.reason || null,
       createdAt: (row.createdAt || new Date()).toISOString(),
