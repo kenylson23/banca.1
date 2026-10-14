@@ -271,18 +271,24 @@ export function PaymentSuccessDialog({
         throw new Error('Não foi possível abrir a janela de impressão');
       }
 
-      const printContent = generatePrintableInvoice();
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-      
-      printWindow.onload = () => {
+      let printStarted = false;
+      const startPrint = () => {
+        if (printStarted || printWindow.closed) return;
+        printStarted = true;
+        printWindow.focus();
         printWindow.print();
         setTimeout(() => {
-          printWindow.close();
+          if (!printWindow.closed) printWindow.close();
           setIsPrinting(false);
           onPrintComplete?.();
         }, 500);
       };
+      printWindow.onload = startPrint;
+      printWindow.document.open();
+      const printContent = generatePrintableInvoice();
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      window.setTimeout(startPrint, 800);
     } catch (error) {
       console.error('Erro ao imprimir:', error);
       setIsPrinting(false);
@@ -311,7 +317,10 @@ export function PaymentSuccessDialog({
             @media print {
               @page { margin: 0; }
               body { margin: 1cm; }
+              .screen-only { display: none !important; }
             }
+            .return-toolbar { width: 100%; max-width: 520px; margin: 12px auto 20px; text-align: center; }
+            .return-toolbar a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-radius: 8px; background: #1d4ed8; color: #fff; font: 700 14px Arial, sans-serif; text-decoration: none; }
             body { 
               font-family: 'Arial', sans-serif; 
               max-width: 80mm; 
@@ -479,6 +488,9 @@ export function PaymentSuccessDialog({
           </style>
         </head>
         <body>
+          <div class="screen-only return-toolbar">
+            <a href="${escapeHtml(window.location.pathname)}">← Voltar à gestão da mesa</a>
+          </div>
           <!-- HEADER -->
           <div class="header">
             <div class="restaurant-name">${restaurantName}</div>

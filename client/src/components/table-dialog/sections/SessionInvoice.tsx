@@ -175,19 +175,30 @@ export function SessionInvoice({
   const printBrowser = async (selectedPaper: TableInvoicePaper = 'a4', reprint = false) => {
     if (reprint) await recordReprint();
     const printWindow = window.open('', '_blank', 'width=800,height=900');
-    if (!printWindow) return;
-    printWindow.document.write(renderTableInvoiceHtml(data, { paper: selectedPaper, qrCodeDataUrl }));
-    printWindow.document.close();
-    printWindow.onload = () => {
+    if (!printWindow) {
+      toast({
+        title: 'Pré-visualização bloqueada',
+        description: 'Permita a abertura de janelas para imprimir a fatura.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    let printStarted = false;
+    const startPrint = () => {
+      if (printStarted || printWindow.closed) return;
+      printStarted = true;
       printWindow.focus();
       printWindow.print();
     };
-    window.setTimeout(() => {
-      if (!printWindow.closed) {
-        printWindow.focus();
-        printWindow.print();
-      }
-    }, 500);
+    printWindow.onload = () => window.setTimeout(startPrint, 100);
+    printWindow.document.open();
+    printWindow.document.write(renderTableInvoiceHtml(data, {
+      paper: selectedPaper,
+      qrCodeDataUrl,
+      returnUrl: window.location.pathname,
+    }));
+    printWindow.document.close();
+    window.setTimeout(startPrint, 800);
   };
 
   const printThermal = async (reprint = false) => {
@@ -530,6 +541,11 @@ export function SessionInvoice({
               srcDoc={renderTableInvoiceHtml(data, { paper, qrCodeDataUrl })}
               className={`mx-auto block min-h-[680px] border-0 bg-white shadow-md ${paper === 'a4' ? 'w-full max-w-[794px]' : 'w-[302px]'}`}
             />
+          </div>
+          <div className="flex shrink-0 justify-end border-t pt-3">
+            <Button type="button" variant="outline" onClick={() => setPreviewOpen(false)}>
+              Voltar à gestão da mesa
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

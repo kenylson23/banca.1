@@ -109,23 +109,32 @@ export function PrintTablePayment({
   };
 
   const printBrowser = async () => {
-    return new Promise<void>((resolve) => {
+    return new Promise<void>((resolve, reject) => {
       const printWindow = window.open('', '_blank');
       if (!printWindow) {
         throw new Error('Não foi possível abrir janela de impressão');
       }
 
+      let printStarted = false;
+      const startPrint = () => {
+        if (printStarted || printWindow.closed) return;
+        printStarted = true;
+        try {
+          printWindow.focus();
+          printWindow.print();
+          setTimeout(() => {
+            if (!printWindow.closed) printWindow.close();
+            resolve();
+          }, 500);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      printWindow.onload = startPrint;
+      printWindow.document.open();
       printWindow.document.write(generateHTMLContent());
       printWindow.document.close();
-      
-      printWindow.onload = () => {
-        printWindow.focus();
-        printWindow.print();
-        setTimeout(() => {
-          printWindow.close();
-          resolve();
-        }, 500);
-      };
+      setTimeout(startPrint, 800);
     });
   };
 
@@ -181,6 +190,7 @@ export function PrintTablePayment({
           @media print {
             @page { margin: 0; size: 80mm auto; }
             body { margin: 0; padding: 10mm; }
+            .screen-only { display: none !important; }
           }
           body {
             font-family: 'Courier New', monospace;
@@ -204,9 +214,14 @@ export function PrintTablePayment({
           h1 { font-size: 16px; margin: 5px 0; }
           h2 { font-size: 14px; margin: 10px 0; }
           .info-row { margin: 5px 0; }
+          .return-toolbar { width: 100%; max-width: 520px; margin: 12px auto 20px; text-align: center; }
+          .return-toolbar a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-radius: 8px; background: #1d4ed8; color: #fff; font: 700 14px Arial, sans-serif; text-decoration: none; }
         </style>
       </head>
       <body>
+        <div class="screen-only return-toolbar">
+          <a href="${escapeHtml(window.location.pathname)}">← Voltar à gestão da mesa</a>
+        </div>
         <div class="center">
            <h1 class="bold">${escapeHtml(fiscalName)}</h1>
            ${fiscalLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}

@@ -27,6 +27,7 @@ export type TableInvoicePaper = 'a4' | '80mm';
 export type TableInvoiceRenderOptions = {
   paper?: TableInvoicePaper;
   qrCodeDataUrl?: string;
+  returnUrl?: string;
 };
 
 export function renderTableInvoiceHtml(
@@ -113,6 +114,9 @@ export function renderTableInvoiceHtml(
   const qrCode = options.qrCodeDataUrl
     ? `<div class="qr-wrap"><img class="qr" src="${escapeHtml(options.qrCodeDataUrl)}" alt="QR Code da fatura" /><div><strong>Validação digital</strong><small>Leia para confirmar este documento</small><small>Código: ${escapeHtml(document.validation.code)}</small><small class="verification-url">${escapeHtml(document.validation.verificationUrl)}</small></div></div>`
     : `<div class="validation"><strong>Código de validação</strong><span>${escapeHtml(document.validation.code)}</span><small>${escapeHtml(document.validation.verificationUrl)}</small></div>`;
+  const returnToolbar = options.returnUrl
+    ? `<nav class="no-print return-toolbar"><a href="${escapeHtml(options.returnUrl)}">← Voltar à gestão da mesa</a></nav>`
+    : '';
 
   return `<!doctype html>
     <html lang="pt"><head><meta charset="utf-8">
@@ -136,7 +140,10 @@ export function renderTableInvoiceHtml(
        .footer { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-top:24px; padding-top:13px; border-top:1px dashed #aab5bb; } .qr-wrap { display:flex; align-items:center; gap:10px; } .qr { width:74px; height:74px; image-rendering:auto; } .validation { text-align:right; font-size:10px; } .validation strong, .validation span { display:block; } .validation span { font-size:13px; font-weight:700; letter-spacing:.1em; margin-top:3px; } .verification-url { overflow-wrap:anywhere; max-width:300px; }
       .thermal-only { display:${isThermal ? 'block' : 'none'}; } .a4-only { display:${isThermal ? 'none' : 'block'}; }
        ${isThermal ? 'header { display:block; text-align:center; } .brand { justify-content:center; } .meta { text-align:center; margin-top:9px; } .logo, .logo-fallback { width:42px; height:42px; } .grid { grid-template-columns:1fr 1fr; } .grid .info:last-child { grid-column:1 / -1; } .customer { grid-template-columns:1fr; } .customer .wide { grid-column:auto; } .operation-grid { grid-template-columns:1fr 1fr; } .operation-grid > div { padding:6px; } h2 { margin-top:15px; } th,td { padding:6px 3px; font-size:9px; } th:nth-child(3),td:nth-child(3) { display:none; } .summary { max-width:none; } .grand { font-size:15px; } .footer { display:block; text-align:center; } .qr-wrap { justify-content:center; margin-bottom:8px; } .validation { text-align:center; }' : ''}
+      .return-toolbar { max-width:780px; margin:12px auto; padding:0 12px; display:flex; justify-content:flex-end; }
+      .return-toolbar a { display:inline-flex; align-items:center; min-height:44px; padding:0 16px; border-radius:8px; background:#1d4ed8; color:#fff; font-weight:700; text-decoration:none; }
     </style></head><body>
+    ${returnToolbar}
        <header><div class="brand">${logo}<div><h1>${escapeHtml(document.restaurant.name)}</h1>
          <div>${escapeHtml(branchName)}</div>
           <div class="muted">${escapeHtml(fiscalAddress || branchAddress || '')}${branchPhone ? ` · ${escapeHtml(branchPhone)}` : ''}</div>
