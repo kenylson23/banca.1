@@ -6,22 +6,21 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CreditCard, Eye, Loader2, Printer, Receipt, RotateCcw, User, History, BadgeCheck } from 'lucide-react';
+import { CreditCard, Loader2, Printer, Receipt, RotateCcw, User, History, BadgeCheck } from 'lucide-react';
 import { apiFetch } from '@/lib/api-url';
 import { printerService } from '@/lib/printer-service';
 import { usePrinter } from '@/hooks/usePrinter';
 import { useToast } from '@/hooks/use-toast';
 import QRCode from 'qrcode';
-import { renderTableInvoiceHtml, tableInvoiceToThermalPayload, type TableInvoicePaper } from '@/lib/table-invoice-renderer';
+import { renderTableInvoiceHtml, tableInvoiceToThermalPayload } from '@/lib/table-invoice-renderer';
 import type { TableInvoiceDocument } from '@shared/table-invoice-document';
 import { getRestaurantFiscalCompleteness, getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
-import { PrintTablePayment } from '@/components/PrintTablePayment';
 import {
   invoiceDate,
   invoiceMoney,
   invoiceOrderStatusLabel,
   invoicePaymentStatusLabel,
+  invoiceSessionLabel,
 } from '@shared/invoice-formatters';
 
 const statusColors = {
@@ -60,10 +59,7 @@ export function SessionInvoice({
   const { getPrinterByType } = usePrinter();
   const { toast } = useToast();
   const thermalPrinter = getPrinterByType('invoice');
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [paper, setPaper] = useState<TableInvoicePaper>('a4');
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
-  const [printingPaymentId, setPrintingPaymentId] = useState<string | null>(null);
   const [isRecordingReprint, setIsRecordingReprint] = useState(false);
 
   const qrPayload = useMemo(
@@ -116,7 +112,7 @@ export function SessionInvoice({
   ) {
     return (
       <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm">
-        A fatura não corresponde à mesa e ao restaurante selecionados. A visualização e a impressão foram bloqueadas.
+        A fatura não corresponde à mesa e ao restaurante selecionados. A abertura e a impressão foram bloqueadas.
       </div>
     );
   }
@@ -172,7 +168,87 @@ export function SessionInvoice({
     }
   };
 
-  const printBrowser = async (selectedPaper: TableInvoicePaper = 'a4', reprint = false) => {
+  const openInvoiceInBrowser = () => {
+    const invoiceWindow = window.open('', '_blank');
+    if (!invoiceWindow) {
+      toast({
+        title: 'Abertura bloqueada',
+        description: 'Permita janelas pop-up para abrir a fatura no navegador.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    invoiceWindow.document.open();
+    invoiceWindow.document.write(renderTableInvoiceHtml(data, {
+      paper: 'a4',
+      qrCodeDataUrl,
+      returnUrl: window.location.pathname,
+    }));
+    invoiceWindow.document.close();
+    invoiceWindow.focus();
+  };
+
+  const openPaymentReceiptInBrowser = (paymentId: string) => {
+    const payment = data.payments.find((item) => item.id === paymentId);
+    if (!payment) return;
+
+    const receiptWindow = window.open('', '_blank');
+    if (!receiptWindow) {
+      toast({
+        title: 'Abertura bloqueada',
+        description: 'Permita janelas pop-up para abrir o recibo no navegador.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const escapeHtml = (value: unknown) => String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+    const receiptRows: [string, string][] = [
+      ['Mesa', `Mesa ${data.table.number}`],
+      ['Data', invoiceDate(payment.createdAt)],
+      ['Fatura associada', data.invoiceReference],
+      ['Sessão', invoiceSessionLabel(data.session.id)],
+      ['Nº do pagamento', payment.id],
+      ['Método', payment.paymentMethodLabel],
+    ];
+    if (payment.operatorName) receiptRows.push(['Operador', payment.operatorName]);
+    if (payment.notes) receiptRows.push(['Observações', payment.notes]);
+    const receiptHtml = `<!doctype html>
+      <html lang="pt"><head><meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Recibo de pagamento · ${escapeHtml(data.table.number)}</title>
+      <style>
+        *{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#17202a;max-width:620px;margin:24px auto;padding:16px;line-height:1.5}
+        header{text-align:center;border-bottom:2px solid #17202a;padding-bottom:16px;margin-bottom:16px}
+        h1{font-size:20px;margin:0 0 6px}h2{font-size:16px;letter-spacing:.08em;margin:12px 0}
+        .muted{color:#64727d;font-size:13px}.details{border:1px solid #dfe5e8;border-radius:8px;padding:12px}
+        .row{display:flex;justify-content:space-between;gap:16px;padding:7px 0;border-bottom:1px solid #e5eaed}
+        .row:last-child{border-bottom:0}.row span:first-child{color:#64727d}.row span:last-child{text-align:right;overflow-wrap:anywhere}
+        .amount{margin-top:16px;padding:14px;border-radius:8px;background:#f1f5f9;text-align:center;font-size:24px;font-weight:700}
+        .toolbar{display:flex;justify-content:center;gap:10px;margin-bottom:20px}.toolbar a,.toolbar button{border:0;border-radius:7px;padding:11px 16px;background:#1d4ed8;color:#fff;font-size:14px;font-weight:700;text-decoration:none;cursor:pointer}
+        .toolbar a{background:#475569}@media print{body{max-width:72mm;margin:0;padding:8mm}.toolbar{display:none}.amount{background:#fff}}
+      </style></head><body>
+      <nav class="toolbar"><a href="${escapeHtml(window.location.pathname)}">Voltar à gestão da mesa</a><button onclick="window.print()">Imprimir</button></nav>
+      <header><h1>${escapeHtml(data.restaurant.name)}</h1>
+      ${fiscalDetails.lines.map(({ label, value }) => `<div class="muted">${escapeHtml(label)}: ${escapeHtml(value)}</div>`).join('')}
+      <h2>RECIBO DE PAGAMENTO</h2></header>
+      <section class="details">${receiptRows.map(([label, value]) => `<div class="row"><span>${escapeHtml(label)}</span><span>${escapeHtml(value)}</span></div>`).join('')}</section>
+      <div class="amount">${escapeHtml(invoiceMoney(payment.amount))}</div>
+      ${fiscalDetails.legalFooter ? `<p class="muted" style="text-align:center">${escapeHtml(fiscalDetails.legalFooter)}</p>` : ''}
+      </body></html>`;
+    receiptWindow.document.open();
+    receiptWindow.document.write(receiptHtml);
+    receiptWindow.document.close();
+    receiptWindow.focus();
+  };
+
+  const printBrowser = async (reprint = false) => {
     if (reprint) await recordReprint();
     const printWindow = window.open('', '_blank', 'width=800,height=900');
     if (!printWindow) {
@@ -193,7 +269,7 @@ export function SessionInvoice({
     printWindow.onload = () => window.setTimeout(startPrint, 100);
     printWindow.document.open();
     printWindow.document.write(renderTableInvoiceHtml(data, {
-      paper: selectedPaper,
+      paper: 'a4',
       qrCodeDataUrl,
       returnUrl: window.location.pathname,
     }));
@@ -242,9 +318,9 @@ export function SessionInvoice({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge className={statusColors[data.totals.paymentStatus]}>{invoicePaymentStatusLabel(data.totals.paymentStatus)}</Badge>
-            <Button size="sm" variant="outline" onClick={() => setPreviewOpen(true)}><Eye className="mr-2 h-4 w-4" /> Ver fatura</Button>
-            <Button size="sm" variant="outline" onClick={() => printBrowser('a4')}><Printer className="mr-2 h-4 w-4" /> Imprimir A4</Button>
-             <Button size="sm" variant="outline" disabled={isRecordingReprint} onClick={() => printBrowser('a4', true)}><RotateCcw className="mr-2 h-4 w-4" /> Reimprimir</Button>
+            <Button size="sm" variant="outline" onClick={openInvoiceInBrowser}><Receipt className="mr-2 h-4 w-4" /> Abrir fatura no navegador</Button>
+            <Button size="sm" variant="outline" onClick={() => printBrowser()}><Printer className="mr-2 h-4 w-4" /> Imprimir A4</Button>
+            <Button size="sm" variant="outline" disabled={isRecordingReprint} onClick={() => printBrowser(true)}><RotateCcw className="mr-2 h-4 w-4" /> Reimprimir</Button>
              {thermalPrinter?.status === 'connected' && <Button size="sm" variant="outline" onClick={() => printThermal(true)}><Receipt className="mr-2 h-4 w-4" /> Térmica</Button>}
           </div>
         </div>
@@ -448,7 +524,7 @@ export function SessionInvoice({
                </span>
                <div className="flex items-center gap-2">
                   <span className="font-medium">{invoiceMoney(payment.amount)}</span>
-                 <Button size="sm" variant="ghost" onClick={() => setPrintingPaymentId(payment.id)} title="Ver recibo individual">
+                  <Button size="sm" variant="ghost" onClick={() => openPaymentReceiptInBrowser(payment.id)} title="Abrir recibo no navegador" aria-label={`Abrir recibo do pagamento ${payment.id} no navegador`}>
                    <Receipt className="h-4 w-4" />
                  </Button>
                </div>
@@ -488,52 +564,7 @@ export function SessionInvoice({
              </div>
            </div>
          </div>
-         {printingPaymentId && (() => {
-           const payment = data.payments.find((item) => item.id === printingPaymentId);
-           if (!payment) return null;
-           return (
-             <PrintTablePayment
-               payment={{ id: payment.id, amount: payment.amount, paymentMethod: payment.paymentMethod, createdAt: payment.createdAt, notes: payment.notes || undefined, operatorName: payment.operatorName || undefined, invoiceReference: data.invoiceReference }}
-               tableName={`Mesa ${data.table.number}`}
-                restaurant={data.restaurant}
-               onPrintComplete={() => setPrintingPaymentId(null)}
-               autoPrint
-             />
-           );
-         })()}
       </CardContent>
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="flex max-h-[94vh] w-[calc(100%-1rem)] max-w-5xl flex-col gap-3 overflow-hidden p-4 sm:p-6">
-          <DialogHeader className="pr-8">
-            <DialogTitle>Pré-visualização da Fatura/Recibo</DialogTitle>
-            <DialogDescription>
-              Esta visualização fica dentro do sistema. Para guardar como PDF, escolha imprimir e selecione a opção de guardar no dispositivo.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 p-2">
-            <div className="flex items-center gap-1">
-              <Button type="button" size="sm" variant={paper === 'a4' ? 'default' : 'ghost'} onClick={() => setPaper('a4')}>A4</Button>
-              <Button type="button" size="sm" variant={paper === '80mm' ? 'default' : 'ghost'} onClick={() => setPaper('80mm')}>80 mm</Button>
-            </div>
-            <div className="flex gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={() => printBrowser(paper)}><Printer className="mr-2 h-4 w-4" /> Imprimir / guardar {paper === 'a4' ? 'A4' : '80 mm'}</Button>
-               <Button type="button" size="sm" disabled={isRecordingReprint} onClick={() => printBrowser(paper, true)}><RotateCcw className="mr-2 h-4 w-4" /> Reimprimir</Button>
-            </div>
-          </div>
-          <div className="min-h-0 flex-1 overflow-auto rounded-lg bg-slate-100 p-3 sm:p-6">
-            <iframe
-              title="Pré-visualização da fatura"
-              srcDoc={renderTableInvoiceHtml(data, { paper, qrCodeDataUrl })}
-              className={`mx-auto block min-h-[680px] border-0 bg-white shadow-md ${paper === 'a4' ? 'w-full max-w-[794px]' : 'w-[302px]'}`}
-            />
-          </div>
-          <div className="flex shrink-0 justify-end border-t pt-3">
-            <Button type="button" variant="outline" onClick={() => setPreviewOpen(false)}>
-              Voltar à gestão da mesa
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }

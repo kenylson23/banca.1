@@ -9,8 +9,8 @@ All table-session invoice and receipt outputs should consume one assembled `Tabl
 
 **How to apply:** Extend the server document builder when invoice data changes, including branch, cash-shift, operator, and session-lifecycle metadata, then keep visual, browser, thermal, and PDF renderers as consumers of that document instead of querying or recalculating session data independently. Pass complete restaurant settings into order invoices too, and use the shared fiscal helpers rather than maintaining per-renderer field lists. Persist invoice-recipient choices on the table session and keep the table's primary customer separate from the billed recipient.
 
-On mobile, opening a table invoice or receipt must not strand the operator in a top-level document viewer with no way back to table management.
+When operators open a table invoice or payment receipt, show the document in a separate browser tab rather than an embedded app preview. Keep a clear link back to table management; printing remains a separate action.
 
-**Why:** The operator otherwise has to close and reopen the app to return to the table.
+**Why:** The user explicitly requested browser-based invoice and receipt viewing instead of opening documents inside the app.
 
-**How to apply:** Keep document previews inside the table-management screen with a clear return control; treat printing or saving a file as a separate action.
+**How to apply:** Open the rendered document directly from the user action so popup blockers do not prevent it, include a return link where appropriate, and do not start printing just to view a document.
