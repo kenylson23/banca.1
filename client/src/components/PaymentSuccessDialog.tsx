@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   CheckCircle2,
   Printer,
@@ -975,12 +974,12 @@ export function PaymentSuccessDialog({
       }
     }}>
       <DialogContent 
-        className="max-w-[95vw] sm:max-w-3xl lg:max-w-5xl max-h-[92vh] flex flex-col gap-0 p-0"
+        className="max-w-[95vw] sm:max-w-3xl lg:max-w-5xl h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] sm:h-auto sm:max-h-[92vh] flex flex-col gap-0 overflow-hidden p-0"
         onPointerDownOutside={(e) => {
           e.preventDefault();
         }}
       >
-        <DialogHeader className="border-b px-5 py-4 text-left sm:px-7">
+        <DialogHeader className="shrink-0 border-b px-5 py-4 text-left sm:px-7">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
               <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
@@ -998,7 +997,7 @@ export function PaymentSuccessDialog({
           </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[calc(92vh-132px)] flex-1">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]">
           <div className="space-y-5 px-5 py-5 sm:px-7">
             {invoiceDocument && isFiscalDataReady ? (
               <section
@@ -1794,10 +1793,10 @@ export function PaymentSuccessDialog({
           </div>
           </details>
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Close Button */}
-        <div className="flex justify-center pt-4 border-t bg-background">
+        <div className="shrink-0 flex justify-center pt-4 border-t bg-background">
           <Button
             variant="outline"
             size="lg"
