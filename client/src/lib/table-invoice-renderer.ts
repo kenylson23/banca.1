@@ -88,16 +88,16 @@ export function renderTableInvoiceHtml(
   const primaryCustomer = document.tableCustomer && document.tableCustomer.id !== document.customer?.id
     ? `<div class="wide"><label>Cliente principal da mesa</label><strong>${escapeHtml(document.tableCustomer.name)}</strong>${document.tableCustomer.phone ? `<small>${escapeHtml(document.tableCustomer.phone)}</small>` : ''}</div>`
     : '';
-  const invoiceIdentity = `<section><h2>Identificação da fatura</h2><div class="customer"><div class="wide"><label>Fatura em nome de</label><strong>${escapeHtml(document.invoiceRecipient.label)}</strong></div>${customerDetails}${primaryCustomer}${document.isSplit ? `<div class="wide split-note"><strong>Conta dividida</strong><small>Esta mesa tem ${document.guests.length} convidados registados.</small></div>` : ''}</div></section>`;
+  const invoiceIdentity = `<section class="recipient-section"><h2>Destinatário da fatura</h2><div class="customer"><div class="wide"><label>Fatura em nome de</label><strong>${escapeHtml(document.invoiceRecipient.label)}</strong></div>${customerDetails}${primaryCustomer}${document.isSplit ? `<div class="wide split-note"><strong>Conta dividida</strong><small>Esta mesa tem ${document.guests.length} convidados registados.</small></div>` : ''}</div></section>`;
   const branchName = document.branch?.name || 'Unidade principal';
   const branchAddress = document.branch?.address || document.restaurant.address;
   const branchPhone = document.branch?.phone || document.restaurant.phone;
   const fiscalDetails = getRestaurantFiscalDetails(document.restaurant);
   const fiscalAddress = document.restaurant.fiscalAddress || document.restaurant.address;
-  const fiscalDetailsLabel = fiscalDetails.lines
-    .map(({ label, value }) => `${label}: ${value}`)
-    .join(' · ');
-  const operationDetails = `<section><h2>Dados da operação</h2><div class="operation-grid">
+  const issuerFiscalDetails = fiscalDetails.lines.length
+    ? `<div class="issuer-fiscal" aria-label="Dados fiscais do emitente"><div class="issuer-fiscal-heading">Dados fiscais do emitente</div>${fiscalDetails.lines.map(({ label, value }) => `<div class="issuer-detail"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join('')}</div>`
+    : '';
+  const operationDetails = `<section class="operation-section"><h2>Dados da operação</h2><div class="operation-grid">
     <div><label>Filial</label><strong>${escapeHtml(branchName)}</strong></div>
     <div><label>Endereço da filial</label><strong>${escapeHtml(branchAddress || '-')}</strong></div>
     <div><label>Telefone da filial</label><strong>${escapeHtml(branchPhone || '-')}</strong></div>
@@ -118,31 +118,41 @@ export function renderTableInvoiceHtml(
     ? `<nav class="no-print return-toolbar"><a href="${escapeHtml(options.returnUrl)}">← Voltar à gestão da mesa</a></nav>`
     : '';
   const compactThermalStyles = isThermal ? `
-      @page { margin: 2mm; }
-      body { font-size: 9px; line-height: 1.15; }
-      header { gap: 6px; padding-bottom: 6px; border-bottom-width: 1px; }
-      .brand { gap: 5px; }
-      h1 { font-size: 15px; }
-      h2 { font-size: 10px; margin: 8px 0 4px; padding-bottom: 2px; }
-      small { margin-top: 1px; }
-      .meta { margin-top: 4px; }
-      .meta .number { font-size: 14px; }
-      .status { margin-top: 3px; padding: 2px 5px; }
-      .grid { gap: 4px; margin: 6px 0; }
-      .info, .customer { padding: 4px 5px; }
-      .customer { gap: 3px 5px; }
-      .operation-grid { gap: 4px; }
+      @page { size: 80mm auto; margin: 2mm; }
+      body { width: 72mm; max-width: 72mm; margin: 0 auto; font-size: 9px; line-height: 1.2; }
+      .invoice-document { width: 100%; }
+      .invoice-header { grid-template-columns: 1fr; gap: 7px; padding-bottom: 7px; }
+      .brand { justify-content: flex-start; gap: 7px; }
+      .logo, .logo-fallback { width: 32px; height: 32px; border-radius: 6px; }
+      h1 { font-size: 14px; }
+      .issuer-fiscal { gap: 3px 6px; margin-top: 6px; padding-top: 5px; }
+      .issuer-detail span { font-size: 7px; }
+      .issuer-detail strong { font-size: 8px; }
+      .document-card { padding: 6px 7px; text-align: left; border-left-width: 3px; }
+      .document-type { font-size: 8px; }
+      .document-number { font-size: 14px; }
+      .document-date { font-size: 8px; }
+      .meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin: 6px 0; }
+      .meta-card { padding: 4px 5px; }
+      .meta-card:last-child { grid-column: 1 / -1; }
+      h2 { font-size: 9px; margin: 8px 0 4px; padding-bottom: 3px; }
+      .customer { grid-template-columns: 1fr; gap: 3px 5px; padding: 5px; }
+      .customer label, .operation-grid label { font-size: 7px; }
+      .customer strong, .operation-grid strong { font-size: 8px; }
+      .operation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
       .operation-grid > div { padding: 4px; }
-      th, td { padding: 3px 2px; font-size: 9px; }
+      th, td { padding: 3px 2px; font-size: 8px; }
       th:nth-child(3), td:nth-child(3) { display: table-cell; }
-      .summary { margin-top: 7px; padding: 5px 6px; }
+      .items-section h2 { margin-top: 9px; }
+      .summary { width: 100%; max-width: none; margin: 8px 0 0; padding: 6px; }
       .line { gap: 6px; margin: 2px 0; }
-      .grand { font-size: 13px; margin: 4px -6px 3px; padding: 4px 6px; }
+      .grand { font-size: 13px; margin: 5px -6px 4px; padding: 5px 6px; }
       .payment { gap: 5px; padding: 4px 5px; }
-      .footer { gap: 6px; margin-top: 8px; padding-top: 5px; }
-      .qr-wrap { gap: 5px; margin-bottom: 4px; }
-      .qr { width: 46px; height: 46px; }
-      .validation { font-size: 8px; }
+      .payment small { overflow-wrap: anywhere; }
+      .footer { display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 8px; padding-top: 6px; }
+      .qr-wrap { justify-content: flex-start; gap: 5px; margin-bottom: 2px; }
+      .qr { width: 38px; height: 38px; }
+      .validation { text-align: left; font-size: 8px; }
       .validation span { font-size: 10px; }
       .verification-url { max-width: 100%; }
     ` : '';
@@ -151,50 +161,175 @@ export function renderTableInvoiceHtml(
     <html lang="pt"><head><meta charset="utf-8">
     <title>${escapeHtml(document.invoiceReference)}</title>
     <style>
-      @page { size: ${isThermal ? '80mm auto' : 'A4'}; margin: ${isThermal ? '4mm' : '12mm'}; }
-      @media print { body { margin: 0; box-shadow: none; } .no-print { display:none !important; } }
-      * { box-sizing: border-box; } body { font-family: Arial, sans-serif; width: ${isThermal ? '72mm' : '100%'}; max-width: ${isThermal ? '72mm' : '780px'}; margin: ${isThermal ? '0 auto' : '28px auto'}; color: #17202a; background: #fff; font-size: ${isThermal ? '10px' : '12px'}; line-height: 1.35; }
-      header { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; border-bottom:2px solid #17202a; padding-bottom:14px; }
-      .brand { display:flex; align-items:center; gap:10px; min-width:0; } .logo, .logo-fallback { width:50px; height:50px; object-fit:contain; border-radius:10px; } .logo-fallback { display:flex; align-items:center; justify-content:center; background:#17202a; color:white; font-size:22px; font-weight:700; }
-      h1 { margin:0 0 3px; font-size:20px; letter-spacing:-.02em; } h2 { font-size:12px; letter-spacing:.08em; text-transform:uppercase; border-bottom:1px solid #dfe5e8; padding-bottom:6px; margin:20px 0 9px; }
-      .muted, small { color:#64727d; } small { display:block; margin-top:3px; font-size:.88em; } .meta { text-align:right; white-space:nowrap; } .meta strong { display:block; font-size:10px; letter-spacing:.12em; } .meta .number { display:block; font-size:18px; font-weight:700; margin:2px 0; }
-      .status { display:inline-block; margin-top:7px; padding:4px 9px; border-radius:999px; background:${document.totals.paymentStatus === 'pago' ? '#dcfce7' : document.totals.paymentStatus === 'parcial' ? '#dbeafe' : '#fef3c7'}; color:${document.totals.paymentStatus === 'pago' ? '#166534' : document.totals.paymentStatus === 'parcial' ? '#1d4ed8' : '#92400e'}; font-weight:700; font-size:10px; }
-      .grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin:14px 0; } .info, .customer { border:1px solid #dfe5e8; border-radius:7px; padding:9px 10px; } .info label, .customer label { display:block; color:#64727d; font-size:10px; text-transform:uppercase; letter-spacing:.07em; margin-bottom:3px; }
-       .customer { background:#f5f8f9; display:grid; grid-template-columns:1fr 1fr; gap:8px 18px; } .customer .wide { grid-column:1 / -1; } .operation-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; } .operation-grid > div { border:1px solid #dfe5e8; border-radius:7px; padding:8px 10px; } .operation-grid label { display:block; color:#64727d; font-size:10px; text-transform:uppercase; letter-spacing:.07em; margin-bottom:3px; } .operation-grid strong { display:block; overflow-wrap:anywhere; } section { break-inside:avoid; }
-      table { width:100%; border-collapse:collapse; } th { background:#17202a; color:#fff; font-size:10px; text-transform:uppercase; letter-spacing:.06em; } th,td { text-align:left; padding:8px 7px; border-bottom:1px solid #e5eaed; vertical-align:top; } th:first-child,td:first-child { text-align:center; width:9%; } th:nth-child(n+3),td:nth-child(n+3) { text-align:right; white-space:nowrap; }
-       .guests { display:flex; flex-wrap:wrap; gap:6px; } .guests span { background:#edf2f4; padding:5px 8px; border-radius:4px; }
-       .shared { color:#155e75; } .cancelled { color:#b91c1c; font-weight:700; } .cancelled-section { opacity:.82; } .notes { border:1px solid #dfe5e8; border-radius:7px; padding:9px 10px; background:#fffdf5; } .notes p { margin:4px 0; }
-        .summary { margin:16px 0 0 auto; max-width:420px; border:1px solid #dfe5e8; border-radius:8px; padding:11px 13px; } .line { display:flex; justify-content:space-between; gap:20px; margin:5px 0; } .line.adjustment { align-items:flex-start; } .line.adjustment small { max-width:280px; } .grand { font-size:18px; font-weight:700; margin:9px -13px 7px; padding:10px 13px; border-top:1px solid #dfe5e8; border-bottom:1px solid #dfe5e8; background:#f5f8f9; } .pending { color:#b45309; font-weight:700; }
-       .payments { border:1px solid #dfe5e8; border-radius:8px; overflow:hidden; } .payment { display:flex; justify-content:space-between; gap:12px; padding:9px 11px; border-bottom:1px solid #e5eaed; } .payment:last-child { border-bottom:0; } .payment strong:last-child { white-space:nowrap; } .payment.detail { background:#fafcfc; font-size:.92em; } .empty { padding:10px; color:#64727d; }
-       .footer { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-top:24px; padding-top:13px; border-top:1px dashed #aab5bb; } .qr-wrap { display:flex; align-items:center; gap:10px; } .qr { width:74px; height:74px; image-rendering:auto; } .validation { text-align:right; font-size:10px; } .validation strong, .validation span { display:block; } .validation span { font-size:13px; font-weight:700; letter-spacing:.1em; margin-top:3px; } .verification-url { overflow-wrap:anywhere; max-width:300px; }
-      .thermal-only { display:${isThermal ? 'block' : 'none'}; } .a4-only { display:${isThermal ? 'none' : 'block'}; }
-       ${isThermal ? 'header { display:block; text-align:center; } .brand { justify-content:center; } .meta { text-align:center; margin-top:9px; } .logo, .logo-fallback { width:42px; height:42px; } .grid { grid-template-columns:1fr 1fr; } .grid .info:last-child { grid-column:1 / -1; } .customer { grid-template-columns:1fr; } .customer .wide { grid-column:auto; } .operation-grid { grid-template-columns:1fr 1fr; } .operation-grid > div { padding:6px; } h2 { margin-top:15px; } th,td { padding:6px 3px; font-size:9px; } th:nth-child(3),td:nth-child(3) { display:none; } .summary { max-width:none; } .grand { font-size:15px; } .footer { display:block; text-align:center; } .qr-wrap { justify-content:center; margin-bottom:8px; } .validation { text-align:center; }' : ''}
-       ${compactThermalStyles}
-      .return-toolbar { max-width:780px; margin:12px auto; padding:0 12px; display:flex; justify-content:flex-end; }
-      .return-toolbar a { display:inline-flex; align-items:center; min-height:44px; padding:0 16px; border-radius:8px; background:#1d4ed8; color:#fff; font-weight:700; text-decoration:none; }
+      @page { size: ${isThermal ? '80mm auto' : 'A4'}; margin: ${isThermal ? '2mm' : '12mm'}; }
+      @media print {
+        body { margin: 0 auto; box-shadow: none; }
+        .no-print { display: none !important; }
+        .invoice-document { box-shadow: none; }
+      }
+      * { box-sizing: border-box; }
+      body {
+        --ink: #183344;
+        --muted: #637784;
+        --border: #d8e3e8;
+        --accent: #167c70;
+        --surface: #f2f7f7;
+        width: ${isThermal ? '72mm' : '100%'};
+        max-width: ${isThermal ? '72mm' : '780px'};
+        margin: ${isThermal ? '0 auto' : '28px auto'};
+        color: var(--ink);
+        background: #fff;
+        font-family: Arial, sans-serif;
+        font-size: ${isThermal ? '9px' : '12px'};
+        line-height: 1.4;
+      }
+      .invoice-document { width: 100%; }
+      .invoice-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(190px, .7fr);
+        align-items: start;
+        gap: 20px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid var(--ink);
+      }
+      .issuer { min-width: 0; }
+      .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+      .logo, .logo-fallback { width: 46px; height: 46px; object-fit: contain; border-radius: 8px; }
+      .logo-fallback { display: flex; align-items: center; justify-content: center; background: var(--ink); color: white; font-size: 20px; font-weight: 700; }
+      .issuer-name { margin: 0; font-size: 19px; line-height: 1.15; letter-spacing: -.02em; }
+      .branch-name { margin-top: 3px; color: var(--muted); font-weight: 600; }
+      .issuer-fiscal { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+      .issuer-detail { min-width: 0; }
+      .issuer-detail span { display: block; margin-bottom: 1px; color: var(--muted); font-size: 9px; }
+      .issuer-detail strong { display: block; font-size: 10px; overflow-wrap: anywhere; }
+      .document-card { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; padding: 13px 14px; border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; background: var(--surface); text-align: right; }
+      .document-type { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
+      .document-number { font-size: 20px; font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
+      .document-date { color: var(--muted); font-size: 10px; }
+      .status { display: inline-block; margin-top: 3px; padding: 4px 9px; border-radius: 999px; background: ${document.totals.paymentStatus === 'pago' ? '#dcfce7' : document.totals.paymentStatus === 'parcial' ? '#dbeafe' : '#fef3c7'}; color: ${document.totals.paymentStatus === 'pago' ? '#166534' : document.totals.paymentStatus === 'parcial' ? '#1d4ed8' : '#92400e'}; font-size: 10px; font-weight: 700; }
+      .meta-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
+      .meta-card, .customer { min-width: 0; border: 1px solid var(--border); border-radius: 7px; padding: 9px 10px; }
+      .meta-card { background: #fff; }
+      .meta-card label, .customer label, .operation-grid label { display: block; margin-bottom: 3px; color: var(--muted); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+      .meta-card strong, .customer strong, .operation-grid strong { display: block; overflow-wrap: anywhere; }
+      .meta-card small, .customer small { display: block; margin-top: 3px; }
+      .recipient-section .customer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; background: var(--surface); }
+      .customer .wide { grid-column: 1 / -1; }
+      .split-note { padding: 7px 9px; border-left: 3px solid var(--accent); background: #e8f4f2; }
+      .operation-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+      .operation-grid > div { min-width: 0; padding: 7px 9px; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+      section { margin-top: 15px; break-inside: avoid; }
+      h2 { display: flex; align-items: center; gap: 7px; margin: 0 0 7px; padding-bottom: 5px; border-bottom: 1px solid var(--border); color: var(--ink); font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+      h2::before { width: 3px; height: 13px; border-radius: 2px; background: var(--accent); content: ''; }
+      .muted, small { color: var(--muted); }
+      small { font-size: .88em; }
+      table { width: 100%; border-collapse: collapse; }
+      th { background: var(--ink); color: #fff; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; }
+      th, td { padding: 7px 6px; border-bottom: 1px solid #e5ecef; text-align: left; vertical-align: top; }
+      tbody tr:nth-child(even) { background: #f8fafb; }
+      th:first-child, td:first-child { width: 8%; text-align: center; }
+      th:nth-child(n+3), td:nth-child(n+3) { text-align: right; white-space: nowrap; }
+      td:nth-child(2) { min-width: 0; }
+      td small { display: block; margin-top: 3px; overflow-wrap: anywhere; font-weight: 400; }
+      .guests { display: flex; flex-wrap: wrap; gap: 6px; }
+      .guests span { padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); }
+      .shared { color: #155e75; }
+      .cancelled { color: #b91c1c; font-weight: 700; }
+      .cancelled-section { opacity: .82; }
+      .notes { padding: 8px 10px; border: 1px solid #eadfb8; border-radius: 7px; background: #fffdf5; }
+      .notes p { margin: 4px 0; }
+      .summary { width: min(100%, 420px); margin: 14px 0 0 auto; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+      .line { display: flex; justify-content: space-between; gap: 14px; margin: 4px 0; }
+      .line > span:last-child { white-space: nowrap; text-align: right; }
+      .line.adjustment { align-items: flex-start; }
+      .line.adjustment small { max-width: 280px; }
+      .grand { margin: 8px -12px 6px; padding: 9px 12px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface); font-size: 16px; font-weight: 800; }
+      .pending { color: #a34a08; font-weight: 700; }
+      .payments { overflow: hidden; border: 1px solid var(--border); border-radius: 8px; }
+      .payment { display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; border-bottom: 1px solid #e5ecef; }
+      .payment:last-child { border-bottom: 0; }
+      .payment strong:last-child { white-space: nowrap; }
+      .payment.detail { background: #f8fafb; font-size: .92em; }
+      .empty { padding: 9px 10px; color: var(--muted); }
+      .footer { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 15px; margin-top: 18px; padding-top: 10px; border-top: 1px dashed #aab5bb; }
+      .qr-wrap { display: flex; align-items: center; gap: 8px; }
+      .qr { width: 64px; height: 64px; image-rendering: auto; }
+      .validation { min-width: 0; text-align: right; font-size: 9px; overflow-wrap: anywhere; }
+      .validation strong, .validation span { display: block; }
+      .validation span { margin-top: 2px; font-size: 12px; font-weight: 800; letter-spacing: .1em; }
+      .verification-url { display: block; overflow-wrap: anywhere; }
+      .return-toolbar { max-width: 780px; margin: 12px auto; padding: 0 12px; display: flex; justify-content: flex-end; }
+      .return-toolbar a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 8px; background: #1d4ed8; color: #fff; font-weight: 700; text-decoration: none; }
+      @media screen and (max-width: 640px) {
+        body { width: auto; max-width: 100%; margin: 12px; }
+        .invoice-header { grid-template-columns: 1fr; gap: 10px; }
+        .document-card { align-items: flex-start; text-align: left; }
+        .meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .operation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+      ${compactThermalStyles}
     </style></head><body>
     ${returnToolbar}
-       <header><div class="brand">${logo}<div><h1>${escapeHtml(document.restaurant.name)}</h1>
-         <div>${escapeHtml(branchName)}</div>
-          <div class="muted">${escapeHtml(fiscalAddress || branchAddress || '')}${branchPhone ? ` · ${escapeHtml(branchPhone)}` : ''}</div>
-          ${document.restaurant.nif ? `<div class="muted">NIF: ${escapeHtml(document.restaurant.nif)}</div>` : ''}
-          ${document.restaurant.documentSeries ? `<div class="muted">Série: ${escapeHtml(document.restaurant.documentSeries)}</div>` : ''}
-       </div></div><div class="meta"><strong>FATURA/RECIBO</strong><span class="number">Nº ${escapeHtml(invoiceNumberLabel(document.invoiceReference))}</span><span>${escapeHtml(dateLabel(document.issuedAt))}</span><span class="status">${invoicePaymentStatusLabel(document.totals.paymentStatus)}</span></div></header>
-       <div class="grid"><div class="info"><label>Mesa</label><strong>${escapeHtml(document.table.number)}${document.table.area ? ` · ${escapeHtml(document.table.area)}` : ''}</strong></div>
-         <div class="info"><label>Sessão</label><strong>${escapeHtml(invoiceSessionLabel(document.session.id))}</strong><small>${escapeHtml(dateLabel(document.session.startedAt))}</small></div><div class="info"><label>Moeda</label><strong>AOA · Kwanza</strong></div></div>
-       ${operationDetails}
+    <main class="invoice-document">
+      <header class="invoice-header">
+        <div class="issuer">
+          <div class="brand">${logo}<div>
+            <p class="eyebrow">Emitente</p>
+            <h1 class="issuer-name">${escapeHtml(document.restaurant.name)}</h1>
+            <div class="branch-name">${escapeHtml(branchName)}</div>
+          </div></div>
+          ${issuerFiscalDetails}
+        </div>
+        <div class="document-card">
+          <span class="document-type">FATURA/RECIBO</span>
+          <strong class="document-number">Nº ${escapeHtml(invoiceNumberLabel(document.invoiceReference))}</strong>
+          <span class="document-date">Emitida em ${escapeHtml(dateLabel(document.issuedAt))}</span>
+          <span class="status">${invoicePaymentStatusLabel(document.totals.paymentStatus)}</span>
+        </div>
+      </header>
+
+      <div class="meta-grid" aria-label="Resumo da mesa e sessão">
+        <div class="meta-card"><label>Mesa</label><strong>${escapeHtml(document.table.number)}${document.table.area ? ` · ${escapeHtml(document.table.area)}` : ''}</strong></div>
+        <div class="meta-card"><label>Sessão</label><strong>${escapeHtml(invoiceSessionLabel(document.session.id))}</strong><small>${escapeHtml(dateLabel(document.session.startedAt))}</small></div>
+        <div class="meta-card"><label>Moeda</label><strong>AOA · Kwanza</strong></div>
+      </div>
+
       ${invoiceIdentity}
+      ${operationDetails}
       ${guests}
-       <section><h2>Itens válidos</h2><table><thead><tr><th>Qtd.</th><th>Descrição</th><th>Preço unit.</th><th>Total</th></tr></thead><tbody>${itemRows}</tbody></table></section>
-       ${orderNotes.length ? `<section><h2>Observações dos pedidos</h2><div class="notes">${orderNotes.map((note) => `<p>${escapeHtml(note)}</p>`).join('')}</div></section>` : ''}
-       ${cancelledItemRows ? `<section class="cancelled-section"><h2>Itens cancelados</h2><table><thead><tr><th>Qtd.</th><th>Descrição</th><th>Preço unit.</th><th>Total</th></tr></thead><tbody>${cancelledItemRows}</tbody></table></section>` : ''}
-      <section class="summary"><div class="line"><span>Subtotal</span><span>${moneyLabel(document.totals.subtotal)}</span></div>${adjustmentRows}
-         <div class="line grand"><span>Total da sessão</span><span>${moneyLabel(document.totals.total)}</span></div>
-         <div class="line"><span>Total pago</span><span>${moneyLabel(document.totals.paid)}</span></div>
-         <div class="line"><span>${Number(document.totals.pending) > 0 ? 'Saldo pendente' : 'Saldo'}</span><span class="pending">${moneyLabel(document.totals.pending)}</span></div>
+
+      <section class="items-section">
+        <h2>Produtos e serviços</h2>
+        <table aria-label="Produtos e serviços faturados">
+          <thead><tr><th scope="col">Qtd.</th><th scope="col">Descrição</th><th scope="col">Preço unit.</th><th scope="col">Total</th></tr></thead>
+          <tbody>${itemRows}</tbody>
+        </table>
       </section>
-       <section><h2>Pagamentos realizados</h2><div class="payments">${paymentRows || '<div class="muted">Nenhum pagamento registado</div>'}</div>${paymentDetailRows ? `<small class="muted" style="margin-top:8px">Registos individuais</small><div class="payments">${paymentDetailRows}</div>` : ''}</section>
-         <footer class="footer">${qrCode}<div class="muted">${fiscalDetails.legalFooter ? `<strong>${escapeHtml(fiscalDetails.legalFooter)}</strong><br>` : ''}${escapeHtml(fiscalDetailsLabel)}${fiscalDetailsLabel ? '<br>' : ''}Documento final emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura/Recibo Nº ${escapeHtml(invoiceNumberLabel(document.invoiceReference))}<br>Total final: ${moneyLabel(document.totals.total)}<br>Código de validação: ${escapeHtml(document.validation.code)}<br>Confirmar: ${escapeHtml(document.validation.verificationUrl)}</div></footer>
+      ${orderNotes.length ? `<section class="notes-section"><h2>Observações dos pedidos</h2><div class="notes">${orderNotes.map((note) => `<p>${escapeHtml(note)}</p>`).join('')}</div></section>` : ''}
+      ${cancelledItemRows ? `<section class="cancelled-section"><h2>Itens cancelados</h2><table aria-label="Itens cancelados"><thead><tr><th scope="col">Qtd.</th><th scope="col">Descrição</th><th scope="col">Preço unit.</th><th scope="col">Total</th></tr></thead><tbody>${cancelledItemRows}</tbody></table></section>` : ''}
+
+      <section class="summary-section">
+        <h2>Resumo financeiro</h2>
+        <div class="summary">
+          <div class="line"><span>Subtotal</span><strong>${moneyLabel(document.totals.subtotal)}</strong></div>
+          ${adjustmentRows}
+          <div class="line grand"><span>Total da sessão</span><strong>${moneyLabel(document.totals.total)}</strong></div>
+          <div class="line"><span>Total pago</span><strong>${moneyLabel(document.totals.paid)}</strong></div>
+          <div class="line"><span>${Number(document.totals.pending) > 0 ? 'Saldo pendente' : 'Saldo'}</span><strong class="pending">${moneyLabel(document.totals.pending)}</strong></div>
+        </div>
+      </section>
+
+      <section class="payments-section">
+        <h2>Pagamentos realizados</h2>
+        <div class="payments">${paymentRows}</div>
+        ${paymentDetailRows ? `<div class="payment-details"><p class="muted">Registos individuais</p><div class="payments">${paymentDetailRows}</div></div>` : ''}
+      </section>
+
+      <footer class="footer">
+        ${qrCode}
+        <div class="footer-details">${fiscalDetails.legalFooter ? `<strong>${escapeHtml(fiscalDetails.legalFooter)}</strong><br>` : ''}Documento final emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura/Recibo Nº ${escapeHtml(invoiceNumberLabel(document.invoiceReference))}<br>Total final: ${moneyLabel(document.totals.total)}<br>Código de validação: ${escapeHtml(document.validation.code)}<br>Confirmar: ${escapeHtml(document.validation.verificationUrl)}</div>
+      </footer>
+    </main>
     </body></html>`;
 }
 
