@@ -31,9 +31,16 @@ import {
 } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { apiFetch } from '@/lib/api-url';
-import { formatPaymentMethodLabel } from '@shared/invoice-formatters';
+import {
+  formatPaymentMethodLabel,
+  invoiceDate,
+  invoiceMoney,
+  invoicePaymentStatusLabel,
+  invoiceSessionLabel,
+} from '@shared/invoice-formatters';
 import { getRestaurantFiscalCompleteness, getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
 import type { TableInvoiceDocument } from '@shared/table-invoice-document';
+import { renderTableInvoiceHtml } from '@/lib/table-invoice-renderer';
 import { PrintGuestBill, type TableGuest, type GuestOrder, type GuestOrderItem } from './PrintGuestBill';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -90,6 +97,7 @@ interface PaymentSuccessDialogProps {
   onClose: () => void;
   table: Table;
   payment: PaymentData;
+  verifiedInvoiceDocument?: TableInvoiceDocument | null;
   ordersByGuest: OrdersByGuestData['ordersByGuest'];
   calculateTotals: CalculateTotals;
   sessionDuration?: string;
@@ -102,6 +110,7 @@ export function PaymentSuccessDialog({
   onClose,
   table,
   payment,
+  verifiedInvoiceDocument,
   ordersByGuest,
   calculateTotals,
   sessionDuration,
@@ -115,7 +124,7 @@ export function PaymentSuccessDialog({
   const { toast } = useToast();
   const invoiceQuery = useQuery<TableInvoiceDocument>({
     queryKey: [`/api/table-sessions/${payment.sessionId}/invoice`],
-    enabled: open && Boolean(payment.sessionId),
+    enabled: open && Boolean(payment.sessionId) && !verifiedInvoiceDocument,
     queryFn: async () => {
       const response = await apiFetch(
         `/api/table-sessions/${encodeURIComponent(payment.sessionId)}/invoice`,
@@ -129,7 +138,7 @@ export function PaymentSuccessDialog({
     staleTime: 0,
     refetchOnMount: 'always',
   });
-  const invoiceDocument = invoiceQuery.data;
+  const invoiceDocument = verifiedInvoiceDocument ?? invoiceQuery.data;
   const invoiceMatchesPaymentTable = Boolean(
     invoiceDocument &&
     payment.sessionId &&
@@ -140,8 +149,10 @@ export function PaymentSuccessDialog({
     invoiceDocument.restaurant.id === table.restaurantId,
   );
   const resolvedRestaurant = invoiceMatchesPaymentTable ? invoiceDocument?.restaurant : undefined;
-  const isFiscalDataLoading = Boolean(payment.sessionId) && invoiceQuery.isFetching;
-  const isFiscalDataReady = Boolean(resolvedRestaurant) && !isFiscalDataLoading && !invoiceQuery.isError;
+  const isFiscalDataLoading = !verifiedInvoiceDocument && Boolean(payment.sessionId) && invoiceQuery.isFetching;
+  const isFiscalDataReady = Boolean(resolvedRestaurant) &&
+    !isFiscalDataLoading &&
+    (Boolean(verifiedInvoiceDocument) || !invoiceQuery.isError);
   const fiscalDetails = getRestaurantFiscalDetails(resolvedRestaurant ?? {});
   const fiscalCompleteness = resolvedRestaurant
     ? getRestaurantFiscalCompleteness(resolvedRestaurant)
@@ -263,6 +274,14 @@ export function PaymentSuccessDialog({
       });
       return;
     }
+    if (!invoiceDocument) {
+      toast({
+        title: 'Fatura indisponível',
+        description: 'Não foi possível carregar a fatura completa desta sessão.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsPrinting(true);
     
     try {
@@ -296,6 +315,13 @@ export function PaymentSuccessDialog({
   };
 
   const generatePrintableInvoice = () => {
+    if (invoiceDocument) {
+      return renderTableInvoiceHtml(invoiceDocument, {
+        paper: 'a4',
+        returnUrl: window.location.pathname,
+      });
+    }
+
     const restaurantName = resolvedRestaurant?.name || 'Restaurante';
     const fiscalDetailsHtml = fiscalDetails.lines
       .map(({ label, value }) => `<div>${escapeHtml(label)}: ${escapeHtml(value)}</div>`)
@@ -651,6 +677,15 @@ export function PaymentSuccessDialog({
       });
       return;
     }
+    const fiscalInvoice = invoiceDocument;
+    if (!fiscalInvoice) {
+      toast({
+        title: 'Fatura indisponível',
+        description: 'Não foi possível carregar a fatura completa desta sessão.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsGeneratingPDF(true);
     
     try {
@@ -664,7 +699,6 @@ export function PaymentSuccessDialog({
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 15;
-      const contentWidth = pageWidth - (margin * 2);
       let yPos = margin;
 
       // Helper function to add text and update position
@@ -695,8 +729,17 @@ export function PaymentSuccessDialog({
         }
       };
 
+      const addInvoiceLine = (label: string, value: string, bold = false) => {
+        checkPageBreak(12);
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', bold ? 'bold' : 'normal');
+        pdf.text(label, margin, yPos);
+        pdf.text(value, pageWidth - margin, yPos, { align: 'right' });
+        yPos += 5;
+      };
+
       // HEADER - Restaurant Info
-      addText(resolvedRestaurant?.name || 'Restaurante', 18, true, 'center');
+      addText(fiscalInvoice.restaurant.name, 18, true, 'center');
       yPos += 2;
       for (const line of fiscalDetails.lines) {
         addText(`${line.label}: ${line.value}`, 9, false, 'center');
@@ -706,20 +749,36 @@ export function PaymentSuccessDialog({
       addLine();
 
       // INVOICE INFO
-      addText('RECIBO DE PAGAMENTO', 14, true, 'center');
+      addText('FATURA/RECIBO', 14, true, 'center');
       yPos += 5;
 
-      addText(`Fatura associada: ${payment.invoiceReference || 'Sessão sem referência'}`, 10, true);
+      addInvoiceLine('Nº da fatura', fiscalInvoice.invoiceReference, true);
+      addInvoiceLine('Emitida em', invoiceDate(fiscalInvoice.issuedAt));
+      addInvoiceLine('Estado', invoicePaymentStatusLabel(fiscalInvoice.totals.paymentStatus), true);
+      addInvoiceLine('Filial', fiscalInvoice.branch?.name || 'Unidade principal');
+      addInvoiceLine('Morada fiscal', fiscalInvoice.restaurant.fiscalAddress || fiscalInvoice.branch?.address || fiscalInvoice.restaurant.address || '—');
+      if (fiscalInvoice.branch?.phone) addInvoiceLine('Telefone da filial', fiscalInvoice.branch.phone);
+      addInvoiceLine('Fatura em nome de', fiscalInvoice.invoiceRecipient.label);
+      if (fiscalInvoice.customer) {
+        addInvoiceLine('Cliente', fiscalInvoice.customer.name);
+        if (fiscalInvoice.customer.phone) addInvoiceLine('Telefone do cliente', fiscalInvoice.customer.phone);
+        if (fiscalInvoice.customer.nif) addInvoiceLine('NIF do cliente', fiscalInvoice.customer.nif);
+        if (fiscalInvoice.customer.address) addInvoiceLine('Morada do cliente', fiscalInvoice.customer.address);
+      }
+      addInvoiceLine('Sessão', invoiceSessionLabel(fiscalInvoice.session.id));
+      addInvoiceLine('Abertura da sessão', invoiceDate(fiscalInvoice.session.startedAt));
+      if (fiscalInvoice.session.endedAt) addInvoiceLine('Fecho da sessão', invoiceDate(fiscalInvoice.session.endedAt));
+      addInvoiceLine('Mesa', `Mesa ${fiscalInvoice.table.number}${fiscalInvoice.table.area ? ` · ${fiscalInvoice.table.area}` : ''}`);
+      if (fiscalInvoice.cashRegisterShift) addInvoiceLine('Caixa / turno', fiscalInvoice.cashRegisterShift.label);
+      const operatorNames = fiscalInvoice.paymentOperatorNames.length
+        ? fiscalInvoice.paymentOperatorNames.join(', ')
+        : fiscalInvoice.session.openedByName;
+      if (operatorNames) addInvoiceLine('Atendido por', operatorNames);
       addText(`Nº do pagamento: ${payment.id}`, 10, true);
       if (payment.transactionReference) addText(`Referência: ${payment.transactionReference}`, 10);
-      addText(`Data: ${new Date(payment.createdAt).toLocaleString('pt-PT')}`, 10);
-      addText(`Mesa: ${table.number}${table.area ? ` (${table.area})` : ''}`, 10);
-      addText(`Convidados: ${safeOrdersByGuest.length}`, 10);
-      
-      if (sessionDuration) {
-        addText(`Duração da Sessão: ${sessionDuration}`, 10);
-      }
-      
+      addText(`Data do pagamento: ${invoiceDate(payment.createdAt)}`, 10);
+      addText(`Convidados: ${fiscalInvoice.guests.length}`, 10);
+      if (sessionDuration) addText(`Duração da sessão: ${sessionDuration}`, 10);
       if (payment.notes) {
         addText(`Observações: ${payment.notes}`, 10);
       }
@@ -734,47 +793,27 @@ export function PaymentSuccessDialog({
       addText('ITENS CONSUMIDOS', 12, true);
       yPos += 3;
 
-      for (const og of safeOrdersByGuest) {
-        checkPageBreak(40);
-
-        // Guest header
-        const guestName = og.guest.name || `Cliente ${og.guest.guestNumber}`;
-        pdf.setFillColor(240, 240, 240);
-        pdf.rect(margin, yPos - 4, contentWidth, 8, 'F');
-        
-        addText(`#${og.guest.guestNumber} - ${guestName}`, 11, true);
-        yPos += 2;
-
-        // Guest items
-        const allItems = og.orders.flatMap(order => order.items || []);
-        for (const item of allItems) {
-          checkPageBreak(15);
-          
-          const itemName = item.menuItem?.name || item.name;
-          const itemPrice = formatKwanza(parseFloat(item.price) * item.quantity);
-          
-          pdf.setFont('helvetica', 'normal');
-          pdf.setFontSize(10);
-          pdf.text(`  ${item.quantity}x ${itemName}`, margin, yPos);
-          pdf.text(itemPrice, pageWidth - margin, yPos, { align: 'right' });
-          yPos += 5;
-
-          // Options
-          if (item.options && item.options.length > 0) {
-            pdf.setFontSize(8);
-            pdf.setTextColor(100, 100, 100);
-            pdf.text(`     + ${item.options.map(o => o.value).join(', ')}`, margin, yPos);
-            pdf.setTextColor(0, 0, 0);
-            yPos += 4;
-          }
+      for (const item of fiscalInvoice.items) {
+        checkPageBreak(20);
+        addInvoiceLine(`${item.quantity}x ${item.name}`, invoiceMoney(item.total), true);
+        if (item.guestName) addText(`Convidado: ${item.guestName}`, 8);
+        if (item.orderNumber) addText(`Pedido #${item.orderNumber}${item.orderCreatedAt ? ` · ${invoiceDate(item.orderCreatedAt)}` : ''}`, 8);
+        if (item.options.length) {
+          addText(`Opções: ${item.options.map((option) => `${option.name}${option.quantity > 1 ? ` (${option.quantity}x)` : ''}`).join(', ')}`, 8);
         }
-
-        // Guest subtotal
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(10);
-        pdf.text('Subtotal:', margin + 10, yPos);
-        pdf.text(formatKwanza(parseFloat(og.subtotal)), pageWidth - margin, yPos, { align: 'right' });
-        yPos += 8;
+        if (item.notes) addText(`Obs.: ${item.notes}`, 8);
+        if (item.orderNotes) addText(`Obs. do pedido: ${item.orderNotes}`, 8);
+      }
+      if (fiscalInvoice.items.length === 0) {
+        addText('Sem itens registados.', 10);
+      }
+      if (fiscalInvoice.cancelledItems.length > 0) {
+        yPos += 3;
+        addText('ITENS CANCELADOS (FORA DO TOTAL)', 10, true);
+        for (const item of fiscalInvoice.cancelledItems) {
+          checkPageBreak(14);
+          addInvoiceLine(`${item.quantity}x ${item.name}`, invoiceMoney(item.total));
+        }
       }
 
       checkPageBreak(60);
@@ -784,27 +823,13 @@ export function PaymentSuccessDialog({
       addText('CÁLCULOS FINAIS', 12, true);
       yPos += 3;
 
-      addText('Subtotal:', 10, false);
-      pdf.text(formatKwanza(safeCalculateTotals.subtotal), pageWidth - margin, yPos - 5, { align: 'right' });
-
-      // Breakdown
-      for (const item of safeCalculateTotals.breakdown) {
-        checkPageBreak();
-        
-        const label = `${item.label}${item.source ? ` (${item.source})` : ''}`;
-        const value = `${item.type === 'discount' ? '-' : '+'}${formatKwanza(Math.abs(item.value))}`;
-        
-        if (item.type === 'discount') {
-          pdf.setTextColor(0, 150, 0);
-        } else {
-          pdf.setTextColor(0, 100, 200);
-        }
-        
-        addText(label, 10, false);
-        pdf.text(value, pageWidth - margin, yPos - 5, { align: 'right' });
-        pdf.setTextColor(0, 0, 0);
+      addInvoiceLine('Subtotal', invoiceMoney(fiscalInvoice.totals.subtotal));
+      for (const adjustment of fiscalInvoice.discounts) {
+        addInvoiceLine(`Desconto: ${adjustment.label}`, `− ${invoiceMoney(adjustment.amount)}`);
       }
-
+      for (const adjustment of fiscalInvoice.fees) {
+        addInvoiceLine(`Taxa: ${adjustment.label}`, `+ ${invoiceMoney(adjustment.amount)}`);
+      }
       yPos += 3;
       pdf.setLineWidth(0.5);
       pdf.line(margin, yPos, pageWidth - margin, yPos);
@@ -814,21 +839,30 @@ export function PaymentSuccessDialog({
       pdf.setFontSize(14);
       pdf.setFont('helvetica', 'bold');
       pdf.text('TOTAL A PAGAR:', margin, yPos);
-      pdf.text(formatKwanza(safeCalculateTotals.finalTotal), pageWidth - margin, yPos, { align: 'right' });
+      pdf.text(invoiceMoney(fiscalInvoice.totals.total), pageWidth - margin, yPos, { align: 'right' });
       yPos += 10;
+      addInvoiceLine('Total pago', invoiceMoney(fiscalInvoice.totals.paid));
+      addInvoiceLine('Pendente', invoiceMoney(fiscalInvoice.totals.pending));
 
       addLine();
 
       // PAYMENT INFO
-      addText('DETALHES DO PAGAMENTO', 12, true);
+      addText('PAGAMENTOS REGISTADOS', 12, true);
       yPos += 3;
-
+      for (const recordedPayment of fiscalInvoice.payments) {
+        addInvoiceLine(
+          `${formatPaymentMethodLabel(recordedPayment.paymentMethod)} · ${invoiceDate(recordedPayment.createdAt)}`,
+          invoiceMoney(recordedPayment.amount),
+        );
+        if (recordedPayment.operatorName) addText(`Operador: ${recordedPayment.operatorName}`, 8);
+        if (recordedPayment.notes) addText(`Observações: ${recordedPayment.notes}`, 8);
+      }
+      addText('Pagamento atual', 10, true);
       addText(`Método: ${formatPaymentMethodLabel(payment.paymentMethod)}`, 10);
-      
       if (payment.receivedAmount) {
         addText(`Valor Recebido: ${formatKwanza(payment.receivedAmount)}`, 10);
         
-        const change = payment.receivedAmount - safeCalculateTotals.finalTotal;
+        const change = payment.receivedAmount - Number(payment.amount);
         if (change > 0) {
           pdf.setTextColor(0, 100, 200);
           addText(`Troco: ${formatKwanza(change)}`, 10, true);
@@ -840,7 +874,9 @@ export function PaymentSuccessDialog({
       addLine();
 
       // FOOTER
-      addText(`Fatura associada: ${payment.invoiceReference || 'Sessão sem referência'}`, 9, false, 'center');
+      addText(`Código de validação: ${fiscalInvoice.validation.code}`, 9, false, 'center');
+      addText(fiscalInvoice.validation.verificationUrl, 8, false, 'center');
+      addText(`Fatura/Recibo: ${fiscalInvoice.invoiceReference}`, 9, false, 'center');
       addText(`Nº do pagamento: ${payment.id}`, 9, false, 'center');
       yPos += 5;
        if (fiscalDetails.legalFooter) {

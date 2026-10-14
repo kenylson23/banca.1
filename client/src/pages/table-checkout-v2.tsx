@@ -93,7 +93,7 @@ async function fetchTableInvoiceRestaurant(
   sessionId: string,
   expectedTableId: string,
   expectedRestaurantId: string,
-): Promise<void> {
+): Promise<TableInvoiceDocument> {
   const response = await apiFetch(
     `/api/table-sessions/${encodeURIComponent(sessionId)}/invoice`,
     { cache: "no-store", credentials: "include" },
@@ -111,6 +111,8 @@ async function fetchTableInvoiceRestaurant(
   ) {
     throw new Error('Os dados fiscais devolvidos não correspondem à mesa e à sessão do pagamento');
   }
+
+  return document;
 }
 
 export default function TableCheckoutV2() {
@@ -202,6 +204,7 @@ export default function TableCheckoutV2() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
+  const [successInvoiceDocument, setSuccessInvoiceDocument] = useState<TableInvoiceDocument | null>(null);
   const [receiptTotals, setReceiptTotals] = useState<ReceiptTotalsSnapshot | null>(null);
   const [receiptOrdersByGuest, setReceiptOrdersByGuest] = useState<OrdersByGuestData["ordersByGuest"] | null>(null);
   
@@ -818,12 +821,13 @@ export default function TableCheckoutV2() {
         || sessionData?.id
         || table?.currentSessionId;
       let fiscalDataVerified = false;
+      let verifiedInvoiceDocument: TableInvoiceDocument | null = null;
 
       if (invoiceSessionId && table?.id && table.restaurantId) {
         try {
           // Usa o documento da sessão como fonte única e confirma que mesa,
           // sessão e restaurante correspondem antes de permitir a impressão.
-          await fetchTableInvoiceRestaurant(invoiceSessionId, table.id, table.restaurantId);
+          verifiedInvoiceDocument = await fetchTableInvoiceRestaurant(invoiceSessionId, table.id, table.restaurantId);
           fiscalDataVerified = true;
         } catch (error) {
           console.error('Erro ao carregar os dados fiscais da fatura final:', error);
@@ -848,7 +852,10 @@ export default function TableCheckoutV2() {
           ?? data;
         const paymentWithInvoice = {
           ...payment,
+          tableId: payment?.tableId || table?.id || id,
+          sessionId: payment?.sessionId || invoiceSessionId,
           invoiceReference: payment?.invoiceReference
+            || verifiedInvoiceDocument?.invoiceReference
             || formatTableInvoiceNumber(sessionData?.invoiceNumber, sessionData?.startedAt),
         };
         // Congelar os dados antes das invalidações: no pagamento individual,
@@ -866,6 +873,7 @@ export default function TableCheckoutV2() {
         setReceiptTotals(calculateTotals);
         setReceiptOrdersByGuest(billedOrders);
         setPaymentData(paymentWithInvoice);
+        setSuccessInvoiceDocument(verifiedInvoiceDocument);
       setShowSuccessDialog(true);
       
       if (!id) return;
@@ -3249,10 +3257,12 @@ export default function TableCheckoutV2() {
           open={showSuccessDialog}
           onClose={() => {
             setShowSuccessDialog(false);
+            setSuccessInvoiceDocument(null);
             setLocation(`/${fromParam}`);
           }}
           table={table}
           payment={paymentData}
+          verifiedInvoiceDocument={successInvoiceDocument}
           ordersByGuest={receiptOrdersByGuest ?? ordersByGuest}
           calculateTotals={receiptTotals ?? calculateTotals}
           sessionDuration={sessionDuration}
