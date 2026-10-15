@@ -967,7 +967,10 @@ class PrinterService {
     type: PrinterType,
     content: {
       invoiceNumber: string;
-       sessionReference?: string;
+      sessionReference?: string;
+      tableNumber?: number | string;
+      tableArea?: string;
+      guestCount?: number;
       date: string;
       status?: string;
       validationCode?: string;
@@ -989,6 +992,16 @@ class PrinterService {
        website?: string;
        whatsappNumber?: string;
        legalFooter?: string;
+      branchName?: string;
+      branchAddress?: string;
+      branchPhone?: string;
+      cashRegisterShift?: string;
+      cashRegisterName?: string;
+      attendedBy?: string;
+      closedBy?: string;
+      sessionOpenedAt?: string;
+      sessionClosedAt?: string;
+      sessionDuration?: string;
       invoiceRecipientLabel?: string;
       tableCustomerName?: string;
       splitInfo?: string;
@@ -1019,6 +1032,7 @@ class PrinterService {
       serviceCharge?: string;
       total: string;
       paymentInfo?: string;
+      paymentDetails?: string[];
       notes?: string;
     }
   ) {
@@ -1037,76 +1051,59 @@ class PrinterService {
     });
 
     encoder.initialize();
+    const lineWidth = paperWidth === 80 ? 48 : 32;
+    const separator = '-'.repeat(lineWidth);
+    const printSection = (title: string) => {
+      encoder.align('left').line(separator).bold(true).line(title.toUpperCase()).bold(false);
+    };
+    const printAmountLine = (label: string, amount: string) => {
+      const spaces = lineWidth - label.length - amount.length;
+      encoder.line(`${label}${' '.repeat(Math.max(spaces, 1))}${amount}`);
+    };
 
-    // Identificação fiscal do emitente
-    if (content.restaurantName) {
-      encoder.align('center').bold(true).line(content.restaurantName).bold(false);
-    }
-    if (content.restaurantPhone) encoder.line(`Telefone: ${content.restaurantPhone}`);
-    if (content.restaurantAddress) encoder.line(`Morada: ${content.restaurantAddress}`);
+    // Emitente e identificação fiscal
+    encoder.align('center');
+    if (content.restaurantName) encoder.bold(true).line(content.restaurantName).bold(false);
+    encoder.align('left');
     const fiscalAddress = content.restaurantFiscalAddress || content.fiscalAddress;
-    if (fiscalAddress && fiscalAddress !== content.restaurantAddress) {
-      encoder.line(`Morada fiscal: ${fiscalAddress}`);
+    if (content.restaurantAddress || fiscalAddress || content.restaurantPhone || content.restaurantNif || content.restaurantNIF || content.vatRegime || content.vatRate || content.documentSeries || content.invoicePrefix || content.restaurantEmail || content.website || content.whatsappNumber) {
+      printSection('Dados fiscais do emitente');
+      if (content.restaurantAddress) encoder.line(`Morada: ${content.restaurantAddress}`);
+      if (fiscalAddress && fiscalAddress !== content.restaurantAddress) encoder.line(`Morada fiscal: ${fiscalAddress}`);
+      if (content.restaurantPhone) encoder.line(`Telefone: ${content.restaurantPhone}`);
+      if (content.restaurantNif || content.restaurantNIF) encoder.line(`NIF: ${content.restaurantNif || content.restaurantNIF}`);
+      if (content.vatRegime) encoder.line(`Regime de IVA: ${content.vatRegime}`);
+      if (content.vatRate) encoder.line(`Taxa de IVA: ${content.vatRate}`);
+      if (content.documentSeries) encoder.line(`Série documental: ${content.documentSeries}`);
+      if (content.invoicePrefix) encoder.line(`Prefixo da fatura: ${content.invoicePrefix}`);
+      if (content.restaurantEmail) encoder.line(`Email: ${content.restaurantEmail}`);
+      if (content.website) encoder.line(`Website: ${content.website}`);
+      if (content.whatsappNumber) encoder.line(`WhatsApp: ${content.whatsappNumber}`);
     }
-    if (content.restaurantNif || content.restaurantNIF) {
-      encoder.line(`NIF: ${content.restaurantNif || content.restaurantNIF}`);
-    }
-    if (content.vatRegime) encoder.line(`Regime: ${content.vatRegime}`);
-    if (content.vatRate) encoder.line(`IVA: ${content.vatRate}`);
-    if (content.documentSeries) encoder.line(`Série: ${content.documentSeries}`);
-    if (content.invoicePrefix) encoder.line(`Prefixo: ${content.invoicePrefix}`);
-    if (content.restaurantEmail) encoder.line(`Email: ${content.restaurantEmail}`);
-    if (content.website) encoder.line(`Web: ${content.website}`);
-    if (content.whatsappNumber) encoder.line(`WhatsApp: ${content.whatsappNumber}`);
-    encoder.newline();
 
-    // Cabeçalho
-    encoder.align('center').bold(true).line('FATURA/RECIBO').bold(false);
-    encoder.line(`Nº ${content.invoiceNumber}`);
-    if (content.orderNumber) {
-      encoder.line(`Pedido #${content.orderNumber}`);
+    // Tipo, número, data e estado
+    encoder.line(separator).align('center').bold(true).line('FATURA/RECIBO').bold(false).align('left');
+    printAmountLine('Nº', content.invoiceNumber);
+    printAmountLine('Data', content.date);
+    if (content.orderNumber) encoder.line(`Pedido: #${content.orderNumber}`);
+    if (content.sessionReference) encoder.line(`Sessão: ${content.sessionReference}`);
+    if (content.tableNumber != null) {
+      encoder.line(`Mesa: ${content.tableNumber}${content.tableArea ? ` · ${content.tableArea}` : ''}`);
     }
-     if (content.sessionReference) {
-       encoder.line(content.sessionReference);
-     }
-    if (content.status) {
-      encoder.bold(true).line(`ESTADO: ${content.status}`).bold(false);
-    }
-    if (content.validationCode) {
-      encoder.line(`Código: ${content.validationCode}`);
-    }
-    if (content.verificationUrl) {
-      encoder.line(`Confirmar: ${content.verificationUrl}`);
-    }
-    encoder.line(content.date).newline();
+    if (content.guestCount != null) encoder.line(`Convidados: ${content.guestCount}`);
+    if (content.status) encoder.bold(true).line(`Estado: ${content.status}`).bold(false);
 
-    // Dados do cliente
-    if (content.customerName || content.customerEmail || content.customerNif || content.customerAddress || content.invoiceRecipientLabel || content.tableCustomerName || content.splitInfo || content.orderType || content.deliveryAddress) {
-      encoder.align('left').bold(true).line('Identificação da fatura:').bold(false);
-      if (content.invoiceRecipientLabel) {
-        encoder.line(`Fatura em nome de: ${content.invoiceRecipientLabel}`);
-      }
-      if (content.customerName) {
-        encoder.line(`Cliente: ${content.customerName}`);
-      }
-      if (content.customerPhone) {
-        encoder.line(`Tel: ${content.customerPhone}`);
-      }
-      if (content.customerEmail) {
-        encoder.line(`Email: ${content.customerEmail}`);
-      }
-    if (content.customerNif) {
-      encoder.line(`NIF: ${content.customerNif}`);
-    }
-    if (content.customerAddress) {
-      encoder.line(`Morada: ${content.customerAddress}`);
-    }
-    if (content.tableCustomerName && content.tableCustomerName !== content.customerName) {
-      encoder.line(`Cliente principal: ${content.tableCustomerName}`);
-    }
-    if (content.splitInfo) {
-      encoder.line(content.splitInfo);
-    }
+    // Destinatário
+    if (content.customerName || content.customerEmail || content.customerPhone || content.customerNif || content.customerAddress || content.invoiceRecipientLabel || content.tableCustomerName || content.splitInfo || content.orderType || content.deliveryAddress) {
+      printSection('Destinatário');
+      if (content.invoiceRecipientLabel) encoder.line(`Fatura em nome de: ${content.invoiceRecipientLabel}`);
+      if (content.customerName) encoder.line(`Cliente: ${content.customerName}`);
+      if (content.customerPhone) encoder.line(`Telefone: ${content.customerPhone}`);
+      if (content.customerEmail) encoder.line(`Email: ${content.customerEmail}`);
+      if (content.customerNif) encoder.line(`NIF: ${content.customerNif}`);
+      if (content.customerAddress) encoder.line(`Morada: ${content.customerAddress}`);
+      if (content.tableCustomerName && content.tableCustomerName !== content.customerName) encoder.line(`Cliente principal: ${content.tableCustomerName}`);
+      if (content.splitInfo) encoder.line(content.splitInfo);
       if (content.orderType) {
         const orderTypeLabel = content.orderType === 'delivery'
           ? 'Delivery'
@@ -1115,89 +1112,95 @@ class PrinterService {
             : content.orderType;
         encoder.line(`Tipo: ${orderTypeLabel}`);
       }
-      if (content.deliveryAddress) {
-        encoder.line(`Entrega: ${content.deliveryAddress}`);
+      if (content.deliveryAddress) encoder.line(`Endereço de entrega: ${content.deliveryAddress}`);
+    }
+
+    // Dados de operação da mesa e do caixa
+    if (content.branchName || content.branchAddress || content.branchPhone || content.cashRegisterShift || content.cashRegisterName || content.attendedBy || content.closedBy || content.sessionOpenedAt || content.sessionClosedAt || content.sessionDuration) {
+      printSection('Dados da operação');
+      if (content.branchName) encoder.line(`Filial: ${content.branchName}`);
+      if (content.branchAddress) encoder.line(`Morada da filial: ${content.branchAddress}`);
+      if (content.branchPhone) encoder.line(`Telefone da filial: ${content.branchPhone}`);
+      if (content.cashRegisterName) encoder.line(`Caixa: ${content.cashRegisterName}`);
+      if (content.cashRegisterShift) encoder.line(`Turno: ${content.cashRegisterShift}`);
+      if (content.attendedBy) encoder.line(`Atendido por: ${content.attendedBy}`);
+      if (content.closedBy) encoder.line(`Fechado por: ${content.closedBy}`);
+      if (content.sessionOpenedAt) encoder.line(`Abertura: ${content.sessionOpenedAt}`);
+      if (content.sessionClosedAt) encoder.line(`Encerramento: ${content.sessionClosedAt}`);
+      if (content.sessionDuration) encoder.line(`Duração: ${content.sessionDuration}`);
+    }
+
+    // Produtos, quantidades e valores
+    printSection('Produtos e serviços');
+    if (content.items.length === 0) {
+      encoder.line('Sem produtos registados');
+    }
+    content.items.forEach((item) => {
+      encoder.bold(true).line(`${item.quantity}x ${item.name}`).bold(false);
+      if (item.orderNumber || item.orderTime || item.orderStatus) {
+        encoder.line(`  Pedido ${item.orderNumber ? `#${item.orderNumber}` : '-'}${item.orderTime ? ` · ${item.orderTime}` : ''}${item.orderStatus ? ` · ${item.orderStatus}` : ''}`);
       }
-      encoder.newline();
-    }
-
-    encoder.line('='.repeat(paperWidth === 80 ? 48 : 32)).newline();
-
-    // Itens
-    content.items.forEach(item => {
-       encoder.line(`${item.quantity}x ${item.name}`);
-       if (item.orderNumber || item.orderTime || item.orderStatus) {
-         encoder.line(`  Pedido ${item.orderNumber ? `#${item.orderNumber}` : '-'}${item.orderTime ? ` · ${item.orderTime}` : ''}${item.orderStatus ? ` · ${item.orderStatus}` : ''}`);
-       }
-       if (item.guestName) encoder.line(`  Convidado: ${item.guestName}`);
-       if (item.options) encoder.line(`  Opções: ${item.options}`);
-       if (item.notes) encoder.line(`  Obs.: ${item.notes}`);
-       if (item.sharedWith) encoder.line(`  Partilhado com: ${item.sharedWith}`);
-      const priceLine = `  ${item.price} x ${item.quantity}`;
-      const spaces = (paperWidth === 80 ? 48 : 32) - priceLine.length - item.total.length;
-      encoder.line(priceLine + ' '.repeat(Math.max(spaces, 1)) + item.total);
+      if (item.guestName) encoder.line(`  Convidado: ${item.guestName}`);
+      if (item.options) encoder.line(`  Opções: ${item.options}`);
+      if (item.notes) encoder.line(`  Observação: ${item.notes}`);
+      if (item.sharedWith) encoder.line(`  Partilhado com: ${item.sharedWith}`);
+      printAmountLine(`  Unit. ${item.price} x ${item.quantity}`, item.total);
     });
-
-     if (content.orderNotes?.length) {
-       encoder.newline().bold(true).line('OBSERVAÇÕES DOS PEDIDOS').bold(false);
-       content.orderNotes.forEach((note) => encoder.line(note));
-     }
-     if (content.cancelledItems?.length) {
-       encoder.newline().bold(true).line('ITENS CANCELADOS').bold(false);
-       content.cancelledItems.forEach((item) => {
-         encoder.line(`${item.quantity}x ${item.name} · ${item.total}`);
-         if (item.notes) encoder.line(`  Obs.: ${item.notes}`);
-       });
-     }
-
-    encoder.newline().line('='.repeat(paperWidth === 80 ? 48 : 32)).newline();
-
-    // Totais
-    const subtotalLine = 'Subtotal:';
-    let spaces = (paperWidth === 80 ? 48 : 32) - subtotalLine.length - content.subtotal.length;
-    encoder.line(subtotalLine + ' '.repeat(Math.max(spaces, 1)) + content.subtotal);
-
-     if (content.adjustments?.length) {
-       content.adjustments.forEach((adjustment) => encoder.line(adjustment));
-     } else if (content.discount) {
-       const discountLine = 'Desconto:';
-       spaces = (paperWidth === 80 ? 48 : 32) - discountLine.length - content.discount.length;
-       encoder.line(discountLine + ' '.repeat(Math.max(spaces, 1)) + content.discount);
+    if (content.orderNotes?.length) {
+      printSection('Observações dos pedidos');
+      content.orderNotes.forEach((note) => encoder.line(`- ${note}`));
     }
-     if (!content.adjustments?.length && content.serviceCharge) {
-       const serviceLine = 'Taxa Serviço:';
-       spaces = (paperWidth === 80 ? 48 : 32) - serviceLine.length - content.serviceCharge.length;
-       encoder.line(serviceLine + ' '.repeat(Math.max(spaces, 1)) + content.serviceCharge);
-     }
+    if (content.cancelledItems?.length) {
+      printSection('Itens cancelados');
+      content.cancelledItems.forEach((item) => {
+        encoder.bold(true).line(`${item.quantity}x ${item.name}`).bold(false);
+        printAmountLine(`  Unit. ${item.price} x ${item.quantity}`, item.total);
+        if (item.notes) encoder.line(`  Observação: ${item.notes}`);
+      });
+    }
 
-    const totalLine = 'TOTAL:';
-    spaces = (paperWidth === 80 ? 48 : 32) - totalLine.length - content.total.length;
-    encoder.bold(true).line(totalLine + ' '.repeat(Math.max(spaces, 1)) + content.total).bold(false);
+    // Resumo financeiro
+    printSection('Resumo financeiro');
+    printAmountLine('Subtotal', content.subtotal);
+    if (content.adjustments?.length) {
+      content.adjustments.forEach((adjustment) => encoder.line(adjustment));
+    } else {
+      if (content.discount) printAmountLine('Desconto', `- ${content.discount}`);
+      if (content.serviceCharge) printAmountLine('Taxa de serviço', `+ ${content.serviceCharge}`);
+    }
+    encoder.line(separator).bold(true);
+    printAmountLine('TOTAL DA FATURA', content.total);
+    encoder.bold(false);
 
-    encoder.newline();
-
-    // Informações de pagamento
+    // Pagamentos e recibos individuais
     if (content.paymentInfo) {
-      encoder.bold(true).line('PAGAMENTOS REALIZADOS').bold(false);
+      printSection('Pagamentos realizados');
       content.paymentInfo.split('\n').forEach((line) => encoder.line(line));
-      encoder.newline();
+    }
+    if (content.paymentDetails?.length) {
+      printSection('Registos individuais');
+      content.paymentDetails.forEach((detail) => encoder.line(detail));
     }
 
-    // Notas
     if (content.notes) {
-      encoder.line('Obs: ' + content.notes).newline();
+      printSection('Observações');
+      encoder.line(content.notes);
     }
 
-    // Rodapé
-    encoder.align('center').line('Obrigado pela preferência!').newline();
-    encoder.line('Documento sem valor fiscal');
-
+    // Rodapé fiscal e validação
     if (content.legalFooter) {
-      encoder.newline().align('center').line(content.legalFooter);
+      encoder.line(separator).align('center').line(content.legalFooter).align('left');
+    }
+    encoder.align('center').line('Obrigado pela preferência!');
+    encoder.line('Documento sem valor fiscal');
+    if (content.validationCode || content.verificationUrl) {
+      encoder.line(separator).bold(true).line('VALIDAÇÃO').bold(false);
+      if (content.validationCode) encoder.line(`Código: ${content.validationCode}`);
+      if (content.verificationUrl) encoder.line(`Confirmar: ${content.verificationUrl}`);
     }
 
     // Cortar papel
-    encoder.newline().newline().newline().cut('partial');
+    encoder.newline().newline().cut('partial');
 
     const data = encoder.encode();
     await this.printWithRetry(type, data, 'invoice', content.invoiceNumber, printer.id);

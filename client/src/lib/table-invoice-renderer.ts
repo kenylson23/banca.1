@@ -93,7 +93,6 @@ export function renderTableInvoiceHtml(
   const branchAddress = document.branch?.address || document.restaurant.address;
   const branchPhone = document.branch?.phone || document.restaurant.phone;
   const fiscalDetails = getRestaurantFiscalDetails(document.restaurant);
-  const fiscalAddress = document.restaurant.fiscalAddress || document.restaurant.address;
   const issuerFiscalDetails = fiscalDetails.lines.length
     ? `<div class="issuer-fiscal" aria-label="Dados fiscais do emitente"><div class="issuer-fiscal-heading">Dados fiscais do emitente</div>${fiscalDetails.lines.map(({ label, value }) => `<div class="issuer-detail"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join('')}</div>`
     : '';
@@ -126,6 +125,7 @@ export function renderTableInvoiceHtml(
       .logo, .logo-fallback { width: 32px; height: 32px; border-radius: 6px; }
       h1 { font-size: 14px; }
       .issuer-fiscal { gap: 3px 6px; margin-top: 6px; padding-top: 5px; }
+      .issuer-fiscal-heading { font-size: 7px; }
       .issuer-detail span { font-size: 7px; }
       .issuer-detail strong { font-size: 8px; }
       .document-card { padding: 6px 7px; text-align: left; border-left-width: 3px; }
@@ -150,6 +150,7 @@ export function renderTableInvoiceHtml(
       .payment { gap: 5px; padding: 4px 5px; }
       .payment small { overflow-wrap: anywhere; }
       .footer { display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 8px; padding-top: 6px; }
+      .footer-details { font-size: 8px; }
       .qr-wrap { justify-content: flex-start; gap: 5px; margin-bottom: 2px; }
       .qr { width: 38px; height: 38px; }
       .validation { text-align: left; font-size: 8px; }
@@ -194,11 +195,13 @@ export function renderTableInvoiceHtml(
       }
       .issuer { min-width: 0; }
       .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+      .eyebrow { margin: 0 0 2px; color: var(--accent); font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
       .logo, .logo-fallback { width: 46px; height: 46px; object-fit: contain; border-radius: 8px; }
       .logo-fallback { display: flex; align-items: center; justify-content: center; background: var(--ink); color: white; font-size: 20px; font-weight: 700; }
       .issuer-name { margin: 0; font-size: 19px; line-height: 1.15; letter-spacing: -.02em; }
       .branch-name { margin-top: 3px; color: var(--muted); font-weight: 600; }
       .issuer-fiscal { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+      .issuer-fiscal-heading { grid-column: 1 / -1; color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
       .issuer-detail { min-width: 0; }
       .issuer-detail span { display: block; margin-bottom: 1px; color: var(--muted); font-size: 9px; }
       .issuer-detail strong { display: block; font-size: 10px; overflow-wrap: anywhere; }
@@ -250,11 +253,13 @@ export function renderTableInvoiceHtml(
       .payment:last-child { border-bottom: 0; }
       .payment strong:last-child { white-space: nowrap; }
       .payment.detail { background: #f8fafb; font-size: .92em; }
+      .payment-details > p { margin: 8px 0 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; }
       .empty { padding: 9px 10px; color: var(--muted); }
       .footer { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 15px; margin-top: 18px; padding-top: 10px; border-top: 1px dashed #aab5bb; }
       .qr-wrap { display: flex; align-items: center; gap: 8px; }
       .qr { width: 64px; height: 64px; image-rendering: auto; }
       .validation { min-width: 0; text-align: right; font-size: 9px; overflow-wrap: anywhere; }
+      .footer-details { color: var(--muted); font-size: 9px; line-height: 1.45; overflow-wrap: anywhere; }
       .validation strong, .validation span { display: block; }
       .validation span { margin-top: 2px; font-size: 12px; font-weight: 800; letter-spacing: .1em; }
       .verification-url { display: block; overflow-wrap: anywhere; }
@@ -347,6 +352,9 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
     validationCode: document.validation.code,
     verificationUrl,
     date: dateLabel(document.issuedAt),
+     tableNumber: document.table.number,
+     tableArea: document.table.area ?? undefined,
+     guestCount: document.guests.length,
     customerName: document.customer?.name,
     customerPhone: document.customer?.phone ?? undefined,
     customerEmail: document.customer?.email ?? undefined,
@@ -373,6 +381,7 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
     whatsappNumber: document.restaurant.whatsappNumber ?? undefined,
     legalFooter: document.restaurant.legalFooter ?? undefined,
     cashRegisterShift: document.cashRegisterShift?.label ?? undefined,
+     cashRegisterName: document.cashRegisterShift?.cashRegisterName ?? undefined,
     attendedBy: document.paymentOperatorNames.join(', ') || document.session.openedByName || undefined,
     closedBy: document.session.closedByName || document.cashRegisterShift?.closedByName || undefined,
     sessionOpenedAt: dateLabel(document.session.startedAt),
@@ -416,5 +425,12 @@ export function tableInvoiceToThermalPayload(document: TableInvoiceDocument) {
       `Total pago: ${moneyLabel(document.totals.paid)}`,
       `${Number(document.totals.pending) > 0 ? 'Saldo pendente' : 'Saldo'}: ${moneyLabel(document.totals.pending)}`,
     ].join('\n'),
+     paymentDetails: document.payments.map((payment) => [
+       payment.paymentMethodLabel,
+       moneyLabel(payment.amount),
+       dateLabel(payment.createdAt),
+       payment.operatorName || '',
+       payment.notes || '',
+     ].filter(Boolean).join(' · ')),
   };
 }

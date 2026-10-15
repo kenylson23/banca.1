@@ -756,28 +756,8 @@ export function PaymentSuccessDialog({
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 15;
+      const contentWidth = pageWidth - margin * 2;
       let yPos = margin;
-
-      // Helper function to add text and update position
-      const addText = (text: string, fontSize: number = 10, isBold: boolean = false, align: 'left' | 'center' | 'right' = 'left') => {
-        pdf.setFontSize(fontSize);
-        pdf.setFont('helvetica', isBold ? 'bold' : 'normal');
-        
-        if (align === 'center') {
-          pdf.text(text, pageWidth / 2, yPos, { align: 'center' });
-        } else if (align === 'right') {
-          pdf.text(text, pageWidth - margin, yPos, { align: 'right' });
-        } else {
-          pdf.text(text, margin, yPos);
-        }
-        
-        yPos += fontSize * 0.5; // Line spacing
-      };
-
-      const addLine = () => {
-        pdf.line(margin, yPos, pageWidth - margin, yPos);
-        yPos += 5;
-      };
 
       const checkPageBreak = (neededSpace: number = 20) => {
         if (yPos + neededSpace > pageHeight - margin) {
@@ -786,42 +766,90 @@ export function PaymentSuccessDialog({
         }
       };
 
+      const addText = (text: string, fontSize: number = 10, isBold: boolean = false, align: 'left' | 'center' | 'right' = 'left') => {
+        pdf.setFontSize(fontSize);
+        pdf.setFont('helvetica', isBold ? 'bold' : 'normal');
+        const lines = pdf.splitTextToSize(text, contentWidth);
+        const lineHeight = Math.max(fontSize * 0.43, 3.5);
+        checkPageBreak(lines.length * lineHeight + 1);
+        const x = align === 'center' ? pageWidth / 2 : align === 'right' ? pageWidth - margin : margin;
+        pdf.text(lines, x, yPos, { align });
+        yPos += lines.length * lineHeight;
+      };
+
+      const addLine = () => {
+        checkPageBreak(6);
+        pdf.setDrawColor(190, 203, 208);
+        pdf.line(margin, yPos, pageWidth - margin, yPos);
+        yPos += 4;
+      };
+
+      const addSectionHeading = (title: string) => {
+        checkPageBreak(10);
+        yPos += 1;
+        pdf.setFillColor(239, 246, 246);
+        pdf.rect(margin, yPos - 3, contentWidth, 7, 'F');
+        pdf.setFillColor(22, 124, 112);
+        pdf.rect(margin, yPos - 3, 1.2, 7, 'F');
+        pdf.setTextColor(24, 51, 68);
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(title.toUpperCase(), margin + 4, yPos + 1);
+        pdf.setTextColor(0, 0, 0);
+        yPos += 7;
+      };
+
       const addInvoiceLine = (label: string, value: string, bold = false) => {
-        checkPageBreak(12);
         pdf.setFontSize(10);
         pdf.setFont('helvetica', bold ? 'bold' : 'normal');
-        pdf.text(label, margin, yPos);
-        pdf.text(value, pageWidth - margin, yPos, { align: 'right' });
-        yPos += 5;
+        const labelWidth = contentWidth * 0.62;
+        const valueWidth = contentWidth - labelWidth - 3;
+        const labelLines = pdf.splitTextToSize(label, labelWidth);
+        const valueLines = pdf.splitTextToSize(value, valueWidth);
+        const lineCount = Math.max(labelLines.length, valueLines.length);
+        const lineHeight = 4.2;
+        checkPageBreak(lineCount * lineHeight + 1);
+        pdf.text(labelLines, margin, yPos);
+        pdf.text(valueLines, pageWidth - margin, yPos, { align: 'right' });
+        yPos += lineCount * lineHeight + 0.5;
       };
 
       // HEADER - Restaurant Info
       addText(fiscalInvoice.restaurant.name, 18, true, 'center');
       yPos += 2;
+      if (fiscalInvoice.branch?.name) addText(fiscalInvoice.branch.name, 10, true, 'center');
       for (const line of fiscalDetails.lines) {
         addText(`${line.label}: ${line.value}`, 9, false, 'center');
       }
       
-      yPos += 5;
       addLine();
 
-      // INVOICE INFO
       addText('FATURA/RECIBO', 14, true, 'center');
-      yPos += 5;
-
+      yPos += 2;
+      addSectionHeading('Identificação do documento');
       addInvoiceLine('Nº da fatura', fiscalInvoice.invoiceReference, true);
       addInvoiceLine('Emitida em', invoiceDate(fiscalInvoice.issuedAt));
       addInvoiceLine('Estado', invoicePaymentStatusLabel(fiscalInvoice.totals.paymentStatus), true);
+
+      addSectionHeading('Estabelecimento emissor');
       addInvoiceLine('Filial', fiscalInvoice.branch?.name || 'Unidade principal');
       addInvoiceLine('Morada fiscal', fiscalInvoice.restaurant.fiscalAddress || fiscalInvoice.branch?.address || fiscalInvoice.restaurant.address || '—');
       if (fiscalInvoice.branch?.phone) addInvoiceLine('Telefone da filial', fiscalInvoice.branch.phone);
+
+      addSectionHeading('Destinatário');
       addInvoiceLine('Fatura em nome de', fiscalInvoice.invoiceRecipient.label);
       if (fiscalInvoice.customer) {
         addInvoiceLine('Cliente', fiscalInvoice.customer.name);
         if (fiscalInvoice.customer.phone) addInvoiceLine('Telefone do cliente', fiscalInvoice.customer.phone);
+        if (fiscalInvoice.customer.email) addInvoiceLine('Email do cliente', fiscalInvoice.customer.email);
         if (fiscalInvoice.customer.nif) addInvoiceLine('NIF do cliente', fiscalInvoice.customer.nif);
         if (fiscalInvoice.customer.address) addInvoiceLine('Morada do cliente', fiscalInvoice.customer.address);
       }
+      if (fiscalInvoice.tableCustomer && fiscalInvoice.tableCustomer.id !== fiscalInvoice.customer?.id) {
+        addInvoiceLine('Cliente principal da mesa', fiscalInvoice.tableCustomer.name);
+      }
+
+      addSectionHeading('Mesa e operação');
       addInvoiceLine('Sessão', invoiceSessionLabel(fiscalInvoice.session.id));
       addInvoiceLine('Abertura da sessão', invoiceDate(fiscalInvoice.session.startedAt));
       if (fiscalInvoice.session.endedAt) addInvoiceLine('Fecho da sessão', invoiceDate(fiscalInvoice.session.endedAt));
@@ -831,6 +859,8 @@ export function PaymentSuccessDialog({
         ? fiscalInvoice.paymentOperatorNames.join(', ')
         : fiscalInvoice.session.openedByName;
       if (operatorNames) addInvoiceLine('Atendido por', operatorNames);
+
+      addSectionHeading('Pagamento de referência');
       addText(`Nº do pagamento: ${payment.id}`, 10, true);
       if (payment.transactionReference) addText(`Referência: ${payment.transactionReference}`, 10);
       addText(`Data do pagamento: ${invoiceDate(payment.createdAt)}`, 10);
@@ -846,13 +876,12 @@ export function PaymentSuccessDialog({
       yPos += 5;
       addLine();
 
-      // ITEMS BY GUEST
-      addText('ITENS CONSUMIDOS', 12, true);
-      yPos += 3;
+      addSectionHeading('Produtos e serviços');
 
       for (const item of fiscalInvoice.items) {
-        checkPageBreak(20);
+        checkPageBreak(24);
         addInvoiceLine(`${item.quantity}x ${item.name}`, invoiceMoney(item.total), true);
+        addInvoiceLine('Preço unitário', invoiceMoney(item.unitPrice));
         if (item.guestName) addText(`Convidado: ${item.guestName}`, 8);
         if (item.orderNumber) addText(`Pedido #${item.orderNumber}${item.orderCreatedAt ? ` · ${invoiceDate(item.orderCreatedAt)}` : ''}`, 8);
         if (item.options.length) {
@@ -860,52 +889,43 @@ export function PaymentSuccessDialog({
         }
         if (item.notes) addText(`Obs.: ${item.notes}`, 8);
         if (item.orderNotes) addText(`Obs. do pedido: ${item.orderNotes}`, 8);
+        if (item.sharedWithGuestNames.length) addText(`Partilhado com: ${item.sharedWithGuestNames.join(', ')}`, 8);
       }
       if (fiscalInvoice.items.length === 0) {
         addText('Sem itens registados.', 10);
       }
       if (fiscalInvoice.cancelledItems.length > 0) {
-        yPos += 3;
-        addText('ITENS CANCELADOS (FORA DO TOTAL)', 10, true);
+        addSectionHeading('Itens cancelados — fora do total');
         for (const item of fiscalInvoice.cancelledItems) {
-          checkPageBreak(14);
-          addInvoiceLine(`${item.quantity}x ${item.name}`, invoiceMoney(item.total));
+          checkPageBreak(18);
+          addInvoiceLine(`${item.quantity}x ${item.name}`, invoiceMoney(item.total), true);
+          addInvoiceLine('Preço unitário', invoiceMoney(item.unitPrice));
+          if (item.notes) addText(`Observação: ${item.notes}`, 8);
         }
       }
 
-      checkPageBreak(60);
-      addLine();
-
-      // CALCULATIONS
-      addText('CÁLCULOS FINAIS', 12, true);
-      yPos += 3;
+      checkPageBreak(45);
+      addSectionHeading('Resumo financeiro');
 
       addInvoiceLine('Subtotal', invoiceMoney(fiscalInvoice.totals.subtotal));
       for (const adjustment of fiscalInvoice.discounts) {
-        addInvoiceLine(`Desconto: ${adjustment.label}`, `− ${invoiceMoney(adjustment.amount)}`);
+        addInvoiceLine(`Desconto: ${adjustment.label}`, `- ${invoiceMoney(adjustment.amount)}`);
       }
       for (const adjustment of fiscalInvoice.fees) {
         addInvoiceLine(`Taxa: ${adjustment.label}`, `+ ${invoiceMoney(adjustment.amount)}`);
       }
-      yPos += 3;
-      pdf.setLineWidth(0.5);
-      pdf.line(margin, yPos, pageWidth - margin, yPos);
-      yPos += 5;
-
-      // TOTAL
-      pdf.setFontSize(14);
+      checkPageBreak(12);
+      pdf.setFillColor(239, 246, 246);
+      pdf.rect(margin, yPos - 3, contentWidth, 9, 'F');
+      pdf.setFontSize(12);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('TOTAL A PAGAR:', margin, yPos);
-      pdf.text(invoiceMoney(fiscalInvoice.totals.total), pageWidth - margin, yPos, { align: 'right' });
+      pdf.text('TOTAL DA FATURA', margin + 3, yPos + 2);
+      pdf.text(invoiceMoney(fiscalInvoice.totals.total), pageWidth - margin - 3, yPos + 2, { align: 'right' });
       yPos += 10;
       addInvoiceLine('Total pago', invoiceMoney(fiscalInvoice.totals.paid));
-      addInvoiceLine('Pendente', invoiceMoney(fiscalInvoice.totals.pending));
+      addInvoiceLine(Number(fiscalInvoice.totals.pending) > 0 ? 'Saldo pendente' : 'Saldo', invoiceMoney(fiscalInvoice.totals.pending));
 
-      addLine();
-
-      // PAYMENT INFO
-      addText('PAGAMENTOS REGISTADOS', 12, true);
-      yPos += 3;
+      addSectionHeading('Pagamentos registados');
       for (const recordedPayment of fiscalInvoice.payments) {
         addInvoiceLine(
           `${formatPaymentMethodLabel(recordedPayment.paymentMethod)} · ${invoiceDate(recordedPayment.createdAt)}`,
@@ -914,33 +934,28 @@ export function PaymentSuccessDialog({
         if (recordedPayment.operatorName) addText(`Operador: ${recordedPayment.operatorName}`, 8);
         if (recordedPayment.notes) addText(`Observações: ${recordedPayment.notes}`, 8);
       }
-      addText('Pagamento atual', 10, true);
+      addSectionHeading('Pagamento atual');
       addText(`Método: ${formatPaymentMethodLabel(payment.paymentMethod)}`, 10);
       if (payment.receivedAmount) {
-        addText(`Valor Recebido: ${formatKwanza(payment.receivedAmount)}`, 10);
+        addText(`Valor recebido: ${formatKwanza(payment.receivedAmount)}`, 10);
         
         const change = payment.receivedAmount - Number(payment.amount);
         if (change > 0) {
-          pdf.setTextColor(0, 100, 200);
+          pdf.setTextColor(22, 124, 112);
           addText(`Troco: ${formatKwanza(change)}`, 10, true);
           pdf.setTextColor(0, 0, 0);
         }
       }
 
-      yPos += 5;
-      addLine();
-
-      // FOOTER
+      addSectionHeading('Validação do documento');
       addText(`Código de validação: ${fiscalInvoice.validation.code}`, 9, false, 'center');
       addText(fiscalInvoice.validation.verificationUrl, 8, false, 'center');
       addText(`Fatura/Recibo: ${fiscalInvoice.invoiceReference}`, 9, false, 'center');
       addText(`Nº do pagamento: ${payment.id}`, 9, false, 'center');
-      yPos += 5;
-       if (fiscalDetails.legalFooter) {
-         checkPageBreak(15);
-         addText(fiscalDetails.legalFooter, 9, false, 'center');
-         yPos += 2;
-       }
+      if (fiscalDetails.legalFooter) {
+        addSectionHeading('Informação legal');
+        addText(fiscalDetails.legalFooter, 9, false, 'center');
+      }
       addText('Obrigado pela sua visita!', 10, true, 'center');
       addText('Volte sempre!', 10, false, 'center');
 
