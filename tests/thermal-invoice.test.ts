@@ -118,7 +118,7 @@ const invoice: TableInvoiceDocument = {
     orderNumber: '43',
     orderCreatedAt: '2026-10-16T09:10:00.000Z',
     orderStatus: 'cancelled',
-    orderNotes: null,
+    orderNotes: 'Observação do pedido cancelado.',
     guestId: null,
     guestName: null,
     sharedWithGuestNames: [],
@@ -204,10 +204,10 @@ test('80 mm table invoice uses a compact roll layout and preserves document fiel
     'Caixa 1',
     'Operadora A',
     '08:00',
-    'Unitário:',
     'Nota individual do artigo.',
     longNote,
     'Produto cancelado',
+    'Observação do pedido cancelado.',
     'Desconto de teste',
     'Taxa de serviço',
     'Numerário',
@@ -220,9 +220,16 @@ test('80 mm table invoice uses a compact roll layout and preserves document fiel
   }
 
   assert.match(html, /2\s500,00 Kz/);
+  assert.match(html, /1\s250,00 Kz\s*\/ un\./);
   assert.ok(html.includes('&lt;Produto &amp; especial&gt;'));
   assert.ok(!html.includes('<Produto & especial>'));
   assert.match(html, /\.thermal-items \{ display: block; \}/);
+  assert.match(html, /\.thermal-operation-grid/);
+  assert.ok(html.includes('class="thermal-item-details"'));
+  assert.match(html, /<article class="thermal-item cancelled">[\s\S]*?Obs\. do pedido: Observação do pedido cancelado\./);
+  assert.ok(html.includes('src="data:image/png;base64,QRTEST"'));
+  assert.ok(!html.includes('Total final:'));
+  assert.ok(!html.includes('class="payment-details"'));
   assert.match(html, /overflow-wrap: anywhere/);
   assert.doesNotMatch(html, /\.invoice-document\s*\{[^}]*height:/);
 });

@@ -54,18 +54,32 @@ export function renderTableInvoiceHtml(
   const itemRows = document.items.length
     ? document.items.map((item) => renderItemRow(item)).join('')
     : '<tr><td colspan="4">Sem itens registados</td></tr>';
-  const renderThermalItem = (item: TableInvoiceDocument['items'][number], cancelled = false) => `
-    <article class="thermal-item${cancelled ? ' cancelled' : ''}">
-      <div class="thermal-item-heading"><strong>${escapeHtml(item.quantity)} × ${escapeHtml(item.name)}</strong><strong>${moneyLabel(item.total)}</strong></div>
-      <div class="thermal-item-unit">Unitário: ${moneyLabel(item.unitPrice)}</div>
-      ${item.orderNumber || item.orderCreatedAt || item.orderStatus ? `<small>Pedido ${escapeHtml(item.orderNumber ? `#${item.orderNumber}` : 'sem número')}${item.orderCreatedAt ? ` · ${escapeHtml(dateLabel(item.orderCreatedAt))}` : ''} · ${escapeHtml(invoiceOrderStatusLabel(item.orderStatus))}</small>` : ''}
-      ${item.guestName ? `<small>Convidado: ${escapeHtml(item.guestName)}</small>` : ''}
-      ${item.options.length ? `<small>Opções: ${escapeHtml(item.options.map((option) => `${option.name}${option.quantity > 1 ? ` (${option.quantity}x)` : ''}`).join(', '))}</small>` : ''}
-      ${item.notes ? `<small>Obs. do item: ${escapeHtml(item.notes)}</small>` : ''}
-      ${item.orderNotes ? `<small>Obs. do pedido: ${escapeHtml(item.orderNotes)}</small>` : ''}
-      ${item.sharedWithGuestNames.length ? `<small class="shared">Partilhado com: ${escapeHtml(item.sharedWithGuestNames.join(', '))}</small>` : ''}
-      ${cancelled ? '<small class="cancelled-label">Consumo cancelado — não incluído no total</small>' : ''}
-    </article>`;
+  const renderThermalItem = (item: TableInvoiceDocument['items'][number], cancelled = false) => {
+    const details = [
+      item.orderNumber || item.orderCreatedAt || item.orderStatus
+        ? `Pedido ${item.orderNumber ? `#${item.orderNumber}` : 'sem número'}${item.orderCreatedAt ? ` · ${dateLabel(item.orderCreatedAt)}` : ''} · ${invoiceOrderStatusLabel(item.orderStatus)}`
+        : '',
+      item.guestName ? `Convidado: ${item.guestName}` : '',
+      item.options.length ? `Opções: ${item.options.map((option) => `${option.name}${option.quantity > 1 ? ` (${option.quantity}x)` : ''}`).join(', ')}` : '',
+      item.notes ? `Obs. do item: ${item.notes}` : '',
+      cancelled && item.orderNotes ? `Obs. do pedido: ${item.orderNotes}` : '',
+      item.sharedWithGuestNames.length ? `Partilhado com: ${item.sharedWithGuestNames.join(', ')}` : '',
+      cancelled ? 'Consumo cancelado — não incluído no total' : '',
+    ].filter(Boolean);
+    return `
+      <article class="thermal-item${cancelled ? ' cancelled' : ''}">
+        <div class="thermal-item-heading">
+          <div class="thermal-item-description">
+            <strong>${escapeHtml(item.quantity)} × ${escapeHtml(item.name)}</strong>
+          </div>
+          <div class="thermal-item-pricing">
+            <strong>${moneyLabel(item.total)}</strong>
+            <small>${moneyLabel(item.unitPrice)} / un.</small>
+          </div>
+        </div>
+        ${details.length ? `<small class="thermal-item-details">${details.map(escapeHtml).join(' · ')}</small>` : ''}
+      </article>`;
+  };
   const thermalItemRows = document.items.length
     ? document.items.map((item) => renderThermalItem(item)).join('')
     : '<p class="empty">Sem itens registados</p>';
@@ -94,6 +108,13 @@ export function renderTableInvoiceHtml(
         <strong>${moneyLabel(payment.amount)}</strong>
       </div>`).join('')
     : '';
+  const thermalPaymentRows = document.payments.length
+    ? document.payments.map((payment) => `
+      <div class="payment">
+        <div><strong>${escapeHtml(payment.paymentMethodLabel)}</strong><small>${escapeHtml(dateLabel(payment.createdAt))}${payment.operatorName ? ` · ${escapeHtml(payment.operatorName)}` : ''}${payment.notes ? ` · ${escapeHtml(payment.notes)}` : ''}</small></div>
+        <strong>${moneyLabel(payment.amount)}</strong>
+      </div>`).join('')
+    : '<div class="empty">Nenhum pagamento registado</div>';
   const guests = document.guests.length
     ? `<section><h2>Convidados</h2><div class="guests">${document.guests.map((guest) => {
       const details = [guest.customer?.phone, guest.customer?.nif].filter(Boolean).join(' · ');
@@ -126,80 +147,104 @@ export function renderTableInvoiceHtml(
     <div><label>Encerramento</label><strong>${escapeHtml(dateLabel(document.session.endedAt))}</strong></div>
     <div><label>Duração total</label><strong>${escapeHtml(document.session.durationLabel)}</strong></div>
   </div></section>`;
+  const thermalOperationDetails = `<section class="operation-section"><div class="operation-grid thermal-operation-grid">
+    <div class="wide"><label>Unidade</label><strong>${escapeHtml([branchName, branchAddress || '-', branchPhone || '-'].join(' · '))}</strong></div>
+    <div class="wide"><label>Caixa / turno</label><strong>${escapeHtml([document.cashRegisterShift?.cashRegisterName || 'Não identificado', document.cashRegisterShift?.label || 'Não identificado'].join(' · '))}</strong></div>
+    <div><label>Atendido por</label><strong>${escapeHtml(document.paymentOperatorNames.length ? document.paymentOperatorNames.join(', ') : document.session.openedByName || '-')}</strong></div>
+    <div><label>Fechado por</label><strong>${escapeHtml(document.session.closedByName || document.cashRegisterShift?.closedByName || '-')}</strong></div>
+    <div class="wide"><label>Sessão</label><strong>Abertura: ${escapeHtml(dateLabel(document.session.startedAt))} · Encerramento: ${escapeHtml(dateLabel(document.session.endedAt))} · Duração: ${escapeHtml(document.session.durationLabel)}</strong></div>
+  </div></section>`;
   const logo = document.restaurant.logoUrl
     ? `<img class="logo" src="${escapeHtml(document.restaurant.logoUrl)}" alt="${escapeHtml(document.restaurant.name)}" />`
     : `<div class="logo-fallback">${escapeHtml(document.restaurant.name.slice(0, 1).toUpperCase())}</div>`;
   const qrCode = options.qrCodeDataUrl
     ? `<div class="qr-wrap"><img class="qr" src="${escapeHtml(options.qrCodeDataUrl)}" alt="QR Code da fatura" /><div><strong>Validação digital</strong><small>Leia para confirmar este documento</small><small>Código: ${escapeHtml(document.validation.code)}</small><small class="verification-url">${escapeHtml(document.validation.verificationUrl)}</small></div></div>`
     : `<div class="validation"><strong>Código de validação</strong><span>${escapeHtml(document.validation.code)}</span><small>${escapeHtml(document.validation.verificationUrl)}</small></div>`;
+  const footerDetails = isThermal
+    ? (fiscalDetails.legalFooter ? `<strong>${escapeHtml(fiscalDetails.legalFooter)}</strong>` : '')
+    : `${fiscalDetails.legalFooter ? `<strong>${escapeHtml(fiscalDetails.legalFooter)}</strong><br>` : ''}Documento final emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura/Recibo Nº ${escapeHtml(invoiceNumberLabel(document.invoiceReference))}<br>Total final: ${moneyLabel(document.totals.total)}<br>Código de validação: ${escapeHtml(document.validation.code)}<br>Confirmar: ${escapeHtml(document.validation.verificationUrl)}`;
   const returnToolbar = options.returnUrl
     ? `<nav class="no-print return-toolbar"><a href="${escapeHtml(options.returnUrl)}">← Voltar à gestão da mesa</a></nav>`
     : '';
   const compactThermalStyles = isThermal ? `
       @page { size: 80mm auto; margin: 0; }
-      body { width: 72mm; max-width: 72mm; margin: 0 auto; padding: 2mm 0; font-size: 10px; line-height: 1.3; color: #111; }
+      body { width: 72mm; max-width: 72mm; margin: 0 auto; padding: 3mm 0; font-size: 10px; line-height: 1.35; color: #111; }
       .invoice-document { width: 100%; }
-      .invoice-header { display: block; padding: 0 0 8px; border-bottom: 1px dashed #555; }
+      .invoice-header { display: block; padding: 0 0 6px; border-bottom: 1px solid #333; }
       .brand { justify-content: center; gap: 0; text-align: center; }
-      .logo, .logo-fallback { width: 28px; height: 28px; margin: 0 auto 4px; border-radius: 0; }
-      h1.issuer-name { margin: 0; font-size: 14px; line-height: 1.25; }
-      .eyebrow { display: none; }
-      .branch-name { margin-top: 2px; font-size: 9px; }
-      .issuer-fiscal { grid-template-columns: 1fr; gap: 2px; margin-top: 6px; padding-top: 5px; border-top: 1px dashed #888; text-align: center; }
-      .issuer-fiscal-heading { font-size: 8px; }
-      .issuer-detail span { display: inline; margin-right: 3px; font-size: 9px; }
-      .issuer-detail strong { display: inline; font-size: 9px; }
-      .document-card { align-items: center; gap: 2px; margin-top: 7px; padding: 0; border: 0; background: transparent; text-align: center; }
-      .document-type { color: #111; font-size: 10px; }
-      .document-number { font-size: 13px; }
+      .logo, .logo-fallback { display: none; }
+      h1.issuer-name { margin: 0; font-size: 15px; line-height: 1.2; }
+      .eyebrow, .issuer-fiscal-heading { display: none; }
+      .branch-name { display: none; }
+      .issuer-fiscal { display: flex; flex-wrap: wrap; justify-content: center; gap: 1px 7px; margin-top: 4px; padding: 0; border: 0; text-align: center; }
+      .issuer-detail { max-width: 100%; }
+      .issuer-detail span, .issuer-detail strong { display: inline; font-size: 9px; }
+      .issuer-detail span { margin-right: 2px; color: #333; }
+      .document-card { display: flex; flex-direction: row; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 2px 6px; margin-top: 5px; padding: 0; border: 0; background: transparent; text-align: center; }
+      .document-type { color: #222; font-size: 9px; letter-spacing: .04em; }
+      .document-number { font-size: 12px; }
       .document-date { color: #222; font-size: 9px; }
-      .status { margin-top: 2px; padding: 0; border-radius: 0; background: transparent !important; color: #111 !important; font-size: 9px; }
-      .meta-grid { grid-template-columns: 1fr; gap: 2px; margin: 6px 0; }
+      .status { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent !important; color: #111 !important; font-size: 9px; }
+      .meta-grid { display: flex; flex-wrap: wrap; gap: 2px 8px; margin: 5px 0; padding-bottom: 4px; border-bottom: 1px solid #ddd; }
       .meta-card { padding: 0; border: 0; background: transparent; }
-      .meta-card label, .customer label, .operation-grid label { display: inline; margin: 0 3px 0 0; color: #333; font-size: 9px; letter-spacing: 0; }
-      .meta-card strong, .customer strong, .operation-grid strong { display: inline; font-size: 10px; }
-      .meta-card small, .customer small { display: inline; margin: 0 0 0 4px; }
+      .meta-card label, .customer label, .operation-grid label { display: inline; margin: 0 3px 0 0; color: #444; font-size: 9px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+      .meta-card strong, .customer strong, .operation-grid strong { display: inline; font-size: 10px; font-weight: 600; }
+      .meta-card small, .customer small { display: inline; margin: 0 0 0 3px; }
+      .meta-card:nth-child(2) small { display: none; }
       .meta-card:last-child { grid-column: auto; }
-      section { margin-top: 8px; break-inside: auto; }
-      h2 { margin: 0 0 4px; padding: 0 0 3px; border-bottom: 1px dashed #888; color: #111; font-size: 10px; letter-spacing: .02em; }
-      h2::before { display: none; }
-      .customer { display: block; padding: 0; border: 0; border-radius: 0; background: transparent !important; }
-      .customer > div { margin: 2px 0; }
-      .customer .wide { display: block; }
+      section { margin-top: 5px; break-inside: auto; }
+      h2 { display: none; }
+      .customer { display: flex; flex-wrap: wrap; gap: 1px 8px; padding: 0; border: 0; border-radius: 0; background: transparent !important; }
+      .customer > div { margin: 0; }
+      .customer .wide { display: block; width: 100%; }
       .split-note { padding: 0; border: 0; }
-      .operation-grid { display: block; }
-      .operation-grid > div { padding: 1px 0; border: 0; border-radius: 0; background: transparent; }
+      .operation-grid { display: flex; flex-wrap: wrap; gap: 1px 8px; }
+      .operation-grid > div { min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
       .operation-grid > div > * { overflow-wrap: anywhere; }
+      .thermal-operation-grid .wide { width: 100%; }
+      .operation-section { padding-bottom: 4px; border-bottom: 1px solid #ddd; }
       .invoice-items { display: none; }
       .thermal-items { display: block; }
-      .thermal-item { padding: 4px 0; border-bottom: 1px dashed #aaa; break-inside: auto; }
+      .items-section { padding-bottom: 4px; border-bottom: 1px solid #ddd; }
+      .thermal-item { padding: 3px 0; border-bottom: 1px solid #e5e5e5; break-inside: auto; }
+      .thermal-item:last-child { border-bottom: 0; }
       .thermal-item-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
+      .thermal-item-description { display: flex; flex-direction: column; min-width: 0; }
       .thermal-item-heading strong:first-child { min-width: 0; overflow-wrap: anywhere; }
-      .thermal-item-heading strong:last-child { flex: 0 0 auto; white-space: nowrap; text-align: right; }
-      .thermal-item-unit { margin: 1px 0; text-align: right; font-size: 9px; }
-      .thermal-item small { display: block; margin-top: 2px; color: #222; font-size: 9px; overflow-wrap: anywhere; white-space: normal; }
-      .thermal-item .cancelled-label { color: #111; font-weight: 700; }
+      .thermal-item-pricing { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; white-space: nowrap; }
+      .thermal-item-pricing strong { text-align: right; }
+      .thermal-item-pricing small { margin-top: 1px; color: #444; font-size: 9px; }
+      .thermal-item-details { display: block; margin-top: 1px; color: #444; font-size: 9px; overflow-wrap: anywhere; white-space: normal; }
+      .thermal-item.cancelled { color: #444; }
+      .thermal-item.cancelled .thermal-item-heading strong:first-child { text-decoration: line-through; }
       .guests { display: block; }
-      .guests span { display: block; padding: 2px 0; border: 0; border-bottom: 1px dotted #bbb; border-radius: 0; background: transparent; overflow-wrap: anywhere; }
-      .guests small { display: block; margin: 1px 0 0; }
-      .summary { width: 100%; max-width: none; margin: 6px 0 0; padding: 5px 0; border: 0; border-top: 1px dashed #555; border-bottom: 1px dashed #555; border-radius: 0; }
-      .line { align-items: flex-start; gap: 6px; margin: 3px 0; }
+      .guests::before { content: "Convidados: "; font-size: 9px; font-weight: 600; }
+      .guests span { display: block; padding: 1px 0; border: 0; background: transparent; overflow-wrap: anywhere; }
+      .guests small { display: inline; margin: 0 0 0 4px; }
+      .summary { width: 100%; max-width: none; margin: 5px 0 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+      .line { align-items: flex-start; gap: 6px; margin: 2px 0; }
       .line > span:first-child { min-width: 0; overflow-wrap: anywhere; }
       .line > span:last-child { flex: 0 0 auto; }
-      .line.adjustment small { display: block; max-width: none; }
-      .grand { margin: 5px 0; padding: 5px 0; border-top: 1px dashed #555; border-bottom: 1px dashed #555; background: transparent; font-size: 14px; }
+      .line.adjustment small { display: block; max-width: none; color: #555; }
+      .grand { margin: 4px 0; padding: 4px 0; border-top: 1px solid #333; border-bottom: 0; background: transparent; font-size: 13px; }
       .payments { overflow: visible; border: 0; border-radius: 0; }
-      .payment { align-items: flex-start; gap: 5px; padding: 3px 0; border-bottom: 1px dotted #bbb; }
-      .payment small { display: block; color: #222; overflow-wrap: anywhere; }
+      .payments::before { display: block; margin-bottom: 1px; content: "Pagamentos"; font-size: 9px; font-weight: 600; }
+      .payment { align-items: flex-start; gap: 5px; padding: 2px 0; border-bottom: 0; }
+      .payment small { display: inline; margin-left: 4px; color: #444; overflow-wrap: anywhere; }
       .payment strong:last-child { flex: 0 0 auto; white-space: nowrap; }
       .payment.detail { background: transparent; font-size: 9px; }
+      .payment-details > p { display: none; }
       .empty { padding: 2px 0; }
       .notes { padding: 0; border: 0; border-radius: 0; background: transparent; }
-      .notes p { margin: 3px 0; overflow-wrap: anywhere; }
-      .footer { display: block; margin-top: 8px; padding-top: 6px; border-top: 1px dashed #555; text-align: center; }
-      .footer-details { color: #222; font-size: 9px; line-height: 1.35; overflow-wrap: anywhere; }
-      .qr-wrap { flex-direction: column; justify-content: center; gap: 3px; margin-bottom: 5px; }
-      .qr { width: 35px; height: 35px; }
+      .notes::before { content: "Observações: "; font-weight: 600; }
+      .notes p { margin: 2px 0; overflow-wrap: anywhere; }
+      .footer { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 6px; padding-top: 5px; border-top: 1px solid #333; text-align: center; }
+      .footer-details { color: #333; font-size: 9px; line-height: 1.3; overflow-wrap: anywhere; }
+      .qr-wrap { flex-direction: row; justify-content: center; gap: 7px; margin: 0; text-align: left; }
+      .qr-wrap > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+      .qr-wrap strong { font-size: 9px; }
+      .qr-wrap small { font-size: 8px; }
+      .qr { width: 64px; height: 64px; }
       .validation { text-align: center; font-size: 9px; }
       .validation span { font-size: 11px; }
       .verification-url { max-width: 100%; }
@@ -351,7 +396,7 @@ export function renderTableInvoiceHtml(
       </div>
 
       ${invoiceIdentity}
-      ${operationDetails}
+       ${isThermal ? thermalOperationDetails : operationDetails}
       ${guests}
 
       <section class="items-section">
@@ -378,13 +423,13 @@ export function renderTableInvoiceHtml(
 
       <section class="payments-section">
         <h2>Pagamentos realizados</h2>
-        <div class="payments">${paymentRows}</div>
-        ${paymentDetailRows ? `<div class="payment-details"><p class="muted">Registos individuais</p><div class="payments">${paymentDetailRows}</div></div>` : ''}
+        <div class="payments">${isThermal ? thermalPaymentRows : paymentRows}</div>
+        ${!isThermal && paymentDetailRows ? `<div class="payment-details"><p class="muted">Registos individuais</p><div class="payments">${paymentDetailRows}</div></div>` : ''}
       </section>
 
       <footer class="footer">
         ${qrCode}
-        <div class="footer-details">${fiscalDetails.legalFooter ? `<strong>${escapeHtml(fiscalDetails.legalFooter)}</strong><br>` : ''}Documento final emitido em ${escapeHtml(dateLabel(document.issuedAt))}<br>Fatura/Recibo Nº ${escapeHtml(invoiceNumberLabel(document.invoiceReference))}<br>Total final: ${moneyLabel(document.totals.total)}<br>Código de validação: ${escapeHtml(document.validation.code)}<br>Confirmar: ${escapeHtml(document.validation.verificationUrl)}</div>
+        <div class="footer-details">${footerDetails}</div>
       </footer>
     </main>
     </body></html>`;
