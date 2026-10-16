@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from '@/hooks/use-toast';
 import { generateInvoiceValidationCode, getInvoiceNumber } from '@/lib/invoice-validation';
+import { renderOrderInvoiceThermalHtml } from '@/lib/order-invoice-renderer';
 
 type OrderWithDetails = Order & {
   orderItems?: Array<OrderItem & { 
@@ -116,8 +117,8 @@ export function PrintInvoice({
           notes: item.notes || undefined,
        })) || [];
 
-      const paymentInfo = order.payments && order.payments.length > 0
-        ? order.payments.map(p => formatPaymentMethodLabel(p.paymentMethod)).join(', ')
+       const paymentInfo = order.payments && order.payments.length > 0
+         ? order.payments.map(p => `${formatPaymentMethodLabel(p.paymentMethod)}: ${invoiceMoney(p.amount)}`).join('\n')
         : undefined;
 
       const baseDiscount = order.discount ? parseFloat(order.discount) : 0;
@@ -585,29 +586,163 @@ export function PrintInvoice({
     printWindow.document.close();
   };
 
-  if (thermalPrinter?.status === 'connected') {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant={variant}
-            size={size}
-            disabled={printing || !order || !order.id}
-            data-testid={order?.id ? `button-print-invoice-${order.id}` : 'button-print-invoice-disabled'}
-            className="gap-1"
-          >
-            <Printer className="h-4 w-4" />
-            {!isIconOnly && "Imprimir"}
-            <ChevronDown className="h-3 w-3" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+  const handlePrintBrowserThermal = () => {
+    if (!order?.id) return;
+
+    const baseDiscount = order.discount ? parseFloat(order.discount) : 0;
+    const couponDiscount = (order as any).couponDiscount ? parseFloat((order as any).couponDiscount) : 0;
+    const combinedDiscount = (Number.isFinite(baseDiscount) ? baseDiscount : 0) + (Number.isFinite(couponDiscount) ? couponDiscount : 0);
+    const serviceCharge = order.serviceCharge ? parseFloat(order.serviceCharge) : 0;
+    const effectiveSubtotal = totalsOverride?.subtotal ?? parseFloat(String(order.subtotal || order.totalAmount || '0'));
+    const effectiveDiscount = totalsOverride?.discount ?? combinedDiscount;
+    const effectiveServiceCharge = totalsOverride?.serviceCharge ?? serviceCharge;
+    const effectiveTotal = totalsOverride?.total ?? parseFloat(String(order.totalAmount || '0'));
+    const invoiceNumber = getInvoiceNumber(order);
+    const validationCode = generateInvoiceValidationCode({
+      invoiceNumber: order.invoiceNumber ?? invoiceNumber,
+      orderId: order.id,
+      date: order.createdAt,
+      total: effectiveTotal,
+    });
+    const orderTypeLabel: Record<string, string> = {
+      mesa: 'Mesa',
+      delivery: 'Delivery',
+      takeout: 'Take-out',
+      balcao: 'Balcão',
+      pdv: 'PDV',
+    };
+    const orderItems = order.orderItems || (order as any).items || [];
+    const adjustments: Array<{ label: string; amount: string; sign: '-' | '+' }> = [];
+    if (totalsOverride) {
+      if (effectiveDiscount > 0) {
+        adjustments.push({
+          label: totalsOverride.discountLabel || 'Desconto',
+          amount: formatKwanza(effectiveDiscount.toFixed(2)),
+          sign: '-',
+        });
+      }
+      if (effectiveServiceCharge > 0) {
+        adjustments.push({
+          label: totalsOverride.serviceChargeLabel || 'Taxa de Serviço',
+          amount: formatKwanza(effectiveServiceCharge.toFixed(2)),
+          sign: '+',
+        });
+      }
+    } else {
+      if (baseDiscount > 0) adjustments.push({ label: 'Desconto', amount: formatKwanza(order.discount!), sign: '-' });
+      if (couponDiscount > 0) adjustments.push({ label: 'Cupom', amount: formatKwanza(String((order as any).couponDiscount)), sign: '-' });
+      if (serviceCharge > 0) adjustments.push({ label: 'Taxa de Serviço', amount: formatKwanza(order.serviceCharge!), sign: '+' });
+      const deliveryFee = Number.parseFloat(String((order as any).deliveryFee || '0'));
+      if (Number.isFinite(deliveryFee) && deliveryFee > 0) {
+        adjustments.push({ label: 'Taxa de Entrega', amount: formatKwanza(String((order as any).deliveryFee)), sign: '+' });
+      }
+    }
+
+    const printContent = renderOrderInvoiceThermalHtml({
+      restaurantName: resolvedRestaurantInfo.name,
+      fiscalLines: fiscalDetails.lines,
+      legalFooter: fiscalDetails.legalFooter,
+      invoiceNumber,
+      validationCode,
+      date: order.createdAt
+        ? format(new Date(order.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+        : invoiceDate(new Date()),
+      status: order.paymentStatus === 'pago'
+        ? 'PAGO'
+        : order.paymentStatus === 'parcial'
+          ? 'PAGO PARCIALMENTE'
+          : 'PENDENTE',
+      orderNumber: String(order.orderNumber || order.id.slice(-8).toUpperCase()),
+      orderType: orderTypeLabel[order.orderType] || order.orderType,
+      tableNumber: order.table?.number ? String(order.table.number) : undefined,
+      customerName: order.customerName || order.customer?.name || undefined,
+      customerPhone: order.customerPhone || order.customer?.phone || undefined,
+      customerEmail: order.customer?.email || undefined,
+      customerNif: (order.customer as any)?.nif || undefined,
+      customerAddress: (order.customer as any)?.address || undefined,
+      deliveryAddress: order.deliveryAddress || undefined,
+      items: orderItems.map((item: any) => {
+        const unitPrice = String(item.price || item.menuItem?.price || '0');
+        const options = (item.orderItemOptions || item.options || []).map((option: any) => {
+          const name = option.optionName || option.name || 'Opção';
+          const adjustment = Number.parseFloat(String(option.priceAdjustment || '0'));
+          return Number.isFinite(adjustment) && adjustment !== 0
+            ? `${name} (${formatKwanza(String(option.priceAdjustment))})`
+            : name;
+        });
+        return {
+          name: item.menuItem?.name || item.name || 'Item',
+          quantity: item.quantity,
+          unitPrice: formatKwanza(unitPrice),
+          total: formatKwanza(String(Number.parseFloat(unitPrice) * item.quantity)),
+          options,
+          notes: item.notes || undefined,
+        };
+      }),
+      subtotal: formatKwanza(effectiveSubtotal.toFixed(2)),
+      adjustments,
+      total: formatKwanza(effectiveTotal.toFixed(2)),
+      payments: (order.payments || []).map((payment) => ({
+        method: formatPaymentMethodLabel(payment.paymentMethod),
+        amount: formatKwanza(payment.amount),
+      })),
+      orderNotes: order.orderNotes || undefined,
+    });
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast({
+        title: 'Abertura bloqueada',
+        description: 'Permita janelas pop-up para imprimir a fatura.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    let printStarted = false;
+    const startPrint = () => {
+      if (printStarted || printWindow.closed) return;
+      printStarted = true;
+      printWindow.focus();
+      printWindow.print();
+    };
+    printWindow.onload = () => window.setTimeout(startPrint, 100);
+    printWindow.document.open();
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    window.setTimeout(startPrint, 800);
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant={variant}
+          size={size}
+          disabled={printing || !order || !order.id}
+          data-testid={order?.id ? `button-print-invoice-${order.id}` : 'button-print-invoice-disabled'}
+          className="gap-1"
+        >
+          <Printer className="h-4 w-4" />
+          {!isIconOnly && "Imprimir"}
+          <ChevronDown className="h-3 w-3" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+          {thermalPrinter?.status === 'connected' && (
           <DropdownMenuItem
             onClick={handlePrintThermal}
             data-testid={order?.id ? `menu-item-print-thermal-invoice-${order.id}` : 'menu-item-print-thermal-invoice-disabled'}
           >
             <Printer className="h-4 w-4 mr-2" />
-            Impressora Térmica
+            Impressora térmica ligada
+          </DropdownMenuItem>
+          )}
+          <DropdownMenuItem
+            onClick={handlePrintBrowserThermal}
+            data-testid={order?.id ? `menu-item-print-browser-thermal-invoice-${order.id}` : 'menu-item-print-browser-thermal-invoice-disabled'}
+          >
+            <Printer className="h-4 w-4 mr-2" />
+            Talão térmico 80 mm
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -615,23 +750,9 @@ export function PrintInvoice({
             data-testid={order?.id ? `menu-item-print-browser-invoice-${order.id}` : 'menu-item-print-browser-invoice-disabled'}
           >
             <Printer className="h-4 w-4 mr-2" />
-            Impressão do Navegador
+            Impressão A4
           </DropdownMenuItem>
         </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  }
-
-  return (
-    <Button
-      variant={variant}
-      size={size}
-      onClick={handlePrintBrowser}
-      disabled={printing || !order || !order.id}
-      data-testid={order?.id ? `button-print-invoice-${order.id}` : 'button-print-invoice-disabled'}
-    >
-      <Printer className={isIconOnly ? "h-4 w-4" : "h-4 w-4 mr-2"} />
-      {!isIconOnly && "Imprimir Fatura/Recibo"}
-    </Button>
+    </DropdownMenu>
   );
 }

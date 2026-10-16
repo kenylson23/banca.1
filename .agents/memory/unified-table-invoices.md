@@ -15,6 +15,12 @@ Payment receipts and invoices should use a compact, scannable hierarchy for issu
 
 **How to apply:** Group related fields under clear labels, reduce unnecessary margins and blank lines, and preserve all source fields and calculations unless the user approves a content change.
 
+Thermal invoice work is presentation-only: reuse the current invoice document, totals, tax settings, and validation; do not change financial records, business rules, or unrelated modules.
+
+**Why:** The user explicitly scoped the thermal-layout request to printing and prohibited changes to financial records, business rules, and other modules.
+
+**How to apply:** Keep paper-specific rendering as an alternate consumer of the existing document data. Before starting the app for print verification, check for pending startup migrations because startup may mutate the connected database.
+
 When operators open a table invoice or payment receipt, show the document in a separate browser tab rather than an embedded app preview. Keep a clear link back to table management; printing remains a separate action.
 
 **Why:** The user explicitly requested browser-based invoice and receipt viewing instead of opening documents inside the app.

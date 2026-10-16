@@ -54,9 +54,27 @@ export function renderTableInvoiceHtml(
   const itemRows = document.items.length
     ? document.items.map((item) => renderItemRow(item)).join('')
     : '<tr><td colspan="4">Sem itens registados</td></tr>';
+  const renderThermalItem = (item: TableInvoiceDocument['items'][number], cancelled = false) => `
+    <article class="thermal-item${cancelled ? ' cancelled' : ''}">
+      <div class="thermal-item-heading"><strong>${escapeHtml(item.quantity)} × ${escapeHtml(item.name)}</strong><strong>${moneyLabel(item.total)}</strong></div>
+      <div class="thermal-item-unit">Unitário: ${moneyLabel(item.unitPrice)}</div>
+      ${item.orderNumber || item.orderCreatedAt || item.orderStatus ? `<small>Pedido ${escapeHtml(item.orderNumber ? `#${item.orderNumber}` : 'sem número')}${item.orderCreatedAt ? ` · ${escapeHtml(dateLabel(item.orderCreatedAt))}` : ''} · ${escapeHtml(invoiceOrderStatusLabel(item.orderStatus))}</small>` : ''}
+      ${item.guestName ? `<small>Convidado: ${escapeHtml(item.guestName)}</small>` : ''}
+      ${item.options.length ? `<small>Opções: ${escapeHtml(item.options.map((option) => `${option.name}${option.quantity > 1 ? ` (${option.quantity}x)` : ''}`).join(', '))}</small>` : ''}
+      ${item.notes ? `<small>Obs. do item: ${escapeHtml(item.notes)}</small>` : ''}
+      ${item.orderNotes ? `<small>Obs. do pedido: ${escapeHtml(item.orderNotes)}</small>` : ''}
+      ${item.sharedWithGuestNames.length ? `<small class="shared">Partilhado com: ${escapeHtml(item.sharedWithGuestNames.join(', '))}</small>` : ''}
+      ${cancelled ? '<small class="cancelled-label">Consumo cancelado — não incluído no total</small>' : ''}
+    </article>`;
+  const thermalItemRows = document.items.length
+    ? document.items.map((item) => renderThermalItem(item)).join('')
+    : '<p class="empty">Sem itens registados</p>';
   const cancelledItemRows = document.cancelledItems.length
     ? document.cancelledItems.map((item) => renderItemRow(item, true)).join('')
     : '';
+  const thermalCancelledItemRows = document.cancelledItems
+    .map((item) => renderThermalItem(item, true))
+    .join('');
   const orderNotes = Array.from(new Set(document.items.map((item) => item.orderNotes).filter(Boolean))) as string[];
   const adjustmentRows = [
       ...document.discounts.map((adjustment) => `<div class="line adjustment"><span><strong>${escapeHtml(adjustment.label)}</strong><small>${escapeHtml(invoiceAdjustmentDetail(adjustment))}</small></span><span>- ${moneyLabel(adjustment.amount)}</span></div>`),
@@ -76,7 +94,7 @@ export function renderTableInvoiceHtml(
         <strong>${moneyLabel(payment.amount)}</strong>
       </div>`).join('')
     : '';
-  const guests = document.guests.length && !isThermal
+  const guests = document.guests.length
     ? `<section><h2>Convidados</h2><div class="guests">${document.guests.map((guest) => {
       const details = [guest.customer?.phone, guest.customer?.nif].filter(Boolean).join(' · ');
       return `<span><strong>${escapeHtml(guest.name)}</strong>${guest.seatNumber ? ` · Lugar ${escapeHtml(guest.seatNumber)}` : ''}${details ? `<small>${escapeHtml(details)}</small>` : ''}</span>`;
@@ -100,7 +118,8 @@ export function renderTableInvoiceHtml(
     <div><label>Filial</label><strong>${escapeHtml(branchName)}</strong></div>
     <div><label>Endereço da filial</label><strong>${escapeHtml(branchAddress || '-')}</strong></div>
     <div><label>Telefone da filial</label><strong>${escapeHtml(branchPhone || '-')}</strong></div>
-    <div><label>Caixa / turno</label><strong>${escapeHtml(document.cashRegisterShift?.label || 'Não identificado')}</strong></div>
+     <div><label>Caixa</label><strong>${escapeHtml(document.cashRegisterShift?.cashRegisterName || 'Não identificado')}</strong></div>
+     <div><label>Turno</label><strong>${escapeHtml(document.cashRegisterShift?.label || 'Não identificado')}</strong></div>
     <div><label>Atendido por</label><strong>${escapeHtml(document.paymentOperatorNames.length ? document.paymentOperatorNames.join(', ') : document.session.openedByName || '-')}</strong></div>
     <div><label>Fechado por</label><strong>${escapeHtml(document.session.closedByName || document.cashRegisterShift?.closedByName || '-')}</strong></div>
     <div><label>Abertura</label><strong>${escapeHtml(dateLabel(document.session.startedAt))}</strong></div>
@@ -117,45 +136,76 @@ export function renderTableInvoiceHtml(
     ? `<nav class="no-print return-toolbar"><a href="${escapeHtml(options.returnUrl)}">← Voltar à gestão da mesa</a></nav>`
     : '';
   const compactThermalStyles = isThermal ? `
-      @page { size: 80mm auto; margin: 2mm; }
-      body { width: 72mm; max-width: 72mm; margin: 0 auto; font-size: 9px; line-height: 1.2; }
+      @page { size: 80mm auto; margin: 0; }
+      body { width: 72mm; max-width: 72mm; margin: 0 auto; padding: 2mm 0; font-size: 10px; line-height: 1.3; color: #111; }
       .invoice-document { width: 100%; }
-      .invoice-header { grid-template-columns: 1fr; gap: 7px; padding-bottom: 7px; }
-      .brand { justify-content: flex-start; gap: 7px; }
-      .logo, .logo-fallback { width: 32px; height: 32px; border-radius: 6px; }
-      h1 { font-size: 14px; }
-      .issuer-fiscal { gap: 3px 6px; margin-top: 6px; padding-top: 5px; }
-      .issuer-fiscal-heading { font-size: 7px; }
-      .issuer-detail span { font-size: 7px; }
-      .issuer-detail strong { font-size: 8px; }
-      .document-card { padding: 6px 7px; text-align: left; border-left-width: 3px; }
-      .document-type { font-size: 8px; }
-      .document-number { font-size: 14px; }
-      .document-date { font-size: 8px; }
-      .meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin: 6px 0; }
-      .meta-card { padding: 4px 5px; }
-      .meta-card:last-child { grid-column: 1 / -1; }
-      h2 { font-size: 9px; margin: 8px 0 4px; padding-bottom: 3px; }
-      .customer { grid-template-columns: 1fr; gap: 3px 5px; padding: 5px; }
-      .customer label, .operation-grid label { font-size: 7px; }
-      .customer strong, .operation-grid strong { font-size: 8px; }
-      .operation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
-      .operation-grid > div { padding: 4px; }
-      th, td { padding: 3px 2px; font-size: 8px; }
-      th:nth-child(3), td:nth-child(3) { display: table-cell; }
-      .items-section h2 { margin-top: 9px; }
-      .summary { width: 100%; max-width: none; margin: 8px 0 0; padding: 6px; }
-      .line { gap: 6px; margin: 2px 0; }
-      .grand { font-size: 13px; margin: 5px -6px 4px; padding: 5px 6px; }
-      .payment { gap: 5px; padding: 4px 5px; }
-      .payment small { overflow-wrap: anywhere; }
-      .footer { display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 8px; padding-top: 6px; }
-      .footer-details { font-size: 8px; }
-      .qr-wrap { justify-content: flex-start; gap: 5px; margin-bottom: 2px; }
-      .qr { width: 38px; height: 38px; }
-      .validation { text-align: left; font-size: 8px; }
-      .validation span { font-size: 10px; }
+      .invoice-header { display: block; padding: 0 0 8px; border-bottom: 1px dashed #555; }
+      .brand { justify-content: center; gap: 0; text-align: center; }
+      .logo, .logo-fallback { width: 28px; height: 28px; margin: 0 auto 4px; border-radius: 0; }
+      h1.issuer-name { margin: 0; font-size: 14px; line-height: 1.25; }
+      .eyebrow { display: none; }
+      .branch-name { margin-top: 2px; font-size: 9px; }
+      .issuer-fiscal { grid-template-columns: 1fr; gap: 2px; margin-top: 6px; padding-top: 5px; border-top: 1px dashed #888; text-align: center; }
+      .issuer-fiscal-heading { font-size: 8px; }
+      .issuer-detail span { display: inline; margin-right: 3px; font-size: 9px; }
+      .issuer-detail strong { display: inline; font-size: 9px; }
+      .document-card { align-items: center; gap: 2px; margin-top: 7px; padding: 0; border: 0; background: transparent; text-align: center; }
+      .document-type { color: #111; font-size: 10px; }
+      .document-number { font-size: 13px; }
+      .document-date { color: #222; font-size: 9px; }
+      .status { margin-top: 2px; padding: 0; border-radius: 0; background: transparent !important; color: #111 !important; font-size: 9px; }
+      .meta-grid { grid-template-columns: 1fr; gap: 2px; margin: 6px 0; }
+      .meta-card { padding: 0; border: 0; background: transparent; }
+      .meta-card label, .customer label, .operation-grid label { display: inline; margin: 0 3px 0 0; color: #333; font-size: 9px; letter-spacing: 0; }
+      .meta-card strong, .customer strong, .operation-grid strong { display: inline; font-size: 10px; }
+      .meta-card small, .customer small { display: inline; margin: 0 0 0 4px; }
+      .meta-card:last-child { grid-column: auto; }
+      section { margin-top: 8px; break-inside: auto; }
+      h2 { margin: 0 0 4px; padding: 0 0 3px; border-bottom: 1px dashed #888; color: #111; font-size: 10px; letter-spacing: .02em; }
+      h2::before { display: none; }
+      .customer { display: block; padding: 0; border: 0; border-radius: 0; background: transparent !important; }
+      .customer > div { margin: 2px 0; }
+      .customer .wide { display: block; }
+      .split-note { padding: 0; border: 0; }
+      .operation-grid { display: block; }
+      .operation-grid > div { padding: 1px 0; border: 0; border-radius: 0; background: transparent; }
+      .operation-grid > div > * { overflow-wrap: anywhere; }
+      .invoice-items { display: none; }
+      .thermal-items { display: block; }
+      .thermal-item { padding: 4px 0; border-bottom: 1px dashed #aaa; break-inside: auto; }
+      .thermal-item-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
+      .thermal-item-heading strong:first-child { min-width: 0; overflow-wrap: anywhere; }
+      .thermal-item-heading strong:last-child { flex: 0 0 auto; white-space: nowrap; text-align: right; }
+      .thermal-item-unit { margin: 1px 0; text-align: right; font-size: 9px; }
+      .thermal-item small { display: block; margin-top: 2px; color: #222; font-size: 9px; overflow-wrap: anywhere; white-space: normal; }
+      .thermal-item .cancelled-label { color: #111; font-weight: 700; }
+      .guests { display: block; }
+      .guests span { display: block; padding: 2px 0; border: 0; border-bottom: 1px dotted #bbb; border-radius: 0; background: transparent; overflow-wrap: anywhere; }
+      .guests small { display: block; margin: 1px 0 0; }
+      .summary { width: 100%; max-width: none; margin: 6px 0 0; padding: 5px 0; border: 0; border-top: 1px dashed #555; border-bottom: 1px dashed #555; border-radius: 0; }
+      .line { align-items: flex-start; gap: 6px; margin: 3px 0; }
+      .line > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+      .line > span:last-child { flex: 0 0 auto; }
+      .line.adjustment small { display: block; max-width: none; }
+      .grand { margin: 5px 0; padding: 5px 0; border-top: 1px dashed #555; border-bottom: 1px dashed #555; background: transparent; font-size: 14px; }
+      .payments { overflow: visible; border: 0; border-radius: 0; }
+      .payment { align-items: flex-start; gap: 5px; padding: 3px 0; border-bottom: 1px dotted #bbb; }
+      .payment small { display: block; color: #222; overflow-wrap: anywhere; }
+      .payment strong:last-child { flex: 0 0 auto; white-space: nowrap; }
+      .payment.detail { background: transparent; font-size: 9px; }
+      .empty { padding: 2px 0; }
+      .notes { padding: 0; border: 0; border-radius: 0; background: transparent; }
+      .notes p { margin: 3px 0; overflow-wrap: anywhere; }
+      .footer { display: block; margin-top: 8px; padding-top: 6px; border-top: 1px dashed #555; text-align: center; }
+      .footer-details { color: #222; font-size: 9px; line-height: 1.35; overflow-wrap: anywhere; }
+      .qr-wrap { flex-direction: column; justify-content: center; gap: 3px; margin-bottom: 5px; }
+      .qr { width: 35px; height: 35px; }
+      .validation { text-align: center; font-size: 9px; }
+      .validation span { font-size: 11px; }
       .verification-url { max-width: 100%; }
+      .return-toolbar { display: none !important; }
+      .cancelled-section { opacity: 1; }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     ` : '';
 
   return `<!doctype html>
@@ -263,6 +313,7 @@ export function renderTableInvoiceHtml(
       .validation strong, .validation span { display: block; }
       .validation span { margin-top: 2px; font-size: 12px; font-weight: 800; letter-spacing: .1em; }
       .verification-url { display: block; overflow-wrap: anywhere; }
+      .thermal-items { display: none; }
       .return-toolbar { max-width: 780px; margin: 12px auto; padding: 0 12px; display: flex; justify-content: flex-end; }
       .return-toolbar a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 8px; background: #1d4ed8; color: #fff; font-weight: 700; text-decoration: none; }
       @media screen and (max-width: 640px) {
@@ -305,13 +356,14 @@ export function renderTableInvoiceHtml(
 
       <section class="items-section">
         <h2>Produtos e serviços</h2>
-        <table aria-label="Produtos e serviços faturados">
+        <table class="invoice-items" aria-label="Produtos e serviços faturados">
           <thead><tr><th scope="col">Qtd.</th><th scope="col">Descrição</th><th scope="col">Preço unit.</th><th scope="col">Total</th></tr></thead>
           <tbody>${itemRows}</tbody>
         </table>
+        <div class="thermal-items" aria-label="Produtos e serviços faturados">${thermalItemRows}</div>
       </section>
       ${orderNotes.length ? `<section class="notes-section"><h2>Observações dos pedidos</h2><div class="notes">${orderNotes.map((note) => `<p>${escapeHtml(note)}</p>`).join('')}</div></section>` : ''}
-      ${cancelledItemRows ? `<section class="cancelled-section"><h2>Itens cancelados</h2><table aria-label="Itens cancelados"><thead><tr><th scope="col">Qtd.</th><th scope="col">Descrição</th><th scope="col">Preço unit.</th><th scope="col">Total</th></tr></thead><tbody>${cancelledItemRows}</tbody></table></section>` : ''}
+      ${cancelledItemRows ? `<section class="cancelled-section"><h2>Itens cancelados</h2><table class="invoice-items" aria-label="Itens cancelados"><thead><tr><th scope="col">Qtd.</th><th scope="col">Descrição</th><th scope="col">Preço unit.</th><th scope="col">Total</th></tr></thead><tbody>${cancelledItemRows}</tbody></table><div class="thermal-items" aria-label="Itens cancelados">${thermalCancelledItemRows}</div></section>` : ''}
 
       <section class="summary-section">
         <h2>Resumo financeiro</h2>

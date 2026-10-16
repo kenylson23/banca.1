@@ -248,7 +248,7 @@ export function SessionInvoice({
     receiptWindow.focus();
   };
 
-  const printBrowser = async (reprint = false) => {
+  const printBrowser = async (paper: 'a4' | '80mm' = 'a4', reprint = false) => {
     if (reprint) await recordReprint();
     const printWindow = window.open('', '_blank', 'width=800,height=900');
     if (!printWindow) {
@@ -269,7 +269,7 @@ export function SessionInvoice({
     printWindow.onload = () => window.setTimeout(startPrint, 100);
     printWindow.document.open();
     printWindow.document.write(renderTableInvoiceHtml(data, {
-      paper: 'a4',
+      paper,
       qrCodeDataUrl,
       returnUrl: window.location.pathname,
     }));
@@ -319,9 +319,10 @@ export function SessionInvoice({
           <div className="flex flex-wrap items-center gap-2">
             <Badge className={statusColors[data.totals.paymentStatus]}>{invoicePaymentStatusLabel(data.totals.paymentStatus)}</Badge>
             <Button size="sm" variant="outline" onClick={openInvoiceInBrowser}><Receipt className="mr-2 h-4 w-4" /> Abrir fatura no navegador</Button>
-            <Button size="sm" variant="outline" onClick={() => printBrowser()}><Printer className="mr-2 h-4 w-4" /> Imprimir A4</Button>
-            <Button size="sm" variant="outline" disabled={isRecordingReprint} onClick={() => printBrowser(true)}><RotateCcw className="mr-2 h-4 w-4" /> Reimprimir</Button>
-             {thermalPrinter?.status === 'connected' && <Button size="sm" variant="outline" onClick={() => printThermal(true)}><Receipt className="mr-2 h-4 w-4" /> Térmica</Button>}
+             <Button size="sm" variant="outline" onClick={() => printBrowser('a4')}><Printer className="mr-2 h-4 w-4" /> Imprimir A4</Button>
+             <Button size="sm" variant="outline" onClick={() => printBrowser('80mm')}><Receipt className="mr-2 h-4 w-4" /> Talão 80 mm</Button>
+             <Button size="sm" variant="outline" disabled={isRecordingReprint} onClick={() => printBrowser('a4', true)}><RotateCcw className="mr-2 h-4 w-4" /> Reimprimir A4</Button>
+              {thermalPrinter?.status === 'connected' && <Button size="sm" variant="outline" onClick={() => printThermal(true)}><Receipt className="mr-2 h-4 w-4" /> Impressora ligada</Button>}
           </div>
         </div>
         <div
