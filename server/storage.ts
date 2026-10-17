@@ -188,6 +188,11 @@ import type { PgTransaction } from "drizzle-orm/pg-core";
 import { alias } from "drizzle-orm/pg-core";
 import { canUsePlanLimit } from "@shared/planAccess";
 import { isOrderPaid } from "@shared/calculations";
+import {
+  calculateCashRegisterCurrentBalance,
+  calculateCashRegisterDifference,
+  calculateCashRegisterShiftTotals,
+} from "@shared/cash-register-shift";
 import { nanoid } from "nanoid";
 
 export const NO_OPEN_CASH_REGISTER_MESSAGE =
@@ -607,7 +612,7 @@ export interface IStorage {
   deleteCashRegister(id: string, restaurantId: string): Promise<void>;
   
   // Cash Register Shift operations
-  getCashRegisterShifts(restaurantId: string, branchId: string | null, filters?: { status?: 'aberto' | 'fechado'; cashRegisterId?: string }): Promise<Array<CashRegisterShift & { cashRegister: CashRegister; openedBy: User }>>;
+  getCashRegisterShifts(restaurantId: string, branchId: string | null, filters?: { status?: 'aberto' | 'fechado'; cashRegisterId?: string }): Promise<Array<CashRegisterShift & { cashRegister: CashRegister; openedBy: User; closedBy?: User; totalAdjustments?: string }>>;
   getCashRegisterShiftById(id: string): Promise<CashRegisterShift | undefined>;
   getActiveCashRegisterShift(cashRegisterId: string, restaurantId: string): Promise<CashRegisterShift | undefined>;
   getOpenCashRegisterShiftForBranch(restaurantId: string, branchId: string | null): Promise<CashRegisterShift | undefined>;
@@ -617,7 +622,7 @@ export interface IStorage {
     restaurantId: string,
     userId: string,
     data: CloseCashRegisterShift,
-  ): Promise<CashRegisterShift & { paymentBreakdown: Record<string, string> }>;
+  ): Promise<CashRegisterShift & { paymentBreakdown: Record<string, string>; totalAdjustments: string }>;
   
   // Financial Category operations
   getFinancialCategories(restaurantId: string, branchId: string | null, type?: 'receita' | 'despesa'): Promise<FinancialCategory[]>;
@@ -2227,6 +2232,11 @@ export class DatabaseStorage implements IStorage {
     if (!table) {
       throw new Error('Table not found');
     }
+    const openShift = await this.getOpenCashRegisterShiftForBranch(
+      restaurantId,
+      table.branchId || null,
+    );
+    if (!openShift) throw new CashRegisterClosedError();
 
     const [newPayment] = await db.insert(tablePayments).values({
       ...payment,
@@ -3911,23 +3921,31 @@ export class DatabaseStorage implements IStorage {
         // O saldo do caixa é a posição financeira operacional, não apenas o
         // dinheiro físico; restringir este fluxo a dinheiro fazia vendas por
         // Multicaixa, transferência e cartão desaparecerem do saldo.
-        const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, order.branchId || null);
-        if (activeCashRegisters.length > 0) {
-          const cashRegister = activeCashRegisters[0];
-          const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
-          if (activeShift && cashRegister) {
-            cashRegisterId = cashRegister.id;
-            shiftId = activeShift.id;
+        const candidateShift = await this.getOpenCashRegisterShiftForBranch(
+          restaurantId,
+          order.branchId || null,
+        );
+        if (!candidateShift) throw new CashRegisterClosedError();
+        const [activeShift] = await tx
+          .select()
+          .from(cashRegisterShifts)
+          .where(and(
+            eq(cashRegisterShifts.id, candidateShift.id),
+            eq(cashRegisterShifts.status, 'aberto'),
+          ))
+          .for('update')
+          .limit(1);
+        if (!activeShift) throw new CashRegisterClosedError();
 
-            await tx
-              .update(cashRegisters)
-              .set({
-                currentBalance: sql`${cashRegisters.currentBalance} + ${parseFloat(data.amount)}`,
-                updatedAt: new Date(),
-              })
-              .where(eq(cashRegisters.id, cashRegister.id));
-          }
-        }
+        cashRegisterId = activeShift.cashRegisterId;
+        shiftId = activeShift.id;
+        await tx
+          .update(cashRegisters)
+          .set({
+            currentBalance: sql`${cashRegisters.currentBalance} + ${parseFloat(data.amount)}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(cashRegisters.id, cashRegisterId));
 
         await tx
           .insert(financialTransactions)
@@ -4288,25 +4306,31 @@ export class DatabaseStorage implements IStorage {
         let cashRegisterId: string | null = null;
         let shiftId: string | null = null;
 
-        const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, order.branchId || null);
-        if (activeCashRegisters.length > 0) {
-          const cashRegister = activeCashRegisters[0];
-          const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
-          
-          if (activeShift && cashRegister) {
-            cashRegisterId = cashRegister.id;
-            shiftId = activeShift.id;
+        const candidateShift = await this.getOpenCashRegisterShiftForBranch(
+          restaurantId,
+          order.branchId || null,
+        );
+        if (!candidateShift) throw new CashRegisterClosedError();
+        const [activeShift] = await tx
+          .select()
+          .from(cashRegisterShifts)
+          .where(and(
+            eq(cashRegisterShifts.id, candidateShift.id),
+            eq(cashRegisterShifts.status, 'aberto'),
+          ))
+          .for('update')
+          .limit(1);
+        if (!activeShift) throw new CashRegisterClosedError();
 
-            // Deduzir do saldo do caixa
-            await tx
-              .update(cashRegisters)
-              .set({
-                currentBalance: sql`${cashRegisters.currentBalance} - ${paidAmount}`,
-                updatedAt: new Date(),
-              })
-              .where(eq(cashRegisters.id, cashRegister.id));
-          }
-        }
+        cashRegisterId = activeShift.cashRegisterId;
+        shiftId = activeShift.id;
+        await tx
+          .update(cashRegisters)
+          .set({
+            currentBalance: sql`${cashRegisters.currentBalance} - ${paidAmount}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(cashRegisters.id, cashRegisterId));
 
         // Criar transação financeira de estorno
         await tx
@@ -6734,14 +6758,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   /**
-   * Rebuilds displayed cash balances from the complete financial history.
-   *
-   * current_balance is kept for backwards compatibility and for fast writes,
-   * but it cannot recover legacy table payments that were recorded while no
-   * shift was open. Payments may also exist in both table_payments and
-   * financial_transactions, so the latter is treated as the source for rows
-   * already linked to a register and the table payment is only added when it
-   * is not represented by a linked financial transaction.
+   * Registers with shift history reflect the active session or the latest
+   * counted close, never the lifetime sum of movements from previous shifts.
+   * Unassigned legacy payments are only reconciled while no shift history
+   * exists, when they can still be attributed without changing an old close.
    */
   private async reconcileCashRegisterBalances(
     restaurantId: string,
@@ -6762,28 +6782,33 @@ export class DatabaseStorage implements IStorage {
       .from(financialTransactions)
       .where(and(...transactionConditions));
 
-    const balances = new Map(
-      registers.map((register) => [
-        register.id,
-        Number.parseFloat(register.initialBalance || '0'),
-      ]),
-    );
+    const shiftConditions = [eq(cashRegisterShifts.restaurantId, restaurantId)];
+    if (branchId !== null) {
+      shiftConditions.push(eq(cashRegisterShifts.branchId, branchId));
+    }
+    const shifts = await db
+      .select()
+      .from(cashRegisterShifts)
+      .where(and(...shiftConditions))
+      .orderBy(desc(cashRegisterShifts.openedAt));
+    const shiftsByRegister = new Map<string, CashRegisterShift[]>();
+    for (const shift of shifts) {
+      const registerShifts = shiftsByRegister.get(shift.cashRegisterId) || [];
+      registerShifts.push(shift);
+      shiftsByRegister.set(shift.cashRegisterId, registerShifts);
+    }
 
-    for (const transaction of transactions) {
-      if (!transaction.cashRegisterId || !balances.has(transaction.cashRegisterId)) {
-        continue;
-      }
-
-      const amount = Number.parseFloat(transaction.amount || '0');
-      if (!Number.isFinite(amount)) {
-        continue;
-      }
-
-      const signedAmount = transaction.type === 'despesa' ? -amount : amount;
-      balances.set(
-        transaction.cashRegisterId,
-        (balances.get(transaction.cashRegisterId) || 0) + signedAmount,
+    const balances = new Map<string, number>();
+    for (const register of registers) {
+      const registerTransactions = transactions.filter(
+        (transaction) => transaction.cashRegisterId === register.id,
       );
+      const balance = calculateCashRegisterCurrentBalance(
+        register.initialBalance || '0',
+        shiftsByRegister.get(register.id) || [],
+        registerTransactions,
+      );
+      balances.set(register.id, Number.parseFloat(balance));
     }
 
     const tablePaymentConditions = [eq(tablePayments.restaurantId, restaurantId)];
@@ -6800,32 +6825,15 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(tables, eq(tablePayments.tableId, tables.id))
       .where(and(...tablePaymentConditions));
 
-    const linkedTransactions = transactions.filter((transaction) => Boolean(transaction.cashRegisterId));
+    const linkedTransactions = transactions.filter(
+      (transaction) => Boolean(transaction.cashRegisterId),
+    );
     let unallocatedBalance = 0;
-
-    // A legacy payment has no register id. When there is only one possible
-    // register, or one active register for the branch, it can be reconciled
-    // safely to that register. Otherwise it remains visible in the summary
-    // total without being assigned to the wrong physical register.
-    const activeRegisterIds = new Set<string>();
-    const activeShifts = await db
-      .select({ cashRegisterId: cashRegisterShifts.cashRegisterId })
-      .from(cashRegisterShifts)
-      .where(and(
-        eq(cashRegisterShifts.restaurantId, restaurantId),
-        eq(cashRegisterShifts.status, 'aberto'),
-      ));
-    for (const shift of activeShifts) {
-      if (balances.has(shift.cashRegisterId)) {
-        activeRegisterIds.add(shift.cashRegisterId);
-      }
-    }
-
-    const fallbackRegisterId = registers.length === 1
+    const hasShiftHistory = shifts.length > 0;
+    const fallbackRegisterId = !hasShiftHistory && registers.length === 1
       ? registers[0].id
-      : activeRegisterIds.size === 1
-        ? Array.from(activeRegisterIds)[0]
-        : null;
+      : null;
+    const matchedLegacyTransactions = new Set<string>();
 
     for (const { payment } of legacyPayments) {
       const paymentAmount = Number.parseFloat(payment.amount || '0');
@@ -6835,23 +6843,23 @@ export class DatabaseStorage implements IStorage {
 
       const note = payment.notes || '';
       const orderShortId = note.match(/Pagamento via Pedido #([\w-]+)/i)?.[1];
-      const representedByLinkedTransaction = linkedTransactions.some((transaction) => {
-        const samePayment = (transaction.note || '').includes(payment.id);
-        if (samePayment) {
-          return true;
-        }
+      const exactMatch = linkedTransactions.find((transaction) =>
+        (transaction.note || '').includes(payment.id),
+      );
+      const legacyMatch = exactMatch || (orderShortId
+        ? linkedTransactions.find((transaction) => {
+            if (matchedLegacyTransactions.has(transaction.id)) return false;
+            const referenceOrderId = transaction.referenceOrderId || '';
+            const transactionAmount = Number.parseFloat(transaction.amount || '0');
+            return referenceOrderId.slice(0, orderShortId.length).toLowerCase() === orderShortId.toLowerCase()
+              && Number.isFinite(transactionAmount)
+              && transactionAmount.toFixed(2) === paymentAmount.toFixed(2)
+              && transaction.paymentMethod === payment.paymentMethod;
+          })
+        : undefined);
 
-        if (!orderShortId) {
-          return false;
-        }
-
-        const referenceOrderId = transaction.referenceOrderId || '';
-        return referenceOrderId.slice(0, orderShortId.length).toLowerCase() === orderShortId.toLowerCase()
-          && Number.parseFloat(transaction.amount || '0').toFixed(2) === paymentAmount.toFixed(2)
-          && transaction.paymentMethod === payment.paymentMethod;
-      });
-
-      if (representedByLinkedTransaction) {
+      if (legacyMatch) {
+        matchedLegacyTransactions.add(legacyMatch.id);
         continue;
       }
 
@@ -6860,7 +6868,7 @@ export class DatabaseStorage implements IStorage {
           fallbackRegisterId,
           (balances.get(fallbackRegisterId) || 0) + paymentAmount,
         );
-      } else {
+      } else if (!hasShiftHistory) {
         unallocatedBalance += paymentAmount;
       }
     }
@@ -6991,28 +6999,47 @@ export class DatabaseStorage implements IStorage {
     userId: string, 
     data: Omit<InsertFinancialTransaction, 'restaurantId' | 'recordedByUserId'>
   ): Promise<FinancialTransaction> {
-    let activeShift: CashRegisterShift | undefined = undefined;
+    if (!data.cashRegisterId) {
+      throw new CashRegisterClosedError();
+    }
 
-    if (data.cashRegisterId) {
-      activeShift = await this.getActiveCashRegisterShift(data.cashRegisterId, restaurantId);
-      
-      if (!activeShift) {
-        throw new Error('Não existe um turno aberto para esta caixa. Abra um turno antes de registrar lançamentos.');
-      }
+    const activeShift = await this.getActiveCashRegisterShift(data.cashRegisterId, restaurantId);
+    if (!activeShift) throw new CashRegisterClosedError();
+    if (data.shiftId && data.shiftId !== activeShift.id) {
+      throw new CashRegisterClosedError();
+    }
+    if (
+      data.branchId !== undefined
+      && (data.branchId || null) !== (activeShift.branchId || null)
+    ) {
+      throw new Error('A caixa selecionada não pertence à filial ativa.');
     }
 
     const amount = parseFloat(data.amount);
     const amountChange = data.type === 'despesa' ? -amount : amount;
 
     const [transaction] = await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const [lockedShift] = await tx
+        .select()
+        .from(cashRegisterShifts)
+        .where(and(
+          eq(cashRegisterShifts.id, activeShift.id),
+          eq(cashRegisterShifts.cashRegisterId, data.cashRegisterId!),
+          eq(cashRegisterShifts.restaurantId, restaurantId),
+          eq(cashRegisterShifts.status, 'aberto'),
+        ))
+        .for('update')
+        .limit(1);
+      if (!lockedShift) throw new CashRegisterClosedError();
+
       const [newTransaction] = await tx
         .insert(financialTransactions)
         .values({
           restaurantId,
           recordedByUserId: userId,
-          branchId: data.branchId || null,
-          cashRegisterId: data.cashRegisterId || null,
-          shiftId: data.shiftId || (activeShift?.id || null),
+          branchId: data.branchId ?? lockedShift.branchId ?? null,
+          cashRegisterId: data.cashRegisterId,
+          shiftId: lockedShift.id,
           categoryId: data.categoryId,
           type: data.type,
           origin: data.origin || 'manual',
@@ -7028,15 +7055,13 @@ export class DatabaseStorage implements IStorage {
         })
         .returning();
 
-      if (data.cashRegisterId) {
-        await tx
-          .update(cashRegisters)
-          .set({
-            currentBalance: sql`${cashRegisters.currentBalance} + ${amountChange}`,
-            updatedAt: new Date(),
-          })
-          .where(eq(cashRegisters.id, data.cashRegisterId));
-      }
+      await tx
+        .update(cashRegisters)
+        .set({
+          currentBalance: sql`${cashRegisters.currentBalance} + ${amountChange}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(cashRegisters.id, data.cashRegisterId!));
 
       return [newTransaction];
     });
@@ -7080,8 +7105,44 @@ export class DatabaseStorage implements IStorage {
     const categoryName = isRefund ? 'Estornos e Reembolsos' : 'Vendas Mesa';
     const paymentMethod = payment.paymentMethod as 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
     const branchId = table.branchId || null;
+    const candidateShift = await this.getOpenCashRegisterShiftForBranch(restaurantId, branchId);
+    if (!candidateShift) throw new CashRegisterClosedError();
 
     return await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const [storedPayment] = await tx
+        .select()
+        .from(tablePayments)
+        .where(eq(tablePayments.id, payment.id))
+        .for('update')
+        .limit(1);
+      if (!storedPayment) {
+        throw new Error('Pagamento de mesa não encontrado para lançamento financeiro.');
+      }
+
+      const paymentMarker = `Pagamento de mesa ${payment.id}`;
+      const [existingTransaction] = await tx
+        .select()
+        .from(financialTransactions)
+        .where(and(
+          eq(financialTransactions.restaurantId, restaurantId),
+          sql`${financialTransactions.note} LIKE ${`%${paymentMarker}%`}`,
+        ))
+        .limit(1);
+      if (existingTransaction) return existingTransaction;
+
+      const [activeShift] = await tx
+        .select()
+        .from(cashRegisterShifts)
+        .where(and(
+          eq(cashRegisterShifts.id, candidateShift.id),
+          eq(cashRegisterShifts.cashRegisterId, candidateShift.cashRegisterId),
+          eq(cashRegisterShifts.restaurantId, restaurantId),
+          eq(cashRegisterShifts.status, 'aberto'),
+        ))
+        .for('update')
+        .limit(1);
+      if (!activeShift) throw new CashRegisterClosedError();
+
       const [existingCategory] = await tx
         .select()
         .from(financialCategories)
@@ -7110,28 +7171,13 @@ export class DatabaseStorage implements IStorage {
         categoryId = category.id;
       }
 
-      let cashRegisterId: string | null = null;
-      let shiftId: string | null = null;
-
-      // Todos os métodos de pagamento de mesa devem compor o saldo do caixa.
-      const activeCashRegisters = await this.getCashRegistersWithActiveShift(restaurantId, branchId);
-      const cashRegister = activeCashRegisters[0];
-
-      if (cashRegister) {
-        const activeShift = await this.getActiveCashRegisterShift(cashRegister.id, restaurantId);
-        if (activeShift) {
-          cashRegisterId = cashRegister.id;
-          shiftId = activeShift.id;
-
-          await tx
-            .update(cashRegisters)
-            .set({
-              currentBalance: sql`${cashRegisters.currentBalance} + ${isRefund ? -Number(amount) : Number(amount)}`,
-              updatedAt: new Date(),
-            })
-            .where(eq(cashRegisters.id, cashRegister.id));
-        }
-      }
+      await tx
+        .update(cashRegisters)
+        .set({
+          currentBalance: sql`${cashRegisters.currentBalance} + ${isRefund ? -Number(amount) : Number(amount)}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(cashRegisters.id, activeShift.cashRegisterId));
 
       const [transaction] = await tx
         .insert(financialTransactions)
@@ -7139,8 +7185,8 @@ export class DatabaseStorage implements IStorage {
           restaurantId,
           recordedByUserId: userId,
           branchId,
-          cashRegisterId,
-          shiftId,
+          cashRegisterId: activeShift.cashRegisterId,
+          shiftId: activeShift.id,
           categoryId,
           type,
           origin: 'pdv',
@@ -7450,45 +7496,60 @@ export class DatabaseStorage implements IStorage {
       return shift;
     }
 
-    const allTransactions = await db
-      .select()
-      .from(financialTransactions)
-      .where(eq(financialTransactions.shiftId, shift.id));
+    return await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const [lockedShift] = await tx
+        .select()
+        .from(cashRegisterShifts)
+        .where(eq(cashRegisterShifts.id, shift.id))
+        .for('update')
+        .limit(1);
 
-    const totalRevenues = allTransactions
-      .filter((transaction: FinancialTransaction) => transaction.type === 'receita')
-      .reduce((sum: number, transaction: FinancialTransaction) => sum + parseFloat(transaction.amount), 0);
-    const totalExpenses = allTransactions
-      .filter((transaction: FinancialTransaction) => transaction.type === 'despesa')
-      .reduce((sum: number, transaction: FinancialTransaction) => sum + parseFloat(transaction.amount), 0);
-    const totalAdjustments = allTransactions
-      .filter((transaction: FinancialTransaction) => transaction.type === 'ajuste')
-      .reduce((sum: number, transaction: FinancialTransaction) => sum + parseFloat(transaction.amount), 0);
-    const closingAmountExpected = totalRevenues - totalExpenses + totalAdjustments;
-    const automaticNotes = [shift.notes, 'Fechado automaticamente após 24 horas.']
-      .filter(Boolean)
-      .join(' ');
+      if (!lockedShift || lockedShift.status !== 'aberto') return undefined;
+      if (!lockedShift.openedAt || Date.now() - lockedShift.openedAt.getTime() < CASH_REGISTER_SHIFT_MAX_AGE_MS) {
+        return lockedShift;
+      }
 
-    const [closedShift] = await db
-      .update(cashRegisterShifts)
-      .set({
-        status: 'fechado',
-        closedByUserId: null,
-        closingAmountExpected: closingAmountExpected.toFixed(2),
-        closingAmountCounted: closingAmountExpected.toFixed(2),
-        difference: '0.00',
-        totalRevenues: totalRevenues.toFixed(2),
-        totalExpenses: totalExpenses.toFixed(2),
-        closedAt: new Date(),
-        notes: automaticNotes,
-      })
-      .where(and(
-        eq(cashRegisterShifts.id, shift.id),
-        eq(cashRegisterShifts.status, 'aberto'),
-      ))
-      .returning();
+      const allTransactions = await tx
+        .select()
+        .from(financialTransactions)
+        .where(eq(financialTransactions.shiftId, lockedShift.id));
+      const totals = calculateCashRegisterShiftTotals(lockedShift.openingAmount, allTransactions);
+      const automaticNotes = [
+        lockedShift.notes,
+        'Fechado automaticamente após 24 horas; valor contado assumido igual ao esperado.',
+      ].filter(Boolean).join(' ');
 
-    return closedShift;
+      const [closedShift] = await tx
+        .update(cashRegisterShifts)
+        .set({
+          status: 'fechado',
+          closedByUserId: null,
+          closingAmountExpected: totals.closingAmountExpected,
+          closingAmountCounted: totals.closingAmountExpected,
+          difference: '0.00',
+          totalRevenues: totals.totalRevenues,
+          totalExpenses: totals.totalExpenses,
+          closedAt: new Date(),
+          notes: automaticNotes,
+        })
+        .where(and(
+          eq(cashRegisterShifts.id, lockedShift.id),
+          eq(cashRegisterShifts.status, 'aberto'),
+        ))
+        .returning();
+
+      if (closedShift) {
+        await tx
+          .update(cashRegisters)
+          .set({
+            currentBalance: totals.closingAmountExpected,
+            updatedAt: new Date(),
+          })
+          .where(eq(cashRegisters.id, lockedShift.cashRegisterId));
+      }
+
+      return closedShift;
+    });
   }
 
   private async expireOpenCashRegisterShifts(
@@ -7523,7 +7584,7 @@ export class DatabaseStorage implements IStorage {
       cashRegisterId?: string;
       status?: 'aberto' | 'fechado';
     }
-  ): Promise<Array<CashRegisterShift & { cashRegister: CashRegister; openedBy: User; closedBy?: User }>> {
+  ): Promise<Array<CashRegisterShift & { cashRegister: CashRegister; openedBy: User; closedBy?: User; totalAdjustments?: string }>> {
     await this.expireOpenCashRegisterShifts(restaurantId, branchId, filters?.cashRegisterId);
 
     let conditions = [eq(cashRegisterShifts.restaurantId, restaurantId)];
@@ -7567,25 +7628,20 @@ export class DatabaseStorage implements IStorage {
         closedBy: r.closedBy || undefined,
       };
 
-      if (shift.status !== 'aberto') {
-        return shift;
-      }
-
       const shiftTransactions = await db
         .select()
         .from(financialTransactions)
         .where(eq(financialTransactions.shiftId, shift.id));
+      const totals = calculateCashRegisterShiftTotals(shift.openingAmount, shiftTransactions);
 
       return {
         ...shift,
-        totalRevenues: shiftTransactions
-          .filter((transaction: FinancialTransaction) => transaction.type === 'receita')
-          .reduce((sum: number, transaction: FinancialTransaction) => sum + parseFloat(transaction.amount), 0)
-          .toFixed(2),
-        totalExpenses: shiftTransactions
-          .filter((transaction: FinancialTransaction) => transaction.type === 'despesa')
-          .reduce((sum: number, transaction: FinancialTransaction) => sum + parseFloat(transaction.amount), 0)
-          .toFixed(2),
+        totalRevenues: shift.status === 'aberto' ? totals.totalRevenues : shift.totalRevenues,
+        totalExpenses: shift.status === 'aberto' ? totals.totalExpenses : shift.totalExpenses,
+        totalAdjustments: totals.totalAdjustments,
+        closingAmountExpected: shift.status === 'aberto'
+          ? totals.closingAmountExpected
+          : shift.closingAmountExpected,
       };
     }));
   }
@@ -7599,9 +7655,12 @@ export class DatabaseStorage implements IStorage {
         eq(cashRegisterShifts.restaurantId, restaurantId),
         eq(cashRegisterShifts.status, 'aberto')
       ))
+      .orderBy(desc(cashRegisterShifts.openedAt))
       .limit(1);
 
-    return shift ? await this.closeExpiredCashRegisterShift(shift) : undefined;
+    if (!shift) return undefined;
+    const currentShift = await this.closeExpiredCashRegisterShift(shift);
+    return currentShift?.status === 'aberto' ? currentShift : undefined;
   }
 
   async getOpenCashRegisterShiftForBranch(
@@ -7674,6 +7733,37 @@ export class DatabaseStorage implements IStorage {
     }
 
     return await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const [register] = await tx
+        .select()
+        .from(cashRegisters)
+        .where(and(
+          eq(cashRegisters.id, data.cashRegisterId),
+          eq(cashRegisters.restaurantId, restaurantId),
+        ))
+        .for('update')
+        .limit(1);
+
+      if (!register || register.isActive !== 1) {
+        throw new Error('Caixa não encontrada ou inativa.');
+      }
+      if ((register.branchId || null) !== (data.branchId || null)) {
+        throw new Error('A caixa selecionada não pertence à filial ativa.');
+      }
+
+      const [concurrentOpenShift] = await tx
+        .select()
+        .from(cashRegisterShifts)
+        .where(and(
+          eq(cashRegisterShifts.cashRegisterId, data.cashRegisterId),
+          eq(cashRegisterShifts.restaurantId, restaurantId),
+          eq(cashRegisterShifts.status, 'aberto'),
+        ))
+        .for('update')
+        .limit(1);
+      if (concurrentOpenShift) {
+        throw new Error('Já existe um turno aberto para esta caixa. Feche o turno atual antes de abrir um novo.');
+      }
+
       const [shift] = await tx
         .insert(cashRegisterShifts)
         .values({
@@ -7735,7 +7825,7 @@ export class DatabaseStorage implements IStorage {
       await tx
         .update(cashRegisters)
         .set({
-          currentBalance: sql`${cashRegisters.currentBalance} + ${data.openingAmount}`,
+          currentBalance: data.openingAmount,
           updatedAt: new Date(),
         })
         .where(eq(cashRegisters.id, data.cashRegisterId));
