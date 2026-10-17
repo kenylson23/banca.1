@@ -20,6 +20,7 @@ import {
 export type CashRegisterCloseReport = CashRegisterShift & {
   cashRegisterName: string;
   paymentBreakdown?: Record<string, string>;
+  totalAdjustments?: string;
 };
 
 interface CashRegisterCloseReportDialogProps {
@@ -132,6 +133,7 @@ export function CashRegisterCloseReportDialog({
             <div><span class="label">Saldo inicial</span><span class="value">${escapeHtml(formatKwanza(report.openingAmount))}</span></div>
             <div><span class="label">Receitas</span><span class="value positive">+${escapeHtml(formatKwanza(report.totalRevenues || '0'))}</span></div>
             <div><span class="label">Despesas</span><span class="value negative">-${escapeHtml(formatKwanza(report.totalExpenses || '0'))}</span></div>
+            <div><span class="label">Ajustes</span><span class="value">+${escapeHtml(formatKwanza(report.totalAdjustments || '0'))}</span></div>
             <div><span class="label">Valor esperado</span><span class="value">${escapeHtml(formatKwanza(report.closingAmountExpected || '0'))}</span></div>
             <div><span class="label">Valor contado</span><span class="value">${escapeHtml(formatKwanza(report.closingAmountCounted || '0'))}</span></div>
             <div><span class="label">Diferença</span><span class="value ${differenceClass}">${escapeHtml(formatKwanza(report.difference || '0'))}</span></div>
@@ -177,6 +179,7 @@ export function CashRegisterCloseReportDialog({
             <SummaryItem label="Saldo inicial" value={formatKwanza(report.openingAmount)} />
             <SummaryItem label="Receitas" value={`+${formatKwanza(report.totalRevenues || '0')}`} tone="positive" />
             <SummaryItem label="Despesas" value={`-${formatKwanza(report.totalExpenses || '0')}`} tone="negative" />
+            <SummaryItem label="Ajustes" value={`+${formatKwanza(report.totalAdjustments || '0')}`} />
             <SummaryItem label="Valor esperado" value={formatKwanza(report.closingAmountExpected || '0')} />
             <SummaryItem label="Valor contado" value={formatKwanza(report.closingAmountCounted || '0')} />
             <SummaryItem

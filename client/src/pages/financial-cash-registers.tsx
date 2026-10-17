@@ -34,6 +34,10 @@ import { QuickActionsWidget } from "@/components/quick-actions-widget";
 import { ActivityFeed } from "@/components/activity-feed";
 import { ShimmerSkeleton } from "@/components/shimmer-skeleton";
 import type { CashRegister, CashRegisterShift } from "@shared/schema";
+import {
+  calculateCashRegisterDifference,
+  calculateExpectedCashBalance,
+} from "@shared/cash-register-shift";
 import { format } from "date-fns";
 import { formatKwanza } from "@/lib/formatters";
 import {
@@ -45,6 +49,16 @@ interface ShiftWithDetails extends CashRegisterShift {
   cashRegister: CashRegister;
   openedBy: { id: string; firstName?: string; email: string };
   closedBy?: { id: string; firstName?: string; email: string };
+  totalAdjustments?: string;
+}
+
+function expectedForShift(shift: ShiftWithDetails): string {
+  return shift.closingAmountExpected || calculateExpectedCashBalance(
+    shift.openingAmount,
+    shift.totalRevenues || "0",
+    shift.totalExpenses || "0",
+    shift.totalAdjustments || "0",
+  );
 }
 
 export default function FinancialCashRegisters() {
@@ -73,6 +87,10 @@ export default function FinancialCashRegisters() {
     closingAmountCounted: "0.00",
     notes: "",
   });
+  const selectedShiftExpected = selectedShift ? expectedForShift(selectedShift) : "0.00";
+  const closeDifference = closeShiftForm.closingAmountCounted
+    ? calculateCashRegisterDifference(closeShiftForm.closingAmountCounted, selectedShiftExpected)
+    : "0.00";
 
   const { data: cashRegisters, isLoading: registersLoading } = useQuery<CashRegister[]>({
     queryKey: ["/api/financial/cash-registers"],
@@ -207,7 +225,11 @@ export default function FinancialCashRegisters() {
 
   const openShiftMutation = useMutation({
     mutationFn: async (data: typeof shiftForm) => {
-      await apiRequest("POST", "/api/cash-register-shifts", data);
+      const register = cashRegisters?.find((item) => item.id === data.cashRegisterId);
+      await apiRequest("POST", "/api/cash-register-shifts", {
+        ...data,
+        branchId: register?.branchId ?? null,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cash-register-shifts"] });
@@ -261,13 +283,11 @@ export default function FinancialCashRegisters() {
   };
 
   const handleCloseShift = (shift?: ShiftWithDetails) => {
-    if (shift) {
-      setSelectedShift(shift);
-      setCloseShiftDialog(true);
-    } else if (activeShifts.length > 0) {
-      setSelectedShift(activeShifts[0] as ShiftWithDetails);
-      setCloseShiftDialog(true);
-    }
+    const targetShift = shift || activeShifts[0] as ShiftWithDetails | undefined;
+    if (!targetShift) return;
+    setSelectedShift(targetShift);
+    setCloseShiftForm({ closingAmountCounted: expectedForShift(targetShift), notes: "" });
+    setCloseShiftDialog(true);
   };
 
   const getActiveShiftForRegister = (registerId: string) => {
@@ -766,14 +786,12 @@ export default function FinancialCashRegisters() {
                     <p className="text-lg font-bold text-destructive">-{formatKwanza(selectedShift.totalExpenses || "0")}</p>
                   </div>
                   <div>
+                    <p className="text-sm text-muted-foreground">Ajustes</p>
+                    <p className="text-lg font-bold">+{formatKwanza(selectedShift.totalAdjustments || "0")}</p>
+                  </div>
+                  <div>
                     <p className="text-sm text-muted-foreground">Valor Esperado</p>
-                    <p className="text-lg font-bold">
-                      {formatKwanza(
-                        parseFloat(selectedShift.openingAmount) +
-                        parseFloat(selectedShift.totalRevenues || "0") -
-                        parseFloat(selectedShift.totalExpenses || "0")
-                      )}
-                    </p>
+                    <p className="text-lg font-bold">{formatKwanza(selectedShiftExpected)}</p>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -791,15 +809,11 @@ export default function FinancialCashRegisters() {
                   <div className="p-4 bg-muted rounded-lg">
                     <p className="text-sm text-muted-foreground">Diferença</p>
                     <p className={`text-xl font-bold ${
-                      parseFloat(closeShiftForm.closingAmountCounted) - 
-                      (parseFloat(selectedShift.openingAmount) + parseFloat(selectedShift.totalRevenues || "0") - parseFloat(selectedShift.totalExpenses || "0")) === 0
+                      closeDifference === "0.00"
                         ? 'text-success'
                         : 'text-destructive'
                     }`}>
-                      {formatKwanza(
-                        parseFloat(closeShiftForm.closingAmountCounted) - 
-                        (parseFloat(selectedShift.openingAmount) + parseFloat(selectedShift.totalRevenues || "0") - parseFloat(selectedShift.totalExpenses || "0"))
-                      )}
+                      {formatKwanza(closeDifference)}
                     </p>
                   </div>
                 )}

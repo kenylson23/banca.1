@@ -11103,6 +11103,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const validatedData = shiftSchema.parse(req.body);
+      const branchId = validatedData.branchId !== undefined
+        ? validatedData.branchId
+        : currentUser.activeBranchId || null;
+      if (currentUser.activeBranchId && branchId !== currentUser.activeBranchId) {
+        return res.status(403).json({ message: "A caixa não pertence à filial ativa." });
+      }
 
       const newShift = await storage.openCashRegisterShift(
         currentUser.restaurantId,
@@ -11110,7 +11116,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         {
           cashRegisterId: validatedData.cashRegisterId,
           openingAmount: validatedData.openingAmount,
-          branchId: validatedData.branchId || currentUser.activeBranchId || null,
+          branchId,
           notes: validatedData.notes,
         }
       );
@@ -11121,7 +11127,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
       }
       console.error('Cash register shift open error:', error);
-      res.status(500).json({ message: error instanceof Error ? error.message : "Erro ao abrir turno de caixa" });
+      const message = error instanceof Error ? error.message : "Erro ao abrir turno de caixa";
+      const conflict = /turno aberto|filial ativa|caixa selecionada/i.test(message);
+      res.status(conflict ? 409 : 500).json({ message });
     }
   });
 
@@ -11138,6 +11146,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const validatedData = closeSchema.parse(req.body);
+      const targetShift = await storage.getCashRegisterShiftById(req.params.id);
+      if (!targetShift || targetShift.restaurantId !== currentUser.restaurantId) {
+        return res.status(404).json({ message: "Turno de caixa não encontrado." });
+      }
+      if (
+        currentUser.role !== 'superadmin'
+        && (targetShift.branchId || null) !== (currentUser.activeBranchId || null)
+      ) {
+        return res.status(403).json({ message: "O turno não pertence à filial ativa." });
+      }
 
       const closedShift = await storage.closeCashRegisterShift(
         req.params.id,
@@ -11152,7 +11170,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
       }
       console.error('Cash register shift close error:', error);
-      res.status(500).json({ message: error instanceof Error ? error.message : "Erro ao fechar turno de caixa" });
+      const message = error instanceof Error ? error.message : "Erro ao fechar turno de caixa";
+      const conflict = /turno não encontrado ou já fechado/i.test(message);
+      res.status(conflict ? 409 : 500).json({ message });
     }
   });
 
@@ -11315,6 +11335,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const validatedData = transactionSchema.parse(req.body);
+      const branchId = validatedData.branchId !== undefined
+        ? validatedData.branchId
+        : currentUser.activeBranchId || null;
+      if (currentUser.activeBranchId && branchId !== currentUser.activeBranchId) {
+        return res.status(403).json({ message: "A caixa não pertence à filial ativa." });
+      }
       const installments = validatedData.installments || 1;
 
       if (installments > 1) {
@@ -11339,7 +11365,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               amount: installmentAmount.toFixed(2),
               occurredAt: occurredAt.toISOString(),
               note: validatedData.note,
-              branchId: validatedData.branchId || currentUser.activeBranchId || null,
+              branchId,
               totalInstallments: installments,
               installmentNumber: i,
               parentTransactionId: i === 1 ? null : parentTransactionId,
@@ -11364,7 +11390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currentUser.id,
           {
             ...validatedData,
-            branchId: validatedData.branchId || currentUser.activeBranchId || null,
+            branchId,
             origin: validatedData.origin || 'manual',
             totalInstallments: 1,
             installmentNumber: 1,
@@ -11379,7 +11405,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Dados inválidos", errors: error.errors });
       }
       console.error('Financial transaction creation error:', error);
-      res.status(500).json({ message: "Erro ao criar lançamento" });
+      const message = error instanceof Error ? error.message : "Erro ao criar lançamento";
+      const conflict = message === NO_OPEN_CASH_REGISTER_MESSAGE
+        || /turno aberto|turno fechado/i.test(message);
+      res.status(conflict ? 409 : 500).json({
+        message: conflict ? message : "Erro ao criar lançamento",
+      });
     }
   });
 
@@ -11394,8 +11425,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Lançamento excluído e saldo revertido com sucesso" });
     } catch (error) {
+      if (
+        error instanceof Error
+        && (
+          error.message === NO_OPEN_CASH_REGISTER_MESSAGE
+          || error.message.includes('não pode ser removido como lançamento')
+        )
+      ) {
+        return res.status(409).json({ message: error.message });
+      }
       console.error('Financial transaction delete error:', error);
-      res.status(500).json({ message: "Erro ao excluir lançamento" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Erro ao excluir lançamento" });
     }
   });
 
@@ -11516,8 +11556,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
+      if (error instanceof Error && error.message === NO_OPEN_CASH_REGISTER_MESSAGE) {
+        return res.status(409).json({ message: error.message });
+      }
       console.error('Expense creation error:', error);
-      res.status(500).json({ message: "Erro ao criar despesa" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Erro ao criar despesa" });
     }
   });
 
@@ -11550,8 +11593,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
+      if (error instanceof Error && error.message === NO_OPEN_CASH_REGISTER_MESSAGE) {
+        return res.status(409).json({ message: error.message });
+      }
       console.error('Expense update error:', error);
-      res.status(500).json({ message: "Erro ao atualizar despesa" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Erro ao atualizar despesa" });
     }
   });
 
@@ -11566,8 +11612,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Despesa excluída com sucesso" });
     } catch (error) {
+      if (error instanceof Error && error.message === NO_OPEN_CASH_REGISTER_MESSAGE) {
+        return res.status(409).json({ message: error.message });
+      }
       console.error('Expense delete error:', error);
-      res.status(500).json({ message: "Erro ao excluir despesa" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Erro ao excluir despesa" });
     }
   });
 

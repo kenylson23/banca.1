@@ -14,3 +14,9 @@ For cash-register reconciliation, every supported payment method (`dinheiro`, `m
 **Why:** Restricting register updates and shift summaries to `dinheiro` made financial transactions visible in Financeiro but absent from the operational cash-register balance.
 
 **How to apply:** When recording a sale, table payment, or refund, resolve the active register independently of payment method; when calculating an open or closing shift, aggregate all transactions linked to that shift.
+
+For cash balance reconciliation, an open shift's `openingAmount` is the starting point and only movements linked to that exact `shiftId` are added. The synthetic `Abertura do caixa` adjustment is historical/audit data, not a second movement. When no shift is open, use the latest counted close; never add prior-session movements to a reopened register.
+
+**Why:** The previous balance reconstruction summed lifetime transactions, while close calculations also added the opening adjustment on top of `openingAmount`, causing duplicated or carried-over balances.
+
+**How to apply:** Keep session balance calculations shift-scoped, record all new financial movements against an open shift, and preserve unassigned legacy rows in history rather than silently attaching them to a new session.

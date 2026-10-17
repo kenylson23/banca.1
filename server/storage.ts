@@ -6777,7 +6777,7 @@ export class DatabaseStorage implements IStorage {
       transactionConditions.push(eq(financialTransactions.branchId, branchId));
     }
 
-    const transactions = await db
+    const transactions: FinancialTransaction[] = await db
       .select()
       .from(financialTransactions)
       .where(and(...transactionConditions));
@@ -7394,10 +7394,58 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Transação não encontrada');
     }
 
-    const amount = parseFloat(transaction.amount);
-    const amountChange = transaction.type === 'receita' ? -amount : amount;
+    const cashRegisterId = transaction.cashRegisterId;
+    const transactionShiftId = transaction.shiftId;
+    if (!cashRegisterId || !transactionShiftId) {
+      throw new CashRegisterClosedError();
+    }
+    if (
+      transaction.type === 'ajuste'
+      && (transaction.description || '').trim().toLocaleLowerCase('pt-BR') === 'abertura do caixa'
+    ) {
+      throw new Error('O saldo de abertura faz parte do turno e não pode ser removido como lançamento.');
+    }
+
+    const candidateShift = await this.getActiveCashRegisterShift(
+      cashRegisterId,
+      restaurantId,
+    );
+    if (!candidateShift || candidateShift.id !== transactionShiftId) {
+      throw new CashRegisterClosedError();
+    }
 
     await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const [activeShift] = await tx
+        .select()
+        .from(cashRegisterShifts)
+        .where(and(
+          eq(cashRegisterShifts.id, candidateShift.id),
+          eq(cashRegisterShifts.status, 'aberto'),
+        ))
+        .for('update')
+        .limit(1);
+      const [lockedTransaction] = await tx
+        .select()
+        .from(financialTransactions)
+        .where(eq(financialTransactions.id, id))
+        .for('update')
+        .limit(1);
+      if (
+        !activeShift
+        || !lockedTransaction
+        || lockedTransaction.shiftId !== activeShift.id
+      ) {
+        throw new CashRegisterClosedError();
+      }
+
+      const amount = Number(lockedTransaction.amount);
+      if (!Number.isFinite(amount)) throw new Error('Valor de lançamento inválido.');
+      const amountChange = lockedTransaction.type === 'receita'
+        ? -amount
+        : lockedTransaction.type === 'despesa'
+          ? amount
+          : -amount;
+
       await tx
         .delete(financialTransactions)
         .where(eq(financialTransactions.id, id));
@@ -7408,7 +7456,7 @@ export class DatabaseStorage implements IStorage {
           currentBalance: sql`${cashRegisters.currentBalance} + ${amountChange}`,
           updatedAt: new Date(),
         })
-        .where(eq(cashRegisters.id, transaction.cashRegisterId));
+        .where(eq(cashRegisters.id, cashRegisterId));
     });
   }
 
@@ -7574,7 +7622,9 @@ export class DatabaseStorage implements IStorage {
       .from(cashRegisterShifts)
       .where(and(...conditions));
 
-    await Promise.all(openShifts.map((shift) => this.closeExpiredCashRegisterShift(shift)));
+    await Promise.all(
+      openShifts.map((shift: CashRegisterShift) => this.closeExpiredCashRegisterShift(shift)),
+    );
   }
 
   async getCashRegisterShifts(
@@ -7628,6 +7678,8 @@ export class DatabaseStorage implements IStorage {
         closedBy: r.closedBy || undefined,
       };
 
+      if (shift.status !== 'aberto') return shift;
+
       const shiftTransactions = await db
         .select()
         .from(financialTransactions)
@@ -7636,12 +7688,10 @@ export class DatabaseStorage implements IStorage {
 
       return {
         ...shift,
-        totalRevenues: shift.status === 'aberto' ? totals.totalRevenues : shift.totalRevenues,
-        totalExpenses: shift.status === 'aberto' ? totals.totalExpenses : shift.totalExpenses,
+        totalRevenues: totals.totalRevenues,
+        totalExpenses: totals.totalExpenses,
         totalAdjustments: totals.totalAdjustments,
-        closingAmountExpected: shift.status === 'aberto'
-          ? totals.closingAmountExpected
-          : shift.closingAmountExpected,
+        closingAmountExpected: totals.closingAmountExpected,
       };
     }));
   }
@@ -7839,74 +7889,76 @@ export class DatabaseStorage implements IStorage {
     restaurantId: string,
     userId: string,
     data: CloseCashRegisterShift
-  ): Promise<CashRegisterShift> {
-    const [shift] = await db
-      .select()
-      .from(cashRegisterShifts)
-      .where(and(
-        eq(cashRegisterShifts.id, shiftId),
-        eq(cashRegisterShifts.restaurantId, restaurantId),
-        eq(cashRegisterShifts.status, 'aberto')
-      ))
-      .limit(1);
+  ): Promise<CashRegisterShift & { paymentBreakdown: Record<string, string>; totalAdjustments: string }> {
+    return await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const [shift] = await tx
+        .select()
+        .from(cashRegisterShifts)
+        .where(and(
+          eq(cashRegisterShifts.id, shiftId),
+          eq(cashRegisterShifts.restaurantId, restaurantId),
+          eq(cashRegisterShifts.status, 'aberto'),
+        ))
+        .for('update')
+        .limit(1);
 
-    if (!shift) {
-      throw new Error('Turno não encontrado ou já fechado.');
-    }
+      if (!shift) {
+        throw new Error('Turno não encontrado ou já fechado.');
+      }
 
-    const allTransactions = await db
-      .select()
-      .from(financialTransactions)
-      .where(eq(financialTransactions.shiftId, shiftId));
+      const allTransactions = await tx
+        .select()
+        .from(financialTransactions)
+        .where(eq(financialTransactions.shiftId, shiftId));
+      const totals = calculateCashRegisterShiftTotals(shift.openingAmount, allTransactions);
+      const difference = calculateCashRegisterDifference(
+        data.closingAmountCounted,
+        totals.closingAmountExpected,
+      );
+      const paymentBreakdown = allTransactions
+        .filter((transaction: FinancialTransaction) => transaction.type === 'receita')
+        .reduce<Record<string, number>>((breakdown, transaction: FinancialTransaction) => {
+          breakdown[transaction.paymentMethod] =
+            (breakdown[transaction.paymentMethod] || 0) + parseFloat(transaction.amount || '0');
+          return breakdown;
+        }, {});
 
-    // O saldo do caixa inclui todos os métodos de pagamento registrados no
-    // turno, portanto o fechamento deve reconciliar todas as transações.
-    const totalRevenues = allTransactions
-      .filter((t: FinancialTransaction) => t.type === 'receita')
-      .reduce((sum: number, t: FinancialTransaction) => sum + parseFloat(t.amount), 0);
+      const [closedShift] = await tx
+        .update(cashRegisterShifts)
+        .set({
+          status: 'fechado',
+          closedByUserId: userId,
+          closingAmountExpected: totals.closingAmountExpected,
+          closingAmountCounted: data.closingAmountCounted,
+          difference,
+          totalRevenues: totals.totalRevenues,
+          totalExpenses: totals.totalExpenses,
+          closedAt: new Date(),
+          notes: data.notes || shift.notes,
+        })
+        .where(and(
+          eq(cashRegisterShifts.id, shiftId),
+          eq(cashRegisterShifts.status, 'aberto'),
+        ))
+        .returning();
 
-    const totalExpenses = allTransactions
-      .filter((t: FinancialTransaction) => t.type === 'despesa')
-      .reduce((sum: number, t: FinancialTransaction) => sum + parseFloat(t.amount), 0);
+      if (!closedShift) throw new Error('Turno não encontrado ou já fechado.');
+      await tx
+        .update(cashRegisters)
+        .set({
+          currentBalance: data.closingAmountCounted,
+          updatedAt: new Date(),
+        })
+        .where(eq(cashRegisters.id, shift.cashRegisterId));
 
-    const totalAdjustments = allTransactions
-      .filter((t: FinancialTransaction) => t.type === 'ajuste')
-      .reduce((sum: number, t: FinancialTransaction) => sum + parseFloat(t.amount), 0);
-
-    const openingAmount = parseFloat(shift.openingAmount || '0');
-    const closingAmountExpected = openingAmount + totalRevenues - totalExpenses + totalAdjustments;
-    const closingAmountCounted = parseFloat(data.closingAmountCounted);
-    const difference = closingAmountCounted - closingAmountExpected;
-    const paymentBreakdown = allTransactions
-      .filter((transaction: FinancialTransaction) => transaction.type === 'receita')
-      .reduce<Record<string, number>>((breakdown, transaction: FinancialTransaction) => {
-        breakdown[transaction.paymentMethod] =
-          (breakdown[transaction.paymentMethod] || 0) + parseFloat(transaction.amount || '0');
-        return breakdown;
-      }, {});
-
-    const [closedShift] = await db
-      .update(cashRegisterShifts)
-      .set({
-        status: 'fechado',
-        closedByUserId: userId,
-        closingAmountExpected: closingAmountExpected.toFixed(2),
-        closingAmountCounted: data.closingAmountCounted,
-        difference: difference.toFixed(2),
-        totalRevenues: totalRevenues.toFixed(2),
-        totalExpenses: totalExpenses.toFixed(2),
-        closedAt: new Date(),
-        notes: data.notes || shift.notes,
-      })
-      .where(eq(cashRegisterShifts.id, shiftId))
-      .returning();
-
-    return {
-      ...closedShift,
-      paymentBreakdown: Object.fromEntries(
-        Object.entries(paymentBreakdown).map(([method, amount]) => [method, amount.toFixed(2)]),
-      ),
-    };
+      return {
+        ...closedShift,
+        totalAdjustments: totals.totalAdjustments,
+        paymentBreakdown: Object.fromEntries(
+          Object.entries(paymentBreakdown).map(([method, amount]) => [method, amount.toFixed(2)]),
+        ),
+      };
+    });
   }
 
   async getCashRegisterShiftById(id: string): Promise<CashRegisterShift | undefined> {
@@ -7996,7 +8048,23 @@ export class DatabaseStorage implements IStorage {
     userId: string,
     data: InsertExpense
   ): Promise<Expense> {
+    const candidateShift = await this.getOpenCashRegisterShiftForBranch(restaurantId, branchId);
+    if (!candidateShift) throw new CashRegisterClosedError();
+
     return await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const [activeShift] = await tx
+        .select()
+        .from(cashRegisterShifts)
+        .where(and(
+          eq(cashRegisterShifts.id, candidateShift.id),
+          eq(cashRegisterShifts.cashRegisterId, candidateShift.cashRegisterId),
+          eq(cashRegisterShifts.restaurantId, restaurantId),
+          eq(cashRegisterShifts.status, 'aberto'),
+        ))
+        .for('update')
+        .limit(1);
+      if (!activeShift) throw new CashRegisterClosedError();
+
       const amountDecimal = parseFloat(data.amount).toFixed(2);
 
       const [transaction] = await tx
@@ -8004,9 +8072,9 @@ export class DatabaseStorage implements IStorage {
         .values({
           restaurantId,
           recordedByUserId: userId,
-          branchId: branchId || null,
-          cashRegisterId: null,
-          shiftId: null,
+          branchId: activeShift.branchId || null,
+          cashRegisterId: activeShift.cashRegisterId,
+          shiftId: activeShift.id,
           categoryId: data.categoryId,
           type: 'despesa',
           origin: 'manual',
@@ -8019,11 +8087,19 @@ export class DatabaseStorage implements IStorage {
         })
         .returning();
 
+      await tx
+        .update(cashRegisters)
+        .set({
+          currentBalance: sql`${cashRegisters.currentBalance} - ${amountDecimal}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(cashRegisters.id, activeShift.cashRegisterId));
+
       const [newExpense] = await tx
         .insert(expenses)
         .values({
           restaurantId,
-          branchId: branchId || null,
+          branchId: activeShift.branchId || null,
           categoryId: data.categoryId,
           transactionId: transaction.id,
           description: data.description,
@@ -8052,7 +8128,43 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Não autorizado');
     }
 
+    if (!existing.transactionId) throw new CashRegisterClosedError();
+    const originalTransaction = await this.getFinancialTransactionById(existing.transactionId);
+    if (!originalTransaction?.cashRegisterId || !originalTransaction.shiftId) {
+      throw new CashRegisterClosedError();
+    }
+    const candidateShift = await this.getActiveCashRegisterShift(
+      originalTransaction.cashRegisterId,
+      restaurantId,
+    );
+    if (!candidateShift || candidateShift.id !== originalTransaction.shiftId) {
+      throw new CashRegisterClosedError();
+    }
+
     return await db.transaction(async (tx: PgTransaction<any, any, any>) => {
+      const [activeShift] = await tx
+        .select()
+        .from(cashRegisterShifts)
+        .where(and(
+          eq(cashRegisterShifts.id, candidateShift.id),
+          eq(cashRegisterShifts.status, 'aberto'),
+        ))
+        .for('update')
+        .limit(1);
+      const [lockedTransaction] = await tx
+        .select()
+        .from(financialTransactions)
+        .where(eq(financialTransactions.id, existing.transactionId!))
+        .for('update')
+        .limit(1);
+      if (
+        !activeShift
+        || !lockedTransaction
+        || lockedTransaction.shiftId !== activeShift.id
+      ) {
+        throw new CashRegisterClosedError();
+      }
+
       const updateData: any = {};
       if (data.categoryId) updateData.categoryId = data.categoryId;
       if (data.description) updateData.description = data.description;
@@ -8061,27 +8173,40 @@ export class DatabaseStorage implements IStorage {
       if (data.occurredAt) updateData.occurredAt = new Date(data.occurredAt);
       if (data.note !== undefined) updateData.note = data.note;
 
-      await tx
-        .update(expenses)
-        .set(updateData)
-        .where(eq(expenses.id, id));
+      const txUpdateData: any = {};
+      if (data.categoryId) txUpdateData.categoryId = data.categoryId;
+      if (data.description) txUpdateData.description = data.description;
+      if (data.amount) txUpdateData.amount = parseFloat(data.amount).toFixed(2);
+      if (data.paymentMethod) txUpdateData.paymentMethod = data.paymentMethod;
+      if (data.occurredAt) txUpdateData.occurredAt = new Date(data.occurredAt);
+      if (data.note !== undefined) txUpdateData.note = data.note;
 
-      if (existing.transactionId) {
-        const txUpdateData: any = {};
-        if (data.categoryId) txUpdateData.categoryId = data.categoryId;
-        if (data.description) txUpdateData.description = data.description;
-        if (data.amount) txUpdateData.amount = parseFloat(data.amount).toFixed(2);
-        if (data.paymentMethod) txUpdateData.paymentMethod = data.paymentMethod;
-        if (data.occurredAt) txUpdateData.occurredAt = new Date(data.occurredAt);
-        if (data.note !== undefined) txUpdateData.note = data.note;
-
+      if (data.amount) {
+        const oldAmount = Number(lockedTransaction.amount);
+        const newAmount = Number(data.amount);
+        if (!Number.isFinite(oldAmount) || !Number.isFinite(newAmount) || newAmount < 0) {
+          throw new Error('Valor de despesa inválido.');
+        }
         await tx
-          .update(financialTransactions)
-          .set(txUpdateData)
-          .where(eq(financialTransactions.id, existing.transactionId));
+          .update(cashRegisters)
+          .set({
+            currentBalance: sql`${cashRegisters.currentBalance} + ${oldAmount - newAmount}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(cashRegisters.id, activeShift.cashRegisterId));
       }
 
-      const updated = await this.getExpenseById(id);
+      await tx.update(expenses).set(updateData).where(eq(expenses.id, id));
+      await tx
+        .update(financialTransactions)
+        .set(txUpdateData)
+        .where(eq(financialTransactions.id, existing.transactionId));
+
+      const [updated] = await tx
+        .select()
+        .from(expenses)
+        .where(eq(expenses.id, id))
+        .limit(1);
       if (!updated) {
         throw new Error('Erro ao atualizar despesa');
       }
@@ -8098,12 +8223,53 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Não autorizado');
     }
 
+    if (!existing.transactionId) throw new CashRegisterClosedError();
+    const originalTransaction = await this.getFinancialTransactionById(existing.transactionId);
+    if (!originalTransaction?.cashRegisterId || !originalTransaction.shiftId) {
+      throw new CashRegisterClosedError();
+    }
+    const candidateShift = await this.getActiveCashRegisterShift(
+      originalTransaction.cashRegisterId,
+      restaurantId,
+    );
+    if (!candidateShift || candidateShift.id !== originalTransaction.shiftId) {
+      throw new CashRegisterClosedError();
+    }
+
     await db.transaction(async (tx: PgTransaction<any, any, any>) => {
-      if (existing.transactionId) {
-        await tx
-          .delete(financialTransactions)
-          .where(eq(financialTransactions.id, existing.transactionId));
+      const [activeShift] = await tx
+        .select()
+        .from(cashRegisterShifts)
+        .where(and(
+          eq(cashRegisterShifts.id, candidateShift.id),
+          eq(cashRegisterShifts.status, 'aberto'),
+        ))
+        .for('update')
+        .limit(1);
+      const [lockedTransaction] = await tx
+        .select()
+        .from(financialTransactions)
+        .where(eq(financialTransactions.id, existing.transactionId!))
+        .for('update')
+        .limit(1);
+      if (
+        !activeShift
+        || !lockedTransaction
+        || lockedTransaction.shiftId !== activeShift.id
+      ) {
+        throw new CashRegisterClosedError();
       }
+
+      await tx
+        .delete(financialTransactions)
+        .where(eq(financialTransactions.id, existing.transactionId!));
+      await tx
+        .update(cashRegisters)
+        .set({
+          currentBalance: sql`${cashRegisters.currentBalance} + ${lockedTransaction.amount}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(cashRegisters.id, activeShift.cashRegisterId));
 
       await tx
         .delete(expenses)
