@@ -154,14 +154,15 @@ export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(
   return (
     <motion.div
       ref={ref}
+      className="w-full min-w-0"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.05 }}
     >
-      <Card className="p-4 hover-elevate active-elevate-2 transition-all duration-200">
-        <div className="grid grid-cols-1 lg:grid-cols-[2fr_auto_1fr] gap-4">
+      <Card className="w-full min-w-0 p-3 sm:p-4 hover-elevate active-elevate-2 transition-all duration-200">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-[minmax(0,2fr)_auto_minmax(0,1fr)]">
           {/* Left Section: Order Info */}
-          <div className="space-y-2">
+          <div className="min-w-0 space-y-2">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <span
@@ -179,7 +180,7 @@ export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(
               </div>
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
               <div className="flex items-center gap-1 text-sm">
                 <ClockIcon className="h-3 w-3 text-muted-foreground" weight="duotone" />
                 <span
@@ -199,7 +200,7 @@ export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(
               {(order.customer || order.customerName) && (
                 <div className="flex items-center gap-2 text-sm">
                   <UserIcon className="h-3 w-3 text-muted-foreground" weight="duotone" />
-                  <span data-testid={`text-customer-${order.id}`}>
+                  <span className="min-w-0 break-words" data-testid={`text-customer-${order.id}`}>
                     {order.customer?.name || order.customerName}
                   </span>
                   {order.customer?.tier && (
@@ -211,7 +212,7 @@ export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(
               )}
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <Badge
                 variant="outline"
                 className={cn(
@@ -222,7 +223,7 @@ export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(
                 {statusLabels[order.status as keyof typeof statusLabels]}
               </Badge>
               {order.status === "aguardando_confirmacao" && (
-                <div className="w-full rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                <div className="w-full min-w-0 break-words rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
                   {order.paymentMethod ? (
                     <strong>{order.paymentMethod === "multicaixa" ? "Multicaixa Express" : order.paymentMethod === "transferencia" ? "Transferência bancária" : "Cartão / POS"}</strong>
                   ) : (
@@ -259,11 +260,11 @@ export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(
           </div>
 
           {/* Middle Section: Total */}
-          <div className="flex items-center justify-center lg:border-x lg:px-6">
-            <div className="text-center">
+          <div className="flex min-w-0 items-center justify-center lg:border-x lg:px-6">
+            <div className="max-w-full text-center">
               <p className="text-xs text-muted-foreground mb-1">Total</p>
               <p
-                className="text-2xl font-bold"
+                className="max-w-full break-words text-xl font-bold sm:text-2xl"
                 data-testid={`text-order-total-${order.id}`}
               >
                 {formatKwanza(order.totalAmount)}
@@ -272,7 +273,7 @@ export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(
           </div>
 
           {/* Right Section: Actions */}
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
             <PrinterStatusBadge type="kitchen" />
 
             <TooltipProvider>
@@ -337,6 +338,7 @@ export const PDVOrderCard = React.forwardRef<HTMLDivElement, PDVOrderCardProps>(
               onClick={onAccept}
               disabled={order.status !== "pendente" && order.status !== "aguardando_confirmacao"}
               data-testid={`button-accept-${order.id}`}
+              className="min-w-0 whitespace-normal text-center leading-tight sm:whitespace-nowrap"
             >
               <CheckIcon className="h-4 w-4 mr-1" weight="bold" />
               {order.status === "aguardando_confirmacao"

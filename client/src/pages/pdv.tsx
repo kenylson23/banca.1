@@ -328,7 +328,7 @@ export default function PDV() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
             <Button
               variant="outline"
               size="icon"
@@ -353,7 +353,7 @@ export default function PDV() {
                 restaurantId={user.restaurantId}
                 onOrderCreated={handleOrderCreated}
                 trigger={
-                  <Button size="default" className="flex-1 sm:flex-initial gap-2 touch-manipulation" data-testid="button-new-order">
+                  <Button size="default" className="min-w-28 flex-1 justify-center gap-2 touch-manipulation sm:flex-initial" data-testid="button-new-order">
                     <Plus className="h-4 w-4" />
                     <span className="sm:inline">Novo</span>
                   </Button>
