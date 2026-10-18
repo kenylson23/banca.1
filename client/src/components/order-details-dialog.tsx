@@ -121,14 +121,14 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-orange-500">Pedido #{order.id.slice(-8).toUpperCase()}</span>
-              <OrderTypeIcon className="h-5 w-5 text-orange-500" />
+      <DialogContent className="flex w-[calc(100vw-1rem)] max-w-2xl flex-col overflow-hidden p-4 max-h-[calc(100dvh-1rem)] sm:w-[calc(100vw-3rem)] sm:p-6 sm:max-h-[90vh]">
+        <DialogHeader className="shrink-0">
+          <DialogTitle className="flex min-w-0 flex-col items-stretch gap-3 pr-8 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="min-w-0 break-words text-orange-500">Pedido #{order.id.slice(-8).toUpperCase()}</span>
+              <OrderTypeIcon className="h-5 w-5 shrink-0 text-orange-500" />
             </div>
-            <div className="flex gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <PrinterStatusBadge type="kitchen" />
               <Button
                 variant="outline"
@@ -146,9 +146,9 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[calc(90vh-120px)]">
-          <div className="space-y-4 pr-4">
-            <div className="grid grid-cols-2 gap-4">
+        <ScrollArea className="min-h-0 w-full min-w-0 flex-1 max-h-[calc(90vh-120px)]">
+          <div className="min-w-0 space-y-4 pr-2 sm:pr-4">
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Status do Pedido</p>
                 <Badge className={statusColors[order.status as keyof typeof statusColors]}>
@@ -165,56 +165,56 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
 
             <Separator />
 
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Data:</span>
-                <span className="font-medium">
+              <div className="space-y-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="shrink-0 text-muted-foreground">Data:</span>
+                <span className="min-w-0 break-words font-medium">
                   {order.createdAt ? format(new Date(order.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "-"}
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 text-sm">
-                <OrderTypeIcon className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Tipo:</span>
-                <span className="font-medium">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                <OrderTypeIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="shrink-0 text-muted-foreground">Tipo:</span>
+                <span className="min-w-0 break-words font-medium">
                   {order.table ? `Mesa ${order.table.number}` : orderTypeLabels[order.orderType as keyof typeof orderTypeLabels] || order.orderType}
                 </span>
               </div>
 
               {(order.customer || order.customerName) && (
-                <div className="space-y-2 p-3 rounded-lg bg-muted/30 border">
-                  <div className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Cliente:</span>
-                    <span className="font-medium">{order.customer?.name || order.customerName}</span>
+                <div className="min-w-0 space-y-2 rounded-lg border bg-muted/30 p-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                    <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="shrink-0 text-muted-foreground">Cliente:</span>
+                    <span className="min-w-0 break-words font-medium">{order.customer?.name || order.customerName}</span>
                     {order.customer?.tier && (
-                      <Badge variant="outline" className="ml-2 capitalize">
+                      <Badge variant="outline" className="ml-auto capitalize sm:ml-2">
                         {order.customer.tier}
                       </Badge>
                     )}
                   </div>
                   
                   {(order.customer?.phone || order.customerPhone) && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Telefone:</span>
-                      <span className="font-medium">{order.customer?.phone || order.customerPhone}</span>
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                      <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="shrink-0 text-muted-foreground">Telefone:</span>
+                      <span className="min-w-0 break-all font-medium">{order.customer?.phone || order.customerPhone}</span>
                     </div>
                   )}
                   
                   {order.customer?.email && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Email:</span>
-                      <span className="font-medium text-xs">{order.customer.email}</span>
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                      <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="shrink-0 text-muted-foreground">Email:</span>
+                      <span className="min-w-0 break-all font-medium text-xs">{order.customer.email}</span>
                     </div>
                   )}
                   
                   {order.customer?.loyaltyPoints !== undefined && order.customer.loyaltyPoints > 0 && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Award className="h-4 w-4 text-primary" />
-                      <span className="text-muted-foreground">Pontos:</span>
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                      <Award className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="shrink-0 text-muted-foreground">Pontos:</span>
                       <span className="font-medium text-primary">{order.customer.loyaltyPoints} pts</span>
                     </div>
                   )}
@@ -222,17 +222,17 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
               )}
 
               {order.deliveryAddress && (
-                <div className="flex items-start gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                  <span className="text-muted-foreground">Endereço:</span>
-                  <span className="font-medium flex-1">{order.deliveryAddress}</span>
+                <div className="flex min-w-0 items-start gap-2 text-sm">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="shrink-0 text-muted-foreground">Endereço:</span>
+                  <span className="min-w-0 flex-1 break-words font-medium">{order.deliveryAddress}</span>
                 </div>
               )}
 
               {order.orderNotes && (
-                <div className="flex items-start gap-2 text-sm">
-                  <span className="text-muted-foreground">Observações:</span>
-                  <span className="font-medium flex-1">{order.orderNotes}</span>
+                <div className="flex min-w-0 flex-wrap items-start gap-2 text-sm">
+                  <span className="shrink-0 text-muted-foreground">Observações:</span>
+                  <span className="min-w-0 flex-1 break-words font-medium">{order.orderNotes}</span>
                 </div>
               )}
             </div>
@@ -250,12 +250,12 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
                   order.orderItems.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between p-3 rounded-md bg-muted/50"
+                      className="flex min-w-0 flex-col gap-2 rounded-md bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between"
                       data-testid={`order-item-${item.id}`}
                     >
-                      <div className="flex-1">
+                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm">
+                           <span className="min-w-0 break-words font-medium text-sm">
                             {item.quantity}x {item.menuItem?.name || "Item"}
                           </span>
                         </div>
@@ -265,7 +265,7 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
                           </p>
                         )}
                       </div>
-                      <span className="font-semibold" data-testid={`item-total-${item.id}`}>
+                       <span className="self-end whitespace-nowrap font-semibold sm:self-auto" data-testid={`item-total-${item.id}`}>
                         {formatKwanza(Number(item.price) * item.quantity)}
                       </span>
                     </div>
@@ -277,11 +277,11 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
             <Separator />
 
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
+              <div className="flex min-w-0 flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
                 <span className="text-muted-foreground">
                   Subtotal ({order.orderItems.length} {order.orderItems.length === 1 ? "item" : "itens"})
                 </span>
-                <span className="font-medium" data-testid="text-subtotal-value">
+                <span className="min-w-0 break-words text-right font-medium" data-testid="text-subtotal-value">
                   {formatKwanza(order.subtotal)}
                 </span>
               </div>
@@ -291,7 +291,7 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
                   <span className="text-muted-foreground">
                     Desconto {order.discountType === "percentual" ? `(${order.discount}%)` : ""}
                   </span>
-                  <span className="font-medium text-green-600" data-testid="text-discount-value">
+                  <span className="min-w-0 break-words text-right font-medium text-green-600" data-testid="text-discount-value">
                     -{formatKwanza(order.discount || "0")}
                   </span>
                 </div>
@@ -302,7 +302,7 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
                   <span className="text-muted-foreground">
                     {order.serviceName || "Taxa de Serviço"}
                   </span>
-                  <span className="font-medium" data-testid="text-service-charge-value">
+                  <span className="min-w-0 break-words text-right font-medium" data-testid="text-service-charge-value">
                     {formatKwanza(order.serviceCharge || "0")}
                   </span>
                 </div>
@@ -311,7 +311,7 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
               {Number(order.deliveryFee || 0) > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Taxa de Entrega</span>
-                  <span className="font-medium" data-testid="text-delivery-fee-value">
+                  <span className="min-w-0 break-words text-right font-medium" data-testid="text-delivery-fee-value">
                     {formatKwanza(order.deliveryFee || "0")}
                   </span>
                 </div>
@@ -320,7 +320,7 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
               {Number(order.packagingFee || 0) > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Taxa de Embalagem</span>
-                  <span className="font-medium" data-testid="text-packaging-fee-value">
+                  <span className="min-w-0 break-words text-right font-medium" data-testid="text-packaging-fee-value">
                     {formatKwanza(order.packagingFee || "0")}
                   </span>
                 </div>
@@ -328,35 +328,35 @@ export function OrderDetailsDialog({ order, open, onOpenChange }: OrderDetailsDi
 
               <Separator />
 
-              <div className="flex justify-between text-lg font-bold">
+              <div className="flex min-w-0 flex-wrap justify-between gap-x-3 gap-y-1 text-lg font-bold">
                 <span>Total</span>
-                <span className="text-orange-500" data-testid="text-total-value">
+                <span className="min-w-0 break-words text-right text-orange-500" data-testid="text-total-value">
                   {formatKwanza(order.totalAmount)}
                 </span>
               </div>
 
               {order.paymentMethod && (
-                <div className="flex justify-between text-sm pt-2">
+                <div className="flex min-w-0 flex-wrap justify-between gap-x-3 gap-y-1 pt-2 text-sm">
                   <span className="text-muted-foreground">Método de Pagamento</span>
-                  <span className="font-medium capitalize">
+                  <span className="min-w-0 break-words text-right font-medium capitalize">
                     {order.paymentMethod.replace("_", " ")}
                   </span>
                 </div>
               )}
 
               {Number(order.paidAmount || 0) > 0 && (
-                <div className="flex justify-between text-sm">
+                <div className="flex min-w-0 flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
                   <span className="text-muted-foreground">Valor Pago</span>
-                  <span className="font-medium text-green-600" data-testid="text-paid-amount-value">
+                  <span className="min-w-0 break-words text-right font-medium text-green-600" data-testid="text-paid-amount-value">
                     {formatKwanza(order.paidAmount || "0")}
                   </span>
                 </div>
               )}
 
               {Number(order.changeAmount || 0) > 0 && (
-                <div className="flex justify-between text-sm">
+                <div className="flex min-w-0 flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
                   <span className="text-muted-foreground">Troco</span>
-                  <span className="font-medium" data-testid="text-change-amount-value">
+                  <span className="min-w-0 break-words text-right font-medium" data-testid="text-change-amount-value">
                     {formatKwanza(order.changeAmount || "0")}
                   </span>
                 </div>

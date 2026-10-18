@@ -9,6 +9,12 @@ When setting up an imported Node project without intentionally upgrading depende
 
 **How to apply:** Install the declared dependencies so the workflow can run, then check the working tree and restore manifest/build-artifact changes that were caused only by installation. Keep the installed `node_modules` for the active workflow.
 
+When an artifact has its own package manifest, run its install from that artifact's directory and keep it sequential with root installs. Never run two npm installs concurrently against the same default working directory.
+
+**Why:** Root and sidecar npm operations share `node_modules`; an install launched from the wrong directory can race with `npm ci` and leave binaries missing even though both commands appear to succeed.
+
+**How to apply:** Confirm the current directory before each install. Use the root lockfile for the main project, and install sidecar packages from their own folder without rewriting the root manifests.
+
 Deployment builds may not reach Replit's internal package firewall host. If a lockfile contains `package-firewall.replit.internal` tarball URLs, normalize those `resolved` URLs to the public npm registry without changing dependency versions or integrity hashes before relying on external `npm ci`.
 
 **Why:** The Replit workspace can install those URLs locally, while an external deployment builder fails with a DNS/network error.

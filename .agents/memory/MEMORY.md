@@ -7,7 +7,7 @@
 - [Node runtime path compatibility](node-runtime-path-compatibility.md) — Railway may run Node 18; avoid relying on `import.meta.dirname` in deployable ESM code.
 - [Branch isolation](branch-isolation.md) — active-branch operational views must not fall back to restaurant-wide records.
 - [Invoice numbering](invoice-numbering.md) — branch-scoped invoice numbers are persistent; validation codes derive from the current printed total.
-- [Imported Node dependency setup](imported-node-dependency-setup.md) — installing explicit npm package ranges may rewrite manifests to newer versions; restore tracked manifests when setup should stay non-invasive.
+- [Imported Node dependency setup](imported-node-dependency-setup.md) — preserve lockfile versions and keep sidecar artifact installs isolated from the app's npm dependencies.
 - [Enterprise plan normalization](enterprise-plan-normalization.md) — Enterprise access must recognize legacy identifiers and unlimited-feature markers without promoting lower tiers.
 - [Railway Nixpacks installation](railway-nixpacks-install.md) — this project needs an explicit npm install phase because Railway's automatic npm ci path has failed during image builds.
 - [Legacy customer linkage](legacy-customer-linkage.md) — paid orders may predate customerId; reconcile customer metrics and payment linkage by normalized phone.
