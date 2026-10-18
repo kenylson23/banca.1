@@ -1,0 +1,1126 @@
+import { useState, useMemo, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Plus, Minus, X, ShoppingCart, Search, User, Phone, MapPin, UtensilsCrossed, Coffee } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { insertOrderSchema, type InsertOrder, type Customer } from "./mockDependencies";
+import { apiRequest, queryClient } from "./mockDependencies";
+import { useToast } from "../useToast";
+import { indexedDB, formatKwanza, ProductOptionsDialog, usePrinter, printerService, type OptionGroup, type SelectedOption } from "./mockDependencies";
+
+const newOrderFormSchema = insertOrderSchema.extend({
+  orderType: z.enum(["mesa", "delivery", "takeout", "balcao", "pdv"]),
+  paymentMethod: z.enum(["dinheiro", "multicaixa", "transferencia", "cartao"]).optional().nullable(),
+  tableId: z.string().optional(),
+});
+
+type NewOrderForm = z.infer<typeof newOrderFormSchema>;
+
+interface MenuItem {
+  id: string;
+  name: string;
+  price: string;
+  categoryId: string;
+  description?: string;
+  isAvailable: number | boolean | string;
+  category: {
+    id: string;
+    name: string;
+  } | null;
+  optionGroups?: OptionGroup[];
+}
+
+interface OrderItem {
+  menuItemId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  selectedOptions?: SelectedOption[];
+}
+
+interface NormalizedMenuItem extends Omit<MenuItem, 'isAvailable'> {
+  isAvailable: boolean;
+}
+
+function normalizeMenuItem(item: MenuItem): NormalizedMenuItem {
+  return {
+    ...item,
+    isAvailable: item.isAvailable === 1 || item.isAvailable === true || item.isAvailable === "1"
+  };
+}
+
+interface NewOrderDialogProps {
+  trigger?: React.ReactNode;
+  restaurantId: string;
+  onOrderCreated?: (orderId: string, isOnline: boolean) => void;
+  initialTableId?: string;
+  initialTableNumber?: number;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialTableId, initialTableNumber, open: openProp, onOpenChange }: NewOrderDialogProps) {
+  const isControlled = openProp !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isControlled ? openProp : internalOpen;
+  const setOpen = (value: boolean) => {
+    if (isControlled) {
+      onOpenChange?.(value);
+    } else {
+      setInternalOpen(value);
+    }
+  };
+  const [cart, setCart] = useState<OrderItem[]>([]);
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [receiptNumber, setReceiptNumber] = useState(Math.floor(Math.random() * 90000) + 10000);
+  const [optionsDialogOpen, setOptionsDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<NormalizedMenuItem | null>(null);
+  const { toast } = useToast();
+  const { getPrinterByType } = usePrinter();
+  const { data: currentUser } = useQuery<{ role?: string }>({
+    queryKey: ["/api/auth/user"],
+  });
+  const { data: cashRegisterShifts = [] } = useQuery<Array<{ status: string }>>({
+    queryKey: ["/api/cash-register-shifts", "order-dialog"],
+    enabled: open && currentUser?.role === "cashier",
+  });
+  const cashierHasOpenShift = cashRegisterShifts.some((shift) => shift.status === "aberto");
+
+  // Generate new receipt number when dialog opens
+  useEffect(() => {
+    if (open) {
+      setReceiptNumber(Math.floor(Math.random() * 90000) + 10000);
+    }
+  }, [open]);
+
+  const form = useForm<NewOrderForm>({
+    resolver: zodResolver(newOrderFormSchema),
+    defaultValues: {
+      restaurantId,
+      orderType: "balcao",
+      status: "pendente",
+      customerName: "",
+      customerPhone: "",
+      deliveryAddress: "",
+      deliveryNotes: "",
+      orderNotes: "",
+      paymentMethod: "dinheiro" as const,
+      discount: undefined,
+      discountType: undefined,
+      serviceCharge: undefined,
+      deliveryFee: undefined,
+      customerId: undefined,
+      tableId: undefined,
+      tableSessionId: undefined,
+      couponId: undefined,
+      guestId: undefined,
+
+    },
+  });
+
+  const orderType = form.watch("orderType");
+  const selectedTableId = form.watch("tableId");
+  const [creatingGuest, setCreatingGuest] = useState(false);
+  const [newGuestName, setNewGuestName] = useState("");
+
+  const {
+    data: rawMenuItems = [],
+    isLoading: menuItemsLoading,
+    isError: menuItemsFailed,
+    error: menuItemsError,
+    refetch: refetchMenuItems,
+  } = useQuery<MenuItem[]>({
+    queryKey: ["/api/menu-items"],
+    enabled: open,
+  });
+
+  const menuItems: NormalizedMenuItem[] = rawMenuItems.map(normalizeMenuItem);
+
+  const { data: tables = [] } = useQuery<{ id: string; number: number; status: string }[]>({
+    queryKey: ["/api/tables"],
+    enabled: open,
+  });
+
+  const { data: customers = [] } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
+    enabled: open,
+  });
+
+  // Fetch guests for the selected table
+  const { data: guests = [], isLoading: isLoadingGuests } = useQuery<Array<{ id: string; guestNumber: number; name?: string | null; status: string }>>({
+    queryKey: ["/api/tables", selectedTableId, "guests"],
+    enabled: open && !!selectedTableId,
+  });
+
+  // Mutation to create a new guest
+  const createGuestMutation = useMutation({
+    mutationFn: async ({ tableId, guestName }: { tableId: string; guestName?: string }) => {
+      const response = await apiRequest("POST", `/api/tables/${tableId}/guests`, { name: guestName });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tables", selectedTableId, "guests"] });
+      setCreatingGuest(false);
+      setNewGuestName("");
+      toast({
+        title: "Cliente adicionado",
+        description: "Novo cliente adicionado à mesa com sucesso.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível adicionar o cliente à mesa.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Pre-select table when initialTableId is provided
+  useEffect(() => {
+    if (open && initialTableId) {
+      form.setValue("orderType", "mesa");
+      form.setValue("tableId", initialTableId);
+    }
+  }, [open, initialTableId, form]);
+
+  // Get categories with item counts
+  const categories = useMemo(() => {
+    const categoryMap = new Map<string, { id: string; name: string; count: number; availableCount: number }>();
+    
+    menuItems.forEach(item => {
+      if (item.category) {
+        const existing = categoryMap.get(item.category.id);
+        if (existing) {
+          existing.count++;
+          if (item.isAvailable) existing.availableCount++;
+        } else {
+          categoryMap.set(item.category.id, {
+            id: item.category.id,
+            name: item.category.name,
+            count: 1,
+            availableCount: item.isAvailable ? 1 : 0,
+          });
+        }
+      }
+    });
+    
+    return Array.from(categoryMap.values());
+  }, [menuItems]);
+
+  // Filter products by category and search
+  const filteredProducts = useMemo(() => {
+    let filtered = menuItems;
+    
+    if (selectedCategory) {
+      filtered = filtered.filter(item => item.category?.id === selectedCategory);
+    }
+    
+    if (productSearchQuery) {
+      const query = productSearchQuery.toLowerCase();
+      filtered = filtered.filter(item => 
+        item.name.toLowerCase().includes(query) ||
+        item.category?.name.toLowerCase().includes(query)
+      );
+    }
+    
+    return filtered;
+  }, [menuItems, selectedCategory, productSearchQuery]);
+
+  const createOrderMutation = useMutation({
+    mutationFn: async (data: InsertOrder) => {
+      const isOnline = typeof navigator !== 'undefined' && navigator.onLine;
+      
+      const orderItems = cart.map(item => ({
+        menuItemId: item.menuItemId,
+        quantity: item.quantity,
+        price: item.price.toString(),
+        notes: "",
+        selectedOptions: item.selectedOptions?.map(opt => ({
+          optionId: opt.optionId,
+          optionGroupId: opt.optionGroupId,
+          optionName: opt.optionName,
+          optionGroupName: opt.optionGroupName,
+          priceAdjustment: opt.priceAdjustment,
+          quantity: opt.quantity,
+        })) || [],
+      }));
+      
+      if (isOnline) {
+        const response = await apiRequest("POST", "/api/orders", {
+          ...data,
+          items: orderItems,
+        });
+        return await response.json();
+      } else {
+        const orderId = crypto.randomUUID();
+        const now = new Date().toISOString();
+        const itemsWithOrderId = orderItems.map(item => {
+          const cartItem = cart.find(c => c.menuItemId === item.menuItemId);
+          const menuItemData = rawMenuItems.find(m => m.id === item.menuItemId);
+          return {
+            ...item,
+            orderId,
+            id: crypto.randomUUID(),
+            price: parseFloat(item.price),
+            menuItem: menuItemData ? {
+              id: menuItemData.id,
+              name: menuItemData.name,
+              price: parseFloat(menuItemData.price),
+              description: menuItemData.description || '',
+              categoryId: menuItemData.categoryId,
+              isAvailable: menuItemData.isAvailable === 1 || menuItemData.isAvailable === true,
+              category: menuItemData.category || null,
+            } : {
+              id: item.menuItemId,
+              name: cartItem?.name || 'Item',
+              price: parseFloat(item.price),
+              description: '',
+              categoryId: '',
+              isAvailable: true,
+              category: null,
+            }
+          };
+        });
+        
+        const itemsTotal = itemsWithOrderId.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        
+        const offlineOrder = { 
+          ...data,
+          id: orderId,
+          orderNumber: Math.floor(Math.random() * 9000) + 1000,
+          createdAt: now,
+          updatedAt: now,
+          totalAmount: itemsTotal,
+          discount: data.discount ? parseFloat(data.discount) : null,
+          serviceCharge: data.serviceCharge ? parseFloat(data.serviceCharge) : null,
+          deliveryFee: data.deliveryFee ? parseFloat(data.deliveryFee) : null,
+          paidAmount: "0",
+          paymentStatus: "nao_pago",
+          orderItems: itemsWithOrderId,
+          isSynced: false,
+          table: data.tableId ? tables.find(t => t.id === data.tableId) || null : null
+        } as any;
+        await indexedDB.saveOrder(offlineOrder);
+        await indexedDB.saveOrderItems(itemsWithOrderId as any);
+        return offlineOrder;
+      }
+    },
+    onSuccess: async (data) => {
+      const isOnline = typeof navigator !== 'undefined' && navigator.onLine;
+      
+      if (!isOnline && data?.id) {
+        queryClient.setQueryData(["/api/orders", data.id], data);
+        
+        const currentOrders = queryClient.getQueryData(["/api/orders"]) as any[] || [];
+        queryClient.setQueryData(["/api/orders"], [data, ...currentOrders]);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      }
+      
+      if (!isOnline) {
+        toast({
+          title: "Pedido criado offline",
+          description: "O pedido será sincronizado quando houver conexão.",
+        });
+      } else {
+        toast({
+          title: "Pedido criado",
+          description: "O pedido foi criado com sucesso.",
+        });
+      }
+      
+      // Impressão automática na cozinha
+      const kitchenPrinter = getPrinterByType('kitchen');
+      if (kitchenPrinter && data?.id) {
+        try {
+          // Verificar se a impressão automática está habilitada
+          const autoPrintEnabled = localStorage.getItem('auto-print-kitchen') !== 'false';
+          
+          if (autoPrintEnabled) {
+            await printerService.printKitchenOrder('kitchen', {
+              orderNumber: data.orderNumber || data.id.slice(-6),
+              orderType: data.orderType || 'balcao',
+              customerName: data.customerName,
+              tableNumber: data.table?.number || undefined,
+              items: data.orderItems || cart.map(item => ({
+                name: item.name,
+                quantity: item.quantity,
+                selectedOptions: item.selectedOptions || [],
+              })),
+              notes: data.orderNotes || '',
+              createdAt: data.createdAt || new Date().toISOString(),
+            });
+            
+            toast({
+              title: "Pedido impresso",
+              description: "Pedido enviado para impressora da cozinha",
+            });
+          }
+        } catch (error) {
+          // Não mostrar erro ao usuário para não interromper o fluxo
+        }
+      }
+      
+      if (onOrderCreated && data?.id) {
+        onOrderCreated(data.id, isOnline);
+      }
+      
+      setOpen(false);
+      setCart([]);
+      form.reset();
+      setSelectedCategory(null);
+      setProductSearchQuery("");
+    },
+    onError: (error: any) => {
+      const message = error?.message || "Não foi possível criar o pedido.";
+      const isCashRegisterError =
+        error?.status === 409 &&
+        message.toLowerCase().includes("turno de caixa");
+
+      toast({
+        title: isCashRegisterError ? "Turno de caixa fechado" : "Não foi possível criar o pedido",
+        description: message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const addToCart = (item: NormalizedMenuItem) => {
+    if (item.optionGroups && item.optionGroups.length > 0) {
+      setSelectedProduct(item);
+      setOptionsDialogOpen(true);
+      return;
+    }
+
+    const existing = cart.find((i) => i.menuItemId === item.id && !i.selectedOptions);
+    if (existing) {
+      setCart(cart.map((i) => 
+        i.menuItemId === item.id && !i.selectedOptions
+          ? { ...i, quantity: i.quantity + 1 } 
+          : i
+      ));
+    } else {
+      setCart([...cart, {
+        menuItemId: item.id,
+        name: item.name,
+        price: parseFloat(item.price),
+        quantity: 1,
+      }]);
+    }
+
+    toast({
+      title: 'Adicionado',
+      description: `${item.name} foi adicionado ao pedido.`,
+    });
+  };
+
+  const handleOptionsConfirm = (selectedOptions: SelectedOption[]) => {
+    if (!selectedProduct) return;
+
+    const optionsTotal = selectedOptions.reduce((sum, opt) => sum + (parseFloat(opt.priceAdjustment) * opt.quantity), 0);
+    const totalPrice = parseFloat(selectedProduct.price) + optionsTotal;
+
+    setCart([...cart, {
+      menuItemId: selectedProduct.id,
+      name: selectedProduct.name,
+      price: totalPrice,
+      quantity: 1,
+      selectedOptions,
+    }]);
+
+    setSelectedProduct(null);
+
+    toast({
+      title: 'Adicionado',
+      description: `${selectedProduct.name} foi adicionado ao pedido.`,
+    });
+  };
+
+  const removeFromCart = (index: number) => {
+    setCart(cart.filter((_, i) => i !== index));
+  };
+
+  const updateQuantity = (index: number, delta: number) => {
+    setCart(cart.map((item, i) => {
+      if (i === index) {
+        const newQuantity = Math.max(0, item.quantity + delta);
+        return newQuantity === 0 ? null : { ...item, quantity: newQuantity };
+      }
+      return item;
+    }).filter(Boolean) as OrderItem[]);
+  };
+
+  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalAmount = subtotal;
+
+  const filteredCustomers = customers.filter(customer => {
+    const searchLower = customerSearchQuery.toLowerCase();
+    return (
+      customer.name.toLowerCase().includes(searchLower) ||
+      customer.phone?.toLowerCase().includes(searchLower) ||
+      customer.email?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  const selectCustomer = (customer: Customer) => {
+    form.setValue("customerId", customer.id);
+    form.setValue("customerName", customer.name);
+    form.setValue("customerPhone", customer.phone || "");
+    if (orderType === "delivery") {
+      form.setValue("deliveryAddress", customer.address || "");
+    }
+    setCustomerSearchOpen(false);
+    setCustomerSearchQuery("");
+  };
+
+  const onSubmit = (data: NewOrderForm) => {
+    if (cart.length === 0) {
+      toast({
+        title: "Carrinho vazio",
+        description: "Adicione itens ao pedido antes de finalizar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (
+      currentUser?.role === "cashier" &&
+      ["balcao", "takeout", "pdv"].includes(data.orderType) &&
+      !cashierHasOpenShift
+    ) {
+      toast({
+        title: "Turno de caixa fechado",
+        description: "Abra um turno de caixa antes de criar pedidos de balcão.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const orderData: InsertOrder = {
+      ...data,
+      isSynced: typeof navigator !== 'undefined' && navigator.onLine ? 1 : 0,
+    };
+
+    createOrderMutation.mutate(orderData);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          {trigger || (
+            <Button data-testid="button-new-order" size="default">
+              <Plus className="h-4 w-4" />
+              Novo Pedido
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4">
+          <DialogTitle className="text-2xl">Novo Pedido</DialogTitle>
+        </DialogHeader>
+        
+        <div className="flex gap-6 flex-1 overflow-hidden px-6 pb-6">
+          {/* Left Side - Products */}
+          <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Pesquisar produtos..."
+                value={productSearchQuery}
+                onChange={(e) => setProductSearchQuery(e.target.value)}
+                className="pl-10"
+                data-testid="input-product-search"
+              />
+            </div>
+
+            {/* Categories */}
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant={selectedCategory === null ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedCategory(null)}
+                data-testid="category-all"
+                className="gap-2"
+              >
+                <UtensilsCrossed className="h-4 w-4" />
+                Todos
+                <Badge variant="secondary" className="ml-1">
+                  {menuItems.length}
+                </Badge>
+              </Button>
+              {categories.map((category) => (
+                <Button
+                  key={category.id}
+                  variant={selectedCategory === category.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategory(category.id)}
+                  data-testid={`category-${category.id}`}
+                  className="gap-2"
+                >
+                  <Coffee className="h-4 w-4" />
+                  {category.name}
+                  <Badge variant="secondary" className="ml-1">
+                    {category.count}
+                  </Badge>
+                </Button>
+              ))}
+            </div>
+
+            {/* Products Grid */}
+            <ScrollArea className="flex-1">
+              {menuItemsFailed ? (
+                <div role="alert" className="flex flex-col items-center gap-3 px-4 py-10 text-center text-sm text-muted-foreground">
+                  <p>
+                    Não foi possível carregar os itens do menu.
+                    {menuItemsError instanceof Error && menuItemsError.message
+                      ? ` ${menuItemsError.message}`
+                      : ""}
+                  </p>
+                  <Button type="button" variant="outline" size="sm" onClick={() => refetchMenuItems()}>
+                    Tentar novamente
+                  </Button>
+                </div>
+              ) : menuItemsLoading ? (
+                <p className="px-4 py-10 text-center text-sm text-muted-foreground">Carregando itens do menu...</p>
+              ) : filteredProducts.length === 0 ? (
+                <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  {menuItems.length === 0
+                    ? "Nenhum item do menu cadastrado nesta unidade."
+                    : "Nenhum item encontrado para esta categoria ou pesquisa."}
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pr-4">
+                  {filteredProducts.map((item) => (
+                    <Card
+                      key={item.id}
+                      className={`hover-elevate cursor-pointer ${!item.isAvailable ? 'opacity-50' : ''}`}
+                      onClick={() => item.isAvailable && addToCart(item)}
+                      data-testid={`card-menu-item-${item.id}`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex flex-col gap-3">
+                          {/* Product Image Placeholder */}
+                          <div className="aspect-square bg-muted rounded-md flex items-center justify-center">
+                            <Coffee className="h-12 w-12 text-muted-foreground" />
+                          </div>
+                          
+                          {/* Product Info */}
+                          <div className="space-y-2">
+                            <div>
+                              <p className="font-semibold text-sm line-clamp-2">{item.name}</p>
+                              <p className="text-xs text-muted-foreground">{item.category?.name}</p>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-lg">{formatKwanza(item.price)}</span>
+                              <Button
+                                size="icon"
+                                variant="default"
+                                className="h-8 w-8 rounded-full"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (item.isAvailable) addToCart(item);
+                                }}
+                                disabled={!item.isAvailable}
+                                data-testid={`button-add-${item.id}`}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+
+                            {!item.isAvailable && (
+                              <Badge variant="destructive" className="w-full justify-center">
+                                Indisponível
+                              </Badge>
+                            )}
+                          </div>
+                          
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+
+          {/* Right Side - Checkout */}
+          <div className="w-96 flex flex-col overflow-hidden">
+            <Card className="flex-1 flex flex-col overflow-hidden">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
+                  {/* Receipt Header - Fixed */}
+                  <div className="p-4 flex-shrink-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-lg">Recibo</h3>
+                      <Badge variant="outline">#{receiptNumber}</Badge>
+                    </div>
+                  </div>
+
+                  <Separator className="flex-shrink-0" />
+
+                  {/* Scrollable Content */}
+                  <ScrollArea className="flex-1">
+                    <div className="p-4 space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="orderType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tipo de Pedido</FormLabel>
+                          <div className="grid grid-cols-3 gap-2">
+                            <Button
+                              type="button"
+                              variant={field.value === "balcao" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => field.onChange("balcao")}
+                              data-testid="order-type-balcao"
+                              className="h-auto py-2 px-2 text-xs"
+                            >
+                              Balcão
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={field.value === "delivery" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => field.onChange("delivery")}
+                              data-testid="order-type-delivery"
+                              className="h-auto py-2 px-2 text-xs"
+                            >
+                              Delivery
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={field.value === "mesa" ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => field.onChange("mesa")}
+                              data-testid="order-type-mesa"
+                              className="h-auto py-2 px-2 text-xs"
+                            >
+                              Mesa
+                            </Button>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Customer Name and Table */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <FormField
+                        control={form.control}
+                        name="customerName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Nome</FormLabel>
+                            <div className="flex gap-1">
+                              <FormControl>
+                                <Input 
+                                  data-testid="input-customer-name" 
+                                  {...field} 
+                                  value={field.value || ""} 
+                                  placeholder="Cliente"
+                                  className="h-9 text-sm"
+                                />
+                              </FormControl>
+                              <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
+                                <PopoverTrigger asChild>
+                                  <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    size="icon"
+                                    className="h-9 w-9 flex-shrink-0"
+                                    data-testid="button-search-customer"
+                                  >
+                                    <Search className="h-3 w-3" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80 p-0" align="start">
+                                  <Command>
+                                    <CommandInput 
+                                      placeholder="Buscar cliente..." 
+                                      value={customerSearchQuery}
+                                      onValueChange={setCustomerSearchQuery}
+                                    />
+                                    <CommandList>
+                                      <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                                      <CommandGroup>
+                                        <ScrollArea className="h-64">
+                                          {filteredCustomers.map((customer) => (
+                                            <CommandItem
+                                              key={customer.id}
+                                              onSelect={() => selectCustomer(customer)}
+                                              className="flex flex-col items-start gap-1 p-3 cursor-pointer"
+                                              data-testid={`customer-item-${customer.id}`}
+                                            >
+                                              <div className="flex items-center gap-2 w-full">
+                                                <User className="h-4 w-4 text-primary flex-shrink-0" />
+                                                <span className="font-medium">{customer.name}</span>
+                                              </div>
+                                              {customer.phone && (
+                                                <div className="flex items-center gap-2 w-full text-sm text-muted-foreground ml-6">
+                                                  <Phone className="h-3 w-3" />
+                                                  <span>{customer.phone}</span>
+                                                </div>
+                                              )}
+                                            </CommandItem>
+                                          ))}
+                                        </ScrollArea>
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      {orderType === "mesa" ? (
+                        <FormField
+                          control={form.control}
+                          name="tableId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Mesa</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-table" className="h-9 text-sm">
+                                    <SelectValue placeholder="Mesa" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {tables.map((table) => (
+                                    <SelectItem key={table.id} value={table.id}>
+                                      Mesa {table.number}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
+                      ) : (
+                        <FormField
+                          control={form.control}
+                          name="customerPhone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Telefone</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  data-testid="input-customer-phone" 
+                                  {...field} 
+                                  value={field.value || ""} 
+                                  placeholder="Telefone"
+                                  className="h-9 text-sm"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+
+                    {orderType === "mesa" && selectedTableId && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <FormField
+                          control={form.control}
+                          name="guestId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Cliente da Mesa {isLoadingGuests && "(Carregando...)"}</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || undefined}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-guest" className="h-9 text-sm">
+                                    <SelectValue placeholder={isLoadingGuests ? "Carregando..." : guests.length === 0 ? "Nenhum cliente na mesa" : "Selecionar cliente"} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {guests.length === 0 ? (
+                                    <div className="px-2 py-3 text-sm text-muted-foreground text-center">
+                                      Nenhum cliente adicionado ainda
+                                    </div>
+                                  ) : (
+                                    guests.map((g) => (
+                                      <SelectItem key={g.id} value={g.id}>
+                                        {(g.name || `Cliente ${g.guestNumber}`)}
+                                      </SelectItem>
+                                    ))
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
+                        <div className="flex items-end">
+                          {creatingGuest ? (
+                            <div className="flex w-full gap-2">
+                              <Input 
+                                placeholder="Nome (opcional)"
+                                value={newGuestName}
+                                onChange={(e) => setNewGuestName(e.target.value)}
+                                className="h-9 text-sm"
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => selectedTableId && createGuestMutation.mutate({ tableId: selectedTableId, guestName: newGuestName || undefined })}
+                                disabled={createGuestMutation.isPending}
+                              >
+                                {createGuestMutation.isPending ? 'Criando...' : 'Adicionar'}
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button type="button" variant="outline" size="sm" onClick={() => setCreatingGuest(true)}>
+                              + Adicionar Pessoa
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {orderType === "delivery" && (
+                      <>
+                        <FormField
+                          control={form.control}
+                          name="deliveryAddress"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Endereço de Entrega</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  data-testid="input-delivery-address" 
+                                  {...field} 
+                                  value={field.value || ""}
+                                  placeholder="Rua, número, bairro, cidade..."
+                                  className="text-sm resize-none"
+                                  rows={2}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="deliveryNotes"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Observações (opcional)</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  data-testid="input-delivery-notes" 
+                                  {...field} 
+                                  value={field.value || ""}
+                                  placeholder="Ex: Portão azul, interfone 12, deixar com porteiro..."
+                                  className="text-sm resize-none"
+                                  rows={2}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </>
+                    )}
+
+                    <Separator />
+
+                    {/* Cart Items List */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-semibold">Itens do Pedido</h4>
+                        <Badge variant="secondary">{cart.length} {cart.length === 1 ? 'item' : 'itens'}</Badge>
+                      </div>
+                      <div className="space-y-2">
+                        {cart.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <ShoppingCart className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                            <p className="text-sm">Nenhum item adicionado</p>
+                          </div>
+                        ) : (
+                          cart.map((item, index) => (
+                            <Card key={`${item.menuItemId}-${index}`} data-testid={`cart-item-${item.menuItemId}`}>
+                              <CardContent className="p-3">
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-sm truncate">{item.name}</p>
+                                    {item.selectedOptions && item.selectedOptions.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {item.selectedOptions.map((opt) => (
+                                          <Badge 
+                                            key={opt.optionId} 
+                                            variant="secondary" 
+                                            className="text-xs"
+                                          >
+                                            {opt.optionName}
+                                            {opt.priceAdjustment !== "0" && ` (+${formatKwanza(parseFloat(opt.priceAdjustment))})`}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    )}
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {formatKwanza(item.price)} × {item.quantity}
+                                    </p>
+                                  </div>
+                                  <span className="font-bold text-sm whitespace-nowrap">
+                                    {formatKwanza(item.price * item.quantity)}
+                                  </span>
+                                </div>
+                                
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="outline"
+                                    className="h-7 w-7"
+                                    onClick={() => updateQuantity(index, -1)}
+                                    data-testid={`button-decrease-${item.menuItemId}`}
+                                  >
+                                    <Minus className="h-3 w-3" />
+                                  </Button>
+                                  <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="outline"
+                                    className="h-7 w-7"
+                                    onClick={() => updateQuantity(index, 1)}
+                                    data-testid={`button-increase-${item.menuItemId}`}
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 ml-auto"
+                                    onClick={() => removeFromCart(index)}
+                                    data-testid={`button-remove-${item.menuItemId}`}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Order Notes */}
+                    <FormField
+                      control={form.control}
+                      name="orderNotes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Observações</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              data-testid="input-order-notes" 
+                              {...field} 
+                              value={field.value || ""}
+                              placeholder="Observações do pedido..."
+                              className="text-sm resize-none"
+                              rows={2}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Payment Method */}
+                    <FormField
+                      control={form.control}
+                      name="paymentMethod"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Método de Pagamento</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || undefined}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-payment-method" className="h-9">
+                                <SelectValue placeholder="Selecionar" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                              <SelectItem value="multicaixa">Multicaixa</SelectItem>
+                              <SelectItem value="transferencia">Transferência</SelectItem>
+                              <SelectItem value="cartao">Cartão</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    </div>
+                  </ScrollArea>
+
+                  {/* Fixed Footer - Total and Submit */}
+                  <div className="border-t flex-shrink-0">
+                    <div className="p-4 space-y-4">
+                      {/* Total */}
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-bold">Total</span>
+                        <span className="text-2xl font-bold" data-testid="text-total">{formatKwanza(totalAmount)}</span>
+                      </div>
+
+                      {/* Submit Button */}
+                      <Button 
+                        type="submit" 
+                        disabled={
+                          createOrderMutation.isPending ||
+                          cart.length === 0 ||
+                          (currentUser?.role === "cashier" &&
+                            ["balcao", "takeout", "pdv"].includes(orderType) &&
+                            !cashierHasOpenShift)
+                        }
+                        data-testid="button-submit-order"
+                        className="w-full"
+                        size="lg"
+                      >
+                        <ShoppingCart className="h-4 w-4 mr-2" />
+                        {createOrderMutation.isPending ? "Processando..." : `Finalizar Pedido`}
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              </Form>
+            </Card>
+          </div>
+        </div>
+      </DialogContent>
+
+      {/* Product Options Dialog */}
+      {selectedProduct && (
+        <ProductOptionsDialog
+          open={optionsDialogOpen}
+          onOpenChange={setOptionsDialogOpen}
+          productName={selectedProduct.name}
+          basePrice={parseFloat(selectedProduct.price)}
+          optionGroups={selectedProduct.optionGroups || []}
+          onConfirm={handleOptionsConfirm}
+        />
+      )}
+    </Dialog>
+  );
+}

@@ -537,14 +537,15 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
           )}
         </DialogTrigger>
       )}
-      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4">
-          <DialogTitle className="text-2xl">Novo Pedido</DialogTitle>
+      <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-7xl flex-col overflow-hidden p-0 sm:h-[95vh] sm:max-h-[95vh] sm:w-[calc(100vw-2rem)]">
+        <DialogHeader className="shrink-0 px-3 pb-3 pt-3 sm:px-6 sm:pb-4 sm:pt-6">
+          <DialogTitle className="text-xl sm:text-2xl">Novo Pedido</DialogTitle>
         </DialogHeader>
         
-        <div className="flex gap-6 flex-1 overflow-hidden px-6 pb-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden px-3 pb-4 sm:gap-6 sm:px-6 sm:pb-6 lg:flex-row lg:overflow-hidden">
           {/* Left Side - Products */}
-          <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+          <div className="flex h-[48dvh] min-h-[20rem] shrink-0 flex-col gap-3 overflow-hidden lg:h-auto lg:min-h-0 lg:flex-1 lg:gap-4">
+            <h3 className="shrink-0 text-sm font-semibold lg:hidden">Menu de produtos</h3>
             {/* Search Bar */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -591,7 +592,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
             </div>
 
             {/* Products Grid */}
-            <ScrollArea className="flex-1">
+            <ScrollArea className="min-h-0 flex-1">
               {menuItemsFailed ? (
                 <div role="alert" className="flex flex-col items-center gap-3 px-4 py-10 text-center text-sm text-muted-foreground">
                   <p>
@@ -669,7 +670,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
           </div>
 
           {/* Right Side - Checkout */}
-          <div className="w-96 flex flex-col overflow-hidden">
+          <div className="flex h-[72dvh] min-h-[30rem] w-full shrink-0 flex-col overflow-hidden lg:h-auto lg:min-h-0 lg:w-96">
             <Card className="flex-1 flex flex-col overflow-hidden">
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
