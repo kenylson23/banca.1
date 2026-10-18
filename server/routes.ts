@@ -8202,8 +8202,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ===== MENU ITEM ROUTES (Admin Only) =====
-  app.get("/api/menu-items", isAdmin, checkSubscriptionStatus, async (req, res) => {
+  // Reading the menu is needed by operational roles when creating PDV orders.
+  // Mutations below remain restricted to administrators and managers.
+  app.get("/api/menu-items", isOperational, checkSubscriptionStatus, async (req, res) => {
     try {
       const currentUser = req.user as User;
       if (!currentUser.restaurantId && currentUser.role !== 'superadmin') {

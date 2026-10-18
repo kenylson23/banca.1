@@ -143,7 +143,13 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
   const [creatingGuest, setCreatingGuest] = useState(false);
   const [newGuestName, setNewGuestName] = useState("");
 
-  const { data: rawMenuItems = [] } = useQuery<MenuItem[]>({
+  const {
+    data: rawMenuItems = [],
+    isLoading: menuItemsLoading,
+    isError: menuItemsFailed,
+    error: menuItemsError,
+    refetch: refetchMenuItems,
+  } = useQuery<MenuItem[]>({
     queryKey: ["/api/menu-items"],
     enabled: open,
   });
@@ -586,56 +592,79 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
 
             {/* Products Grid */}
             <ScrollArea className="flex-1">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pr-4">
-                {filteredProducts.map((item) => (
-                  <Card 
-                    key={item.id} 
-                    className={`hover-elevate cursor-pointer ${!item.isAvailable ? 'opacity-50' : ''}`}
-                    onClick={() => item.isAvailable && addToCart(item)}
-                    data-testid={`card-menu-item-${item.id}`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex flex-col gap-3">
-                        {/* Product Image Placeholder */}
-                        <div className="aspect-square bg-muted rounded-md flex items-center justify-center">
-                          <Coffee className="h-12 w-12 text-muted-foreground" />
-                        </div>
-                        
-                        {/* Product Info */}
-                        <div className="space-y-2">
-                          <div>
-                            <p className="font-semibold text-sm line-clamp-2">{item.name}</p>
-                            <p className="text-xs text-muted-foreground">{item.category?.name}</p>
+              {menuItemsFailed ? (
+                <div role="alert" className="flex flex-col items-center gap-3 px-4 py-10 text-center text-sm text-muted-foreground">
+                  <p>
+                    Não foi possível carregar os itens do menu.
+                    {menuItemsError instanceof Error && menuItemsError.message
+                      ? ` ${menuItemsError.message}`
+                      : ""}
+                  </p>
+                  <Button type="button" variant="outline" size="sm" onClick={() => refetchMenuItems()}>
+                    Tentar novamente
+                  </Button>
+                </div>
+              ) : menuItemsLoading ? (
+                <p className="px-4 py-10 text-center text-sm text-muted-foreground">Carregando itens do menu...</p>
+              ) : filteredProducts.length === 0 ? (
+                <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  {menuItems.length === 0
+                    ? "Nenhum item do menu cadastrado nesta unidade."
+                    : "Nenhum item encontrado para esta categoria ou pesquisa."}
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pr-4">
+                  {filteredProducts.map((item) => (
+                    <Card
+                      key={item.id}
+                      className={`hover-elevate cursor-pointer ${!item.isAvailable ? 'opacity-50' : ''}`}
+                      onClick={() => item.isAvailable && addToCart(item)}
+                      data-testid={`card-menu-item-${item.id}`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex flex-col gap-3">
+                          {/* Product Image Placeholder */}
+                          <div className="aspect-square bg-muted rounded-md flex items-center justify-center">
+                            <Coffee className="h-12 w-12 text-muted-foreground" />
                           </div>
                           
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-lg">{formatKwanza(item.price)}</span>
-                            <Button
-                              size="icon"
-                              variant="default"
-                              className="h-8 w-8 rounded-full"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (item.isAvailable) addToCart(item);
-                              }}
-                              disabled={!item.isAvailable}
-                              data-testid={`button-add-${item.id}`}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
+                          {/* Product Info */}
+                          <div className="space-y-2">
+                            <div>
+                              <p className="font-semibold text-sm line-clamp-2">{item.name}</p>
+                              <p className="text-xs text-muted-foreground">{item.category?.name}</p>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-lg">{formatKwanza(item.price)}</span>
+                              <Button
+                                size="icon"
+                                variant="default"
+                                className="h-8 w-8 rounded-full"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (item.isAvailable) addToCart(item);
+                                }}
+                                disabled={!item.isAvailable}
+                                data-testid={`button-add-${item.id}`}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+
+                            {!item.isAvailable && (
+                              <Badge variant="destructive" className="w-full justify-center">
+                                Indisponível
+                              </Badge>
+                            )}
                           </div>
                           
-                          {!item.isAvailable && (
-                            <Badge variant="destructive" className="w-full justify-center">
-                              Indisponível
-                            </Badge>
-                          )}
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </ScrollArea>
           </div>
 
