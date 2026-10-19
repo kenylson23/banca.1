@@ -152,9 +152,8 @@ export function summarizeTableInvoicePayments(
       paymentMethod = normalizePaymentMethod(payment.paymentMethod);
       paymentMethodLabel = getPaymentMethodLabel(paymentMethod);
     } catch {
-      // Historical records can contain a provider-specific code. Keep the
-      // payment in the document without leaking that code into print output.
-      paymentMethod = 'nao_especificado';
+      // Configured payment methods are stored by their display name.
+      paymentMethod = String(payment.paymentMethod ?? '').trim() || 'nao_especificado';
       paymentMethodLabel = formatPaymentMethodLabel(payment.paymentMethod);
     }
     const current = byMethod.get(paymentMethod) || {

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { DndContext, DragEndEvent, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -46,6 +46,7 @@ import { DraggableOrderItem } from '@/components/DraggableOrderItem';
 import { DroppableGuestZone } from '@/components/DroppableGuestZone';
 import { AuditHistoryDialog } from '@/components/AuditHistoryDialog';
 import { MoveItemReasonDialog } from '@/components/MoveItemReasonDialog';
+import { getOperationalPaymentMethodOptions } from '@shared/configured-payment-methods';
 
 interface TableGuest {
   id: string;
@@ -102,13 +103,6 @@ interface BillSplitPanelProps {
   initialGuestId?: string | null;
 }
 
-const PAYMENT_METHODS = [
-  { value: 'dinheiro', label: 'Dinheiro', icon: Banknote },
-  { value: 'multicaixa', label: 'Multicaixa', icon: Smartphone },
-  { value: 'transferencia', label: 'Transferência', icon: Building2 },
-  { value: 'cartao', label: 'Cartão', icon: CreditCard },
-];
-
 const getGuestStatusLabel = (status: string) => {
   const labels: Record<string, string> = {
     ativo: 'Ativo',
@@ -142,6 +136,10 @@ export function BillSplitPanel({ tableId, restaurantId, sessionId, totalAmount, 
     },
     staleTime: 5 * 60 * 1000,
   });
+  const paymentMethodOptions = useMemo(
+    () => getOperationalPaymentMethodOptions(restaurantQuery.data?.paymentMethods || []),
+    [restaurantQuery.data?.paymentMethods],
+  );
   
   const numericTotalAmount = typeof totalAmount === 'number' ? totalAmount : parseFloat(totalAmount || '0');
   
@@ -159,6 +157,16 @@ export function BillSplitPanel({ tableId, restaurantId, sessionId, totalAmount, 
   const [splitCount, setSplitCount] = useState(2);
   const [selectedGuest, setSelectedGuest] = useState<string | null>(initialGuestId || null);
   const [paymentMethodsBySplit, setPaymentMethodsBySplit] = useState<Record<string, string>>({});
+  useEffect(() => {
+    setPaymentMethodsBySplit((current) =>
+      Object.fromEntries(
+        Object.entries(current).map(([splitId, method]) => [
+          splitId,
+          paymentMethodOptions.some((option) => option.value === method) ? method : 'dinheiro',
+        ]),
+      ),
+    );
+  }, [paymentMethodOptions]);
   const [moveItemDialog, setMoveItemDialog] = useState<{
     open: boolean;
     item: GuestOrderItem | null;
@@ -1015,12 +1023,9 @@ export function BillSplitPanel({ tableId, restaurantId, sessionId, totalAmount, 
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                {PAYMENT_METHODS.map((method) => (
+                                {paymentMethodOptions.map((method) => (
                                   <SelectItem key={method.value} value={method.value}>
-                                    <div className="flex items-center gap-2">
-                                      <method.icon className="h-4 w-4" />
-                                      {method.label}
-                                    </div>
+                                    {method.label}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -1130,6 +1135,7 @@ export function BillSplitPanel({ tableId, restaurantId, sessionId, totalAmount, 
             guestName={guestCheckoutDialog.guestName}
             amount={guestCheckoutDialog.amount}
             tableId={tableId}
+            paymentMethods={restaurantQuery.data?.paymentMethods || []}
             onSuccess={() => {
               setGuestCheckoutDialog(null);
               queryClient.invalidateQueries({ queryKey: [`/api/tables/${tableId}/orders-by-guest`] });

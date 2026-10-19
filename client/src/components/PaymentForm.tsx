@@ -1,10 +1,14 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertCircle } from "lucide-react";
 import { formatKwanza } from "@/lib/formatters";
+import {
+  getOperationalPaymentMethodOptions,
+  type ConfiguredPaymentMethod,
+} from "@shared/configured-payment-methods";
 
 interface PaymentFormProps {
   onSubmit: (data: { amount: string; paymentMethod: string; receivedAmount?: string }) => void;
@@ -12,9 +16,17 @@ interface PaymentFormProps {
   paidAmount: number;
   isPending?: boolean;
   allowSplit?: boolean; // when false, hide split UI
+  paymentMethods?: ConfiguredPaymentMethod[];
 }
 
-export function PaymentForm({ onSubmit, totalAmount, paidAmount, isPending, allowSplit = true }: PaymentFormProps) {
+export function PaymentForm({
+  onSubmit,
+  totalAmount,
+  paidAmount,
+  isPending,
+  allowSplit = true,
+  paymentMethods = [],
+}: PaymentFormProps) {
   const remaining = totalAmount - paidAmount;
   const [amount, setAmount] = useState(remaining.toString());
   const [paymentMethod, setPaymentMethod] = useState("dinheiro");
@@ -26,12 +38,16 @@ export function PaymentForm({ onSubmit, totalAmount, paidAmount, isPending, allo
     ? remaining / Number(numberOfPeople)
     : 0;
 
-  const PAYMENT_METHODS = [
-    { value: "dinheiro", label: "Dinheiro" },
-    { value: "multicaixa", label: "Multicaixa" },
-    { value: "transferencia", label: "Transferência" },
-    { value: "cartao", label: "Cartão" },
-  ];
+  const paymentMethodOptions = useMemo(
+    () => getOperationalPaymentMethodOptions(paymentMethods),
+    [paymentMethods],
+  );
+
+  useEffect(() => {
+    if (!paymentMethodOptions.some((option) => option.value === paymentMethod)) {
+      setPaymentMethod("dinheiro");
+    }
+  }, [paymentMethodOptions, paymentMethod]);
 
   const isCashInvalid = paymentMethod === "dinheiro" && Boolean(receivedAmount) && Number(receivedAmount) < Number(amount);
 
@@ -109,7 +125,7 @@ export function PaymentForm({ onSubmit, totalAmount, paidAmount, isPending, allo
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {PAYMENT_METHODS.map((m) => (
+            {paymentMethodOptions.map((m) => (
               <SelectItem key={m.value} value={m.value}>
                 {m.label}
               </SelectItem>

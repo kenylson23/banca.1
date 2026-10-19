@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -7,11 +7,15 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { CreditCard, Banknote, Building2, Smartphone, Award, Gift } from 'lucide-react';
+import { CreditCard, Banknote, Award, Gift } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import type { TableGuest, Customer, LoyaltyProgram } from '@shared/schema';
+import {
+  getOperationalPaymentMethodOptions,
+  type ConfiguredPaymentMethod,
+} from '@shared/configured-payment-methods';
 
 // Modo completo: passa o objeto guest inteiro (usado por outros ecrãs)
 interface GuestCheckoutDialogFullProps {
@@ -20,6 +24,7 @@ interface GuestCheckoutDialogFullProps {
   guest: TableGuest & { customer?: Customer };
   tableId: string;
   sessionId: string;
+  paymentMethods?: ConfiguredPaymentMethod[];
   onSuccess?: () => void;
 }
 
@@ -32,6 +37,7 @@ interface GuestCheckoutDialogSimpleProps {
   amount: number;
   tableId: string;
   sessionId?: string;
+  paymentMethods?: ConfiguredPaymentMethod[];
   onSuccess?: () => void;
 }
 
@@ -42,14 +48,21 @@ function isFullProps(props: GuestCheckoutDialogProps): props is GuestCheckoutDia
   return 'guest' in props;
 }
 
-type PaymentMethod = 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
-
 export function GuestCheckoutDialog(props: GuestCheckoutDialogProps) {
   const { open, onOpenChange, tableId } = props;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('dinheiro');
+  const [paymentMethod, setPaymentMethod] = useState('dinheiro');
+  const paymentMethodOptions = useMemo(
+    () => getOperationalPaymentMethodOptions(props.paymentMethods || []),
+    [props.paymentMethods],
+  );
+  useEffect(() => {
+    if (!paymentMethodOptions.some((method) => method.value === paymentMethod)) {
+      setPaymentMethod('dinheiro');
+    }
+  }, [paymentMethodOptions, paymentMethod]);
   const [redeemPoints, setRedeemPoints] = useState(0);
 
   // Normalizar dados independentemente do modo usado
@@ -143,13 +156,6 @@ export function GuestCheckoutDialog(props: GuestCheckoutDialogProps) {
     }
     checkoutMutation.mutate();
   };
-
-  const paymentMethods = [
-    { value: 'dinheiro', label: 'Dinheiro', icon: Banknote },
-    { value: 'multicaixa', label: 'Multicaixa', icon: CreditCard },
-    { value: 'transferencia', label: 'Transferência', icon: Building2 },
-    { value: 'cartao', label: 'Cartão', icon: Smartphone },
-  ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -290,12 +296,14 @@ export function GuestCheckoutDialog(props: GuestCheckoutDialogProps) {
           {/* Payment Method */}
           <div className="space-y-3">
             <Label className="font-semibold">Método de Pagamento</Label>
-            <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
-              {paymentMethods.map((method) => (
+            <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
+              {paymentMethodOptions.map((method) => (
                 <div key={method.value} className="flex items-center space-x-2">
                   <RadioGroupItem value={method.value} id={method.value} />
                   <Label htmlFor={method.value} className="flex items-center gap-2 cursor-pointer flex-1">
-                    <method.icon className="h-4 w-4" />
+                    {method.value === 'dinheiro'
+                      ? <Banknote className="h-4 w-4" />
+                      : <CreditCard className="h-4 w-4" />}
                     {method.label}
                   </Label>
                 </div>

@@ -180,7 +180,6 @@ import {
   type InsertGuestPayment,
 } from "@shared/schema";
 import { allocateInvoiceNumber, allocateTableSessionInvoiceNumber } from "./invoiceNumberGenerator";
-import { normalizePaymentMethod } from "@shared/payment-methods";
 import { formatTableInvoiceNumber } from "@shared/table-invoice-number";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, gt, or, isNull, isNotNull, inArray, ne, lt } from "drizzle-orm";
@@ -2241,7 +2240,7 @@ export class DatabaseStorage implements IStorage {
     const [newPayment] = await db.insert(tablePayments).values({
       ...payment,
       restaurantId,
-      paymentMethod: normalizePaymentMethod(payment.paymentMethod),
+      paymentMethod: String(payment.paymentMethod || '').trim(),
     }).returning();
 
     if (table.currentSessionId) {
@@ -3723,7 +3722,7 @@ export class DatabaseStorage implements IStorage {
 
   async recordPayment(restaurantId: string, orderId: string, data: {
     amount: string;
-    paymentMethod: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
+    paymentMethod: string;
     receivedAmount?: string;
     confirmPayment?: {
       confirmedBy: string;
@@ -3811,7 +3810,7 @@ export class DatabaseStorage implements IStorage {
           paidAmount: newPaidAmount.toFixed(2),
           changeAmount: Math.max(0, changeAmount).toFixed(2),
           paymentStatus,
-          paymentMethod: normalizePaymentMethod(data.paymentMethod),
+          paymentMethod: data.paymentMethod,
           ...(resolvedCustomerId && !lockedOrder.customerId
             ? { customerId: resolvedCustomerId }
             : {}),
@@ -3842,7 +3841,7 @@ export class DatabaseStorage implements IStorage {
             tableId: updated.tableId,
             sessionId: table.currentSessionId,
             amount: data.amount,
-            paymentMethod: normalizePaymentMethod(data.paymentMethod),
+            paymentMethod: data.paymentMethod,
             notes: `Pagamento via Pedido #${orderId.substring(0, 8)}`,
             operatorId: userId || null,
           });
@@ -7103,7 +7102,7 @@ export class DatabaseStorage implements IStorage {
     const amount = Math.abs(paymentAmount).toFixed(2);
     const type: 'receita' | 'despesa' = isRefund ? 'despesa' : 'receita';
     const categoryName = isRefund ? 'Estornos e Reembolsos' : 'Vendas Mesa';
-    const paymentMethod = payment.paymentMethod as 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
+    const paymentMethod = payment.paymentMethod;
     const branchId = table.branchId || null;
     const candidateShift = await this.getOpenCashRegisterShiftForBranch(restaurantId, branchId);
     if (!candidateShift) throw new CashRegisterClosedError();

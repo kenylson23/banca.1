@@ -15,6 +15,10 @@ import { formatKwanza } from '@/lib/formatters';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import type { Table } from '@shared/schema';
+import {
+  getOperationalPaymentMethodOptions,
+  type ConfiguredPaymentMethod,
+} from '@shared/configured-payment-methods';
 import { PaymentForm } from '@/components/PaymentForm';
 import { GuestPaymentCard } from './GuestPaymentCard';
 
@@ -46,6 +50,11 @@ interface OrdersByGuest {
 export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutComplete, initialMode }: TableCheckoutDialogProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { data: restaurant } = useQuery<{ paymentMethods?: ConfiguredPaymentMethod[] }>({
+    queryKey: [`/api/public/restaurants/${table?.restaurantId}`],
+    enabled: !!table?.restaurantId && open,
+  });
+  const paymentMethods = restaurant?.paymentMethods || [];
   const [checkoutMode, setCheckoutMode] = useState<'simple' | 'by_guest'>('simple');
   const [splitEqually, setSplitEqually] = useState(false);
   const [numberOfPeople, setNumberOfPeople] = useState(2);
@@ -437,6 +446,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
                       onSubmit={handleSimplePayment}
                       isPending={isProcessing}
                       allowSplit={splitEqually}
+                      paymentMethods={paymentMethods}
                     />
                   </CardContent>
                 </Card>
@@ -466,6 +476,7 @@ export function TableCheckoutDialog({ open, onOpenChange, table, onCheckoutCompl
                       {ordersByGuest.map((guestData) => (
                         <GuestPaymentCard
                           key={guestData.guest.id}
+                          paymentMethods={paymentMethods}
                           guest={{
                             ...guestData.guest,
                             subtotal: guestData.subtotal,

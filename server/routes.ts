@@ -32,7 +32,8 @@ import {
 import { generateOrderNumber, formatOrderDisplay } from './orderNumberGenerator';
 import { allocateTableSessionInvoiceNumber } from './invoiceNumberGenerator';
 import { buildInvoiceVerificationPath, generateInvoiceValidationCode } from '@shared/invoice-validation';
-import { getPaymentMethodLabel, normalizePaymentMethod } from '@shared/payment-methods';
+import { formatPaymentMethodLabel, getPaymentMethodLabel, normalizePaymentMethod } from '@shared/payment-methods';
+import { resolveOperationalPaymentMethod } from '@shared/configured-payment-methods';
 import { summarizeSessionInvoice } from '@shared/session-invoice';
 import { getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
 import { formatTableInvoiceNumber } from '@shared/table-invoice-number';
@@ -715,8 +716,8 @@ async function buildTableInvoiceDocument(
         method = normalizePaymentMethod(payment.paymentMethod);
         methodLabel = getPaymentMethodLabel(method);
       } catch {
-        method = 'nao_especificado';
-        methodLabel = 'Método não especificado';
+        method = String(payment.paymentMethod ?? '').trim() || 'nao_especificado';
+        methodLabel = formatPaymentMethodLabel(payment.paymentMethod);
       }
       return {
         id: payment.id,
@@ -5596,11 +5597,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         closeSession,
         redeemLoyaltyPoints
       } = fullCheckoutSchema.parse(req.body);
-      const normalizedPaymentMethod = paymentMethod ? normalizePaymentMethod(paymentMethod) : paymentMethod;
-
       const order = await storage.getOrderById(restaurantId, orderId);
       if (!order) {
         return res.status(404).json({ message: "Pedido não encontrado" });
+      }
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      const resolvedPaymentMethod = paymentAmount && parseFloat(paymentAmount) > 0
+        ? resolveOperationalPaymentMethod(paymentMethod || 'dinheiro', restaurant?.paymentMethods || [])
+        : undefined;
+      if (paymentAmount && parseFloat(paymentAmount) > 0 && !resolvedPaymentMethod) {
+        return res.status(400).json({ message: "Esta forma de pagamento não está configurada para este restaurante" });
       }
 
       // Qualquer pagamento operacional de mesa ou balcão precisa de um turno
@@ -5671,7 +5677,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let updatedOrder = await storage.getOrderById(restaurantId, orderId);
       if (paymentAmount && parseFloat(paymentAmount) > 0) {
         const payAmount = parseFloat(paymentAmount);
-        const method = paymentMethod || 'dinheiro';
+        const method = resolvedPaymentMethod || 'dinheiro';
         if (method === 'dinheiro' && receivedAmount !== undefined && receivedAmount !== null && receivedAmount !== '') {
           const received = parseFloat(receivedAmount);
           if (isNaN(received) || received < payAmount - 0.009) {
@@ -5807,15 +5813,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Valor de pagamento inválido" });
       }
 
-      if (paymentMethod === 'dinheiro' && receivedAmount !== undefined && receivedAmount !== null && receivedAmount !== '') {
-        const received = typeof receivedAmount === 'string' ? parseFloat(receivedAmount) : Number(receivedAmount);
-        if (isNaN(received) || received < paymentAmount - 0.009) {
-          return res.status(400).json({ 
-            message: `Valor recebido em dinheiro (${isNaN(received) ? receivedAmount : received.toFixed(2)}) não pode ser inferior ao valor a pagar (${paymentAmount.toFixed(2)})` 
-          });
-        }
-      }
-      
       const table = await storage.getTableById(req.params.id);
       if (!table) {
         return res.status(404).json({ message: "Mesa não encontrada" });
@@ -5826,6 +5823,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ 
           message: "Acesso negado: Mesa não pertence ao seu restaurante" 
         });
+      }
+
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      const resolvedPaymentMethod = resolveOperationalPaymentMethod(
+        paymentMethod,
+        restaurant?.paymentMethods || [],
+      );
+      if (!resolvedPaymentMethod) {
+        return res.status(400).json({ message: "Esta forma de pagamento não está configurada para este restaurante" });
+      }
+
+      if (resolvedPaymentMethod === 'dinheiro' && receivedAmount !== undefined && receivedAmount !== null && receivedAmount !== '') {
+        const received = typeof receivedAmount === 'string' ? parseFloat(receivedAmount) : Number(receivedAmount);
+        if (isNaN(received) || received < paymentAmount - 0.009) {
+          return res.status(400).json({
+            message: `Valor recebido em dinheiro (${isNaN(received) ? receivedAmount : received.toFixed(2)}) não pode ser inferior ao valor a pagar (${paymentAmount.toFixed(2)})`,
+          });
+        }
       }
 
       if (!(await requireOpenCashRegisterForTable(table))) {
@@ -5908,7 +5923,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tableId: req.params.id,
         sessionId: table.currentSessionId,
         amount, // Valor já com desconto aplicado pelo frontend
-        paymentMethod,
+        paymentMethod: resolvedPaymentMethod,
         notes: receivedAmount ? `Valor recebido: ${receivedAmount}. ${notes || ''}` : notes,
         operatorId: currentUser.id,
       });
@@ -5994,6 +6009,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               serviceCharge, serviceChargeType, serviceChargeSource, serviceChargeName,
               serviceChargeReason, serviceChargeServiceId } = req.body;
       const guestId = req.params.guestId;
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      const resolvedPaymentMethod = resolveOperationalPaymentMethod(
+        paymentMethod,
+        restaurant?.paymentMethods || [],
+      );
+      if (!resolvedPaymentMethod) {
+        return res.status(400).json({ message: "Esta forma de pagamento não está configurada para este restaurante" });
+      }
       
       if (guestId === 'anonymous') {
         const targetTableId = req.body.tableId || (req.params as any).id;
@@ -6008,7 +6031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               tableId: targetTableId,
               sessionId: table.currentSessionId,
               amount,
-              paymentMethod,
+              paymentMethod: resolvedPaymentMethod,
               notes: receivedAmount ? `Valor recebido: ${receivedAmount}. ${notes || ''}` : notes,
               operatorId: currentUser.id,
             });
@@ -6084,7 +6107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Valor de pagamento inválido" });
       }
 
-      if (paymentMethod === 'dinheiro' && receivedAmount !== undefined && receivedAmount !== null && receivedAmount !== '') {
+      if (resolvedPaymentMethod === 'dinheiro' && receivedAmount !== undefined && receivedAmount !== null && receivedAmount !== '') {
         const received = typeof receivedAmount === 'string' ? parseFloat(receivedAmount) : Number(receivedAmount);
         if (isNaN(received) || received < paymentAmount - 0.009) {
           return res.status(400).json({ 
@@ -6157,7 +6180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tableId: guest.tableId,
         sessionId: guest.sessionId,
         amount: amount,
-        paymentMethod: normalizePaymentMethod(paymentMethod),
+        paymentMethod: resolvedPaymentMethod,
         operatorId: currentUser.id,
         notes: receivedAmount 
           ? `Pagamento de ${guest.name || 'Convidado'} - Valor recebido: ${receivedAmount} Kz. ${notes || ''}` 
@@ -6176,7 +6199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionId: guest.sessionId,
         tablePaymentId: tablePayment.id,
         amount: amount,
-        paymentMethod,
+        paymentMethod: resolvedPaymentMethod,
         notes: notes || null,
       });
       
@@ -6289,6 +6312,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!(await requireOpenCashRegisterForTable(table))) {
         return res.status(409).json({ message: NO_OPEN_CASH_REGISTER_MESSAGE });
       }
+
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      const resolvedPaymentMethod = resolveOperationalPaymentMethod(
+        paymentMethod,
+        restaurant?.paymentMethods || [],
+      );
+      if (!resolvedPaymentMethod) {
+        return res.status(400).json({ message: "Esta forma de pagamento não está configurada para este restaurante" });
+      }
       
       const targetSessionId = sessionId || table.currentSessionId;
       if (!targetSessionId) {
@@ -6300,7 +6332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tableId: req.params.id,
         sessionId: targetSessionId,
         amount,
-        paymentMethod,
+        paymentMethod: resolvedPaymentMethod,
         notes,
         operatorId: currentUser.id,
       });
@@ -7202,9 +7234,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const { paymentMethod, amount, redeemPoints } = req.body;
-      
       if (!paymentMethod || !amount) {
         return res.status(400).json({ message: "Método de pagamento e valor são obrigatórios" });
+      }
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      const resolvedPaymentMethod = resolveOperationalPaymentMethod(
+        paymentMethod,
+        restaurant?.paymentMethods || [],
+      );
+      if (!resolvedPaymentMethod) {
+        return res.status(400).json({ message: "Esta forma de pagamento não está configurada para este restaurante" });
       }
       
       const paymentAmount = parseFloat(amount);
@@ -7240,7 +7279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         guestId: guest.id,
         sessionId: guest.sessionId,
         amount: paymentAmount.toFixed(2),
-        paymentMethod,
+        paymentMethod: resolvedPaymentMethod,
       });
       
       // Update guest paid amount
@@ -9621,8 +9660,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const payment = recordPaymentSchema.parse(req.body);
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      const resolvedPaymentMethod = resolveOperationalPaymentMethod(
+        payment.paymentMethod,
+        restaurant?.paymentMethods || [],
+      );
+      if (!resolvedPaymentMethod) {
+        return res.status(400).json({ message: "Esta forma de pagamento não está configurada para este restaurante" });
+      }
       const paymentAmount = parseFloat(payment.amount);
-      if (payment.paymentMethod === 'dinheiro' && payment.receivedAmount !== undefined && payment.receivedAmount !== null && payment.receivedAmount !== '') {
+      if (resolvedPaymentMethod === 'dinheiro' && payment.receivedAmount !== undefined && payment.receivedAmount !== null && payment.receivedAmount !== '') {
         const received = parseFloat(payment.receivedAmount);
         if (isNaN(received) || received < paymentAmount - 0.009) {
           return res.status(400).json({ 
@@ -9630,7 +9677,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
       }
-      const updated = await storage.recordPayment(restaurantId, req.params.id, payment, currentUser.id);
+      const updated = await storage.recordPayment(
+        restaurantId,
+        req.params.id,
+        { ...payment, paymentMethod: resolvedPaymentMethod },
+        currentUser.id,
+      );
       
       if (updated.paymentStatus === 'pago') {
         await releasePaidOrderToKitchen(updated);

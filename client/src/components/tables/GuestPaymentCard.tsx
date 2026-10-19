@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,6 +8,10 @@ import { formatKwanza } from "@/lib/formatters";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  getOperationalPaymentMethodOptions,
+  type ConfiguredPaymentMethod,
+} from "@shared/configured-payment-methods";
 
 interface Order {
   id: string;
@@ -29,6 +33,7 @@ interface GuestPaymentCardProps {
   orders?: Order[];
   onPay: (guestId: string, paymentMethod: string) => Promise<void>;
   isPaying?: boolean;
+  paymentMethods?: ConfiguredPaymentMethod[];
   adjustments?: {
     discountValue: string;
     discountType: 'valor' | 'percentual';
@@ -43,23 +48,27 @@ interface GuestPaymentCardProps {
   }) => void;
 }
 
-const PAYMENT_METHODS = [
-  { value: "dinheiro", label: "Dinheiro" },
-  { value: "multicaixa", label: "Multicaixa" },
-  { value: "transferencia", label: "Transferência" },
-  { value: "cartao", label: "Cartão" },
-];
-
 export function GuestPaymentCard({ 
   guest, 
   orders = [], 
   onPay, 
   isPaying,
+  paymentMethods = [],
   adjustments,
   onAdjustmentsChange 
 }: GuestPaymentCardProps) {
   const [paymentMethod, setPaymentMethod] = useState("dinheiro");
   const [showOrders, setShowOrders] = useState(false);
+  const paymentMethodOptions = useMemo(
+    () => getOperationalPaymentMethodOptions(paymentMethods),
+    [paymentMethods],
+  );
+
+  useEffect(() => {
+    if (!paymentMethodOptions.some((option) => option.value === paymentMethod)) {
+      setPaymentMethod("dinheiro");
+    }
+  }, [paymentMethodOptions, paymentMethod]);
   
   const guestName = guest.name || `Cliente ${guest.guestNumber}`;
   const baseSubtotal = Number(guest.subtotal);
@@ -279,7 +288,7 @@ export function GuestPaymentCard({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {PAYMENT_METHODS.map((method) => (
+                {paymentMethodOptions.map((method) => (
                   <SelectItem key={method.value} value={method.value}>
                     {method.label}
                   </SelectItem>

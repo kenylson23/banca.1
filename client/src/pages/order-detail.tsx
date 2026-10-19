@@ -29,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { printerService } from "@/lib/printer-service";
 import { usePrinter } from "@/hooks/usePrinter";
 import type { Order, OrderItem, MenuItem, Customer, Coupon, LoyaltyProgram } from "@shared/schema";
+import { getOperationalPaymentMethodOptions } from "@shared/configured-payment-methods";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface OrdersByGuest {
@@ -112,6 +113,7 @@ export default function OrderDetail() {
     queryKey: [`/api/public/restaurants/${order?.restaurantId}`],
     enabled: !!order?.restaurantId,
   });
+  const operationalPaymentMethods = getOperationalPaymentMethodOptions(restaurant?.paymentMethods || []);
 
   const hasTableGuests = !!(tableGuests?.ordersByGuest && tableGuests.ordersByGuest.length > 0);
 
@@ -1052,46 +1054,19 @@ export default function OrderDetail() {
                             <Separator />
                             
                             <div className="grid grid-cols-2 gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleGuestPayment(guestData.guest.id, 'dinheiro')}
-                                disabled={recordPaymentMutation.isPending}
-                                className="h-auto py-2 flex-col gap-1"
-                              >
-                                <span className="text-lg">💵</span>
-                                <span className="text-xs">Dinheiro</span>
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleGuestPayment(guestData.guest.id, 'cartao')}
-                                disabled={recordPaymentMutation.isPending}
-                                className="h-auto py-2 flex-col gap-1"
-                              >
-                                <span className="text-lg">💳</span>
-                                <span className="text-xs">Cartão</span>
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleGuestPayment(guestData.guest.id, 'mbway')}
-                                disabled={recordPaymentMutation.isPending}
-                                className="h-auto py-2 flex-col gap-1"
-                              >
-                                <span className="text-lg">📱</span>
-                                <span className="text-xs">MBWay</span>
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleGuestPayment(guestData.guest.id, 'transferencia')}
-                                disabled={recordPaymentMutation.isPending}
-                                className="h-auto py-2 flex-col gap-1"
-                              >
-                                <span className="text-lg">🏦</span>
-                                <span className="text-xs">Transferência</span>
-                              </Button>
+                              {operationalPaymentMethods.map((method) => (
+                                <Button
+                                  key={method.value}
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleGuestPayment(guestData.guest.id, method.value)}
+                                  disabled={recordPaymentMutation.isPending}
+                                  className="h-auto py-2 flex-col gap-1"
+                                >
+                                  <span className="text-lg">{method.value === 'dinheiro' ? '💵' : '💳'}</span>
+                                  <span className="text-xs">{method.label}</span>
+                                </Button>
+                              ))}
                             </div>
                           </CardContent>
                         </Card>
@@ -1358,6 +1333,7 @@ export default function OrderDetail() {
                       paidAmount={selectedGuestData ? 0 : Number(order.paidAmount || 0)}
                       isSubmitting={recordPaymentMutation.isPending}
                       onSubmit={(data) => recordPaymentMutation.mutate(data)}
+                      paymentMethods={restaurant?.paymentMethods || []}
                       title={selectedGuestData ? `Registrar Pagamento - ${selectedGuestData.guest.name || `Cliente ${selectedGuestData.guest.guestNumber}`}` : "Registrar Pagamento"}
                     />
                   </>
@@ -1372,6 +1348,7 @@ export default function OrderDetail() {
                     paidAmount={selectedGuestData ? 0 : Number(order.paidAmount || 0)}
                     isSubmitting={recordPaymentMutation.isPending}
                     onSubmit={(data) => recordPaymentMutation.mutate(data)}
+                    paymentMethods={restaurant?.paymentMethods || []}
                     title={selectedGuestData ? `Registrar Pagamento - ${selectedGuestData.guest.name || `Cliente ${selectedGuestData.guest.guestNumber}`}` : "Registrar Pagamento da Mesa"}
                   />
                 )}

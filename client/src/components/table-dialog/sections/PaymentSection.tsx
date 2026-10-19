@@ -33,13 +33,15 @@ import {
 } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { apiRequest } from '@/lib/queryClient';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTableInvalidations } from '@/lib/tableInvalidations';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { Table } from '@shared/schema';
 import { useCashRegisterShift, NO_OPEN_CASH_REGISTER_MESSAGE } from '@/hooks/useCashRegisterShift';
 import { CashRegisterPaymentGuard } from '@/components/CashRegisterPaymentGuard';
+import type { Restaurant } from '@shared/schema';
+import { getOperationalPaymentMethodOptions } from '@shared/configured-payment-methods';
 
 interface PaymentSectionProps {
   table: Table;
@@ -65,6 +67,17 @@ export function PaymentSection({
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: restaurant } = useQuery<Restaurant>({
+    queryKey: ['/api/public/restaurants', table.restaurantId],
+    queryFn: async () => {
+      const response = await apiFetch(`/api/public/restaurants/${encodeURIComponent(table.restaurantId)}`);
+      if (!response.ok) throw new Error('Não foi possível carregar as formas de pagamento');
+      return response.json();
+    },
+    enabled: !!table.restaurantId,
+    staleTime: 300000,
+  });
+  const paymentMethodOptions = getOperationalPaymentMethodOptions(restaurant?.paymentMethods || []);
   const { hasOpenShift, isLoading: isLoadingCashRegister, paymentsBlocked } = useCashRegisterShift();
   
   // ✅ SOLUÇÃO 4: Estado para checkout rápido
@@ -72,6 +85,11 @@ export function PaymentSection({
   const [paymentMethod, setPaymentMethod] = useState('dinheiro');
   const [receivedAmount, setReceivedAmount] = useState('');
   const [customAmount, setCustomAmount] = useState(''); // 🔧 FIX: Permitir valor customizado
+  useEffect(() => {
+    if (!paymentMethodOptions.some((method) => method.value === paymentMethod)) {
+      setPaymentMethod('dinheiro');
+    }
+  }, [paymentMethodOptions, paymentMethod]);
   
   // ✅ OTIMIZAÇÃO: Pré-carregar o bundle do checkout e queries em segundo plano
   useEffect(() => {
@@ -788,30 +806,16 @@ export function PaymentSection({
                   <SelectValue placeholder="Selecione o método" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="dinheiro">
-                    <div className="flex items-center gap-2">
-                      <Banknote className="w-4 h-4" />
-                      Dinheiro
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="multicaixa">
-                    <div className="flex items-center gap-2">
-                      <Smartphone className="w-4 h-4" />
-                      Multicaixa
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="transferencia">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="w-4 h-4" />
-                      Transferência
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="cartao">
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="w-4 h-4" />
-                      Cartão
-                    </div>
-                  </SelectItem>
+                  {paymentMethodOptions.map((method) => (
+                    <SelectItem key={method.value} value={method.value}>
+                      <div className="flex items-center gap-2">
+                        {method.value === 'dinheiro'
+                          ? <Banknote className="w-4 h-4" />
+                          : <CreditCard className="w-4 h-4" />}
+                        {method.label}
+                      </div>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

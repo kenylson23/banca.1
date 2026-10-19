@@ -799,7 +799,7 @@ export const tablePayments = pgTable("table_payments", {
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   operatorId: varchar("operator_id").references(() => users.id, { onDelete: 'set null' }),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  paymentMethod: varchar("payment_method", { length: 50 }).notNull(),
+  paymentMethod: varchar("payment_method", { length: 100 }).notNull(),
   paymentSource: varchar("payment_source", { length: 100 }),
   methodDetails: jsonb("method_details"),
   reconciliationBatchId: varchar("reconciliation_batch_id", { length: 100 }),
@@ -962,7 +962,7 @@ export const guestPayments = pgTable("guest_payments", {
   splitId: varchar("split_id").references(() => tableBillSplits.id, { onDelete: 'set null' }),
   restaurantId: varchar("restaurant_id").notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  paymentMethod: varchar("payment_method", { length: 50 }).notNull(),
+  paymentMethod: varchar("payment_method", { length: 100 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1444,7 +1444,7 @@ export const applyPackagingFeeSchema = z.object({
 
 export const recordPaymentSchema = z.object({
   amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor inválido"),
-  paymentMethod: z.enum(['dinheiro', 'multicaixa', 'transferencia', 'cartao']),
+  paymentMethod: z.string().trim().min(1, "Método de pagamento é obrigatório").max(100),
   receivedAmount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Valor recebido inválido").optional(),
 });
 
@@ -2527,7 +2527,7 @@ export const financialTransactions = pgTable("financial_transactions", {
   type: transactionTypeEnum("type").notNull(),
   origin: transactionOriginEnum("origin").notNull().default('manual'),
   description: varchar("description", { length: 500 }),
-  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  paymentMethod: varchar("payment_method", { length: 100 }).notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   referenceOrderId: varchar("reference_order_id").references(() => orders.id, { onDelete: 'set null' }),
   occurredAt: timestamp("occurred_at").notNull(),

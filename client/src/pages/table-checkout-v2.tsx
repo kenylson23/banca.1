@@ -53,7 +53,10 @@ import { cn } from "@/lib/utils";
 import { PaymentSuccessDialog } from "@/components/PaymentSuccessDialog";
 import { formatTableInvoiceNumber } from "@shared/table-invoice-number";
 import type { TableInvoiceDocument } from "@shared/table-invoice-document";
-import { formatPaymentMethodLabel } from "@shared/payment-methods";
+import {
+  formatPaymentMethodLabel,
+  getOperationalPaymentMethodOptions,
+} from "@shared/payment-methods";
 import { CheckoutSummaryPanel } from "@/components/CheckoutSummaryPanel";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import { invalidateAfterPayment } from "@/lib/tableInvalidations";
@@ -273,6 +276,16 @@ export default function TableCheckoutV2() {
     enabled: !!table?.restaurantId,
     staleTime: 300000, // Cache por 5min
   });
+  const paymentMethodOptions = useMemo(
+    () => getOperationalPaymentMethodOptions(restaurant?.paymentMethods || []),
+    [restaurant?.paymentMethods],
+  );
+
+  useEffect(() => {
+    if (!paymentMethodOptions.some((option) => option.value === paymentMethod)) {
+      setPaymentMethod('dinheiro');
+    }
+  }, [paymentMethodOptions, paymentMethod]);
 
   // Calculate session duration
   const sessionDuration = useMemo(() => {
@@ -2741,137 +2754,48 @@ export default function TableCheckoutV2() {
                       
                         <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} disabled={paymentsBlocked}>
                           <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4", paymentsBlocked && "pointer-events-none opacity-50")}>
-                             {/* Dinheiro - REDESIGNED */}
-                             <label className={cn(
-                               "relative flex flex-col gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all group",
-                               paymentMethod === 'dinheiro' 
-                                 ? "border-slate-900 bg-slate-50 dark:border-slate-100 dark:bg-slate-800 shadow-md" 
-                                 : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600"
-                             )}>
-                               <div className="flex items-start justify-between relative z-10">
-                                 <div className="flex items-center gap-3">
-                                   <div className={cn(
-                                     "p-2.5 rounded-lg transition-all",
-                                     paymentMethod === 'dinheiro'
-                                       ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-                                   )}>
-                                     <Banknote className="h-6 w-6" />
-                                   </div>
-                                   <div>
-                                     <div className="font-bold text-base">Dinheiro</div>
-                                     <div className="text-sm text-muted-foreground">Pagamento em espécie</div>
-                                   </div>
-                                 </div>
-                                 <RadioGroupItem value="dinheiro" id="dinheiro" />
-                               </div>
-                               
-                               {paymentMethod === 'dinheiro' && (
-                                 <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 font-medium relative z-10">
-                                   <CheckCircle2 className="h-4 w-4" />
-                                   <span>Selecionado</span>
-                                 </div>
-                               )}
-                             </label>
-
-                             {/* Multicaixa - REDESIGNED */}
-                             <label className={cn(
-                               "relative flex flex-col gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all group",
-                               paymentMethod === 'multicaixa' 
-                                 ? "border-slate-900 bg-slate-50 dark:border-slate-100 dark:bg-slate-800 shadow-md" 
-                                 : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600"
-                             )}>
-                               <div className="flex items-start justify-between relative z-10">
-                                 <div className="flex items-center gap-3">
-                                   <div className={cn(
-                                     "p-2.5 rounded-lg transition-all",
-                                     paymentMethod === 'multicaixa'
-                                       ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-                                   )}>
-                                     <CreditCard className="h-6 w-6" />
-                                   </div>
-                                   <div>
-                                     <div className="font-bold text-base">Multicaixa</div>
-                                     <div className="text-sm text-muted-foreground">Pagamento por ATM</div>
-                                   </div>
-                                 </div>
-                                 <RadioGroupItem value="multicaixa" id="multicaixa" />
-                               </div>
-                               
-                               {paymentMethod === 'multicaixa' && (
-                                 <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 font-medium relative z-10">
-                                   <CheckCircle2 className="h-4 w-4" />
-                                   <span>Selecionado</span>
-                                 </div>
-                               )}
-                             </label>
-
-                             {/* Transferência - REDESIGNED */}
-                             <label className={cn(
-                               "relative flex flex-col gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all group",
-                               paymentMethod === 'transferencia' 
-                                 ? "border-slate-900 bg-slate-50 dark:border-slate-100 dark:bg-slate-800 shadow-md" 
-                                 : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600"
-                             )}>
-                               <div className="flex items-start justify-between relative z-10">
-                                 <div className="flex items-center gap-3">
-                                   <div className={cn(
-                                     "p-2.5 rounded-lg transition-all",
-                                     paymentMethod === 'transferencia'
-                                       ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-                                   )}>
-                                     <Building className="h-6 w-6" />
-                                   </div>
-                                   <div>
-                                     <div className="font-bold text-base">Transferência Bancária</div>
-                                     <div className="text-sm text-muted-foreground">Pagamento por transferência</div>
-                                   </div>
-                                 </div>
-                                 <RadioGroupItem value="transferencia" id="transferencia" />
-                               </div>
-                               
-                               {paymentMethod === 'transferencia' && (
-                                 <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 font-medium relative z-10">
-                                   <CheckCircle2 className="h-4 w-4" />
-                                   <span>Selecionado</span>
-                                 </div>
-                               )}
-                             </label>
-
-                             {/* Cartão - REDESIGNED */}
-                             <label className={cn(
-                               "relative flex flex-col gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all group",
-                               paymentMethod === 'cartao' 
-                                 ? "border-slate-900 bg-slate-50 dark:border-slate-100 dark:bg-slate-800 shadow-md" 
-                                 : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600"
-                             )}>
-                               <div className="flex items-start justify-between relative z-10">
-                                 <div className="flex items-center gap-3">
-                                   <div className={cn(
-                                     "p-2.5 rounded-lg transition-all",
-                                     paymentMethod === 'cartao'
-                                       ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-                                   )}>
-                                     <Smartphone className="h-6 w-6" />
-                                   </div>
-                                   <div>
-                                     <div className="font-bold text-base">Cartão</div>
-                                     <div className="text-sm text-muted-foreground">Pagamento por cartão</div>
-                                   </div>
-                                 </div>
-                                 <RadioGroupItem value="cartao" id="cartao" />
-                               </div>
-                               
-                               {paymentMethod === 'cartao' && (
-                                 <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 font-medium relative z-10">
-                                   <CheckCircle2 className="h-4 w-4" />
-                                   <span>Selecionado</span>
-                                 </div>
-                               )}
-                             </label>
+                              {paymentMethodOptions.map((method) => {
+                                const isSelected = paymentMethod === method.value;
+                                return (
+                                  <label
+                                    key={method.value}
+                                    className={cn(
+                                      "relative flex flex-col gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all group",
+                                      isSelected
+                                        ? "border-slate-900 bg-slate-50 dark:border-slate-100 dark:bg-slate-800 shadow-md"
+                                        : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600"
+                                    )}
+                                  >
+                                    <div className="flex items-start justify-between relative z-10">
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div className={cn(
+                                          "p-2.5 rounded-lg transition-all",
+                                          isSelected
+                                            ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                                            : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                                        )}>
+                                          {method.value === 'dinheiro'
+                                            ? <Banknote className="h-6 w-6" />
+                                            : <CreditCard className="h-6 w-6" />}
+                                        </div>
+                                        <div className="min-w-0">
+                                          <div className="font-bold text-base break-words">{method.label}</div>
+                                          <div className="text-sm text-muted-foreground">
+                                            {method.value === 'dinheiro' ? 'Pagamento em espécie' : 'Método configurado pelo restaurante'}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <RadioGroupItem value={method.value} id={`payment-method-${method.value}`} />
+                                    </div>
+                                    {isSelected && (
+                                      <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 font-medium relative z-10">
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        <span>Selecionado</span>
+                                      </div>
+                                    )}
+                                  </label>
+                                );
+                              })}
                            </div>
                          </RadioGroup>
                       </div>
