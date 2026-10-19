@@ -1,3 +1,3 @@
 export function useToast() {
-  return { toast: () => undefined };
+  return { toast: (_options?: Record<string, unknown>) => undefined };
 }

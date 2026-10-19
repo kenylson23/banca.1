@@ -33,15 +33,15 @@ export const queryClient = new QueryClient({
   },
 });
 
-export const apiRequest = async () =>
+export const apiRequest = async (_method: string, _url: string, _data?: unknown) =>
   new Response(JSON.stringify({ id: "preview-order" }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
 
 export const indexedDB = {
-  saveOrder: async () => undefined,
-  saveOrderItems: async () => undefined,
+  saveOrder: async (_order: unknown) => undefined,
+  saveOrderItems: async (_items: unknown) => undefined,
 };
 
 export function formatKwanza(value: string | number) {
@@ -49,6 +49,15 @@ export function formatKwanza(value: string | number) {
   return `${new Intl.NumberFormat("pt-AO", { maximumFractionDigits: 0 }).format(amount)} Kz`;
 }
 
-export const ProductOptionsDialog = () => null;
-export const usePrinter = () => ({ getPrinterByType: () => null });
-export const printerService = { printKitchenOrder: async () => undefined };
+export const ProductOptionsDialog = (_props: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  productName: string;
+  basePrice: number;
+  optionGroups: OptionGroup[];
+  onConfirm: (options: SelectedOption[]) => void;
+}) => null;
+export const usePrinter = () => ({ getPrinterByType: (_type: string) => null });
+export const printerService = {
+  printKitchenOrder: async (_type: string, _order: unknown) => undefined,
+};

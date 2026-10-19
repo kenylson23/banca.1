@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { insertOrderSchema, type InsertOrder, type Customer } from "./mockDependencies";
 import { apiRequest, queryClient } from "./mockDependencies";
-import { useToast } from "../useToast";
+import { useToast } from "./useToast";
 import { indexedDB, formatKwanza, ProductOptionsDialog, usePrinter, printerService, type OptionGroup, type SelectedOption } from "./mockDependencies";
 
 const newOrderFormSchema = insertOrderSchema.extend({
