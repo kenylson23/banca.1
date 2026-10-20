@@ -8826,6 +8826,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         restaurantId: restaurantId,
       });
 
+      if (validatedOrder.paymentMethod) {
+        const restaurant = await storage.getRestaurantById(restaurantId);
+        if (!restaurant) {
+          return res.status(404).json({ message: "Restaurante não encontrado" });
+        }
+
+        const selectedMethodId = validatedOrder.paymentMethod;
+        const resolvedPaymentMethod = resolveOperationalPaymentMethod(
+          selectedMethodId,
+          restaurant.paymentMethods || [],
+        );
+        if (!resolvedPaymentMethod) {
+          return res.status(400).json({
+            message: "Esta forma de pagamento não está configurada neste restaurante",
+          });
+        }
+
+        const configuredMethod = restaurant.paymentMethods?.find(
+          (method) => method.id === selectedMethodId,
+        );
+        validatedOrder = {
+          ...validatedOrder,
+          paymentMethod: resolvedPaymentMethod,
+          ...(configuredMethod?.reference
+            ? { paymentReference: configuredMethod.reference }
+            : {}),
+        };
+      }
+
       const isCounterOrder = ['balcao', 'takeout', 'pdv'].includes(validatedOrder.orderType);
       if (isCounterOrder) {
         const openShift = await storage.getOpenCashRegisterShiftForBranch(

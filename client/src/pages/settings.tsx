@@ -102,7 +102,7 @@ export default function Settings() {
     onSuccess: () => {
       toast({
         title: 'Formas de pagamento atualizadas',
-        description: 'O menu público e o customer menu já usam esta configuração.',
+        description: 'O menu público, o customer menu e os pagamentos de balcão, delivery e mesa já usam esta configuração.',
       });
       queryClient.invalidateQueries({ queryKey: ['/api/public/restaurants'] });
     },
@@ -938,16 +938,16 @@ export default function Settings() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5" />
-                Pagamentos aceites no menu
+                Métodos de pagamento
               </CardTitle>
               <CardDescription>
-                Apenas os métodos abaixo aparecem no menu público e no customer menu. A referência pode ser um número de conta, IBAN, terminal ou instrução para o cliente.
+                Estes métodos aparecem no menu público, no customer menu e nos pagamentos internos de balcão, delivery e mesa. Dinheiro fica sempre disponível no caixa interno. A referência pode ser um número de conta, IBAN, terminal ou instrução para o cliente.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {paymentMethods.length === 0 && (
                 <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  Nenhuma forma de pagamento configurada. Adicione pelo menos uma para permitir pagamentos nos pedidos.
+                  Nenhum método adicional configurado. Dinheiro continua disponível no caixa interno; adicione métodos para disponibilizá-los no menu público.
                 </div>
               )}
               {paymentMethods.map((method, index) => (

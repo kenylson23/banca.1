@@ -17,6 +17,10 @@ import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { insertOrderSchema, type InsertOrder, type Customer } from "@shared/schema";
+import {
+  getOperationalPaymentMethodOptions,
+  type ConfiguredPaymentMethod,
+} from "@shared/configured-payment-methods";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { indexedDB } from "@/lib/indexeddb";
@@ -27,7 +31,7 @@ import { printerService } from "@/lib/printer-service";
 
 const newOrderFormSchema = insertOrderSchema.extend({
   orderType: z.enum(["mesa", "delivery", "takeout", "balcao", "pdv"]),
-  paymentMethod: z.enum(["dinheiro", "multicaixa", "transferencia", "cartao"]).optional().nullable(),
+  paymentMethod: z.string().trim().min(1).max(100).optional().nullable(),
   tableId: z.string().optional(),
 });
 
@@ -100,6 +104,14 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
   const { data: currentUser } = useQuery<{ role?: string }>({
     queryKey: ["/api/auth/user"],
   });
+  const {
+    data: restaurantSettings,
+    isFetched: restaurantSettingsFetched,
+  } = useQuery<{ paymentMethods?: ConfiguredPaymentMethod[] }>({
+    queryKey: ["/api/public/restaurants", restaurantId],
+    enabled: open && Boolean(restaurantId),
+    staleTime: 0,
+  });
   const { data: cashRegisterShifts = [] } = useQuery<Array<{ status: string }>>({
     queryKey: ["/api/cash-register-shifts", "order-dialog"],
     enabled: open && currentUser?.role === "cashier",
@@ -137,6 +149,18 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
 
     },
   });
+  const paymentMethodOptions = useMemo(
+    () => getOperationalPaymentMethodOptions(restaurantSettings?.paymentMethods || []),
+    [restaurantSettings?.paymentMethods],
+  );
+  const selectedPaymentMethod = form.watch("paymentMethod");
+
+  useEffect(() => {
+    if (!restaurantSettingsFetched) return;
+    if (!paymentMethodOptions.some((method) => method.value === selectedPaymentMethod)) {
+      form.setValue("paymentMethod", "dinheiro", { shouldDirty: false });
+    }
+  }, [form, paymentMethodOptions, restaurantSettingsFetched, selectedPaymentMethod]);
 
   const orderType = form.watch("orderType");
   const selectedTableId = form.watch("tableId");
@@ -1068,10 +1092,11 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                              <SelectItem value="multicaixa">Multicaixa</SelectItem>
-                              <SelectItem value="transferencia">Transferência</SelectItem>
-                              <SelectItem value="cartao">Cartão</SelectItem>
+                              {paymentMethodOptions.map((method) => (
+                                <SelectItem key={method.value} value={method.value}>
+                                  {method.label}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </FormItem>
