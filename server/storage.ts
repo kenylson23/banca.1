@@ -631,7 +631,7 @@ export interface IStorage {
   // Financial Transaction operations
   getFinancialTransactions(restaurantId: string, branchId: string | null, filters?: {
     type?: 'receita' | 'despesa' | 'ajuste';
-    paymentMethod?: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
+     paymentMethod?: string;
     shiftId?: string;
     cashRegisterId?: string;
     categoryId?: string;
@@ -7209,7 +7209,7 @@ export class DatabaseStorage implements IStorage {
       startDate?: Date;
       endDate?: Date;
       cashRegisterId?: string;
-      paymentMethod?: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
+      paymentMethod?: string;
       type?: 'receita' | 'despesa';
       categoryId?: string;
     }
@@ -7466,7 +7466,7 @@ export class DatabaseStorage implements IStorage {
     endDate?: Date,
     cashRegisterId?: string,
     filters?: {
-      paymentMethod?: 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
+      paymentMethod?: string;
       categoryId?: string;
       type?: 'receita' | 'despesa';
     }

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Trash2, ArrowLeft, DollarSign, TrendingUp, TrendingDown, Filter, Receipt } from "lucide-react";
 import { Link, useLocation } from "wouter";
@@ -33,6 +33,10 @@ import { formatKwanza } from "@/lib/formatters";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { FinancialTransaction, CashRegister, FinancialCategory, User } from "@shared/schema";
+import {
+  getOperationalPaymentMethodFilterOptions,
+  type ConfiguredPaymentMethod,
+} from "@shared/configured-payment-methods";
 import { AdvancedKpiCard } from "@/components/advanced-kpi-card";
 import { InteractiveKPICard } from "@/components/interactive-kpi-card";
 import { AdvancedFilters, type FilterOption } from "@/components/advanced-filters";
@@ -73,6 +77,30 @@ export default function FinancialTransactionsUnified() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [deleteTransactionId, setDeleteTransactionId] = useState<string | null>(null);
+
+  const { data: currentUser } = useQuery<User>({
+    queryKey: ["/api/auth/user"],
+  });
+  const {
+    data: restaurantPaymentSettings,
+    isFetched: paymentSettingsFetched,
+  } = useQuery<{ paymentMethods?: ConfiguredPaymentMethod[] }>({
+    queryKey: ["/api/public/restaurants", currentUser?.restaurantId],
+    enabled: Boolean(currentUser?.restaurantId),
+    staleTime: 0,
+  });
+  const paymentMethodFilterOptions = useMemo(() => {
+    return getOperationalPaymentMethodFilterOptions(
+      restaurantPaymentSettings?.paymentMethods || [],
+    );
+  }, [restaurantPaymentSettings?.paymentMethods]);
+
+  useEffect(() => {
+    if (!paymentSettingsFetched || selectedPaymentMethod === "all") return;
+    if (!paymentMethodFilterOptions.some((method) => method.value === selectedPaymentMethod)) {
+      setSelectedPaymentMethod("all");
+    }
+  }, [paymentMethodFilterOptions, paymentSettingsFetched, selectedPaymentMethod]);
 
   // Check subscription to see if expense tracking is available
   const { data: subscription } = useQuery<any>({
@@ -461,10 +489,11 @@ export default function FinancialTransactionsUnified() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos os métodos</SelectItem>
-                      <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                      <SelectItem value="multicaixa">Multicaixa</SelectItem>
-                      <SelectItem value="transferencia">Transferência</SelectItem>
-                      <SelectItem value="cartao">Cartão</SelectItem>
+                      {paymentMethodFilterOptions.map((method) => (
+                        <SelectItem key={method.value} value={method.value}>
+                          {method.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

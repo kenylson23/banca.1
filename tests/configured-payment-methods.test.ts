@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   formatPaymentMethodLabel,
   formatStoredPaymentMethodLabel,
+  getOperationalPaymentMethodFilterOptions,
   getOperationalPaymentMethodOptions,
   resolveOperationalPaymentMethod,
 } from '../shared/payment-methods';
@@ -29,6 +30,21 @@ test('does not add a configured cash duplicate', () => {
     { id: 'dinheiro', name: 'Dinheiro', reference: '' },
   ]), [
     { value: 'dinheiro', label: 'Dinheiro' },
+  ]);
+});
+
+test('filters financial transactions by persisted configured names, not settings IDs', () => {
+  assert.deepEqual(getOperationalPaymentMethodFilterOptions(configuredMethods), [
+    { value: 'dinheiro', label: 'Dinheiro' },
+    { value: 'Transferência Bancária', label: 'Transferência Bancária' },
+    { value: 'Multicaixa Express', label: 'Multicaixa Express' },
+  ]);
+  assert.deepEqual(getOperationalPaymentMethodFilterOptions([
+    { id: 'one', name: 'Express', reference: '' },
+    { id: 'two', name: 'Express', reference: '' },
+  ]), [
+    { value: 'dinheiro', label: 'Dinheiro' },
+    { value: 'Express', label: 'Express' },
   ]);
 });
 

@@ -1,4 +1,5 @@
 export {
+  getOperationalPaymentMethodFilterOptions,
   getOperationalPaymentMethodOptions,
   resolveOperationalPaymentMethod,
 } from './payment-methods';

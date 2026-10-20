@@ -11376,7 +11376,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (req.query.paymentMethod) {
-        filters.paymentMethod = req.query.paymentMethod as 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao';
+        filters.paymentMethod = req.query.paymentMethod as string;
       }
       
       if (req.query.type) {
@@ -11545,7 +11545,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
       const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
       const cashRegisterId = req.query.cashRegisterId as string | undefined;
-      const paymentMethod = req.query.paymentMethod as 'dinheiro' | 'multicaixa' | 'transferencia' | 'cartao' | undefined;
+      const paymentMethod = req.query.paymentMethod as string | undefined;
       const categoryId = req.query.categoryId as string | undefined;
       const type = req.query.type as 'receita' | 'despesa' | undefined;
 

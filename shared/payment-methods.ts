@@ -107,6 +107,22 @@ export function getOperationalPaymentMethodOptions(
 }
 
 /**
+ * Financial transaction rows store the configured display name, so the filter
+ * must submit that persisted name rather than the settings-only method ID.
+ */
+export function getOperationalPaymentMethodFilterOptions(
+  configuredMethods: readonly ConfiguredPaymentMethod[] = [],
+): PaymentMethodOption[] {
+  const seen = new Set<string>();
+  return getOperationalPaymentMethodOptions(configuredMethods).flatMap((method) => {
+    const value = method.value === 'dinheiro' ? 'dinheiro' : method.label.trim();
+    if (!value || seen.has(value)) return [];
+    seen.add(value);
+    return [{ value, label: method.label }];
+  });
+}
+
+/**
  * Cash is always allowed. Every other operational payment must refer to an
  * active method configured by the restaurant; persist its name as a snapshot.
  */
