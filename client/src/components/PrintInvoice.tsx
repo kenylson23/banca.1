@@ -6,7 +6,7 @@ import QRCode from 'qrcode';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { invoiceDate, invoiceMoney, invoiceNumberLabel, invoicePaymentStatusLabel, formatPaymentMethodLabel } from '@shared/invoice-formatters';
+import { invoiceDate, invoiceMoney, invoiceNumberLabel, invoicePaymentStatusLabel, formatStoredPaymentMethodLabel } from '@shared/invoice-formatters';
 import { getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
 import type { Order, OrderItem, MenuItem, Table, Customer, PaymentEvent } from '@shared/schema';
 import { printerService } from '@/lib/printer-service';
@@ -118,7 +118,7 @@ export function PrintInvoice({
        })) || [];
 
        const paymentInfo = order.payments && order.payments.length > 0
-         ? order.payments.map(p => `${formatPaymentMethodLabel(p.paymentMethod)}: ${invoiceMoney(p.amount)}`).join('\n')
+         ? order.payments.map(p => `${formatStoredPaymentMethodLabel(p.paymentMethod)}: ${invoiceMoney(p.amount)}`).join('\n')
         : undefined;
 
       const baseDiscount = order.discount ? parseFloat(order.discount) : 0;
@@ -539,7 +539,7 @@ export function PrintInvoice({
             <div class="section-title">PAGAMENTOS REALIZADOS</div>
             ${order.payments.map((payment) => `
               <div class="payment-info">
-               <span>${formatPaymentMethodLabel(payment.paymentMethod)}</span>
+               <span>${formatStoredPaymentMethodLabel(payment.paymentMethod)}</span>
                 <span>${formatKwanza(payment.amount)}</span>
               </div>
             `).join('')}
@@ -683,7 +683,7 @@ export function PrintInvoice({
       adjustments,
       total: formatKwanza(effectiveTotal.toFixed(2)),
       payments: (order.payments || []).map((payment) => ({
-        method: formatPaymentMethodLabel(payment.paymentMethod),
+        method: formatStoredPaymentMethodLabel(payment.paymentMethod),
         amount: formatKwanza(payment.amount),
       })),
       orderNotes: order.orderNotes || undefined,

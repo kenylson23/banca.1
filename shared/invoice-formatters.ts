@@ -1,4 +1,7 @@
-import { formatPaymentMethodLabel } from './payment-methods';
+import {
+  formatPaymentMethodLabel,
+  formatStoredPaymentMethodLabel,
+} from './payment-methods';
 
 export type InvoicePaymentStatus = 'pendente' | 'parcial' | 'pago';
 
@@ -132,4 +135,4 @@ export function invoiceAdjustmentDetail(input: {
   ].filter(Boolean).join(' · ');
 }
 
-export { formatPaymentMethodLabel };
+export { formatPaymentMethodLabel, formatStoredPaymentMethodLabel };

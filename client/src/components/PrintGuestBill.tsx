@@ -2,7 +2,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Printer, ChevronDown, Download, Eye } from "lucide-react";
-import { invoiceDate, invoiceMoney, formatPaymentMethodLabel } from "@shared/invoice-formatters";
+import { invoiceDate, invoiceMoney, formatStoredPaymentMethodLabel } from "@shared/invoice-formatters";
 import { printerService } from "@/lib/printer-service";
 import { usePrinter } from "@/hooks/usePrinter";
 import {
@@ -186,7 +186,7 @@ export function PrintGuestBill({
        discount: totalDiscounts > 0 ? invoiceMoney(totalDiscounts) : undefined,
        serviceCharge: totalCharges > 0 ? invoiceMoney(totalCharges) : undefined,
        total: invoiceMoney(finalTotalAmount),
-       paymentMethod: paymentMethod ? formatPaymentMethodLabel(paymentMethod) : undefined,
+       paymentMethod: paymentMethod ? formatStoredPaymentMethodLabel(paymentMethod) : undefined,
       isPaid: guest.status === "pago",
       documentId: guest.id.substring(0, 8).toUpperCase(),
       restaurantName,
@@ -216,7 +216,7 @@ export function PrintGuestBill({
   const discountValue = isBill ? billDoc.discount : undefined;
   const serviceChargeValue = isBill ? billDoc.serviceCharge : undefined;
   const totalValue = isBill ? billDoc.total : invoiceMoney(totalAmount);
-  const paymentMethodValue = isBill ? billDoc.paymentMethod : paymentMethod ? formatPaymentMethodLabel(paymentMethod) : undefined;
+  const paymentMethodValue = isBill ? billDoc.paymentMethod : paymentMethod ? formatStoredPaymentMethodLabel(paymentMethod) : undefined;
   const isPaidValue = isBill ? billDoc.isPaid || false : guest.status === "pago";
   const documentIdValue = isBill ? billDoc.documentId || guest.id.substring(0, 8).toUpperCase() : guest.id.substring(0, 8).toUpperCase();
 

@@ -24,7 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { formatKwanza } from "@/lib/formatters";
-import { invoiceDate, invoiceMoney, invoiceNumberLabel, invoiceSessionLabel, formatPaymentMethodLabel } from "@shared/invoice-formatters";
+import { invoiceDate, invoiceMoney, invoiceNumberLabel, invoiceSessionLabel, formatStoredPaymentMethodLabel } from "@shared/invoice-formatters";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { OrdersByGuestData } from "@shared/types";
@@ -248,7 +248,7 @@ export function PaymentReceiptDialog({
 
     const invoiceReference = invoiceNumberLabel(payment?.invoiceReference);
     const paymentDate = invoiceDate(payment?.createdAt, printDateTime);
-    const paymentMethodLabel = formatPaymentMethodLabel(payment?.paymentMethod);
+    const paymentMethodLabel = formatStoredPaymentMethodLabel(payment?.paymentMethod);
     const paymentNotes = payment?.notes ? `<div class="info-line"><strong>Observações:</strong><span>${payment.notes}</span></div>` : "";
     const paymentReceived = payment?.receivedAmount;
 
@@ -387,7 +387,7 @@ export function PaymentReceiptDialog({
     setIsGeneratingPDF(true);
     try {
       const invoiceReference = payment?.invoiceReference || "Sessão sem referência";
-      const paymentMethodLabel = formatPaymentMethodLabel(payment?.paymentMethod);
+      const paymentMethodLabel = formatStoredPaymentMethodLabel(payment?.paymentMethod);
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
@@ -619,7 +619,7 @@ export function PaymentReceiptDialog({
                   )}
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-500">Método:</span>
-                    <span className="font-semibold">{formatPaymentMethodLabel(payment?.paymentMethod)}</span>
+                    <span className="font-semibold">{formatStoredPaymentMethodLabel(payment?.paymentMethod)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-500">Convidados:</span>

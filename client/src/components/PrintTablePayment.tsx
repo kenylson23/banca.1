@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { invoiceDate, invoiceMoney, invoiceNumberLabel, invoiceSessionLabel, formatPaymentMethodLabel } from '@shared/invoice-formatters';
+import { invoiceDate, invoiceMoney, invoiceNumberLabel, invoiceSessionLabel, formatStoredPaymentMethodLabel } from '@shared/invoice-formatters';
 import { getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
 import { printerService } from '@/lib/printer-service';
 import { usePrinter } from '@/hooks/usePrinter';
@@ -157,7 +157,7 @@ export function PrintTablePayment({
         `Fatura associada: ${invoiceNumberLabel(payment.invoiceReference)}`,
         `Sessão: ${invoiceSessionLabel(payment.sessionId)}`,
         `Nº do pagamento: ${payment.id}`,
-        `Método: ${formatPaymentMethodLabel(payment.paymentMethod)}`,
+        `Método: ${formatStoredPaymentMethodLabel(payment.paymentMethod)}`,
         payment.receivedAmount != null ? `Valor entregue: ${invoiceMoney(payment.receivedAmount)}` : '',
         payment.changeAmount != null ? `Troco: ${invoiceMoney(payment.changeAmount)}` : '',
         `Cliente: ${payment.guestName || 'Mesa Completa'}`,
@@ -259,7 +259,7 @@ export function PrintTablePayment({
         
         <div class="amount">${invoiceMoney(payment.amount)}</div>
         
-        <div class="info-row"><span class="bold">Método:</span> ${formatPaymentMethodLabel(payment.paymentMethod)}</div>
+        <div class="info-row"><span class="bold">Método:</span> ${formatStoredPaymentMethodLabel(payment.paymentMethod)}</div>
         ${payment.receivedAmount != null ? `<div class="info-row"><span class="bold">Valor entregue:</span> ${invoiceMoney(payment.receivedAmount)}</div>` : ''}
         ${payment.changeAmount != null ? `<div class="info-row"><span class="bold">Troco:</span> ${invoiceMoney(payment.changeAmount)}</div>` : ''}
         <div class="info-row"><span class="bold">Operador:</span> ${payment.operatorName || 'Sistema'}</div>

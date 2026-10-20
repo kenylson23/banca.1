@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  formatPaymentMethodLabel,
+  formatStoredPaymentMethodLabel,
   getOperationalPaymentMethodOptions,
   resolveOperationalPaymentMethod,
-} from '../shared/configured-payment-methods';
+} from '../shared/payment-methods';
 
 const configuredMethods = [
   { id: 'payment-transfer', name: 'Transferência Bancária', reference: 'IBAN' },
@@ -35,4 +37,9 @@ test('resolves cash and configured IDs to display-name snapshots only', () => {
   assert.equal(resolveOperationalPaymentMethod('payment-transfer', configuredMethods), 'Transferência Bancária');
   assert.equal(resolveOperationalPaymentMethod('multicaixa', configuredMethods), undefined);
   assert.equal(resolveOperationalPaymentMethod('payment-transfer', []), undefined);
+});
+
+test('keeps custom configured names readable without changing unknown-code fallback', () => {
+  assert.equal(formatStoredPaymentMethodLabel('Transferência Bancária'), 'Transferência Bancária');
+  assert.equal(formatPaymentMethodLabel('provider_code'), 'Método não especificado');
 });

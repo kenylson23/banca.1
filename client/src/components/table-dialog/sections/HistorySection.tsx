@@ -30,7 +30,7 @@ import { Button } from '@/components/ui/button';
 import { PrintTablePayment } from '@/components/PrintTablePayment';
 import { apiFetch } from '@/lib/api-url';
 import { formatTableInvoiceNumber } from '@shared/table-invoice-number';
-import { formatPaymentMethodLabel } from '@shared/invoice-formatters';
+import { formatStoredPaymentMethodLabel } from '@shared/invoice-formatters';
 import { getRestaurantFiscalCompleteness } from '@shared/invoice-fiscal';
 
 interface HistorySectionProps {
@@ -218,7 +218,7 @@ export function HistorySection({ table }: HistorySectionProps) {
                       <div>
                         <div className="text-sm text-muted-foreground mb-1">Método</div>
                         <div className="font-semibold">
-                          {formatPaymentMethodLabel(payment.paymentMethod)}
+                          {formatStoredPaymentMethodLabel(payment.paymentMethod)}
                         </div>
                         {payment.guestName && (
                           <div className="text-xs text-muted-foreground mt-1">

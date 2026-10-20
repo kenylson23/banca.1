@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Download, FileText, Printer } from 'lucide-react';
 import type { CashRegisterShift } from '@shared/schema';
-import { formatPaymentMethodLabel } from '@shared/payment-methods';
+import { formatStoredPaymentMethodLabel } from '@shared/payment-methods';
 import { formatKwanza } from '@/lib/formatters';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -77,7 +77,7 @@ export function CashRegisterCloseReportDialog({
           .map(
             ([method, amount]) => `
               <tr>
-                <td>${escapeHtml(formatPaymentMethodLabel(method))}</td>
+                <td>${escapeHtml(formatStoredPaymentMethodLabel(method))}</td>
                 <td class="amount">${escapeHtml(formatKwanza(amount))}</td>
               </tr>`,
           )
@@ -195,7 +195,7 @@ export function CashRegisterCloseReportDialog({
               {paymentRows.length > 0 ? (
                 paymentRows.map(([method, amount]) => (
                   <div key={method} className="flex items-center justify-between px-3 py-2 text-sm">
-                    <span>{formatPaymentMethodLabel(method)}</span>
+                    <span>{formatStoredPaymentMethodLabel(method)}</span>
                     <span className="font-semibold">{formatKwanza(amount)}</span>
                   </div>
                 ))

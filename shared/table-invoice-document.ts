@@ -154,7 +154,7 @@ export function summarizeTableInvoicePayments(
     } catch {
       // Configured payment methods are stored by their display name.
       paymentMethod = String(payment.paymentMethod ?? '').trim() || 'nao_especificado';
-      paymentMethodLabel = formatPaymentMethodLabel(payment.paymentMethod);
+      paymentMethodLabel = formatStoredPaymentMethodLabel(payment.paymentMethod);
     }
     const current = byMethod.get(paymentMethod) || {
       paymentMethod,

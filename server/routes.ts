@@ -32,7 +32,7 @@ import {
 import { generateOrderNumber, formatOrderDisplay } from './orderNumberGenerator';
 import { allocateTableSessionInvoiceNumber } from './invoiceNumberGenerator';
 import { buildInvoiceVerificationPath, generateInvoiceValidationCode } from '@shared/invoice-validation';
-import { formatPaymentMethodLabel, getPaymentMethodLabel, normalizePaymentMethod } from '@shared/payment-methods';
+import { formatStoredPaymentMethodLabel, getPaymentMethodLabel, normalizePaymentMethod } from '@shared/payment-methods';
 import { resolveOperationalPaymentMethod } from '@shared/configured-payment-methods';
 import { summarizeSessionInvoice } from '@shared/session-invoice';
 import { getRestaurantFiscalDetails } from '@shared/invoice-fiscal';
@@ -717,7 +717,7 @@ async function buildTableInvoiceDocument(
         methodLabel = getPaymentMethodLabel(method);
       } catch {
         method = String(payment.paymentMethod ?? '').trim() || 'nao_especificado';
-        methodLabel = formatPaymentMethodLabel(payment.paymentMethod);
+        methodLabel = formatStoredPaymentMethodLabel(payment.paymentMethod);
       }
       return {
         id: payment.id,

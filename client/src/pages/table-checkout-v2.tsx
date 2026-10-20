@@ -280,6 +280,9 @@ export default function TableCheckoutV2() {
     () => getOperationalPaymentMethodOptions(restaurant?.paymentMethods || []),
     [restaurant?.paymentMethods],
   );
+  const selectedPaymentMethodLabel =
+    paymentMethodOptions.find((option) => option.value === paymentMethod)?.label ||
+    formatPaymentMethodLabel(paymentMethod);
 
   useEffect(() => {
     if (!paymentMethodOptions.some((option) => option.value === paymentMethod)) {
@@ -2859,7 +2862,7 @@ export default function TableCheckoutV2() {
                             <div className="flex items-center justify-between">
                               <span className="text-base font-semibold">Método Selecionado:</span>
                               <Badge className="bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-600 text-sm px-3 py-1">
-                                {formatPaymentMethodLabel(paymentMethod)}
+                                {selectedPaymentMethodLabel}
                               </Badge>
                             </div>
                             <Separator />
@@ -3122,7 +3125,7 @@ export default function TableCheckoutV2() {
                 </div>
                 <div className="flex justify-between py-2 border-b">
                   <span className="font-medium">Método:</span>
-                  <span>{formatPaymentMethodLabel(paymentMethod)}</span>
+                  <span>{selectedPaymentMethodLabel}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b">
                   <span className="font-medium">Total:</span>

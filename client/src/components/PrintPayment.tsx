@@ -4,7 +4,7 @@ import { Printer, ChevronDown } from 'lucide-react';
 import { formatKwanza } from '@/lib/formatters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { invoiceDate, invoiceMoney, formatPaymentMethodLabel } from '@shared/invoice-formatters';
+import { invoiceDate, invoiceMoney, formatStoredPaymentMethodLabel } from '@shared/invoice-formatters';
 import type { FinancialTransaction, CashRegister, FinancialCategory, User } from '@shared/schema';
 import { printerService } from '@/lib/printer-service';
 import { usePrinter } from '@/hooks/usePrinter';
@@ -63,7 +63,7 @@ export function PrintPayment({
       ];
 
       const footer = [
-        `Método: ${formatPaymentMethodLabel(transaction.paymentMethod)}`,
+        `Método: ${formatStoredPaymentMethodLabel(transaction.paymentMethod)}`,
         transaction.cashRegister?.name ? `Caixa: ${transaction.cashRegister.name}` : '',
         transaction.recordedBy ? `Operador: ${transaction.recordedBy.firstName || transaction.recordedBy.email}` : '',
         transaction.note ? `Obs: ${transaction.note}` : '',
@@ -226,7 +226,7 @@ export function PrintPayment({
           ` : ''}
           <div class="info-row">
             <span>Método:</span>
-            <span>${formatPaymentMethodLabel(transaction.paymentMethod)}</span>
+            <span>${formatStoredPaymentMethodLabel(transaction.paymentMethod)}</span>
           </div>
           ${transaction.category?.name ? `
           <div class="info-row">

@@ -32,7 +32,7 @@ import {
 import { formatKwanza } from '@/lib/formatters';
 import { apiFetch } from '@/lib/api-url';
 import {
-  formatPaymentMethodLabel,
+  formatStoredPaymentMethodLabel,
   invoiceDate,
   invoiceMoney,
   invoiceNumberLabel,
@@ -661,7 +661,7 @@ export function PaymentSuccessDialog({
           <div class="payment-info">
             <div class="payment-line">
               <span>Método de Pagamento:</span>
-              <span>${formatPaymentMethodLabel(payment.paymentMethod)}</span>
+              <span>${formatStoredPaymentMethodLabel(payment.paymentMethod)}</span>
             </div>
             ${payment.receivedAmount ? `
               <div class="payment-line">
@@ -928,14 +928,14 @@ export function PaymentSuccessDialog({
       addSectionHeading('Pagamentos registados');
       for (const recordedPayment of fiscalInvoice.payments) {
         addInvoiceLine(
-          `${formatPaymentMethodLabel(recordedPayment.paymentMethod)} · ${invoiceDate(recordedPayment.createdAt)}`,
+          `${formatStoredPaymentMethodLabel(recordedPayment.paymentMethod)} · ${invoiceDate(recordedPayment.createdAt)}`,
           invoiceMoney(recordedPayment.amount),
         );
         if (recordedPayment.operatorName) addText(`Operador: ${recordedPayment.operatorName}`, 8);
         if (recordedPayment.notes) addText(`Observações: ${recordedPayment.notes}`, 8);
       }
       addSectionHeading('Pagamento atual');
-      addText(`Método: ${formatPaymentMethodLabel(payment.paymentMethod)}`, 10);
+      addText(`Método: ${formatStoredPaymentMethodLabel(payment.paymentMethod)}`, 10);
       if (payment.receivedAmount) {
         addText(`Valor recebido: ${formatKwanza(payment.receivedAmount)}`, 10);
         
@@ -1373,7 +1373,7 @@ export function PaymentSuccessDialog({
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Método de Pagamento:</span>
                     <span className="font-semibold">
-                      {formatPaymentMethodLabel(payment.paymentMethod)}
+                      {formatStoredPaymentMethodLabel(payment.paymentMethod)}
                     </span>
                   </div>
                   
