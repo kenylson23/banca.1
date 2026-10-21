@@ -92,6 +92,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
     }
   };
   const [cart, setCart] = useState<OrderItem[]>([]);
+  const [mobileSection, setMobileSection] = useState<"products" | "checkout">("products");
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -122,6 +123,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
   useEffect(() => {
     if (open) {
       setReceiptNumber(Math.floor(Math.random() * 90000) + 10000);
+      setMobileSection("products");
     }
   }, [open]);
 
@@ -561,14 +563,38 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
           )}
         </DialogTrigger>
       )}
-      <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-7xl flex-col overflow-hidden p-0 sm:h-[95vh] sm:max-h-[95vh] sm:w-[calc(100vw-2rem)]">
+      <DialogContent className="flex h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)] max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)] w-[calc(100vw-env(safe-area-inset-left)-env(safe-area-inset-right)-1rem)] max-w-7xl flex-col overflow-hidden rounded-xl p-0 sm:h-[95vh] sm:max-h-[95vh] sm:w-[calc(100vw-2rem)] sm:rounded-lg">
         <DialogHeader className="shrink-0 px-3 pb-3 pt-3 sm:px-6 sm:pb-4 sm:pt-6">
           <DialogTitle className="text-xl sm:text-2xl">Novo Pedido</DialogTitle>
         </DialogHeader>
-        
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden px-3 pb-4 sm:gap-6 sm:px-6 sm:pb-6 lg:flex-row lg:overflow-hidden">
+
+        <div className="grid shrink-0 grid-cols-2 gap-2 px-3 pb-3 lg:hidden">
+          <Button
+            type="button"
+            size="sm"
+            variant={mobileSection === "products" ? "default" : "outline"}
+            aria-pressed={mobileSection === "products"}
+            onClick={() => setMobileSection("products")}
+          >
+            <Coffee className="mr-2 h-4 w-4" />
+            Produtos
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={mobileSection === "checkout" ? "default" : "outline"}
+            aria-pressed={mobileSection === "checkout"}
+            onClick={() => setMobileSection("checkout")}
+          >
+            <ShoppingCart className="mr-2 h-4 w-4" />
+            Pedido
+            <Badge variant="secondary" className="ml-2">{cart.length}</Badge>
+          </Button>
+        </div>
+
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-6 sm:pb-6 lg:flex-row lg:gap-6">
           {/* Left Side - Products */}
-          <div className="flex h-[48dvh] min-h-[20rem] shrink-0 flex-col gap-3 overflow-hidden lg:h-auto lg:min-h-0 lg:flex-1 lg:gap-4">
+          <div className={`${mobileSection === "products" ? "flex" : "hidden"} min-h-0 flex-1 flex-col gap-3 overflow-hidden lg:flex lg:gap-4`}>
             <h3 className="shrink-0 text-sm font-semibold lg:hidden">Menu de produtos</h3>
             {/* Search Bar */}
             <div className="relative">
@@ -694,10 +720,10 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
           </div>
 
           {/* Right Side - Checkout */}
-          <div className="flex h-[72dvh] min-h-[30rem] w-full shrink-0 flex-col overflow-hidden lg:h-auto lg:min-h-0 lg:w-96">
-            <Card className="flex-1 flex flex-col overflow-hidden">
+          <div className={`${mobileSection === "checkout" ? "flex" : "hidden"} min-h-0 w-full flex-1 flex-col overflow-hidden lg:flex lg:w-96 lg:flex-none`}>
+            <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col overflow-hidden">
                   {/* Receipt Header - Fixed */}
                   <div className="p-4 flex-shrink-0">
                     <div className="flex items-center justify-between">
@@ -709,7 +735,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
                   <Separator className="flex-shrink-0" />
 
                   {/* Scrollable Content */}
-                  <ScrollArea className="flex-1">
+                  <ScrollArea className="min-h-0 flex-1">
                     <div className="p-4 space-y-4">
                     <FormField
                       control={form.control}
@@ -754,7 +780,7 @@ export function NewOrderDialog({ trigger, restaurantId, onOrderCreated, initialT
                     />
 
                     {/* Customer Name and Table */}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
                       <FormField
                         control={form.control}
                         name="customerName"
