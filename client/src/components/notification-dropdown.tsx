@@ -5,7 +5,6 @@ import { Bell, Check, CheckCheck, Trash2, Settings, Package, User, AlertTriangle
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -204,21 +203,26 @@ export function NotificationDropdown() {
       </DropdownMenuTrigger>
       <DropdownMenuContent 
         align="end" 
-        className="w-[calc(100vw-1rem)] max-w-[380px] overflow-hidden rounded-xl border-border/60 p-0 shadow-xl"
+        className="notification-dropdown-content w-[calc(100vw-1rem)] max-w-[420px] overflow-hidden rounded-2xl border-border/70 bg-popover p-0 shadow-2xl shadow-black/20 focus-visible:outline-none focus-visible:shadow-none"
         data-testid="dropdown-notifications"
       >
-        <div className="flex items-center justify-between gap-3 border-b bg-muted/20 px-4 py-3">
-          <div>
-            <h3 className="text-sm font-semibold">Notificações</h3>
-            <p className="text-[11px] text-muted-foreground">
+        <div className="flex items-center justify-between gap-3 border-b border-border/70 bg-background/25 px-4 py-3.5">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold tracking-tight">Notificações</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
               {unreadCount > 0 ? `${unreadCount} por ler` : 'Tudo em dia'}
-            </p>
+              </p>
+            </div>
           </div>
           {unreadCount > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 rounded-lg px-2.5 text-xs"
+              className="h-9 shrink-0 rounded-lg px-3 text-xs font-medium"
               onClick={() => markAllAsReadMutation.mutate()}
               disabled={markAllAsReadMutation.isPending}
               data-testid="button-mark-all-read"
@@ -229,7 +233,7 @@ export function NotificationDropdown() {
           )}
         </div>
         
-        <ScrollArea className="h-[min(320px,50vh)]">
+        <ScrollArea className="h-[min(340px,50vh)]">
           {isLoading ? (
             <div className="flex items-center justify-center h-full py-8">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
@@ -255,7 +259,7 @@ export function NotificationDropdown() {
               </Button>
             </div>
           ) : notifications && notifications.length > 0 ? (
-            <div className="space-y-1.5 p-2">
+            <div className="space-y-2 p-2.5">
               {notifications.map((notification) => {
                 const IconComponent = notificationIcons[notification.type as NotificationType] || Bell;
                 const iconColor = notificationColors[notification.type as NotificationType] || 'text-gray-500';
@@ -263,17 +267,17 @@ export function NotificationDropdown() {
                 return (
                   <div
                     key={notification.id}
-                    className={`cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/60 ${
+                    className={`cursor-pointer rounded-xl border p-3.5 transition-colors hover:bg-muted/60 ${
                       !notification.isRead
-                        ? 'border-primary/15 bg-primary/[0.04]'
+                        ? 'border-primary/15 bg-primary/[0.045]'
                         : 'border-transparent'
                     }`}
                     onClick={() => !notification.isRead && markAsReadMutation.mutate(notification.id)}
                     data-testid={`notification-item-${notification.id}`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${notificationIconBackgrounds[notification.type as NotificationType] || 'bg-muted'}`}>
-                        <IconComponent className={`h-4 w-4 ${iconColor}`} />
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${notificationIconBackgrounds[notification.type as NotificationType] || 'bg-muted'}`}>
+                        <IconComponent className={`h-[18px] w-[18px] ${iconColor}`} aria-hidden="true" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
@@ -299,8 +303,9 @@ export function NotificationDropdown() {
                           <Button
                             variant="ghost"
                             size="icon"
-                             className="h-8 w-8 rounded-lg"
+                            className="h-8 w-8 rounded-lg"
                             onClick={(e) => handleMarkAsRead(notification.id, e)}
+                            aria-label="Marcar notificação como lida"
                             data-testid={`button-mark-read-${notification.id}`}
                           >
                             <Check className="h-3.5 w-3.5" />
@@ -309,8 +314,9 @@ export function NotificationDropdown() {
                         <Button
                           variant="ghost"
                           size="icon"
-                           className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive"
+                          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive"
                           onClick={(e) => handleDelete(notification.id, e)}
+                          aria-label="Apagar notificação"
                           data-testid={`button-delete-notification-${notification.id}`}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -333,18 +339,17 @@ export function NotificationDropdown() {
           )}
         </ScrollArea>
         
-        <Separator />
-        <div className="border-t bg-muted/10 p-2">
+        <div className="border-t border-border/70 bg-background/20 p-2.5">
           <Button
             variant="ghost"
-            className="h-9 w-full justify-start rounded-lg text-sm"
-             onClick={() => {
-               setIsOpen(false);
-               setLocation('/notification-settings');
-             }}
+            className="h-10 w-full justify-start rounded-xl px-3 text-sm font-medium"
+            onClick={() => {
+              setIsOpen(false);
+              setLocation('/notification-settings');
+            }}
             data-testid="button-notification-settings"
           >
-            <Settings className="h-4 w-4 mr-2" />
+            <Settings className="mr-2.5 h-4 w-4" aria-hidden="true" />
             Configurações de notificação
           </Button>
         </div>

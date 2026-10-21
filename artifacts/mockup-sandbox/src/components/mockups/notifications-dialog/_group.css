@@ -1,0 +1,24 @@
+:root {
+  --background: 222 47% 10%;
+  --foreground: 210 40% 99%;
+  --border: 217 33% 21%;
+  --popover: 217 33% 18%;
+  --popover-foreground: 210 40% 99%;
+  --primary: 213 94% 58%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 217 30% 20%;
+  --muted-foreground: 215 20% 65%;
+  --radius: 0.75rem;
+  font-family: Inter, sans-serif;
+}
+
+.dark {
+  --background: 222 47% 10%;
+  --foreground: 210 40% 99%;
+  --border: 217 33% 21%;
+  --popover: 217 33% 18%;
+  --popover-foreground: 210 40% 99%;
+  --primary: 213 94% 58%;
+  --muted: 217 30% 20%;
+  --muted-foreground: 215 20% 65%;
+}
